@@ -256,7 +256,8 @@ def rewrite_links(
                 tag = re.sub(r"\s" + attr + r'="[^"]*"', "", tag, count=1)
                 tag = (
                     tag[:-1]
-                    + ' title="Inactive central library-skill reference; not installed or discovered here" '
+                    + ' title="Inactive central library-skill reference; '
+                    'not installed or discovered here" '
                     'class="local-reference">'
                 )
                 if attr == "href":

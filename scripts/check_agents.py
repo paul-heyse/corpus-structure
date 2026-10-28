@@ -39,7 +39,10 @@ def ignored(root: Path, paths: list[str]) -> set[str]:
 
 
 def process_skills(root: Path) -> list[str]:
-    """Skills the repository tracks; ignored entries may identify retained inactive central references."""
+    """Skills the repository tracks.
+
+    Ignored entries may identify retained inactive central references.
+    """
     names = sorted(
         p.parent.name
         for p in (root / ".claude" / "skills").glob("*/SKILL.md")
