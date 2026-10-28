@@ -1,0 +1,395 @@
+{
+ "envelope": {
+  "unit": "U10",
+  "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+  "source": "results/s0/pass_b/U10.json"
+ },
+ "unit_ref": "U10",
+ "statements": [
+  {
+   "local_ref": "st_def",
+   "kind": "definition",
+   "anchor": [
+    "seg:f866c716530e7e0d81a76b88d387d242"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "e_Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Z",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:6a12d5c892b53e0caf55405219674c69"
+  },
+  {
+   "local_ref": "e_X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:6a12d5c892b53e0caf55405219674c69"
+  },
+  {
+   "local_ref": "e_std_gamma",
+   "type": "DistributionFamily",
+   "label": "standard gamma distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "e_gamma",
+   "type": "DistributionFamily",
+   "label": "gamma distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "e_g_shape",
+   "type": "FamilyParameter",
+   "label": "shape parameter of the gamma distribution",
+   "scope": "global",
+   "aliases": [
+    "shape parameter",
+    "k"
+   ],
+   "identity": {
+    "family": "e_gamma",
+    "canonical_name": "shape"
+   }
+  },
+  {
+   "local_ref": "e_g_scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter of the gamma distribution",
+   "scope": "global",
+   "aliases": [
+    "scale parameter",
+    "b"
+   ],
+   "identity": {
+    "family": "e_gamma",
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_defines",
+   "predicate": "defines",
+   "subject": "st_def",
+   "object": {
+    "ref": "e_gamma"
+   },
+   "qualifiers": {},
+   "statement": "st_def",
+   "evidence": [
+    {
+     "start": 10383,
+     "end": 10479,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_Z_stdgamma",
+   "predicate": "has_distribution",
+   "subject": "e_Z",
+   "object": {
+    "ref": "e_std_gamma"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k",
+      "symbols": {
+       "k": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st_def",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 10263,
+     "end": 10350,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_def",
+   "predicate": "defined_as",
+   "subject": "e_X",
+   "object": {
+    "t": "formula",
+    "latex": "b Z",
+    "symbols": {
+     "b": {
+      "bind": "free"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "e_Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10388,
+     "end": 10399,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_gamma",
+   "predicate": "has_distribution",
+   "subject": "e_X",
+   "object": {
+    "ref": "e_gamma"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k",
+      "symbols": {
+       "k": {
+        "bind": "param_of",
+        "claim": "c_Z_stdgamma",
+        "param": "shape"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_Z_stdgamma"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "k",
+        "symbols": {
+         "k": {
+          "bind": "param_of",
+          "claim": "c_Z_stdgamma",
+          "param": "shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10383,
+     "end": 10479,
+     "role": "primary"
+    },
+    {
+     "start": 10329,
+     "end": 10350,
+     "role": "condition"
+    },
+    {
+     "start": 10355,
+     "end": 10381,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_gamma_transform",
+   "predicate": "transformation_of",
+   "subject": "e_gamma",
+   "object": {
+    "ref": "e_std_gamma"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "transform": {
+     "t": "formula",
+     "latex": "b Z",
+     "symbols": {
+      "b": {
+       "bind": "family_param",
+       "entity": "e_g_scale"
+      },
+      "Z": {
+       "bind": "variable",
+       "entity": "e_Z"
+      }
+     }
+    },
+    "param_mapping": {
+     "shape": "shape"
+    }
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10263,
+     "end": 10479,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_has_shape",
+   "predicate": "has_parameter",
+   "subject": "e_gamma",
+   "object": {
+    "ref": "e_g_shape"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10404,
+     "end": 10453,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_has_scale",
+   "predicate": "has_parameter",
+   "subject": "e_gamma",
+   "object": {
+    "ref": "e_g_scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10458,
+     "end": 10479,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_dom_shape",
+   "predicate": "parameter_domain",
+   "subject": "e_g_shape",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10329,
+     "end": 10350,
+     "role": "primary"
+    },
+    {
+     "start": 10404,
+     "end": 10453,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_dom_scale",
+   "predicate": "parameter_domain",
+   "subject": "e_g_scale",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10358,
+     "end": 10381,
+     "role": "primary"
+    },
+    {
+     "start": 10458,
+     "end": 10479,
+     "role": "supporting"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

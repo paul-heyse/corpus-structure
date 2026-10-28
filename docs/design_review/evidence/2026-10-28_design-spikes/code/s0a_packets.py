@@ -189,8 +189,8 @@ one path per line.
 
 Anything outside this input folder and your output folder, in particular: `docs/design/` (all
 design documents, including the worked trace), any other annotator's output under
-`results/s0/`, the repository `corpus-intelligence`, and Git history. The unit packets and page
-texts here are your only sources for the text. If you believe you need something else, stop and
+`results/s0/`, the repository `corpus-intelligence`, and Git history. The files in this input
+folder are your only sources for the text. If you believe you need something else, stop and
 say so in your final report instead of looking for it.
 
 ## Report
@@ -267,7 +267,8 @@ def write_offset_probe(out: Path, titles: dict) -> None:
         PASS="O (offset probe)", OUT="results/s0/offset_probe", UNITS="T1, T2, T3, T4",
         PAGES_LINE=". Read `offsets.md` first: this pass cites evidence by offsets.",
         VALIDATE="(no validator for this probe: check your offsets by counting carefully)")
-        .replace("For each of the twelve units", "For each of the four units"))
+        .replace("For each of the twelve units", "For each of the four units")
+        .replace("When all twelve are done", "When all four are done"))
     for f in out.glob("instructions_[ab].md"):
         f.unlink()
 

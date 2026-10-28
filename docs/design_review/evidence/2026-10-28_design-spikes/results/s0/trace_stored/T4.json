@@ -311,8 +311,8 @@
      }
     },
     "param_mapping": {
-     "mu": "N.mean",
-     "sigma": "N.sd"
+     "mu": "mean",
+     "sigma": "standard_deviation"
     }
    },
    "statement": "S1",

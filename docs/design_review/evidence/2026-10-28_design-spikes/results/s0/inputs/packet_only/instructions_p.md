@@ -34,8 +34,8 @@ one path per line.
 
 Anything outside this input folder and your output folder, in particular: `docs/design/` (all
 design documents, including the worked trace), any other annotator's output under
-`results/s0/`, the repository `corpus-intelligence`, and Git history. The unit packets and page
-texts here are your only sources for the text. If you believe you need something else, stop and
+`results/s0/`, the repository `corpus-intelligence`, and Git history. The files in this input
+folder are your only sources for the text. If you believe you need something else, stop and
 say so in your final report instead of looking for it.
 
 ## Report
