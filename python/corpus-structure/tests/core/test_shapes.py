@@ -320,19 +320,21 @@ def test_batch_refusals() -> None:
 
 
 def stored_t3() -> dict:
-    """A hand-made stored form of a T3-like batch (offsets and keys are placeholders)."""
+    """A hand-made stored form of a T3-like batch (offsets and keys are placeholders); every
+    schema name prefixed."""
     return {
         "unit_ref": "special/Normal.html#rel1",
         "entities": [
-            {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local",
+            {"local_ref": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
              "extent": "statement", "symbol": "X", "scope_segment": "seg:1"},
-            {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution",
+            {"local_ref": "N", "type": "stat:DistributionFamily", "label": "normal distribution",
              "scope": "global", "aliases": ["normally distributed"]},
         ],
         "statements": [{"local_ref": "st1", "kind": "theorem", "anchor": ["seg:2"]}],
         "claims": [
-            {"local_ref": "c1", "predicate": "has_distribution", "subject": "X",
-             "object": {"ref": "N"}, "qualifiers": {"modality": "supposed"}, "statement": "st1",
+            {"local_ref": "c1", "predicate": "stat:has_distribution", "subject": "X",
+             "object": {"ref": "N"}, "qualifiers": {"core:modality": "supposed"},
+             "statement": "st1",
              "statement_role": "premise",
              "evidence": [{"start": 10, "end": 40, "role": "primary"}]},
         ],
@@ -356,6 +358,45 @@ def test_the_stored_form() -> None:
     sentence["claims"][0]["evidence"][0]["sentence"] = "s1"
     with pytest.raises(ValidationError, match="Extra inputs"):
         StoredBatch.model_validate(sentence)
+
+
+@pytest.mark.parametrize(
+    ("where", "value", "message"),
+    [
+        (("entities", 0, "type"), "RandomVariable", "should match pattern"),
+        (("claims", 0, "predicate"), "has_distribution", "should match pattern"),
+        (("claims", 0, "qualifiers"), {"modality": "supposed"}, "not a prefixed name"),
+        (("claims", 0, "qualifiers"), {"param_values": {}}, "not a prefixed name"),
+        (("claims", 0, "qualifiers"), {"core:certainty": "high"}, "not a core qualifier"),
+        (("entities", 0, "identity"), {"family": "N"}, "should match pattern"),
+    ],
+)
+def test_the_stored_form_names_schema_elements_by_prefixed_name(
+    where: tuple, value: Any, message: str
+) -> None:
+    raw = stored_t3()
+    target = raw
+    for step in where[:-1]:
+        target = target[step]
+    target[where[-1]] = value
+    with pytest.raises(ValidationError, match=message):
+        StoredBatch.model_validate(raw)
+
+
+def test_stored_core_qualifiers_dump_by_prefixed_name() -> None:
+    from corpus_structure.core.batch import STORED_CORE_QUALIFIERS, StoredQualifiers
+
+    assert STORED_CORE_QUALIFIERS[0] == "core:modality" and len(STORED_CORE_QUALIFIERS) == 7
+    mean = {"t": "formula", "latex": "x", "symbols": {}}
+    raw = {"core:modality": "cited", "core:attribution": {"ref": "S"},
+           "core:scope": {"extent": "section", "segment": "seg:1"},
+           "stat:param_values": {"mean": mean}}  # fmt: skip
+    q = StoredQualifiers.model_validate(raw)
+    assert q.modality == "cited" and q.attribution.ref == "S"  # type: ignore[union-attr]
+    assert q.model_dump(mode="json") == raw
+    assert StoredQualifiers.model_validate({"core:modality": "asserted"}).model_dump() == {}
+    authored = AuthoredQualifiers.model_validate({"modality": "cited"})  # local names, authored
+    assert authored.model_dump(mode="json") == {"modality": "cited"}
 
 
 # --- Payloads --------------------------------------------------------------------------------
@@ -435,14 +476,14 @@ def test_the_keyed_candidate_set() -> None:
 
     raw = {
         "entities": [
-            {"id": "X", "type": "RandomVariable", "label": "X", "scope": "local",
+            {"id": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
              "scope_segment": "seg:1", "symbol": "X"},
-            {"id": "N", "key": "ent:abc", "type": "DistributionFamily", "label": "normal",
+            {"id": "N", "key": "ent:abc", "type": "stat:DistributionFamily", "label": "normal",
              "scope": "global"},
         ],
         "statements": [{"id": "st1", "kind": "theorem", "anchor": ["seg:2"]}],
-        "claims": [{"id": "c1", "predicate": "has_distribution", "subject": "X",
-                    "object": {"ref": "N"}, "qualifiers": {"modality": "supposed"},
+        "claims": [{"id": "c1", "predicate": "stat:has_distribution", "subject": "X",
+                    "object": {"ref": "N"}, "qualifiers": {"core:modality": "supposed"},
                     "statement": "st1", "statement_role": "premise",
                     "evidence": [{"start": 0, "end": 4, "role": "primary"}]}],
     }  # fmt: skip
@@ -490,3 +531,14 @@ def test_a_statement_outside_the_unit() -> None:
         StoredBatch.model_validate(
             {**stored, "statements": [{"local_ref": "x", "kind": "k", "anchor": "unit"}]}
         )
+
+
+def test_a_synthesized_claim_names_its_predicate_prefixed() -> None:
+    claim = {"object": {"ref": "st1"}, "evidence": [{"start": 0, "end": 4, "role": "primary"}]}
+    ok = {"markup": "details", "value": {}, "synthesize": {**claim, "predicate": "core:proves"}}
+    validate_payload("author_markup", ok)
+    validator("payload.author_markup").validate(ok)
+    bare = {**ok, "synthesize": {**claim, "predicate": "proves"}}
+    with pytest.raises(ValidationError, match="should match pattern"):
+        validate_payload("author_markup", bare)
+    assert not validator("payload.author_markup").is_valid(bare)

@@ -1027,6 +1027,7 @@
           "type": "string"
         },
         "predicate": {
+          "pattern": "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$",
           "type": "string"
         },
         "subject": {
@@ -1126,6 +1127,7 @@
           "type": "string"
         },
         "type": {
+          "pattern": "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$",
           "type": "string"
         },
         "label": {
@@ -1152,8 +1154,10 @@
           "type": "array"
         },
         "identity": {
-          "additionalProperties": {
-            "type": "string"
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$": {
+              "type": "string"
+            }
           },
           "type": "object"
         },
@@ -1320,8 +1324,9 @@
       "additionalProperties": {
         "$ref": "#/$defs/JsonValue"
       },
+      "description": "The stored qualifiers: the core ones as `core:<name>`, schema qualifiers by prefixed name.\n\nAttributes keep the local names (`q.modality`); validation and dumps use the prefixed ones.",
       "properties": {
-        "modality": {
+        "core:modality": {
           "default": "asserted",
           "enum": [
             "asserted",
@@ -1334,7 +1339,7 @@
           ],
           "type": "string"
         },
-        "polarity": {
+        "core:polarity": {
           "default": "positive",
           "enum": [
             "positive",
@@ -1342,20 +1347,20 @@
           ],
           "type": "string"
         },
-        "attribution": {
-          "$ref": "#/$defs/EntityRef"
-        },
-        "valid_time": {
-          "$ref": "#/$defs/IntervalValue"
-        },
-        "hedge": {
+        "core:hedge": {
           "$ref": "#/$defs/StoredPhrase"
         },
-        "conditions": {
+        "core:attribution": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "core:conditions": {
           "$ref": "#/$defs/StoredCondition"
         },
-        "scope": {
+        "core:scope": {
           "$ref": "#/$defs/StoredScope"
+        },
+        "core:valid_time": {
+          "$ref": "#/$defs/IntervalValue"
         }
       },
       "type": "object"

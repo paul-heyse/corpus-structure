@@ -3,7 +3,8 @@
 D5 §8.2; foundations §3.5. S2's batch adapter (at submission) and C1's pool (at finalize) both
 produce it. At submission, ids are local refs and keys are null; at finalize, ids are keys. The
 grammar's facts at finalize and the derived view attributes are the view builder's arguments,
-not fields here. Qualifiers, values and evidence are in stored form.
+not fields here. It is in stored form: classes, predicates, qualifiers and identity slots by their
+prefixed names; values and evidence as stored.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
-from corpus_structure.core.batch import StoredEvidence, StoredQualifiers
+from corpus_structure.core.batch import PrefixedName, StoredEvidence, StoredQualifiers
 from corpus_structure.core.values import CoreModel, StoredObject
 from corpus_structure.core.vocab import EntityScope, Establishment, StatementRole
 
@@ -22,13 +23,13 @@ Id = Annotated[str, Field(min_length=1)]
 class CandidateEntity(CoreModel):
     id: Id
     key: str | None = None
-    type: str
+    type: PrefixedName
     label: str
     scope: EntityScope
     scope_segment: str | None = None  # segment key, for a local entity
     symbol: str | None = None
     aliases: tuple[str, ...] = ()
-    identity: dict[str, str] = Field(default_factory=dict)  # slot -> entity id or literal
+    identity: dict[PrefixedName, str] = Field(default_factory=dict)  # slot -> id or literal
 
     @model_validator(mode="after")
     def _segment_iff_local(self) -> Self:
@@ -49,7 +50,7 @@ class CandidateStatement(CoreModel):
 class CandidateClaim(CoreModel):
     id: Id
     key: str | None = None
-    predicate: str
+    predicate: PrefixedName
     subject: Id  # an entity or statement id
     object: StoredObject  # `{ref: id}` or a value
     qualifiers: StoredQualifiers = Field(default_factory=StoredQualifiers)

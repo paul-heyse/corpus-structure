@@ -380,3 +380,35 @@ def test_canonically_equivalent_input_has_one_form() -> None:
     assert tf(decomposed) == tf(composed) == "\\alpha\u00e9\\text{caf \u00e9}"
     # composition can change the tokens (`\\R` + U+0301 is `\\Ŕ`); both spellings agree
     assert tf("\\R\u0301", R) == tf("\\\u0154", R)
+
+
+CONTROL_SPACES = ["\\ ", "\\\t", "\\\n", "\\\r\n"]  # TeX reads every one as a control space
+
+
+@given(formula(), st.data())
+def test_every_control_space_spelling_gives_one_form(toks: list[str], data: st.DataObject) -> None:
+    """IR-15: `\\ `, `\\` + tab and `\\` + end of line are one control space (D1 §6.2)."""
+    at = data.draw(st.integers(0, len(toks)))
+    text_mode = data.draw(st.booleans())
+    forms = set()
+    for spelling in CONTROL_SPACES:
+        inserted = [*toks[:at], spelling, *toks[at:]]
+        latex = join(inserted)
+        forms.add(tf(f"\\text{{{latex}}}" if text_mode else latex))
+    assert len(forms) == 1
+
+
+def test_control_space_spellings_in_text_and_macro_bodies() -> None:
+    assert {tf(f"a{s}b") for s in CONTROL_SPACES} == {"a\\ b"}
+    assert {tf(f"\\text{{for{s}all}}") for s in CONTROL_SPACES} == {"\\text{for\\ all}"}
+    bodies = {tf("\\q", {"\\q": MacroDef(body=f"x{s}y")}) for s in CONTROL_SPACES}
+    assert bodies == {"x\\ y"}
+    assert tf("a\\ b") != tf("ab") and tf("a\\ b") != tf("a\\,b")  # a control space is content
+    assert [t.text for t in tokens("a\\\nb")] == ["a", "\\\n", "b"]  # tokens keep the source
+
+
+def test_a_control_space_absorbs_the_blanks_a_dropped_command_leaves() -> None:
+    # Found by a 20,000-example idempotence probe: dropping `\,` must not leave a second space.
+    once = tf("\\operatorname{\\ \\, ")
+    assert once == "\\operatorname{\\ " and tf(once) == once
+    assert tf("\\text{a\\ \\, b}") == tf("\\text{a\\ b}") == "\\text{a\\ b}"

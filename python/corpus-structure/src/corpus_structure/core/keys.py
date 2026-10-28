@@ -22,6 +22,7 @@ from typing import Any, Self
 import regex
 from pydantic import Field, model_validator
 
+from corpus_structure.core.batch import PrefixedName
 from corpus_structure.core.candidates import (
     CandidateClaim,
     CandidateEntity,
@@ -44,6 +45,10 @@ from corpus_structure.core.values import CoreModel
 from corpus_structure.core.vocab import EntityScope
 
 Json = Any
+
+# Core qualifier names as the stored form (and so every key) writes them.
+MODALITY, POLARITY, ATTRIBUTION = "core:modality", "core:polarity", "core:attribution"
+CONDITIONS, SCOPE, VALID_TIME = "core:conditions", "core:scope", "core:valid_time"
 Resolve = Callable[[str], str]  # a reference (entity, statement or claim id) to its key
 
 
@@ -71,7 +76,7 @@ class LabelRules(CoreModel):
     """Label-normalization data from the pack's `aliases:` section; core holds no word list."""
 
     articles: tuple[str, ...] = ()
-    head_words: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # class -> words
+    head_words: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # prefixed class -> words
     rewrites: tuple[Rewrite, ...] = ()
 
 
@@ -262,30 +267,29 @@ class KeyingError(LookupError):
 
 
 class KeySchema(CoreModel):
-    """The schema facts keys need (from S1's compiled lookup).
+    """The schema facts keys need (from S1's compiled lookup), every name prefixed as the stored
+    form writes it: classes, slots, predicates and qualifiers. `predicates` lists every predicate
+    the schema knows; a claim with another is refused."""
 
-    `predicate_names` maps every predicate the schema knows from its bare name to its prefixed
-    name; keys and every lookup use the prefixed spelling, so `has_distribution` and
-    `stat:has_distribution` are one predicate and an unknown one is refused."""
-
-    identity_keys: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # class -> slots
-    entity_identity: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # entity-valued
-    predicate_names: dict[str, str] = Field(default_factory=dict)  # bare -> prefixed
-    identity_qualifiers: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # by prefixed
-    symmetric_predicates: frozenset[str] = frozenset()  # condition predicates
+    identity_keys: dict[PrefixedName, tuple[PrefixedName, ...]] = Field(default_factory=dict)
+    entity_identity: dict[PrefixedName, tuple[PrefixedName, ...]] = Field(default_factory=dict)
+    predicates: frozenset[PrefixedName] = frozenset()
+    identity_qualifiers: dict[PrefixedName, tuple[PrefixedName, ...]] = Field(
+        default_factory=dict
+    )  # predicate -> its schema identity qualifiers
+    # condition predicates, named as condition trees name them
+    symmetric_predicates: frozenset[str] = frozenset()
 
     @model_validator(mode="after")
-    def _qualifiers_by_prefixed_name(self) -> Self:
+    def _qualifiers_of_known_predicates(self) -> Self:
         for name in self.identity_qualifiers:
-            if name not in self.predicate_names.values():
-                raise ValueError(f"identity_qualifiers names {name!r}, not a prefixed predicate")
+            if name not in self.predicates:
+                raise ValueError(f"identity_qualifiers names {name!r}, not a known predicate")
         return self
 
     def predicate(self, name: str) -> str:
-        """The prefixed spelling of a bare or prefixed predicate name; refuses an unknown one."""
-        if name in self.predicate_names:
-            return self.predicate_names[name]
-        if name in self.predicate_names.values():
+        """`name` when the schema knows the predicate; otherwise refused."""
+        if name in self.predicates:
             return name
         raise KeyingError(f"predicate {name!r} is not in the schema")
 
@@ -410,7 +414,8 @@ def claim_parts(
     macros: Mapping[str, MacroDef],
     resolve: Resolve,
 ) -> Json:
-    """The parts of a claim key: subject, prefixed predicate, object, identity qualifiers."""
+    """The parts of a claim key: subject, predicate, object, statement and the identity
+    qualifiers, all named as the stored form names them (`core:modality`, `stat:param_values`)."""
     predicate = schema.predicate(claim.predicate)
     raw = claim.model_dump(mode="json")
     qualifiers_raw: Json = raw.get("qualifiers", {})
@@ -422,22 +427,23 @@ def claim_parts(
         if "t" not in obj
         else {"value": canonical_value(obj, macros, resolve)},
     }
+    if claim.statement is not None:
+        parts["statement"] = resolve(claim.statement)
+    modality, polarity, conditions = MODALITY, POLARITY, CONDITIONS
     identity: Json = {}
-    for name in ("modality", "polarity"):
+    for name in (modality, polarity):
         if name in qualifiers_raw:  # present only when not the default
             identity[name] = qualifiers_raw[name]
-    if claim.statement is not None:
-        identity["statement"] = resolve(claim.statement)
-    if "conditions" in qualifiers_raw:
+    if conditions in qualifiers_raw:
         tree = canonical_condition(
-            qualifiers_raw["conditions"], macros, resolve, schema.symmetric_predicates
+            qualifiers_raw[conditions], macros, resolve, schema.symmetric_predicates
         )
         if tree is not None:
-            identity["conditions"] = tree
-    if "valid_time" in qualifiers_raw:
-        identity["valid_time"] = canonical_value(qualifiers_raw["valid_time"], macros, resolve)
-    if qualifiers_raw.get("modality") == "cited" and "attribution" in qualifiers_raw:
-        identity["attribution"] = resolve(qualifiers_raw["attribution"]["ref"])
+            identity[conditions] = tree
+    if VALID_TIME in qualifiers_raw:
+        identity[VALID_TIME] = canonical_value(qualifiers_raw[VALID_TIME], macros, resolve)
+    if qualifiers_raw.get(modality) == "cited" and ATTRIBUTION in qualifiers_raw:
+        identity[ATTRIBUTION] = resolve(qualifiers_raw[ATTRIBUTION]["ref"])
     for name in schema.identity_qualifiers.get(predicate, ()):
         if name in qualifiers_raw:
             identity[name] = canonical_qualifier(qualifiers_raw[name], macros, resolve)
@@ -458,8 +464,8 @@ def canonical_qualifier(value: Json, macros: Mapping[str, MacroDef], resolve: Re
 
 @dataclass(frozen=True)
 class Member:
-    """C1's decision for one alternative member: the qualifiers it disagrees on, and whether its
-    bindings disagree with the other members'."""
+    """C1's decision for one alternative member: the qualifiers it disagrees on (by their stored,
+    prefixed names, e.g. `core:hedge`), and whether its bindings disagree with the others'."""
 
     qualifiers: tuple[str, ...] = ()
     bindings: bool = False
@@ -478,7 +484,7 @@ def member_parts(
         value = qualifiers_raw.get(name)
         if value is None:
             own[name] = None
-        elif name == "scope":
+        elif name == SCOPE:
             locator = ctx.locator_key(ctx.segment(value["segment"]))
             own[name] = {"extent": value["extent"], "segment": locator}
         else:
@@ -594,7 +600,7 @@ def key_claims(
     claims = {c.id: c for c in candidates.claims}
     deps: dict[str, list[str]] = {}
     for claim in candidates.claims:
-        tree = claim.qualifiers.model_dump(mode="json").get("conditions")
+        tree = claim.qualifiers.model_dump(mode="json").get(CONDITIONS)
         deps[claim.id] = [] if tree is None else claim_refs(tree)
 
     state: dict[str, str] = {}  # id -> "active" | "done" | "dropped"

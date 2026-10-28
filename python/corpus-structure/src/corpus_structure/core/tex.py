@@ -112,8 +112,22 @@ def token_at(latex: str, pos: int) -> Token | None:
     return None
 
 
+# TeX's control space: `\ `, and `\` followed by a tab or an end of line, are one control symbol
+# (IR-15, operator 2026-10-28); the token form spells it `\ `.
+CONTROL_SPACE = "\\ "
+_CONTROL_SPACES = frozenset({"\\ ", "\\\t", "\\\n", "\\\r"})
+
+
 def _texts(latex: str) -> list[str]:
-    return [t.text for t in tokens(latex)]
+    """Token texts for the token form: every control-space spelling as `CONTROL_SPACE`, and the
+    blanks right after one skipped, as TeX skips them (so `\\` + CR LF is one control space)."""
+    out: list[str] = []
+    for token in tokens(latex):
+        if token.text in _CONTROL_SPACES:
+            out.append(CONTROL_SPACE)
+        elif not (token.kind == "space" and out[-1:] == [CONTROL_SPACE]):
+            out.append(token.text)
+    return out
 
 
 def _is_space(text: str) -> bool:
@@ -438,7 +452,9 @@ def normalize(latex: str, table: Mapping[str, MacroDef]) -> TokenForm:
     kept: list[str] = []
     for text, in_text in zip(toks, inside, strict=True):
         if _is_space(text):
-            if in_text and kept[-1:] != [" "]:
+            # one space per run; none right after a control space, also once a drop-list token
+            # between them is gone (TeX skips blanks after a control space)
+            if in_text and kept[-1:] not in ([" "], [CONTROL_SPACE]):
                 kept.append(" ")
             continue
         kept.append(text)

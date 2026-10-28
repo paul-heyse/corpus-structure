@@ -17,6 +17,7 @@ It accepts schema qualifiers as raw JSON; S1's per-predicate models subclass it 
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from typing import Annotated, Literal, Self
 
@@ -46,6 +47,13 @@ Polarity = Literal["positive", "negative"]
 ScopeExtent = Literal["statement", "section", "document"]
 EntityExtent = Literal["statement", "section"]
 LocalRef = Annotated[str, Field(min_length=1)]
+
+# The stored form names every schema element (class, predicate, qualifier, identity slot) by its
+# prefixed name; the authored form keeps local names (coordinator ruling, 2026-10-28, from X2).
+PREFIXED_NAME = r"^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$"
+PrefixedName = Annotated[str, Field(pattern=PREFIXED_NAME)]
+CORE_PREFIX = "core"
+_PREFIXED = re.compile(PREFIXED_NAME)
 
 DEFAULT_MODALITY = "asserted"
 DEFAULT_POLARITY = "positive"
@@ -86,15 +94,51 @@ class AuthoredQualifiers(_Qualifiers):
     scope: ScopeExtent | MISSING = MISSING  # type: ignore[valid-type]
 
 
-class StoredQualifiers(_Qualifiers):
-    hedge: StoredPhrase | MISSING = MISSING  # type: ignore[valid-type]
-    conditions: StoredCondition | MISSING = MISSING  # type: ignore[valid-type]
-    scope: StoredScope | MISSING = MISSING  # type: ignore[valid-type]
-
-
 CORE_QUALIFIERS = (
     "modality", "polarity", "hedge", "attribution", "conditions", "scope", "valid_time"
 )  # fmt: skip
+STORED_CORE_QUALIFIERS = tuple(f"{CORE_PREFIX}:{name}" for name in CORE_QUALIFIERS)
+
+
+def _core(name: str) -> str:
+    return f"{CORE_PREFIX}:{name}"
+
+
+class StoredQualifiers(CoreModel):
+    """The stored qualifiers: the core ones as `core:<name>`, schema qualifiers by prefixed name.
+
+    Attributes keep the local names (`q.modality`); validation and dumps use the prefixed ones."""
+
+    model_config = ConfigDict(
+        frozen=True,
+        extra="allow",
+        validate_by_alias=True,
+        validate_by_name=False,
+        serialize_by_alias=True,
+    )
+    # schema qualifiers, raw JSON until S1 types them (Pydantic's typed-extras declaration)
+    __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
+
+    modality: Modality = Field(
+        DEFAULT_MODALITY, alias=_core("modality"), exclude_if=_is_default_modality
+    )
+    polarity: Polarity = Field(
+        DEFAULT_POLARITY, alias=_core("polarity"), exclude_if=_is_default_polarity
+    )
+    hedge: StoredPhrase | MISSING = Field(MISSING, alias=_core("hedge"))  # type: ignore[valid-type]
+    attribution: EntityRef | MISSING = Field(MISSING, alias=_core("attribution"))  # type: ignore[valid-type]
+    conditions: StoredCondition | MISSING = Field(MISSING, alias=_core("conditions"))  # type: ignore[valid-type]
+    scope: StoredScope | MISSING = Field(MISSING, alias=_core("scope"))  # type: ignore[valid-type]
+    valid_time: IntervalValue | MISSING = Field(MISSING, alias=_core("valid_time"))  # type: ignore[valid-type]
+
+    @model_validator(mode="after")
+    def _schema_qualifiers_prefixed(self) -> Self:
+        for name in self.__pydantic_extra__ or {}:
+            if not _PREFIXED.match(name):
+                raise ValueError(f"stored qualifier {name!r} is not a prefixed name")
+            if name.startswith(f"{CORE_PREFIX}:"):
+                raise ValueError(f"{name!r} is not a core qualifier")
+        return self
 
 
 # --- Evidence ----------------------------------------------------------------------------------
@@ -147,6 +191,8 @@ class AuthoredEntity(_Entity):
 
 
 class StoredEntity(_Entity):
+    type: PrefixedName  # type: ignore[assignment]
+    identity: dict[PrefixedName, str] = Field(default_factory=dict)  # type: ignore[assignment]
     scope_segment: str | MISSING = MISSING  # type: ignore[valid-type]
 
     @model_validator(mode="after")
@@ -185,6 +231,7 @@ class AuthoredClaim(_Claim):
 
 
 class StoredClaim(_Claim):
+    predicate: PrefixedName  # type: ignore[assignment]
     object: StoredObject
     qualifiers: StoredQualifiers = Field(default_factory=StoredQualifiers)
     evidence: Annotated[tuple[StoredEvidence, ...], Field(min_length=1)]

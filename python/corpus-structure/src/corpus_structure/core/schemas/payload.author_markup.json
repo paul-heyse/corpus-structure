@@ -375,6 +375,7 @@
       "description": "The claim a block's containment states (the source profile's `details_kinds.synthesize`).",
       "properties": {
         "predicate": {
+          "pattern": "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$",
           "type": "string"
         },
         "object": {

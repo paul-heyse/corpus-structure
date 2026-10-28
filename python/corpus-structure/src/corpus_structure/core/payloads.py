@@ -14,6 +14,7 @@ from pydantic import MISSING, Field, JsonValue, TypeAdapter, model_validator
 from corpus_structure.core.batch import (
     AuthoredBatch,
     CitationFrame,
+    PrefixedName,
     ScopeExtent,
     StoredBatch,
     StoredEvidence,
@@ -87,7 +88,7 @@ class _Span(CoreModel):
 class SynthesizedClaim(CoreModel):
     """The claim a block's containment states (the source profile's `details_kinds.synthesize`)."""
 
-    predicate: str
+    predicate: PrefixedName
     object: StoredObject
     evidence: Annotated[tuple[StoredEvidence, ...], Field(min_length=1)]
 

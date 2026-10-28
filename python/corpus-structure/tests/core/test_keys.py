@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import ValidationError
 
 from corpus_structure.core.candidates import (
     CandidateStatement,
@@ -56,7 +57,7 @@ def ident(ref: str) -> str:
 
 RULES = LabelRules(
     articles=("the", "a", "an"),
-    head_words={"DistributionFamily": ("distribution", "distributions")},
+    head_words={"stat:DistributionFamily": ("distribution", "distributions")},
     rewrites=(
         Rewrite(match=r"^(\w+)ly distributed$", replace=r"\1"),
         Rewrite(match=r"^(\w+) distributed$", replace=r"\1"),
@@ -67,11 +68,11 @@ RULES = LabelRules(
 @pytest.mark.parametrize(
     ("text", "type_", "label"),
     [
-        ("The  Normal Distribution", "DistributionFamily", "normal"),
-        ("normally distributed", "DistributionFamily", "normal"),
-        ("gamma distributed", "DistributionFamily", "gamma"),
-        ("the normal distributions", "DistributionFamily", "normal"),
-        ("distribution", "DistributionFamily", "distribution"),  # never emptied
+        ("The  Normal Distribution", "stat:DistributionFamily", "normal"),
+        ("normally distributed", "stat:DistributionFamily", "normal"),
+        ("gamma distributed", "stat:DistributionFamily", "gamma"),
+        ("the normal distributions", "stat:DistributionFamily", "normal"),
+        ("distribution", "stat:DistributionFamily", "distribution"),  # never emptied
         ("The normal distribution", "Concept", "normal distribution"),  # no head words there
         ("the", "Concept", "the"),  # a lone article stays
         ("An  exponential family", "Concept", "exponential family"),
@@ -235,18 +236,18 @@ def candidates(ctx: KeyContext, **claim: Any) -> KeyedCandidateSet:
     """X (local to unit 1), N (global), statement st1 at unit 1's sentences, and claims."""
     sentences = sentences_of(ctx.content)
     unit = next(s for s in ctx.content.document.walk() if s.kind is SegmentKind.UNIT)
-    base = {"predicate": "has_distribution", "subject": "X", "object": {"ref": "N"},
+    base = {"predicate": "stat:has_distribution", "subject": "X", "object": {"ref": "N"},
             "statement": "st1",
             "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
     claims = claim.pop("claims", [{"id": "c1", **base, "qualifiers": claim.pop("qualifiers", {})}])
     return KeyedCandidateSet.model_validate({
         "entities": [
-            {"id": "X", "type": "RandomVariable", "label": "X", "scope": "local",
+            {"id": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
              "scope_segment": seg_key(ctx, unit), "symbol": "X"},
-            {"id": "N", "type": "DistributionFamily", "label": "the normal distribution",
+            {"id": "N", "type": "stat:DistributionFamily", "label": "the normal distribution",
              "scope": "global"},
-            {"id": "S", "type": "Person", "label": "Smith", "scope": "global"},
-            {"id": "J", "type": "Person", "label": "Jones", "scope": "global"},
+            {"id": "S", "type": "stat:Person", "label": "Smith", "scope": "global"},
+            {"id": "J", "type": "stat:Person", "label": "Jones", "scope": "global"},
         ],
         "statements": [{"id": "st1", "kind": "theorem",
                         "anchor": [seg_key(ctx, s) for s in sentences[:2]]}],
@@ -254,14 +255,11 @@ def candidates(ctx: KeyContext, **claim: Any) -> KeyedCandidateSet:
     })  # fmt: skip
 
 
-SCHEMA = KeySchema(
-    predicate_names={
-        "has_distribution": "stat:has_distribution",
-        "defined_as": "stat:defined_as",
-        "proves": "core:proves",
-        "follows_from": "core:follows_from",
-    },
-    identity_qualifiers={"stat:has_distribution": ("param_values",)},
+SCHEMA = KeySchema(  # every schema name prefixed, as the stored form writes it
+    predicates=frozenset(
+        {"stat:has_distribution", "stat:defined_as", "core:proves", "core:follows_from"}
+    ),
+    identity_qualifiers={"stat:has_distribution": ("stat:param_values",)},
     symmetric_predicates=frozenset({"independent"}),
 )
 
@@ -277,42 +275,43 @@ def interval(start: str, end: str) -> dict:
 
 
 def test_defaults_present_or_absent_give_equal_keys() -> None:
-    assert claim_key({}) == claim_key({"modality": "asserted", "polarity": "positive"})
-    assert claim_key({}) != claim_key({"modality": "supposed"})
-    assert claim_key({}) != claim_key({"polarity": "negative"})
+    assert claim_key({}) == claim_key({"core:modality": "asserted", "core:polarity": "positive"})
+    assert claim_key({}) != claim_key({"core:modality": "supposed"})
+    assert claim_key({}) != claim_key({"core:polarity": "negative"})
 
 
 def test_permuted_and_arguments_give_equal_keys() -> None:
     a, b = member("a", "\\R"), member("b", "\\R \\setminus \\{0\\}")
-    assert claim_key({"conditions": {"op": "and", "args": [a, b]}}) == claim_key(
-        {"conditions": {"op": "and", "args": [b, a]}}
+    assert claim_key({"core:conditions": {"op": "and", "args": [a, b]}}) == claim_key(
+        {"core:conditions": {"op": "and", "args": [b, a]}}
     )
-    assert claim_key({"conditions": {"op": "and", "args": []}}) == claim_key({})
+    assert claim_key({"core:conditions": {"op": "and", "args": []}}) == claim_key({})
 
 
 def test_identity_qualifiers_move_the_key() -> None:
-    first = claim_key({"valid_time": interval("2026-01-01", "2026-06-30")})
-    second = claim_key({"valid_time": interval("2026-07-01", "2026-12-31")})
+    first = claim_key({"core:valid_time": interval("2026-01-01", "2026-06-30")})
+    second = claim_key({"core:valid_time": interval("2026-07-01", "2026-12-31")})
     assert first != second != claim_key({})
-    smith = claim_key({"modality": "cited", "attribution": {"ref": "S"}})
-    jones = claim_key({"modality": "cited", "attribution": {"ref": "J"}})
+    smith = claim_key({"core:modality": "cited", "core:attribution": {"ref": "S"}})
+    jones = claim_key({"core:modality": "cited", "core:attribution": {"ref": "J"}})
     assert smith != jones
-    pv = {"param_values": {"mean": {"t": "formula", "latex": "\\mu"}}}
+    pv = {"stat:param_values": {"mean": {"t": "formula", "latex": "\\mu"}}}
     assert claim_key(pv) != claim_key({})
     xy = {"op": "pred", "name": "owns", "args": [{"ref": "S"}, {"ref": "J"}]}
     yx = {"op": "pred", "name": "owns", "args": [{"ref": "J"}, {"ref": "S"}]}
-    assert claim_key({"conditions": xy}) != claim_key({"conditions": yx})
+    assert claim_key({"core:conditions": xy}) != claim_key({"core:conditions": yx})
 
 
 def test_parts_outside_the_key_do_not_move_it() -> None:
     plain = claim_key({})
-    assert claim_key({"attribution": {"ref": "S"}}) == plain  # attribution outside `cited`
-    assert claim_key({"hedge": {"t": "phrase", "text": "roughly", "start": 1, "end": 4}}) == plain
-    assert claim_key({"scope": {"extent": "section", "segment": "seg:x"}}) == plain
-    assert claim_key({"other_qualifier": {"t": "text", "v": "x"}}) == plain  # not declared
-    bound = {"param_values": {"mean": {"t": "formula", "latex": "\\mu",
+    assert claim_key({"core:attribution": {"ref": "S"}}) == plain  # attribution outside `cited`
+    hedge = {"t": "phrase", "text": "roughly", "start": 1, "end": 4}
+    assert claim_key({"core:hedge": hedge}) == plain
+    assert claim_key({"core:scope": {"extent": "section", "segment": "seg:x"}}) == plain
+    assert claim_key({"stat:other_qualifier": {"t": "text", "v": "x"}}) == plain  # not declared
+    bound = {"stat:param_values": {"mean": {"t": "formula", "latex": "\\mu",
                                        "symbols": {"mu": {"bind": "free"}}}}}  # fmt: skip
-    other = {"param_values": {"mean": {"t": "formula", "latex": "\\mu",
+    other = {"stat:param_values": {"mean": {"t": "formula", "latex": "\\mu",
                                        "symbols": {"mu": {"bind": "param_of", "claim": "c1",
                                                           "param": "mean"}}}}}  # fmt: skip
     assert claim_key(bound) == claim_key(other)
@@ -360,9 +359,9 @@ def test_members_differing_only_in_bindings_get_distinct_keys() -> None:
     bound = {"t": "formula", "latex": "\\mu",
              "symbols": {"mu": {"bind": "param_of", "claim": "c0", "param": "mean"}}}  # fmt: skip
     claims = [
-        {"id": "c0", "qualifiers": {"modality": "supposed"}},
-        {"id": "c1", "qualifiers": {"param_values": {"mean": free}}},
-        {"id": "c2", "qualifiers": {"param_values": {"mean": bound}}},
+        {"id": "c0", "qualifiers": {"core:modality": "supposed"}},
+        {"id": "c1", "qualifiers": {"stat:param_values": {"mean": free}}},
+        {"id": "c2", "qualifiers": {"stat:param_values": {"mean": bound}}},
     ]
     keys = key_claims(candidates(ctx, claims=claims), ctx, SCHEMA, RULES,
                       members={c: Member(bindings=True) for c in ("c1", "c2")})  # fmt: skip
@@ -381,11 +380,11 @@ def hedge_at(text: str, start: int) -> dict:
 def test_members_disagreeing_on_a_qualifier_or_leaving_it_unset() -> None:
     ctx = context(page(UNITS))
     claims = [
-        {"id": "c1", "qualifiers": {"hedge": hedge_at("roughly", 1)}},
+        {"id": "c1", "qualifiers": {"core:hedge": hedge_at("roughly", 1)}},
         {"id": "c2", "qualifiers": {}},
-        {"id": "c3", "qualifiers": {"hedge": hedge_at("Roughly", 9)}},
+        {"id": "c3", "qualifiers": {"core:hedge": hedge_at("Roughly", 9)}},
     ]  # fmt: skip
-    hedge = Member(qualifiers=("hedge",))
+    hedge = Member(qualifiers=("core:hedge",))
     keys = key_claims(candidates(ctx, claims=claims), ctx, SCHEMA, RULES,
                       members={c: hedge for c in ("c1", "c2", "c3")})  # fmt: skip
     assert len({keys.claims[c] for c in ("c1", "c2", "c3")}) == 1
@@ -397,14 +396,14 @@ def test_members_disagreeing_on_a_qualifier_or_leaving_it_unset() -> None:
 
 
 def premise(ref: str) -> dict:
-    return {"conditions": {"op": "claim", "ref": ref}}
+    return {"core:conditions": {"op": "claim", "ref": ref}}
 
 
 def test_claims_key_in_condition_reference_order() -> None:
     ctx = context(page(UNITS))
     plain = [{"id": "c2", "qualifiers": premise("c1")}, {"id": "c1", "qualifiers": {}}]
     moved = [{"id": "c2", "qualifiers": premise("c1")},
-             {"id": "c1", "qualifiers": {"modality": "supposed"}}]  # fmt: skip
+             {"id": "c1", "qualifiers": {"core:modality": "supposed"}}]  # fmt: skip
     a = key_claims(candidates(ctx, claims=plain), ctx, SCHEMA, RULES)
     b = key_claims(candidates(ctx, claims=moved), ctx, SCHEMA, RULES)
     assert a.dropped == {} and a.claims["c1"] != b.claims["c1"]
@@ -451,7 +450,7 @@ def entity_keys(entities: list[dict], schema: KeySchema = SCHEMA) -> dict[str, s
 
 
 def test_global_entity_keys() -> None:
-    family = {"type": "DistributionFamily", "scope": "global"}
+    family = {"type": "stat:DistributionFamily", "scope": "global"}
     keys = entity_keys([
         {"id": "a", "label": "The normal distribution", **family},
         {"id": "b", "label": "normally distributed", **family},
@@ -459,20 +458,20 @@ def test_global_entity_keys() -> None:
     ])  # fmt: skip
     assert keys["a"] == keys["b"] != keys["c"]
     schema = KeySchema(
-        identity_keys={"FamilyParameter": ("family", "canonical_name")},
-        entity_identity={"FamilyParameter": ("family",)},
+        identity_keys={"stat:FamilyParameter": ("stat:family", "stat:canonical_name")},
+        entity_identity={"stat:FamilyParameter": ("stat:family",)},
     )
-    param = {"type": "FamilyParameter", "scope": "global"}
+    param = {"type": "stat:FamilyParameter", "scope": "global"}
 
     def named(name: str) -> dict:
-        return {"family": "N", "canonical_name": name}
+        return {"stat:family": "N", "stat:canonical_name": name}
 
     keys = entity_keys([
         {"id": "N", "label": "normal", **family},
         {"id": "p", "label": "location", "identity": named("location"), **param},
         {"id": "q", "label": "the mean", "identity": named("Location"), **param},
-        {"id": "r", "label": "location", "identity": {"family": "N"}, **param},
-        {"id": "s", "label": "the mean", "identity": {"family": "N"}, **param},
+        {"id": "r", "label": "location", "identity": {"stat:family": "N"}, **param},
+        {"id": "s", "label": "the mean", "identity": {"stat:family": "N"}, **param},
     ], schema)  # fmt: skip
     assert keys["p"] == keys["q"]  # identity complete: the label is not part of the key
     assert keys["r"] != keys["s"]  # incomplete: the normalized label is
@@ -480,14 +479,14 @@ def test_global_entity_keys() -> None:
 
 
 def test_local_entity_keys() -> None:
-    local = {"type": "RandomVariable", "scope": "local"}
+    local = {"type": "stat:RandomVariable", "scope": "local"}
     keys = entity_keys([
         {"id": "a", "label": "X", "symbol": "X", **local},
         {"id": "b", "label": "the variable", "symbol": "X", **local},
         {"id": "c", "label": "a + b X", "symbol": "a + b X", **local},
         {"id": "d", "label": "a+bX", "symbol": "a+b X", **local},
         {"id": "e", "label": "the sum", **local},
-        {"id": "f", "label": "X", "symbol": "X", "type": "RandomVariable", "scope": "global"},
+        {"id": "f", "label": "X", "symbol": "X", "type": "stat:RandomVariable", "scope": "global"},
     ])  # fmt: skip
     assert keys["a"] == keys["b"]  # by symbol, label aside
     assert keys["c"] == keys["d"]  # symbols by token form
@@ -495,7 +494,7 @@ def test_local_entity_keys() -> None:
 
 
 def test_an_existing_key_is_kept() -> None:
-    keys = entity_keys([{"id": "a", "key": "ent:linked", "label": "x", "type": "T",
+    keys = entity_keys([{"id": "a", "key": "ent:linked", "label": "x", "type": "stat:T",
                          "scope": "global"}])  # fmt: skip
     assert keys["a"] == "ent:linked"
 
@@ -575,11 +574,12 @@ def t3(content: RenditionContent) -> tuple[KeyContext, KeyedCandidateSet]:
     ev = [{"start": paragraph.start, "end": paragraph.end, "role": "primary"}]
     return ctx, KeyedCandidateSet.model_validate({
         "entities": [
-            {"id": "X", "type": "RandomVariable", "label": "X", "symbol": "X", "scope": "local",
+            {"id": "X", "type": "stat:RandomVariable", "label": "X", "symbol": "X",
+             "scope": "local",
              "scope_segment": k_rel1},
-            {"id": "Y", "type": "RandomVariable", "label": "a + b X", "symbol": "a + b X",
+            {"id": "Y", "type": "stat:RandomVariable", "label": "a + b X", "symbol": "a + b X",
              "scope": "local", "scope_segment": k_rel1},
-            {"id": "N", "type": "DistributionFamily", "label": "normal distribution",
+            {"id": "N", "type": "stat:DistributionFamily", "label": "normal distribution",
              "scope": "global"},
         ],
         "statements": [
@@ -587,23 +587,25 @@ def t3(content: RenditionContent) -> tuple[KeyContext, KeyedCandidateSet]:
             {"id": "proof", "kind": "proof", "anchor": [k_proof]},
         ],
         "claims": [
-            {"id": "C1", "predicate": "has_distribution", "subject": "X", "object": {"ref": "N"},
-             "qualifiers": {"modality": "supposed",
-                            "param_values": {"mean": mu, "variance": sigma2}},
+            {"id": "C1", "predicate": "stat:has_distribution", "subject": "X",
+             "object": {"ref": "N"},
+             "qualifiers": {"core:modality": "supposed",
+                            "stat:param_values": {"mean": mu, "variance": sigma2}},
              "statement": "rel1", "statement_role": "premise", "evidence": ev},
-            {"id": "C2", "predicate": "defined_as", "subject": "Y",
+            {"id": "C2", "predicate": "stat:defined_as", "subject": "Y",
              "object": {"t": "formula", "latex": "a + b X"},
-             "qualifiers": {"modality": "defined",
-                            "conditions": {"op": "and", "args": [in_r, in_r0]}},
+             "qualifiers": {"core:modality": "defined",
+                            "core:conditions": {"op": "and", "args": [in_r, in_r0]}},
              "statement": "rel1", "statement_role": "definiens", "evidence": ev},
-            {"id": "C3", "predicate": "has_distribution", "subject": "Y", "object": {"ref": "N"},
-             "qualifiers": {"conditions": {"op": "and", "args": [{"op": "claim", "ref": "C1"},
+            {"id": "C3", "predicate": "stat:has_distribution", "subject": "Y",
+             "object": {"ref": "N"},
+             "qualifiers": {"core:conditions": {"op": "and", "args": [{"op": "claim", "ref": "C1"},
                                                                   in_r, in_r0]}},
              "statement": "rel1", "statement_role": "conclusion", "evidence": ev},
-            {"id": "C4", "predicate": "proves", "subject": "proof", "object": {"ref": "rel1"},
+            {"id": "C4", "predicate": "core:proves", "subject": "proof", "object": {"ref": "rel1"},
              "statement": "proof", "evidence": ev},
-            {"id": "C4s", "predicate": "proves", "subject": "proof", "object": {"ref": "rel1"},
-             "statement": "proof", "evidence": ev, "qualifiers": {"modality": "asserted"}},
+            {"id": "C4s", "predicate": "core:proves", "subject": "proof", "object": {"ref": "rel1"},
+             "statement": "proof", "evidence": ev, "qualifiers": {"core:modality": "asserted"}},
         ],
     })  # fmt: skip
 
@@ -649,7 +651,7 @@ def test_equivalent_formulas_key_apart_and_the_key_format() -> None:
     equivalent formulas is C1's, D5 §5.3); every key is a prefix and 32 hex digits."""
 
     def with_mean(latex: str) -> str:
-        return claim_key({"param_values": {"mean": {"t": "formula", "latex": latex}}})
+        return claim_key({"stat:param_values": {"mean": {"t": "formula", "latex": latex}}})
 
     assert with_mean("a + b \\mu") != with_mean("\\mu b + a")
     assert with_mean("a + b \\mu") == with_mean("a+b\\,\\mu")
@@ -669,29 +671,37 @@ def keys_for(claims: list[dict], members: dict | None = None, content=None):
     return key_claims(candidates(ctx, claims=claims), ctx, SCHEMA, RULES, members=members)
 
 
-def test_one_predicate_spelling_and_unknown_predicates() -> None:
-    pv1 = {"param_values": {"mean": {"t": "formula", "latex": "\\mu"}}}
-    pv2 = {"param_values": {"mean": {"t": "formula", "latex": "0"}}}
+def test_stored_names_are_prefixed_and_unknown_predicates_refused() -> None:
+    pv1 = {"stat:param_values": {"mean": {"t": "formula", "latex": "\\mu"}}}
+    pv2 = {"stat:param_values": {"mean": {"t": "formula", "latex": "0"}}}
 
     def key(predicate: str, qualifiers: dict) -> str:
         claims = [{"id": "c1", "predicate": predicate, "qualifiers": qualifiers}]
         return keys_for(claims).claims["c1"]
 
     assert key("stat:has_distribution", pv1) != key("stat:has_distribution", pv2)
-    assert key("has_distribution", pv1) == key("stat:has_distribution", pv1)
     unknown = keys_for([{"id": "c1", "predicate": "stat:has_distrib"}])
     assert unknown.claims == {} and "not in the schema" in unknown.dropped["c1"]
-    with pytest.raises(ValueError, match="not a prefixed predicate"):
-        KeySchema(predicate_names={"p": "x:p"}, identity_qualifiers={"p": ("q",)})
+    # the stored form has no bare names: a local predicate, class or qualifier never reaches a key
+    with pytest.raises(ValidationError, match="should match pattern"):
+        keys_for([{"id": "c1", "predicate": "has_distribution"}])
+    with pytest.raises(ValidationError, match="not a prefixed name"):
+        keys_for([{"id": "c1", "qualifiers": {"param_values": pv1["stat:param_values"]}}])
+    with pytest.raises(ValidationError, match="not a prefixed name"):
+        keys_for([{"id": "c1", "qualifiers": {"modality": "supposed"}}])
+    with pytest.raises(ValidationError, match="not a known predicate"):
+        KeySchema(predicates=frozenset({"x:p"}), identity_qualifiers={"x:q": ("x:r",)})
+    with pytest.raises(ValidationError):
+        KeySchema(predicates=frozenset({"p"}))
 
 
 def test_member_scope_keys_by_locator_not_by_segment_key() -> None:
     def member_keys(content: RenditionContent) -> tuple[dict, str]:
         ctx = context(content)
         unit = next(s for s in content.document.walk() if s.kind is SegmentKind.UNIT)
-        scoped = {"scope": {"extent": "section", "segment": seg_key(ctx, unit)}}
+        scoped = {"core:scope": {"extent": "section", "segment": seg_key(ctx, unit)}}
         claims = [{"id": "c1", "qualifiers": scoped}, {"id": "c2", "qualifiers": {}}]
-        m = Member(qualifiers=("scope",))
+        m = Member(qualifiers=("core:scope",))
         keys = key_claims(candidates(ctx, claims=claims), ctx, SCHEMA, RULES,
                           members={"c1": m, "c2": m})  # fmt: skip
         return keys.members, seg_key(ctx, unit)
@@ -713,7 +723,8 @@ def test_member_bindings_do_not_depend_on_argument_order() -> None:
     m = {"c1": Member(bindings=True)}
 
     def member(conditions: dict) -> str:
-        return keys_for([{"id": "c1", "qualifiers": {"conditions": conditions}}], m).members["c1"]
+        claims = [{"id": "c1", "qualifiers": {"core:conditions": conditions}}]
+        return keys_for(claims, m).members["c1"]
 
     assert member({"op": "and", "args": [a, b]}) == member({"op": "and", "args": [b, a]})
 
@@ -733,7 +744,7 @@ def test_a_member_naming_a_dropped_or_unknown_item_is_dropped_with_its_reason() 
     def bound(claim: str) -> dict:
         binding = {"bind": "param_of", "claim": claim, "param": "mean"}
         mean = {"t": "formula", "latex": "\\mu", "symbols": {"mu": binding}}
-        return {"param_values": {"mean": mean}}
+        return {"stat:param_values": {"mean": mean}}
 
     claims = [
         {"id": "c9", "qualifiers": premise("c9")},  # a self-cycle: dropped
@@ -787,7 +798,7 @@ def test_a_statement_outside_every_unit_anchors_on_its_top_level_block() -> None
 def test_outside_statements_wait_for_consolidation() -> None:
     ctx = context(page(UNITS))
     cands = candidates(ctx, claims=[
-        {"id": "c1", "predicate": "follows_from", "subject": "st1", "object": {"ref": "last"}},
+        {"id": "c1", "predicate": "core:follows_from", "subject": "st1", "object": {"ref": "last"}},
     ])  # fmt: skip
     outside = CandidateStatement(id="last", kind="theorem", anchor="outside")
     assert outside.key is None
