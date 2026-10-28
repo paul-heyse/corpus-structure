@@ -10,7 +10,8 @@ what anyone else would write.
 2. `schema.yaml` (core and statistics schema v0: classes, predicates, qualifiers, enums).
 3. `model.md` (the knowledge model: entities, claims, qualifiers, values, conditions, statuses).
 4. `format.md` (the output format).
-5. For each unit: `units/<unit>.md` (the unit packet) and `pages/<page>.md` (the unit's whole page, for context: read the page, annotate only the unit, guideline §10.2).
+5. For each unit: `units/<unit>.md` (the unit packet; lines like `--- Details: ---` are headings
+   inside the unit, such as the summary of a collapsible proof or solution) and `pages/<page>.md` (the unit's whole page, for context: read the page, annotate only the unit, guideline §10.2).
 
 ## Do
 
@@ -22,7 +23,7 @@ For each of the twelve units in `units/` (T1, T2, T3, T4, U5, U6, U7, U8, U9, U1
    section that was unclear; any text that looks mis-rendered (garbled, missing words, odd
    markers); anything the schema could not express beyond what you recorded as `unsupported`.
 3. Validate your batch and its quotes:
-   `UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/build/spike-venv uv run python code/s0_locate.py --check results/s0/pass_b`
+   `cd /home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes && UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/build/spike-venv uv run python code/s0_check.py results/s0/pass_b`
    Before fixing anything, copy your first version of each batch to `results/s0/pass_b/first/<unit>.json`.
    Then fix malformed output and unlocated quotes, and validate again.
 

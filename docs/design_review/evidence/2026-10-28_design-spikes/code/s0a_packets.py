@@ -94,8 +94,14 @@ def unit_packet(uid: str, meta: dict, title: str) -> str:
     lines += [f"[c{i + 1}] {c}" for i, c in enumerate(ctx)] or ["(none)"]
     lines += ["", "## Text"]
     for p in meta["parts"]:
-        for s in p["sentences"]:
-            lines.append(f"[{s['id']}] {text[s['start']:s['end']]}")
+        # headings inside the unit (a details block's summary, e.g. "Details:") are shown unnumbered
+        heads = [s for s in segs if s["kind"] == "heading" and p["start"] <= s["start"] and s["end"] <= p["end"]]
+        items = [(s["start"], "s", s) for s in p["sentences"]] + [(h["start"], "h", h) for h in heads]
+        for _, kind, s in sorted(items, key=lambda x: x[0]):
+            if kind == "h":
+                lines.append(f"--- {text[s['start']:s['end']]} ---")
+            else:
+                lines.append(f"[{s['id']}] {text[s['start']:s['end']]}")
     lines += ["", f"<!-- rendition {meta['rendition_key']}; parts: "
               + "; ".join(f"{p['kind']} {p['start']}–{p['end']}" for p in meta["parts"]) + " -->", ""]
     return "\n".join(lines)
@@ -159,7 +165,8 @@ what anyone else would write.
 2. `schema.yaml` (core and statistics schema v0: classes, predicates, qualifiers, enums).
 3. `model.md` (the knowledge model: entities, claims, qualifiers, values, conditions, statuses).
 4. `format.md` (the output format).
-5. For each unit: `units/<unit>.md` (the unit packet){PAGES_LINE}
+5. For each unit: `units/<unit>.md` (the unit packet; lines like `--- Details: ---` are headings
+   inside the unit, such as the summary of a collapsible proof or solution){PAGES_LINE}
 
 ## Do
 
@@ -219,16 +226,50 @@ def main(mode: str) -> int:
         for page in titles:
             here = {u: m for u, m in SAMPLE["units"].items() if m["page"] == page}
             (out / "pages" / f"{name_of(page)}.md").write_text(page_text(page, here))
-    for pas in (["a", "b"] if mode == "golden" else ["p"]):
+    for pas in ({"golden": ["a", "b"], "packet_only": ["p"], "offset": ["a"]}[mode]):
         o = f"results/s0/pass_{pas}"
         (out / f"instructions_{pas}.md").write_text(INSTRUCTIONS.format(
             PASS=pas.upper(), OUT=o, UNITS=", ".join(SAMPLE["units"]),
             PAGES_LINE=" and `pages/<page>.md` (the unit's whole page, for context: read the page, "
                        "annotate only the unit, guideline §10.2)." if mode == "golden" else ".",
-            VALIDATE=f"UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/build/spike-venv uv run python "
-                     f"code/s0_locate.py --check {o}"))
+            VALIDATE=f"cd /home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes && "
+                     f"UV_PROJECT_ENVIRONMENT=/home/paul/corpus-structure/build/spike-venv uv run python "
+                     f"code/s0_check.py {o}"))
+    if mode == "offset":
+        write_offset_probe(out, titles)
     print("wrote", out)
     return 0
+
+
+OFFSET_NOTE = """# Offset-form probe: how to cite evidence
+
+This probe differs from the main passes in one respect: cite evidence by **character offsets**,
+not by quote. Each `units/<unit>.md` gives the unit's exact text between the two marker lines.
+Offsets count Unicode code points from 0 at the first character after the opening marker line;
+`end` is exclusive. In your batch, each evidence item is `{"start": int, "end": int, "role": …}`,
+statement anchors are `"unit"`, and `unsupported` items carry `start`/`end` instead of
+`sentence`/`quote`. Everything else follows `format.md`.
+"""
+
+
+def write_offset_probe(out: Path, titles: dict) -> None:
+    for f in (out / "units").glob("*.md"):
+        f.unlink()
+    for uid in ("T1", "T2", "T3", "T4"):
+        meta = SAMPLE["units"][uid]
+        text, _, _ = load(meta["page"])
+        a, e = meta["parts"][0]["start"], meta["parts"][-1]["end"]
+        (out / "units" / f"{uid}.md").write_text(
+            f"# Unit {uid} · {titles[meta['page']]}\n\n<<<TEXT BEGINS>>>\n{text[a:e]}\n<<<TEXT ENDS>>>\n"
+            f"\n<!-- base offset {a} in rendition {meta['rendition_key']} -->\n")
+    (out / "offsets.md").write_text(OFFSET_NOTE)
+    (out / "instructions_o.md").write_text(INSTRUCTIONS.format(
+        PASS="O (offset probe)", OUT="results/s0/offset_probe", UNITS="T1, T2, T3, T4",
+        PAGES_LINE=". Read `offsets.md` first: this pass cites evidence by offsets.",
+        VALIDATE="(no validator for this probe: check your offsets by counting carefully)")
+        .replace("For each of the twelve units", "For each of the four units"))
+    for f in out.glob("instructions_[ab].md"):
+        f.unlink()
 
 
 if __name__ == "__main__":

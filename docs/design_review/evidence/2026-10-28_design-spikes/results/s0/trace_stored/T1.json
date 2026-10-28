@@ -1,0 +1,330 @@
+{
+ "envelope": {
+  "unit": "T1",
+  "rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+  "source": "results/s0/trace_batches/T1.json"
+ },
+ "unit_ref": "T1",
+ "entities": [
+  {
+   "local_ref": "Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "Z",
+   "scope_segment": "seg:2770f23815b73bab0298a5079ff95859"
+  },
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "scope_segment": "seg:175c96a27cc62630afd30222ac6b06cd"
+  },
+  {
+   "local_ref": "LSF",
+   "type": "FamilyConstruction",
+   "label": "location-scale family",
+   "scope": "global",
+   "aliases": [
+    "location-scale family"
+   ]
+  },
+  {
+   "local_ref": "LSF.loc",
+   "type": "FamilyParameter",
+   "label": "location parameter",
+   "scope": "global",
+   "identity": {
+    "family": "LSF",
+    "canonical_name": "location"
+   }
+  },
+  {
+   "local_ref": "LSF.scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "identity": {
+    "family": "LSF",
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "S0",
+   "kind": "assumption",
+   "anchor": [
+    "seg:7f5bfd7ae1551fb8a61e4be44b09ea78",
+    "seg:fc39a3c1625a0ca3eb930e388d369827",
+    "seg:e1a33c047bb86880316815686144c6cd"
+   ]
+  },
+  {
+   "local_ref": "S1",
+   "kind": "definition",
+   "anchor": [
+    "seg:f862503906430becb5c3e114fbbd5af5",
+    "seg:ebe0e73fe08976c567af5859a2b77bbd",
+    "seg:af77a6ba98384db9ded612eff96d3984"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "C1",
+   "predicate": "takes_values_in",
+   "subject": "Z",
+   "object": {
+    "t": "set",
+    "latex": "\\R",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "scope": {
+     "extent": "section",
+     "segment": "seg:2770f23815b73bab0298a5079ff95859"
+    }
+   },
+   "statement": "S0",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 345,
+     "end": 435,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C2",
+   "predicate": "defined_as",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "a + b \\, Z",
+    "symbols": {
+     "Z": {
+      "bind": "variable",
+      "entity": "Z"
+     },
+     "a": {
+      "bind": "free"
+     },
+     "b": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": "a",
+       "set": "\\R"
+      },
+      {
+       "op": "member",
+       "x": "b",
+       "set": "(0, \\infty)"
+      }
+     ]
+    }
+   },
+   "statement": "S1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 495,
+     "end": 517,
+     "role": "primary"
+    },
+    {
+     "start": 450,
+     "end": 493,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "C3",
+   "predicate": "defines",
+   "subject": "S1",
+   "object": {
+    "ref": "LSF"
+   },
+   "qualifiers": {},
+   "evidence": [
+    {
+     "start": 583,
+     "end": 657,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C4",
+   "predicate": "construction_formula",
+   "subject": "LSF",
+   "object": {
+    "t": "formula",
+    "latex": "X = a + b \\, Z",
+    "symbols": {
+     "X": {
+      "bind": "variable",
+      "entity": "X"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "Z"
+     },
+     "a": {
+      "bind": "free"
+     },
+     "b": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "base_variable": "Z",
+    "param_symbols": {
+     "location": "a",
+     "scale": "b"
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": "a",
+       "set": "\\R"
+      },
+      {
+       "op": "member",
+       "x": "b",
+       "set": "(0, \\infty)"
+      }
+     ]
+    }
+   },
+   "statement": "S1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 495,
+     "end": 517,
+     "role": "primary"
+    },
+    {
+     "start": 519,
+     "end": 618,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C5",
+   "predicate": "has_parameter",
+   "subject": "LSF",
+   "object": {
+    "ref": "LSF.loc"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "S1",
+   "evidence": [
+    {
+     "start": 682,
+     "end": 713,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C6",
+   "predicate": "has_parameter",
+   "subject": "LSF",
+   "object": {
+    "ref": "LSF.scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "S1",
+   "evidence": [
+    {
+     "start": 718,
+     "end": 743,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C7",
+   "predicate": "parameter_domain",
+   "subject": "LSF.loc",
+   "object": {
+    "t": "set",
+    "latex": "\\R",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "S1",
+   "statement_role": "restriction",
+   "evidence": [
+    {
+     "start": 682,
+     "end": 713,
+     "role": "primary"
+    },
+    {
+     "start": 454,
+     "end": 466,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "C8",
+   "predicate": "parameter_domain",
+   "subject": "LSF.scale",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "S1",
+   "statement_role": "restriction",
+   "evidence": [
+    {
+     "start": 718,
+     "end": 743,
+     "role": "primary"
+    },
+    {
+     "start": 471,
+     "end": 493,
+     "role": "condition"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

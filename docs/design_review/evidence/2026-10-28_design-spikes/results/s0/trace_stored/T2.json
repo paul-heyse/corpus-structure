@@ -1,0 +1,210 @@
+{
+ "envelope": {
+  "unit": "T2",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/trace_batches/T2.json"
+ },
+ "unit_ref": "T2",
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "scope_segment": "seg:7271b23dccb8434265edcd0e4daeadcb"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal",
+   "scope": "global",
+   "aliases": [
+    "normal distribution"
+   ]
+  },
+  {
+   "local_ref": "N.loc",
+   "type": "FamilyParameter",
+   "label": "location parameter",
+   "scope": "global",
+   "identity": {
+    "family": "N",
+    "canonical_name": "location"
+   }
+  },
+  {
+   "local_ref": "N.scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "identity": {
+    "family": "N",
+    "canonical_name": "scale"
+   }
+  },
+  {
+   "local_ref": "N.mean",
+   "type": "FamilyParameter",
+   "label": "mean",
+   "scope": "global",
+   "identity": {
+    "family": "N",
+    "canonical_name": "mean"
+   }
+  },
+  {
+   "local_ref": "N.sd",
+   "type": "FamilyParameter",
+   "label": "standard deviation",
+   "scope": "global",
+   "identity": {
+    "family": "N",
+    "canonical_name": "standard_deviation"
+   }
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "S1",
+   "kind": "remark",
+   "anchor": [
+    "seg:a3c88aa2d5cdbd70f8a179347967faa2"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "C1",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "scope": {
+     "extent": "section",
+     "segment": "seg:7271b23dccb8434265edcd0e4daeadcb"
+    },
+    "param_values": {
+     "location": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "free"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": "\\mu",
+       "set": "\\R"
+      },
+      {
+       "op": "member",
+       "x": "\\sigma",
+       "set": "(0, \\infty)"
+      }
+     ]
+    }
+   },
+   "statement": "S1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 11565,
+     "end": 11709,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C2",
+   "predicate": "has_parameter",
+   "subject": "N",
+   "object": {
+    "ref": "N.loc"
+   },
+   "qualifiers": {},
+   "statement": "S1",
+   "evidence": [
+    {
+     "start": 11625,
+     "end": 11643,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C3",
+   "predicate": "has_parameter",
+   "subject": "N",
+   "object": {
+    "ref": "N.scale"
+   },
+   "qualifiers": {},
+   "statement": "S1",
+   "evidence": [
+    {
+     "start": 11665,
+     "end": 11680,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C4",
+   "predicate": "identical_parameter",
+   "subject": "N.loc",
+   "object": {
+    "ref": "N.mean"
+   },
+   "qualifiers": {},
+   "statement": "S1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 11737,
+     "end": 11825,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C5",
+   "predicate": "identical_parameter",
+   "subject": "N.scale",
+   "object": {
+    "ref": "N.sd"
+   },
+   "qualifiers": {},
+   "statement": "S1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 11737,
+     "end": 11825,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

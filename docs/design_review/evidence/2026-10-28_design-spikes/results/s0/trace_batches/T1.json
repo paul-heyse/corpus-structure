@@ -1,0 +1,320 @@
+{
+ "unit_ref": "T1",
+ "entities": [
+  {
+   "local_ref": "Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "Z"
+  },
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X"
+  },
+  {
+   "local_ref": "LSF",
+   "type": "FamilyConstruction",
+   "label": "location-scale family",
+   "scope": "global",
+   "aliases": [
+    "location-scale family"
+   ]
+  },
+  {
+   "local_ref": "LSF.loc",
+   "type": "FamilyParameter",
+   "label": "location parameter",
+   "scope": "global",
+   "identity": {
+    "family": "LSF",
+    "canonical_name": "location"
+   }
+  },
+  {
+   "local_ref": "LSF.scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "identity": {
+    "family": "LSF",
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "S0",
+   "kind": "assumption",
+   "anchor": [
+    "s1",
+    "s2",
+    "s3"
+   ]
+  },
+  {
+   "local_ref": "S1",
+   "kind": "definition",
+   "anchor": [
+    "s4",
+    "s5",
+    "s6"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "C1",
+   "predicate": "takes_values_in",
+   "subject": "Z",
+   "object": {
+    "t": "set",
+    "latex": "\\R",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "scope": "section"
+   },
+   "statement": "S0",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "sentence": "s3",
+     "quote": "we fixed random variable \\( Z \\) defined on the probability space, with values in \\( \\R \\)",
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C2",
+   "predicate": "defined_as",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "a + b \\, Z",
+    "symbols": {
+     "Z": {
+      "bind": "variable",
+      "entity": "Z"
+     },
+     "a": {
+      "bind": "free"
+     },
+     "b": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": "a",
+       "set": "\\R"
+      },
+      {
+       "op": "member",
+       "x": "b",
+       "set": "(0, \\infty)"
+      }
+     ]
+    }
+   },
+   "statement": "S1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "sentence": "s4",
+     "quote": "let \\(X = a + b \\, Z\\)",
+     "role": "primary"
+    },
+    {
+     "sentence": "s4",
+     "quote": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\)",
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "C3",
+   "predicate": "defines",
+   "subject": "S1",
+   "object": {
+    "ref": "LSF"
+   },
+   "qualifiers": {},
+   "evidence": [
+    {
+     "sentence": "s5",
+     "quote": "is called the location-scale family associated with the given distribution",
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C4",
+   "predicate": "construction_formula",
+   "subject": "LSF",
+   "object": {
+    "t": "formula",
+    "latex": "X = a + b \\, Z",
+    "symbols": {
+     "X": {
+      "bind": "variable",
+      "entity": "X"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "Z"
+     },
+     "a": {
+      "bind": "free"
+     },
+     "b": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "base_variable": "Z",
+    "param_symbols": {
+     "location": "a",
+     "scale": "b"
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": "a",
+       "set": "\\R"
+      },
+      {
+       "op": "member",
+       "x": "b",
+       "set": "(0, \\infty)"
+      }
+     ]
+    }
+   },
+   "statement": "S1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "sentence": "s4",
+     "quote": "let \\(X = a + b \\, Z\\)",
+     "role": "primary"
+    },
+    {
+     "sentence": "s5",
+     "quote": "The two-parameter family of distributions associated with \\(X\\) is called the location-scale family",
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C5",
+   "predicate": "has_parameter",
+   "subject": "LSF",
+   "object": {
+    "ref": "LSF.loc"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "S1",
+   "evidence": [
+    {
+     "sentence": "s6",
+     "quote": "\\(a\\) is the location parameter",
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C6",
+   "predicate": "has_parameter",
+   "subject": "LSF",
+   "object": {
+    "ref": "LSF.scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "S1",
+   "evidence": [
+    {
+     "sentence": "s6",
+     "quote": "\\(b\\) the scale parameter",
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "C7",
+   "predicate": "parameter_domain",
+   "subject": "LSF.loc",
+   "object": {
+    "t": "set",
+    "latex": "\\R",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "S1",
+   "statement_role": "restriction",
+   "evidence": [
+    {
+     "sentence": "s6",
+     "quote": "\\(a\\) is the location parameter",
+     "role": "primary"
+    },
+    {
+     "sentence": "s4",
+     "quote": "\\(a \\in \\R\\)",
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "C8",
+   "predicate": "parameter_domain",
+   "subject": "LSF.scale",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "S1",
+   "statement_role": "restriction",
+   "evidence": [
+    {
+     "sentence": "s6",
+     "quote": "\\(b\\) the scale parameter",
+     "role": "primary"
+    },
+    {
+     "sentence": "s4",
+     "quote": "\\(b \\in (0, \\infty) \\)",
+     "role": "condition"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}
