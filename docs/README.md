@@ -11,7 +11,7 @@ contradiction or dependency requires it; the whole corpus is not the default rea
 | Task | Start here |
 |---|---|
 | Understand the system | [Architecture map](design/README.md) → relevant owner |
-| Resume work | [STATUS](../STATUS.md) → the active plan in [plans](plans/README.md) (queue, open findings, qualification boundary) |
+| Resume work | [STATUS](../STATUS.md) → the relevant active plan in [plans](plans/README.md) (queue, open findings, qualification boundary) |
 | Audit design-principle alignment | [Audit skill](../.claude/skills/design-principle-audit/SKILL.md) → [living diagnosis](design_review/audit/README.md) |
 | Audit test design and evidence | [Test audit skill](../.claude/skills/design-principle-audit-tests/SKILL.md) → [separate test account](design_review/test-audit/README.md) |
 | Audit review recommendations | [Recommendation audit](../.claude/skills/design-review-audit/SKILL.md) → design or functional review's companion and revised principal |
@@ -27,8 +27,8 @@ contradiction or dependency requires it; the whole corpus is not the default rea
 ## Authority
 
 The architectural collection owns accepted contracts and labeled targets. Current ADRs own
-rationale and open choices; the active plan owns execution and the current disposition of
-scheduled findings; retained reviews hold dated evidence for open findings; STATUS links the
+rationale and open choices; each active plan owns execution and the current disposition of its
+scheduled findings ([plans](plans/README.md)); retained reviews hold dated evidence for open findings; STATUS links the
 current checkpoint. Executable declarations own detailed implementation contracts.
 Functional opportunity reviews live in `docs/functional_reviews/`, with net-change companions
 under `audits/`. Selected opportunities retain their source references in the owning plan;

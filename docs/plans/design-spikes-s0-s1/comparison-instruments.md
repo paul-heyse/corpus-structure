@@ -210,18 +210,32 @@ D5 §5.3 fuses candidates by key and by SymPy-proven formula equivalence; the ga
 agreement and core-tier agreement shows how much fusion depends on the SymPy step, and supplies
 evidence for OPEN-D3-4.
 
-## 7. Contract for S2 and S3
+## 7. Contract for S2–S7
 
-S2 and S3 score against `results/s0/reference/` with the same code:
+S2–S7 score with the instrument revision **I-R2** (coordinator row 24), frozen and named in each
+record's `inputs`, against the **v1 reference** (`results/s0r2/reference_v1/`, with the held-out
+units' adjudicated batches in `results/s0r2/adjudication_v1/`); the v0 reference
+(`results/s0/reference/`) is reported beside it only where a brief asks (coordinator §3.5):
 
-- S2 (GLiNER2) produces mentions and relations, not full claims; its scoring uses the core tier
-  only, with entity alignment by span overlap and type, and reports which reference claims have a
-  matching relation.
+- S2 (GLiNER2) produces mentions and relations, not full claims. Its scoring needs a mention-level
+  alignment (span overlap and type against the reference's entity evidence) and reports which
+  reference claims have a matching relation at the core tier; that extension is part of I-R2 if
+  S2's plan needs it before S2 starts, otherwise its own revision package.
 - S3 (local LLM) produces model-facing batches; they pass through the validator, the locator and
-  all three tiers exactly as S0's passes do.
+  all three tiers exactly as S0's and S0-R2's passes do, with and without the contested items of
+  `results/s0r2/contested.tsv` (package C1).
+- S5 uses the value tiers (§4) and the key functions (§6) of I-R2; S6 uses the keys; S7 uses the
+  entity alignment for its linking cases.
 
-Changes S2 or S3 need are made in their own spike folders against a copy; this document owns the
-S0 version.
+A spike that needs an instrument change makes it as a new revision package in the coordinator,
+never by editing a frozen revision in place. Once the phase 0 build ports alignment and scoring
+into `evaluate/`, that module is their product home; the spikes keep scoring against their frozen
+revision (single home after a port).
+
+| Revision | Changes | Package |
+|---|---|---|
+| I-R1 | the math grammar, slot-type validation, value tiers on the grammar, the quote cascade | done (2026-10-28) |
+| I-R2 | ADR-0012 token-form keys in `mathgrammar` and `instruments/values` (sizing commands dropped by the shared list); reruns of S0-G and S0-R2 figures with superseding records | coordinator row 24 |
 
 ## 8. Packages
 

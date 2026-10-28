@@ -1,6 +1,6 @@
 # Design phase plan
 
-**Status:** Active; the sole execution plan. **Revised:** 2026-10-28.
+**Status:** Active; owns design findings, OPEN dispositions and the design queue, beside the [design-spikes series](design-spikes-s0-s1_2026-10-28.md) (spike execution) and the [phase 0 series](phase-0_2026-10-28.md) (the build) (operator decision, 2026-10-28). **Revised:** 2026-10-28.
 
 ## Purpose and boundary
 
@@ -40,12 +40,12 @@ or proposal id.
 | Q1 | S1 ingest and segmentation | Spikes | — | `S1-report.md` with `sample.json` |
 | Q2 | S0 reference annotations | Spikes (Opus, then Haiku and Sonnet subagents; S0-R2) | S1 or raw text | `S0-report.md`; references adjudicated |
 | Q3 | S4 LinkML compilation; S6 storage smoke | Spikes | — (S0 batches help S4) | Both reports |
-| Q4 | Library pass 1: D4 cards, D2 §7 compilers, D3 extension use | Library leverage | — | Every D4 card's realization reviewed; proposals filed |
+| Q4 | Library pass 1: D4 cards, D2 §7 compilers, D3 extension use | Library leverage | — | Every D4 card's realization reviewed; proposals filed. **Phase 0 share done 2026-10-28** (four research folders `docs/design_review/evidence/2026-10-28_library-*`; realizations in D2–D4, D8); later-tier cards with the S2/S3/S5/S7 plans |
 | Q5 | Fold-in 1: S1, S0, S4, S6, library pass 1 → D1, D2, D3, D4, trace | Design owner | Q1–Q4 | Findings rows for those OPEN items closed or re-scoped |
 | Q6 | S2 GLiNER2.5; S3 local LLM; S5 math and verification | Spikes | Q1, Q2 | Three reports |
 | Q7 | S7 embeddings and linking | Spikes | Q6 (S2) | Report |
-| Q8 | Fold-in 2 → D4–D7; ADRs for the binding decisions (owed, after S4 and S6: methods write observations and only consolidation writes knowledge; PostgreSQL is the single authority; domains are LinkML packs compiled to every consumer; the pipeline never calls Opus, which works a queue through MCP; escalation is routed by policies on measurements); DESIGN §1 and §2; completeness review by a fresh reviewer | Design owner (the in-repo agent holds primary design authority from 2026-10-28) | Q5–Q7 | Every OPEN row disposed; ADRs accepted |
-| Q9 | Replace this plan with the phase 0 build plan (D9 §5) | Design owner | Q8 | This file deleted; the new plan active |
+| Q8 | Fold-in 2 → D4–D7; DESIGN §1 and §2; completeness review by a fresh reviewer. **ADRs written 2026-10-28** (operator decision): ADR-0013 claim model, ADR-0014 observations and run materialization, ADR-0015 agent queue (accepted); ADR-0016 PostgreSQL (after S6), ADR-0017 LinkML packs (after S4), ADR-0018 policy routing (after S4) proposed; DESIGN §2 §B1–§B6 | Design owner (the in-repo agent holds primary design authority from 2026-10-28) | Q5–Q7 | Every OPEN row disposed; the proposed ADRs accepted on their evidence and the design/target review |
+| Q9 | Write the phase 0 build plan beside this one (operator decision 2026-10-28: plans are never deleted, three plans active) | Design owner | Step 0 decisions, the proposed ADRs | [Phase 0 series](phase-0_2026-10-28.md) and [phases 1–5 roadmap](roadmap-phases-1-5_2026-10-28.md) written 2026-10-28; this plan stays active for Q3–Q8 |
 
 Q1–Q4 run in parallel where their dependencies allow. Q5 may start per spike as reports land.
 
@@ -119,15 +119,15 @@ Library proposals join as `L-nn` rows.
 | OPEN-D1-2 | M13, D1 §4.2 | Section extent for variable scope | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): a `section` extent is needed (T1, T2, U12); D4 M13 binds section-wide and reopen phrases (ADR-0012 edit) (2026-10-28) | D1 §4.2 and D4 M13 updated |
 | OPEN-D1-3 | D2 §9 FamilyParameter | Role names or symbols for parameter identity | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md), guideline v1 §10.4: role word when the unit states one, else the symbol; rule reworded 2026-10-28 to the phrase that first names the parameter (review B2); parameterizations are OPEN-D2-18; confirmed at the next guideline-revision check | D2 §9, §10.4 updated |
 | OPEN-D1-4 | D1 §5.2 `scope` qualifier | Section extent for standing assumptions | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): `section` under nested h3/h4 synthesis; `document` never needed (2026-10-28) | D1 §5.2 updated |
-| OPEN-D2-1 | D2 §7.2 | `Schema.from_dict` keys | open · S4 | D2 §7.2 example corrected |
+| OPEN-D2-1 | D2 §7.2 | `Schema.from_dict` keys | open · phase 1 (GLiNER2 compiler moved there); S4-D produces S2's dicts | D2 §7.2 example corrected |
 | OPEN-D2-2 | M06, M07 | Raw or masked math | open · S2 | D4 M06 configuration fixed |
-| OPEN-D2-3 | D2 §7.4, D5 §8.2 | rule-engine syntax; functions or resolver attributes | open · S4 | D2 §7.4 and D5 §8.2 updated |
+| OPEN-D2-3 | D2 §7.4, D5 §8.2 | rule-engine syntax; functions or resolver attributes | answered 2026-10-28 ([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-04, L-05; D2 §7.4, D5 §8.2 updated) · S4-C confirms on the pack | S4 record `s4.rules` |
 | OPEN-D2-4 | D2 §9 | Property predicates or `has_property` | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): keep property predicates; standard-deviation property is OPEN-D2-17 (2026-10-28) | D2 §9 decided |
 | OPEN-D2-5 | D2 §9, §10.4 | Standard normal as family or parameterization | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): standardized families as families; guideline v1 §10.4 (2026-10-28) | D2 decided; direction logged if the operator chooses |
-| OPEN-D2-6 | D2 §3 | List annotations round-trip | open · S4 | D2 §3 notes the representation |
-| OPEN-D3-1 | D3 §5 | pg_textsearch syntax | open · S6 | D3 DDL corrected |
+| OPEN-D2-6 | D2 §3 | List annotations round-trip | answered 2026-10-28 (schema-rules note L-06; D2 §3 updated) · S4-A confirms on the pack | S4 record `s4.pack-lint` |
+| OPEN-D3-1 | D3 §5 | Lexical search: pg_textsearch could not be installed; built-in full-text search adopted (2026-10-28) | open · S6 runs it on the corpus | S6 record |
 | OPEN-D3-2 | D3 §5, M04 | Embedding model and dimension | open · S7 | `halfvec(n)` fixed in D3 |
-| OPEN-D3-3 | D3 §5 | Keep `kb.segment.text` | open · S6 | D3 decided |
+| OPEN-D3-3 | D3 §5 | Keep `kb.segment.text` | closed 2026-10-28 by mechanism: the search column reads same-row text (D3 §5) | D3 §5 decided |
 | OPEN-D3-4 | D3 §5, D5 §5.5 | Stored meaning key | open · S6; [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) evidence recorded in D3 (meaning keys more stable) | D3 and D5 decided |
 | OPEN-D4-1 | M10, M16, D6 §5 | Local model choice | open · S3 | D4 M10 and D6 §5 budgets updated |
 | OPEN-D4-2 | M10 | Reasoning on or off | open · S3 | D4 M10 configuration |
@@ -145,11 +145,11 @@ Library proposals join as `L-nn` rows.
 | OPEN-D7-2 | D7 §5.3 | Formula equivalence procedure | open · S5; [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) evidence recorded in D7 | D7 §5.3 fixed |
 | OPEN-D7-3 | D7 §4 | Split granularity | deferred · phase 1 | — |
 | OPEN-D7-4 | D7 §6 | PPI implementation | deferred · phase 2 | — |
-| OPEN-D8-1 | D8 §1 | MCP server and orchestrator processes | open · P0.7 | Decided in build |
+| OPEN-D8-1 | D8 §1 | MCP server and orchestrator processes | decided 2026-10-28: two processes, the database the only shared state (D6 §1; [store](../design_review/evidence/2026-10-28_library-store/README.md) and [interfaces](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) notes) · built in phase 0 orchestration and agent interface | phase 0 acceptance test |
 | OPEN-D8-2 | D8 §3 | Grouping units in packets | open · phase 0 | Decided on `core12` |
 | OPEN-D8-3 | D8 §2.2 | Verifiably separate blind passes | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md), [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md): fresh subagent per pass, one input and one output folder, transcript audit (D8 §7) | S0 report describes the method used |
 | OPEN-D9-1 | D9 §2 | Python 3.14 wheels | open · S2, S4, S5 for gliner2, z3, pgmpy, splink; the S0/S1 set resolved on 3.14.10 (D9 §2, 2026-10-28) | D9 §2 updated with resolutions |
-| OPEN-D9-2 | D9 §1 | MCP and orchestrator in one process | open · P0.7 | Same as OPEN-D8-1 |
+| OPEN-D9-2 | D9 §1 | MCP and orchestrator in one process | decided with OPEN-D8-1 | Same as OPEN-D8-1 |
 | GOLD-01 | D7 §3, D2 §7.5/§10, D4 §4.1, D8 §2.2 | Golden author and annotator inputs: Sonnet passes and adjudication from a generated annotator reference, guideline v1 and query-assembled context | decided · ADR-0011 (operator direction 2026-10-28, [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md)); design amended; production tools phase 0 (P0.7) | `write_golden` records the model; reference generator built |
 | OPEN-D2-7 … OPEN-D2-20 | D2 §11 | Guideline v1's open points and the S0 schema gaps, one row each in D2 §11: indexed-family arguments (schema, with D1 §7), which premises a claim depends on, section-level suppositions, restricting phrases, recalled definitions, explicit-claim threshold, local definitions, `asks_for`, numbers with units, a standard-deviation property, parameterizations, independence as a fact, concept-of and notation predicates, qualifier shape documentation | open · guideline v2 and schema v0.2, each checked by the D7 §2 rule-change procedure; `asks_for` (OPEN-D2-15) and numbers with units (OPEN-D2-16) first | D2 §9/§10 updated per row |
 | OPEN-D1-5 | D1 §6, §7 | References outside the batch (`extref`, S0 gap RG-1, rank 1) | open · decided early in phase 0, before consolidation is built; until then `unsupported` | D1 states the value and its resolution |
@@ -186,7 +186,7 @@ Library proposals join as `L-nn` rows.
 | Design churn while spikes run | Spikes never edit D-documents; fold-ins are batched (Q5, Q8) |
 | Python 3.14 wheel gaps | OPEN-D9-1, resolved per package |
 | Output volume overwhelming review during debugging | Slices, caps and budgets (D6 §8, D8 §3) |
-| Two active plans (this plan and the spike lane's S0/S1 plan) drift apart | Allowed by operator decision (2026-10-28); each owns its own rows; reconciled at Q5, when S0 and S1 results are folded in |
+| Three active plans drift apart | Each owns its own scope (AGENTS.md, operator decision 2026-10-28): design findings here, spike execution in the spike series, the build in the phase 0 series; cross-references cite package ids and evidence record ids, never copied status |
 | The S0/S1 plan was written against D0–D5 before the 2026-10-28 review fold-in, which changed the ClaimProposalBatch (D2 §7.3: model-facing quote form, `extent`, `alternatives`, local refs) and the S0 brief | The spike lane re-reads D2 §7.3 and the S0 brief before fixing its batch contract |
 
 ## Standing conventions

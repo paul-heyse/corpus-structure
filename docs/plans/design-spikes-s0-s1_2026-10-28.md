@@ -1,27 +1,35 @@
-# Design spikes: execution plan series (S0 and S1 first)
+# Design spikes: the spike plan series (S0–S7)
 
-**Status:** **Complete** (2026-10-28). Every package ran: S1, S0, the instrument and parsing
-revisits, the evidence records and the S0-R2 revisit, and X1 folded the results into the design
-(ADR-0009, ADR-0010, ADR-0011). Reports: [S1](../design_review/evidence/2026-10-28_design-spikes/S1-report.md), [S0](../design_review/evidence/2026-10-28_design-spikes/S0-report.md),
-[S0-R2](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md). It executed queue items Q1 (S1), Q2 (S0) and the S0/S1 part of Q5 of
-[design-phase_2026-10-28](design-phase_2026-10-28.md), which remains active. The file's further
-disposition is pending the operator's revised process. **Revised:** 2026-10-28.
+**Status:** **Active** (revised 2026-10-28): S0 and S1, their revisits and X1 are complete; S2–S7
+are planned (rows 23 onward). Reports so far: [S1](../design_review/evidence/2026-10-28_design-spikes/S1-report.md), [S0](../design_review/evidence/2026-10-28_design-spikes/S0-report.md),
+[S0-R2](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md). This series owns spike execution and its evidence; it executes
+design-phase queue items Q1, Q2, Q3 (S4, S6), Q6 (S2, S3, S5) and Q7 (S7) of
+[design-phase_2026-10-28](design-phase_2026-10-28.md), which owns design findings and OPEN
+dispositions. The production build is the [phase 0 series](phase-0_2026-10-28.md); spike packages
+name the phase 0 package each unblocks, and phase 0 cites spike evidence record ids, never this
+plan's status cells. **Revised:** 2026-10-28.
 
 This coordinator owns the combined scope, shared decisions, cross-document contracts, the
 execution queue, finding disposition and completion conditions for the design spikes. It
-starts with S0 and S1 and is meant to grow (§11): later spikes and revisits of earlier ones join
-the same series. Three supporting documents develop the current work:
+started with S0 and S1 and grows (§11): later spikes and revisits of earlier ones join the same
+series. The supporting documents:
 
 | Document | Owns |
 |---|---|
 | [S1 ingest and segmentation](design-spikes-s0-s1/S1-ingest-segmentation.md) | HTML library selection, the throwaway M01/M03 adapter, its variants and measurements, `sample.json` |
 | [S0 reference annotations](design-spikes-s0-s1/S0-reference-annotations.md) | Blind annotation protocol, adjudication into the S0 reference, determinacy and gap analyses, OPEN answers |
 | [Comparison instruments](design-spikes-s0-s1/comparison-instruments.md) | Batch contract and validators, quote locator, aligner, agreement tiers and keys; reused by S2/S3 |
+| [S4 LinkML compilation](design-spikes-s0-s1/S4-linkml-compilation.md) | Schema loading and every D2 §7 compiler on schema v0; rules and the `guideline:` group; the generated annotator reference |
+| [S6 Storage smoke](design-spikes-s0-s1/S6-storage-smoke.md) | D3 DDL on PostgreSQL 18; v1 trace rows; queries, full-text search and vectors; the revised statement key |
+| [S5 Math parsing and verification](design-spikes-s0-s1/S5-math-verification.md) | Grammar coverage and the token-key property; scoping beyond the core units; equivalence tiers; z3 and verifiers |
+| [S2 GLiNER2](design-spikes-s0-s1/S2-gliner2.md) | Encoder extraction on math-dense text: schemas, math variants, long units, candidate scoring |
+| [S3 Local LLM](design-spikes-s0-s1/S3-local-llm.md) | Local model and settings under structured output from inputs v1; judge; output caps |
+| [S7 Embeddings and linking](design-spikes-s0-s1/S7-embeddings-linking.md) | Embedding model and dimension; concept linking; cross-unit parameter names; example retrieval |
 
 The briefs remain the statement of each spike's question:
 [S1 brief](../design_review/evidence/2026-10-28_design-spikes/S1-ingest-and-segmentation.md),
 [S0 brief](../design_review/evidence/2026-10-28_design-spikes/S0-reference-annotations.md),
-[spike README](../design_review/evidence/2026-10-28_design-spikes/README.md). This plan extends
+the S2–S7 briefs in the same folder, [spike README](../design_review/evidence/2026-10-28_design-spikes/README.md). This plan extends
 their scope; where it differs from a brief, this plan governs.
 
 ## 1. Why these spikes, and what they must decide
@@ -63,6 +71,28 @@ spike README's one-session time-box (ground rule 7) does not apply to S0 and S1.
 | OPEN-D7-2 | Formula equivalence: simplification versus numeric sampling | Evidence only (which tier decided each S0 comparison); S5 decides |
 | OPEN-D9-1 | Python 3.14 wheels ([D9](../design/D9-repository-and-phase0.md)) | Evidence only: the spike environment's resolution (§3.2) |
 
+### Design items S2–S7 settle
+
+| Item | Question (owner) | Settled by |
+|---|---|---|
+| OPEN-D2-1; OPEN-D2-3, OPEN-D2-6 (confirmation) | `Schema.from_dict` keys (S2's input); D2-3 and D2-6 answered by the schema-rules note on 2026-10-28, confirmed on the pack files (D2 §11) | S4 |
+| ADR-0017, ADR-0018 | LinkML compiled to every consumer; policy-routed escalation: accept, amend or supersede | S4 evidence, then the design/target review |
+| OPEN-D3-1, OPEN-D3-3, OPEN-D3-4; STMT-01 | Full-text search on the corpus (built-in; D3 §5); keep `kb.segment.text`; stored meaning key; S0 key figures under the revised statement key (D3 §13, D1 §10.1) | S6 |
+| ADR-0016 | PostgreSQL as single authority: accept or amend | S6 evidence, then the review |
+| KEYS-01; OPEN-D4-3; OPEN-D7-2 | Token keys agree with the tree printer on every parsed value; LaTeX backend and macro map; formula equivalence tiers | S5 |
+| OPEN-D4-5, OPEN-D1-2 (confirmation) | M13 scoping beyond the core units | S5 |
+| OPEN-D2-2, OPEN-D5-4 | Raw, masked or Unicode math for encoders; mention overlap near math (D2 §11, D5 §13) | S2 |
+| D4 candidate method | spaCy candidates scored by GLiNER2 `score_explicit_spans` | S2 variant |
+| OPEN-D4-1, OPEN-D4-2, OPEN-D4-4 (M10) | Local model; reasoning on or off; unit of LLM work for the local tier | S3 |
+| Output caps | `max_tokens` for M10 and M24 from measured batch sizes (D4 §4.1, D8 §3) | S3 |
+| OPEN-D3-2 | Embedding model and dimension, within HNSW `halfvec` limits | S7 |
+| PARAM-01, RG-7 | Canonical parameter names across units, as linking cases | S7 |
+| OPEN-D6-2 | GPU mode default (co-residency) | joint package G1 (S2, S3, S7) |
+| OPEN-D9-1 | Python 3.14 wheels for gliner2 and z3 (pgmpy and splink in phase 2) | E4 |
+
+The time-box of the spike README (ground rule 7) does not apply to S2–S7 either: each runs to its
+question's answer at the rigour S0 and S1 had (operator direction for S0/S1, carried forward).
+
 S1 also produces the M01 and M03 rule specifications (D4 §5), including the source profile,
 and S0 exercises the evaluation alignment and golden protocol D7 §3 and §5 specify, on real
 annotations, before any code depends on them.
@@ -81,7 +111,9 @@ annotations, before any code depends on them.
   ([S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md)). **X1 done** (2026-10-28,
   operator direction after reviewing the reports): ADR-0011 (Sonnet golden author, annotator inputs v1);
   D2 §10 is guideline v1, D2 §7.3–§7.5, D4 §4.1–§4.2, D7, D8, D0 and the trace amended; S1's HTML rules in D1 §3
-  and D4 M01–M03; dispositions in the design-phase findings table. Nothing of this plan remains open.
+  and D4 M01–M03; dispositions in the design-phase findings table. The S0/S1 scope is complete.
+- **Planned (2026-10-28):** S2–S7 and their shared prerequisites (rows 23–34), developed in the
+  S2–S7 supporting documents. Nothing of them has executed.
 - **Pre-execution facts established while planning (2026-10-28)**, recorded so execution does
   not rediscover them:
   - A read-only inventory of all 78 first-pass pages (stdlib parser; summarized in
@@ -172,6 +204,50 @@ and the catalog are generated from; report figures are rendered from the catalog
 during execution; design consequences go in each report's "Design implications" section and
 reach the design through the closing package (§7, package X1).
 
+### 3.5 Shared decisions for S2–S7
+
+- **The reference.** The v1 reference (`results/s0r2/reference_v1/`, stored form; model-facing
+  `reference_model_v1/` with `decisions_v1.json`) is primary; the v0 reference
+  (`results/s0/reference/`) is reported beside it where a brief asks. The adjudicator output
+  `results/s0r2/adjudication_v1/` covers the held-out units H1–H6 and is their reference.
+- **Contested items** are one shared artifact, `results/s0r2/contested.tsv`, built once by package
+  C1: the union of the S0 root adjudication's guideline-gap rows and the S0-R2 adjudicator's
+  `guideline_gap` decisions, each mapped onto v1-reference local refs (or marked unmappable with the
+  reason). S2 and S3 score with and without them.
+- **Renditions.** Anything scored against a reference uses the libxml2 renditions the references
+  are stored on (`sample.json`, `results/s0r2/sample.json`); html5lib renditions are
+  content-identical on those pages (record `s1.rendition-identity`). Corpus-wide runs record their
+  parser. A page outside the stored seven is regenerated by `code/s1_adapter.adapt` with the S1
+  configuration and its parser recorded, into the consuming spike's results folder (contract R1).
+- **Instruments.** S2–S7 score with the instrument revision **I-R2** (row 24), frozen and named in
+  each record's `inputs`. A spike that needs an instrument change makes it as a new revision
+  package here, never by editing in place. `S0_SAMPLE` and `S0_COMPARE` select the sample and the
+  output folder; context-premise items are scored once (D7 §5.1).
+- **Single home after a port.** Once the phase 0 build ports a spike module (mathgrammar, the quote
+  cascade, the instruments), the product module is its single home; spikes keep scoring against
+  the frozen I-R2 revision. S5-A runs before phase 0 ports the grammar.
+- **Inputs v1 are frozen** for S3, so its passes stay comparable with SV and HV; S4 regenerates the
+  reference and diffs it against `results/s0r2/inputs/packet_v1/reference.md`, without replacing it.
+- **Environments.** One environment per need, each with its `results/environment*.json` from
+  `code/e0_environment.py`:
+
+  | Environment | For | Contents |
+  |---|---|---|
+  | `build/spike-venv` (CPU) | S4, S5, S6, the instruments | the S0/S1 set plus `rule-engine==5.1.0`, an explicit `jsonschema` pin, `z3-solver==5.3.2.0`, `psycopg[binary]==3.3.6`, `pgvector==0.5.1` |
+  | `build/spike-gpu-venv` | S2, S7 | CUDA torch, `gliner2[local]==2.1.0`, transformers |
+  | `build/spike-vllm-venv` | S3, S4's structured-output check, S7 pooling if chosen | a copy of `services/vllm-native/` from corpus-intelligence (vLLM 0.31, torch 2.13) with its own lock |
+  | `build/spike-antlr-venv` | S5's ANTLR comparison only | SymPy 1.14 and `antlr4-python3-runtime` 4.11, without linkml (which pins antlr4 below 4.11) |
+
+- **GPU.** One RTX 5090 (32 GB). Joint package G1 measures co-residency for OPEN-D6-2 across S3's
+  server, S2's GLiNER2 and S7's embedder; individual spikes run exclusively until then.
+- **Labelling independence.** Annotation, adjudication and hand-labelling (S2 error grouping, S5's
+  M13 judgments, S7's unmatched mentions and retrieval relevance) are done by fresh Sonnet
+  subagents with instructed blindness and transcript audit, not by the root, which wrote the
+  reference.
+- **Results and records.** Each spike writes `results/s<n>/`, finalizes records whose `consumed_by`
+  names the phase 0 or phase 1 package and OPEN item each result feeds, adds its views to
+  `catalog.sql`, and renders its report from a `.j2` template.
+
 ## 4. Contracts between the documents
 
 These are the interfaces the supporting documents rely on. Each producer owns its format; a
@@ -187,6 +263,13 @@ change is announced to its consumers here.
 | Batch model and validators | Instruments | S0, later S2/S3 | `ClaimProposalBatch` in model-facing (quote) and stored (offset) forms |
 | Quote locator, aligner, agreement | Instruments | S0, later S2/S3 | See [comparison instruments](design-spikes-s0-s1/comparison-instruments.md) |
 | `results/s0/reference/<unit>.json` | S0-D | S2, S3, D7 later | Adjudicated batches in stored form, with decision reasons and the rendition key |
+| `results/s0r2/reference_v1/`, `reference_model_v1/` | S0-R2 | S2, S3, S5, S6, S7; phase 0 fixtures | The v1 reference (primary from S2 on) |
+| `results/s0r2/sample.json`, `inputs/packet_v1/` | S0-R2 | S3, S4 | 21 units with query-assembled context; annotator inputs v1 (frozen) |
+| `results/s0r2/contested.tsv` | C1 | S2, S3 | Contested items mapped onto v1 local refs |
+| Instrument revision I-R2 | I-R2 | S2, S3, S5, S6, S7 | Token-form keys (ADR-0012) and sizing commands; the frozen scoring revision |
+| `results/s4/compiled/` | S4 | S2, S3, S6 | GLiNER2 dicts, both JSON Schema forms, rules, the generated reference, schema-table rows |
+| `results/s2/mentions/` (whole pages) | S2 | S7 | GLiNER2 mentions over the four spike pages, with offsets |
+| `results/s7/segments/` (78 pages, R1) | S7 | S5 (optional) | Regenerated segments with the parser recorded |
 
 **Rendition drift.** S1 decides the rendering conventions and section synthesis on the four
 spike pages before the S0 packets are built (S1-A). If S1 later changes a convention that
@@ -222,8 +305,26 @@ row. "Needs" names the input a package consumes, not merely an earlier row.
 | 19 | S1-R1 Profile-driven math delimiting (ADR-0009) | S1 §3.1 | S1-D | delimiter pattern generated from the profile; S1-D checks rerun unchanged |
 | 20 | S0-R1 M13 revisit: binders as spaCy patterns, symbols from the grammar | S0 §6 | I-R1 symbol API; S0-D reference | `m13_probe.*.tsv` with the amended rules |
 | 21 | S0-G Rerun of every S0 comparison on the revised instruments; passes H and D7 scored | S0 §4 | I-R1 | `compare/`, revised figures for S0-F |
-
 | 22 | E1–E3 Evidence records, catalog and generated reports (ADR-0010) | this plan §3.4 | — | `tools/evidence/`, `records/`, generated indexes, `build/evidence.duckdb` |
+| 22a | S1-R2 html5lib rerun and rendition identity (executed 2026-10-28) | S1 | S1-D | `results/s1_html5lib/`; records `s1.corpus-html5lib`, `s1.rendition-identity` |
+| 22b | S0-R2 Annotator inputs v1 revisit (executed 2026-10-28) | S0, [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md) | S0-G | `results/s0r2/`; records `s0r2.*` |
+| 23 | E4 Environments for S2–S7 | §3.5 | — | the four environments with their records; OPEN-D9-1 evidence for gliner2 and z3 |
+| 24 | I-R2 Instruments revision: token-form keys (ADR-0012), sizing commands, frozen revision | Instruments | E4 (CPU) | revised `mathgrammar` and `instruments/values`; S0-G and S0-R2 figures rerun, superseding records (nothing removed) |
+| 25 | E5 `not_run` outcome in evidence records | §3.5 | — | `tools/evidence` model and test |
+| 26 | C1 Contested items mapped onto the v1 reference | §3.5 | — | `results/s0r2/contested.tsv` |
+| 27 | S4-A…S4-E | S4 | E4 | see S4; unblocks phase 0 schema-and-rules |
+| 28 | S6-A…S6-G (S6-D loads S4-B's compiled rows) | S6 | E4, I-R2 for S6-F, S4-B for S6-D, the operator's disk space | see S6; unblocks phase 0 foundations (store) |
+| 29 | S5-A…S5-E | S5 | E4, I-R2 | see S5; S5-A unblocks phase 0 ingest-and-math (grammar port) |
+| 30 | S2-A…S2-D | S2 | E4 (GPU), I-R2, C1, S4-B optional | see S2 |
+| 31 | S3-A…S3-F | S3 | E4 (vLLM), I-R2, C1, S4-B optional | see S3 |
+| 32 | S7-A…S7-D | S7 | E4 (GPU), S2's whole-page mentions, I-R2 | see S7 |
+| 33 | G1 GPU co-residency (OPEN-D6-2) | §3.5 | S2-B, S3-A, S7-A | co-residency measurement and recommendation |
+| 34 | X2 Closing package for S2–S7 | §7 | each report reviewed by the operator | design updates, dispositions, STATUS |
+
+Rows 23 onward (2026-10-28) are ordered by what phase 0 needs first: S4 and S6 are on its critical
+path (schema compilers and migration 0001), S5-A precedes its grammar port; S2, S3 and S7 feed
+phase 1. Rows 23–26 are shared prerequisites. Each spike's packages are developed in its supporting
+document.
 
 Row 22 (2026-10-28, operator direction) precedes S0-G: S0-G's results are the first finalized
 through records, and the S0 report's figures are rendered from the catalog.
@@ -256,6 +357,15 @@ The spikes are complete when:
 
 The closing package X1 is separate: it follows the operator's review of the reports.
 
+For S2–S7 (rows 23 onward) the spikes are complete when: each report exists in the template's
+form with its figures rendered from the catalog and every outcome labelled with its command
+(`passed`, `failed`, `blocked`, `not_run`); every data file its brief and supporting document
+names exists or is reported `blocked`/`not_run` with the reason; every item in §1's S2–S7 table
+has an answer citing its evidence record or is left open with the evidence still needed; every
+record's `consumed_by` names the phase 0 or phase 1 package and OPEN item it feeds; and the
+proposed ADRs ADR-0016, ADR-0017 and ADR-0018 have the evidence their acceptance waits for. The
+closing package X2 (row 34) folds the results in after the operator's review, as X1 did.
+
 ## 7. Closing package X1 (gated on the operator's review)
 
 Operator decision (2026-10-28): the plan includes folding results into the design, after the
@@ -277,9 +387,11 @@ Implications the operator rejects stay in the report with the reason and do not 
 
 ## 8. Findings disposition
 
-The design-phase plan holds the design owner's rows for every `OPEN-Dn-k` item; the rows here
-mirror its dispositions for the items this plan executes or informs, so the spike lane has one
-place to record evidence. Where the two differ, the design-phase plan's disposition governs. Rows HTML-01…HTML-07 come from the pre-execution HTML
+The design-phase plan holds the rows for every `OPEN-Dn-k` item and governs their disposition.
+The rows below for S0 and S1 mirrored it while those spikes ran. From S2 on this table records
+only spike-execution findings (instrument, environment and procedure defects) and the evidence
+each spike adds; OPEN dispositions are recorded in the design-phase table alone, linked from the
+spike's report and records. Rows HTML-01…HTML-07 come from the pre-execution HTML
 inventory (2026-10-28) and are scheduled into S1.
 
 | Item | Component | Consequence and intended correction | Disposition · dependency | Closure check |
@@ -292,8 +404,8 @@ inventory (2026-10-28) and are scheduled into S1.
 | OPEN-D2-5 | D2 §9, §10.4 | Representation of standardized families | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | A/B treatment of "standard normal"/"standard gamma"; adjudication reason |
 | OPEN-D4-4 | D4 §4.1, M10 | Unit of LLM work | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Size distributions in tokens; packet-pass loss |
 | OPEN-D4-5 | D4 M13 | Rule scoping versus annotator scopes | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | `m13_probe.tsv` agreement by binding kind |
-| OPEN-D5-1 | D5 §5.4 | Slots for non-functional formula predicates | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Reference cases with two formula claims of one predicate in one statement |
-| OPEN-D3-4 | D3, D5 §5.5 | Whether a stored meaning key is needed | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Key and meaning-key agreement figures |
+| OPEN-D5-1 | D5 §5.4 | Slots for non-functional formula predicates | not exercised by S0 (no unit states one formula predicate twice for a subject); open · phase 1 (design-phase plan governs) | Reference cases with two formula claims of one predicate in one statement |
+| OPEN-D3-4 | D3, D5 §5.5 | Whether a stored meaning key is needed | S0 evidence recorded (meaning keys more stable); open · S6 decides (design-phase plan governs) | Key and meaning-key agreement figures |
 | OPEN-D8-3 | D8 §2.2 | Blind passes must be verifiably separate | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | S0 report describes the setup, the opened-file records and any rerun |
 | OPEN-D7-2 | D7 §5.3 | Formula equivalence procedure | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Tier counts in the S0 report |
 | OPEN-D9-1 | D9 §2 | Python 3.14 wheels | evidence · E0 | Resolution recorded in both reports (all spike pins resolved on 3.14, 2026-10-28) |
@@ -309,7 +421,7 @@ inventory (2026-10-28) and are scheduled into S1.
 | OPEN-D2-2 | D2 §7.2, M06/M07 | Raw or masked math for GLiNER2 | deferred · S2 (S1 supplies math token cost) | — |
 | OPEN-D2-3 | D2 §7.4 | rule-engine syntax | deferred · S4 | — |
 | OPEN-D2-6 | D2 §3 | List annotation round-trip in `SchemaView` | deferred · S4 (S0's schema load is a byproduct observation) | — |
-| OPEN-D3-1 | D3 | pg_textsearch syntax | deferred · S6 | — |
+| OPEN-D3-1 | D3 | lexical search (built-in full-text search since 2026-10-28) | deferred · S6 | — |
 | OPEN-D3-2 | D3, M04 | Embedding model and dimension | deferred · S7 | — |
 | OPEN-D3-3 | D3 | Storing `kb.segment.text` | deferred · S6 | — |
 | OPEN-D4-1 | D4 M10 | Local model choice | deferred · S3 | — |
@@ -341,6 +453,10 @@ inventory (2026-10-28) and are scheduled into S1.
 | Rendering decisions change after S0 starts | Batches point at old offsets | Rendition keys, re-anchoring by quote (§4) |
 | libxml2 or model revisions differ between machines | Outputs differ silently | Versions recorded in every report |
 | The corpus is gitignored | Results could leak large source text | Results hold offsets and keys; quotes at most a sentence |
+| Phase 0 ports a module while a spike still changes it | Two live copies diverge | §3.5 single home after a port; spikes score against the frozen I-R2 revision |
+| I-R2 changes key and tier-1 figures already reported | Earlier numbers silently disagree with later ones | I-R2 reruns S0-G and S0-R2 and supersedes their records; reports cite the revision |
+| GPU work collides on one card | Out-of-memory or skewed timings | Exclusive runs until G1 measures co-residency |
+| The reference was written by the same design process (and model family) | Agreement can reflect shared habits | v1 reference plus the H1–H6 held-out units; pass against pass reported beside pass against reference (D7 §5.4) |
 
 ## 10. Standing conventions
 

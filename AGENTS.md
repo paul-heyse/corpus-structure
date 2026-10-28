@@ -21,16 +21,20 @@ applicable instructions once; they do not repeat the root's full orientation. Pr
 permission, concurrent-work and testing constraints, and follow discovered dependencies.
 
 1. Read `STATUS.md` when resuming work or establishing the current execution baseline.
-2. For product work, read the active plan in `docs/plans/` (its current state, execution queue
-   and findings table). There is at most one active plan.
+2. For product work, read the relevant active plan in `docs/plans/` (its current state,
+   execution queue and findings table). Three plans are active, each owning its own scope
+   (operator decision, 2026-10-28): the **design-phase plan** owns design findings and the
+   disposition of OPEN items; the **design-spikes series** owns spike execution and its evidence;
+   the **phase 0 series** owns the production build. Cross-references between them cite package
+   ids and evidence record ids, never copied status.
 3. For design questions, follow **owner → decision → open work**:
    - start at the architecture map `docs/design/README.md` and read the owning section in
      `docs/design/DESIGN.md` (scope §1, binding decisions §2) or `docs/design/sections/`, plus
      adjacent consumers; labels there distinguish implemented, accepted target and proposed;
    - the section's `> Decision:` line names the ADR that holds the reason and rejected
      alternatives (`docs/adr/README.md` lists accepted records and open proposals);
-   - known defects and deferred choices affecting the section are rows in the active plan's
-     findings table, linked from the owner.
+   - known defects and deferred choices affecting the section are rows in the design-phase
+     plan's findings table, linked from the owner.
 4. Retired plans, reviews, evidence and ADRs are not reading context; recover one from Git only
    when a current owner is insufficient (`docs/README.md`, Historical recovery).
 
@@ -212,8 +216,9 @@ process scripts are stdlib-only and run without a project environment.
   [plan-improvement review](docs/plan_improvement_reviews/README.md); plan revision from it is
   separately instructed. No broad audit prerequisite or automatic adoption follows; formal
   review cadence remains unchanged.
-- **Findings** retain stable audit and source-review IDs. The active plan's findings table owns current
-  disposition for scheduled work; unscheduled deferrals stay in the source review with a trigger
+- **Findings** retain stable audit and source-review IDs. The owning active plan's findings table
+  owns current disposition for scheduled work (design findings: the design-phase plan; spike and
+  build findings: their own series); unscheduled deferrals stay in the source review with a trigger
   (binding §4). Record the responsible component and closure evidence; link from follow-up
   reviews and STATUS. A decision being accepted does not establish implementation or verified
   closure.
