@@ -4,7 +4,14 @@
 (`$schema` set), no titles, validation mode, output fixed by the models alone. `SCHEMAS` names
 every file of this directory; `write()` regenerates them (`python -m corpus_structure.core.schemas`)
 and a test fails when a committed file differs. Production validates with Pydantic; these files are
-for documentation, external consumers and jsonschema as an independent test oracle.
+for documentation and external consumers.
+
+jsonschema's agreement with Pydantic over these files is derivation conformance, not an
+independent oracle: both come from one model, so a shared mistake passes both (coordinator
+decision 24; R12; F02). The independent controls for these shapes are the external S0 and S0-R2
+batches (`fixtures/s0`, S1's acceptance), the hand-written expectations and relational key oracles
+of the core tests (and F2e's hand-authored conformance vectors), the negative store tests, and tex
+parity with the spike's output.
 """
 
 from __future__ import annotations

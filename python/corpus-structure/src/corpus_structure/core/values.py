@@ -9,9 +9,14 @@ predicates) are plain strings; the compiled per-predicate models type them (S1).
 
 The authored (model-facing) and stored forms differ only where text is anchored: a `phrase` value
 and the `phrase`/`unsupported` condition leaves carry `text` and an optional `sentence` when
-authored, and `text`, `start`, `end` and an optional `coarse` when stored. `_build_form` makes the
-value union and the named recursive `Condition` (one `$defs` entry, discriminated on `op`) for a
-form, so the two forms share every other model.
+authored, and `text`, `start`, `end` and an optional `coarse` when stored. Each form declares its
+value union and its named recursive `Condition` (one `$defs` entry, discriminated on `op`) as a
+static type alias over static classes, so operations pattern-match on the typed unions with
+`typing.assert_never` (R03); the two forms share every other model.
+
+Citation positions are the fields whose declared type is `SentenceId`: its annotation carries the
+`CITATION` marker, and `batch.rewrite_citations` finds them by that annotation, never by a JSON key
+name.
 
 An entity is referenced in exactly one shape, `EntityRef` `{"ref": …}` (a local ref in a batch,
 a key once stored): as a claim object, a `pred` argument, an entity-ranged qualifier. It is not a
@@ -21,7 +26,7 @@ value. Formula and set positions take value objects only.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Any, Literal, Self, TypeAliasType
+from typing import Annotated, Any, Final, Literal, Self
 
 from pydantic import (
     MISSING,
@@ -29,7 +34,6 @@ from pydantic import (
     ConfigDict,
     Field,
     TypeAdapter,
-    create_model,
     field_validator,
     model_validator,
 )
@@ -43,13 +47,22 @@ ISO_8601 = (
 )
 _DECIMAL = re.compile(CANONICAL_DECIMAL)
 
-Form = Literal["authored", "stored"]
 BindKind = Literal[
     "variable", "param_of", "param_expr_of", "family_param", "free", "constant", "unresolved"
 ]
 ParseOutcome = Literal["ok", "partial", "ambiguous", "failed"]
 Relation = Literal["<", "<=", "=", "!=", ">", ">="]
-SentenceId = Annotated[str, Field(pattern=SENTENCE_ID)]
+
+
+class _Citation:
+    """The marker on `SentenceId`'s annotation: a field of this type cites a sentence."""
+
+    def __repr__(self) -> str:
+        return "CITATION"
+
+
+CITATION: Final = _Citation()
+SentenceId = Annotated[str, Field(pattern=SENTENCE_ID), CITATION]
 Offset = Annotated[int, Field(ge=0)]
 
 
@@ -260,68 +273,81 @@ class StoredUnsupportedNode(StoredPhraseNode):
     reason: str
 
 
-# --- The form factory --------------------------------------------------------------------------
+# --- The two forms' unions --------------------------------------------------------------------
+#
+# Declared statically, one class per recursive node and form, so operations pattern-match on them
+# with `typing.assert_never` checking exhaustiveness (R03). The recursive alias of each form is one
+# named `$defs` entry, discriminated on `op`.
 
 
-class _FormTypes:
-    """The value union, the recursive condition alias and their recursive node models of a form."""
-
-    def __init__(self, form: Form) -> None:
-        prefix = "Authored" if form == "authored" else "Stored"
-        phrase = AuthoredPhrase if form == "authored" else StoredPhrase
-        leaves: tuple[type[CoreModel], ...] = (
-            (AuthoredPhraseNode, AuthoredUnsupportedNode)
-            if form == "authored"
-            else (StoredPhraseNode, StoredUnsupportedNode)
-        )
-        self.form = form
-        self.phrase = phrase
-        self.value: Any = TypeAliasType(
-            f"{prefix}Value",
-            Annotated[_union((*NEUTRAL_VALUES, phrase)), Field(discriminator="t")],  # type: ignore[invalid-annotation]
-        )
-        name = f"{prefix}Condition"
-        ref = f"_{prefix}ConditionRef"  # a forward reference, bound by model_rebuild below
-        many: Any = tuple[ref, ...]  # type: ignore[valid-type]
-        fields: dict[str, dict[str, Any]] = {
-            "and": {"op": (Literal["and"], ...), "args": (many, ...)},
-            "or": {"op": (Literal["or"], ...), "args": (many, ...)},
-            "not": {"op": (Literal["not"], ...), "arg": (ref, ...)},
-            "forall": {
-                "op": (Literal["forall"], ...), "var": (str, ...), "set": (SetValue, ...),
-                "body": (ref, ...),
-            },
-        }  # fmt: skip
-        nodes: dict[str, type[CoreModel]] = {
-            op: create_model(f"{prefix}{op.capitalize()}", __base__=CoreModel, **spec)
-            for op, spec in fields.items()
-        }
-        members = (*nodes.values(), ClaimNode, MemberNode, CmpNode, PredNode, *leaves)
-        self.condition: Any = TypeAliasType(
-            name,
-            Annotated[_union(members), Field(discriminator="op")],  # type: ignore[invalid-annotation]
-        )
-        for model in nodes.values():
-            model.__module__ = __name__
-            model.model_rebuild(_types_namespace={ref: self.condition})
-        self.nodes = nodes
+class AuthoredAnd(CoreModel):
+    op: Literal["and"]
+    args: tuple[AuthoredCondition, ...]
 
 
-def _union(types: tuple[Any, ...]) -> Any:
-    out = types[0]
-    for item in types[1:]:
-        out = out | item
-    return out
+class AuthoredOr(CoreModel):
+    op: Literal["or"]
+    args: tuple[AuthoredCondition, ...]
 
 
-AUTHORED = _FormTypes("authored")
-STORED = _FormTypes("stored")
-FORMS: dict[str, _FormTypes] = {"authored": AUTHORED, "stored": STORED}
+class AuthoredNot(CoreModel):
+    op: Literal["not"]
+    arg: AuthoredCondition
 
-AuthoredValue = AUTHORED.value
-StoredValue = STORED.value
-AuthoredCondition = AUTHORED.condition
-StoredCondition = STORED.condition
+
+class AuthoredForall(CoreModel):
+    op: Literal["forall"]
+    var: str
+    set: SetValue
+    body: AuthoredCondition
+
+
+class StoredAnd(CoreModel):
+    op: Literal["and"]
+    args: tuple[StoredCondition, ...]
+
+
+class StoredOr(CoreModel):
+    op: Literal["or"]
+    args: tuple[StoredCondition, ...]
+
+
+class StoredNot(CoreModel):
+    op: Literal["not"]
+    arg: StoredCondition
+
+
+class StoredForall(CoreModel):
+    op: Literal["forall"]
+    var: str
+    set: SetValue
+    body: StoredCondition
+
+
+type AuthoredValue = Annotated[
+    TextValue | NumberValue | BoolValue | EnumValue | Formula | SetValue | DateValue
+    | IntervalValue | AuthoredPhrase,
+    Field(discriminator="t"),
+]  # fmt: skip
+type StoredValue = Annotated[
+    TextValue | NumberValue | BoolValue | EnumValue | Formula | SetValue | DateValue
+    | IntervalValue | StoredPhrase,
+    Field(discriminator="t"),
+]  # fmt: skip
+type AuthoredCondition = Annotated[
+    AuthoredAnd | AuthoredOr | AuthoredNot | AuthoredForall | ClaimNode | MemberNode | CmpNode
+    | PredNode | AuthoredPhraseNode | AuthoredUnsupportedNode,
+    Field(discriminator="op"),
+]  # fmt: skip
+type StoredCondition = Annotated[
+    StoredAnd | StoredOr | StoredNot | StoredForall | ClaimNode | MemberNode | CmpNode | PredNode
+    | StoredPhraseNode | StoredUnsupportedNode,
+    Field(discriminator="op"),
+]  # fmt: skip
+
+for _node in (AuthoredAnd, AuthoredOr, AuthoredNot, AuthoredForall,
+              StoredAnd, StoredOr, StoredNot, StoredForall):  # fmt: skip
+    _node.model_rebuild()
 
 # Claim objects: an entity reference or a value of the form.
 AuthoredObject = EntityRef | AuthoredValue

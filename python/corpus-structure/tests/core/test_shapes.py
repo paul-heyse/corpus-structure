@@ -1,7 +1,11 @@
 """D1 shapes in both forms, payloads, ops JSON and the JSON Schema files (foundations §6 F2b).
 
-jsonschema is the independent oracle: every dumped instance must satisfy the committed schema file,
-which Pydantic generated but jsonschema validates by its own implementation.
+Every dumped instance must satisfy the committed schema file, which Pydantic generated and
+jsonschema validates by its own implementation. That is derivation conformance, not an
+independent oracle: both come from one model, so a shared mistake passes both (F02). The
+independent controls are elsewhere: hand-written expectations (here, `test_keys.py`,
+`test_dispatch.py`), the relational key oracles of `test_keys.py`, the external S0 batches
+(`fixtures/s0`) and tex parity (`test_tex.py`).
 """
 
 from __future__ import annotations

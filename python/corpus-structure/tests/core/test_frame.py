@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from corpus_structure.core.batch import AuthoredBatch, CitationFrame
+from corpus_structure.core.batch import AuthoredBatch, CitationFrame, cited_sentences
 from corpus_structure.core.evidence import RenditionContent, Segment, SegmentKind
 from corpus_structure.core.frame import FrameRefused, readdress, resolve_frame
 from corpus_structure.core.locators import LocatorIndex
+from corpus_structure.core.vocab import FrameFailureReason as Reason
 
 PAGE = "special/Test.html"
 SENTENCES = (
@@ -71,16 +72,23 @@ def test_failures_are_listed_together_with_candidates(index: LocatorIndex) -> No
         "s4": entry("@sentence:Nothing", "Nothing."),
         "s5": {"locator": "other/Page.html@sentence:Suppose", "text": "x"},
         "s6": entry("@sentence:Suppose again", "Suppose again that Y is normal."),  # resolves
+        "s7": entry("@sentence[0]:Then", "Then a + b X is normal."),  # malformed ordinal
     })  # fmt: skip
     with pytest.raises(FrameRefused) as caught:
         resolve_frame(frame, index)
     failures = {f.sentence: f for f in caught.value.failures}
-    assert set(failures) == {"s1", "s2", "s3", "s4", "s5"}
-    assert failures["s1"].reason == "several" and len(failures["s1"].candidates) == 2
-    assert failures["s2"].reason == "sentence text differs"
-    assert "not a sentence" in failures["s3"].reason
-    assert failures["s4"].reason == "none"
-    assert "another page" in failures["s5"].reason
+    assert set(failures) == {"s1", "s2", "s3", "s4", "s5", "s7"}
+    assert failures["s1"].code is Reason.LOCATOR_REFUSED
+    assert failures["s1"].refusal == "several" and len(failures["s1"].candidates) == 2
+    assert failures["s2"].code is Reason.TEXT_DIFFERS
+    assert failures["s3"].code is Reason.NOT_A_SENTENCE
+    assert failures["s3"].selected is SegmentKind.UNIT
+    assert failures["s4"].code is Reason.LOCATOR_REFUSED and failures["s4"].refusal == "none"
+    assert failures["s5"].code is Reason.OTHER_PAGE
+    assert failures["s7"].code is Reason.LOCATOR_SYNTAX and failures["s7"].position is not None
+    # the message is a projection of the code and the failure's fields
+    assert "(several)" in failures["s1"].message and "(unit)" in failures["s3"].message
+    assert "s7:" in str(caught.value)
 
 
 def batch() -> AuthoredBatch:
@@ -122,6 +130,41 @@ def test_readdress_refuses_an_entry_the_packet_lacks() -> None:
     with pytest.raises(FrameRefused) as caught:
         readdress(batch(), FRAME, served)
     assert {f.sentence for f in caught.value.failures} == {"s2", "c1"}
+    assert {f.code for f in caught.value.failures} == {Reason.NOT_IN_PACKET}
     partial = CitationFrame.model_validate({"s1": FRAME["s1"].model_dump()})
-    with pytest.raises(FrameRefused, match="not in the batch's frame"):
+    with pytest.raises(FrameRefused, match="not in the batch's frame") as caught:
         readdress(batch(), partial, FRAME)
+    assert {f.code for f in caught.value.failures} == {Reason.NOT_IN_FRAME}
+
+
+def test_every_frame_failure_reason_has_a_case() -> None:
+    """The cases above produce each `FrameFailureReason`; this keeps the list closed."""
+    produced = {
+        Reason.LOCATOR_SYNTAX, Reason.OTHER_PAGE, Reason.LOCATOR_REFUSED, Reason.NOT_A_SENTENCE,
+        Reason.TEXT_DIFFERS, Reason.NOT_IN_FRAME, Reason.NOT_IN_PACKET,
+    }  # fmt: skip
+    assert produced == set(Reason)
+
+
+def test_a_pack_qualifier_named_sentence_is_not_a_citation(index: LocatorIndex) -> None:
+    """Citations are the fields typed `SentenceId`; a schema qualifier named `sentence` (raw JSON
+    until S1 types it) is not one, so re-addressing leaves it as written (R03, DA-004)."""
+    raw = batch().model_dump(mode="json")
+    raw["claims"][0]["qualifiers"]["sentence"] = "s3"
+    raw["claims"][0]["qualifiers"]["anchor"] = ["s9"]
+    raw["claims"][0]["qualifiers"]["detail"] = {"sentence": "life imprisonment"}
+    tagged = AuthoredBatch.model_validate(raw)
+    assert cited_sentences(tagged) == cited_sentences(batch()) == ["s1", "s2", "c1"]
+    assert resolve_frame(FRAME, index).keys() == {"s1", "s2", "c1"}
+    served = CitationFrame.model_validate(
+        {"s7": FRAME["s2"].model_dump(), "s3": FRAME["s1"].model_dump(),
+         "c4": FRAME["c1"].model_dump()}
+    )  # fmt: skip
+    moved = readdress(tagged, FRAME, served)
+    extra = moved.claims[0].qualifiers.__pydantic_extra__
+    assert extra == {
+        "sentence": "s3",
+        "anchor": ["s9"],
+        "detail": {"sentence": "life imprisonment"},
+    }
+    assert moved.claims[0].evidence[0].sentence == "s7"

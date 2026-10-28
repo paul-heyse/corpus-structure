@@ -17,13 +17,17 @@ It accepts schema qualifiers as raw JSON; S1's per-predicate models subclass it 
 
 from __future__ import annotations
 
+import functools
 import re
-from collections.abc import Iterator
-from typing import Annotated, Literal, Self
+import types
+import typing
+from collections.abc import Callable, Iterator
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import MISSING, ConfigDict, Field, JsonValue, RootModel, model_validator
+from pydantic import MISSING, BaseModel, ConfigDict, Field, JsonValue, RootModel, model_validator
 
 from corpus_structure.core.values import (
+    CITATION,
     SENTENCE_ID,
     AuthoredCondition,
     AuthoredObject,
@@ -255,6 +259,13 @@ class StoredUnsupported(_Span):
     coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
 
 
+# The item unions of each form: what a batch's item lists hold.
+type AuthoredItem = (
+    AuthoredEntity | AuthoredStatement | AuthoredClaim | AlternativeItem | AuthoredUnsupported
+)
+type StoredItem = StoredEntity | StoredStatement | StoredClaim | AlternativeItem | StoredUnsupported
+
+
 # --- Envelopes ---------------------------------------------------------------------------------
 
 
@@ -321,23 +332,83 @@ class CitationFrame(RootModel[dict[Annotated[str, Field(pattern=SENTENCE_ID)], F
         return iter(self.root)
 
 
+# --- Citation positions -----------------------------------------------------------------------
+
+
+@functools.cache
+def _citation_fields(model: type[BaseModel]) -> dict[str, frozenset[str]]:
+    """The model's declared fields that cite sentences: "one" when the field is a `SentenceId`
+    (`sentence`), "many" when it is a tuple of them (`anchor`), found by the `CITATION` marker in
+    the field's annotation, never by its name. Undeclared extras (schema qualifiers) cite
+    nothing."""
+    out: dict[str, frozenset[str]] = {}
+    for name, info in model.model_fields.items():
+        kinds = (
+            frozenset({"one"}) if CITATION in info.metadata else _citation_kinds(info.annotation)
+        )
+        if kinds:
+            out[name] = kinds
+    return out
+
+
+def _citation_kinds(annotation: object) -> frozenset[str]:
+    if typing.get_origin(annotation) is Annotated:
+        base, *metadata = typing.get_args(annotation)
+        return frozenset({"one"}) if CITATION in metadata else _citation_kinds(base)
+    origin = typing.get_origin(annotation)
+    if origin is tuple:
+        items = [a for a in typing.get_args(annotation) if a is not Ellipsis]
+        return (
+            frozenset({"many"}) if any("one" in _citation_kinds(a) for a in items) else frozenset()
+        )
+    if origin is typing.Union or origin is types.UnionType:
+        found: frozenset[str] = frozenset()
+        for member in typing.get_args(annotation):
+            found |= _citation_kinds(member)
+        return found
+    return frozenset()
+
+
+def _rewrite(node: Any, cite: Callable[[str], str]) -> Any:
+    if isinstance(node, BaseModel):
+        cites = _citation_fields(type(node))
+        update: dict[str, Any] = {}
+        for name in type(node).model_fields:
+            value = getattr(node, name)
+            kinds = cites.get(name, frozenset())
+            if isinstance(value, str) and "one" in kinds:
+                moved: Any = cite(value)
+            elif isinstance(value, tuple) and "many" in kinds:
+                moved = tuple(cite(s) for s in value)
+            else:
+                moved = _rewrite(value, cite)
+            if moved is not value and moved != value:
+                update[name] = moved
+        return node.model_copy(update=update) if update else node
+    if isinstance(node, tuple):
+        items = tuple(_rewrite(item, cite) for item in node)
+        return node if all(a is b for a, b in zip(items, node, strict=True)) else items
+    if isinstance(node, dict):
+        mapped = {key: _rewrite(item, cite) for key, item in node.items()}
+        return node if all(mapped[k] is node[k] for k in node) else mapped
+    return node
+
+
+def rewrite_citations[M: BaseModel](model: M, cite: Callable[[str], str]) -> M:
+    """`model` with every sentence id at a citation position replaced by `cite(id)`, visited in
+    field order. Citation positions are found by their declared `SentenceId` type through nested
+    models, tuples and dicts; raw schema-qualifier JSON is never one, so a pack qualifier named
+    `sentence` is not a citation (R03)."""
+    return _rewrite(model, cite)
+
+
 def cited_sentences(batch: AuthoredBatch) -> list[str]:
     """Every sentence id an authored batch cites, in first-use order (values and nodes included)."""
     seen: dict[str, None] = {}
 
-    def visit(node: object) -> None:
-        if isinstance(node, dict):
-            for key, item in node.items():
-                if key == "sentence" and isinstance(item, str):
-                    seen.setdefault(item)
-                elif key == "anchor" and isinstance(item, list):
-                    for sentence in item:
-                        seen.setdefault(sentence)
-                else:
-                    visit(item)
-        elif isinstance(node, list):
-            for item in node:
-                visit(item)
+    def record(sentence: str) -> str:
+        seen.setdefault(sentence)
+        return sentence
 
-    visit(batch.model_dump(mode="json"))
+    rewrite_citations(batch, record)
     return list(seen)

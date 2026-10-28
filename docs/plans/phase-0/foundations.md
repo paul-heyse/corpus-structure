@@ -425,8 +425,10 @@ pack's qualifier names) stay plain strings in the generic models. An unknown nam
 schema error reported by S1's compiled models, not a malformed-JSON error. Under X2-01 the authored
 form names schema elements by local name and the stored form by prefixed name (D2 §7.1).
 
-**Two forms, one factory.** The model-facing (authored) and stored forms differ only where a text
-is anchored:
+**Two forms, static per-form classes.** The model-facing (authored) and stored forms differ only where a
+text is anchored. Since P0-F-2c the per-form node classes are static (`AuthoredAnd` … `StoredForall`, with
+`type` aliases) rather than built by a `create_model` factory, so `match`/`assert_never` dispatch is
+checked by pyrefly; Stage B (M5) generates them:
 - `phrase` values and `phrase`/`unsupported` condition leaves carry `text` and an optional
   `sentence` when authored, and `start`, `end`, `text` and an optional `coarse` when stored (D1 §6,
   §7);
@@ -1247,7 +1249,7 @@ the spike series keeps scoring with its frozen revision (coordinator decision 12
 **P0-F-2e.**
 - **Mechanisms.**
   - `MISSING` and typed sentinel states;
-  - per-form `EnumValue` variants in the form factory;
+  - per-form `EnumValue` variants among the per-form classes;
   - a completeness harness that enumerates the source class's fields (from `model_fields` now, from
     the model after M5) against a declared mapping;
   - conformance vectors as committed JSON with hand-written expected parts, checked with `hashlib`

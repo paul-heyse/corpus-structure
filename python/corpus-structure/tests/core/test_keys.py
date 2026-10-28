@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from corpus_structure.core.candidates import (
     CandidateStatement,
@@ -30,6 +30,7 @@ from corpus_structure.core.evidence import (
     segment_key,
 )
 from corpus_structure.core.keys import (
+    Drop,
     KeyContext,
     KeySchema,
     LabelRules,
@@ -44,6 +45,8 @@ from corpus_structure.core.keys import (
     statement_anchor,
     symbol_form,
 )
+from corpus_structure.core.values import CONDITION_ADAPTERS, AuthoredObject, StoredObject
+from corpus_structure.core.vocab import DropReason as Code
 
 MACROS = {"\\R": MacroDef(body="\\mathbb{R}")}
 DOC = document_key("statistics", "special/Test.html", "0" * 64)
@@ -92,8 +95,22 @@ def test_symbols_in_key_form() -> None:
 # --- Canonical values ------------------------------------------------------------------------
 
 
+def typed(raw: dict, adapters: tuple[TypeAdapter[Any], ...]) -> Any:
+    """`raw` validated in the form it is written in (stored first, then authored)."""
+    for adapter in adapters:
+        try:
+            return adapter.validate_python(raw)
+        except ValidationError:
+            continue
+    raise AssertionError(f"{raw!r} is in neither form")
+
+
+OBJECTS = (TypeAdapter(StoredObject), TypeAdapter(AuthoredObject))
+CONDITIONS = (CONDITION_ADAPTERS["stored"], CONDITION_ADAPTERS["authored"])
+
+
 def cv(value: dict) -> Any:
-    return canonical_value(value, MACROS, ident)
+    return canonical_value(typed(value, OBJECTS), MACROS, ident)
 
 
 def test_canonical_values() -> None:
@@ -129,7 +146,7 @@ def member(x: str, s: str) -> dict:
 
 
 def cc(node: dict, symmetric: frozenset[str] = frozenset()) -> Any:
-    return canonical_condition(node, MACROS, ident, symmetric)
+    return canonical_condition(typed(node, CONDITIONS), MACROS, ident, symmetric)
 
 
 def test_and_or_flatten_collapse_drop_and_sort() -> None:
@@ -422,18 +439,19 @@ def test_a_condition_cycle_is_dropped_with_its_reason() -> None:
     ]
     keys = key_claims(candidates(ctx, claims=claims), ctx, SCHEMA, RULES)
     assert set(keys.claims) == {"c6"}
-    assert "condition reference cycle: c1 -> c2 -> c1" in keys.dropped["c1"]
-    assert "cycle" in keys.dropped["c2"]
-    assert keys.dropped["c3"] == "depends on dropped claim 'c1'"
-    assert "unknown claim 'c9'" in keys.dropped["c4"]
-    assert keys.dropped["c5"] == "condition reference cycle: c5 -> c5"
+    assert keys.dropped["c1"] == Drop(Code.CONDITION_CYCLE, "c1", ("c1", "c2", "c1"))
+    assert keys.dropped["c1"].message == "condition reference cycle: c1 -> c2 -> c1"
+    assert keys.dropped["c2"].code is Code.CONDITION_CYCLE
+    assert keys.dropped["c3"] == Drop(Code.DROPPED_DEPENDENCY, "c1")
+    assert keys.dropped["c4"] == Drop(Code.UNKNOWN_CLAIM_REF, "c9")
+    assert keys.dropped["c5"] == Drop(Code.CONDITION_CYCLE, "c5", ("c5", "c5"))
 
 
 def test_an_unknown_subject_drops_the_claim() -> None:
     ctx = context(page(UNITS))
     keys = key_claims(candidates(ctx, claims=[{"id": "c1", "subject": "nobody"}]), ctx, SCHEMA,
                       RULES)  # fmt: skip
-    assert keys.claims == {} and "nobody" in keys.dropped["c1"]
+    assert keys.claims == {} and keys.dropped["c1"] == Drop(Code.UNKNOWN_REFERENCE, "nobody")
 
 
 # --- Entities --------------------------------------------------------------------------------
@@ -681,7 +699,8 @@ def test_stored_names_are_prefixed_and_unknown_predicates_refused() -> None:
 
     assert key("stat:has_distribution", pv1) != key("stat:has_distribution", pv2)
     unknown = keys_for([{"id": "c1", "predicate": "stat:has_distrib"}])
-    assert unknown.claims == {} and "not in the schema" in unknown.dropped["c1"]
+    assert unknown.claims == {}
+    assert unknown.dropped["c1"] == Drop(Code.UNKNOWN_PREDICATE, "stat:has_distrib")
     # the stored form has no bare names: a local predicate, class or qualifier never reaches a key
     with pytest.raises(ValidationError, match="should match pattern"):
         keys_for([{"id": "c1", "predicate": "has_distribution"}])
@@ -755,8 +774,9 @@ def test_a_member_naming_a_dropped_or_unknown_item_is_dropped_with_its_reason() 
     m = Member(bindings=True)
     keys = keys_for(claims, {c: m for c in ("c1", "c2", "c3", "c9")})
     assert set(keys.members) == {"c3"}
-    assert "'c9'" in keys.dropped_members["c1"] and "'nowhere'" in keys.dropped_members["c2"]
-    assert "has no key" in keys.dropped_members["c9"]
+    assert keys.dropped_members["c1"] == Drop(Code.DROPPED_DEPENDENCY, "c9")
+    assert keys.dropped_members["c2"] == Drop(Code.UNKNOWN_REFERENCE, "nowhere")
+    assert keys.dropped_members["c9"] == Drop(Code.DROPPED_DEPENDENCY, "c9")
     assert {"c1", "c2", "c3"} <= set(keys.claims)  # bindings are outside the base key
 
 
@@ -804,7 +824,8 @@ def test_outside_statements_wait_for_consolidation() -> None:
     assert outside.key is None
     pending = cands.model_copy(update={"statements": (*cands.statements, outside)})
     keys = key_claims(pending, ctx, SCHEMA, RULES)
-    assert "last" in keys.outside and "outside the unit" in keys.dropped["c1"]
+    assert "last" in keys.outside
+    assert keys.dropped["c1"] == Drop(Code.OUTSIDE_UNRESOLVED, "last")
     resolved = outside.model_copy(update={"key": "stm:resolved"})
     later = cands.model_copy(update={"statements": (*cands.statements, resolved)})
     assert "c1" in key_claims(later, ctx, SCHEMA, RULES).claims
