@@ -652,12 +652,28 @@ def hint_attrs(segments: list[dict], prof: dict) -> None:
                 if "hint" in c["attrs"]:
                     s["attrs"]["hint"] = c["attrs"]["hint"]
                     break
-    section_hints = prof.get("section_hints", {})
+    del by_key
+
+
+def section_hint_attrs(segments: list[dict], prof: dict) -> None:
+    """D2 §12.1 section_hints: units under a section titled e.g. "Computational Exercises" are
+    exercises (innermost matching section of any level; D2 says h3, but the title is an h4 on
+    some pages); the section hint takes precedence over the block-class hint, and both are kept."""
+    hints = prof.get("section_hints", {})
+    by_key = {s["key"]: s for s in segments}
     for s in segments:
-        if s["kind"] == "section":
-            head = next((c for c in children.get(s["key"], []) if c["kind"] == "heading"), None)
-            s["attrs"]["title"] = head["attrs"].get("_title") if head else None
-    del by_key, section_hints
+        if s["kind"] != "unit":
+            continue
+        p = s
+        while p.get("parent"):
+            p = by_key[p["parent"]]
+            if p["kind"] == "section":  # any level: "Computational Exercises" is an h4 on some pages
+                title = (p["attrs"].get("title") or "").strip()
+                if title in hints:
+                    block = s["attrs"].get("hint")
+                    s["attrs"]["hint"] = {"selector": f"section:{title}", "statement_kind": hints[title],
+                                          **({"block_hint": block} if block else {})}
+                break
 
 
 # ---------------------------------------------------------------------------- driver
@@ -688,6 +704,7 @@ def adapt(page: str, config: dict | None = None) -> dict:
     flatten(seg, ren_key, text, segments, markup)
     add_titles(segments, text)
     hint_attrs(segments, prof)
+    section_hint_attrs(segments, prof)
     title_el = CSSSelector(prof["title"], translator="html")(root)
     return {
         "page": page,
