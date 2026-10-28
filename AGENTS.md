@@ -71,15 +71,17 @@ permission, concurrent-work and testing constraints, and follow discovered depen
 | Prepare a checkout | `bash scripts/setup-env` uses existing lockfiles. Review `.envrc`, then `direnv allow` for activation; ignored `.envrc.local` holds personal overrides. Activation performs no installs, builds or service startup. |
 | Template changes | `copier update --defaults`, then review the diff like any other change (`.copier-answers.yml` is never edited by hand) |
 
-The Rust toolchain is pinned to 1.98.1 in `rust-toolchain.toml`. The machine's
-rustup default may be nightly, so don't pass `+nightly` or `+stable` to cargo in this workspace.
+The Rust toolchain is deliberately unpinned (operator direction, 2026-10-28): there is no
+`rust-toolchain.toml` and no `rust-version`, so cargo uses the machine's rustup default, currently
+nightly. Don't pass `+nightly` or `+stable` to cargo in this workspace; record `rustc --version`
+with any Rust result.
 The repository's `.cargo/config.toml` sets 16 Cargo jobs, `sccache` as the compiler wrapper,
 and incremental compilation off so the compiler cache can store workspace crates. Keep Clang
 and mold as the linker route. Avoid changing `CARGO_TARGET_DIR`, rustflags, or worktrees during
 ordinary development because those changes disrupt build reuse. For an isolated diagnosis,
 override the config through Cargo's environment variables and report it.
 
-Python is 3.14.8 via `uv` (`.python-version`); run Python tools as `uv run …`.
+Python is 3.14.10 via `uv` (`.python-version`); run Python tools as `uv run …`.
 The type checker is **pyrefly**, not pyright or mypy. A subdirectory that is a
 separate Python project with its own environment goes in root ruff's `extend-exclude`. The
 process scripts are stdlib-only and run without a project environment.

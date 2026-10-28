@@ -5,7 +5,7 @@ crate_name: corpus-structure
 github_owner: paul-heyse
 project_description: Builds a highly structured representation of a set of documents
 project_name: corpus-structure
-python_version: 3.14.8
+python_version: 3.14.10
 rust_toolchain: 1.98.1
 with_ast_grep: true
 with_ci_profile: true

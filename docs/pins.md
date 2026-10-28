@@ -10,9 +10,9 @@ with the `pin-check` skill.
 
 | Component | Pin | Reason | Revisit when | Verified |
 |---|---|---|---|---|
-| Python | 3.14.8 (`.python-version`, uv) | Toolchain | a release the project needs | not yet (template): `uv run --no-project python --version` |
-| just | 1.58.0 or later | Toolchain | a release the project needs | not yet (template): `just --version` |
-| Rust toolchain | 1.98.1 (`rust-toolchain.toml`, `rust-version`) | Toolchain | a release the project needs | not yet (template): `rustc --version` inside the repo |
+| Python | 3.14.10 (`.python-version`, uv; copier answer `python_version`) | Toolchain | a release the project needs | 2026-10-28: `uv run --no-project python --version` → 3.14.10 |
+| just | 1.58.0 or later | Toolchain | a release the project needs | 2026-10-28: `just --version` → 1.58.0 |
+| Rust toolchain | **Unpinned** by operator direction (2026-10-28): no `rust-toolchain.toml`, no `rust-version`; cargo uses the rustup default (nightly). The copier answer `rust_toolchain: 1.98.1` remains because it cannot express "unpinned"; a `copier update` may re-propose `rust-toolchain.toml`, which should then be declined | Operator direction | the operator asks for a pin again, or a nightly regression blocks work | 2026-10-28: `rustc --version` → 1.101.0-nightly (41089d07a 2026-10-27) |
 
 ## Dependencies
 
@@ -24,6 +24,7 @@ A row here is only for a hold. Declare crate families that must resolve to one v
 `[workspace.metadata.pins] families` in `Cargo.toml`; their members are pinned exactly like every
 other dependency.
 
-Documentation binaries are listed in [site.toml](site.toml); the versions there are pinned and
+Documentation binaries are listed in [site.toml](site.toml) (latest releases as checked on
+2026-10-28: mdbook 0.5.4, pagefind 1.5.2, lychee 0.24.2); the versions there are pinned and
 `just bootstrap-docs` installs exactly those. Change them with focused `just docs-test` and
 `just docs-check`.
