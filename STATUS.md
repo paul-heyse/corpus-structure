@@ -17,22 +17,23 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
     ([report](docs/design_review/evidence/2026-10-28_design-spikes/S4-report.md)).
   - S6 smoke-tested D3's DDL, BM25, vectors, queue and keys
     ([report](docs/design_review/evidence/2026-10-28_design-spikes/S6-report.md)).
+  - X2 for S4 and S6: the operator accepted both reports; D1–D6 and D8 amended (prefixed names in
+    everything stored, local names in authored batches).
 - **Build lane:** P0-F-1, P0-F-2a, P0-I-0 and P0-F-2b are built in `python/corpus-structure/`.
-  An implementation review's findings are fixed (coordinator §11, IR-01…12); IR-13…15 are open
-  with owners.
+  An implementation review's findings are fixed (coordinator §11, IR-01…12, IR-15); IR-13, IR-14
+  and X2-01 (authored→stored naming, P0-S-1) are open with owners.
 - **PostgreSQL:** the dedicated cluster `18/corpus` (port 5434, D3 §13) runs from
   `ops/postgresql/` via `just db-provision`. No backups yet (operator: data is regenerable; revisit
   trigger in D3 §13). The interim local cluster is retired.
-- **Decisions in force:** ADR-0010–0015 and ADR-0019 (accepted). ADR-0016 (PostgreSQL), ADR-0017
-  (LinkML packs) and ADR-0018 (policy routing) are proposed; their evidence (S6, S4) now exists,
-  so acceptance comes with X2 and the operator's review.
+- **Decisions in force:** ADR-0010–0019 accepted (0016 PostgreSQL and 0017 LinkML packs Tested;
+  0018 policy routing Interface-checked).
 
 ## Last verified (2026-10-28)
 
 | Command | Outcome and scope |
 |---|---|
-| `just check` | `passed`: pytest 442 (incl. 377 package tests on `18/corpus`), nextest 0, at `c49df48` |
-| `HYPOTHESIS_PROFILE=ci uv run pytest python/corpus-structure/tests` | `passed` (377) |
+| `just check` | `passed`: pytest 453 (incl. 388 package tests on `18/corpus`), nextest 0, at `124473d` |
+| `HYPOTHESIS_PROFILE=ci uv run pytest python/corpus-structure/tests` | `passed` (388) |
 | `uv run ruff check python/`, `uv run pyrefly check python/corpus-structure` | `passed` (0 errors) |
 | `just evidence` | `passed`: 77 records, 0 errors (warnings on superseded records and changed inputs, expected) |
 | Spike `code/tests_instruments/run_all.py` | `passed`: 79 |
@@ -41,14 +42,13 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Known failures, blocks and decisions
 
-- S4/S6 design implications (D2 §3, §6, §7, §9; D3 DDL fixes, BM25 kind list, query
-  corrections, naming join) are proposals in the reports until X2 folds them in.
+- S6 follow-ups (BM25 coverage on 78 pages, vector recall, two-branch claim at 10⁵ tasks, volume
+  rerun on `18/corpus`) are listed in the S6 report.
 - Eight operator overviews in `docs/libraries/` are not yet committed (the operator's).
 - EVID-01 and APPARATUS-01 wait on the operator's evidence-system design.
 
 ## Next
 
-- **Operator:** review the S4 and S6 reports, then X2 (design fold-in; ADR-0016/0017/0018).
 - **Spike lane:**
   - E4b environments as S5, S2, S3 and S7 start;
   - S5-A next, because `core/tex.py` freezes on `s5.keys-property` and the grammar port waits on it;
