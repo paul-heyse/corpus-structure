@@ -1,0 +1,543 @@
+{
+ "envelope": {
+  "unit": "T4",
+  "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+  "source": "results/s0/pass_h/T4.json"
+ },
+ "unit_ref": "T4",
+ "entities": [
+  {
+   "local_ref": "rv_Y",
+   "type": "RandomVariable",
+   "label": "Y",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Y",
+   "aliases": [
+    "Y"
+   ],
+   "identity": {},
+   "scope_segment": "seg:3fd093d02f8f19cfc6e08e97885fed09"
+  },
+  {
+   "local_ref": "rv_X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [
+    "X"
+   ],
+   "identity": {},
+   "scope_segment": "seg:3fd093d02f8f19cfc6e08e97885fed09"
+  },
+  {
+   "local_ref": "rv_Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Z",
+   "aliases": [
+    "Z"
+   ],
+   "identity": {},
+   "scope_segment": "seg:3fd093d02f8f19cfc6e08e97885fed09"
+  },
+  {
+   "local_ref": "rv_W",
+   "type": "RandomVariable",
+   "label": "W",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "W",
+   "aliases": [
+    "W"
+   ],
+   "identity": {},
+   "scope_segment": "seg:3fd093d02f8f19cfc6e08e97885fed09"
+  },
+  {
+   "local_ref": "fam_normal",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [
+    "normal distribution"
+   ],
+   "identity": {}
+  },
+  {
+   "local_ref": "fam_lognormal",
+   "type": "DistributionFamily",
+   "label": "lognormal distribution",
+   "scope": "global",
+   "aliases": [
+    "lognormal distribution"
+   ],
+   "identity": {}
+  },
+  {
+   "local_ref": "fam_std_normal",
+   "type": "DistributionFamily",
+   "label": "standard normal distribution",
+   "scope": "global",
+   "aliases": [
+    "standard normal distribution"
+   ],
+   "identity": {}
+  },
+  {
+   "local_ref": "fam_std_lognormal",
+   "type": "DistributionFamily",
+   "label": "standard lognormal distribution",
+   "scope": "global",
+   "aliases": [
+    "standard lognormal distribution"
+   ],
+   "identity": {}
+  },
+  {
+   "local_ref": "fp_mu",
+   "type": "FamilyParameter",
+   "label": "mu",
+   "scope": "global",
+   "symbol": "mu",
+   "aliases": [
+    "mu"
+   ],
+   "identity": {
+    "family": "fam_lognormal",
+    "canonical_name": "mu"
+   }
+  },
+  {
+   "local_ref": "fp_shape",
+   "type": "FamilyParameter",
+   "label": "shape parameter",
+   "scope": "global",
+   "symbol": "sigma",
+   "aliases": [
+    "shape parameter"
+   ],
+   "identity": {
+    "family": "fam_lognormal",
+    "canonical_name": "shape"
+   }
+  },
+  {
+   "local_ref": "fp_scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "aliases": [
+    "scale parameter"
+   ],
+   "identity": {
+    "family": "fam_lognormal",
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "stm_def",
+   "kind": "definition",
+   "anchor": [
+    "seg:976de78285608bb4b079721b2bf6c4de",
+    "seg:5818940b2a2bd086e7f8ed6bfa2d6bec",
+    "seg:2353eb7bc99d057cf0cbff85edaa628f",
+    "seg:24c1e8d853c094e30146919e8e3241ab",
+    "seg:af52796cbd07aeede7e42ecf22ef7f46"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "cl_01",
+   "predicate": "has_distribution",
+   "subject": "rv_Y",
+   "object": {
+    "ref": "fam_normal"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\mu",
+        "symbols": {
+         "mu": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\sigma",
+        "symbols": {
+         "sigma": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    },
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "free"
+       }
+      }
+     },
+     "standard_deviation": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "stm_def",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 54,
+     "end": 175,
+     "role": "primary"
+    },
+    {
+     "start": 111,
+     "end": 125,
+     "role": "condition"
+    },
+    {
+     "start": 149,
+     "end": 175,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_02",
+   "predicate": "defined_as",
+   "subject": "rv_X",
+   "object": {
+    "t": "formula",
+    "latex": "e^Y",
+    "symbols": {
+     "e": {
+      "bind": "constant"
+     },
+     "Y": {
+      "bind": "variable",
+      "entity": "rv_Y"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "claim",
+     "ref": "cl_01"
+    }
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 182,
+     "end": 193,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_03",
+   "predicate": "has_distribution",
+   "subject": "rv_X",
+   "object": {
+    "ref": "fam_lognormal"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "claim",
+     "ref": "cl_01"
+    },
+    "param_values": {
+     "mu": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "param_of",
+        "claim": "cl_01",
+        "param": "mean"
+       }
+      }
+     },
+     "shape": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "param_of",
+        "claim": "cl_01",
+        "param": "standard_deviation"
+       }
+      }
+     }
+    }
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 194,
+     "end": 263,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_04",
+   "predicate": "has_distribution",
+   "subject": "rv_Z",
+   "object": {
+    "ref": "fam_std_normal"
+   },
+   "qualifiers": {
+    "modality": "supposed"
+   },
+   "statement": "stm_def",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 415,
+     "end": 460,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_05",
+   "predicate": "has_distribution",
+   "subject": "rv_W",
+   "object": {
+    "ref": "fam_std_lognormal"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "claim",
+     "ref": "cl_04"
+    }
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 461,
+     "end": 517,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_06",
+   "predicate": "defined_as",
+   "subject": "rv_W",
+   "object": {
+    "t": "formula",
+    "latex": "e^Z",
+    "symbols": {
+     "e": {
+      "bind": "constant"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "rv_Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "claim",
+     "ref": "cl_04"
+    }
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 466,
+     "end": 477,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_07",
+   "predicate": "has_parameter",
+   "subject": "fam_lognormal",
+   "object": {
+    "ref": "fp_mu"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 225,
+     "end": 263,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_08",
+   "predicate": "has_parameter",
+   "subject": "fam_lognormal",
+   "object": {
+    "ref": "fp_shape"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 270,
+     "end": 339,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_09",
+   "predicate": "parameter_role",
+   "subject": "fp_shape",
+   "object": {
+    "t": "enum",
+    "enum": "ParameterRole",
+    "v": "shape"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 270,
+     "end": 339,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_10",
+   "predicate": "has_parameter",
+   "subject": "fam_lognormal",
+   "object": {
+    "ref": "fp_scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 345,
+     "end": 412,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_11",
+   "predicate": "parameter_role",
+   "subject": "fp_scale",
+   "object": {
+    "t": "enum",
+    "enum": "ParameterRole",
+    "v": "scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 345,
+     "end": 412,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_12",
+   "predicate": "derived_parameter",
+   "subject": "fp_scale",
+   "object": {
+    "t": "formula",
+    "latex": "e^\\mu",
+    "symbols": {
+     "e": {
+      "bind": "constant"
+     },
+     "mu": {
+      "bind": "family_param",
+      "entity": "fp_mu"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 345,
+     "end": 412,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

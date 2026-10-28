@@ -1,0 +1,22 @@
+{
+  "unit_ref": "U8",
+  "entities": [
+    {"local_ref": "rv_rod", "type": "RandomVariable", "label": "radius of the rod", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [{"kind": "symbol", "text": "X"}], "identity": {"symbol": "X"}},
+    {"local_ref": "rv_hole", "type": "RandomVariable", "label": "radius of the hole", "scope": "local", "extent": "statement", "symbol": "Y", "aliases": [{"kind": "symbol", "text": "Y"}], "identity": {"symbol": "Y"}},
+    {"local_ref": "fam_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [{"kind": "term", "text": "normal distribution"}], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "stm_ex", "kind": "exercise", "anchor": ["s1", "s2", "s3", "s4", "s5"]},
+    {"local_ref": "stm_sol", "kind": "solution", "anchor": ["s6", "s7"]}
+  ],
+  "claims": [
+    {"local_ref": "cl_01", "predicate": "has_distribution", "subject": "rv_rod", "object": {"ref": "fam_normal"}, "qualifiers": {"modality": "exemplified", "param_values": [{"key": "mean", "value": {"t": "formula", "latex": "1", "symbols": {}}}, {"key": "standard_deviation", "value": {"t": "formula", "latex": "0.002", "symbols": {}}}]}, "statement": "stm_ex", "statement_role": "example_value", "evidence": [{"sentence": "s2", "quote": "The radius of the rod is normally distributed with mean 1 cm and standard deviation 0.002 cm", "role": "primary"}]},
+    {"local_ref": "cl_02", "predicate": "has_distribution", "subject": "rv_hole", "object": {"ref": "fam_normal"}, "qualifiers": {"modality": "exemplified", "param_values": [{"key": "mean", "value": {"t": "formula", "latex": "1.01", "symbols": {}}}, {"key": "standard_deviation", "value": {"t": "formula", "latex": "0.003", "symbols": {}}}]}, "statement": "stm_ex", "statement_role": "example_value", "evidence": [{"sentence": "s3", "quote": "The radius of the hole is normally distributed with mean 1.01 cm and standard deviation 0.003 cm", "role": "primary"}]},
+    {"local_ref": "cl_03", "predicate": "proves", "subject": "stm_sol", "object": {"ref": "stm_ex"}, "qualifiers": {"modality": "asserted"}, "statement": "stm_sol", "evidence": [{"sentence": "s7", "quote": "\\(\\P(Y - X \\lt 0) = 0.0028\\)", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "un_01", "sentence": "s4", "quote": "The machining processes that produce the rod and the hole are independent", "reason": "Independence of the two radii. The schema's independent condition needs a claim to carry it, and the only candidate claim is the posed quantity, which is itself unsupported (un_02)."},
+    {"local_ref": "un_02", "sentence": "s5", "quote": "Find the probability that the rod is to big for the hole", "reason": "The posed quantity is the probability of an event (rod radius exceeds hole radius). No schema predicate or value type holds an event probability."}
+  ]
+}

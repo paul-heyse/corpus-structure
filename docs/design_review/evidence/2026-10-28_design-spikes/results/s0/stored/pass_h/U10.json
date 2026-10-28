@@ -1,0 +1,246 @@
+{
+ "envelope": {
+  "unit": "U10",
+  "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+  "source": "results/s0/pass_h/U10.json"
+ },
+ "unit_ref": "U10",
+ "entities": [
+  {
+   "local_ref": "rv_Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Z",
+   "aliases": [
+    "Z"
+   ],
+   "identity": {},
+   "scope_segment": "seg:6a12d5c892b53e0caf55405219674c69"
+  },
+  {
+   "local_ref": "rv_X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [
+    "X"
+   ],
+   "identity": {},
+   "scope_segment": "seg:6a12d5c892b53e0caf55405219674c69"
+  },
+  {
+   "local_ref": "fam_std_gamma",
+   "type": "DistributionFamily",
+   "label": "standard gamma distribution",
+   "scope": "global",
+   "aliases": [
+    "standard gamma distribution"
+   ],
+   "identity": {}
+  },
+  {
+   "local_ref": "fam_gamma",
+   "type": "DistributionFamily",
+   "label": "gamma distribution",
+   "scope": "global",
+   "aliases": [
+    "gamma distribution"
+   ],
+   "identity": {}
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "stm_def",
+   "kind": "definition",
+   "anchor": [
+    "seg:f866c716530e7e0d81a76b88d387d242"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "cl_01",
+   "predicate": "has_distribution",
+   "subject": "rv_Z",
+   "object": {
+    "ref": "fam_std_gamma"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "k",
+      "symbols": {
+       "k": {
+        "bind": "free"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "(0, \\infty)",
+      "symbols": {}
+     }
+    },
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k",
+      "symbols": {
+       "k": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "stm_def",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 10263,
+     "end": 10350,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_02",
+   "predicate": "has_distribution",
+   "subject": "rv_X",
+   "object": {
+    "ref": "fam_gamma"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "cl_01"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    },
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k",
+      "symbols": {
+       "k": {
+        "bind": "param_of",
+        "claim": "cl_01",
+        "param": "shape"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10383,
+     "end": 10479,
+     "role": "primary"
+    },
+    {
+     "start": 10358,
+     "end": 10381,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_03",
+   "predicate": "defined_as",
+   "subject": "rv_X",
+   "object": {
+    "t": "formula",
+    "latex": "b Z",
+    "symbols": {
+     "b": {
+      "bind": "free"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "rv_Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "cl_01"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "stm_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10388,
+     "end": 10399,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

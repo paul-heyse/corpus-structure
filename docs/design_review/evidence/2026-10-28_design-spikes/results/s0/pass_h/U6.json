@@ -1,0 +1,30 @@
+{
+  "unit_ref": "U6",
+  "entities": [
+    {"local_ref": "rv_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": ["X"], "identity": {}},
+    {"local_ref": "rv_Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": ["Z"], "identity": {}},
+    {"local_ref": "fam_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normal distribution"], "identity": {}},
+    {"local_ref": "fam_std_normal", "type": "DistributionFamily", "label": "standard normal distribution", "scope": "global", "aliases": ["standard normal distribution"], "identity": {}},
+    {"local_ref": "concept_std_score", "type": "Concept", "label": "standard score", "scope": "global", "aliases": ["standard score"], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "stm_def", "kind": "definition", "anchor": ["s1"]},
+    {"local_ref": "stm_cor", "kind": "corollary", "anchor": ["s2"]},
+    {"local_ref": "stm_rem", "kind": "narrative", "anchor": ["s3"]}
+  ],
+  "claims": [
+    {"local_ref": "cl_01", "predicate": "mean_value", "subject": "rv_X", "object": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "free"}}}, "qualifiers": {"modality": "supposed"}, "statement": "stm_def", "statement_role": "premise", "evidence": [{"sentence": "s1", "quote": "with mean \\(\\mu\\)", "role": "primary"}]},
+    {"local_ref": "cl_02", "predicate": "defined_as", "subject": "rv_Z", "object": {"t": "formula", "latex": "(X - \\mu) / \\sigma", "symbols": {"X": {"bind": "variable", "entity": "rv_X"}, "mu": {"bind": "free"}, "sigma": {"bind": "free"}}}, "qualifiers": {"modality": "defined", "conditions": {"op": "and", "args": [{"op": "claim", "ref": "cl_01"}, {"op": "cmp", "rel": ">", "lhs": {"t": "formula", "latex": "\\sigma", "symbols": {"sigma": {"bind": "free"}}}, "rhs": {"t": "formula", "latex": "0", "symbols": {}}}]}}, "statement": "stm_def", "statement_role": "definiens", "evidence": [{"sentence": "s1", "quote": "\\(Z = (X - \\mu) / \\sigma\\)", "role": "primary"}, {"sentence": "s1", "quote": "\\(\\sigma \\gt 0\\)", "role": "condition"}]},
+    {"local_ref": "cl_03", "predicate": "definition_formula", "subject": "concept_std_score", "object": {"t": "formula", "latex": "(X - \\mu) / \\sigma", "symbols": {"X": {"bind": "variable", "entity": "rv_X"}, "mu": {"bind": "free"}, "sigma": {"bind": "free"}}}, "qualifiers": {"modality": "defined"}, "statement": "stm_def", "statement_role": "definiens", "evidence": [{"sentence": "s1", "quote": "is the standard score of \\(X\\)", "role": "primary"}]},
+    {"local_ref": "cl_04", "predicate": "defines", "subject": "stm_def", "object": {"ref": "concept_std_score"}, "qualifiers": {"modality": "defined"}, "statement": "stm_def", "statement_role": "definiens", "evidence": [{"sentence": "s1", "quote": "is the standard score of \\(X\\)", "role": "primary"}]},
+    {"local_ref": "cl_05", "predicate": "has_distribution", "subject": "rv_X", "object": {"ref": "fam_normal"}, "qualifiers": {"modality": "supposed"}, "statement": "stm_cor", "statement_role": "premise", "evidence": [{"sentence": "s2", "quote": "if \\(X\\) has a normal distribution", "role": "primary"}]},
+    {"local_ref": "cl_06", "predicate": "has_distribution", "subject": "rv_Z", "object": {"ref": "fam_std_normal"}, "qualifiers": {"modality": "asserted", "conditions": {"op": "claim", "ref": "cl_05"}}, "statement": "stm_cor", "statement_role": "conclusion", "evidence": [{"sentence": "s2", "quote": "the standard score \\(Z\\) has a standard normal distribution", "role": "primary"}]},
+    {"local_ref": "cl_07", "predicate": "follows_from", "subject": "stm_cor", "object": {"ref": "stm_def"}, "qualifiers": {"modality": "asserted"}, "statement": "stm_cor", "evidence": [{"sentence": "s2", "quote": "A corollary of the last result", "role": "primary"}]},
+    {"local_ref": "cl_08", "predicate": "refers_to", "subject": "stm_cor", "object": {"ref": "concept_std_score"}, "qualifiers": {"modality": "asserted"}, "statement": "stm_cor", "evidence": [{"sentence": "s2", "quote": "the standard score \\(Z\\)", "role": "primary"}]},
+    {"local_ref": "cl_09", "predicate": "transformation_of", "subject": "fam_normal", "object": {"ref": "fam_std_normal"}, "qualifiers": {"modality": "asserted"}, "statement": "stm_rem", "evidence": [{"sentence": "s3", "quote": "any normally distributed variable can be constructed from a standard normal variable", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "un_01", "sentence": "s1", "quote": "standard deviation \\(\\sigma \\gt 0\\)", "reason": "States that X has standard deviation sigma greater than 0; the schema has a variance predicate but no standard deviation predicate, and the standard deviation must not be derived from a variance."}
+  ]
+}

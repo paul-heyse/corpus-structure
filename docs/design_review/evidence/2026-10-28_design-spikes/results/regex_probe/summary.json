@@ -1,0 +1,505 @@
+{
+ "regex": "2026.9.29",
+ "A_quotes": {
+  "n_quotes": 499,
+  "by_kind_method": {
+   "add_period|cascade": {
+    "n": 162,
+    "found": 162,
+    "exact": 96,
+    "iou>=0.9": 162,
+    "cut": 0
+   },
+   "add_period|current": {
+    "n": 162,
+    "found": 147,
+    "exact": 34,
+    "iou>=0.9": 147,
+    "cut": 0
+   },
+   "add_period|fuzzy": {
+    "n": 162,
+    "found": 148,
+    "exact": 7,
+    "iou>=0.9": 148,
+    "cut": 0
+   },
+   "add_period|fuzzy_c": {
+    "n": 162,
+    "found": 131,
+    "exact": 129,
+    "iou>=0.9": 131,
+    "cut": 0
+   },
+   "add_period|fuzzy_p": {
+    "n": 162,
+    "found": 144,
+    "exact": 142,
+    "iou>=0.9": 144,
+    "cut": 0
+   },
+   "add_period|fuzzy_w": {
+    "n": 162,
+    "found": 148,
+    "exact": 7,
+    "iou>=0.9": 148,
+    "cut": 0
+   },
+   "add_period|hybrid": {
+    "n": 162,
+    "found": 162,
+    "exact": 136,
+    "iou>=0.9": 144,
+    "cut": 0
+   },
+   "add_period|macro_ws": {
+    "n": 162,
+    "found": 63,
+    "exact": 0,
+    "iou>=0.9": 63,
+    "cut": 0
+   },
+   "add_period|refine": {
+    "n": 162,
+    "found": 162,
+    "exact": 160,
+    "iou>=0.9": 162,
+    "cut": 0
+   },
+   "add_period|rf_snap": {
+    "n": 162,
+    "found": 162,
+    "exact": 160,
+    "iou>=0.9": 162,
+    "cut": 0
+   },
+   "add_period|ws": {
+    "n": 162,
+    "found": 64,
+    "exact": 0,
+    "iou>=0.9": 64,
+    "cut": 0
+   },
+   "drop_word|cascade": {
+    "n": 99,
+    "found": 76,
+    "exact": 43,
+    "iou>=0.9": 62,
+    "cut": 0
+   },
+   "drop_word|current": {
+    "n": 99,
+    "found": 17,
+    "exact": 0,
+    "iou>=0.9": 13,
+    "cut": 10
+   },
+   "drop_word|fuzzy": {
+    "n": 99,
+    "found": 67,
+    "exact": 53,
+    "iou>=0.9": 55,
+    "cut": 12
+   },
+   "drop_word|fuzzy_c": {
+    "n": 99,
+    "found": 61,
+    "exact": 50,
+    "iou>=0.9": 52,
+    "cut": 0
+   },
+   "drop_word|fuzzy_p": {
+    "n": 99,
+    "found": 64,
+    "exact": 49,
+    "iou>=0.9": 55,
+    "cut": 0
+   },
+   "drop_word|fuzzy_w": {
+    "n": 99,
+    "found": 67,
+    "exact": 53,
+    "iou>=0.9": 58,
+    "cut": 0
+   },
+   "drop_word|hybrid": {
+    "n": 99,
+    "found": 76,
+    "exact": 32,
+    "iou>=0.9": 59,
+    "cut": 0
+   },
+   "drop_word|macro_ws": {
+    "n": 99,
+    "found": 0,
+    "exact": 0,
+    "iou>=0.9": 0,
+    "cut": 0
+   },
+   "drop_word|refine": {
+    "n": 99,
+    "found": 76,
+    "exact": 43,
+    "iou>=0.9": 62,
+    "cut": 0
+   },
+   "drop_word|rf_snap": {
+    "n": 99,
+    "found": 76,
+    "exact": 8,
+    "iou>=0.9": 55,
+    "cut": 0
+   },
+   "drop_word|ws": {
+    "n": 99,
+    "found": 0,
+    "exact": 0,
+    "iou>=0.9": 0,
+    "cut": 0
+   },
+   "macro|cascade": {
+    "n": 16,
+    "found": 16,
+    "exact": 16,
+    "iou>=0.9": 16,
+    "cut": 0
+   },
+   "macro|current": {
+    "n": 16,
+    "found": 4,
+    "exact": 0,
+    "iou>=0.9": 4,
+    "cut": 0
+   },
+   "macro|fuzzy": {
+    "n": 16,
+    "found": 3,
+    "exact": 3,
+    "iou>=0.9": 3,
+    "cut": 0
+   },
+   "macro|fuzzy_c": {
+    "n": 16,
+    "found": 7,
+    "exact": 7,
+    "iou>=0.9": 7,
+    "cut": 0
+   },
+   "macro|fuzzy_p": {
+    "n": 16,
+    "found": 3,
+    "exact": 3,
+    "iou>=0.9": 3,
+    "cut": 0
+   },
+   "macro|fuzzy_w": {
+    "n": 16,
+    "found": 3,
+    "exact": 3,
+    "iou>=0.9": 3,
+    "cut": 0
+   },
+   "macro|hybrid": {
+    "n": 16,
+    "found": 9,
+    "exact": 4,
+    "iou>=0.9": 9,
+    "cut": 0
+   },
+   "macro|macro_ws": {
+    "n": 16,
+    "found": 16,
+    "exact": 16,
+    "iou>=0.9": 16,
+    "cut": 0
+   },
+   "macro|refine": {
+    "n": 16,
+    "found": 9,
+    "exact": 4,
+    "iou>=0.9": 9,
+    "cut": 0
+   },
+   "macro|rf_snap": {
+    "n": 16,
+    "found": 9,
+    "exact": 2,
+    "iou>=0.9": 9,
+    "cut": 0
+   },
+   "macro|ws": {
+    "n": 16,
+    "found": 0,
+    "exact": 0,
+    "iou>=0.9": 0,
+    "cut": 0
+   },
+   "respace|cascade": {
+    "n": 60,
+    "found": 60,
+    "exact": 60,
+    "iou>=0.9": 60,
+    "cut": 0
+   },
+   "respace|current": {
+    "n": 60,
+    "found": 59,
+    "exact": 58,
+    "iou>=0.9": 59,
+    "cut": 0
+   },
+   "respace|fuzzy": {
+    "n": 60,
+    "found": 53,
+    "exact": 52,
+    "iou>=0.9": 52,
+    "cut": 0
+   },
+   "respace|fuzzy_c": {
+    "n": 60,
+    "found": 47,
+    "exact": 46,
+    "iou>=0.9": 46,
+    "cut": 0
+   },
+   "respace|fuzzy_p": {
+    "n": 60,
+    "found": 52,
+    "exact": 51,
+    "iou>=0.9": 51,
+    "cut": 0
+   },
+   "respace|fuzzy_w": {
+    "n": 60,
+    "found": 53,
+    "exact": 52,
+    "iou>=0.9": 52,
+    "cut": 0
+   },
+   "respace|hybrid": {
+    "n": 60,
+    "found": 60,
+    "exact": 40,
+    "iou>=0.9": 55,
+    "cut": 0
+   },
+   "respace|macro_ws": {
+    "n": 60,
+    "found": 59,
+    "exact": 59,
+    "iou>=0.9": 59,
+    "cut": 0
+   },
+   "respace|refine": {
+    "n": 60,
+    "found": 60,
+    "exact": 49,
+    "iou>=0.9": 59,
+    "cut": 0
+   },
+   "respace|rf_snap": {
+    "n": 60,
+    "found": 60,
+    "exact": 17,
+    "iou>=0.9": 58,
+    "cut": 0
+   },
+   "respace|ws": {
+    "n": 60,
+    "found": 60,
+    "exact": 60,
+    "iou>=0.9": 60,
+    "cut": 0
+   },
+   "trim_end|cascade": {
+    "n": 58,
+    "found": 58,
+    "exact": 47,
+    "iou>=0.9": 58,
+    "cut": 0
+   },
+   "trim_end|current": {
+    "n": 58,
+    "found": 58,
+    "exact": 0,
+    "iou>=0.9": 58,
+    "cut": 54
+   },
+   "trim_end|fuzzy": {
+    "n": 58,
+    "found": 56,
+    "exact": 0,
+    "iou>=0.9": 56,
+    "cut": 52
+   },
+   "trim_end|fuzzy_c": {
+    "n": 58,
+    "found": 50,
+    "exact": 40,
+    "iou>=0.9": 50,
+    "cut": 0
+   },
+   "trim_end|fuzzy_p": {
+    "n": 58,
+    "found": 56,
+    "exact": 46,
+    "iou>=0.9": 56,
+    "cut": 0
+   },
+   "trim_end|fuzzy_w": {
+    "n": 58,
+    "found": 56,
+    "exact": 46,
+    "iou>=0.9": 56,
+    "cut": 0
+   },
+   "trim_end|hybrid": {
+    "n": 58,
+    "found": 58,
+    "exact": 40,
+    "iou>=0.9": 54,
+    "cut": 0
+   },
+   "trim_end|macro_ws": {
+    "n": 58,
+    "found": 58,
+    "exact": 0,
+    "iou>=0.9": 58,
+    "cut": 54
+   },
+   "trim_end|refine": {
+    "n": 58,
+    "found": 58,
+    "exact": 47,
+    "iou>=0.9": 58,
+    "cut": 0
+   },
+   "trim_end|rf_snap": {
+    "n": 58,
+    "found": 58,
+    "exact": 47,
+    "iou>=0.9": 58,
+    "cut": 0
+   },
+   "trim_end|ws": {
+    "n": 58,
+    "found": 58,
+    "exact": 0,
+    "iou>=0.9": 58,
+    "cut": 54
+   },
+   "typo|cascade": {
+    "n": 132,
+    "found": 132,
+    "exact": 130,
+    "iou>=0.9": 132,
+    "cut": 0
+   },
+   "typo|current": {
+    "n": 132,
+    "found": 126,
+    "exact": 126,
+    "iou>=0.9": 126,
+    "cut": 0
+   },
+   "typo|fuzzy": {
+    "n": 132,
+    "found": 117,
+    "exact": 117,
+    "iou>=0.9": 117,
+    "cut": 0
+   },
+   "typo|fuzzy_c": {
+    "n": 132,
+    "found": 99,
+    "exact": 97,
+    "iou>=0.9": 99,
+    "cut": 0
+   },
+   "typo|fuzzy_p": {
+    "n": 132,
+    "found": 114,
+    "exact": 112,
+    "iou>=0.9": 114,
+    "cut": 0
+   },
+   "typo|fuzzy_w": {
+    "n": 132,
+    "found": 117,
+    "exact": 117,
+    "iou>=0.9": 117,
+    "cut": 0
+   },
+   "typo|hybrid": {
+    "n": 132,
+    "found": 132,
+    "exact": 106,
+    "iou>=0.9": 114,
+    "cut": 0
+   },
+   "typo|macro_ws": {
+    "n": 132,
+    "found": 0,
+    "exact": 0,
+    "iou>=0.9": 0,
+    "cut": 0
+   },
+   "typo|refine": {
+    "n": 132,
+    "found": 132,
+    "exact": 130,
+    "iou>=0.9": 132,
+    "cut": 0
+   },
+   "typo|rf_snap": {
+    "n": 132,
+    "found": 132,
+    "exact": 130,
+    "iou>=0.9": 132,
+    "cut": 0
+   },
+   "typo|ws": {
+    "n": 132,
+    "found": 0,
+    "exact": 0,
+    "iou>=0.9": 0,
+    "cut": 0
+   }
+  },
+  "ms_max": {
+   "current": 0.238,
+   "ws": 30.41,
+   "fuzzy": 2020.714,
+   "fuzzy_w": 2020.714,
+   "fuzzy_c": 1013.343,
+   "macro_ws": 2.956,
+   "fuzzy_p": 1018.183,
+   "rf_snap": 0.064,
+   "hybrid": 518.482,
+   "refine": 203.829,
+   "cascade": 201.336
+  },
+  "ms_median": {
+   "current": 0.086,
+   "ws": 0,
+   "fuzzy": 0.653,
+   "fuzzy_w": 0.653,
+   "fuzzy_c": 3.346,
+   "macro_ws": 0,
+   "fuzzy_p": 0.565,
+   "rf_snap": 0.006,
+   "hybrid": 0.151,
+   "refine": 0.063,
+   "cascade": 0.025
+  }
+ },
+ "B_math": {
+  "blocks_same": 517,
+  "blocks_different": 0,
+  "examples": []
+ },
+ "C_lark_regex": {
+  "values_same_status": 58,
+  "values_different": 0
+ }
+}

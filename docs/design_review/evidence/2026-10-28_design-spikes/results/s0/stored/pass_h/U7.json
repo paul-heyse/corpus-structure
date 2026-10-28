@@ -1,0 +1,101 @@
+{
+ "envelope": {
+  "unit": "U7",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_h/U7.json"
+ },
+ "unit_ref": "U7",
+ "entities": [
+  {
+   "local_ref": "rv_const",
+   "type": "RandomVariable",
+   "label": "a constant",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [
+    "constant"
+   ],
+   "identity": {},
+   "scope_segment": "seg:56cd22bafd1c152d7f14817bf7521324"
+  },
+  {
+   "local_ref": "fam_normal",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [
+    "normal distribution"
+   ],
+   "identity": {}
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "stm_conv",
+   "kind": "convention",
+   "anchor": [
+    "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "cl_01",
+   "predicate": "has_distribution",
+   "subject": "rv_const",
+   "object": {
+    "ref": "fam_normal"
+   },
+   "qualifiers": {
+    "modality": "conventional",
+    "param_values": {
+     "variance": {
+      "t": "formula",
+      "latex": "0",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "stm_conv",
+   "evidence": [
+    {
+     "start": 21135,
+     "end": 21186,
+     "role": "primary"
+    },
+    {
+     "start": 21221,
+     "end": 21231,
+     "role": "supporting"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "un_01",
+   "reason": "The mean parameter value is the constant itself, named in the text only as 'the constant' with no symbol or formula; a param_values entry needs a Formula value, so the mean cannot be recorded.",
+   "start": 21188,
+   "end": 21216
+  },
+  {
+   "local_ref": "un_02",
+   "reason": "Negative validity statement about the pdf and cdf formulas, which the unit cites only by number ([14], [17]) and does not restate; no formula value is available to attach a negative pdf or cdf claim to.",
+   "start": 21345,
+   "end": 21461
+  },
+  {
+   "local_ref": "un_03",
+   "reason": "Validity of results [23], [24] and [26] under the convention; the results live in other units, and no schema predicate states that a result remains valid under a convention.",
+   "start": 21467,
+   "end": 21590
+  },
+  {
+   "local_ref": "un_04",
+   "reason": "Hypothetical extension of result [24] to all a and b; the result is not restated here and the schema has no predicate for the hypothesis set of another result.",
+   "start": 21602,
+   "end": 21679
+  }
+ ]
+}

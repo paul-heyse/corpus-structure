@@ -1,0 +1,19 @@
+{
+  "unit_ref": "T3",
+  "entities": [
+    {"local_ref": "rv_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [{"kind": "symbol", "text": "X"}], "identity": {"symbol": "X"}},
+    {"local_ref": "rv_aX", "type": "RandomVariable", "label": "a + bX", "scope": "local", "extent": "statement", "symbol": "a + b X", "aliases": [{"kind": "expression", "text": "a + bX"}], "identity": {"symbol": "a + b X"}},
+    {"local_ref": "fam_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [{"kind": "term", "text": "normal distribution"}], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "stm_thm", "kind": "theorem", "anchor": ["s1", "s2"]},
+    {"local_ref": "stm_proof", "kind": "proof", "anchor": ["s3"]}
+  ],
+  "claims": [
+    {"local_ref": "cl_01", "predicate": "has_distribution", "subject": "rv_X", "object": {"ref": "fam_normal"}, "qualifiers": {"modality": "supposed", "param_values": [{"key": "mean", "value": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "free"}}}}, {"key": "variance", "value": {"t": "formula", "latex": "\\sigma^2", "symbols": {"sigma": {"bind": "free"}}}}]}, "statement": "stm_thm", "statement_role": "premise", "evidence": [{"sentence": "s1", "quote": "Suppose that \\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\)", "role": "primary"}]},
+    {"local_ref": "cl_02", "predicate": "has_distribution", "subject": "rv_aX", "object": {"ref": "fam_normal"}, "qualifiers": {"modality": "asserted", "conditions": {"op": "and", "args": [{"op": "claim", "ref": "cl_01"}, {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}}, {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R \\setminus \\{0\\}", "symbols": {}}}]}, "param_values": [{"key": "mean", "value": {"t": "formula", "latex": "a + b \\mu", "symbols": {"a": {"bind": "free"}, "b": {"bind": "free"}, "mu": {"bind": "param_of", "claim": "cl_01", "param": "mean"}}}}, {"key": "variance", "value": {"t": "formula", "latex": "b^2 \\sigma^2", "symbols": {"b": {"bind": "free"}, "sigma": {"bind": "param_expr_of", "claim": "cl_01", "param": "variance"}}}}]}, "statement": "stm_thm", "statement_role": "conclusion", "evidence": [{"sentence": "s2", "quote": "is normally distributed with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)", "role": "primary"}, {"sentence": "s2", "quote": "\\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\)", "role": "condition"}]},
+    {"local_ref": "cl_03", "predicate": "proves", "subject": "stm_proof", "object": {"ref": "stm_thm"}, "qualifiers": {"modality": "asserted"}, "statement": "stm_proof", "evidence": [{"sentence": "s3", "quote": "which we recognize as the MGF of the normal distribution with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

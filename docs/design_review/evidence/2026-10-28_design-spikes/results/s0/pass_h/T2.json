@@ -1,0 +1,21 @@
+{
+  "unit_ref": "T2",
+  "entities": [
+    {"local_ref": "rv_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "section", "symbol": "X", "aliases": ["X"], "identity": {}},
+    {"local_ref": "fam_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normal distribution"], "identity": {}},
+    {"local_ref": "fp_location", "type": "FamilyParameter", "label": "location parameter", "scope": "global", "symbol": "mu", "aliases": ["location parameter"], "identity": {"family": "fam_normal", "canonical_name": "location"}},
+    {"local_ref": "fp_scale", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "symbol": "sigma", "aliases": ["scale parameter"], "identity": {"family": "fam_normal", "canonical_name": "scale"}},
+    {"local_ref": "fp_mean", "type": "FamilyParameter", "label": "mean", "scope": "global", "aliases": ["mean"], "identity": {"family": "fam_normal", "canonical_name": "mean"}},
+    {"local_ref": "fp_sd", "type": "FamilyParameter", "label": "standard deviation", "scope": "global", "aliases": ["standard deviation"], "identity": {"family": "fam_normal", "canonical_name": "standard_deviation"}}
+  ],
+  "statements": [
+    {"local_ref": "stm_para", "kind": "narrative", "anchor": ["s1", "s2"]}
+  ],
+  "claims": [
+    {"local_ref": "cl_01", "predicate": "has_distribution", "subject": "rv_X", "object": {"ref": "fam_normal"}, "qualifiers": {"modality": "supposed", "scope": "section", "conditions": {"op": "and", "args": [{"op": "member", "x": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}}, {"op": "member", "x": {"t": "formula", "latex": "\\sigma", "symbols": {"sigma": {"bind": "free"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}]}, "param_values": {"location": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "free"}}}, "scale": {"t": "formula", "latex": "\\sigma", "symbols": {"sigma": {"bind": "free"}}}}}, "statement": "stm_para", "statement_role": "premise", "evidence": [{"sentence": "s1", "quote": "Suppose again that \\( X \\) has the normal distribution with location parameter", "role": "primary"}, {"sentence": "s1", "quote": "\\( \\mu \\in \\R \\)", "role": "condition"}, {"sentence": "s1", "quote": "\\( \\sigma \\in (0, \\infty) \\)", "role": "condition"}]},
+    {"local_ref": "cl_02", "predicate": "identical_parameter", "subject": "fp_location", "object": {"ref": "fp_mean"}, "qualifiers": {"modality": "asserted"}, "statement": "stm_para", "evidence": [{"sentence": "s2", "quote": "the location and scale parameters are also the mean and standard deviation, respectively", "role": "primary"}]},
+    {"local_ref": "cl_03", "predicate": "identical_parameter", "subject": "fp_scale", "object": {"ref": "fp_sd"}, "qualifiers": {"modality": "asserted"}, "statement": "stm_para", "evidence": [{"sentence": "s2", "quote": "the location and scale parameters are also the mean and standard deviation, respectively", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

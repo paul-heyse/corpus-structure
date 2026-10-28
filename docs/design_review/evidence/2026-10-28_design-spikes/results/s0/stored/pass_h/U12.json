@@ -1,0 +1,122 @@
+{
+ "envelope": {
+  "unit": "U12",
+  "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+  "source": "results/s0/pass_h/U12.json"
+ },
+ "unit_ref": "U12",
+ "entities": [
+  {
+   "local_ref": "rv_X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "aliases": [
+    "X"
+   ],
+   "identity": {},
+   "scope_segment": "seg:c4fe4f7d381a7309db596d113d517bb8"
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "stm_thm",
+   "kind": "theorem",
+   "anchor": [
+    "seg:7edc0b114a37b999625e6f5b6393f3f1",
+    "seg:fffdc9c9a07875ea4f25614d1db1cc51",
+    "seg:798141f60bd67c856fd7779c40e80b78"
+   ]
+  },
+  {
+   "local_ref": "stm_proof",
+   "kind": "proof",
+   "anchor": [
+    "seg:b32398b5dd210b09054a83c2b028e06c",
+    "seg:1f928b3871064106c0e965a530dfa590"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "cl_01",
+   "predicate": "mean_value",
+   "subject": "rv_X",
+   "object": {
+    "t": "formula",
+    "latex": "k",
+    "symbols": {
+     "k": {
+      "bind": "unresolved"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "stm_thm",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 7295,
+     "end": 7308,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_02",
+   "predicate": "variance_value",
+   "subject": "rv_X",
+   "object": {
+    "t": "formula",
+    "latex": "k",
+    "symbols": {
+     "k": {
+      "bind": "unresolved"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "stm_thm",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 7313,
+     "end": 7328,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_03",
+   "predicate": "proves",
+   "subject": "stm_proof",
+   "object": {
+    "ref": "stm_thm"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "stm_proof",
+   "evidence": [
+    {
+     "start": 7340,
+     "end": 7353,
+     "role": "primary"
+    },
+    {
+     "start": 7462,
+     "end": 7480,
+     "role": "supporting"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

@@ -1,0 +1,313 @@
+{
+ "envelope": {
+  "unit": "U9",
+  "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+  "source": "results/s0/pass_h/U9.json"
+ },
+ "unit_ref": "U9",
+ "entities": [
+  {
+   "local_ref": "rv_Xi",
+   "type": "RandomVariable",
+   "label": "X_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X_i",
+   "aliases": [
+    "X_i"
+   ],
+   "identity": {},
+   "scope_segment": "seg:680f3eb3f2fdb65fe5886ea06547a38c"
+  },
+  {
+   "local_ref": "rv_prod",
+   "type": "RandomVariable",
+   "label": "product of X_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "\\prod_{i=1}^n X_i",
+   "aliases": [
+    "\\prod_{i=1}^n X_i"
+   ],
+   "identity": {},
+   "scope_segment": "seg:680f3eb3f2fdb65fe5886ea06547a38c"
+  },
+  {
+   "local_ref": "fam_lognormal",
+   "type": "DistributionFamily",
+   "label": "lognormal distribution",
+   "scope": "global",
+   "aliases": [
+    "lognormal distribution"
+   ],
+   "identity": {}
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "stm_thm",
+   "kind": "theorem",
+   "anchor": [
+    "seg:c8858445283cc4b3aeebf62b43bc2380",
+    "seg:d4d15a5c15b937f230d666afa222625c"
+   ]
+  },
+  {
+   "local_ref": "stm_proof",
+   "kind": "proof",
+   "anchor": [
+    "seg:ae936ca6dd75a6556c16350058871c9a",
+    "seg:f5bda7a82a6394d9651a5a2520b503bb",
+    "seg:cc5662bf909023b827077c3ccad88c2a"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "cl_01",
+   "predicate": "has_distribution",
+   "subject": "rv_Xi",
+   "object": {
+    "ref": "fam_lognormal"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "n",
+        "symbols": {
+         "n": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\N_+",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "i",
+        "symbols": {
+         "i": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\{1, 2, \\ldots, n\\}",
+        "symbols": {
+         "n": {
+          "bind": "free"
+         }
+        }
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\mu_i",
+        "symbols": {
+         "mu_i": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\sigma_i",
+        "symbols": {
+         "sigma_i": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "unsupported",
+       "text": "(X_1, X_2, \\ldots, X_n)\\) is a sequence of independent variables",
+       "reason": "The independent condition predicate takes two or more arguments; an indexed sequence of n variables has no entity-level form in the schema.",
+       "start": 10087,
+       "end": 10151
+      }
+     ]
+    },
+    "param_values": {
+     "mu": {
+      "t": "formula",
+      "latex": "\\mu_i",
+      "symbols": {
+       "mu_i": {
+        "bind": "free"
+       }
+      }
+     },
+     "shape": {
+      "t": "formula",
+      "latex": "\\sigma_i",
+      "symbols": {
+       "sigma_i": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "stm_thm",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 10159,
+     "end": 10263,
+     "role": "primary"
+    },
+    {
+     "start": 10061,
+     "end": 10075,
+     "role": "condition"
+    },
+    {
+     "start": 10264,
+     "end": 10297,
+     "role": "condition"
+    },
+    {
+     "start": 10113,
+     "end": 10151,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_02",
+   "predicate": "has_distribution",
+   "subject": "rv_prod",
+   "object": {
+    "ref": "fam_lognormal"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "cl_01"
+      },
+      {
+       "op": "unsupported",
+       "text": "(X_1, X_2, \\ldots, X_n)\\) is a sequence of independent variables",
+       "reason": "The independent condition predicate takes two or more arguments; an indexed sequence of n variables has no entity-level form in the schema.",
+       "start": 10087,
+       "end": 10151
+      }
+     ]
+    },
+    "param_values": {
+     "mu": {
+      "t": "formula",
+      "latex": "\\sum_{i=1}^n \\mu_i",
+      "symbols": {
+       "n": {
+        "bind": "free"
+       },
+       "i": {
+        "bind": "free"
+       },
+       "mu_i": {
+        "bind": "param_of",
+        "claim": "cl_01",
+        "param": "mu"
+       }
+      }
+     },
+     "shape": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "stm_thm",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 10326,
+     "end": 10395,
+     "role": "primary"
+    },
+    {
+     "start": 10396,
+     "end": 10430,
+     "role": "supporting"
+    },
+    {
+     "start": 10113,
+     "end": 10151,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "cl_03",
+   "predicate": "proves",
+   "subject": "stm_proof",
+   "object": {
+    "ref": "stm_thm"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "stm_proof",
+   "evidence": [
+    {
+     "start": 10813,
+     "end": 10935,
+     "role": "primary"
+    },
+    {
+     "start": 10486,
+     "end": 10512,
+     "role": "supporting"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "un_01",
+   "reason": "Gives the shape value of the conclusion only through sigma squared equal to a sum of the premises' squared shapes. No schema predicate relates a family parameter to a sum over other variables' parameters, so only the shape symbol sigma is recorded.",
+   "start": 10435,
+   "end": 10473
+  }
+ ]
+}
