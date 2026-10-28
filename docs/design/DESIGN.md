@@ -210,7 +210,7 @@ unresolved; golden passes go through the same tools by Sonnet subagents
 ### §B4 PostgreSQL 18 is the single authority
 
 **Proposed**; ADR-0016 is proposed until S6 reports. One database holds knowledge, operations and
-evaluation, with JSONB payloads, pgvector and full-text search; DuckDB serves analytics and exports
+evaluation, with JSONB payloads, pgvector and BM25 text search; DuckDB serves analytics and exports
 only ([D3](D3-database.md)).
 
 > Decision: ADR-0016

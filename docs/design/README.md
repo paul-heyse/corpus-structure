@@ -50,11 +50,14 @@ arrive as `> Library proposal (L-nn):` blocks, disposed in the [active plan](../
 | Goldens, alignment, scoring, experiments | D7 | `evaluate` |
 | Agent and human intervention tools | D8 | `intervene` |
 | Query surface and exports | D8 | `serve` |
+| The `ci` command line | D8 §4 | `cli` |
 
-**Dependency direction.** `core` ← `schema` ← (`ingest`, `methods`) ← `consolidate` ←
-`validate` ← `orchestrate` ← (`evaluate`, `intervene`, `serve`). A package imports only packages
-to its left. `domains/<name>` holds data (schema, guideline, policies) plus verifier plug-ins
-that implement interfaces declared in `validate`.
+**Dependency direction** (D9 §1). `core` ← `schema` ← `validate`; (`ingest`, `methods`) ←
+`consolidate` ← `orchestrate` ← (`evaluate`, `serve`) ← `intervene` ← `cli`, with `consolidate`
+using `validate`. A package imports only packages to its left. `domains/<name>` holds data (schema,
+guideline, policies, rules with `views:`) plus plug-ins: verifiers implementing a `validate`
+interface and domain queries implementing a `serve` interface. Source profiles live in
+`sources/<profile>.yaml`, apart from any domain.
 
 This table describes intended ownership; it is not a certificate of current architectural
 conformance.

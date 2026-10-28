@@ -15,16 +15,18 @@ verifier plug-ins.
 python/corpus-structure/                 uv workspace member; distribution corpus-structure
   pyproject.toml
   src/corpus_structure/
-    core/            D1 types (Pydantic): values, conditions, claims, keys, canonical JSON;
+    core/            D1 types (Pydantic): values, conditions, claims, the keyed candidate claim,
+                     keys, canonical JSON; locators (D1 §3.4); tex.py (the TeX tokenizer and token form);
                      db/ (SQLAlchemy Core table metadata from D3), schemas/ (JSON Schemas of D3 §6)
     schema/          LinkML loading (SchemaView) and the D2 §7 compilers
-    ingest/          M01–M03, source profiles
+    validate/        M19's runner and the rule-view builder over core types; M20; the Verifier
+                     protocol and runner (M21's host)
+    ingest/          M01–M03 (source profiles are data in sources/)
     methods/         M04–M16, M22, M24 packets; llm/ (packet, prompts/, parse); gliner/; math/
     consolidate/     M17, M18, M23 (D5)
-    validate/        M19, M20, the Verifier protocol and runner (M21's host)
     orchestrate/     runs, stage graph, tasks, workers, reuse, policies, metrics (D6)
     evaluate/        golden sets, alignment, scoring, witnesses, experiments, digest (D7)
-    serve/           typed queries and exports (D8 §5–§6)
+    serve/           generic typed queries, the domain-query protocol, exports (D8 §5–§6)
     intervene/       MCP server and tool implementations (D8 §2)
     cli/             the Typer app and every `ci` command group (D8 §4)
   alembic/           migrations; 0001 is D3
@@ -32,20 +34,35 @@ python/corpus-structure/                 uv workspace member; distribution corpu
 domains/
   core/schema/core.yaml
   statistics/        schema/ (statistics.yaml, rules.yaml, migrations/), guideline.md,
-                     policies.yaml, methods.yaml, slices.yaml, verifiers.py, reference/, README.md
+                     policies.yaml, methods.yaml, slices.yaml, verifiers.py, queries.py,
+                     reference/, README.md
+sources/
+  siegrist.yaml      the Siegrist source profile (D2 §12.1, D4 M01), named by the packs that read it
 fixtures/
   trace/             the trace as data: segments, target entities and claims per unit (from trace.md)
-  s0/                the S0/S0-R2 v1 reference as model-facing batches with locators: fixture
-                     proposals; the stored form is re-derived by the quote cascade, keys are never stored
+  s0/                the S0/S0-R2 v1 reference as authored batches with their citation frames
+                     (D1 §10.3): fixture proposals; the stored form is derived by the quote cascade
+                     on the production renditions, keys are never stored
 services/vllm-native/                    the vLLM 0.31 environment (separate uv project, own lock)
 .claude/skills/work-queue/SKILL.md       how the Claude Code session works the agent queue (D8 §3);
                                          needs a `!/.claude/skills/work-queue/` line in .gitignore
 .mcp.json                                registers the MCP server for Claude Code
 ```
 
-Dependency direction is as in the [architecture map](README.md): `core` ← `schema` ← (`ingest`,
-`methods`) ← `consolidate` ← `validate` ← `orchestrate` ← (`evaluate`, `serve`) ← `intervene` ←
-`cli`. The entry points sit on top: the MCP tools call `serve`'s queries (D8 `query`, `explain`),
+Dependency direction: `core` ← `schema` ← `validate`, and `core` ← `schema` ← (`ingest`,
+`methods`) ← `consolidate` ← `orchestrate` ← (`evaluate`, `serve`) ← `intervene` ← `cli`, with
+`consolidate` using `validate` (P0CL-08; operator, 2026-10-28). `validate` sits below
+`consolidate` because M19 runs at two call sites, inside `intervene`'s `propose_claims` at
+submission and inside consolidation's finalize pass (D5 §8.2). Its runner and the rule-view
+builder work over the `core` keyed candidate claim, which a submitted batch and the candidate pool
+each adapt into, so `validate` imports neither consolidation's pool nor the batch parser. Domain
+plug-ins implement protocols declared in the generic packages: `domains/<name>/verifiers.py`
+`validate`'s Verifier, `domains/<name>/queries.py` `serve`'s query protocol (D2 §7.6, D8 §5.2), so
+no generic package names a domain predicate (P0CL-07). Source profiles are data in `sources/`,
+outside every pack (D2 §12.1).
+> Status: **Proposed** (2026-10-28)
+
+The entry points sit on top: the MCP tools call `serve`'s queries (D8 `query`, `explain`),
 and `cli` holds the Typer app and every `ci` command group, so `serve` holds queries and exports
 only and Typer and Rich stay out of the lower layers ([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-7). The
 direction is a design rule checked at design reviews; no lint enforces it (an ast-grep rule is
@@ -72,6 +89,7 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 | pydantic, pydantic-settings | 2.14.1, 2.16.0 | core types, method configs, settings |
 | sqlalchemy, psycopg[binary], psycopg-pool, alembic | 2.1.5, 3.3.6, 3.3.3, 1.20.0 | core.db, migrations, bulk COPY |
 | pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/pgevector.md)) | `halfvec` column type (phase 1, with `kb.embedding`) |
+| pg_textsearch (server extension) | 1.5.1 (Debian package `postgresql-18-pg-textsearch`; [overview](../libraries/postgresql-18-pg-textsearch.md)) | BM25 lexical search for `find` (D3 §5, D8 §5.1). A phase 0 server prerequisite: in `shared_preload_libraries`, and created once by the operator in the template database, so the cloned test databases (§4) carry it |
 | linkml (runtime and generators) | 1.12.1 | schema |
 | rule-engine | 5.1.0 | M19, policies |
 | gliner2 | 2.1.0 | M05–M07 (phase 1; the product environment carries no gliner2 or torch in phase 0) |
@@ -79,7 +97,7 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 | lxml, html5lib | 6.1.3, 1.1 ([overview](../libraries/html5lib.md)) | M01 (html5lib parser through `lxml.html.html5parser`; D4 M01) |
 | cssselect2 | 0.10.1 | M01's role engine (`Matcher`; D4 M01) |
 | regex | 2026.9.29 | M01 delimiter pattern, the quote cascade (D4 §4.3), M22 lexicons |
-| tokenizers | 0.23.3 | M02 token counts, packet caps (D4 §4.1) |
+| tokenizers | 0.23.3 | M02 token counts, LLM-tier packet caps (D4 §4.1; agent-tier caps are characters) |
 | PyYAML | 6.0.3 | pack files |
 | jsonschema (dev) | 4.26.0 ([overview](../libraries/jsonschema.md)) | an independent oracle in tests and `check_schema` on generated artifacts; production validates with Pydantic (D2 §7.3, D3 §6) |
 | sympy, lark | 1.14.0 (hold, `docs/pins.md`), 1.3.1 | M11 (grammar from phase 0, SymPy conversion from phase 1), M21, alignment |
@@ -118,7 +136,8 @@ in a side environment like vLLM), never by lowering the product's Python version
   No configuration in code paths.
 - **Connections.** One psycopg-pool per process; SQLAlchemy borrows from it (D3 §1). The MCP
   server's lifespan, which runs once per stdio process, holds its pool; tools are synchronous and
-  run on FastMCP's worker threads, so they call the same application functions as the CLI.
+  run on FastMCP's worker threads, so they call the same application functions as the CLI, and
+  never the math grammar, whose timeout needs a main thread (D2 §7.4).
 - **Methods** follow the D4 §1 contract; a method's tests run it on trace units with fixtures.
 - **Determinism.** Keys from canonical JSON (D1 §10.1); LLM calls with `temperature: 0` and a
   seed; no wall-clock or random input to any key or digest.
@@ -137,7 +156,7 @@ in a side environment like vLLM), never by lowering the product's Python version
 | Ingest | Trace segments and offsets; S1 counts | `fixtures/trace/*.segments.json`; corpus-gated tests skipped when `docs/statistics_corpus` is absent |
 | Methods | Each method on trace units | Fixtures; GPU tests marked `gpu`; LLM tests replay recorded responses (stored under `fixtures/llm/`) so they are deterministic and offline |
 | Consolidation | The trace through D5: proposals from `fixtures/s0` produce the trace's target claims and keys | End-to-end on the trace slice without GPU or agent |
-| Acceptance | The trace's typed questions (D8 §5.3) answered from the database after a `trace` slice run whose proposals are the `fixtures/s0` batches, submitted through the MCP tools in process (FastMCP's `Client`), so the test is deterministic and needs no live agent. Phase 0 checks every trace target except derived claims (T3 D1, phase 2), with scopes and bindings as the proposals state them (D5 §11). Comparisons are by locator and structure, never by literal keys, because keys change with the rendition (D1 §10.1). The live Opus trace run is qualification evidence, scored by alignment against the re-authored dev goldens | `tests/acceptance/test_trace.py`; the phase 0 gate |
+| Acceptance | The trace's typed questions (D8 §5.3) answered from the database after a `trace` slice run with `agent_mode: complete`, the `fixtures/s0` batches for its units submitted through the MCP tools in process (FastMCP's `Client`), and a rerun that reuses them (D6 §4), so the test is deterministic and needs no live agent. Phase 0 checks every trace target except derived claims (T3 D1, phase 2), with scopes and bindings as the proposals state them (D5 §11). Comparisons are by locator and structure, never by literal keys: the fixtures hold authored batches and no keys, and the test checks answers, not the key function (D1 §10.1). The live Opus `trace` and `spike-pages` runs are qualification evidence: their typed-query rows are aligned to expectations derived from the re-authored dev goldens (D7 §9) | `tests/acceptance/test_trace.py`; the phase 0 gate |
 | Evaluation | Alignment tiers on hand-made golden/run pairs, including formula equivalence and faithful ambiguity; interval figures reproduced from a recorded seed and unit order | Unit tests |
 | Interfaces | MCP tools through one shared in-process `Client(mcp)` fixture (sequential clients re-enter the lifespan); `ci` through Typer's `CliRunner` with stdout and stderr apart and the Rich width fixed | Unit and acceptance tests ([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) §1, §3) |
 
@@ -150,23 +169,25 @@ The [phase 0 plan series](../plans/phase-0_2026-10-28.md) owns sequencing, depen
 each step's content and acceptance, and its "Depends on" column is indicative.
 
 Goal (D0): the meta-model in PostgreSQL, HTML ingest, Opus intervention tools, the query API and
-the evaluation harness; Opus extracts the claims of the first-pass dev pages (D6 §7.4); the trace units and spike pages answer their
-typed questions from the database; evaluation runs.
+the evaluation harness; Opus extracts the claims of the `phase0-golden` slice (the pages holding
+dev golden units, the forced-dev pages, and the trace and core-unit pages; D7 §9), while the full
+first pass is a phase 1 run with M10 (P0CL-09; operator, 2026-10-28); the trace units and spike
+pages answer their typed questions from the database; evaluation runs.
 
 | Step | Builds | Depends on | Acceptance |
 |---|---|---|---|
 | P0.1 | Package skeleton as a workspace member; settings; `ci` with `--help` | — | `just check` passes with the package's first tests |
-| P0.2 | `core`: values, conditions, claims, canonical JSON, keys; `fixtures/trace` and `fixtures/s0` as model-facing batches with locators | P0.1 | Property tests; the trace's claims construct and key deterministically |
+| P0.2 | `core`: values, conditions, claims, the keyed candidate claim, canonical JSON, keys, `core/tex.py`, and the locator generator and resolver (D1 §3.4; owned by ingest and math); `fixtures/trace` and `fixtures/s0` as authored batches with citation frames | P0.1 | Property tests; the trace's claims construct and key deterministically |
 | P0.3 | Migration 0001 (D3, with S6 corrections); `ci db init`, `ci db migrate` | P0.2, S6 | Upgrade and downgrade on a test database; trace rows of D3 §10 insert and the D3 §9 queries return them |
-| P0.4 | `schema`: load `core.yaml` and `statistics.yaml` v0; compilers to schema tables, JSON Schema (both forms, with `cN` citations), the **annotator reference** (D2 §7.5, §10.10, with the worked examples), rules (compiled) including the **`guideline:` warning group** (D2 §7.4); the M19 runner in `validate/` with the D5 §8.2 context at both call sites; `ci schema compile` (GLiNER2 dicts are compiled from phase 1, D2 §7.2) | P0.2, S4 | Deterministic artifact hashes; a rule with a type error fails compilation; the v1 reference batches validate against the model-facing schema, and their stored form against the stored schema; the generated reference for schema v0 carries the information of `results/s0r2/inputs/packet_v1/reference.md`; the v1 reference and the examples give 0 guideline warnings, and each seeded violation is caught |
-| P0.5 | `ingest`: M01 with the Siegrist source profile (D2 §12.1; every source fact read from the profile, including `sections`, references and the rendering conventions), the html5lib parser, M02, M03 (variant b′ from S1) | P0.3, S1 | Trace segment fixtures match; S1 count criterion holds on the 78 pages; invariants hold; canonical text equals the spike renditions on the S0/S0-R2 pages (rendition identity, A12) |
-| P0.5b | Math grammar and scoping: the one math grammar (M11's grammar part: validation, slot typing, canonical form; SymPy conversion stays phase 1), M09 symbol occurrences, M13 binding sites; packet standing context from M13 (D4 §4.1) | P0.5, S5 | The S0 M13 probe's 20 of 20 scopes; delimiting reproduces S1's 8 `partial` spans; the property test that tree printer and token form agree on every parsed value (D1 §6.2, ADR-0012); grammar coverage reported per page, not a gate; the trace and core units' packets give the context of `results/s0r2/sample.json` |
-| P0.6 | `ci project init` (project, documents, versions, named configurations, slices by locator); `orchestrate` minimum: runs, tasks, queue, reuse, the stages `ingest → normalize (grammar, M09) → scope (M13) → propose → assemble → check (M19) → finalize → measure → evaluate` (D6 §2); `methods.yaml` loaded into the method registry, agent barrier (`wait`) | P0.3, P0.5b | A `trace` slice run creates `awaiting_agent` tasks; a second run reuses the ingest tasks |
-| P0.7 | `intervene`: MCP server with queue tools, `read_instructions`, `propose_claims` (validation, quote location), the M24 extract prompt (`methods/llm/prompts/extract.md`); golden tools leased on the task queue (`read_golden_unit` serves the guideline, the annotator reference and the query-assembled packet; `write_golden` records the model and the inputs, D3 `eval.golden_pass`, and returns guideline warnings), `record_direction`; the work-queue skill, which dispatches golden passes to Sonnet subagents (ADR-0011; `adjudicate` follows in phase 1) | P0.4, P0.6 | Submitting a v1 reference batch completes a task; errors and warnings come back per item; a golden pass without model or inputs is refused |
-| P0.8 | `consolidate` phase 0 realization (D5 §11) | P0.6, P0.7 | Fixture proposals for the trace produce the target claims, statements, bindings that the proposals state, and invariants |
-| P0.9 | `serve`: typed queries of D8 §5.1–§5.3 with the run selector, `ci query` (exports are phase 1, D8 §6) | P0.8 | The trace acceptance test passes |
-| P0.10 | `evaluate`: page split with reserved pages and the forced-dev pages of D7 §3.1, unit sampler (`ci golden split`, `ci golden create`), context-premise scoring (D7 §5.1), golden sets (dev 40, test 40; trace and core units in dev), alignment tiers, scores with bootstrap intervals, `ci eval`, digest v0 | P0.7, P0.8 | Alignment unit tests; scoring a run against S0 references gives the S0 A-versus-B numbers when fed the passes |
-| P0.11 | Phase 0 runs: `trace`, then `spike-pages`, then `first-pass` with Opus working the queue (test-split units are not sent to the agent and stay unextracted in phase 0); goldens authored by the D7 protocol (Sonnet passes and adjudication, ADR-0011) | all | The D0 phase 0 gate (D7 §9) |
+| P0.4 | `schema`: load `core.yaml` and `statistics.yaml` v0; compilers to schema tables, JSON Schema (both forms, with `cN` citations), the **annotator reference** (D2 §7.5, §10.10, with the worked examples), rules (compiled) including the **`guideline:` warning group** (D2 §7.4); the M19 runner and the rule-view builder in `validate/` over the `core` keyed candidate claim, with the D5 §8.2 context at both call sites and the pack's `views:` compiled (D2 §7.4), submission-time views reading symbols with `core/tex.py` and grammar-dependent rules `at: [finalize]`; compiled artifacts keyed by schema version, compiler, compiler version and kind (D2 §7); `ci schema compile` (GLiNER2 dicts are compiled from phase 1, D2 §7.2) | P0.2, S4 | Deterministic artifact hashes; a compiler version change adds artifacts beside the old ones; a rule with a type error fails compilation; the v1 reference batches validate against the model-facing schema, and their stored form against the stored schema; the generated reference for schema v0 carries the information of `results/s0r2/inputs/packet_v1/reference.md`; the v1 reference and the examples give 0 guideline warnings, and each seeded violation is caught |
+| P0.5 | `ingest`: M01 with the Siegrist source profile (`sources/siegrist.yaml`, D2 §12.1; every source fact read from the profile, including `sections`, references and the rendering conventions), the html5lib parser, content-addressed renditions with their builds (D1 §3.1), M02, M03 (variant b′ from S1) | P0.3, S1 | Trace segment fixtures match; S1 count criterion holds on the 78 pages; invariants hold; canonical text equals the spike renditions on the S0/S0-R2 pages (rendition identity, A12) |
+| P0.5b | Math grammar and scoping: the one math grammar (M11's grammar part: validation, slot typing, canonical form; SymPy conversion stays phase 1), M09 symbol occurrences, both run per rendition with per-span observations; M13 binding sites; packet standing context from M13 (D4 §4.1) | P0.5, S5 | The S0 M13 probe's 20 of 20 scopes; delimiting reproduces S1's 8 `partial` spans; the property test that tree printer and token form agree on every parsed value (D1 §6.2, ADR-0012); grammar coverage reported per page, not a gate; the trace and core units' packets give the context of `results/s0r2/sample.json` |
+| P0.6 | `ci project init` (project, documents, versions, named configurations, slices by locator); `orchestrate` minimum: runs with their recorded reference run, tasks, queue, reuse by content digest, the stages `ingest → normalize (grammar, M09) → scope (M13) → propose → assemble → finalize → measure → evaluate` (D6 §2), with M19 as one run-level step inside finalize and no `check` stage in phase 0; a recorded fate for every eligible unit (`skipped` with reason `scope` outside the run's scope, D6 §7.4, §8); `methods.yaml` loaded into the method registry; the agent barrier (`wait` for short slice runs, `complete` with reuse for long ones) | P0.3, P0.5b | A `trace` slice run creates `awaiting_agent` tasks; a second run reuses the ingest tasks; a run scoped to `phase0-golden` records every other eligible unit as `skipped` with reason `scope` |
+| P0.7 | `intervene`: MCP server with queue tools, `read_instructions`, `propose_claims` (validation, quote location, M19 at the `batch` call site), packet assembly from recorded inputs with caps in characters (D4 §4.1, D8 §3), the M24 extract prompt (`methods/llm/prompts/extract.md`); golden tools leased on the task queue (`read_golden_unit` serves the guideline, the annotator reference and the query-assembled packet; `write_golden` stores the authored batch with its citation frame, records the model and the inputs, D3 `eval.golden_pass`, returns guideline warnings, and creates the pass-C task in the transaction that stores the second of passes A and B), `record_direction`; the work-queue skill, which dispatches golden passes to Sonnet subagents (ADR-0011; `adjudicate` follows in phase 1) | P0.4, P0.6 | Submitting a v1 reference batch completes a task; errors and warnings come back per item; a golden pass without model or inputs is refused |
+| P0.8 | `consolidate` phase 0 realization (D5 §11), with M19 at finalize as one run-level step over the in-memory pool, bulk-writing `verification` observations | P0.6, P0.7 | Fixture proposals for the trace produce the target claims, statements, bindings that the proposals state, and invariants |
+| P0.9 | `serve`: the generic queries of D8 §5.1 and the domain-query protocol, with the run selector, pinning and coverage (D8 §5); the statistics queries of D8 §5.2 in `domains/statistics/queries.py`; `ci query` (exports are phase 1, D8 §6) | P0.8 | The trace acceptance test passes; a query over a run with skipped units reports partial coverage; a promotion between pages leaves a page token's run unchanged |
+| P0.10 | `evaluate`: page split with reserved pages and the forced-dev pages of D7 §3.1, unit sampler (`ci golden split`, `ci golden create`), context-premise scoring (D7 §5.1), golden sets (dev 40, test 40; trace and core units forced into dev), goldens keyed by unit key with items derived per rendition (D7 §3.1), the `phase0-golden` page set, alignment tiers, scores with bootstrap intervals, the pre-registered promotion readings (D7 §7 item 5), `ci eval`, digest v0 | P0.7, P0.8 | Alignment unit tests; scoring a run against S0 references gives the S0 A-versus-B numbers when fed the passes |
+| P0.11 | Phase 0 runs: `trace`, then `spike-pages`, then the phase 0 first pass: successive `agent_mode: complete` runs over the first-pass corpus scoped to the `phase0-golden` slice (D6 §8), each reusing finished tasks, with Opus working the queue between them (every other eligible unit `skipped` with reason `scope`; the full first pass is a phase 1 run with M10, D7 §9); goldens authored by the D7 protocol (Sonnet passes and adjudication, ADR-0011) | all | The D0 phase 0 gate (D7 §9): the sequence converges with no unresolved agent task, and the operator promotes that run with `ci promote` after reading the pre-registered readings |
 
 P0.2–P0.4 can proceed in parallel with the spikes S1, S4 and S6, absorbing their results as they
 land; P0.5 waits for S1, P0.3 for S6.
@@ -210,7 +231,7 @@ the D-document contracts with their tests (`code/tests_instruments`), not copied
 
 | Spike code | Target |
 |---|---|
-| `s1_adapter.py`, `profile/siegrist.yaml` | M01, M03; the Siegrist source profile in `domains/statistics/methods.yaml` (D2 §12.1) |
+| `s1_adapter.py`, `profile/siegrist.yaml` | M01, M03; the Siegrist source profile `sources/siegrist.yaml` (D2 §12.1) |
 | `mathgrammar/` | the one math grammar: M09, M11's grammar part, canonical form (ADR-0012) |
 | `m13_binders.py`, `s0r2_sample.py` | M13; packet standing context (D4 §4.1) |
 | `s0_locate.py` | the quote cascade (`methods.llm.parse`, D4 §4.3) |

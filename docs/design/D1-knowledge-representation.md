@@ -85,15 +85,22 @@ a canonical text. Rules for the canonical text:
     form the text itself uses to refer to it;
   - a `details` summary is a `heading` segment inside its `details`.
 
-  The conventions are part of the adapter configuration, so changing one makes a new rendition.
+  The conventions are part of the adapter configuration; changing one makes a new rendition only
+  when it changes the text (§3.2).
   > Status: **Tested** on the four spike pages (S1, 2026-10-28): `(a) ` markers cause no false sentence split, against 8 for the browser's `a. `; `[n]` markers, each one token that never starts a sentence, cause none, against 4–6 per page for bracketed markers read as text; an empty link leaves broken text ("By , …") ([s1.variants](../design_review/evidence/2026-10-28_design-spikes/records/s1.variants.json)); on 78 pages, with the insertions stripped, all 19,432 element texts compared match an independent path ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
 - Text that is not content (navigation, scripts, app widgets, footer) is excluded by the
   adapter's declared rules ([D4 M01](D4-method-catalog.md#m01-ingesthtml)).
 
-The canonical text is versioned by the adapter configuration. Each (document, adapter
-configuration) pair is a **rendition**; segments and spans belong to a rendition, and a run
-selects one rendition per document. Changing the adapter produces new renditions beside the old
-ones instead of rewriting them.
+A **rendition** is one content of a document: its canonical text, segments, sentences and macro
+table, identified by that content (§3.2), not by the adapter configuration that produced it.
+Segments and spans belong to a rendition, and a run selects one rendition per document. Each
+ingest of a document by an adapter configuration is a **build**, recorded as provenance with the
+parser diagnostics (`kb.rendition_build`, [D3 §5](D3-database.md#5-kb-evidence-observations-entities-and-claims)); builds whose output is
+content-identical share one rendition. Ingest (M01 with M03) computes the content digest before
+writing and deduplicates by it, so a content-preserving change (a port, a spaCy bump, a profile
+fix that changes nothing) keeps every row and key, and a change that alters content produces a
+new rendition beside the old one instead of rewriting it (P0CL-01; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28)
 
 ### 3.2 Segments
 
@@ -126,14 +133,27 @@ container's kind, so no content is lost for want of a block element.
 
 Attributes that record where an element sat in the source file (`attrs.sourceline`) are
 optional diagnostics, present only where the parser supplies them; html5lib supplies about one per
-page, and the rendition's `parse_detail` keeps the parser's error positions instead
+page, and the build's `parse_detail` keeps the parser's error positions instead
 ([D4 M01](D4-method-catalog.md#m01-ingesthtml)). They depend on the parser, and they are never
-part of a key, of the rendition contract or of an identity comparison between renditions. Two
-renditions of one document are content-identical when their canonical text, their segments'
-kinds, offsets, other attributes and tree, and their sentences are identical. Their keys still
-differ when their adapter configurations do (§10.1).
-> Status: **Tested** (2026-10-28): libxml2 and html5lib renditions of the seven pages S0 and S0-R2
-> use are content-identical in this sense ([s1.rendition-identity](../design_review/evidence/2026-10-28_design-spikes/records/s1.rendition-identity.json))
+part of a key, of the rendition contract or of an identity comparison between renditions.
+
+**Content identity.** Two builds of one document are content-identical when their canonical
+text, their segments' kinds, offsets, parse statuses, non-diagnostic attributes and tree, their
+sentence segments and their macro table are identical. That relation is the rendition's
+identity: the **content digest** is the SHA-256 of the canonical JSON (§10.1) of the canonical
+text, the segment tree (each segment's kind, offsets, parse status and attributes other than
+diagnostics, children in order, sentences included) and the macro table, and the rendition key is
+the document key plus that digest (§10.1). The macro table is content because canonical forms
+expand macros by it (§6.2): two builds that read the page's definitions differently must not
+share a rendition. Content-identical builds by different adapter configurations are one
+rendition, so they share every segment row and every key under it; parser diagnostics,
+exclusion records and the configuration stay on each build (P0CL-01; operator, 2026-10-28).
+> Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+> Status: the relation **Tested** for canonical text, segments and sentences (2026-10-28):
+> libxml2 and html5lib renditions of the seven pages S0 and S0-R2 use are identical in them
+> ([s1.rendition-identity](../design_review/evidence/2026-10-28_design-spikes/records/s1.rendition-identity.json));
+> parse statuses and the macro table in the relation, and keying renditions by its digest, are
+> **Proposed** (2026-10-28)
 
 > Status: **Measured** (2026-10-28, [text-math note L-01](../design_review/evidence/2026-10-28_library-text-math/README.md)): html5lib trees of the 78 Siegrist pages carry `sourceline` on 78 of about 29,000 elements, and record 17 parse errors with positions
 
@@ -154,6 +174,60 @@ A `Span` is `(rendition, start, end)` with its text. It is the only anchor type:
 of evidence resolves to one or more spans. A span records the smallest segment that contains it.
 Spans are deduplicated by `(rendition, start, end)` and upserted by the repository layer for
 any writer (ingest, methods, consolidation), so citing an offset never requires owning span rows.
+
+### 3.4 Locators
+
+A **locator** names a segment by what the source shows, an author id or the opening words of its
+text, instead of by offsets, so it resolves on every rendition of the document in which that text
+is unchanged. This is the one locator contract: slices ([D6 §8](D6-orchestration-metrics-policies.md#8-debug-slices-and-output-size)),
+fixtures, citation frames (§10.3), the `statement(locator)` query and evidence locators
+([D8 §5](D8-agent-and-query-interfaces.md#5-typed-queries)), `extref` targets (OPEN-D1-5) and the
+statement and local-entity keys (§10.1) all use it. Its owner in the build is ingest and math, as
+one core-level function over a rendition's segments that every consumer calls (P0CL-04;
+operator, 2026-10-28).
+
+| Form | Selects |
+|---|---|
+| `page` | the `document` segment |
+| `page#id` | the segment whose author id (`attrs.id`) is `id`, when exactly one segment of the page carries it |
+| `page@kind:prefix` | the one segment of that kind whose canonical text starts with `prefix` |
+| `page@kind[n]:prefix` | the `n`-th segment (from 1, in document order) of that kind whose canonical text starts with `prefix` |
+
+`page` is the document's source URI relative to the source root; `kind` is a segment kind of
+§3.2, with `u` and `p` as the short forms of `unit` and `paragraph` that slices already use
+([D2 §12.2](D2-schema-and-guidelines.md#122-slicesyaml)). Prefixes are compared with whitespace
+collapsed, on canonical text (LaTeX verbatim, NFC).
+
+- **Generator.** For a segment of a rendition, the generated locator is its author id when that
+  id is unique on the page. Otherwise it is `@kind:` with the shortest prefix, in whole words of
+  the whitespace-collapsed text, that no other segment of the same kind starts with. When another
+  segment of that kind starts with the segment's whole text (identical paragraphs, a one-word
+  proof), no prefix is unique: the generator takes the shortest prefix that selects only the
+  segment and those segments, and adds the segment's ordinal `[n]` among them. Generation is a
+  function of the rendition's segments alone, so content-identical renditions give identical
+  locators.
+- **Resolver.** On a rendition, a locator selects by id, or by kind, prefix and ordinal. A locator
+  that selects no segment, several where it gives no ordinal, or fewer than its ordinal, is
+  **refused** with the candidates listed; it is never resolved to a nearest match. Each consumer
+  decides what a refusal means: a slice fails its run's start (D6 §8), a citation frame marks its
+  golden unit stale ([D7 §3.5](D7-evaluation-goldens-outer-loop.md#35-staleness-and-re-authoring)).
+- **In keys** a locator enters in structured form with the document key in place of the page:
+  `{"doc": <document key>, "id": …}`, or `{"doc": …, "kind": <kind name>, "prefix": …}` with
+  `"n"` when the locator has an ordinal. Kind names are spelled in full there; the short forms
+  never reach a key.
+- **Unit key.** An annotation unit (a `unit` segment, or a paragraph outside units) is named across
+  renditions by its **unit key**, the string form of its generated locator, e.g.
+  `special/Normal.html#rel1`. Packets (`unit_ref`, D2 §7.3), tasks (`ops.task.unit_key`), golden
+  units and golden sampling use it.
+
+> Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+> Status: the `#id`, `@u:` and `@p:` forms **Tested** on the four spike pages (S1, 2026-10-28):
+> all 13 slice locators resolve to exactly one segment
+> ([s1.adapter](../design_review/evidence/2026-10-28_design-spikes/records/s1.adapter.json)), and
+> to the same span under both HTML parsers
+> ([s1.rendition-identity](../design_review/evidence/2026-10-28_design-spikes/records/s1.rendition-identity.json));
+> the generator, the ordinal form, the other kinds and the structured key form are **Proposed**
+> (2026-10-28)
 
 ## 4. Entities
 
@@ -233,15 +307,24 @@ to its rank.
 
 Every claim may carry these, whatever the domain:
 
-| Qualifier | Values | Meaning |
-|---|---|---|
-| `modality` | `asserted` (default), `supposed`, `defined`, `conventional`, `exemplified`, `posed`, `cited` | How the source puts the claim forward; see below |
-| `polarity` | `positive` (default), `negative` | "X is not normal" is a negative claim, not an absent one |
-| `hedge` | null or a `phrase` value | "typically", "approximately" |
-| `attribution` | null (the document's author) or an entity | Who says it, when not the author |
-| `conditions` | a condition tree (§7) or null | Under what conditions the claim holds |
-| `scope` | null or `{segment, extent}`, extent ∈ `statement`, `section`, `document` | Where a supposition applies when broader than its statement |
-| `valid_time` | null or an interval value | When the fact is true in the world (business domains) |
+| Qualifier | Values | Meaning | In the key (§10.1) |
+|---|---|---|---|
+| `modality` | `asserted` (default), `supposed`, `defined`, `conventional`, `exemplified`, `posed`, `cited` | How the source puts the claim forward; see below | yes |
+| `polarity` | `positive` (default), `negative` | "X is not normal" is a negative claim, not an absent one | yes |
+| `hedge` | null or a `phrase` value | "typically", "approximately" | no |
+| `attribution` | null (the document's author) or an entity | Who says it, when not the author | the attributed entity under modality `cited`; otherwise no |
+| `conditions` | a condition tree (§7) or null | Under what conditions the claim holds | yes, canonicalized |
+| `scope` | null or `{segment, extent}`, extent ∈ `statement`, `section`, `document` | Where a supposition applies when broader than its statement | no |
+| `valid_time` | null or an interval value | When the fact is true in the world (business domains) | yes |
+
+`valid_time` and the cited source are identity because they change what is claimed: "ORG-101
+owns P-17" for two intervals in one table statement is two facts, and "Smith showed X" and "Jones
+showed X" are two reports. An attribution outside `cited`, and the phrasing of any attribution
+("as Smith (1990) showed"), stay out of the key. Qualifiers outside the key still carry meaning:
+candidates that share a key but disagree on `hedge`, `scope` or attribution phrasing become
+alternatives (`alternative_of`), not one fused claim ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)) (P0CL-06;
+operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28)
 
 Modalities:
 
@@ -262,8 +345,9 @@ normally distributed" returns nothing from a premise unless it asks for supposit
 
 A predicate may declare additional qualifiers in the schema ([D2 §4](D2-schema-and-guidelines.md#4-predicates-and-qualifiers)).
 The statistics pack declares, for example, `param_values` on `has_distribution`: a map from
-family-parameter canonical names to formula values. Schema qualifiers are how n-ary facts with
-one primary subject and value stay a single claim.
+family-parameter canonical names to formula values, which the predicate's annotation
+`ci:param_map: param_values` names as the map that `param_of` bindings read (§6.1). Schema
+qualifiers are how n-ary facts with one primary subject and value stay a single claim.
 
 ### 5.4 When to reify instead
 
@@ -301,7 +385,7 @@ A value is a tagged JSON object. Every value has `t` (type). Value types:
 | `t` | Fields | Example |
 |---|---|---|
 | `text` | `v` | `{"t":"text","v":"location-scale family"}` |
-| `number` | `v` (decimal string), `unit` (pint unit string or null) | `{"t":"number","v":"0.002","unit":"cm"}` |
+| `number` | `v` (canonical decimal string, §6.2); optional `unit` (the unit as the source states it) and `basis` (a reference basis the source states, such as `gauge` or `absolute`) | `{"t":"number","v":"0.002","unit":"cm"}`, `{"t":"number","v":"300","unit":"kPa","basis":"gauge"}` |
 | `bool` | `v` | `{"t":"bool","v":true}` |
 | `enum` | `enum`, `v` | `{"t":"enum","enum":"ParameterRole","v":"scale"}` |
 | `entity` | `ref` (entity key) | used inside qualifiers and condition trees |
@@ -336,9 +420,9 @@ Binding kinds:
 | `bind` | Meaning |
 |---|---|
 | `variable` | The symbol denotes a local entity (`"entity": key`), e.g. a random variable |
-| `param_of` | The symbol is the value given to parameter `param` in the referenced `has_distribution` claim |
-| `param_expr_of` | The symbol occurs inside the value given to `param` (σ in a variance of σ²) |
-| `family_param` | The symbol denotes a family parameter entity (`"entity": key`) |
+| `param_of` | The symbol is the value of entry `param` of the map qualifier that the referenced claim's predicate names by `ci:param_map` (for statistics, `param_values` of a `has_distribution` claim) |
+| `param_expr_of` | The symbol occurs inside the value of that entry (σ in a variance of σ²) |
+| `family_param` | The symbol denotes an entity (`"entity": key`) of a class the pack marks `ci:parameter_class` (for statistics, `FamilyParameter`) |
 | `free` | A symbol introduced by this statement, restricted by its conditions |
 | `constant` | A mathematical constant (e, π) |
 | `unresolved` | Not bound; a resolution gap counted by D6 metrics |
@@ -347,6 +431,13 @@ Symbol bindings are the general form of what the old system called a governing i
 association: which source-backed symbol supplies which parameter, under which premise. Unresolved
 bindings never block a claim; they lower its completeness and are measured.
 
+The binding kinds hold no domain names: which qualifier is a parameter map and which class is a
+parameter are pack annotations ([D2 §3](D2-schema-and-guidelines.md#3-the-ci-annotation-vocabulary)),
+and the predicates whose claims bind `family_param` first are the pack's `family_structure`
+subset, which the binding rules read ([D5 §4](D5-consolidation-identity-confidence.md#4-symbol-binding))
+(P0CL-07; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28)
+
 ### 6.2 Canonical form
 
 For keys and comparisons, a value has a canonical form: formulas and sets by **normalized
@@ -354,9 +445,20 @@ LaTeX** (source macros expanded by the rendition's own macro table, recorded by 
 pack's map only for names the page does not define; spacing commands `\,`, `\;`, `\!`,
 `\left`, `\right` and whitespace removed, except inside a text-mode argument, where whitespace
 collapses to one space; braces around single tokens dropped, so `b^{2}` is `b^2`). The SymPy
-form is never part of a key, so adding or upgrading the parser never changes keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)); numbers as normalized decimal strings with pint base units; text NFC-casefolded with
+form is never part of a key, so adding or upgrading the parser never changes keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)); text NFC-casefolded with
 collapsed whitespace. Formula equivalence for evaluation uses SymPy simplification
 ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)), not canonical form.
+
+**Numbers** take a canonical decimal string: no exponent (`1e-3` is `0.001`), no trailing zeros
+after the point and no point without digits after it (`300.0` and `300.` are `300`), no leading
+`+`, one zero before the point for magnitudes below one and no other leading zeros (`.5` is
+`0.5`), and `-0` is `0`. The stated `unit` and `basis` are kept as written (NFC, whitespace
+collapsed) and enter the key with the value; nothing converts units for keys, so `30 cm` and
+`0.3 m` are different keys, and gauge and absolute pressures never coincide. Conversion (pint)
+happens only in evaluation's value equivalence ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring))
+(P0CL-06; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28); Hypothesis properties over the canonicalization belong to
+> foundations (phase 0)
 
 Canonical form for keys is the **token form, for every value**: token normalization over the
 rendition's macro table, by whole command name (`\P` never matches inside `\Phi`), with spacing
@@ -496,7 +598,7 @@ An observation has: `task` (which records method configuration and run), `kind`,
 | `value` | span, normalized value (§6) | M11, M12 |
 | `scope` | mention ref, scope segment, binding | M13 |
 | `link` | mention ref, candidate entity key or new-entity proposal, score | M14, M15 |
-| `claim_proposal` | a full claim in D1 form with local entity references | M10, agent |
+| `claim_proposal` | the authored batch (model-facing form, local references) with its citation frame (§10.3), plus the stored form derived from them on the observation's rendition | M10, agent |
 | `judgment` | target (observation, claim key, alternative group or identity group), decision, rationale | M16, agent, human |
 | `verification` | claim key, verifier, verdict (`consistent`, `refuted`, `not_checkable`), detail | M21 |
 
@@ -504,20 +606,39 @@ An observation has: `task` (which records method configuration and run), `kind`,
 
 ### 10.1 Hashing
 
-`key = <prefix> + ":" + hex(sha256(canonical_json(parts)))[:32]`, where `canonical_json` sorts
-keys, uses no insignificant whitespace, encodes UTF-8 and NFC-normalizes strings.
+`key = <prefix> + ":" + hex(sha256(canonical_json(parts)))[:32]`. `canonical_json` is one
+function, used for keys, rendition content digests (§3.2) and configuration hashes:
+
+- UTF-8, with no insignificant whitespace;
+- every string, object keys included, NFC-normalized;
+- object keys sorted by code point (Python's `sort_keys` order over NFC strings, not RFC 8785's
+  UTF-16 order);
+- no floats: numbers are integers (offsets, ordinals), and a decimal travels as the canonical
+  string of §6.2. A float in a key part is refused, never rounded; a configuration loader turns a
+  float parameter into the canonical decimal of its shortest round-trip form before hashing.
 
 | Object | Prefix | Parts |
 |---|---|---|
 | Document | `doc` | project, source_uri, content_hash |
-| Rendition | `ren` | document key, adapter config hash |
-| Segment | `seg` | rendition key, kind, start, end |
+| Rendition | `ren` | document key, content digest (§3.2) |
+| Segment | `seg` | rendition key, kind, start, end: physical, so a segment key belongs to one rendition |
 | Span | — | natural key `(rendition, start, end)` |
+| Annotation unit | — | unit key: the string form of its generated locator (§3.4) |
 | Global entity | `ent` | type and identity attributes; the normalized canonical label only when the type's identity attributes are incomplete (a `FamilyParameter` keys by family and canonical name alone) |
-| Local entity | `ent` | type, scope segment key, normalized symbol or label |
-| Statement | `stm` | the statement's anchor segment key and the ordinal, within that segment, of the statement's first sentence. The anchor segment is the `unit` for a statement inside a unit, the `details` block for a proof or solution, and the `paragraph` outside units; so "the unit" and "its first sentences" key alike, and two statements in one block do not collide |
-| Claim | `clm` | subject key, predicate, object key or canonical value, identity qualifiers |
+| Local entity | `ent` | type, scope locator (§3.4, structured form, which carries the document key), normalized symbol or label |
+| Statement | `stm` | the statement's anchor locator (§3.4, structured form, which carries the document key) and the ordinal, within the anchor segment, of the statement's first sentence. The anchor segment is the `unit` for a statement inside a unit, the `details` block for a proof or solution, and the `paragraph` outside units; so "the unit" and "its first sentences" key alike, and two statements in one block do not collide |
+| Claim | `clm` | subject key, predicate, object key or canonical value, identity qualifiers; a member of an alternative group whose candidates share these parts adds its own canonical values of the disagreeing qualifiers ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)), so claim keys stay unique within a run |
 | Method config | `cfg` | method name, method version, canonical params |
+
+Statement and local-entity keys are anchored by locators, not by segment keys, so they hold across
+every rendition of the document whose generated locators agree: a content-preserving ingest change
+moves no key, and an edit that shifts offsets elsewhere on the page moves none of the other
+blocks' keys. What an edit can move is stated in §10.3 (P0CL-01; operator, 2026-10-28).
+> Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+> Status: **Proposed** (2026-10-28); property tests (two content-identical renditions from two
+> adapter configurations give identical claim keys; an edit inside one paragraph that leaves every
+> block's opening words unchanged leaves the other statements' keys unchanged) belong to
+> foundations (phase 0)
 
 A supposition recorded as a context premise (D2 §7.3, statement kind `assumption`) whose
 sentences fall inside another statement's anchor segment is that statement: its claims join that
@@ -528,18 +649,25 @@ statement, and no second statement is keyed. Statement kind is an attribute, not
 > rule.
 
 A key is computed when an entity is first created. A global entity that consolidation links
-to an entity of the reference run keeps that entity's key and canonical label
-([D5 §3.3](D5-consolidation-identity-confidence.md#33-global-entities)), so keys are stable
-across runs. A statement's `kind` and label are attributes, not identity.
+to an entity of the run's reference run keeps that entity's key, so keys are stable across runs;
+the reference run is recorded on the run when it is created and never changes
+([D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks) `ops.run.reference_run_id`), so
+consolidation never reads the live promoted pointer (P0CL-05). Until the phase 2 identity gate,
+linking reuses the reference run's keys but not its canonical labels
+([D5 §3.3](D5-consolidation-identity-confidence.md#33-global-entities); P0CL-10; operator,
+2026-10-28). A statement's `kind` and label are attributes, not identity.
 
 > Status: **Measured** on the S0 passes (2026-10-28): with the earliest rules (sorted anchor keys;
 > label always in the key) 21 of 70 aligned claim pairs had equal claim keys; with the covering-
 > segment statement key and the label rule 48 did, and the rest are real differences (../design_review/evidence/2026-10-28_design-spikes/results/s0/key_variants/, record s0.agreement).
 
 **Identity qualifiers** are those that change meaning: `modality`, `polarity`, `statement`,
-canonical `conditions`, and every schema qualifier the schema lists in `ci:identity_qualifiers`
-(for example `param_values`). Evidence, confidence, hedge text and attribution phrasing are not
-part of the key.
+canonical `conditions`, `valid_time`, the attributed entity when modality is `cited`, and every
+schema qualifier the schema lists in `ci:identity_qualifiers` (for example `param_values`).
+Evidence, confidence, `hedge`, `scope`, attribution outside `cited` and attribution phrasing are
+not part of the key; candidates whose keys agree but which disagree on one of those that carries
+meaning become alternatives (§5.2, D5 §5.3), each keyed with its disagreeing values as in the
+table above (P0CL-06; operator, 2026-10-28).
 
 ### 10.2 Run scoping
 
@@ -549,13 +677,35 @@ judgments carried forward and claims diffed. Observations belong to tasks; a tas
 cache in a later run contributes its existing observations, so unchanged work is never repeated
 ([D6 §4](D6-orchestration-metrics-policies.md#4-caching-and-reuse)).
 
-The project records one **promoted run**. "Current knowledge" means the promoted run's claims.
+The project records one **promoted run**. "Current knowledge" means the promoted run's claims. A
+run records the run promoted when it is created as its **reference run** (§10.1); the first run
+has none (bootstrap).
 
 ### 10.3 Stability limits
 
 Keys of global entities depend on the canonical label consolidation selects; a resolution change
-that merges two entities changes a key. Goldens therefore never reference run keys: they carry
-their own local references and are aligned structurally ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)).
+that merges two entities changes a key. Keys anchored by locators move when a locator does: an
+edit to a block's id or opening words moves the keys anchored there; because a generated prefix
+is the shortest unique one, an edit can also lengthen or shorten the prefix of another block of
+the same kind on the page, moving its keys; and new original bytes are a new document (§3.1),
+whose key every locator carries. Segment keys and spans move with any content change, which is
+why nothing that must outlive a rendition holds them.
+
+Goldens therefore never reference run keys: they carry their own local references and are
+aligned structurally ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)). An
+authored batch, whether a golden pass, a fixture or an agent proposal, is kept in the
+model-facing form in which it was written (D2 §7.3), with its **citation frame**: each sentence
+id it cites (`sN`, or `cN` of the standing context) mapped to that sentence's locator (§3.4) and
+text. The authored batch and its frame are the authority; the stored form (offsets and segment
+keys) is derived from them on each rendition by the production quote cascade
+([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing)). A frame resolves on a
+rendition when every locator selects one sentence whose text equals the recorded text; a golden
+unit whose frame does not resolve on a run's rendition is stale until it is re-located, else
+re-authored ([D7 §3.5](D7-evaluation-goldens-outer-loop.md#35-staleness-and-re-authoring))
+(P0CL-03; operator, 2026-10-28).
+> Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+> Status: **Proposed** (2026-10-28)
+
 Judgments target observations or claim keys; a judgment whose target key no longer exists in a
 run is reported as orphaned, never silently dropped ([D5 §7](D5-consolidation-identity-confidence.md#7-applying-judgments)).
 
@@ -600,7 +750,7 @@ variance`. The standard deviation `|b|σ` is a `derived` claim, never stated as 
 | OPEN-D1-2 | Do variable scopes need a `section` extent in practice, or does `statement` scope plus "Suppose again" resolution suffice? | Spike S0 reference annotations; **answered by S0** (2026-10-28): yes; T1's "In this section", T2's "Suppose again" and U12 are section-scoped in every pass, and M13 reproduces them with section-wide and reopen binders (D4 M13) |
 | OPEN-D1-3 | Should `FamilyParameter` identity use role names or source symbols when a source names no role ("parameters μ and σ")? Current proposal: canonical name = role if stated, else symbol; later `parameter_role` claims add roles | Spike S0, D2 review; **answered by S0** (2026-10-28): the role word when the unit states one, else the symbol (guideline v1 §10.4, D2); reworded 2026-10-28 to the phrase that first names the parameter (design owner's review B2), so names hold across units; parameterizations are OPEN-D2-18; confirmed at the next guideline-revision check (D7 §2) |
 | OPEN-D1-4 | Is `section` the right scope extent for Siegrist's page-level standing assumptions (the lead-in "we fixed random variable Z")? | Spike S0; **answered by S0** (2026-10-28): `section`, under nested h3/h4 synthesis; `document` was never needed |
-| OPEN-D1-5 | References outside the batch ("the last result", "definition [1]", author `[n]` links): a value `{t: "extref", target}` whose target is a source-profile locator or an author link target, usable as a `refers_to`/`follows_from` object, a `claim` node target and a binding target; consolidation resolves it to a key and reports unresolved ones; INV-09 counts a claim with an unresolved external premise as conditional (S0 gap RG-1, rank 1). Until then such references are `unsupported` | Decided early in phase 0, before consolidation (D5) is built |
+| OPEN-D1-5 | References outside the batch ("the last result", "definition [1]", author `[n]` links): a value `{t: "extref", target}` whose target is a locator (§3.4) or an author link target, usable as a `refers_to`/`follows_from` object, a `claim` node target and a binding target; consolidation resolves it to a key and reports unresolved ones; INV-09 counts a claim with an unresolved external premise as conditional (S0 gap RG-1, rank 1). Until then such references are `unsupported` | Decided early in phase 0, before consolidation (D5) is built |
 | OPEN-D1-6 | A `bound` binding kind for symbols bound inside a formula (Σ, ∏, ∫, set-builder), excluded from completeness counts (S0 gap RG-3) | D1 §6.1 and `BindKind` in core.yaml, next schema revision |
-| OPEN-D1-7 | `param_of` targeting a premise claim other than `has_distribution` (a mean stated by `mean_value`, RG-5) | Next schema revision |
+| OPEN-D1-7 | `param_of` targeting a premise claim other than `has_distribution` (a mean stated by `mean_value`, RG-5). Any predicate whose pack declares `ci:param_map` is now a target (§6.1, 2026-10-28); a parameter value stated as a claim's object rather than as a map entry remains open | Next schema revision |
 | OPEN-D1-8 | An extent covering a run of sibling statements (RG-6) | Next schema revision |

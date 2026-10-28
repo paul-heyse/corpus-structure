@@ -22,7 +22,7 @@ mechanisms, none sufficient alone:
 |---|---|---|
 | Goldens copy pipeline output | Authoring is blind to every pipeline output; packets carry no hints | §3 |
 | One annotator's idiosyncrasy becomes truth | Two blind passes, measured agreement, explicit adjudication with reasons | §3 |
-| The pipeline is tuned to the test goldens | Test split never used for prompts, fitting, agent work or error analysis | §4 |
+| The pipeline is tuned to the test goldens | Test pages never used for examples, prompts, fitting, training or error analysis; test units are extracted like any other | §4 |
 | The golden author is systematically wrong in a way both passes share | Witnesses independent of the golden author: author markup not consumed, computation, reference facts | §6 |
 | The guideline drifts from what the operator wants | The operator directs from an outer loop; every direction is versioned and re-scored | §2, §8 |
 
@@ -71,12 +71,23 @@ meaningful beyond the annotators' own agreement on that predicate.
 
 ### 3.1 Units and sets
 
-A golden unit is one annotation unit (a `unit` segment, or a paragraph outside units) of one
-rendition. Sets (`eval.golden_set`) are per split and guideline version. Initial sizes, kept
+A golden unit is one annotation unit (a `unit` segment, or a paragraph outside units) of a page,
+identified by its **unit key**, the unit's generated locator
+([D1 §3.4](D1-knowledge-representation.md#34-locators)), not by a rendition, so it survives a
+content-preserving ingest change and an edit elsewhere on its page that leaves its locator
+unique. Its authority is what its passes wrote: the model-facing batch of each pass with its
+citation frame ([D1 §10.3](D1-knowledge-representation.md#103-stability-limits), D2 §7.3). Golden items (`eval.golden_item`) are a projection of pass C's batch,
+derived per rendition by the production quote cascade (D4 §4.3) and recording the rendition they
+were derived on (P0CL-03; operator, 2026-10-28).
+> Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+> Status: **Proposed** (2026-10-28)
+
+Sets (`eval.golden_set`) are per split and guideline version. Initial sizes, kept
 small while debugging: **dev 40 units, test 40 units** from the first-pass chapters, stratified
 by statement kind, chapter and math share; growing to about 150 each by phase 2 (`OPEN-D7-1`).
-The trace units T1–T4 are in dev; the spike core units are in dev. They become goldens only by
-this protocol: phase 0 **re-authors** them with Sonnet passes (§3.2–§3.4). The S0/S0-R2 v1
+The trace units T1–T4 and the spike core units are forced into dev by the sampler (below).
+They become goldens only by this protocol: phase 0 **re-authors** them with Sonnet passes
+(§3.2–§3.4). The S0/S0-R2 v1
 reference is not imported as goldens. Opus passes and the root authored it, and the phase 0
 extractor is also Opus, so importing it would reward a pipeline for Opus's habits, the bias ADR-0011
 removed. It serves as fixture proposals for the deterministic acceptance test (D9 §4) and as a
@@ -97,7 +108,14 @@ Assignments live in `eval.document_split` and change only by operator direction.
 **Unit sampling** (`ci golden create --split S --size N --seed K`). Units are drawn from the
 split's pages; strata are statement kind (markup hint, else M05, else `narrative`) × math-share
 tercile (M02); allocation is proportional with at least one unit per non-empty stratum; within a
-stratum units are taken in order of `sha256(unit_key + seed)`.
+stratum units are taken in order of `sha256(unit_key + seed)`, which the locator-based unit key
+keeps stable across content-preserving ingest changes. **Forced units** are taken
+before sampling: for dev, the trace units and the spike core units (the `trace` and `core12`
+slices, D2 §12.2), which the phase 0 gate's typed questions and the S0-R2 comparisons need. They
+count towards their strata, and sampling fills the remaining places (P0CL-10; operator,
+2026-10-28). Sampling the dev set also fills the golden-unit pages of the `phase0-golden` slice
+(D2 §12.2), which is declared by name and resolved from the set.
+> Status: **Proposed** (2026-10-28)
 
 ### 3.2 Pass A and pass B (blind)
 
@@ -128,8 +146,10 @@ The model is recorded on each `eval.golden_pass`; another model is a revisit of 
 
 They do not see each other's output, earlier golden versions, run claims or metrics. Each pass
 is submitted through `write_golden` (D8) with `pass: a` or `pass: b` and stored as an
-`eval.golden_pass` row (the intervention row references it); quotes are located into offsets as in D4 §4.3. A pass whose quotes cannot be
-located is returned to its author once with the failures listed.
+`eval.golden_pass` row holding the authored batch and its citation frame (the intervention row
+references it). At submission its quotes are located on the current rendition as in D4 §4.3, as a
+check: a pass whose quotes cannot be located is returned to its author once with the failures
+listed.
 
 ### 3.3 Agreement
 
@@ -139,12 +159,17 @@ stored in the unit's `agreement` record and aggregated per predicate as the **ce
 
 ### 3.4 Adjudication (pass C)
 
+Pass C's task is created by `write_golden` in the transaction that stores the second of the
+unit's passes A and B (D8 §2.2), so no command or orchestrator step has to notice that both exist.
+> Status: **Proposed** (2026-10-28)
+
 A third fresh Sonnet session receives the guideline, the annotator reference, the packet, both passes and the alignment diff
 (matched, A-only, B-only, matched-with-qualifier-differences). For each difference it decides:
 keep A, keep B, keep both as a **faithful ambiguity** (golden alternatives), drop both, or
 rewrite; each decision has a one-line reason, and decisions that the guideline does not settle
-are marked `guideline_gap` with the rule they touch. The result is the golden unit's items
-(stored form); the unit becomes `adjudicated`. `guideline_gap` marks feed the operator's digest
+are marked `guideline_gap` with the rule they touch. The result is pass C's authored batch with
+its citation frame, from which the unit's golden items are derived per rendition (§3.1); the unit
+becomes `adjudicated`. `guideline_gap` marks feed the operator's digest
 (§8). Adjudication decides contested items and finds guideline gaps; it is not expected to raise a
 unit above its better pass (S0-R2: a Sonnet adjudicator over a Sonnet and a Haiku pass scored 0.75
 against the Sonnet pass's 0.77; record s0r2.adjudication). Every `guideline_gap` decision is a
@@ -156,6 +181,16 @@ A rule change or schema change marks affected units `stale`. Stale units are re-
 full protocol (A, B, C, blind; earlier versions are not shown). Earlier versions remain in the
 database for comparison, so the effect of a guideline change on the goldens themselves is
 visible (items added, removed, changed).
+
+**A rendition the unit's citation frame no longer resolves on** is the third trigger (P0CL-03;
+operator, 2026-10-28). When a run's rendition of the page refuses a frame locator, or the
+located sentence's text differs from the frame's (D1 §10.3), the unit is stale. It is first
+**re-located**: each cited sentence is found on the new rendition by its recorded text, the
+frame's locators are regenerated, and the golden items are derived again. Only if a cited
+sentence is no longer there is the unit re-authored by the full protocol. A content-preserving
+ingest change triggers nothing, because it keeps the rendition (D1 §3.1), and an edit elsewhere
+on the page leaves the unit's frame resolving.
+> Status: **Proposed** (2026-10-28)
 
 ### 3.6 What goldens contain
 
@@ -170,14 +205,22 @@ entities carry canonical labels for cross-unit identity.
   with dev. Pages are assigned by stratified sampling over chapters; the four spike pages are
   dev. The test set is frozen at each phase gate (`frozen_at`); between gates it changes only by
   re-authoring stale units.
-- **Never on the test split:**
-  1. as prompt examples (D4 §4.2) or in agent packets' retrieval;
+- **Never on the test split.** Test pages enter no training, fitting, prompt-optimization or
+  example set, and test results no item-level analysis:
+  1. as prompt examples (D4 §4.2) or in agent packets' retrieval. Example retrieval for any unit
+     also excludes the unit's own page, so no candidate is scored on a golden it was shown (its
+     own unit, or a page whose units share running examples, `OPEN-D7-3`);
   2. in confidence fitting or calibration (D5 §6.4), or any learned threshold;
-  3. in adapter training or prompt optimization (phase 3);
-  4. for agent extraction or adjudication in any run: policies exclude units with `split =
-     test` from agent routing, so test-split knowledge in the promoted run is pipeline-only;
-  5. for item-level error analysis: digests and agent-visible reports show test metrics in
+  3. in adapter training or prompt optimization (phase 3), the agent's output on test pages
+     included;
+  4. for item-level error analysis: digests and agent-visible reports show test metrics in
      aggregate only, never test items or test errors.
+- **Routing is not a leakage rule.** Test units route to the agent like any unit: the routing
+  context has no split symbol (D6 §7.2), so test scores measure the deployed system, its agent
+  tier included, rather than the pipeline without it. Test protection is the training, fitting
+  and example exclusion above (P0CL-16; operator, 2026-10-28). In phase 0 no test page is extracted, because the `phase0-golden` slice holds none
+  (§9).
+  > Status: **Proposed** (2026-10-28)
 - **Experiments decide on dev**; the test split is scored at phase gates and when a promotion
   candidate is evaluated for a gate.
 
@@ -185,8 +228,12 @@ entities carry canonical labels for cross-unit identity.
 
 ### 5.1 What is compared
 
-For a golden unit, the run's **predicted set** is the claims whose primary evidence lies in the
-unit's segment or whose statement is anchored there.
+For a golden unit, the unit key is resolved on the rendition the run selected for its page
+(`kb.run_rendition`, D3 §8), and the golden items compared are the stored form derived on that
+same rendition (§3.1). The run's **predicted set** is the claims whose primary evidence lies in
+the resolved segment or whose statement is anchored there. Run and goldens are therefore compared
+on one rendition, whichever rendition the passes were written on (P0CL-03; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28)
 
 **Context premises are scored once.** A golden item recorded as a context premise (D2 §7.3; its
 evidence cites `cN` sentences outside the unit) is scored as an item only in the golden unit
@@ -259,9 +306,10 @@ pass (symmetrized, no reference) beside pass against reference, and checks any r
 from pages not used to write it. A reference correction made after seeing a pass is reported with the
 figures before it (S0, S0-R2, 2026-10-28).
 
-**Re-scoring.** Results reference the golden set version they used. When goldens change, kept
-runs that matter (the promoted run and open experiments) are re-scored (`ops.run.kind =
-rescore`), so trends compare like with like.
+**Re-scoring.** Results reference the golden set version they used and record the pass-C
+batches they scored (`eval.result.golden_snapshot`, D3 §7), so a result stays tied to the items it
+used after a unit is re-authored. When goldens change, kept runs that matter (the promoted run
+and open experiments) are re-scored (`ops.run.kind = rescore`), so trends compare like with like.
 
 ## 6. Independent witnesses
 
@@ -300,11 +348,28 @@ version, schema version or guideline version.
    decision through `decide_experiment` (D8); the operator can veto in the digest.
 4. **Promotion**: the candidate configuration becomes the baseline; the next full run of it
    becomes the promoted run (`meta.project.promoted_run_id`).
-5. **Bootstrap (phase 0).** No baseline exists before the first full run. The first `first-pass`
-   run of the phase 0 configuration that passes the phase 0 gate is promoted with `ci promote`, an
-   operator act recorded as an intervention. It becomes the baseline for the first experiments and
-   the reference run for known entities (D4 §4.1). Slice runs are never promoted (D6 §8).
-> Status: **Proposed** (2026-10-28, design authority)
+5. **Bootstrap (phase 0).** No baseline exists before the first full run. The phase 0 first pass
+   is a sequence of `agent_mode: complete` runs over the first-pass corpus scoped to the
+   `phase0-golden` slice (§9; D6 §8), each reusing every finished task (D6 §4), so each is a
+   finished snapshot and none waits across sessions;
+   `wait` is for short slice runs only (D6 §2). The operator promotes the first of them that has
+   no unresolved agent task, with `ci promote`, an operator act recorded as an intervention.
+   Before the operator confirms, `ci promote` shows the **pre-registered readings**, fixed here
+   before any phase 0 result is seen (P0CL-10; operator, 2026-10-28):
+   - dev full-tier F1 with its interval (§5.4), beside the S0-R2 figures (record s0r2.scores);
+   - identity quality: B-cubed precision and recall of the run's global entities against the
+     golden canonical labels (§5.4);
+   - the unlocated-quote rate: evidence items left `evidence_unlocated` (D4 §4.3);
+   - the rule-warning rate: claims with an M19 `warning`, the `guideline:` group included (D2 §7.4).
+
+   The readings inform the operator's decision and set no automatic threshold, since phase 0 has
+   nothing to compare with but the spike. The promoted run becomes the baseline for the first
+   experiments and the reference run that later runs record (`ops.run.reference_run_id`, D3 §4)
+   for known entities and linking (D4 §4.1, D5 §3.3). Until the phase 2 identity gate, linking to
+   it reuses entity keys but not canonical labels, so phase 0's label choices do not persist
+   before identity is measured (D5 §3.3). The `trace` and `spike-pages` runs are debug slices and
+   are never promoted (D6 §8).
+> Status: **Proposed** (2026-10-28, design authority; readings P0CL-10)
 
 Gap proposals from policies (D6 §7.3), schema proposals and guideline rule changes all reach the
 promoted configuration only through this path.
@@ -330,7 +395,7 @@ pages:
    schema growth, phase 4).
 6. Open proposals: schema changes, policy and gap proposals, experiments awaiting decision or
    veto.
-7. Health: orphaned or stale judgments, failed tasks, budget skips.
+7. Health: orphaned or stale judgments, failed tasks, skipped units by reason (`scope`, `budget`, …; D6 §1).
 
 ### 8.2 Directions
 
@@ -352,16 +417,25 @@ system proceeds under the current guideline.
 
 | Phase | Gate (D0) | Measured as |
 |---|---|---|
-| 0 | Trace units and spike pages answer their typed questions from the database; evaluation runs | Trace acceptance tests pass on fixture proposals (D9 §4); the live trace run scores against the re-authored dev goldens; `ci eval` produces scores for dev |
+| 0 | Trace units and spike pages answer their typed questions from the database; evaluation runs | Trace acceptance tests pass on fixture proposals (D9 §4). The live `trace` and `spike-pages` runs answer their typed questions: the typed-query rows (D8 §5) for the trace and core units align with expectations derived from their re-authored dev goldens, the golden items each query selects, at the §5.3 tiers. `ci eval` produces dev scores with intervals. Successive `complete` runs scoped to `phase0-golden` converge with no unresolved agent task, and the operator promotes one after reading the pre-registered readings (§7 item 5) |
 | 1 | F1 and intervention share measured per type and stage | Dev and test scores per predicate; `intervention.share` per predicate group and stage |
 | 2 | Identity errors measured; confidence calibrated on goldens | B-cubed and merge/split counts; ECE ≤ 0.05 on dev |
 | 3 | Intervention share falls at equal or better F1 | Test full-tier F1 not worse (paired bootstrap) and `intervention.share` lower than at the phase 2 gate |
 | 4 | Coverage rises; new types reach target F1 | Unsupported-item rate falls; new predicates reach their target F1 on dev and test |
 | 5 | A new pack built with bounded interventions | The new pack's dev goldens are authored and scored; F1 and `intervention.share` per type and stage are reported against the statistics pack at its phase 1 gate |
 
-**Phase 0 freeze.** Phase 0 holds schema v0 (with S4's corrections) and guideline v1 fixed. The
-guideline v2 and schema v0.2 rows (D2 §11, OPEN-D2-7…20) land at the phase 0 boundary through the
-§2 rule-change check, because claim keys and goldens move with them.
+**Phase 0 freeze.** Phase 0 holds schema v0 (with S4's corrections) and guideline v1 fixed for
+everything it extracts and scores: the dev goldens and the `phase0-golden` runs. The
+`phase0-golden` slice (D2 §12.2, D6 §8) is the phase 0 extraction scope: the pages holding dev
+golden units (listed once the dev set is sampled, §3.1), the forced-dev pages, and the trace and
+core-unit pages, which is what the gate, the §7
+experiments on the dev golden units and the reference-run bootstrap need; every other eligible
+unit is recorded `skipped` with reason `scope` (D6 §7.4), and no test page is in it (P0CL-09;
+operator, 2026-10-28). The promoted run and the goldens it is scored against therefore share one
+version. The guideline v2 and schema v0.2 rows (D2 §11, OPEN-D2-7…20) land at the phase 0
+boundary through the §2 rule-change check, because claim keys and goldens move with them. The
+full first pass runs after them, in phase 1 with M10.
+> Status: **Proposed** (2026-10-28)
 
 ## 10. Open questions
 

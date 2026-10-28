@@ -7,8 +7,10 @@ pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-
 ## 1. Principles
 
 1. **One declaration per domain.** A domain pack's LinkML schema is the single source for entity
-   types, predicates, qualifiers, enums, condition predicates and validation rules. Nothing about
-   a domain is hard-coded in Python except verifiers ([§7.6](#76-domain-verifiers)).
+   types, predicates, qualifiers, enums, condition predicates, validation rules and the rule
+   views over the claim pool. Nothing about a domain is hard-coded in Python except its two
+   plug-ins, verifiers and domain queries ([§7.6](#76-domain-verifiers)); the core packages name
+   no domain predicate or class (P0CL-07).
 2. **Compiled, not interpreted ad hoc.** Every consumer of the schema (GLiNER2, the LLM prompt
    and JSON Schema, the rule engine, the database's schema tables, the guideline inventory)
    receives a deterministic compiled artifact. The artifact's hash is part of the configuration
@@ -26,17 +28,20 @@ pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-
 domains/<name>/
   schema/
     <name>.yaml          LinkML schema; imports ../../core/schema/core.yaml
-    rules.yaml           validation rules (rule-engine expressions), §7.4
+    rules.yaml           validation rules (rule-engine expressions) and rule views (`views:`), §7.4
     migrations/          schema migration mappings for breaking changes, §8
   guideline.md           the annotation guideline (§10 is v1 for statistics)
   policies.yaml          routing policies for this domain (D6 §7)
   methods.yaml           domain parameters of methods and named configurations (`configs:`):
-                         source profiles, math macro map, binder lexicon, alias head words and
-                         adverb rules, cue lexicons, patterns (D4 §1, D6 §7.1)
-  slices.yaml            debug slices by locator (D6 §8)
+                         math macro map, binder lexicon, alias head words and adverb rules, cue
+                         lexicons, patterns, and the source profile by name (D4 §1, D6 §7.1, §12.1)
+  slices.yaml            debug slices and run scopes (D6 §8), by locator (D1 §3.4)
   verifiers.py           optional domain verifiers implementing validate.Verifier (§7.6)
+  queries.py             optional domain queries implementing serve's query protocol (§7.6, D8 §5.2)
   README.md              scope of the pack, source corpora, owner notes
 domains/core/schema/core.yaml   core classes, predicates, value classes and enums shared by all packs
+sources/<profile>.yaml          source profiles (D4 M01): how one source's HTML becomes segments;
+                                outside every pack, named by the packs that read the source (§12.1)
 ```
 
 A **schema version** is the content hash over `<name>.yaml`, `rules.yaml` and the imported
@@ -77,6 +82,7 @@ normal meaning.
 | `ci:reify` | `true` | Facts of this class are reified entities with role claims (D1 §5.4) |
 | `ci:examples` | list of strings | Short positive examples, used in the GLiNER2 description and the LLM prompt |
 | `ci:threshold` | number in (0, 1) | GLiNER2 score threshold for mentions of this class; default from the method configuration ([D4 M06](D4-method-catalog.md#m06-extractgliner_schema)) |
+| `ci:parameter_class` | an identity slot name | Entities of this class are parameters of another entity, the one the named identity slot holds; a `family_param` binding names an entity of such a class (D1 §6.1, below). Statistics: `FamilyParameter` with `family` |
 
 ### 3.2 On slots (predicates and qualifiers)
 
@@ -92,6 +98,23 @@ normal meaning.
 | `ci:record`, `ci:anchor` | — | Reserved for GLiNER2 record structures (§7.2). **No v0 predicate uses them**: a record needs fields that one predicate cannot supply, so records are declared only when spike S2 or a measured gap shows a structure earns its place |
 | `ci:examples` | list | As on classes |
 | `ci:group` | name | Predicate group for acceptance thresholds, confidence priors and reports ([D5 §6](D5-consolidation-identity-confidence.md#6-confidence), D6 §7); default: the predicate itself |
+| `ci:param_map` | a qualifier slot name | The predicate's map qualifier whose entries give values to parameters of its object; a `param_of` or `param_expr_of` binding that references a claim of this predicate reads entry `param` of that qualifier (D1 §6.1, below). Statistics: `has_distribution` with `param_values` |
+
+**Binding semantics are pack data** (P0CL-07; operator, 2026-10-28). The core binding kinds
+(D1 §6.1) are defined over these annotations, so neither `core` nor `consolidate` names a domain
+predicate or class:
+- `param_of` (`param_expr_of`) binds a symbol to entry `param` of the map qualifier that the
+  referenced claim's predicate names in `ci:param_map`, when the symbol is that entry's value
+  (occurs inside it);
+- `family_param` binds a symbol to an entity of a class with `ci:parameter_class`;
+- the predicates whose claims are about an entity's parameters as such form the pack subset
+  **`family_structure`** (native `subsets` with `in_subset`, as the other predicate groups);
+  D5 §4's binding rules read the subset, not a list of names. Statistics v0: `has_parameter`,
+  `parameter_domain`, `parameter_role`, `derived_parameter`, `identical_parameter`,
+  `construction_formula`, `transformation_of`, `special_case_of`.
+A second pack with parameterized entities declares the same three things and needs no code.
+> Status: **Proposed** (2026-10-28); a toy second pack running the generic stages with no core
+> edit is the check (phase 0 consolidation and queries)
 
 ### 3.3 On enums and permissible values
 
@@ -212,15 +235,16 @@ classes:
       bind: {range: BindKind, required: true, annotations: {ci:role: field}}
       entity: {range: string, annotations: {ci:role: field}}   # local ref in batches; entity key once stored
       claim: {range: string, annotations: {ci:role: field}}    # local ref in batches; claim key once stored
-      param: {range: string, annotations: {ci:role: field}}
+      param: {range: string, annotations: {ci:role: field}}    # an entry of the referenced claim's ci:param_map qualifier (§3.2)
     annotations: {ci:kind: value}
   TextValue:
     attributes: {v: {range: string, required: true, annotations: {ci:role: field}}}
     annotations: {ci:kind: value}
   NumberValue:
     attributes:
-      v: {range: string, required: true, annotations: {ci:role: field}}      # decimal string
-      unit: {range: string, annotations: {ci:role: field}}                   # pint unit, or absent
+      v: {range: string, required: true, annotations: {ci:role: field}}      # canonical decimal string (D1 §6.2)
+      unit: {range: string, annotations: {ci:role: field}}                   # the unit as stated, or absent
+      basis: {range: string, annotations: {ci:role: field}}                  # e.g. gauge or absolute, or absent
     annotations: {ci:kind: value}
   BoolValue:
     attributes: {v: {range: boolean, required: true, annotations: {ci:role: field}}}
@@ -332,6 +356,17 @@ enums:
 Each compiler is a pure function of a loaded schema version (`linkml_runtime.SchemaView`) and
 returns an artifact plus its hash. Output ordering is deterministic (sorted by name) so equal
 schemas produce byte-equal artifacts.
+
+**Artifact identity** (P0CL-15; operator, 2026-10-28). An artifact is identified by its schema
+version, its compiler and that compiler's version, and its kind (the batch schema in each form,
+the annotator reference, the compiled rules and views, the schema tables' content): one
+`meta.compiled_artifact` row each (D3 §3), never a field of the schema version that a compiler fix
+would rewrite under runs that used the old output. A compiler fix therefore adds rows beside the
+old ones. Method configurations reference artifact hashes, so work done with the old artifact
+keeps its provenance and is not reused for the new one (D6 §4). Artifacts are deterministic, so
+any one can be rebuilt from its schema version and compiler and checked against its stored hash;
+compiled rules are rebuilt this way, never pickled (§7.4).
+> Status: **Proposed** (2026-10-28)
 
 ### 7.1 To schema tables
 
@@ -452,10 +487,19 @@ for the local tier (D4 §4.2); there is no separate prompt inventory.
 
 **Model-facing and stored forms.** The compiler emits the batch schema twice. The *model-facing*
 form, given to LLMs and Opus, cites evidence by sentence id and quote and anchors statements by
-sentence ids, because models do not count characters reliably. The *stored* form, held in
-`claim_proposal` observations, golden passes and golden items, has rendition offsets and segment
-keys.
-Quote location is shared post-processing ([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing)).
+sentence ids, because models do not count characters reliably. The *stored* form has rendition
+offsets and segment keys; consolidation and alignment read it.
+
+**The authored batch is the authority** (P0CL-03; operator, 2026-10-28). What an author wrote (a
+golden pass, a fixture, an agent proposal) is kept in the model-facing form with its citation
+frame, which maps each cited `sN` and `cN` to the sentence's locator and text
+([D1 §10.3](D1-knowledge-representation.md#103-stability-limits)). Sentence ids are
+packet-relative; the frame makes them absolute, so the batch means the same on every rendition of
+its page. The stored form is derived from batch and frame, per rendition, by the production quote
+cascade ([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing)), and records the
+rendition it was derived on. It is never authored, so an ingest change re-derives it rather than
+orphaning it; golden items are this derivation for goldens (D7 §3.1).
+> Status: **Proposed** (2026-10-28)
 
 **How the schema is built** (schema-rules note L-02, L-03). The compiler builds one claim model per
 predicate with `pydantic.create_model` from `SchemaView` (subject and object types, value type,
@@ -479,9 +523,15 @@ grammar compile cost for a 49–73 KB schema, are measured in S3.
 
 ### 7.4 To rule-engine rules
 
-`rules.yaml` holds named rules:
+`rules.yaml` holds named rules and the rule views they read:
 
 ```yaml
+views:                         # pool facts as claim-view attributes, compiled for the generic view builder
+  family_params:               # claim.family_params: a list of strings
+    applies_to: stat:has_distribution
+    source: stat:has_parameter                 # the source predicate
+    match: {source: subject, claim: object}    # source claims whose subject is this claim's object (the family)
+    project: object.identity.canonical_name    # what each matching source claim contributes
 rules:
   - id: stat.param_keys_known
     applies_to: stat:has_distribution
@@ -506,14 +556,26 @@ validation observation and lowers confidence (D5 §6).
   UTC. A typo, a nullable misuse, a wrong argument type or an unknown symbol fails at compile time.
 - Nullable access uses `&.` and `??`; quantifiers are `$all(...)`/`$any(...)`; calls take positional
   arguments only.
-- Facts about the claim pool (`family_params`) are cached attributes on the claim view, computed
-  once per claim; functions are kept for parameterized lookups. Recursive and cross-claim facts
-  (flattened condition nodes, statement premises, "given as a parameter value elsewhere") are
-  precomputed by one generic, schema-driven view builder, because the language has no recursion
-  or joins.
+- Facts about the claim pool are cached attributes of the claim view, computed once per claim by
+  one generic view builder, because the language has no recursion or joins; functions are kept
+  for parameterized lookups. Generic facts are built in: flattened condition nodes, statement
+  premises, and "given as a parameter value elsewhere" (read through `ci:param_map`, §3.2).
+  Domain facts are declared by the pack in `views:` (source predicate, match, projected field) and
+  compiled with the rules, so `family_params` is statistics data, not builder code (P0CL-07;
+  operator, 2026-10-28). The builder and the M19 runner live in `validate` and work over the `core`
+  keyed candidate claim, which a batch and the candidate pool both adapt into
+  ([D9 §1](D9-repository-and-phase0.md#1-layout)).
+  > Status: **Proposed** (2026-10-28); the `views:` form is checked on the pack's own rules in S4
 - Every rule declares `at:`, the call sites it runs at: `batch` (submission, local refs) and/or
   `finalize` (keys). One compiled rule serves both because the view exposes `claim.id` (local ref,
   later key) and a nullable `claim.key` (D5 §8.2).
+- **Readers per call site** (P0CL-14; operator, 2026-10-28). At `batch` the view reads formula
+  symbols with `core/tex.py`'s TeX tokenizer, which is total and fast, never with the math grammar:
+  submission runs in MCP worker threads, where the grammar's `setitimer` timeout cannot fire
+  ([D4 M11](D4-method-catalog.md#m11-normalizeformula)). A rule that needs the grammar (parse
+  status, slot types) declares `at: [finalize]`, as `stat.domain_is_set` does, so no grammar parse
+  runs in an MCP worker thread.
+  > Status: **Proposed** (2026-10-28); a test submits a pathological formula
 - Each rule is compiled in its own context, and the nondeterministic builtins `$now`, `$today` and
   `$random` are rejected, so a rule's outcome depends only on its inputs (D6 §4 reuse). Compiled
   rules are rebuilt from the schema version, never pickled.
@@ -527,7 +589,7 @@ or says why the rule does not apply:
 - statement role by statement kind;
 - modality by role;
 - which claims may carry a condition tree, and what it may hold;
-- a formula excludes the variable it defines;
+- a formula excludes the variable it defines (its symbols read by the TeX tokenizer, above);
 - symbol-map keys without backslash;
 - binding priority;
 - `parameter_role` only when it differs from the canonical name.
@@ -580,6 +642,12 @@ class Verifier(Protocol):
 `Verification` is `consistent`, `refuted` or `not_checkable`, with detail. Verifiers write
 `verification` observations; they never change claims directly. The statistics pack's verifiers
 are listed in [D4 M21](D4-method-catalog.md#m21-verifystatistics).
+
+**Domain queries** are the pack's other plug-in, of the same kind: `domains/<name>/queries.py`
+implements `serve`'s query protocol, and `serve` loads it beside its generic queries, so the
+statistics queries live in the statistics pack
+([D8 §5.2](D8-agent-and-query-interfaces.md#52-statistics); P0CL-07; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28)
 
 ## 8. Versioning and migration
 
@@ -899,10 +967,10 @@ Initial `rules.yaml` (expressions to be syntax-checked in S4):
 
 | Rule id | Applies to | Severity | Check |
 |---|---|---|---|
-| `stat.param_keys_known` | `has_distribution` | warning | Every `param_values` key is a canonical name of a parameter the family has in this run, or a `ParameterRole` value |
+| `stat.param_keys_known` | `has_distribution` | warning | Every `param_values` key is a canonical name of a parameter the family has in this run, or a `ParameterRole` value; reads the `family_params` view (§7.4), `at: [finalize]` |
 | `stat.supposed_is_used` | any `supposed` claim | warning | INV-06: referenced by a condition or has a `scope` |
 | `stat.one_distribution_per_statement` | `has_distribution` | error | At most one asserted or defined `stated` `has_distribution` per variable per statement; derived claims are exempt |
-| `stat.domain_is_set` | `parameter_domain`, `takes_values_in`, `support` | warning | Object parses as a set (`parse = ok`); otherwise a warning, and the object is kept as written |
+| `stat.domain_is_set` | `parameter_domain`, `takes_values_in`, `support` | warning | Object parses as a set (`parse = ok`); otherwise a warning, and the object is kept as written. `at: [finalize]`, because it reads the grammar's parse status (§7.4) |
 | `stat.variance_nonnegative` | `has_distribution` with a `variance` key | warning | Checked by M20 with z3, not by rule-engine: the conditions imply variance ≥ 0 when the formula parses |
 | `stat.no_family_on_variable` | `has_parameter` | error | Subject is not a `RandomVariable` |
 
@@ -1115,7 +1183,7 @@ generated reference (§10.10) is hashed with the schema version's compiled artif
 |---|---|---|
 | OPEN-D2-1 | Exact `Schema.from_dict` keys for structures, attributes and per-type thresholds in gliner2 2.1.0 | Spike S4 |
 | OPEN-D2-2 | Raw LaTeX or masked math placeholders in GLiNER2 input | Spike S2 |
-| OPEN-D2-3 | rule-engine syntax for the `rules.yaml` checks, and whether custom functions such as `family_params` are better as resolver-backed symbols | **Answered** (2026-10-28, [schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-04, L-05): cached view attributes, `at:` per rule, §7.4; S4 confirms on the pack's own rules |
+| OPEN-D2-3 | rule-engine syntax for the `rules.yaml` checks, and whether custom functions such as `family_params` are better as resolver-backed symbols | **Answered** (2026-10-28, [schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-04, L-05): cached view attributes, `at:` per rule, §7.4; domain view attributes are declared in `views:` (P0CL-07); S4 confirms on the pack's own rules |
 | OPEN-D2-4 | Whether property predicates (`mean_value`, `pdf`, …) should be one `has_property` predicate with a `property` qualifier instead | Spike S0 annotations: count how many distinct properties appear; **answered by S0** (2026-10-28): keep separate property predicates (only `mean_value` and `variance_value` were needed); add a standard-deviation property, now OPEN-D2-17 |
 | OPEN-D2-5 | Whether "standard normal" is better a family with `special_case_of` or a parameterization of the normal family | Spike S0 and outer-loop direction; **answered by S0** (2026-10-28): standardized families as families of their own worked in every pass; `special_case_of` only when the source states the constraint; guideline v1 §10.4 |
 | OPEN-D2-6 | Whether LinkML annotation values that are lists (`ci:examples`, `ci:qualifiers`) round-trip through `SchemaView` unchanged | **Answered** (2026-10-28, schema-rules note L-06): they load but fail `linkml-lint`; native slots and scalar strings, §3 |
@@ -1137,7 +1205,8 @@ generated reference (§10.10) is hashed with the schema version's compiled artif
 
 ## 12. Statistics pack files v0
 
-Drafts for the statistics pack's `methods.yaml` and `slices.yaml`. Its `policies.yaml` v0 is
+Drafts for the Siegrist source profile and the statistics pack's `methods.yaml` and
+`slices.yaml`. Its `policies.yaml` v0 is
 [D6 §7.1](D6-orchestration-metrics-policies.md#71-language) and §7.5. The Siegrist rules below
 come from inspecting the 78 first-pass pages (2026-10-28); spike S1 checks them and reports what
 they miss.
@@ -1159,54 +1228,72 @@ What the inspection found, and why the hints look the way they do:
 
 ### 12.1 `methods.yaml`
 
+A source profile describes a source's HTML, not a domain (D4 M01), so it lives outside the pack in
+`sources/<profile>.yaml` (§2): a second domain over the same source reuses it, and a second source
+for statistics adds a file without editing the pack. The pack's `methods.yaml` names the profile
+(`configs: ingest.html`), and only the resolved profile enters `ingest.html`'s configuration hash,
+so adding a profile changes no other configuration. The profile also declares the claims its
+containment structure states (`synthesize:`), which consolidation applies (D5 §3.5), so that
+convention is source data rather than consolidation code (P0CL-07; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28) for the location and `synthesize:`; the profile's values are
+> **Tested** (S1, below)
+
+`sources/siegrist.yaml`:
+
 ```yaml
 version: 0.1.0
+applies_to: "siegrist_random/random/**/*.html"     # relative to the corpus root
+exclude:                                           # CSS selectors; excluded text is recorded per rule (D4 M01)
+  scripts: "script, noscript"
+  macro_block: "div.latex"                         # \newcommand block: excluded, macros recorded
+  navigation: "header ol.map, footer"
+  controls: "button"
+  images: "img"                                    # figure captions stay, as `caption` segments
+  chapter_lists: "ul.map"                          # S1: 75 chapter-index lists
+title: "header h2"
+sections: ["h3", "h4"]                             # each heading opens a section nested by level
+unit: "div.unit"
+block_hints:                                       # statement-kind hints from block classes
+  "p.dfn": {statement_kind: definition}
+  "p.dfm": {statement_kind: definition}
+  "p.dfin": {statement_kind: definition}
+  "p.math": {statement_kind: theorem}
+  "p.exercise": {statement_kind: exercise}
+  "p.exericse": {statement_kind: exercise}         # sic, as in the source
+  "p.app": {statement_kind: remark, claim_bearing: false}
+  "p.stat": {statement_kind: theorem}              # S1: 10 units open with p.stat
+  "p.Proof": {statement_kind: proof}               # S1: 1 (special/Divisible.html)
+section_hints:                                     # units under these h3 titles
+  "Examples and Applications": example
+  "Examples and Special Cases": example
+  "Special Cases": example
+  "Computational Exercises": exercise
+details_kinds:                                     # statements for <details> blocks
+  default: proof
+  inside_example_or_exercise: solution
+  by_summary: {"Answer": solution, "Answwer:": solution, "Notes:": remark}
+  synthesize:                                      # claims the containment states; consolidation adds them (D5 §3.5)
+    proof: {predicate: core:proves, object: enclosing_unit, evidence: summary}
+    solution: {predicate: core:proves, object: enclosing_unit, evidence: summary}
+math:
+  inline: ["\\(", "\\)"]
+  display: ["\\[", "\\]"]
+  display_environments: ["align", "align*"]       # S1: 106 bare align blocks without \[
+  page_macros: "div.latex"                         # per-rendition macro table; the pack map is only a fallback
+references: {selector: "a.ref", render: browser}  # "[n]" as the page's Basic.js renders it
+render:
+  q: quotes                                        # <q> text in “ ”
+  list_markers: {"ol.sub": parenthesized}          # "(a) "
+  summary: heading                                 # a details summary is a heading segment
+  figure: caption
+orphan_text: paragraph                             # with attrs.orphan: true (S1: 44 runs)
+# S1 merged (2026-10-28): every value above except `synthesize:` Tested on 78 pages (record s1.corpus); vocabulary in D4 M01
+```
 
-source_profiles:
-  siegrist:
-    applies_to: "siegrist_random/random/**/*.html"     # relative to the corpus root
-    exclude:                                           # CSS selectors; excluded text is recorded per rule (D4 M01)
-      scripts: "script, noscript"
-      macro_block: "div.latex"                         # \newcommand block: excluded, macros recorded
-      navigation: "header ol.map, footer"
-      controls: "button"
-      images: "img"                                    # figure captions stay, as `caption` segments
-      chapter_lists: "ul.map"                          # S1: 75 chapter-index lists
-    title: "header h2"
-    sections: ["h3", "h4"]                             # each heading opens a section nested by level
-    unit: "div.unit"
-    block_hints:                                       # statement-kind hints from block classes
-      "p.dfn": {statement_kind: definition}
-      "p.dfm": {statement_kind: definition}
-      "p.dfin": {statement_kind: definition}
-      "p.math": {statement_kind: theorem}
-      "p.exercise": {statement_kind: exercise}
-      "p.exericse": {statement_kind: exercise}         # sic, as in the source
-      "p.app": {statement_kind: remark, claim_bearing: false}
-      "p.stat": {statement_kind: theorem}              # S1: 10 units open with p.stat
-      "p.Proof": {statement_kind: proof}               # S1: 1 (special/Divisible.html)
-    section_hints:                                     # units under these h3 titles
-      "Examples and Applications": example
-      "Examples and Special Cases": example
-      "Special Cases": example
-      "Computational Exercises": exercise
-    details_kinds:                                     # statements for <details> blocks
-      default: proof
-      inside_example_or_exercise: solution
-      by_summary: {"Answer": solution, "Answwer:": solution, "Notes:": remark}
-    math:
-      inline: ["\\(", "\\)"]
-      display: ["\\[", "\\]"]
-      display_environments: ["align", "align*"]       # S1: 106 bare align blocks without \[
-      page_macros: "div.latex"                         # per-rendition macro table; the pack map is only a fallback
-    references: {selector: "a.ref", render: browser}  # "[n]" as the page's Basic.js renders it
-    render:
-      q: quotes                                        # <q> text in “ ”
-      list_markers: {"ol.sub": parenthesized}          # "(a) "
-      summary: heading                                 # a details summary is a heading segment
-      figure: caption
-    orphan_text: paragraph                             # with attrs.orphan: true (S1: 44 runs)
-    # S1 merged (2026-10-28): every value above Tested on 78 pages (record s1.corpus); vocabulary in D4 M01
+`domains/statistics/methods.yaml`:
+
+```yaml
+version: 0.1.0
 
 math:
   macros:                                              # fallback when a page does not define a macro
@@ -1251,13 +1338,13 @@ patterns: []                                           # M08: none until a measu
 
 configs:                                               # named configurations, referenced as <method>/<name>
   ingest.html:
-    default: {source_profile: siegrist}
+    default: {source_profile: siegrist}                # sources/siegrist.yaml, resolved by name
   segment.sentences:
     default: {model: en_core_web_sm, variant: merged}  # b′: inline math merged into one token (S1, OPEN-D1-1)
-  agent.opus:
-    extract: {mode: extract, examples: reference, hints: none, packet_cap_tokens: 6000}  # phase 0: the reference's worked examples; dev-golden retrieval needs M04 (phase 1)
-    adjudicate: {mode: adjudicate, packet_cap_tokens: 3000, max_alternatives: 6}
-  llm.propose_claims:
+  agent.opus:                                          # caps in characters: the one cap authority for agent packets (D8 §3)
+    extract: {mode: extract, examples: reference, hints: none, packet_cap_chars: 18000}  # phase 0: the reference's worked examples; dev-golden retrieval needs M04 (phase 1)
+    adjudicate: {mode: adjudicate, packet_cap_chars: 9000, max_alternatives: 6}
+  llm.propose_claims:                                  # local tier: caps in the served model's tokens (D4 §4.1)
     default: {model: Qwen3.5-9B, temperature: 0, seed: 0, reasoning: false, examples: 2,
               hints: none, repair_retries: 1, packet_cap_tokens: 3000}   # S3 chooses model and reasoning
   llm.judge:
@@ -1281,14 +1368,22 @@ The vLLM endpoint and model cache are settings (D9 §3), not configuration: they
 results, so they stay out of configuration hashes. Model names and revisions do change results
 and are configuration.
 
+**Packet caps** are each method's configuration and have no second home. M24's are characters
+(`packet_cap_chars`: 18,000 and 9,000, about 6,000 and 3,000 tokens at a conservative 3
+characters per token), because the server has no tokenizer for the agent tier; the packet
+assembler splits by them, and the MCP tools only paginate what it produced (D8 §3; P0CL-05,
+operator 2026-10-28). The local tier's caps stay in tokens of the served model, counted with its
+tokenizer (D4 §4.1, phase 1).
+> Status: **Proposed** (2026-10-28)
+
 ### 12.2 `slices.yaml`
 
 ```yaml
 version: 0.1.0
-# Locators (D6 §8): page | page#unit-id | page@u:<text prefix> (a unit) | page@p:<text prefix>
-# (a paragraph outside units). Pages are relative to siegrist_random/random/. Prefixes match the
-# start of the segment's canonical text with whitespace collapsed; each locator must resolve to
-# exactly one segment.
+# Locators (D1 §3.4): page | page#unit-id | page@u:<text prefix> (a unit) | page@p:<text prefix>
+# (a paragraph outside units), with an ordinal page@u[n]:… where prefixes coincide. Pages are
+# relative to siegrist_random/random/. Prefixes match the start of the segment's canonical text
+# with whitespace collapsed; each locator must resolve to exactly one segment, else it is refused.
 slices:
   trace:
     - 'special/LocationScale.html@p:As usual, our starting point'             # T1 lead-in
@@ -1311,6 +1406,18 @@ slices:
     - special/Normal.html
     - special/LogNormal.html
     - special/Gamma.html
+  phase0-golden:                                                               # scope of the phase 0 first pass (D6 §7.4, §8)
+    - {include: spike-pages}                                                   # the pages of trace and core12, forced dev
+    - special/Pareto.html                                                      # forced dev: S0-R2 held-out pages (D7 §3.1)
+    - special/ChiSquare.html
+    # + the pages holding dev golden units: declared by name here, filled by `ci golden create` from the dev set (D7 §3.1)
   first-pass:
     - {index: first_pass}                                                      # pages with first_pass = yes in the corpus index
 ```
+
+`phase0-golden` is a run scope, not a debug slice: a run over the first-pass corpus names it
+(run option `scope`, D6 §8), proposes for its units only and records every other eligible unit
+`skipped` with reason `scope`, and it can be promoted (D6 §7.4, D7 §7). Its golden-unit pages are
+resolved from the dev golden set, so they are not hand-kept: `ci golden create` fills them when it
+samples the set. It holds no test page (P0CL-09; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28)

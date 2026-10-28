@@ -13,8 +13,8 @@ policy language that decides which methods run where. Tables are in
 - **The MCP server is a separate process; the database is the only shared state** (decides
   OPEN-D8-1 and OPEN-D9-2, design authority 2026-10-28, from the [store note](../design_review/evidence/2026-10-28_library-store/README.md) L-S7 and the
   [interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-4). Claude Code starts one stdio server per session (and one per
-  golden subagent, D8 §2.2), which dies with that session, while a waiting run spans sessions
-  (§7.4, ADR-0015). So `ci run` owns the orchestrator; the server only reads and writes tables and
+  golden subagent, D8 §2.2), which dies with that session, while a run's agent tasks are worked
+  across sessions (§2, §7.4, ADR-0015). So `ci run` owns the orchestrator; the server only reads and writes tables and
   sends `NOTIFY` inside its submission transaction. FastMCP background tasks are not used: they
   would duplicate `ops.task`, and Claude Code accepts MCP tasks only from the main conversation.
   > Status: **Proposed** (source-read and reasoned; not probed end to end against PostgreSQL)
@@ -22,9 +22,13 @@ policy language that decides which methods run where. Tables are in
   starts. At this corpus size the simplicity is worth more than overlap (`OPEN-D6-1`).
 - **Policies decide escalation; methods never do.** Every task that is not part of a base stage
   names the policy rule that created it and the metric values that rule saw.
-- **Every unit's fate is recorded.** Ran and produced, ran and found nothing, failed, skipped by
-  policy, reused from cache, or waiting for the agent: each is a task status, so nothing is
-  silently absent.
+- **Every eligible unit's fate is recorded, per run.** A unit is eligible for a stage when its
+  method's `select` or an entry of the stage's chain would route it. Each eligible unit gets a
+  task: ran and produced, ran and found nothing, failed, reused from cache, waiting for the agent,
+  or `skipped` with a reason (`scope`, `limit`, `budget`, `prerequisite_failed`). Nothing is
+  silently absent, and the coverage a typed query reports for its scope (units extracted, skipped
+  by reason, failed; D8 §5) is counted from these tasks (P0CL-11; operator, 2026-10-28).
+  > Status: **Proposed** (2026-10-28)
 
 ## 2. The stage graph and run lifecycle
 
@@ -41,16 +45,16 @@ ingest ─► embed ─► extract ─► normalize ─► scope ─► link ─
 
 | Stage | Methods | Unit selection |
 |---|---|---|
-| `ingest` | M01 (with M03), M02 | Documents of the run's corpus or slice; renditions reused when the adapter config is unchanged |
+| `ingest` | M01 (with M03), M02 | Documents of the run's corpus or slice; M01 tasks reused when bytes and adapter config are unchanged; a changed config re-runs M01, which deduplicates by content, so a content-identical result adds a build to the existing rendition and keeps its keys (D4 M01, P0CL-01) |
 | `embed` | M04 | Segments of kinds the configuration names; aliases of the reference run |
 | `extract` | M05, M06, M07, M09, M12, M22; M08 when enabled | Base methods on all eligible segments |
-| `normalize` | M11 | Math segments |
+| `normalize` | M11 | Renditions; one task each, writing an observation per math span (D4 §3, P0CL-13) |
 | `scope` | M13 | Renditions |
 | `link` | M14 | Mentions of global classes |
 | `propose` | M10, and M24 in phase 0 | Per policy chain `propose` (§7) |
 | `assemble` | M17, M18 (assemble pass) | Run |
-| `check` | M19, M20 when enabled, M21 | Candidate claims (by key) |
-| `finalize` | M17, M18 (finalize pass) | Run |
+| `check` | M20 when enabled, M21: the expensive checks | Candidate claims (by key); no tasks in phases 0–1 |
+| `finalize` | M17, M18 (finalize pass), with M19 as one run-level step inside it over the in-memory pool (D5 §8.1, P0CL-13) | Run |
 | `measure` | metrics (§6) | Run |
 | `route` | policy chains `escalate`, `adjudicate`, `identity` (§7) | Units, claims, alternative groups, identity groups |
 | `escalate` | whatever `route` created: M10, M16, M24 | Created tasks |
@@ -59,25 +63,37 @@ ingest ─► embed ─► extract ─► normalize ─► scope ─► link ─
 
 A run of kind `ingest` (created by `ci ingest`) has only the `ingest` stage.
 
-**In phase 0** the graph is `ingest → normalize → scope → propose → assemble → check → finalize →
-measure → evaluate`. `normalize` runs the math grammar's part of M11 (validation, canonical form)
-and M09's symbol occurrences; `scope` runs M13, whose binding sites assemble the packets' standing
-context (D4 §4.1, ADR-0011); `propose` is M24. Consolidation still takes local scopes from the
-proposals in phase 0 (D5 §11). M13 is the only scope source from phase 1.
+**In phase 0** the graph is `ingest → normalize → scope → propose → assemble → finalize → measure
+→ evaluate`: there is no `check` stage, because M19 runs inside `finalize` and M20 and M21 do not
+exist yet. `normalize` runs the math grammar's part of M11 (validation, canonical form) and M09's
+symbol occurrences, one task per rendition each; `scope` runs M13, whose binding sites assemble
+the packets' standing context (D4 §4.1, ADR-0011); `propose` is M24, for the units of the run's
+scope (§7.4). Consolidation still takes local scopes from the proposals in phase 0 (D5 §11). M13
+is the only scope source from phase 1.
 
 **Iterations.** `route` runs after each `measure`. If it creates tasks and `run.iteration <
 run.iteration_limit` (default 3), they run in `escalate` and the loop returns to `assemble`.
 Each iteration's measurements are stored with its number, so the effect of escalation is
 visible per iteration.
 
-**Agent barrier.** Tasks for M24 are created with status `awaiting_agent`. When `escalate` holds
-only such tasks, the run's status becomes `awaiting_agent`. The run option `agent_mode` decides
+**Agent barrier.** Tasks for M24 are created with status `awaiting_agent`. When `propose` or
+`escalate` holds only such tasks, the run's status becomes `awaiting_agent`. The run option `agent_mode` decides
 what happens:
 
 | `agent_mode` | Behaviour |
 |---|---|
-| `wait` (default while debugging) | The orchestrator waits until every agent task is terminal, then continues. It `LISTEN`s on a dedicated autocommit connection, re-queries task status on every wake-up and waits with a timeout, because a notification is only a hint: it is delivered at commit, carries under 8,000 bytes, can be missed while not listening, and lease expiry sends none (store note §4) |
-| `complete` | The run finishes with agent tasks left `awaiting_agent`; their units are reported as unresolved. A later run reuses the agent's results once submitted (§4) |
+| `wait` (short slice runs only; the default for kind `slice`) | The orchestrator waits until every agent task is terminal, then continues. It `LISTEN`s on a dedicated autocommit connection, re-queries task status on every wake-up and waits with a timeout, because a notification is only a hint: it is delivered at commit, carries under 8,000 bytes, can be missed while not listening, and lease expiry sends none (store note §4) |
+| `complete` (every other run, and every long one) | The run finishes with agent tasks left `awaiting_agent`; their units are reported as unresolved. The agent works those tasks across sessions, and a later run reuses each result once submitted (§4) |
+
+**Long runs are sequences of `complete` runs** (P0CL-12; operator, 2026-10-28). Each run of the
+sequence reuses every finished task, cheap under content digests (§4), and is a coherent finished
+snapshot; the operator promotes the first with no unresolved agent tasks (§7.4). A later run
+recreates the unfinished agent tasks of an earlier one with the same input hash; the submission
+that completes either resolves its twins (§4), so the agent works each packet once, whichever
+run's task it pulls. A `wait` run is short by construction, and one whose orchestrator stops (a
+restart, a crash) is cancelled and started again, reusing what finished; so `ops.run` needs no
+durable stage and `ci run` no resume.
+> Status: **Proposed** (2026-10-28)
 
 **Run statuses** (D3 `ops.run.status`): `created` → `running` → (`awaiting_agent` ↔ `running`)*
 → `consolidating` (during `derive` and the final finalize) → `finished`; `failed` when a stage
@@ -92,9 +108,11 @@ cannot complete (any failed task in `ingest`, or a consolidation invariant viola
 pending ──claim──► running ──► done | empty | failed
    │
    ├──► reused     (an equivalent finished task exists, §4)
-   ├──► skipped    (prerequisite failed for this unit, or policy limit reached)
+   ├──► skipped    (reason: prerequisite failed for this unit, a policy limit or budget reached,
+   │                or outside the run's scope)
    └──► cancelled
 awaiting_agent ──submission──► done | empty | failed
+awaiting_agent ──twin submitted──► reused     (§4)
 ```
 
 ### 3.2 Workers
@@ -136,18 +154,37 @@ and looks for a task with the same `(method_config_id, input_hash)` and status `
 `empty` in any kept run. If one exists, the new task is created with status `reused` and
 `reused_task_id`; its observations are not copied (`kb.run_observation` resolves them).
 
-- **What invalidates reuse** is exactly what changes the digest (D4 §1 rule 4): unit text,
-  upstream observations read (by task id), compiled artifacts (extraction schema, JSON Schema,
-  rules), prompt parts (guideline version, examples, inventory), model revision, method version.
-  Nothing else.
+- **What invalidates reuse** is exactly what changes the digest (D4 §1 rule 4), which covers the
+  **content** a task reads, never its provenance: the unit's content (the rendition's content
+  digest for rendition-level methods, the unit's canonical text with its segment key for methods
+  whose observations cite offsets, the hash of the assembled packet text for M24 and M10), the
+  payload hashes of the upstream observations read, compiled-artifact hashes (extraction schema,
+  JSON Schema, rules; `meta.compiled_artifact`, D3 §3), prompt-part hashes (guideline version,
+  examples, inventory), model id and revision, and method version. Nothing else (P0CL-02;
+  operator, 2026-10-28).
+  > Status: **Proposed** (2026-10-28)
+- **Task ids are provenance only** (`reused_task_id`), never a dependency. Re-running an upstream
+  method with identical output (`--fresh`, a version bump, a new build of a content-identical
+  rendition) leaves its consumers `reused`, agent tasks included. Reuse is also sound: a method
+  whose observations cite rendition offsets digests the rendition's content (directly, or through
+  its unit's segment key), which matches only the same rendition row under content addressing
+  (D1 §3.1), while a reused proposal is located on the run's own rendition from its citation frame
+  (D4 §4.3, D5 §5.6). So no reused observation cites spans of a rendition the run did not select.
 - **Failed tasks are never reused.** `--fresh <method>` on the CLI forces new tasks for one
   method.
 - **Agent tasks are reused** like any other: an Opus proposal for an unchanged packet is not
-  requested again. Changing the guideline changes the packet and so requests new proposals for
-  every unit unless the run option `agent_reuse: by_unit` is set, in which case the agent is
+  requested again. Changing the guideline changes the prompt parts and so requests new proposals
+  for every unit unless the run option `agent_reuse: by_unit` is set, in which case the agent is
   asked only where the operator's change applies (D7 §8).
-- **Consolidation is not cached**; it is rebuilt each pass (D5 §1). Checks are cached by claim
-  key plus the digest of the claim view they read.
+- **Twins resolve at submission.** A submission that completes an agent task also sets every other
+  `awaiting_agent` task with the same `(method_config_id, input_hash)` to `reused`, pointing at it,
+  in the same transaction (D8 §2.1). Successive `complete` runs (§2) therefore never ask for one
+  packet twice.
+  > Status: **Proposed** (2026-10-28)
+- **Consolidation is not cached**; it is rebuilt each pass (D5 §1). M19 runs inside each finalize
+  pass and is not cached either: per-claim caching would save nothing, because the pass rebuilds
+  anyway (P0CL-13). M20 and M21 tasks are cached by claim key plus the digest of the claim view
+  they read.
 - **Deletion.** Deleting a run (D3 §8) keeps tasks that kept runs reuse.
 
 ## 5. GPU sharing on the RTX 5090
@@ -224,8 +261,8 @@ priors:                                        # cold-start source priors (D5 §
   patterns: 0.5
 chains:
   propose:
-    - key: propose.phase0.agent_all
-      when: "phase == 0 and unit.claim_bearing and unit.split != 'test'"
+    - key: propose.phase0.agent_all              # the run's scope bounds it (§7.4), not a split
+      when: "phase == 0 and unit.claim_bearing"
       do: {method: agent.opus/extract, then: stop}
     - key: propose.local_llm.claim_bearing
       when: "phase >= 1 and unit.claim_bearing"
@@ -261,6 +298,9 @@ chains:
   stage `propose`; the others in stage `route`, and the tasks they create run in `escalate`.
 - `limit` caps tasks this entry creates per iteration (in addition to global budgets); excess
   units are recorded as `skipped` with reason `limit`.
+- **Run scope.** When the run declares a scope (§8), a unit an entry matches outside that scope
+  gets a `skipped` task for the entry's method with reason `scope`, so the unit's fate is recorded
+  (§1) and the run's coverage is explicit.
 - `then: stop` ends the chain for the unit; `then: continue` evaluates the rest of the chain.
 - Chains compile to rule-engine 5.1 `Chain` objects under a typed context; a type error fails
   policy loading. Evaluation takes the first matching entry (`Chain.find`), and `continue`
@@ -276,13 +316,18 @@ chains:
 | Symbol | Content |
 |---|---|
 | `phase`, `iteration` | run settings |
-| `unit.split` | `dev`, `test` or null: the split of the unit's document (`eval.document_split`, D7 §3.1) |
 | `unit.kind`, `unit.statement_kind`, `unit.claim_bearing` | segment kind; statement kind from markup or M05; whether the kind is claim-bearing (schema `ci:claim_bearing` on `StatementKind` values) |
 | `unit.<metric>` | the unit's latest measurements (§6) |
 | `target.kind` (`alternative_group`, `claim`, `identity_group`), `target.size`, `target.max_confidence`, `target.margin` | for adjudication and identity targets |
 | `ran(m)`, `outcome(m)` | whether method `m` ran on the unit in this run, and its outcome |
 | `judged_by(m)`, `judgment(m)` | whether a judgment from `m` exists for the target, and its decision or confidence |
 | `budget.agent_packets_left`, `budget.llm_tokens_left` | remaining budgets |
+
+The context has no split symbol. Test units route to the agent like any unit, so test scores
+measure the system as deployed, agent tier included; what keeps evaluation honest is that test
+pages never enter a training, fitting, prompt-optimization or example set (D7 §4, D4 §4.2), a
+rule on data, not on routing (P0CL-16; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28)
 
 ### 7.3 Gap policies and conditional methods
 
@@ -322,20 +367,27 @@ asked. During heavy debugging the operator keeps `agent_packets_per_iteration` s
 20). It bounds escalation iterations (`escalate`, `adjudicate`; phase 1 on). The `propose` stage's
 agent tasks are bounded by the run's scope instead.
 
-**Phase 0 coverage.** A first-pass run in phase 0 proposes for the units of the dev-split pages:
-about a fifth of the first-pass corpus is test and stays unextracted (D7 §4), and the dev pages give
-the baseline the gate and the first experiments need. The remaining non-test units are created
-`skipped` with reason `budget`, so their absence is explicit. The queue persists, so the agent
-works a run's tasks across as many sessions as it takes while the run waits at its barrier
-(`--agent-mode wait`); each session pulls bounded packets (D8 §3).
-> Status: **Proposed** (2026-10-28, design authority): about 3,600 non-test packets exceed what
-> sessions should carry before encoders and the local tier exist (S1 counts, record s1.corpus)
+**Phase 0 coverage.** The phase 0 first pass is a run over the first-pass corpus whose scope is
+the declared slice `phase0-golden` (§8): the pages holding dev golden units, the forced-dev pages
+(D7 §3.1), and the pages of the trace and spike core units. That is what the gate, the first
+experiments (which decide on the dev golden units, D7 §7) and the bootstrap reference run need.
+Every other eligible unit gets a `skipped` task with reason `scope` (§7.1), so its absence is
+explicit and the promoted run reports its coverage (§1). The protocol is the sequence of §2:
+successive `agent_mode: complete` runs, each reusing every finished task, while the agent works
+the open tasks across as many sessions as it takes, each pulling bounded packets (D8 §3); the
+operator promotes the first run with no unresolved agent tasks. The full first pass over every
+eligible unit of the first-pass corpus moves to phase 1, where M10 carries it and M24 receives
+only what policies escalate (P0CL-09, P0CL-12; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28): a full first pass, about 3,600 packets outside the test
+> pages, exceeds what sessions should carry before encoders and the local tier exist (S1 counts,
+> record s1.corpus); the slice's packet count follows from the dev sample (D7 §3.1) and is not yet
+> computed
 
 ### 7.5 Initial statistics policies, by phase
 
 | Phase | `propose` | `escalate` | `adjudicate`, `identity` |
 |---|---|---|---|
-| 0 | M24 on every claim-bearing unit outside the test split (test units stay unextracted in phase 0, D7 §4) | — | — (alternatives are rare with one proposer; adjudication arrives in phase 1) |
+| 0 | M24 on every claim-bearing unit in the run's scope, the `phase0-golden` slice; other eligible units `skipped` with reason `scope` (§7.4) | — | — (alternatives are rare with one proposer; adjudication arrives in phase 1) |
 | 1 | M10 on every claim-bearing unit | M10 retry with hints where symbols are unresolved; M24 where M10 produced nothing | M16, then M24 for `unsure` or low |
 | 2 | as 1 | as 1 | as 1, plus identity grey zone |
 | 3 | M10 only where `unit.encoder_coverage` < 0.7 or the statement kind's encoder sensitivity < 0.8 | M24 only below calibrated confidence 0.5 | M24 only for groups with margin < 0.1 |
@@ -346,22 +398,31 @@ falls.
 
 ## 8. Debug slices and output size
 
-Named slices (`ops.debug_slice`) restrict a run to selected documents and units; the run kind is
-`slice`, and a slice run is never promoted.
+Named slices (`ops.debug_slice`) serve two uses:
+
+- **Debug slice runs** are restricted to the slice's documents and units; the run kind is
+  `slice`, and a slice run is never promoted.
+- **Run scope.** A run of another kind may name a slice as its scope (run option `scope`): it runs
+  over its whole corpus, the policy chains route only the scope's units, and every other unit they
+  match gets a `skipped` task with reason `scope` (§7.1). Such a run can be promoted; its coverage
+  says what it left out (§1). The phase 0 first pass is the case in view (§7.4).
+> Status: **Proposed** (2026-10-28, P0CL-09); the locator contract is D1 §3.4's (P0CL-04)
 
 Slices are declared in the domain's `slices.yaml` ([D2 §12.2](D2-schema-and-guidelines.md#122-slicesyaml))
-by **locator**: `page` (a source URI), `page#unit-id`, `page@u:<text prefix>` (a unit, for the
-many units without ids) or `page@p:<text prefix>` (a paragraph outside units, such as T1's
-lead-in and T2); prefixes match with whitespace collapsed and must select exactly one segment. Locators resolve to segments of
-the selected rendition when a run starts, so a slice survives adapter changes; a locator that
-does not resolve fails the run's start.
+by **locator**. The locator grammar, its generator and its resolver over a rendition's segments
+are [D1 §3.4](D1-knowledge-representation.md#34-locators)'s; slices use page, unit and
+paragraph locators (a bare page selects the whole page), and a slice locator must resolve to
+exactly one segment, an ambiguous one being refused. Locators resolve to segments of the selected
+rendition when a run starts, so a slice survives ingest changes; a locator that does not resolve
+fails the run's start.
 
 | Slice | Content | Use |
 |---|---|---|
 | `trace` | T1–T4 units ([trace](trace.md)) | Acceptance tests; every design change |
 | `core12` | the twelve spike core units | Method comparison |
 | `spike-pages` | the four spike pages | Throughput, counts |
-| `first-pass` | the 78 first-pass pages | Phase gates |
+| `phase0-golden` | the pages holding dev golden units, listed by page once the dev set is sampled (D7 §3.1); the forced-dev pages; the pages of `trace` and `core12` | Scope of the phase 0 first pass (§7.4) |
+| `first-pass` | the 78 first-pass pages | Phase gates; the phase 1 full first pass |
 
 While debugging, outputs stay small by construction: CLI reports summarize (counts, the ten
 worst units by a chosen metric, links to `explain` commands), agent packets are capped (D8 §3),

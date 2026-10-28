@@ -20,7 +20,7 @@ series. The supporting documents:
 | [S0 reference annotations](design-spikes-s0-s1/S0-reference-annotations.md) | Blind annotation protocol, adjudication into the S0 reference, determinacy and gap analyses, OPEN answers |
 | [Comparison instruments](design-spikes-s0-s1/comparison-instruments.md) | Batch contract and validators, quote locator, aligner, agreement tiers and keys; reused by S2/S3 |
 | [S4 LinkML compilation](design-spikes-s0-s1/S4-linkml-compilation.md) | Schema loading and every D2 §7 compiler on schema v0; rules and the `guideline:` group; the generated annotator reference |
-| [S6 Storage smoke](design-spikes-s0-s1/S6-storage-smoke.md) | D3 DDL on PostgreSQL 18; v1 trace rows; queries, full-text search and vectors; the revised statement key |
+| [S6 Storage smoke](design-spikes-s0-s1/S6-storage-smoke.md) | D3 DDL on PostgreSQL 18; v1 trace rows; queries, BM25 and vectors; the revised statement key |
 | [S5 Math parsing and verification](design-spikes-s0-s1/S5-math-verification.md) | Grammar coverage and the token-key property; scoping beyond the core units; equivalence tiers; z3 and verifiers |
 | [S2 GLiNER2](design-spikes-s0-s1/S2-gliner2.md) | Encoder extraction on math-dense text: schemas, math variants, long units, candidate scoring |
 | [S3 Local LLM](design-spikes-s0-s1/S3-local-llm.md) | Local model and settings under structured output from inputs v1; judge; output caps |
@@ -77,7 +77,7 @@ spike README's one-session time-box (ground rule 7) does not apply to S0 and S1.
 |---|---|---|
 | OPEN-D2-1; OPEN-D2-3, OPEN-D2-6 (confirmation) | `Schema.from_dict` keys (S2's input); D2-3 and D2-6 answered by the schema-rules note on 2026-10-28, confirmed on the pack files (D2 §11) | S4 |
 | ADR-0017, ADR-0018 | LinkML compiled to every consumer; policy-routed escalation: accept, amend or supersede | S4 evidence, then the design/target review |
-| OPEN-D3-1, OPEN-D3-3, OPEN-D3-4; STMT-01 | Full-text search on the corpus (built-in; D3 §5); keep `kb.segment.text`; stored meaning key; S0 key figures under the revised statement key (D3 §13, D1 §10.1) | S6 |
+| OPEN-D3-1, OPEN-D3-3, OPEN-D3-4; STMT-01 | BM25 through pg_textsearch on the corpus (D3 §5); keep `kb.segment.text`; stored meaning key; S0 key figures under the revised statement key (D3 §13, D1 §10.1) | S6 |
 | ADR-0016 | PostgreSQL as single authority: accept or amend | S6 evidence, then the review |
 | KEYS-01; OPEN-D4-3; OPEN-D7-2 | Token keys agree with the tree printer on every parsed value; LaTeX backend and macro map; formula equivalence tiers | S5 |
 | OPEN-D4-5, OPEN-D1-2 (confirmation) | M13 scoping beyond the core units | S5 |
@@ -316,7 +316,7 @@ row. "Needs" names the input a package consumes, not merely an earlier row.
 | 25 | E5 `not_run` outcome in evidence records | §3.5 | — | `tools/evidence` model and test |
 | 26 | C1 Contested items mapped onto the v1 reference | §3.5 | — | `results/s0r2/contested.tsv` |
 | 27 | S4-A…S4-E | S4 | E4 | see S4; unblocks phase 0 schema-and-rules |
-| 28 | S6-A…S6-G (S6-D loads S4-B's compiled rows) | S6 | E4, I-R2 for S6-F, S4-B for S6-D, the operator's disk space | see S6; unblocks phase 0 foundations (store) |
+| 28 | S6-A…S6-G (S6-D loads S4-B's compiled rows) | S6 | E4, I-R2 for S6-F, S4-B for S6-D, pg_textsearch preloaded and created in `cs_spike_s6` by the operator | see S6; unblocks phase 0 foundations (store) |
 | 29 | S5-A…S5-E | S5 | E4, I-R2 | see S5; S5-A unblocks phase 0 ingest-and-math (grammar port) |
 | 30 | S2-A…S2-D | S2 | E4 (GPU), I-R2, I-R3 (S2-C), C1, S4-D optional | see S2 |
 | 31 | S3-A…S3-F | S3 | E4 (vLLM, the RTX 5090 support of its wheel confirmed), I-R2, C1, S4-D's decoding form optional; disk for any larger model download | see S3 |
@@ -424,7 +424,7 @@ inventory (2026-10-28) and are scheduled into S1.
 | OPEN-D2-2 | D2 §7.2, M06/M07 | Raw or masked math for GLiNER2 | deferred · S2 (S1 supplies math token cost) | — |
 | OPEN-D2-3 | D2 §7.4 | rule-engine syntax | deferred · S4 | — |
 | OPEN-D2-6 | D2 §3 | List annotation round-trip in `SchemaView` | deferred · S4 (S0's schema load is a byproduct observation) | — |
-| OPEN-D3-1 | D3 | lexical search (built-in full-text search since 2026-10-28) | deferred · S6 | — |
+| OPEN-D3-1 | D3 | pg_textsearch BM25 on the corpus | deferred · S6 | — |
 | OPEN-D3-2 | D3, M04 | Embedding model and dimension | deferred · S7 | — |
 | OPEN-D3-3 | D3 | Storing `kb.segment.text` | deferred · S6 | — |
 | OPEN-D4-1 | D4 M10 | Local model choice | deferred · S3 | — |

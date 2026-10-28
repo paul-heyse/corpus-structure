@@ -21,7 +21,7 @@ about it.
    disagreement, constraint violation, identity grey zone, parse failure) trigger escalation
    through rule-engine policies stored as data, up a ladder from a local LLM on the RTX 5090 to
    Opus in the Claude Code session ([D6](D6-orchestration-metrics-policies.md)).
-4. **Store.** One PostgreSQL 18 database with JSONB, built-in full-text search and (from phase 1) pgvector. The operations
+4. **Store.** One PostgreSQL 18 database with JSONB, pg_textsearch (BM25) and, from phase 1, pgvector. The operations
    are data too: methods, configurations, policy rules, tasks with the metrics that triggered
    them, measurements, interventions, goldens and experiments ([D3](D3-database.md)).
 5. **Scaling.** A walking skeleton first, in which Opus does most of the work through recorded
@@ -83,12 +83,16 @@ with those items explicitly unresolved.
 
 | Phase | Adds | Opus mainly | Gate |
 |---|---|---|---|
-| 0 · Skeleton | Meta-model in PostgreSQL, HTML ingest, Opus intervention tools, query API, evaluation harness | Extracts the claims of the first-pass dev pages (D6 §7.4); drafts schema and guideline; dispatches Sonnet golden passes | The trace units and the spike pages answer their typed questions from the database; evaluation runs |
-| 1 · Baseline | Compiled GLiNER2 schemas, spaCy, math and table readers, the local LLM tier | Adjudicates what the local LLM could not settle | F1 and intervention share measured per type and stage |
+| 0 · Skeleton | Meta-model in PostgreSQL, HTML ingest, Opus intervention tools, query API, evaluation harness | Extracts the claims of the `phase0-golden` slice: the pages holding dev golden units, the forced-dev pages, and the trace and core-unit pages ([D7 §9](D7-evaluation-goldens-outer-loop.md#9-phase-gates), D6 §7.4); drafts schema and guideline; dispatches Sonnet golden passes | The trace units and the spike pages answer their typed questions from the database; evaluation runs |
+| 1 · Baseline | Compiled GLiNER2 schemas, spaCy, math and table readers, the local LLM tier; the full first pass, run with M10 | Adjudicates what the local LLM could not settle | F1 and intervention share measured per type and stage |
 | 2 · Consolidation | Linking, claim fusion, pgmpy confidence, rule validation | Grey-zone identities and conflicts | Identity errors measured; confidence calibrated on goldens |
 | 3 · Distillation | Escalation ladders across tiers, GLiNER2 LoRA adapters, gepa prompt tuning | Golden units (Sonnet passes) for the errors metrics surface | Intervention share falls at equal or better F1 |
 | 4 · Schema depth | Coverage-gap discovery, schema versions with migrations, statistics verifiers | Schema and guideline proposals | Coverage rises; new types reach target F1 |
 | 5 · Second corpus | A corpus chosen for where statistics struggled; later hosted models and tenants | New domain packs | A new pack built with bounded interventions |
+
+> Status: **Proposed** (2026-10-28, P0CL-09; operator, 2026-10-28): phase 0 extracts only a slice
+> the agent tier can carry. The whole non-test first pass, about 3,600 packets, is more than its
+> sessions should carry before a cheaper tier exists, so it waits for the local LLM tier
 
 ## Decisions taken (2026-10-28)
 

@@ -9,8 +9,9 @@ this document says how each brief step now runs after the store research and the
 ## 1. What S6 must establish now
 
 D3 was revised on 2026-10-28 from the [store note](../../design_review/evidence/2026-10-28_library-store/README.md):
-built-in full-text search replaces pg_textsearch, which could not be installed (D3 §5); no
-extension in phase 0; the queue's partial indexes, claiming statement and `attempt` fencing (D3 §8,
+BM25 through pg_textsearch on one partial index over non-overlapping block kinds, always named in
+the query (D3 §5); extensions provisioned once in a template database, not by migrations (D3 §3);
+the queue's partial indexes, claiming statement and `attempt` fencing (D3 §8,
 D6 §3); golden passes as tasks of a `golden` run; run deletion keeps `ops.run` and its tasks; JSONB
 indexes only with a consuming query. Everything there is source-read or reasoned, none of it run.
 
@@ -20,25 +21,28 @@ and the revised statement key's agreement figures exist. Its evidence decides wh
 (PostgreSQL as single authority) is accepted, and it is the dry run of the phase 0 foundations
 store packages.
 
-**Prerequisites.** The operator frees disk space (3.3 GB free on 2026-10-28); S6 records free space
-at start. The vector steps need `vector` created by a superuser: either the operator creates it as
-`postgres` in `cs_spike_s6`, or S6 runs those steps in a throwaway cluster from `pg_virtualenv`,
-where the spike's role is superuser (store note §1). Steps 9–10 wait on I-R2 (row 24), because
+**Prerequisites.** pg_textsearch 1.5.1 is installed (package `postgresql-18-pg-textsearch`,
+[overview](../../libraries/postgresql-18-pg-textsearch.md)) but loads only through
+`shared_preload_libraries`, and neither it nor `vector` is a trusted extension. The operator adds it
+to `shared_preload_libraries`, restarts, and creates both extensions as `postgres` in
+`cs_spike_s6`; alternatively S6 runs in a throwaway cluster from `pg_virtualenv -o
+shared_preload_libraries=pg_textsearch`, where the spike's role is superuser (store note §1). S6
+records free disk space at start. Steps 9–10 wait on I-R2 (row 24), because
 formula keys use the token form it revises.
 
 ## 2. Brief steps as they now run
 
 | Step | Now |
 |---|---|
-| 1 Database | `cs_spike_s6`; no extension for steps 2–5 and 7–10; `vector` only for step 6 (§1) |
-| 2 DDL | Extract D3's current blocks by script, including the generated `text_tsv` column, the partial GIN, the queue indexes, the `golden` run kind and `golden_unit` unit type, and the run-index additions; fixes recorded in a copy, never in D3 |
+| 1 Database | `cs_spike_s6` with `pg_textsearch` and `vector` (§1); versions recorded |
+| 2 DDL | Extract D3's current blocks by script, including the partial BM25 index, the per-row `ts_config`, the queue indexes, the `golden` run kind and `golden_unit` unit type, and the run-index additions; fixes recorded in a copy, never in D3 |
 | 3 Rows | As the brief, plus a `golden` run with `golden_unit` tasks for passes `a` and `b` and one pass `c` created after both; a run-deletion check that removes one run's materialized rows, keeps its `ops.run` row and tasks, and uses the new indexes (`EXPLAIN`) |
 | 4 Queries | As the brief; D3 §9's `@?` qualifier query checked to be carried by `claim_pred` now that the GIN index is gone |
-| 5 Search | Replaced: the brief's five queries through `websearch_to_tsquery('english', …)` ranked by `ts_rank_cd`, with the block-kind predicate; check the planner uses the partial `segment_fts` index; check that the kind list does not overlap on the four pages (no token counted twice); record the top five per query (OPEN-D3-1) |
+| 5 BM25 | The brief's five queries as `ORDER BY text <@> to_bm25query($1, 'kb.segment_bm25') LIMIT 5` with the index predicate repeated; check with `EXPLAIN` that the partial index is used (the implicit string form skips partial indexes); one Boolean and one phrase filter through `@@ to_tsquery('english', …)`; check the kind list does not overlap on the four pages (no token counted twice); record the top five per query and the syntax that worked (OPEN-D3-1) |
 | 6 Vectors | As the brief at 1024 and 2048 dimensions, with one partial HNSW index per `target_type` and `hnsw.iterative_scan` on a filtered query (D3 §5) |
 | 7 Volume | Binary COPY with `Copy.set_types` of 100,000 observations and 20,000 claims; the per-unit "why a method ran" query; no GIN timing (the index is gone) |
 | 7b Queue (new) | Two worker processes claiming from 10,000 `pending` tasks with the D6 §3 statement; one worker killed mid-batch; check no task is claimed twice, the expired lease is taken by the next claim, and the dead worker's late terminal write commits nothing (`attempt` fencing); `LISTEN`/`NOTIFY` wake-up with a timeout and re-query |
-| 8 Size | As the brief, including the `text_tsv` column and the partial GIN (OPEN-D3-3 is answered by mechanism; this gives the size) |
+| 8 Size | As the brief, including the BM25 index (OPEN-D3-3 is answered by mechanism; this gives the size) |
 | 9 Keys | As the brief, after I-R2 |
 | 10 Meaning key | As the brief, after I-R2 |
 
@@ -67,13 +71,13 @@ and the trace rows agree on class and predicate names.
 |---|---|---|---|
 | S6-A | Steps 1–2 | `results/s6/ddl_fixes.md`, the applied copy | The DDL applies; every fix has a reason |
 | S6-B | Step 3 | `constraints.tsv`, the run-deletion check | Every constraint fires on its bad row; the golden-run rows fit; deletion behaves as D3 §8 says |
-| S6-C | Steps 4–5 | `queries.md`, `fts.md` | Every query returns its rows with plans recorded; D8 §5.3 differences listed |
+| S6-C | Steps 4–5 | `queries.md`, `bm25.md` | Every query returns its rows with plans recorded; D8 §5.3 differences listed |
 | S6-D | §3, after S4-B | `dry_run.md` | Trace rows insert against the compiled schema version, or each mismatch is listed |
 | S6-E | Steps 6, 7, 7b, 8 | `vectors.tsv`, `volume.tsv`, `queue.md`, `sizes.tsv` | Each measured, or `blocked` naming the missing extension or disk space |
 | S6-F | Steps 9–10, after I-R2 | `keys.tsv`, `restated.tsv` | The revised-key rows beside the four S0 rows; differing pairs explained |
 | S6-G | Report | `S6-report.md`, records `s6.*` | The template is satisfied; the corrected DDL as a diff against D3 |
 
-Records: `s6.ddl`, `s6.constraints`, `s6.queries`, `s6.fts`, `s6.dry-run`, `s6.queue`, `s6.volume`,
+Records: `s6.ddl`, `s6.constraints`, `s6.queries`, `s6.bm25`, `s6.dry-run`, `s6.queue`, `s6.volume`,
 `s6.vectors`, `s6.sizes`, `s6.keys`, `s6.restated`; `consumed_by` names the phase 0 package (or
 phase 1 for vectors) and the OPEN item.
 

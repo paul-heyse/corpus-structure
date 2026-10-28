@@ -19,6 +19,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0013](0013-claim-model.md) | "Every fact is one claim form: subject, predicate, object, typed qualifiers, evidence, supports and status" | 2026-10-28 | [§B1](../design/DESIGN.md#section-b1) | Tested |  |
 | [ADR-0014](0014-observations-and-run-materialization.md) | Methods write observations; only consolidation writes knowledge, materialized per run | 2026-10-28 | [§B2](../design/DESIGN.md#section-b2) | Proposed |  |
 | [ADR-0015](0015-agent-work-queue.md) | The agent tier works a recorded queue; the pipeline never calls it | 2026-10-28 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
+| [ADR-0019](0019-identity-follows-content.md) | "Identity follows content: renditions are content-addressed, statements and scopes are anchored by locators, authored batches are the authority" | 2026-10-28 |  | Proposed |  |
 
 ## Proposed: open choices, not accepted decisions
 
