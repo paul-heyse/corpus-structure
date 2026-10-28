@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "s0.pass-sg",
+  "title": "Pass SG: blind annotation of the twelve core units (Claude Sonnet 5.5, golden inputs)",
+  "group": "S0 Reference annotations",
+  "package": "S0-E",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does Sonnet 5.5, with the same golden inputs as passes A, B and H, annotate the core units closer to the Opus passes than Haiku does?",
+  "answers": [
+    "OPEN-D4-4"
+  ],
+  "method": "Fresh subagent with golden inputs identical to pass H's (only output paths changed); batches validated by code/s0_check.py; first versions kept.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0/pass_sg --out results/s0/stored/pass_sg"
+  ],
+  "agents": [
+    {
+      "role": "annotator Pass SG",
+      "model": "Claude Sonnet 5.5",
+      "brief": "results/s0/inputs/golden_sg/instructions_sg.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); listed the file names in inputs/ and code/ once, opening none; wrote only its output folder"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s0/inputs/golden_sg",
+      "role": "inputs",
+      "sha256": "76c333b8fb84dacf42782b1e2e9e118380e2ddbd1329ab9c4fd38a4b5a6d7e62"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/pass_sg",
+      "role": "batches, notes, first versions",
+      "sha256": "c5f1e7c493b37eb0a15ce8725739859880df89e3002f8e724147b502fb0eca02"
+    },
+    {
+      "path": "results/s0/stored/pass_sg",
+      "role": "stored form",
+      "sha256": "604fd57a4e671dc06adf85eb322057684c15bdc5e9bb19d2ffd1e03703825e56"
+    }
+  ],
+  "depends_on": [
+    "s0.packets"
+  ],
+  "results": [
+    {
+      "name": "units_validated",
+      "value": 12,
+      "of": 12,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "units_failing_first_run",
+      "value": 5,
+      "of": 12,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Twelve valid batches; five needed format repair after the first validation run (scope as object, evidence role, condition leaf field, units in parameter values, two-argument independence).",
+  "consumed_by": [
+    "s0.sonnet-scores"
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "s0.condition-classes",
+  "title": "Condition failures against the reference, classified by shape",
+  "group": "S0 Reference annotations",
+  "package": "S0-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Why do the Sonnet and Haiku passes fail the conditions field far more often than the Opus passes?",
+  "answers": [
+    "OPEN-D4-4"
+  ],
+  "method": "Every core-matched pair whose full-tier failure includes conditions, in the six pass-against-reference comparisons, classified by the shape of the two condition trees (added, omitted, different premise references, repeated restrictions).",
+  "commands": [
+    "python3 code/s0_condition_classes.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "code/s0_condition_classes.py",
+      "role": "script",
+      "sha256": "d3c6d184ed5a2457b10288ce9e8272f0d03c4f6cded4230fcc1a76d77972eca0"
+    },
+    {
+      "path": "results/s0/reference",
+      "role": "reference",
+      "sha256": "11f7c32221741b140ba18335df2c4f0a7c1b1e99bb16db5ab126aab5cd9aa1dc"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/condition_classes.tsv",
+      "role": "one row per failing pair",
+      "sha256": "dae7e8354b5eb0a895a74c32c0d1bc3dc64a90ea35e93b9a5c00b5fcb59b7cbf"
+    }
+  ],
+  "depends_on": [
+    "s0.pass-scores",
+    "s0.sonnet-scores"
+  ],
+  "results": [
+    {
+      "name": "sg_added_trees",
+      "value": 10,
+      "of": 19,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sp_added_trees",
+      "value": 13,
+      "of": 23,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sg_repeated_restrictions",
+      "value": 4,
+      "of": 19,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The main Sonnet condition failure is a condition tree on a claim the reference leaves unconditioned (definientia conditioned on the definition's premise; premises carrying their own restrictions): a convention the guideline does not state, not a misreading of the text.",
+  "consumed_by": [
+    "S0 report"
+  ]
+}

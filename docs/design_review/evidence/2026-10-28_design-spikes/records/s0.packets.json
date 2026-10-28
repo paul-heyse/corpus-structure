@@ -13,7 +13,7 @@
     "OPEN-D8-3",
     "D7 §3.2"
   ],
-  "method": "Generated input folders: guideline, model, schema, format, unit packets, pages, instructions.",
+  "method": "Generated input folders: guideline, model, schema, format, unit packets, pages, instructions. Outputs narrowed on 2026-10-28 from the whole inputs folder to these five, after the Sonnet copies (golden_sg, packet_only_sp, adjudication_d7_s; records s0.pass-sg, s0.pass-sp, s0.adjudication-d7-sonnet) were added beside them; the five hashed together to the originally recorded value before narrowing.",
   "commands": [
     "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0a_packets.py golden",
     "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0a_packets.py packet_only",
@@ -23,9 +23,29 @@
   "inputs": [],
   "outputs": [
     {
-      "path": "results/s0/inputs",
-      "role": "input folders",
-      "sha256": "c860eb6e5d255150c3d1e23e71bdb46349d3e86432c7bcac5398fb075ef44e2b"
+      "path": "results/s0/inputs/golden",
+      "role": "input folder",
+      "sha256": "4247612a08f33d38193ff1db363eb2b927a95f5b35f453aed7eef6a8d4f4a69a"
+    },
+    {
+      "path": "results/s0/inputs/golden_h",
+      "role": "input folder",
+      "sha256": "71f0cd8e3fd439dcd93a6775d480cbfdcc6d3cea83afbdc4254acd556f1af3ea"
+    },
+    {
+      "path": "results/s0/inputs/packet_only",
+      "role": "input folder",
+      "sha256": "99c7bcf7f4aa418d1167f1e97bb1e15c700ce9c388c1164ea66121e5ca8e2a5c"
+    },
+    {
+      "path": "results/s0/inputs/adjudication_d7",
+      "role": "input folder",
+      "sha256": "2859e92d3566ec9a035e222f47f076d8f86a5e9d810a6e8ea9528bf1c6974857"
+    },
+    {
+      "path": "results/s0/inputs/offset",
+      "role": "input folder",
+      "sha256": "6e948903f2aab5e314a9fa37da866ebe1f66d590cefbfdb9040bd8f54b9f72a0"
     }
   ],
   "depends_on": [

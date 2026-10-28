@@ -1,0 +1,36 @@
+{
+  "unit_ref": "U7",
+  "entities": [
+    {"local_ref": "e_const", "type": "RandomVariable", "label": "a constant", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+    {"local_ref": "e_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "st_conv", "kind": "convention", "anchor": ["s1", "s2"]},
+    {"local_ref": "st_rem", "kind": "remark", "anchor": ["s3", "s4"]}
+  ],
+  "claims": [
+    {
+      "local_ref": "c1", "predicate": "has_distribution", "subject": "e_const",
+      "object": {"ref": "e_normal"},
+      "qualifiers": {
+        "modality": "conventional",
+        "param_values": {
+          "mean": {"t": "formula", "latex": "the constant", "parse": "failed", "symbols": {"the constant": {"bind": "unresolved"}}},
+          "variance": {"t": "formula", "latex": "0", "symbols": {}}
+        },
+        "conditions": {"op": "phrase", "sentence": "s1", "text": "In some settings"}
+      },
+      "statement": "st_conv",
+      "evidence": [
+        {"sentence": "s1", "quote": "it's convenient to consider a constant as having a normal distribution (with mean being the constant and variance 0, of course)", "role": "primary"},
+        {"sentence": "s1", "quote": "In some settings", "role": "condition"}
+      ]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s3", "quote": "the formulas for the probability density function [14] and the distribution function [17] do not hold for a constant", "reason": "States that specific earlier results fail for the convention; no predicate relates a convention to the validity of other statements, and the cross-referenced results are outside the unit."},
+    {"local_ref": "u2", "sentence": "s3", "quote": "the other results involving the moment generating function [23], linear transformations [24], and sums [26] are still valid", "reason": "States that specific earlier results remain valid under the convention; no predicate for validity of other statements."},
+    {"local_ref": "u3", "sentence": "s4", "quote": "the result for linear transformations [24] would hold for all \\(a\\) and \\(b\\)", "reason": "Removes a restriction of another statement (b nonzero) under the convention; no predicate expresses a changed condition on an external result."}
+  ]
+}

@@ -1,0 +1,24 @@
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/instructions_sp.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/guideline.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/schema.yaml
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/model.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/format.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/T1.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/T2.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/T3.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/T4.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/U5.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/U6.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/U7.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/U8.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/U9.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/U10.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/U11.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/U12.md
+# directory listings only (names, no file contents opened):
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only_sp/units/
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/ (ls of the results/s0 directory, run before the output folder existed)
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/../../code/ (ls | head of the code directory)
+# executed, not opened: code/s0_check.py (validation command)
+# own output files read back for validation: /home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/pass_sp/*.json, /home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/pass_sp/first/*.json

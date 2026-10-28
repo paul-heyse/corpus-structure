@@ -13,7 +13,7 @@
 {%- endmacro %}
 {% set _ = record(F ~ 's0.agreement') %}{% set _ = record(F ~ 's0.pass-scores') %}{% set _ = record(F ~ 's0.adjudication-determinacy') %}
 {% set _ = record(F ~ 's0.m13-probe-2') %}{% set _ = record(F ~ 's0.stored') %}{% set _ = record(F ~ 's0.gaps') %}{% set _ = record(F ~ 's0.sizes') %}
-{% set _ = record(F ~ 's0.trace-diff') %}{% set _ = record(F ~ 's0.instruments') %}{% set _ = record(F ~ 's0.offset-probe') %}
+{% set _ = record(F ~ 's0.trace-diff') %}{% set _ = record(F ~ 's0.sonnet-scores') %}{% set _ = record(F ~ 's0.condition-classes') %}{% set _ = record(F ~ 's0.instruments') %}{% set _ = record(F ~ 's0.offset-probe') %}
 # S0 · Reference annotations — report
 
 **Run:** 2026-10-28, by Claude Opus 5.5 (root) with fresh subagents for every annotation, adjudication
@@ -30,10 +30,15 @@ independence as a stated fact, what an exercise asks for, indexed independence, 
 the unit). Two blind Opus passes agree on *what* is claimed — core F1 {{ f1('a_vs_b', 'core') }} —
 and much less on *how* — full F1 {{ f1('a_vs_b', 'full') }}: the disagreement is conditions,
 statement roles and modality, which are guideline rules, not schema gaps. An independent
-adjudicator agrees with the root's reference at core {{ f1('ref_vs_d7', 'core') }} but full
-{{ f1('ref_vs_d7', 'full') }}, so adjudication is not yet determinate under guideline v0. Haiku 5.5
-passes score below Opus on the reference; holding the model fixed, the packet-only input loses
-nothing measurable. M13's scope rules reproduce every annotated symbol scope once two rules are
+Haiku adjudicator agrees with the root's reference at core {{ f1('ref_vs_d7', 'core') }} but full
+{{ f1('ref_vs_d7', 'full') }}; a Sonnet adjudicator at {{ f1('ref_vs_d7s', 'core') }} and
+{{ f1('ref_vs_d7s', 'full') }}, so adjudication is close to determinate for a capable adjudicator
+with both passes in front of it. Sonnet annotates *what* is claimed at Opus's level; Sonnet and
+Haiku both trail on qualifiers, mostly at decisions the inputs leave to inference (unstated
+condition, role and binding conventions; positional standing context), which is a defect of the
+inputs, not a limit of the models. Holding the model fixed, the packet-only input loses nothing
+on what is claimed; Sonnet without the pages loses some qualifier agreement, which the packet's
+standing context should restore. M13's scope rules reproduce every annotated symbol scope once two rules are
 added. Claim keys are unstable for two reasons in D1 §10.1, both fixable.
 
 ## What was run
@@ -110,27 +115,109 @@ Record [s0.pass-scores](records/s0.pass-scores.json). The reference is the root'
 
 | Pass | Model | Inputs | Core | Full | Evidence | Binding accuracy |
 |---|---|---|---|---|---|---|
-{% for c, label, model, inputs in [('ref_vs_a', 'A', 'Opus 5.5', 'golden'), ('ref_vs_b', 'B', 'Opus 5.5', 'golden'), ('ref_vs_h', 'H', 'Haiku 5.5', 'golden'), ('ref_vs_p', 'P', 'Haiku 5.5', 'packet only')] %}
+{% for c, label, model, inputs in [('ref_vs_a', 'A', 'Opus 5.5', 'golden'), ('ref_vs_b', 'B', 'Opus 5.5', 'golden'), ('ref_vs_sg', 'SG', 'Sonnet 5.5', 'golden'), ('ref_vs_sp', 'SP', 'Sonnet 5.5', 'packet only'), ('ref_vs_h', 'H', 'Haiku 5.5', 'golden'), ('ref_vs_p', 'P', 'Haiku 5.5', 'packet only')] %}
 {% set a = query("SELECT binding_accuracy FROM " ~ S ~ ".comparison_accuracy WHERE comparison = $c", c=c)[0] %}
 | {{ label }} | {{ model }} | {{ inputs }} | {{ f1(c, 'core') }} | {{ f1(c, 'full') }} | {{ f1(c, 'evidence') }} | {{ num(a.binding_accuracy) }} |
 {% endfor %}
-| H vs P (symmetrized) | Haiku 5.5 | — | {{ f1('h_vs_p', 'core') }} | {{ f1('h_vs_p', 'full') }} | {{ f1('h_vs_p', 'evidence') }} | — |
 
-B scores 1.00 at core by construction: every core-level difference was adjudicated in B's favour.
-The comparison that answers the packet question is H against P: the same model with and without the
-page context. H is not better than P at core or full, so the packet design loses nothing measurable
-on these units (OPEN-D4-4); the gap between the Haiku and Opus passes is the model's. Full page
-context helps Haiku only on symbol bindings. Haiku's first drafts also needed far more format
-repair (aliases as objects, parameter values as lists, unbound parameters), which the validator
-caught. One value comparison needed a manual decision ([manual_equivalence](results/s0/manual_equivalence.tsv)).
+Pass against pass, symmetrized (no reference involved):
+
+| Pair | Models | Core | Full | Evidence |
+|---|---|---|---|---|
+{% for c, label, models in [('a_vs_b', 'A vs B', 'Opus, Opus'), ('a_vs_sg', 'A vs SG', 'Opus, Sonnet'), ('b_vs_sg', 'B vs SG', 'Opus, Sonnet'), ('sg_vs_sp', 'SG vs SP', 'Sonnet, Sonnet'), ('h_vs_p', 'H vs P', 'Haiku, Haiku')] %}
+| {{ label }} | {{ models }} | {{ f1(c, 'core') }} | {{ f1(c, 'full') }} | {{ f1(c, 'evidence') }} |
+{% endfor %}
+
+Sonnet records: [s0.pass-sg](records/s0.pass-sg.json), [s0.pass-sp](records/s0.pass-sp.json),
+[s0.sonnet-scores](records/s0.sonnet-scores.json); its inputs were byte-identical to H's and P's
+apart from output paths.
+
+B scores 1.00 at core by construction: every core-level difference was adjudicated in B's favour,
+and the reference is built from A and B, so the Opus rows measure agreement with conventions the
+Opus passes themselves chose. On *what* is claimed Sonnet is at Opus's level (core
+{{ f1('ref_vs_sg', 'core') }} and {{ f1('ref_vs_sp', 'core') }} against A's {{ f1('ref_vs_a', 'core') }});
+Haiku is lower. On qualifiers both trail. Pass against pass separates the model from the reference:
+Sonnet against an Opus pass at full ({{ f1('a_vs_sg', 'full') }}, {{ f1('b_vs_sg', 'full') }}) is not
+far below Opus against Opus ({{ f1('a_vs_b', 'full') }}), and two Sonnet passes agree with each other
+about as well ({{ f1('sg_vs_sp', 'full') }}). The full-tier disagreement is mostly between readings
+of rules the inputs do not state, not between capable and incapable annotators (next section).
+
+The packet question is answered by the same model with and without the page: H against P and SG
+against SP. Haiku does no better with the pages. Sonnet does no better at core but is better at full
+with them ({{ f1('ref_vs_sg', 'full') }} against {{ f1('ref_vs_sp', 'full') }}; the intervals
+overlap), mainly on statement roles and bindings, where the page shows what kind of statement a unit
+sits in and where its symbols were introduced. The packet design holds for what is claimed; for
+qualifiers the packet should carry what the page supplied, which is the standing-context remedy
+below (OPEN-D4-4).
+First drafts needed format repair in five of twelve units for each Sonnet pass and more for Haiku
+(aliases as objects, parameter values as lists, units inside values), which the validator caught.
+Value comparisons not decided by canonical form were decided by the root and recorded with reasons
+([manual_equivalence](results/s0/manual_equivalence.tsv)).
+
+### Where the non-Opus passes lose points, and what the inputs give them
+
+Full-tier failures on core-matched claims, by field (each comparison against the reference):
+
+| Field | A | B | SG | SP | H | P |
+|---|---|---|---|---|---|---|
+{% for fld in query("SELECT DISTINCT field FROM " ~ S ~ ".comparison_field_failures WHERE comparison IN ('ref_vs_a','ref_vs_b','ref_vs_sg','ref_vs_sp','ref_vs_h','ref_vs_p') ORDER BY field") %}
+{% set row = query("SELECT comparison, failures FROM " ~ S ~ ".comparison_field_failures WHERE field = $f", f=fld.field) %}
+{% set m = {} %}{% for r in row %}{% set _ = m.update({r.comparison: r.failures}) %}{% endfor %}
+| {{ fld.field }} | {{ m.get('ref_vs_a', 0) }} | {{ m.get('ref_vs_b', 0) }} | {{ m.get('ref_vs_sg', 0) }} | {{ m.get('ref_vs_sp', 0) }} | {{ m.get('ref_vs_h', 0) }} | {{ m.get('ref_vs_p', 0) }} |
+{% endfor %}
+
+The losses concentrate where the inputs leave the decision to inference:
+
+- **Which claims carry conditions.** Record [s0.condition-classes](records/s0.condition-classes.json)
+  classifies every condition failure by shape:
+
+  | Class | A | B | SG | SP | H | P |
+  |---|---|---|---|---|---|---|
+{% for k in query("SELECT class, count(*) AS n FROM " ~ S ~ ".condition_classes GROUP BY class ORDER BY n DESC, class") %}
+{% set c = {} %}{% for r in query("SELECT comparison, count(*) AS n FROM " ~ S ~ ".condition_classes WHERE class = $k GROUP BY comparison", k=k['class']) %}{% set _ = c.update({r.comparison: r.n}) %}{% endfor %}
+  | {{ k['class'] }} | {{ c.get('ref_vs_a', 0) }} | {{ c.get('ref_vs_b', 0) }} | {{ c.get('ref_vs_sg', 0) }} | {{ c.get('ref_vs_sp', 0) }} | {{ c.get('ref_vs_h', 0) }} | {{ c.get('ref_vs_p', 0) }} |
+{% endfor %}
+
+  The largest class for Sonnet is a condition tree the reference does not have: mostly definientia
+  conditioned on the definition's premise (X = e^Y "given" Y normal), and premises carrying their own
+  parameter restrictions. The reference conditions conclusions only, leaving definientia to their
+  statement and restrictions to `parameter_domain` claims. Guideline §10.7 puts restrictions in "the
+  conclusion's condition tree" but never says the other claims carry none; both readings are
+  defensible, and the reference took the Opus passes' reading.
+- **Statement roles.** No rule anywhere in the inputs says which role a claim takes by statement
+  kind; the enum is listed in the model excerpt only.
+- **Symbol bindings.** The seven binding kinds are a table on line 286 of a 3,800-word model
+  excerpt; nothing says when a symbol is a family parameter (`family_param`) rather than the value
+  given to a parameter in a stated distribution (`param_of`), the distinction the smaller models miss.
+- **Where the rules live.** About 7,100 words of rules sit in five files (instructions, a
+  776-word guideline, format, the schema as raw LinkML YAML with internal annotations, and a model
+  excerpt); guideline §10.10, the generated per-predicate inventory the design calls for, was a
+  placeholder; there is no worked example of a complete batch.
+- **Context defects.** The standing context is chosen by "previous binding sentences in the
+  innermost section", so U8 received the setup of a different exercise and U5, U9 and U11 unrelated
+  sentences, while U12 and T2 lacked a parent-section premise; U8's golden-mode header still read
+  `theorem` (fixed only in the packet-only inputs). There is no way to cite a context sentence or a
+  statement outside the unit, so a premise that sits there cannot be referenced.
+
+Opus reaches the reference largely because the reference adopted Opus's own choices at these
+points. The remedy is in the inputs, not the model: an annotator-facing reference generated from
+the schema (per predicate: signature, when to use, the qualifiers it takes, default modality and
+role by statement kind, one example from a unit outside the test set), the decision rules above
+written into the guideline, and standing context assembled by query over the segment and scope
+indexes (the binding sentences of the symbols the unit uses, section-scoped assumptions, the
+statements it cites, each citable by id) rather than by position.
 
 ### Adjudication determinacy (D7 §3.4)
 
-Record [s0.adjudication-determinacy](records/s0.adjudication-determinacy.json): the root's
-reference against a fresh Haiku 5.5 adjudicator given what D7 §3.4 gives an adjudicator (guideline,
-packets, both passes, their alignment diff): core {{ f1('ref_vs_d7', 'core') }}, full
-{{ f1('ref_vs_d7', 'full') }}. The D7 session marked {{ res('s0.adjudication-d7', 'guideline_gap_decisions') }}
-decisions as guideline gaps; the root marked {{ res('s0.adjudication', 'guideline_gap_decisions') }}. They decided three points oppositely while each believed the guideline settled
+Records [s0.adjudication-determinacy](records/s0.adjudication-determinacy.json) and
+[s0.sonnet-scores](records/s0.sonnet-scores.json): the root's reference against fresh adjudicators
+given what D7 §3.4 gives an adjudicator (guideline, packets, both passes, their alignment diff):
+Haiku 5.5 core {{ f1('ref_vs_d7', 'core') }}, full {{ f1('ref_vs_d7', 'full') }}; Sonnet 5.5 core
+{{ f1('ref_vs_d7s', 'core') }}, full {{ f1('ref_vs_d7s', 'full') }}. With both passes in front of it,
+Sonnet adjudicates close to the root. The Haiku session marked
+{{ res('s0.adjudication-d7', 'guideline_gap_decisions') }} decisions as guideline gaps, the Sonnet
+session {{ res('s0.adjudication-d7-sonnet', 'guideline_gap_decisions') }}, the root
+{{ res('s0.adjudication', 'guideline_gap_decisions') }}. The Haiku session and the root decided three points oppositely while each believed the guideline settled
 them: the modality of `defines`, the role of a variable a theorem derives, and the form of an indexed
 premise ([gaps](results/s0/gaps.md)).
 
@@ -223,7 +310,7 @@ a family's parameterizations (RG-7); modality of structural claims (GG-2).
 | OPEN-D2-5 | Standardized families as families of their own worked in every pass; no unit states the constraint, so `special_case_of` was never written; "standard" does not mean parameter-free (standard gamma keeps its shape) | [gaps](results/s0/gaps.md) |
 | OPEN-D5-1 | Not tested: no unit states one formula predicate twice for a subject; the four multi-object cases are entity-valued | [gaps](results/s0/gaps.md) |
 | OPEN-D8-3 | Fresh subagents, one input and one output folder each, read restrictions, transcript audit of opened files; no rerun needed | separation table |
-| OPEN-D4-4 | The unit is the right packet: every packet fits the local cap, and at a fixed model the packet loses nothing measurable in aggregate against full page context. The one context loss is a binding outside the unit (U12's X in pass P), which is what the standing context must carry (D7 §3.2 rule below); size the output budget from batch size | P/H table; sizes |
+| OPEN-D4-4 | The unit is the right packet: every packet fits the local cap, and at a fixed model the packet loses nothing on what is claimed. Without the pages Sonnet loses some qualifier agreement (roles, bindings) and Haiku none; U12's X in pass P shows a binding outside the unit. The standing context must carry these (query-assembled, rule below); size the output budget from batch size | pass tables; sizes |
 | OPEN-D4-5 | Rules reproduce every annotated symbol scope with two additions (sentence-initial "if", paragraph statements) | m13 table |
 | OPEN-D3-4 | Evidence: meaning keys are more stable than claim keys; two D1 §10.1 rules cause most key differences | keys table |
 | OPEN-D7-2 | Evidence: canonical form decided nearly every comparison; SymPy and numeric tiers were needed a handful of times, one manual | value equivalence |
@@ -234,9 +321,10 @@ a family's parameterizations (RG-7); modality of structural claims (GG-2).
   it is a spike reference, not a D7 golden.
 - Guideline-gap decisions follow the proposed rules G1–G5 ([adjudication](results/s0/adjudication.md)).
 - Passes A and B, the offset probe and the sentence-gold markers ran on Opus 5.5; from then on golden
-  work ran on Haiku 5.5 by operator direction (passes P and H, the D7 adjudicator).
-- U8's packet header read "theorem" for passes A and B (a section-hint bug fixed afterwards); every
-  pass annotated it as an exercise regardless.
+  work ran on Haiku 5.5 by operator direction (passes P and H, the Haiku D7 adjudicator); passes SG
+  and SP and a second D7 adjudicator ran on Sonnet 5.5 on the same inputs, by operator direction.
+- U8's golden-mode packet header read "theorem" for passes A, B, H and SG (a section-hint bug fixed
+  only in the packet-only inputs); every pass annotated it as an exercise regardless.
 
 ## Design implications
 
@@ -247,7 +335,8 @@ a family's parameterizations (RG-7); modality of structural claims (GG-2).
 | D1 §7 | An indexed-set argument for `independent` (base, index, range) | witness diff, gaps RG-2 |
 | D1 §10.1 keys | Key a statement by the segment its anchor covers; drop the label from a global entity's key when its identity is complete | keys table |
 | D4 M13 | Sentence-initial "if" in the binder lexicon (done in D2 §12.1); a standalone claim-bearing paragraph is a statement extent | m13 table |
-| D7 §3 golden protocol | Golden author: Opus quality is materially higher than Haiku's on this guideline; if Haiku authors goldens, budget for format repair and a stronger adjudication step. Adjudication is not determinate under v0: adjudicate after the guideline rules above, and keep an independent adjudicator pass | P/H table; adjudication determinacy |
+| D7 §3 golden protocol | Golden author: any of the three models can author once the inputs state the conventions; Sonnet already matches Opus on core content and adjudicates close to the root. Keep an independent adjudicator pass, and rerun a Sonnet/Haiku pair on the revised inputs to confirm | pass tables; adjudication determinacy |
+| D2 §10.10, D7 §3.2, D8 | Annotator inputs: generate the per-predicate reference from the schema (signature, when to use, qualifiers, default modality and role by statement kind, one example outside the test set); write the condition, role and binding rules; assemble standing context by query over segment and scope indexes, citable by id; serve the same lookups as agent tools (D8) | where the non-Opus passes lose points |
 | D7 §3.2 standing context | The innermost-section rule misses parent-section bindings (T2's empty standing context) and picks unrelated sentences (U5, U8, U9, U11); select binding sentences of symbols the unit uses (M13) | packets; pass notes |
 | D4 §4.1, M10 | Size the output budget from batches (up to ~2,500 tokens here), not from units | sizes |
 | D2 §7.3 evidence form | Keep quotes; offsets untested without tools (S3) | quote location; offset probe |
@@ -255,7 +344,7 @@ a family's parameterizations (RG-7); modality of structural claims (GG-2).
 
 ## Independence limits
 
-Same-model annotators (A and B are both Opus 5.5; P and H both Haiku 5.5) share biases that blind
+Same-model annotators (A and B are both Opus 5.5; SG and SP Sonnet 5.5; P and H Haiku 5.5) share biases that blind
 separation cannot remove; blindness was instructed and audited, not enforced by the environment;
 the reference is root-adjudicated and informed by the trace; the guideline under test was written
 by the same design process as the trace.
@@ -265,5 +354,7 @@ by the same design process as the trace.
 - S2/S3 score GLiNER2 and the local LLM against this reference, with and without contested items.
 - S3: offsets without tools; output budgets from the sizes above.
 - S5: the math grammar's failure categories; formula equivalence tiers.
-- After the guideline rules are written: a second pair of blind passes and an adjudicator pass to
-  measure whether full-tier agreement and adjudication determinacy rise.
+- After the guideline rules are written and the inputs restructured (generated predicate reference,
+  query-assembled standing context): a Sonnet and a Haiku pass and an adjudicator pass on the same
+  units, plus a few units from other pages not used to write the rules, to measure whether full-tier
+  agreement and adjudication determinacy rise and whether the rise holds outside these twelve.

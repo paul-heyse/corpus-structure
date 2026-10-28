@@ -90,3 +90,7 @@ WITH s AS (
 )
 SELECT comparison, d ->> 0 AS unit, d ->> 1 AS tier, d ->> 2 AS equal, d ->> 3 AS a, d ->> 4 AS b
 FROM s, unnest(CAST(j -> 'non_canonical_value_decisions' AS JSON[])) AS t(d);
+
+-- Full-tier condition failures against the reference, classified by shape (code/s0_condition_classes.py).
+CREATE TABLE condition_classes AS
+SELECT * FROM read_csv('{{ folder }}/results/s0/condition_classes.tsv', delim = '\t', header = true);

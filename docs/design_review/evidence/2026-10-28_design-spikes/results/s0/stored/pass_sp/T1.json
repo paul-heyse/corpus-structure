@@ -1,0 +1,470 @@
+{
+ "envelope": {
+  "unit": "T1",
+  "rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+  "source": "results/s0/pass_sp/T1.json"
+ },
+ "unit_ref": "T1",
+ "statements": [
+  {
+   "local_ref": "st_assume",
+   "kind": "assumption",
+   "anchor": [
+    "seg:e1a33c047bb86880316815686144c6cd"
+   ]
+  },
+  {
+   "local_ref": "st_def",
+   "kind": "definition",
+   "anchor": [
+    "seg:f862503906430becb5c3e114fbbd5af5",
+    "seg:ebe0e73fe08976c567af5859a2b77bbd",
+    "seg:af77a6ba98384db9ded612eff96d3984"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "e_Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "Z",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:2770f23815b73bab0298a5079ff95859"
+  },
+  {
+   "local_ref": "e_X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:175c96a27cc62630afd30222ac6b06cd"
+  },
+  {
+   "local_ref": "e_LS",
+   "type": "FamilyConstruction",
+   "label": "location-scale family",
+   "scope": "global",
+   "aliases": [
+    "location-scale family associated with the given distribution of Z"
+   ],
+   "identity": {}
+  },
+  {
+   "local_ref": "e_loc",
+   "type": "FamilyParameter",
+   "label": "location parameter",
+   "scope": "global",
+   "symbol": "a",
+   "aliases": [
+    "a"
+   ],
+   "identity": {
+    "family": "e_LS",
+    "canonical_name": "location"
+   }
+  },
+  {
+   "local_ref": "e_scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "symbol": "b",
+   "aliases": [
+    "b"
+   ],
+   "identity": {
+    "family": "e_LS",
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c1",
+   "predicate": "takes_values_in",
+   "subject": "e_Z",
+   "object": {
+    "t": "set",
+    "latex": "\\R",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "scope": {
+     "extent": "section",
+     "segment": "seg:2770f23815b73bab0298a5079ff95859"
+    }
+   },
+   "statement": "st_assume",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 330,
+     "end": 435,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c2",
+   "predicate": "defined_as",
+   "subject": "e_X",
+   "object": {
+    "t": "formula",
+    "latex": "a + b \\, Z",
+    "symbols": {
+     "a": {
+      "bind": "free"
+     },
+     "b": {
+      "bind": "free"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "e_Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st_def",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 495,
+     "end": 517,
+     "role": "primary"
+    },
+    {
+     "start": 450,
+     "end": 493,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c3",
+   "predicate": "defines",
+   "subject": "st_def",
+   "object": {
+    "ref": "e_LS"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 583,
+     "end": 666,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c4",
+   "predicate": "construction_formula",
+   "subject": "e_LS",
+   "object": {
+    "t": "formula",
+    "latex": "a + b \\, Z",
+    "symbols": {
+     "a": {
+      "bind": "family_param",
+      "entity": "e_loc"
+     },
+     "b": {
+      "bind": "family_param",
+      "entity": "e_scale"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "e_Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "base_variable": {
+     "t": "entity",
+     "ref": "e_Z"
+    },
+    "param_symbols": {
+     "location": {
+      "t": "formula",
+      "latex": "a",
+      "symbols": {
+       "a": {
+        "bind": "family_param",
+        "entity": "e_loc"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "family_param",
+        "entity": "e_scale"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c1"
+      },
+      {
+       "op": "claim",
+       "ref": "c2"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "family_param",
+          "entity": "e_loc"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "family_param",
+          "entity": "e_scale"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 519,
+     "end": 618,
+     "role": "primary"
+    },
+    {
+     "start": 495,
+     "end": 517,
+     "role": "supporting"
+    },
+    {
+     "start": 450,
+     "end": 493,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c5",
+   "predicate": "has_parameter",
+   "subject": "e_LS",
+   "object": {
+    "ref": "e_loc"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 682,
+     "end": 713,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c6",
+   "predicate": "has_parameter",
+   "subject": "e_LS",
+   "object": {
+    "ref": "e_scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 718,
+     "end": 743,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c7",
+   "predicate": "parameter_role",
+   "subject": "e_loc",
+   "object": {
+    "t": "enum",
+    "enum": "ParameterRole",
+    "v": "location"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 682,
+     "end": 713,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c8",
+   "predicate": "parameter_role",
+   "subject": "e_scale",
+   "object": {
+    "t": "enum",
+    "enum": "ParameterRole",
+    "v": "scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 718,
+     "end": 743,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c9",
+   "predicate": "parameter_domain",
+   "subject": "e_loc",
+   "object": {
+    "t": "set",
+    "latex": "\\R",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 454,
+     "end": 466,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c10",
+   "predicate": "parameter_domain",
+   "subject": "e_scale",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 471,
+     "end": 493,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "Z being defined on the probability space (Omega, F, P) has no class or predicate (no ProbabilitySpace entity class, no 'defined_on' predicate).",
+   "start": 378,
+   "end": 410
+  }
+ ]
+}

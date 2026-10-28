@@ -14,7 +14,7 @@
     "OPEN-D1-2",
     "D7 §3"
   ],
-  "method": "Reference against A, B, P (Haiku, packet only), H (Haiku, golden inputs); H against P; one manual value decision.",
+  "method": "Reference against A, B, P (Haiku, packet only), H (Haiku, golden inputs); H against P; one manual value decision. Manual value decisions were appended on 2026-10-28 for the Sonnet comparisons; they decide only pairs that were pending, and these comparisons had none, so their scores are unaffected (input hash refreshed).",
   "commands": [
     "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/reference results/s0/stored/pass_<x> ref_vs_<x>",
     "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/stored/pass_h results/s0/stored/pass_p h_vs_p --symmetric"
@@ -24,7 +24,7 @@
     {
       "path": "results/s0/manual_equivalence.tsv",
       "role": "manual value decisions",
-      "sha256": "e35e4569e2962d2ef70662179ed41b1a2d2d99eac4d5ae8d9c9157b951647bfa"
+      "sha256": "e1f992173adddfa41ecd2cbae88c92510adf9ec9580717b10e480cc023278d17"
     }
   ],
   "outputs": [

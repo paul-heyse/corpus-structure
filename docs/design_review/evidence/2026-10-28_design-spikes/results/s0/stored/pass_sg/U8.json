@@ -1,0 +1,160 @@
+{
+ "envelope": {
+  "unit": "U8",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_sg/U8.json"
+ },
+ "unit_ref": "U8",
+ "entities": [
+  {
+   "local_ref": "e_rod",
+   "type": "RandomVariable",
+   "label": "radius of the rod",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:2b4a4fa4f207a5e243726ad1156c5463"
+  },
+  {
+   "local_ref": "e_hole",
+   "type": "RandomVariable",
+   "label": "radius of the hole",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:2b4a4fa4f207a5e243726ad1156c5463"
+  },
+  {
+   "local_ref": "e_normal",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [
+    "normally distributed"
+   ],
+   "identity": {}
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "st_ex",
+   "kind": "exercise",
+   "anchor": [
+    "seg:d7f5c560d0d153559e24ae58937b434a",
+    "seg:2d62bec8ef4a94814838147187f9d1d4",
+    "seg:327c806dbcfb87aa63c4cca2502ddab9",
+    "seg:c06b44e7a1bd2f44fffbab96fb3905fd",
+    "seg:6c2c1fc5b53a20e305e21ddfeef3eca4"
+   ]
+  },
+  {
+   "local_ref": "st_sol",
+   "kind": "solution",
+   "anchor": [
+    "seg:13319312f522a9ddd2cf2e75e4e97b5b",
+    "seg:17abf3faaf5997aa5a5f035ebdc4ba48"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c1",
+   "predicate": "has_distribution",
+   "subject": "e_rod",
+   "object": {
+    "ref": "e_normal"
+   },
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "1 \\text{ cm}",
+      "symbols": {}
+     },
+     "standard_deviation": {
+      "t": "formula",
+      "latex": "0.002 \\text{ cm}",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st_ex",
+   "statement_role": "example_value",
+   "evidence": [
+    {
+     "start": 20332,
+     "end": 20424,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c2",
+   "predicate": "has_distribution",
+   "subject": "e_hole",
+   "object": {
+    "ref": "e_normal"
+   },
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "1.01 \\text{ cm}",
+      "symbols": {}
+     },
+     "standard_deviation": {
+      "t": "formula",
+      "latex": "0.003 \\text{ cm}",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st_ex",
+   "statement_role": "example_value",
+   "evidence": [
+    {
+     "start": 20426,
+     "end": 20522,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c3",
+   "predicate": "proves",
+   "subject": "st_sol",
+   "object": {
+    "ref": "st_ex"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "evidence": [
+    {
+     "start": 20668,
+     "end": 20740,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "The independence is stated between the machining processes, not between random variables; the schema only has an independent condition predicate over random variables and no claim predicate for independence of processes.",
+   "start": 20524,
+   "end": 20597
+  },
+  {
+   "local_ref": "u2",
+   "reason": "A posed quantity (probability of an event); no predicate for event probabilities or asked quantities.",
+   "start": 20599,
+   "end": 20655
+  }
+ ]
+}

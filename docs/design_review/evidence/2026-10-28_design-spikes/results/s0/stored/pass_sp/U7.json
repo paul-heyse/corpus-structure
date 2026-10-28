@@ -1,0 +1,103 @@
+{
+ "envelope": {
+  "unit": "U7",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_sp/U7.json"
+ },
+ "unit_ref": "U7",
+ "statements": [
+  {
+   "local_ref": "st_conv",
+   "kind": "convention",
+   "anchor": [
+    "seg:56cd22bafd1c152d7f14817bf7521324"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "e_const",
+   "type": "RandomVariable",
+   "label": "a constant",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:56cd22bafd1c152d7f14817bf7521324"
+  },
+  {
+   "local_ref": "e_normal",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c1",
+   "predicate": "has_distribution",
+   "subject": "e_const",
+   "object": {
+    "ref": "e_normal"
+   },
+   "qualifiers": {
+    "modality": "conventional",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "\\text{the constant}",
+      "symbols": {}
+     },
+     "variance": {
+      "t": "formula",
+      "latex": "0",
+      "symbols": {}
+     }
+    },
+    "conditions": {
+     "op": "phrase",
+     "text": "In some settings",
+     "start": 21098,
+     "end": 21114
+    }
+   },
+   "statement": "st_conv",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 21135,
+     "end": 21243,
+     "role": "primary"
+    },
+    {
+     "start": 21098,
+     "end": 21114,
+     "role": "condition"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "A statement that earlier results (referenced by number) fail for the constant case; no predicate relates a statement to the cases where it holds or fails, and the referenced results are outside the unit.",
+   "start": 21345,
+   "end": 21461
+  },
+  {
+   "local_ref": "u2",
+   "reason": "Validity of other numbered results under the convention; no predicate for 'result remains valid', targets outside the unit.",
+   "start": 21467,
+   "end": 21590
+  },
+  {
+   "local_ref": "u3",
+   "reason": "Extends the range of a restriction of an earlier theorem (b would no longer need to be nonzero); the earlier statement is outside the unit and no predicate expresses a relaxed restriction.",
+   "start": 21602,
+   "end": 21679
+  }
+ ]
+}

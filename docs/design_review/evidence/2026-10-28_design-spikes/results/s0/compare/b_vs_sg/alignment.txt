@@ -1,0 +1,214 @@
+# unit T1
+entities:
+  st_assume = st_setup  (0.90 anchor:1.00)
+  st_def = st_def  (1.00 anchor:1.00)
+  e_Z = e_Z  (0.95 symbol+scope)
+  e_X = e_X  (0.95 symbol+scope)
+  e_lsf = e_ls  (1.05 label)
+  e_lsf_loc = e_p_loc  (1.05 identity)
+  e_lsf_scale = e_p_scale  (1.05 identity)
+  ref only: []  pred only: []
+core: [('c_X_def', 'c2'), ('c_Z_values', 'c1'), ('c_construction', 'c3'), ('c_defines', 'c4'), ('c_dom_loc', 'c7'), ('c_dom_scale', 'c8'), ('c_has_loc', 'c5'), ('c_has_scale', 'c6')]
+full: [('c_Z_values', 'c1'), ('c_dom_loc', 'c7'), ('c_dom_scale', 'c8'), ('c_has_loc', 'c5'), ('c_has_scale', 'c6')]
+evidence: [('c_Z_values', 'c1'), ('c_dom_loc', 'c7'), ('c_dom_scale', 'c8'), ('c_has_loc', 'c5'), ('c_has_scale', 'c6')]
+  core matching fixed point after 2 pass(es)
+  c_X_def~c2 full-tier failures ['conditions'] diagnostics ['bindings']
+  c_construction~c3 full-tier failures ['conditions'] diagnostics ['bindings']
+  c_defines~c4 full-tier failures ['modality', 'statement_role'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [('u_components', 'u1'), ('u_Z_on_space', 'u2')] of (3, 2)
+# unit T2
+entities:
+  st_remark = st_rem  (1.00 anchor:1.00)
+  e_X = e_X  (0.95 symbol+scope)
+  e_normal = e_normal  (1.05 label)
+  e_n_loc = e_p_loc  (1.05 identity)
+  e_n_scale = e_p_scale  (1.05 identity)
+  e_n_mean = e_p_mean  (1.05 identity)
+  e_n_sd = e_p_sd  (1.05 identity)
+  ref only: []  pred only: []
+core: [('c_X_normal', 'c1'), ('c_loc_is_mean', 'c2'), ('c_scale_is_sd', 'c3')]
+full: [('c_X_normal', 'c1')]
+evidence: [('c_X_normal', 'c1')]
+  core matching fixed point after 2 pass(es)
+  c_loc_is_mean~c2 full-tier failures ['conditions'] diagnostics []
+  c_scale_is_sd~c3 full-tier failures ['conditions'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit T3
+entities:
+  st_thm = st_thm  (1.00 anchor:1.00)
+  st_proof = st_proof  (1.00 anchor:1.00)
+  e_X = e_X  (0.95 symbol+scope)
+  e_aBX = e_aX  (0.95 symbol+scope)
+  e_normal = e_normal  (1.05 label)
+  ref only: []  pred only: []
+core: [('c_concl', 'c2'), ('c_prem', 'c1'), ('c_proves', 'c3')]
+full: [('c_concl', 'c2'), ('c_prem', 'c1'), ('c_proves', 'c3')]
+evidence: [('c_concl', 'c2'), ('c_prem', 'c1'), ('c_proves', 'c3')]
+  core matching fixed point after 2 pass(es)
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit T4
+entities:
+  st_def = st_def  (1.00 anchor:0.99)
+  e_Y = e_Y  (0.95 symbol+scope)
+  e_X = e_X  (0.95 symbol+scope)
+  e_Z = e_Z  (0.95 symbol+scope)
+  e_W = e_W  (0.95 symbol+scope)
+  e_normal = e_normal  (1.05 label)
+  e_lognormal = e_lognormal  (1.05 label)
+  e_std_normal = e_snormal  (1.05 label)
+  e_std_lognormal = e_slognormal  (1.05 label)
+  e_ln_mu = e_p_mu  (1.05 identity)
+  e_ln_sigma = e_p_sigma  (1.05 identity)
+  e_ln_scale = e_p_scale  (1.05 identity)
+  ref only: []  pred only: []
+core: [('c_W_def', 'c13'), ('c_W_stdlognormal', 'c14'), ('c_X_def', 'c2'), ('c_X_lognormal', 'c3'), ('c_Y_normal', 'c1'), ('c_Z_stdnormal', 'c12'), ('c_defines_ln', 'c4'), ('c_dom_mu', 'c8'), ('c_dom_sigma', 'c9'), ('c_has_mu', 'c6'), ('c_has_sigma', 'c7'), ('c_ln_transform', 'c5'), ('c_scale_derived', 'c11'), ('c_sigma_shape', 'c10'), ('c_stdln_transform', 'c15')]
+full: [('c_W_stdlognormal', 'c14'), ('c_Z_stdnormal', 'c12'), ('c_dom_mu', 'c8'), ('c_dom_sigma', 'c9'), ('c_has_mu', 'c6'), ('c_has_sigma', 'c7'), ('c_scale_derived', 'c11'), ('c_sigma_shape', 'c10')]
+evidence: [('c_W_stdlognormal', 'c14'), ('c_Z_stdnormal', 'c12'), ('c_dom_mu', 'c8'), ('c_dom_sigma', 'c9'), ('c_has_mu', 'c6'), ('c_has_sigma', 'c7'), ('c_scale_derived', 'c11'), ('c_sigma_shape', 'c10')]
+  core matching fixed point after 2 pass(es)
+  c_W_def~c13 full-tier failures ['conditions'] diagnostics []
+  c_X_def~c2 full-tier failures ['conditions'] diagnostics []
+  c_X_lognormal~c3 full-tier failures ['conditions'] diagnostics []
+  c_Y_normal~c1 full-tier failures ['conditions'] diagnostics []
+  c_defines_ln~c4 full-tier failures ['modality', 'statement_role'] diagnostics []
+  c_ln_transform~c5 full-tier failures ['conditions'] diagnostics []
+  c_stdln_transform~c15 full-tier failures ['conditions'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit U5
+entities:
+  st_thm = st_thm  (1.00 anchor:1.00)
+  st_proof = st_proof  (1.00 anchor:1.00)
+  e_X1 = e_X1  (0.90 symbol+scope)
+  e_X2 = e_X2  (0.90 symbol+scope)
+  e_Xi = e_Xi  (0.95 symbol+scope)
+  e_sum = e_sum  (0.95 symbol+scope)
+  e_normal = e_normal  (1.05 label)
+  ref only: []  pred only: []
+core: [('c_Xi_normal', 'c1'), ('c_proves', 'c5'), ('c_sum_mean', 'c3'), ('c_sum_normal', 'c2'), ('c_sum_var', 'c4')]
+full: [('c_proves', 'c5')]
+evidence: [('c_proves', 'c5')]
+  core matching fixed point after 2 pass(es)
+  c_Xi_normal~c1 full-tier failures ['conditions'] diagnostics ['bindings']
+  c_sum_mean~c3 full-tier failures ['conditions'] diagnostics ['bindings']
+  c_sum_normal~c2 full-tier failures ['conditions'] diagnostics ['bindings']
+  c_sum_var~c4 full-tier failures ['conditions'] diagnostics ['bindings']
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit U6
+entities:
+  st_recall = st_rem  (0.89 anchor:0.64)
+  st_cor = st_cor  (0.88 anchor:0.59)
+  e_X = e_X  (0.75 symbol)
+  e_Z = e_Z  (0.95 symbol+scope)
+  e_std_score = e_score  (1.05 label)
+  e_normal = e_normal  (1.05 label)
+  e_std_normal = e_snormal  (1.05 label)
+  ref only: ['e_last_result']  pred only: []
+core: [('c_X_mean', 'c1'), ('c_X_normal', 'c5'), ('c_Z_def', 'c3'), ('c_Z_stdnormal', 'c6'), ('c_normal_from_std', 'c7'), ('c_refers_score', 'c4'), ('c_score_formula', 'c2')]
+full: [('c_X_mean', 'c1'), ('c_X_normal', 'c5'), ('c_Z_def', 'c3'), ('c_normal_from_std', 'c7'), ('c_refers_score', 'c4'), ('c_score_formula', 'c2')]
+evidence: [('c_X_mean', 'c1'), ('c_X_normal', 'c5'), ('c_Z_def', 'c3'), ('c_normal_from_std', 'c7'), ('c_refers_score', 'c4'), ('c_score_formula', 'c2')]
+  core matching fixed point after 2 pass(es)
+  c_X_mean~c1 full-tier failures [] diagnostics ['extent']
+  c_X_normal~c5 full-tier failures [] diagnostics ['extent']
+  c_Z_stdnormal~c6 full-tier failures ['conditions'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [] of (1, 1)
+# unit U7
+entities:
+  st_conv = st_conv  (0.82 anchor:0.40)
+  e_const = e_const  (0.95 symbol+scope)
+  e_normal = e_normal  (1.05 label)
+  ref only: []  pred only: ['st_rem']
+core: [('c_const_normal', 'c1')]
+full: []
+evidence: []
+  core matching fixed point after 2 pass(es)
+  c_const_normal~c1 full-tier failures ['param_values.keys'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [('u_not_hold', 'u1'), ('u_still_valid', 'u2'), ('u_all_a_b', 'u3')] of (4, 3)
+# unit U8
+entities:
+  st_ex = st_ex  (1.00 anchor:1.00)
+  st_sol = st_sol  (1.00 anchor:1.00)
+  e_rod = e_rod  (0.95 symbol+scope)
+  e_hole = e_hole  (0.95 symbol+scope)
+  e_normal = e_normal  (1.05 label)
+  ref only: []  pred only: []
+core: [('c_hole_normal', 'c2'), ('c_proves', 'c3'), ('c_rod_normal', 'c1')]
+full: [('c_proves', 'c3')]
+evidence: []
+  core matching fixed point after 2 pass(es)
+  c_hole_normal~c2 full-tier failures ['param_values.values'] diagnostics []
+  c_rod_normal~c1 full-tier failures ['param_values.values'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [('u_independent', 'u1'), ('u_posed', 'u2')] of (5, 2)
+# unit U9
+entities:
+  st_thm = st_thm  (1.00 anchor:1.00)
+  st_proof = st_proof  (1.00 anchor:1.00)
+  e_Xi = e_Xi  (0.95 symbol+scope)
+  e_prod = e_prod  (0.95 symbol+scope)
+  e_lognormal = e_lognormal  (1.05 label)
+  ref only: []  pred only: ['e_X1', 'e_X2', 'e_Xn']
+core: [('c_Xi_lognormal', 'c1'), ('c_prod_lognormal', 'c2'), ('c_proves', 'c3')]
+full: [('c_proves', 'c3')]
+evidence: [('c_proves', 'c3')]
+  core matching fixed point after 2 pass(es)
+  c_Xi_lognormal~c1 full-tier failures ['conditions'] diagnostics ['bindings']
+  c_prod_lognormal~c2 full-tier failures ['conditions'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit U10
+entities:
+  st_def = st_def  (1.00 anchor:1.00)
+  e_Z = e_Z  (0.95 symbol+scope)
+  e_X = e_X  (0.95 symbol+scope)
+  e_std_gamma = e_sgamma  (1.05 label)
+  e_gamma = e_gamma  (1.05 label)
+  e_g_shape = e_p_g_shape  (1.05 identity)
+  e_g_scale = e_p_g_scale  (1.05 identity)
+  ref only: []  pred only: ['e_p_sg_shape']
+core: [('c_X_def', 'c2'), ('c_X_gamma', 'c3'), ('c_Z_stdgamma', 'c1'), ('c_defines', 'c4'), ('c_dom_scale', 'c10'), ('c_gamma_transform', 'c5'), ('c_has_scale', 'c8'), ('c_has_shape', 'c7')]
+full: [('c_dom_scale', 'c10'), ('c_has_scale', 'c8'), ('c_has_shape', 'c7')]
+evidence: [('c_dom_scale', 'c10'), ('c_has_scale', 'c8'), ('c_has_shape', 'c7')]
+  core matching fixed point after 2 pass(es)
+  c_X_def~c2 full-tier failures ['conditions'] diagnostics []
+  c_X_gamma~c3 full-tier failures ['conditions'] diagnostics []
+  c_Z_stdgamma~c1 full-tier failures ['conditions'] diagnostics []
+  c_defines~c4 full-tier failures ['modality', 'statement_role'] diagnostics []
+  c_gamma_transform~c5 full-tier failures ['conditions'] diagnostics ['bindings']
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit U11
+entities:
+  st_thm = st_thm  (1.00 anchor:1.00)
+  st_proof = st_proof  (1.00 anchor:1.00)
+  e_X1 = e_X1  (0.90 symbol+scope)
+  e_X2 = e_X2  (0.90 symbol+scope)
+  e_Xi = e_Xi  (0.95 symbol+scope)
+  e_sum = e_sum  (0.95 symbol+scope)
+  e_gamma = e_gamma  (1.05 label)
+  ref only: []  pred only: []
+core: [('c_Xi_gamma', 'c1'), ('c_proves', 'c3'), ('c_sum_gamma', 'c2')]
+full: [('c_proves', 'c3')]
+evidence: [('c_proves', 'c3')]
+  core matching fixed point after 2 pass(es)
+  c_Xi_gamma~c1 full-tier failures ['conditions'] diagnostics []
+  c_sum_gamma~c2 full-tier failures ['conditions'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit U12
+entities:
+  st_thm = st_thm  (1.00 anchor:1.00)
+  st_proof = st_proof  (1.00 anchor:1.00)
+  e_X = e_X  (0.95 symbol+scope)
+  ref only: []  pred only: []
+core: [('c_mean', 'c1'), ('c_proves', 'c3'), ('c_var', 'c2')]
+full: [('c_mean', 'c1'), ('c_proves', 'c3'), ('c_var', 'c2')]
+evidence: [('c_mean', 'c1'), ('c_proves', 'c3'), ('c_var', 'c2')]
+  core matching fixed point after 2 pass(es)
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)

@@ -1,0 +1,35 @@
+{
+  "unit_ref": "U7",
+  "statements": [
+    {"local_ref": "st_conv", "kind": "convention", "anchor": "unit"}
+  ],
+  "entities": [
+    {"local_ref": "e_const", "type": "RandomVariable", "label": "a constant", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+    {"local_ref": "e_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}}
+  ],
+  "claims": [
+    {
+      "local_ref": "c1", "predicate": "has_distribution", "subject": "e_const",
+      "object": {"ref": "e_normal"},
+      "qualifiers": {
+        "modality": "conventional",
+        "param_values": {
+          "mean": {"t": "formula", "latex": "\\text{the constant}", "symbols": {}},
+          "variance": {"t": "formula", "latex": "0", "symbols": {}}
+        },
+        "conditions": {"op": "phrase", "text": "In some settings"}
+      },
+      "statement": "st_conv", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s1", "quote": "consider a constant as having a normal distribution (with mean being the constant and variance 0, of course)", "role": "primary"},
+        {"sentence": "s1", "quote": "In some settings", "role": "condition"}
+      ]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s3", "quote": "the formulas for the probability density function [14] and the distribution function [17] do not hold for a constant", "reason": "A statement that earlier results (referenced by number) fail for the constant case; no predicate relates a statement to the cases where it holds or fails, and the referenced results are outside the unit."},
+    {"local_ref": "u2", "sentence": "s3", "quote": "the other results involving the moment generating function [23], linear transformations [24], and sums [26] are still valid", "reason": "Validity of other numbered results under the convention; no predicate for 'result remains valid', targets outside the unit."},
+    {"local_ref": "u3", "sentence": "s4", "quote": "the result for linear transformations [24] would hold for all \\(a\\) and \\(b\\)", "reason": "Extends the range of a restriction of an earlier theorem (b would no longer need to be nonzero); the earlier statement is outside the unit and no predicate expresses a relaxed restriction."}
+  ]
+}

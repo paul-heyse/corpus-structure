@@ -1,0 +1,459 @@
+# core schema v0 (D2 §6), verbatim
+id: https://corpus-structure.dev/core
+name: core
+version: 0.1.0
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  core: https://corpus-structure.dev/core/
+default_prefix: core
+imports:
+  - linkml:types
+
+classes:
+  Entity:
+    abstract: true
+    description: Base of every entity class; instances are D1 entities.
+    slots: [label]
+    annotations: {ci:kind: abstract}
+
+  Statement:
+    is_a: Entity
+    description: >-
+      An authored unit of meaning: a definition, theorem, proof, example, exercise, remark,
+      convention or assumption. Claims belong to statements as premises, conclusions,
+      definientia, restrictions or example values.
+    slots: [kind]
+    annotations:
+      ci:kind: entity
+      ci:scope: local
+      ci:extract: none          # statements come from segments and markup (D5 §3.5), not mentions
+      ci:reify: true
+
+  # value classes (D1 §6)
+  Formula:
+    description: A formula as written, with its symbol bindings (D1 §6.1).
+    attributes:
+      latex: {range: string, required: true, annotations: {ci:role: field}}
+      sympy: {range: string, annotations: {ci:role: field}}        # added by M11; absent from batches
+      parse: {range: ParseStatus, annotations: {ci:role: field}}   # added by M11
+      symbols: {range: SymbolBinding, multivalued: true, inlined: true, annotations: {ci:role: field}}
+    annotations: {ci:kind: value}
+  SetExpr:
+    is_a: Formula
+    description: A set written in LaTeX, such as \R, (0, \infty) or \R \setminus \{0\}.
+    annotations: {ci:kind: value}
+  SymbolBinding:
+    description: How one symbol of a formula is bound (D1 §6.1).
+    attributes:
+      symbol: {range: string, identifier: true, annotations: {ci:role: field}}
+      bind: {range: BindKind, required: true, annotations: {ci:role: field}}
+      entity: {range: string, annotations: {ci:role: field}}   # local ref in batches; entity key once stored
+      claim: {range: string, annotations: {ci:role: field}}    # local ref in batches; claim key once stored
+      param: {range: string, annotations: {ci:role: field}}
+    annotations: {ci:kind: value}
+  TextValue:
+    attributes: {v: {range: string, required: true, annotations: {ci:role: field}}}
+    annotations: {ci:kind: value}
+  NumberValue:
+    attributes:
+      v: {range: string, required: true, annotations: {ci:role: field}}      # decimal string
+      unit: {range: string, annotations: {ci:role: field}}                   # pint unit, or absent
+    annotations: {ci:kind: value}
+  BoolValue:
+    attributes: {v: {range: boolean, required: true, annotations: {ci:role: field}}}
+    annotations: {ci:kind: value}
+  DateValue:
+    attributes: {v: {range: string, required: true, annotations: {ci:role: field}}}  # ISO 8601
+    annotations: {ci:kind: value}
+  IntervalValue:
+    attributes:
+      start: {range: string, annotations: {ci:role: field}}       # a D1 value as JSON, absent if unbounded
+      end: {range: string, annotations: {ci:role: field}}
+      start_incl: {range: boolean, annotations: {ci:role: field}}
+      end_incl: {range: boolean, annotations: {ci:role: field}}
+    annotations: {ci:kind: value}
+  PhraseValue:
+    description: Text kept but not interpreted; anchored to its span once stored.
+    attributes:
+      text: {range: string, required: true, annotations: {ci:role: field}}
+      start: {range: integer, annotations: {ci:role: field}}
+      end: {range: integer, annotations: {ci:role: field}}
+    annotations: {ci:kind: value}
+
+slots:
+  label:
+    range: string
+    description: Canonical display label (D1 §4.1). Identity follows the key rules of D1 §10.1.
+    annotations: {ci:role: field}
+  kind:
+    range: StatementKind
+    annotations: {ci:role: field}
+
+  # core qualifiers: allowed on every predicate, never listed in ci:qualifiers (D2 §4)
+  modality: {range: ClaimModality, annotations: {ci:role: qualifier, ci:object: enum}}
+  polarity: {range: Polarity, annotations: {ci:role: qualifier, ci:object: enum}}
+  hedge: {range: PhraseValue, annotations: {ci:role: qualifier, ci:object: phrase}}
+  attribution: {range: Entity, annotations: {ci:role: qualifier, ci:object: entity}}
+  conditions:
+    range: string
+    description: A condition tree (D1 §7).
+    annotations: {ci:role: qualifier, ci:object: condition}
+  scope:
+    range: ScopeExtent
+    description: How far a supposition reaches beyond its statement; the stored form adds the segment.
+    annotations: {ci:role: qualifier, ci:object: enum}
+  valid_time: {range: IntervalValue, annotations: {ci:role: qualifier, ci:object: interval}}
+
+  # core predicates
+  defines:
+    domain: Statement
+    range: Entity
+    description: The statement defines the entity. "is called the location-scale family".
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: llm, ci:group: structure}
+  proves:
+    domain: Statement
+    range: Statement
+    description: A proof or solution statement proves (or solves) another statement.
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: llm, ci:group: structure}
+  follows_from:
+    domain: Statement
+    range: Statement
+    description: The statement is stated to follow from another ("a corollary of the last result").
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: llm, ci:group: structure}
+  refers_to:
+    domain: Statement
+    range: Entity
+    description: The statement explicitly refers to an entity defined elsewhere ("recall the gamma function").
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: llm, ci:group: structure}
+  unschematized:
+    domain: Entity
+    range: PhraseValue
+    description: Something the source states that the schema cannot express (D1 §8.1).
+    annotations: {ci:role: predicate, ci:object: phrase, ci:extract: llm, ci:group: unsupported}
+
+enums:
+  StatementKind:
+    annotations: {ci:extract: classification, ci:target: [unit, paragraph]}
+    permissible_values:
+      definition: {annotations: {ci:claim_bearing: true}}
+      theorem: {annotations: {ci:claim_bearing: true}}
+      proposition: {annotations: {ci:claim_bearing: true}}
+      lemma: {annotations: {ci:claim_bearing: true}}
+      corollary: {annotations: {ci:claim_bearing: true}}
+      proof: {annotations: {ci:claim_bearing: false}}
+      example: {annotations: {ci:claim_bearing: true}}
+      exercise: {annotations: {ci:claim_bearing: true}}
+      solution: {annotations: {ci:claim_bearing: false}}
+      remark: {annotations: {ci:claim_bearing: true}}
+      convention: {annotations: {ci:claim_bearing: true}}
+      notation: {annotations: {ci:claim_bearing: true}}
+      assumption: {annotations: {ci:claim_bearing: true}}
+      narrative: {annotations: {ci:claim_bearing: true}}
+  ClaimModality:
+    annotations: {ci:extract: classification, ci:target: sentence}
+    permissible_values: {asserted: {}, supposed: {}, defined: {}, conventional: {}, exemplified: {}, posed: {}, cited: {}}
+  Polarity:
+    permissible_values: {positive: {}, negative: {}}
+  StatementRole:
+    permissible_values: {premise: {}, conclusion: {}, definiens: {}, restriction: {}, example_value: {}}
+  ScopeExtent:
+    permissible_values: {statement: {}, section: {}, document: {}}
+  BindKind:
+    permissible_values: {variable: {}, param_of: {}, param_expr_of: {}, family_param: {}, free: {}, constant: {}, unresolved: {}}
+  ParseStatus:
+    permissible_values: {ok: {}, partial: {}, failed: {}}
+
+---
+# statistics schema v0 (D2 §9), verbatim
+id: https://corpus-structure.dev/domains/statistics
+name: statistics
+version: 0.1.0
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  stat: https://corpus-structure.dev/domains/statistics/
+  core: https://corpus-structure.dev/core/
+default_prefix: stat
+imports:
+  - linkml:types
+  - ../../core/schema/core
+
+classes:
+  DistributionFamily:
+    is_a: Entity
+    mixins: [Distributed]
+    description: >-
+      A named family of probability distributions, possibly with parameters: the normal
+      distribution, the gamma distribution, the standard normal distribution. Mentions include
+      adjectival forms ("normally distributed", "has a gamma distribution").
+    annotations:
+      ci:kind: entity
+      ci:scope: global
+      ci:extract: mention
+      ci:gliner_label: distribution family
+      ci:examples: ["the normal distribution", "lognormal distribution", "normally distributed"]
+
+  FamilyConstruction:
+    is_a: Entity
+    description: >-
+      A way of generating a family of distributions from a base distribution, such as the
+      location-scale family, the location family or the scale family associated with a
+      distribution, or the general exponential family. Not itself a single distribution family.
+    annotations:
+      ci:kind: entity
+      ci:scope: global
+      ci:extract: mention
+      ci:gliner_label: family construction
+      ci:examples: ["location-scale family", "scale family associated with the given distribution"]
+
+  FamilyParameter:
+    is_a: Entity
+    description: >-
+      A parameter of a distribution family or construction, such as the location parameter,
+      the scale parameter, the shape parameter k, the rate, the mean or the standard deviation
+      when these parameterize the family.
+    slots: [family, canonical_name]
+    annotations:
+      ci:kind: entity
+      ci:scope: global
+      ci:identity_keys: [family, canonical_name]
+      ci:extract: mention
+      ci:gliner_label: distribution parameter
+      ci:examples: ["location parameter", "shape parameter k", "the rate parameter"]
+
+  RandomVariable:
+    is_a: Entity
+    mixins: [Distributed]
+    description: >-
+      A random variable denoted by a symbol (X, Y, Z, X_1, W) or by an expression in other
+      random variables (a + b X, e^Y, X_1 + X_2). Local to the statement or section that
+      introduces it.
+    slots: [symbol]
+    annotations:
+      ci:kind: entity
+      ci:scope: local
+      ci:extract: mention
+      ci:gliner_label: random variable
+      ci:examples: ["X", "a + b X", "X_1 + X_2"]
+
+  Concept:
+    is_a: Entity
+    description: >-
+      A defined mathematical term that is not a distribution family, construction or
+      parameter: the gamma function, the standard score, the moment generating function.
+    annotations:
+      ci:kind: entity
+      ci:scope: global
+      ci:extract: mention
+      ci:gliner_label: mathematical concept
+
+  Distributed:
+    mixin: true
+    description: Things that have a distribution and its characteristics.
+    annotations:
+      ci:kind: abstract
+
+  ParamValue:
+    description: One parameter-to-value entry of a param_values map.
+    attributes:
+      key: {range: string, identifier: true, annotations: {ci:role: field}}
+      value: {range: Formula, annotations: {ci:role: field}}
+    annotations:
+      ci:kind: value
+
+  ParamMapping:
+    description: >-
+      One entry of a param_mapping map. key is the target family's parameter canonical name; value
+      is the canonical name of the base family's parameter it corresponds to.
+    attributes:
+      key: {range: string, identifier: true, annotations: {ci:role: field}}
+      value: {range: string, annotations: {ci:role: field}}
+    annotations:
+      ci:kind: value
+
+slots:
+  # identity attributes
+  family:
+    range: Entity
+    annotations: {ci:role: identity}
+  canonical_name:
+    range: string
+    description: The parameter's role name when stated (location, scale, shape, …), else its source symbol.
+    annotations: {ci:role: identity}
+  symbol:
+    range: string
+    annotations: {ci:role: identity}
+
+  # predicates
+  has_distribution:
+    domain: RandomVariable
+    range: DistributionFamily
+    description: >-
+      The random variable has a distribution in the family, optionally with stated parameter
+      values. "X is normally distributed with mean μ and variance σ²".
+    annotations:
+      ci:role: predicate
+      ci:object: entity
+      ci:qualifiers: [param_values]
+      ci:identity_qualifiers: [param_values]
+      ci:extract: relation
+      ci:functional: true
+      ci:group: distribution
+  defined_as:
+    domain: RandomVariable
+    range: Formula
+    description: The random variable is defined by a formula in other variables. "let X = a + b Z".
+    annotations: {ci:role: predicate, ci:object: formula, ci:extract: llm}
+  takes_values_in:
+    domain: RandomVariable
+    range: SetExpr
+    description: The random variable's values lie in the set. "with values in ℝ".
+    annotations: {ci:role: predicate, ci:object: set, ci:extract: llm}
+  has_parameter:
+    domain: Entity
+    range: FamilyParameter
+    description: A family or construction has this parameter.
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: relation}
+  parameter_role:
+    domain: FamilyParameter
+    range: ParameterRole
+    multivalued: true
+    description: The parameter plays this role. "σ is the shape parameter".
+    annotations: {ci:role: predicate, ci:object: enum, ci:extract: llm}
+  parameter_domain:
+    domain: FamilyParameter
+    range: SetExpr
+    description: The set of allowed values. "b ∈ (0, ∞)".
+    annotations: {ci:role: predicate, ci:object: set, ci:extract: llm, ci:functional: true}
+  identical_parameter:
+    domain: FamilyParameter
+    range: FamilyParameter
+    description: Two parameter names denote the same parameter of the family. "the location and scale parameters are also the mean and standard deviation, respectively".
+    annotations: {ci:role: predicate, ci:object: entity, ci:symmetric: true, ci:extract: llm}
+  derived_parameter:
+    domain: FamilyParameter
+    range: Formula
+    description: The parameter equals a formula in the family's other parameters. "e^μ is the scale parameter".
+    annotations: {ci:role: predicate, ci:object: formula, ci:extract: llm}
+  special_case_of:
+    domain: DistributionFamily
+    range: Entity
+    description: The family is the special case of another family or construction obtained under parameter constraints. "The exponential distribution is the gamma distribution with k = 1".
+    annotations:
+      ci:role: predicate
+      ci:object: entity
+      ci:qualifiers: [param_constraints]
+      ci:identity_qualifiers: [param_constraints]
+      ci:extract: llm
+  transformation_of:
+    domain: DistributionFamily
+    range: DistributionFamily
+    description: Variables in this family arise by transforming a variable of the other family. "X = e^Y has the lognormal distribution".
+    annotations:
+      ci:role: predicate
+      ci:object: entity
+      ci:qualifiers: [transform, param_mapping]
+      ci:identity_qualifiers: [transform]
+      ci:extract: llm
+  limit_of:
+    domain: DistributionFamily
+    range: DistributionFamily
+    description: The family is a limit of the other under a stated limiting operation.
+    annotations: {ci:role: predicate, ci:object: entity, ci:qualifiers: [limit, param_mapping], ci:extract: llm}
+  member_of_construction:
+    domain: DistributionFamily
+    range: FamilyConstruction
+    description: The family is the construction applied to a base. "The general normal distribution is the location-scale family associated with the standard normal distribution".
+    annotations: {ci:role: predicate, ci:object: entity, ci:qualifiers: [base], ci:identity_qualifiers: [base], ci:extract: llm}
+  construction_formula:
+    domain: FamilyConstruction
+    range: Formula
+    description: The formula generating members of the construction.
+    annotations: {ci:role: predicate, ci:object: formula, ci:qualifiers: [base_variable, param_symbols], ci:extract: llm}
+  support:
+    domain: Distributed
+    range: SetExpr
+    annotations: {ci:role: predicate, ci:object: set, ci:extract: llm}
+  pdf:
+    domain: Distributed
+    range: Formula
+    description: The probability density (or mass) function, with its argument domain as a condition.
+    annotations: {ci:role: predicate, ci:object: formula, ci:extract: llm}
+  cdf:
+    domain: Distributed
+    range: Formula
+    annotations: {ci:role: predicate, ci:object: formula, ci:extract: llm}
+  mgf:
+    domain: Distributed
+    range: Formula
+    annotations: {ci:role: predicate, ci:object: formula, ci:extract: llm}
+  mean_value:
+    domain: Distributed
+    range: Formula
+    annotations: {ci:role: predicate, ci:object: formula, ci:extract: llm}
+  variance_value:
+    domain: Distributed
+    range: Formula
+    annotations: {ci:role: predicate, ci:object: formula, ci:extract: llm}
+  definition_formula:
+    domain: Concept
+    range: Formula
+    annotations: {ci:role: predicate, ci:object: formula, ci:extract: llm}
+
+  # qualifiers
+  param_values:
+    range: ParamValue
+    multivalued: true
+    inlined: true
+    annotations: {ci:role: qualifier, ci:object: map}
+  param_constraints:
+    range: string
+    description: A condition tree (D1 §7) over the base family's parameters (k = 1).
+    annotations: {ci:role: qualifier, ci:object: condition}
+  transform:
+    range: Formula
+    annotations: {ci:role: qualifier, ci:object: formula}
+  param_mapping:
+    range: ParamMapping
+    multivalued: true
+    inlined: true
+    annotations: {ci:role: qualifier, ci:object: map}
+  limit:
+    range: PhraseValue
+    annotations: {ci:role: qualifier, ci:object: phrase}
+  base:
+    range: Entity
+    annotations: {ci:role: qualifier, ci:object: entity}
+  base_variable:
+    range: RandomVariable
+    annotations: {ci:role: qualifier, ci:object: entity}
+  param_symbols:
+    range: ParamValue
+    multivalued: true
+    inlined: true
+    annotations: {ci:role: qualifier, ci:object: map}
+
+enums:
+  ParameterRole:
+    annotations: {ci:extract: attribute, ci:applies_to: FamilyParameter}
+    permissible_values:
+      location: {}
+      scale: {}
+      shape: {}
+      rate: {}
+      mean: {}
+      variance: {}
+      standard_deviation: {}
+      precision: {}
+      degrees_of_freedom: {}
+      success_probability: {}
+      number_of_trials: {}
+      lower_bound: {}
+      upper_bound: {}
+      other: {}
+  ConditionPredicate:
+    permissible_values:
+      independent: {annotations: {ci:arity: "2+", ci:args: RandomVariable}}
+      identically_distributed: {annotations: {ci:arity: "2+", ci:args: RandomVariable}}
+      iid: {annotations: {ci:arity: "2+", ci:args: RandomVariable}}

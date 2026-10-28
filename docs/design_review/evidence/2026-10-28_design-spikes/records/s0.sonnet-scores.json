@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "id": "s0.sonnet-scores",
+  "title": "Sonnet passes and adjudicator against the reference and the Opus passes",
+  "group": "S0 Reference annotations",
+  "package": "S0-E, S0-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Is Sonnet 5.5 closer than Haiku 5.5 to the Opus passes and the reference, as annotator and as adjudicator?",
+  "answers": [
+    "OPEN-D4-4",
+    "OPEN-D7-2"
+  ],
+  "method": "The S0 comparison instrument on the stored Sonnet sets, against the root's reference and passes A and B; undecided value pairs decided by the root in manual_equivalence.tsv.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/reference results/s0/stored/pass_sg ref_vs_sg",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/reference results/s0/stored/pass_sp ref_vs_sp",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/stored/pass_sg results/s0/stored/pass_sp sg_vs_sp --symmetric",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/stored/pass_a results/s0/stored/pass_sg a_vs_sg --symmetric",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/stored/pass_b results/s0/stored/pass_sg b_vs_sg --symmetric",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/reference results/s0/stored/adjudication_d7_s ref_vs_d7s --symmetric"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/s0/reference",
+      "role": "reference",
+      "sha256": "11f7c32221741b140ba18335df2c4f0a7c1b1e99bb16db5ab126aab5cd9aa1dc"
+    },
+    {
+      "path": "results/s0/manual_equivalence.tsv",
+      "role": "manual value decisions",
+      "sha256": "e1f992173adddfa41ecd2cbae88c92510adf9ec9580717b10e480cc023278d17"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/compare/ref_vs_sg",
+      "role": "score, alignment, agreement",
+      "sha256": "da9c4775708e0adbc601683ce5a7c280fadc296d8a022b02ce83a98ea6c3eefc"
+    },
+    {
+      "path": "results/s0/compare/ref_vs_sp",
+      "role": "score, alignment, agreement",
+      "sha256": "ef9a8b7e62db265ded270a12db7d69ae5a5b2be71877d4710f8377061255bdf7"
+    },
+    {
+      "path": "results/s0/compare/sg_vs_sp",
+      "role": "score, alignment, agreement",
+      "sha256": "daa458df3445963a046b0c71a99e8430d2b1f2d65ebf149652d86a951049b955"
+    },
+    {
+      "path": "results/s0/compare/a_vs_sg",
+      "role": "score, alignment, agreement",
+      "sha256": "17ea7d33b564efc1ef98902c2dbe35724f12a07e474666460aff45da98138b05"
+    },
+    {
+      "path": "results/s0/compare/b_vs_sg",
+      "role": "score, alignment, agreement",
+      "sha256": "9d03a899d26b53a34f1f91cc908a70ecfed28aa819b3e933a15169026a4d2dff"
+    },
+    {
+      "path": "results/s0/compare/ref_vs_d7s",
+      "role": "score, alignment, agreement",
+      "sha256": "063a699ca6981957262a7f6094789f14839c60286549319fe33f825102015ed5"
+    }
+  ],
+  "depends_on": [
+    "s0.pass-sg",
+    "s0.pass-sp",
+    "s0.adjudication-d7-sonnet",
+    "s0.adjudication"
+  ],
+  "results": [
+    {
+      "name": "ref_vs_sg_core_f1",
+      "value": 0.905,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_vs_sg_full_f1",
+      "value": 0.54,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_vs_sp_core_f1",
+      "value": 0.917,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_vs_sp_full_f1",
+      "value": 0.417,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sg_vs_sp_core_f1",
+      "value": 0.859,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sg_vs_sp_full_f1",
+      "value": 0.667,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "a_vs_sg_core_f1",
+      "value": 0.879,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "a_vs_sg_full_f1",
+      "value": 0.539,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "b_vs_sg_core_f1",
+      "value": 0.905,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "b_vs_sg_full_f1",
+      "value": 0.482,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_vs_d7s_core_f1",
+      "value": 0.967,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_vs_d7s_full_f1",
+      "value": 0.821,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Sonnet matches Opus on what is claimed (core 0.91-0.92 against the reference, A 0.93) but not on qualifiers (full 0.42-0.54 against 0.80); Sonnet against an Opus pass (0.48-0.54 full) is close to Opus against Opus (0.63) and to Sonnet against Sonnet (0.67), so most of the full-tier gap is conventions the inputs do not state; with the pages Sonnet agrees better on qualifiers (0.54 against 0.42 packet-only, intervals overlapping). As adjudicator Sonnet reaches core 0.97 and full 0.82, against Haiku's 0.74.",
+  "consumed_by": [
+    "S0 report",
+    "design-phase Q5"
+  ]
+}

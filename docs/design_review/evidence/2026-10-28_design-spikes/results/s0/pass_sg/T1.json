@@ -1,0 +1,108 @@
+{
+  "unit_ref": "T1",
+  "entities": [
+    {"local_ref": "e_Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "section", "symbol": "Z", "aliases": [], "identity": {}},
+    {"local_ref": "e_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+    {"local_ref": "e_ls", "type": "FamilyConstruction", "label": "location-scale family", "scope": "global", "aliases": ["location-scale family associated with the given distribution of Z"], "identity": {}},
+    {"local_ref": "e_p_loc", "type": "FamilyParameter", "label": "location parameter", "scope": "global", "aliases": ["a"], "identity": {"family": "e_ls", "canonical_name": "location"}},
+    {"local_ref": "e_p_scale", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "aliases": ["b"], "identity": {"family": "e_ls", "canonical_name": "scale"}}
+  ],
+  "statements": [
+    {"local_ref": "st_setup", "kind": "narrative", "anchor": ["s1", "s2", "s3"]},
+    {"local_ref": "st_def", "kind": "definition", "anchor": ["s4", "s5", "s6"]}
+  ],
+  "claims": [
+    {
+      "local_ref": "c1", "predicate": "takes_values_in", "subject": "e_Z",
+      "object": {"t": "set", "latex": "\\R", "symbols": {}},
+      "qualifiers": {"modality": "supposed", "scope": "section"},
+      "statement": "st_setup", "statement_role": "premise",
+      "evidence": [
+        {"sentence": "s3", "quote": "we assume that we fixed random variable \\( Z \\) defined on the probability space, with values in \\( \\R \\)", "role": "primary"}
+      ]
+    },
+    {
+      "local_ref": "c2", "predicate": "defined_as", "subject": "e_X",
+      "object": {"t": "formula", "latex": "a + b \\, Z", "symbols": {"a": {"bind": "free"}, "b": {"bind": "free"}, "Z": {"bind": "variable", "entity": "e_Z"}}},
+      "qualifiers": {"modality": "supposed"},
+      "statement": "st_def", "statement_role": "premise",
+      "evidence": [
+        {"sentence": "s4", "quote": "let \\(X = a + b \\, Z\\)", "role": "primary"}
+      ]
+    },
+    {
+      "local_ref": "c3", "predicate": "construction_formula", "subject": "e_ls",
+      "object": {"t": "formula", "latex": "a + b \\, Z", "symbols": {"a": {"bind": "free"}, "b": {"bind": "free"}, "Z": {"bind": "variable", "entity": "e_Z"}}},
+      "qualifiers": {
+        "modality": "defined",
+        "base_variable": {"t": "entity", "ref": "e_Z"},
+        "param_symbols": {
+          "location": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}},
+          "scale": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}
+        },
+        "conditions": {"op": "and", "args": [
+          {"op": "claim", "ref": "c1"},
+          {"op": "claim", "ref": "c2"},
+          {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}},
+          {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}
+        ]}
+      },
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s5", "quote": "The two-parameter family of distributions associated with \\(X\\) is called the location-scale family associated with the given distribution of \\(Z\\)", "role": "primary"},
+        {"sentence": "s4", "quote": "let \\(X = a + b \\, Z\\)", "role": "supporting"},
+        {"sentence": "s4", "quote": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\)", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c4", "predicate": "defines", "subject": "st_def",
+      "object": {"ref": "e_ls"},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s5", "quote": "is called the location-scale family associated with the given distribution of \\(Z\\)", "role": "primary"}
+      ]
+    },
+    {
+      "local_ref": "c5", "predicate": "has_parameter", "subject": "e_ls",
+      "object": {"ref": "e_p_loc"},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s6", "quote": "\\(a\\) is the location parameter", "role": "primary"}
+      ]
+    },
+    {
+      "local_ref": "c6", "predicate": "has_parameter", "subject": "e_ls",
+      "object": {"ref": "e_p_scale"},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s6", "quote": "\\(b\\) the scale parameter", "role": "primary"}
+      ]
+    },
+    {
+      "local_ref": "c7", "predicate": "parameter_domain", "subject": "e_p_loc",
+      "object": {"t": "set", "latex": "\\R", "symbols": {}},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s4", "quote": "\\(a \\in \\R\\)", "role": "primary"}
+      ]
+    },
+    {
+      "local_ref": "c8", "predicate": "parameter_domain", "subject": "e_p_scale",
+      "object": {"t": "set", "latex": "(0, \\infty)", "symbols": {}},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s4", "quote": "\\(b \\in (0, \\infty) \\)", "role": "primary"}
+      ]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s2", "quote": "\\( \\Omega \\) is the set of outcomes, \\( \\ms F \\) the collection of events, and \\( \\P \\) the probability measure", "reason": "No class or predicate for probability spaces or their components (sample space, event collection, probability measure)."},
+    {"local_ref": "u2", "sentence": "s3", "quote": "defined on the probability space", "reason": "No predicate relates a random variable to the probability space it is defined on."}
+  ]
+}

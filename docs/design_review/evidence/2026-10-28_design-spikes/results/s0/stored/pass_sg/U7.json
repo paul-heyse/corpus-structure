@@ -1,0 +1,115 @@
+{
+ "envelope": {
+  "unit": "U7",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_sg/U7.json"
+ },
+ "unit_ref": "U7",
+ "entities": [
+  {
+   "local_ref": "e_const",
+   "type": "RandomVariable",
+   "label": "a constant",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:56cd22bafd1c152d7f14817bf7521324"
+  },
+  {
+   "local_ref": "e_normal",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "st_conv",
+   "kind": "convention",
+   "anchor": [
+    "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1",
+    "seg:a92e794aa544c8922ed156fee2a14236"
+   ]
+  },
+  {
+   "local_ref": "st_rem",
+   "kind": "remark",
+   "anchor": [
+    "seg:c4c8c220064b7baae0c9dd5163d76845",
+    "seg:40928ef040f210259852048694d4901f"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c1",
+   "predicate": "has_distribution",
+   "subject": "e_const",
+   "object": {
+    "ref": "e_normal"
+   },
+   "qualifiers": {
+    "modality": "conventional",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "the constant",
+      "symbols": {
+       "the constant": {
+        "bind": "unresolved"
+       }
+      }
+     },
+     "variance": {
+      "t": "formula",
+      "latex": "0",
+      "symbols": {}
+     }
+    },
+    "conditions": {
+     "op": "phrase",
+     "text": "In some settings",
+     "start": 21098,
+     "end": 21114
+    }
+   },
+   "statement": "st_conv",
+   "evidence": [
+    {
+     "start": 21116,
+     "end": 21243,
+     "role": "primary"
+    },
+    {
+     "start": 21098,
+     "end": 21114,
+     "role": "condition"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "States that specific earlier results fail for the convention; no predicate relates a convention to the validity of other statements, and the cross-referenced results are outside the unit.",
+   "start": 21345,
+   "end": 21461
+  },
+  {
+   "local_ref": "u2",
+   "reason": "States that specific earlier results remain valid under the convention; no predicate for validity of other statements.",
+   "start": 21467,
+   "end": 21590
+  },
+  {
+   "local_ref": "u3",
+   "reason": "Removes a restriction of another statement (b nonzero) under the convention; no predicate expresses a changed condition on an external result.",
+   "start": 21602,
+   "end": 21679
+  }
+ ]
+}

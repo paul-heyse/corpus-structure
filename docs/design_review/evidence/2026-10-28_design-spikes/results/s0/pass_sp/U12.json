@@ -1,0 +1,46 @@
+{
+  "unit_ref": "U12",
+  "statements": [
+    {"local_ref": "st_thm", "kind": "theorem", "anchor": ["s1", "s2", "s3"]},
+    {"local_ref": "st_proof", "kind": "proof", "anchor": ["s4", "s5"]}
+  ],
+  "entities": [
+    {"local_ref": "e_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "section", "symbol": "X", "aliases": [], "identity": {}}
+  ],
+  "claims": [
+    {
+      "local_ref": "c1", "predicate": "mean_value", "subject": "e_X",
+      "object": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "unresolved"}}},
+      "qualifiers": {
+        "modality": "asserted",
+        "conditions": {"op": "phrase", "sentence": "s1", "text": "X has the standard gamma distribution with shape parameter k (premise stated in the standing context, not in this unit)"}
+      },
+      "statement": "st_thm", "statement_role": "conclusion",
+      "evidence": [
+        {"sentence": "s2", "quote": "\\E(X) = k", "role": "primary"},
+        {"sentence": "s1", "quote": "The mean and variance of \\( X \\) are", "role": "supporting"}
+      ]
+    },
+    {
+      "local_ref": "c2", "predicate": "variance_value", "subject": "e_X",
+      "object": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "unresolved"}}},
+      "qualifiers": {
+        "modality": "asserted",
+        "conditions": {"op": "phrase", "sentence": "s1", "text": "X has the standard gamma distribution with shape parameter k (premise stated in the standing context, not in this unit)"}
+      },
+      "statement": "st_thm", "statement_role": "conclusion",
+      "evidence": [
+        {"sentence": "s3", "quote": "\\var(X) = k", "role": "primary"},
+        {"sentence": "s1", "quote": "The mean and variance of \\( X \\) are", "role": "supporting"}
+      ]
+    },
+    {
+      "local_ref": "c3", "predicate": "proves", "subject": "st_proof",
+      "object": {"ref": "st_thm"},
+      "qualifiers": {"modality": "asserted"},
+      "evidence": [{"sentence": "s4", "quote": "From [3],", "role": "primary"}]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

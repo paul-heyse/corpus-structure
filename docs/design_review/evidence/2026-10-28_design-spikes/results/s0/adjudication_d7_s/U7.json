@@ -1,0 +1,91 @@
+{
+  "unit_ref": "U7",
+  "statements": [
+    {"local_ref": "st1", "kind": "convention", "anchor": "unit"}
+  ],
+  "entities": [
+    {"local_ref": "K", "type": "RandomVariable", "label": "a constant", "scope": "local", "extent": "statement", "aliases": ["the constant"], "identity": {}},
+    {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}},
+    {"local_ref": "r14", "type": "Statement", "label": "[14] probability density function result (outside this unit)", "scope": "local", "extent": "section", "aliases": ["[14]"], "identity": {}},
+    {"local_ref": "r17", "type": "Statement", "label": "[17] distribution function result (outside this unit)", "scope": "local", "extent": "section", "aliases": ["[17]"], "identity": {}},
+    {"local_ref": "r23", "type": "Statement", "label": "[23] moment generating function result (outside this unit)", "scope": "local", "extent": "section", "aliases": ["[23]"], "identity": {}},
+    {"local_ref": "r24", "type": "Statement", "label": "[24] linear transformations result (outside this unit)", "scope": "local", "extent": "section", "aliases": ["[24]"], "identity": {}},
+    {"local_ref": "r26", "type": "Statement", "label": "[26] sums result (outside this unit)", "scope": "local", "extent": "section", "aliases": ["[26]"], "identity": {}}
+  ],
+  "claims": [
+    {
+      "local_ref": "c_const_normal",
+      "predicate": "has_distribution",
+      "subject": "K",
+      "object": {"ref": "N"},
+      "qualifiers": {
+        "modality": "conventional",
+        "param_values": {
+          "variance": {"t": "formula", "latex": "0", "symbols": {}}
+        },
+        "conditions": {"op": "phrase", "text": "In some settings"}
+      },
+      "statement": "st1",
+      "evidence": [
+        {"sentence": "s1", "quote": "it's convenient to consider a constant as having a normal distribution", "role": "primary"},
+        {"sentence": "s1", "quote": "variance 0", "role": "supporting"},
+        {"sentence": "s1", "quote": "In some settings", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_ref14",
+      "predicate": "refers_to",
+      "subject": "st1",
+      "object": {"ref": "r14"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st1",
+      "evidence": [{"sentence": "s3", "quote": "the formulas for the probability density function [14]", "role": "primary"}]
+    },
+    {
+      "local_ref": "c_ref17",
+      "predicate": "refers_to",
+      "subject": "st1",
+      "object": {"ref": "r17"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st1",
+      "evidence": [{"sentence": "s3", "quote": "the distribution function [17]", "role": "primary"}]
+    },
+    {
+      "local_ref": "c_ref23",
+      "predicate": "refers_to",
+      "subject": "st1",
+      "object": {"ref": "r23"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st1",
+      "evidence": [{"sentence": "s3", "quote": "the moment generating function [23]", "role": "primary"}]
+    },
+    {
+      "local_ref": "c_ref24",
+      "predicate": "refers_to",
+      "subject": "st1",
+      "object": {"ref": "r24"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st1",
+      "evidence": [
+        {"sentence": "s3", "quote": "linear transformations [24]", "role": "primary"},
+        {"sentence": "s4", "quote": "the result for linear transformations [24]", "role": "supporting"}
+      ]
+    },
+    {
+      "local_ref": "c_ref26",
+      "predicate": "refers_to",
+      "subject": "st1",
+      "object": {"ref": "r26"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st1",
+      "evidence": [{"sentence": "s3", "quote": "sums [26]", "role": "primary"}]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s1", "quote": "with mean being the constant", "reason": "The mean is the constant itself, which has no symbol in the text; a param_values formula would need an invented symbol."},
+    {"local_ref": "u2", "sentence": "s3", "quote": "the formulas for the probability density function [14] and the distribution function [17] do not hold for a constant", "reason": "No predicate states that a result does or does not apply under a convention or to a degenerate case."},
+    {"local_ref": "u3", "sentence": "s3", "quote": "the other results involving the moment generating function [23], linear transformations [24], and sums [26] are still valid", "reason": "No predicate states that a result remains valid under a convention."},
+    {"local_ref": "u4", "sentence": "s4", "quote": "the result for linear transformations [24] would hold for all \\(a\\) and \\(b\\)", "reason": "No predicate for relaxing another statement's restrictions (b != 0 in [24]) under a convention."}
+  ]
+}

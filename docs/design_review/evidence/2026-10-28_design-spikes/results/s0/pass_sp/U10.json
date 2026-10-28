@@ -1,0 +1,114 @@
+{
+  "unit_ref": "U10",
+  "statements": [
+    {"local_ref": "st_def", "kind": "definition", "anchor": "unit"}
+  ],
+  "entities": [
+    {"local_ref": "e_Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": [], "identity": {}},
+    {"local_ref": "e_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+    {"local_ref": "e_stdgamma", "type": "DistributionFamily", "label": "standard gamma distribution", "scope": "global", "aliases": [], "identity": {}},
+    {"local_ref": "e_gamma", "type": "DistributionFamily", "label": "gamma distribution", "scope": "global", "aliases": [], "identity": {}},
+    {"local_ref": "e_kstd", "type": "FamilyParameter", "label": "shape parameter", "scope": "global", "symbol": "k", "aliases": ["k"], "identity": {"family": "e_stdgamma", "canonical_name": "shape"}},
+    {"local_ref": "e_kg", "type": "FamilyParameter", "label": "shape parameter", "scope": "global", "symbol": "k", "aliases": ["k"], "identity": {"family": "e_gamma", "canonical_name": "shape"}},
+    {"local_ref": "e_bg", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "symbol": "b", "aliases": ["b"], "identity": {"family": "e_gamma", "canonical_name": "scale"}}
+  ],
+  "claims": [
+    {
+      "local_ref": "c1", "predicate": "has_distribution", "subject": "e_Z",
+      "object": {"ref": "e_stdgamma"},
+      "qualifiers": {
+        "modality": "supposed",
+        "param_values": {"shape": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "param_of", "claim": "c1", "param": "shape"}}}},
+        "conditions": {"op": "and", "args": [
+          {"op": "member", "x": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "param_of", "claim": "c1", "param": "shape"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}
+        ]}
+      },
+      "statement": "st_def", "statement_role": "premise",
+      "evidence": [
+        {"sentence": "s1", "quote": "\\(Z\\) has the standard gamma distribution with shape parameter \\(k \\in (0, \\infty)\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "\\(k \\in (0, \\infty)\\)", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c2", "predicate": "defined_as", "subject": "e_X",
+      "object": {"t": "formula", "latex": "b Z", "symbols": {"b": {"bind": "free"}, "Z": {"bind": "variable", "entity": "e_Z"}}},
+      "qualifiers": {
+        "modality": "defined",
+        "conditions": {"op": "and", "args": [
+          {"op": "claim", "ref": "c1"},
+          {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}
+        ]}
+      },
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s1", "quote": "\\(X = b Z\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "if \\( b \\in (0, \\infty) \\)", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c3", "predicate": "has_distribution", "subject": "e_X",
+      "object": {"ref": "e_gamma"},
+      "qualifiers": {
+        "modality": "defined",
+        "param_values": {
+          "shape": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "param_of", "claim": "c1", "param": "shape"}}},
+          "scale": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}
+        },
+        "conditions": {"op": "and", "args": [
+          {"op": "claim", "ref": "c1"},
+          {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}
+        ]}
+      },
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s1", "quote": "\\(X = b Z\\) has the gamma distribution with shape parameter \\(k\\) and scale parameter \\(b\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "if \\( b \\in (0, \\infty) \\)", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c4", "predicate": "defines", "subject": "st_def",
+      "object": {"ref": "e_gamma"},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [{"sentence": "s1", "quote": "has the gamma distribution with shape parameter \\(k\\) and scale parameter \\(b\\)", "role": "primary"}]
+    },
+    {
+      "local_ref": "c5", "predicate": "transformation_of", "subject": "e_gamma",
+      "object": {"ref": "e_stdgamma"},
+      "qualifiers": {
+        "modality": "defined",
+        "transform": {"t": "formula", "latex": "b Z", "symbols": {"b": {"bind": "free"}, "Z": {"bind": "variable", "entity": "e_Z"}}},
+        "param_mapping": {"shape": "shape"},
+        "conditions": {"op": "and", "args": [
+          {"op": "claim", "ref": "c1"},
+          {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}
+        ]}
+      },
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [{"sentence": "s1", "quote": "\\(X = b Z\\) has the gamma distribution with shape parameter \\(k\\) and scale parameter \\(b\\)", "role": "primary"}]
+    },
+    {
+      "local_ref": "c6", "predicate": "has_parameter", "subject": "e_stdgamma",
+      "object": {"ref": "e_kstd"},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "premise",
+      "evidence": [{"sentence": "s1", "quote": "standard gamma distribution with shape parameter \\(k \\in (0, \\infty)\\)", "role": "primary"}]
+    },
+    {
+      "local_ref": "c7", "predicate": "has_parameter", "subject": "e_gamma",
+      "object": {"ref": "e_kg"},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [{"sentence": "s1", "quote": "gamma distribution with shape parameter \\(k\\)", "role": "primary"}]
+    },
+    {
+      "local_ref": "c8", "predicate": "has_parameter", "subject": "e_gamma",
+      "object": {"ref": "e_bg"},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_def", "statement_role": "definiens",
+      "evidence": [{"sentence": "s1", "quote": "scale parameter \\(b\\)", "role": "primary"}]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

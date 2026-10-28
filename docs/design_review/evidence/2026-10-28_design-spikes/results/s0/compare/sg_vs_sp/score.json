@@ -1,0 +1,2107 @@
+{
+ "tiers": {
+  "core": {
+   "precision": {
+    "value": 0.8169014084507042,
+    "ci95": [
+     0.7118455743879473,
+     0.9152895480225989
+    ],
+    "n_units": 12
+   },
+   "recall": {
+    "value": 0.90625,
+    "ci95": [
+     0.8499764150943396,
+     0.9772727272727273
+    ],
+    "n_units": 12
+   },
+   "f1": {
+    "value": 0.8592592592592593,
+    "ci95": [
+     0.7863218390804597,
+     0.9231012658227848
+    ],
+    "n_units": 12
+   },
+   "macro_f1": {
+    "value": 0.8913690476190477,
+    "ci95": [
+     0.85366341991342,
+     0.9692807768268599
+    ],
+    "n_units": 12
+   },
+   "totals": {
+    "n_ref": 64,
+    "n_pred": 71,
+    "matched_ref": 58,
+    "matched_pred": 58,
+    "matched": 58
+   },
+   "per_predicate": {
+    "construction_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "defined_as": {
+     "totals": {
+      "n_ref": 5,
+      "n_pred": 9,
+      "matched_ref": 5,
+      "matched_pred": 5,
+      "matched": 5
+     },
+     "f1": {
+      "value": 0.7142857142857143,
+      "ci95": [
+       0.2857142857142857,
+       0.9411764705882353
+      ],
+      "n_units": 12
+     }
+    },
+    "defines": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 4,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.8571428571428571,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "definition_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "derived_parameter": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "has_distribution": {
+     "totals": {
+      "n_ref": 20,
+      "n_pred": 22,
+      "matched_ref": 18,
+      "matched_pred": 18,
+      "matched": 18
+     },
+     "f1": {
+      "value": 0.8571428571428572,
+      "ci95": [
+       0.6842105263157895,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "has_parameter": {
+     "totals": {
+      "n_ref": 7,
+      "n_pred": 8,
+      "matched_ref": 7,
+      "matched_pred": 7,
+      "matched": 7
+     },
+     "f1": {
+      "value": 0.9333333333333333,
+      "ci95": [
+       0.8,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "identical_parameter": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "mean_value": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 3,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_domain": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 0.5,
+      "ci95": [
+       0.33333333333333337,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_role": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 4,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.4,
+      "ci95": [
+       0.2222222222222222,
+       0.6666666666666666
+      ],
+      "n_units": 12
+     }
+    },
+    "proves": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 6,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "refers_to": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "takes_values_in": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "transformation_of": {
+     "totals": {
+      "n_ref": 4,
+      "n_pred": 4,
+      "matched_ref": 4,
+      "matched_pred": 4,
+      "matched": 4
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "variance_value": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    }
+   }
+  },
+  "full": {
+   "precision": {
+    "value": 0.6338028169014085,
+    "ci95": [
+     0.4463789682539683,
+     0.7656333111702127
+    ],
+    "n_units": 12
+   },
+   "recall": {
+    "value": 0.703125,
+    "ci95": [
+     0.5305822328931573,
+     0.8181818181818182
+    ],
+    "n_units": 12
+   },
+   "f1": {
+    "value": 0.6666666666666667,
+    "ci95": [
+     0.480765503875969,
+     0.7890028971511348
+    ],
+    "n_units": 12
+   },
+   "macro_f1": {
+    "value": 0.6836309523809524,
+    "ci95": [
+     0.5496296296296297,
+     0.8044287494184895
+    ],
+    "n_units": 12
+   },
+   "totals": {
+    "n_ref": 64,
+    "n_pred": 71,
+    "matched_ref": 45,
+    "matched_pred": 45,
+    "matched": 45
+   },
+   "per_predicate": {
+    "construction_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "defined_as": {
+     "totals": {
+      "n_ref": 5,
+      "n_pred": 9,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.42857142857142855,
+      "ci95": [
+       0.0,
+       0.7826086956521738
+      ],
+      "n_units": 12
+     }
+    },
+    "defines": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 4,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.8571428571428571,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "definition_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 0,
+      "matched_pred": 0,
+      "matched": 0
+     },
+     "f1": {
+      "value": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_units": 12
+     }
+    },
+    "derived_parameter": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "has_distribution": {
+     "totals": {
+      "n_ref": 20,
+      "n_pred": 22,
+      "matched_ref": 13,
+      "matched_pred": 13,
+      "matched": 13
+     },
+     "f1": {
+      "value": 0.6190476190476191,
+      "ci95": [
+       0.2854679802955665,
+       0.9020532741398447
+      ],
+      "n_units": 12
+     }
+    },
+    "has_parameter": {
+     "totals": {
+      "n_ref": 7,
+      "n_pred": 8,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 0.7999999999999999,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "identical_parameter": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "mean_value": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 3,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.3333333333333333,
+      "ci95": [
+       0.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_domain": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 0.5,
+      "ci95": [
+       0.33333333333333337,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_role": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 4,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.4,
+      "ci95": [
+       0.2222222222222222,
+       0.6666666666666666
+      ],
+      "n_units": 12
+     }
+    },
+    "proves": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 6,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "refers_to": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "takes_values_in": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "transformation_of": {
+     "totals": {
+      "n_ref": 4,
+      "n_pred": 4,
+      "matched_ref": 4,
+      "matched_pred": 4,
+      "matched": 4
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "variance_value": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 0,
+      "matched_pred": 0,
+      "matched": 0
+     },
+     "f1": {
+      "value": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_units": 12
+     }
+    }
+   }
+  },
+  "evidence": {
+   "precision": {
+    "value": 0.6338028169014085,
+    "ci95": [
+     0.4463789682539683,
+     0.7656333111702127
+    ],
+    "n_units": 12
+   },
+   "recall": {
+    "value": 0.703125,
+    "ci95": [
+     0.5305822328931573,
+     0.8181818181818182
+    ],
+    "n_units": 12
+   },
+   "f1": {
+    "value": 0.6666666666666667,
+    "ci95": [
+     0.480765503875969,
+     0.7890028971511348
+    ],
+    "n_units": 12
+   },
+   "macro_f1": {
+    "value": 0.6836309523809524,
+    "ci95": [
+     0.5496296296296297,
+     0.8044287494184895
+    ],
+    "n_units": 12
+   },
+   "totals": {
+    "n_ref": 64,
+    "n_pred": 71,
+    "matched_ref": 45,
+    "matched_pred": 45,
+    "matched": 45
+   },
+   "per_predicate": {
+    "construction_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "defined_as": {
+     "totals": {
+      "n_ref": 5,
+      "n_pred": 9,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.42857142857142855,
+      "ci95": [
+       0.0,
+       0.7826086956521738
+      ],
+      "n_units": 12
+     }
+    },
+    "defines": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 4,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.8571428571428571,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "definition_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 0,
+      "matched_pred": 0,
+      "matched": 0
+     },
+     "f1": {
+      "value": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_units": 12
+     }
+    },
+    "derived_parameter": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "has_distribution": {
+     "totals": {
+      "n_ref": 20,
+      "n_pred": 22,
+      "matched_ref": 13,
+      "matched_pred": 13,
+      "matched": 13
+     },
+     "f1": {
+      "value": 0.6190476190476191,
+      "ci95": [
+       0.2854679802955665,
+       0.9020532741398447
+      ],
+      "n_units": 12
+     }
+    },
+    "has_parameter": {
+     "totals": {
+      "n_ref": 7,
+      "n_pred": 8,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 0.7999999999999999,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "identical_parameter": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "mean_value": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 3,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.3333333333333333,
+      "ci95": [
+       0.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_domain": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 0.5,
+      "ci95": [
+       0.33333333333333337,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_role": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 4,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.4,
+      "ci95": [
+       0.2222222222222222,
+       0.6666666666666666
+      ],
+      "n_units": 12
+     }
+    },
+    "proves": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 6,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "refers_to": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "takes_values_in": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "transformation_of": {
+     "totals": {
+      "n_ref": 4,
+      "n_pred": 4,
+      "matched_ref": 4,
+      "matched_pred": 4,
+      "matched": 4
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "variance_value": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 0,
+      "matched_pred": 0,
+      "matched": 0
+     },
+     "f1": {
+      "value": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_units": 12
+     }
+    }
+   }
+  }
+ },
+ "unsupported_recall": {
+  "value": 0.875,
+  "ci95": [
+   0.6,
+   1.0
+  ],
+  "n_units": 12,
+  "totals": [
+   7,
+   8
+  ]
+ },
+ "binding_accuracy": {
+  "value": 0.5714285714285714,
+  "ci95": [
+   0.2856227106227106,
+   0.7788555194805195
+  ],
+  "n_units": 12,
+  "totals": [
+   36,
+   63
+  ],
+  "by_kind": {
+   "constant": [
+    5,
+    5
+   ],
+   "family_param": [
+    1,
+    1
+   ],
+   "free": [
+    13,
+    28
+   ],
+   "param_expr_of": [
+    1,
+    5
+   ],
+   "param_of": [
+    4,
+    11
+   ],
+   "unresolved": [
+    2,
+    3
+   ],
+   "variable": [
+    10,
+    10
+   ]
+  }
+ },
+ "scope_accuracy": {
+  "value": 0.96,
+  "ci95": [
+   0.8571428571428571,
+   1.0
+  ],
+  "n_units": 12,
+  "totals": [
+   24,
+   25
+  ]
+ },
+ "alternatives": {},
+ "field_breakdown": {
+  "core_matched": 58,
+  "failures": {
+   "conditions": 9,
+   "diag:bindings": 12,
+   "diag:extent": 2,
+   "modality": 2,
+   "statement_role": 4
+  },
+  "cascaded": 0
+ },
+ "kappa": {
+  "modality": {
+   "kappa": 0.9481216457960643,
+   "n": 58,
+   "categories": [
+    "asserted",
+    "conventional",
+    "defined",
+    "exemplified",
+    "supposed"
+   ]
+  },
+  "polarity": {
+   "kappa": null,
+   "n": 58,
+   "note": "single category 'positive'; kappa undefined"
+  },
+  "statement_role": {
+   "kappa": 0.903413821815154,
+   "n": 58,
+   "categories": [
+    "conclusion",
+    "definiens",
+    "example_value",
+    "none",
+    "premise"
+   ]
+  }
+ },
+ "cascade": {
+  "cascaded": 0,
+  "by_unit": {}
+ },
+ "nocascade_tiers": {
+  "full_nocascade": {
+   "precision": {
+    "value": 0.6338028169014085,
+    "ci95": [
+     0.4463789682539683,
+     0.7656333111702127
+    ],
+    "n_units": 12
+   },
+   "recall": {
+    "value": 0.703125,
+    "ci95": [
+     0.5305822328931573,
+     0.8181818181818182
+    ],
+    "n_units": 12
+   },
+   "f1": {
+    "value": 0.6666666666666667,
+    "ci95": [
+     0.480765503875969,
+     0.7890028971511348
+    ],
+    "n_units": 12
+   },
+   "macro_f1": {
+    "value": 0.6836309523809524,
+    "ci95": [
+     0.5496296296296297,
+     0.8044287494184895
+    ],
+    "n_units": 12
+   },
+   "totals": {
+    "n_ref": 64,
+    "n_pred": 71,
+    "matched_ref": 45,
+    "matched_pred": 45,
+    "matched": 45
+   },
+   "per_predicate": {
+    "construction_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "defined_as": {
+     "totals": {
+      "n_ref": 5,
+      "n_pred": 9,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.42857142857142855,
+      "ci95": [
+       0.0,
+       0.7826086956521738
+      ],
+      "n_units": 12
+     }
+    },
+    "defines": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 4,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.8571428571428571,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "definition_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 0,
+      "matched_pred": 0,
+      "matched": 0
+     },
+     "f1": {
+      "value": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_units": 12
+     }
+    },
+    "derived_parameter": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "has_distribution": {
+     "totals": {
+      "n_ref": 20,
+      "n_pred": 22,
+      "matched_ref": 13,
+      "matched_pred": 13,
+      "matched": 13
+     },
+     "f1": {
+      "value": 0.6190476190476191,
+      "ci95": [
+       0.2854679802955665,
+       0.9020532741398447
+      ],
+      "n_units": 12
+     }
+    },
+    "has_parameter": {
+     "totals": {
+      "n_ref": 7,
+      "n_pred": 8,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 0.7999999999999999,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "identical_parameter": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "mean_value": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 3,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.3333333333333333,
+      "ci95": [
+       0.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_domain": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 0.5,
+      "ci95": [
+       0.33333333333333337,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_role": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 4,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.4,
+      "ci95": [
+       0.2222222222222222,
+       0.6666666666666666
+      ],
+      "n_units": 12
+     }
+    },
+    "proves": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 6,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "refers_to": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "takes_values_in": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "transformation_of": {
+     "totals": {
+      "n_ref": 4,
+      "n_pred": 4,
+      "matched_ref": 4,
+      "matched_pred": 4,
+      "matched": 4
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "variance_value": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 0,
+      "matched_pred": 0,
+      "matched": 0
+     },
+     "f1": {
+      "value": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_units": 12
+     }
+    }
+   }
+  },
+  "evidence_nocascade": {
+   "precision": {
+    "value": 0.6338028169014085,
+    "ci95": [
+     0.4463789682539683,
+     0.7656333111702127
+    ],
+    "n_units": 12
+   },
+   "recall": {
+    "value": 0.703125,
+    "ci95": [
+     0.5305822328931573,
+     0.8181818181818182
+    ],
+    "n_units": 12
+   },
+   "f1": {
+    "value": 0.6666666666666667,
+    "ci95": [
+     0.480765503875969,
+     0.7890028971511348
+    ],
+    "n_units": 12
+   },
+   "macro_f1": {
+    "value": 0.6836309523809524,
+    "ci95": [
+     0.5496296296296297,
+     0.8044287494184895
+    ],
+    "n_units": 12
+   },
+   "totals": {
+    "n_ref": 64,
+    "n_pred": 71,
+    "matched_ref": 45,
+    "matched_pred": 45,
+    "matched": 45
+   },
+   "per_predicate": {
+    "construction_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "defined_as": {
+     "totals": {
+      "n_ref": 5,
+      "n_pred": 9,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.42857142857142855,
+      "ci95": [
+       0.0,
+       0.7826086956521738
+      ],
+      "n_units": 12
+     }
+    },
+    "defines": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 4,
+      "matched_ref": 3,
+      "matched_pred": 3,
+      "matched": 3
+     },
+     "f1": {
+      "value": 0.8571428571428571,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "definition_formula": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 0,
+      "matched_pred": 0,
+      "matched": 0
+     },
+     "f1": {
+      "value": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_units": 12
+     }
+    },
+    "derived_parameter": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "has_distribution": {
+     "totals": {
+      "n_ref": 20,
+      "n_pred": 22,
+      "matched_ref": 13,
+      "matched_pred": 13,
+      "matched": 13
+     },
+     "f1": {
+      "value": 0.6190476190476191,
+      "ci95": [
+       0.2854679802955665,
+       0.9020532741398447
+      ],
+      "n_units": 12
+     }
+    },
+    "has_parameter": {
+     "totals": {
+      "n_ref": 7,
+      "n_pred": 8,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 0.7999999999999999,
+      "ci95": [
+       0.6666666666666666,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "identical_parameter": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "mean_value": {
+     "totals": {
+      "n_ref": 3,
+      "n_pred": 3,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.3333333333333333,
+      "ci95": [
+       0.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_domain": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 2,
+      "matched_ref": 2,
+      "matched_pred": 2,
+      "matched": 2
+     },
+     "f1": {
+      "value": 0.5,
+      "ci95": [
+       0.33333333333333337,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "parameter_role": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 4,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 0.4,
+      "ci95": [
+       0.2222222222222222,
+       0.6666666666666666
+      ],
+      "n_units": 12
+     }
+    },
+    "proves": {
+     "totals": {
+      "n_ref": 6,
+      "n_pred": 6,
+      "matched_ref": 6,
+      "matched_pred": 6,
+      "matched": 6
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "refers_to": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "takes_values_in": {
+     "totals": {
+      "n_ref": 1,
+      "n_pred": 1,
+      "matched_ref": 1,
+      "matched_pred": 1,
+      "matched": 1
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "transformation_of": {
+     "totals": {
+      "n_ref": 4,
+      "n_pred": 4,
+      "matched_ref": 4,
+      "matched_pred": 4,
+      "matched": 4
+     },
+     "f1": {
+      "value": 1.0,
+      "ci95": [
+       1.0,
+       1.0
+      ],
+      "n_units": 12
+     }
+    },
+    "variance_value": {
+     "totals": {
+      "n_ref": 2,
+      "n_pred": 2,
+      "matched_ref": 0,
+      "matched_pred": 0,
+      "matched": 0
+     },
+     "f1": {
+      "value": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n_units": 12
+     }
+    }
+   }
+  }
+ },
+ "keys_core": {
+  "pairs": 58,
+  "claim_key_equal": 36,
+  "meaning_key_equal": 38,
+  "claim_causes": {
+   "statement": 9,
+   "conditions": 13,
+   "subject.label": 1,
+   "object.label": 2,
+   "subject.scope_segment": 2,
+   "modality": 2,
+   "subject.anchor": 1,
+   "param_values.canonical_latex": 1
+  },
+  "meaning_causes": {
+   "conditions": 13,
+   "subject.label": 1,
+   "object.label": 2,
+   "subject.scope_segment": 2,
+   "modality": 2,
+   "subject.anchor": 1,
+   "param_values.canonical_latex": 1
+  },
+  "examples": [
+   [
+    "T1",
+    "c1",
+    "c1",
+    [
+     "statement"
+    ]
+   ],
+   [
+    "T1",
+    "c2",
+    "c2",
+    [
+     "conditions"
+    ]
+   ],
+   [
+    "T1",
+    "c3",
+    "c4",
+    [
+     "conditions"
+    ]
+   ],
+   [
+    "T4",
+    "c10",
+    "c8",
+    [
+     "subject.label"
+    ]
+   ],
+   [
+    "T4",
+    "c6",
+    "c6",
+    [
+     "object.label"
+    ]
+   ],
+   [
+    "T4",
+    "c7",
+    "c7",
+    [
+     "object.label"
+    ]
+   ],
+   [
+    "U5",
+    "c2",
+    "c4",
+    [
+     "conditions"
+    ]
+   ],
+   [
+    "U5",
+    "c3",
+    "c5",
+    [
+     "conditions"
+    ]
+   ],
+   [
+    "U5",
+    "c4",
+    "c6",
+    [
+     "conditions"
+    ]
+   ],
+   [
+    "U6",
+    "c1",
+    "c1",
+    [
+     "subject.scope_segment",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c2",
+    "c2",
+    [
+     "conditions",
+     "modality",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c3",
+    "c3",
+    [
+     "conditions",
+     "modality",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c4",
+    "c4",
+    [
+     "subject.anchor",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c5",
+    "c5",
+    [
+     "subject.scope_segment",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c6",
+    "c6",
+    [
+     "conditions",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c7",
+    "c7",
+    [
+     "statement"
+    ]
+   ],
+   [
+    "U7",
+    "c1",
+    "c1",
+    [
+     "param_values.canonical_latex",
+     "statement"
+    ]
+   ],
+   [
+    "U9",
+    "c1",
+    "c1",
+    [
+     "conditions"
+    ]
+   ],
+   [
+    "U9",
+    "c2",
+    "c3",
+    [
+     "conditions"
+    ]
+   ],
+   [
+    "U11",
+    "c2",
+    "c4",
+    [
+     "conditions"
+    ]
+   ]
+  ]
+ },
+ "keys_full": {
+  "pairs": 45,
+  "claim_key_equal": 35,
+  "meaning_key_equal": 37,
+  "claim_causes": {
+   "statement": 6,
+   "conditions": 2,
+   "subject.label": 1,
+   "object.label": 2,
+   "subject.scope_segment": 2,
+   "subject.anchor": 1
+  },
+  "meaning_causes": {
+   "conditions": 2,
+   "subject.label": 1,
+   "object.label": 2,
+   "subject.scope_segment": 2,
+   "subject.anchor": 1
+  },
+  "examples": [
+   [
+    "T1",
+    "c1",
+    "c1",
+    [
+     "statement"
+    ]
+   ],
+   [
+    "T1",
+    "c3",
+    "c4",
+    [
+     "conditions"
+    ]
+   ],
+   [
+    "T4",
+    "c10",
+    "c8",
+    [
+     "subject.label"
+    ]
+   ],
+   [
+    "T4",
+    "c6",
+    "c6",
+    [
+     "object.label"
+    ]
+   ],
+   [
+    "T4",
+    "c7",
+    "c7",
+    [
+     "object.label"
+    ]
+   ],
+   [
+    "U6",
+    "c1",
+    "c1",
+    [
+     "subject.scope_segment",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c4",
+    "c4",
+    [
+     "subject.anchor",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c5",
+    "c5",
+    [
+     "subject.scope_segment",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c6",
+    "c6",
+    [
+     "conditions",
+     "statement"
+    ]
+   ],
+   [
+    "U6",
+    "c7",
+    "c7",
+    [
+     "statement"
+    ]
+   ]
+  ]
+ },
+ "units": [
+  "T1",
+  "T2",
+  "T3",
+  "T4",
+  "U5",
+  "U6",
+  "U7",
+  "U8",
+  "U9",
+  "U10",
+  "U11",
+  "U12"
+ ],
+ "pending_value_comparisons": [],
+ "non_canonical_value_decisions": [
+  [
+   "U7",
+   "manual",
+   "True",
+   "theconstant",
+   "\\text{theconstant}"
+  ],
+  [
+   "U9",
+   "manual",
+   "False",
+   "\\mu",
+   "\\sigma^2"
+  ],
+  [
+   "U9",
+   "manual",
+   "False",
+   "\\mu",
+   "\\sum_{i=1}^n\\sigma_i^2"
+  ],
+  [
+   "U9",
+   "manual",
+   "False",
+   "\\sigma^2",
+   "\\mu"
+  ],
+  [
+   "U9",
+   "manual",
+   "False",
+   "\\sigma^2",
+   "\\sum_{i=1}^n\\mu_i"
+  ]
+ ],
+ "symmetrized": {
+  "core": {
+   "agreement": 0.8592592592592593,
+   "a_ref": {
+    "value": 0.8592592592592593,
+    "ci95": [
+     0.7863218390804597,
+     0.9231012658227848
+    ],
+    "n_units": 12
+   },
+   "b_ref": {
+    "value": 0.8592592592592593,
+    "ci95": [
+     0.7863218390804597,
+     0.9231012658227848
+    ],
+    "n_units": 12
+   },
+   "asymmetric": false
+  },
+  "full": {
+   "agreement": 0.6666666666666667,
+   "a_ref": {
+    "value": 0.6666666666666667,
+    "ci95": [
+     0.480765503875969,
+     0.7890028971511348
+    ],
+    "n_units": 12
+   },
+   "b_ref": {
+    "value": 0.6666666666666667,
+    "ci95": [
+     0.480765503875969,
+     0.7890028971511348
+    ],
+    "n_units": 12
+   },
+   "asymmetric": false
+  },
+  "evidence": {
+   "agreement": 0.6666666666666667,
+   "a_ref": {
+    "value": 0.6666666666666667,
+    "ci95": [
+     0.480765503875969,
+     0.7890028971511348
+    ],
+    "n_units": 12
+   },
+   "b_ref": {
+    "value": 0.6666666666666667,
+    "ci95": [
+     0.480765503875969,
+     0.7890028971511348
+    ],
+    "n_units": 12
+   },
+   "asymmetric": false
+  }
+ }
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "s0.adjudication-d7-sonnet",
+  "title": "D7 adjudicator session (Sonnet)",
+  "group": "S0 Reference annotations",
+  "package": "S0-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Given what D7 §3.4 gives an adjudicator, does a Sonnet 5.5 adjudicator reach the root's reference?",
+  "answers": [
+    "OPEN-D8-3"
+  ],
+  "method": "Fresh subagent with the D7 adjudication inputs identical to the Haiku session's; batches validated by code/s0_check.py; one decision table per unit.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0/adjudication_d7_s --out results/s0/stored/adjudication_d7_s"
+  ],
+  "agents": [
+    {
+      "role": "adjudicator",
+      "model": "Claude Sonnet 5.5",
+      "brief": "results/s0/inputs/adjudication_d7_s/instructions_d7.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote only its output folder"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s0/inputs/adjudication_d7_s",
+      "role": "inputs",
+      "sha256": "9cabf9b410ad6c7961908fa8b093c4e98cafe37d4617712ada42d58ab4de2140"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/adjudication_d7_s",
+      "role": "batches, decisions",
+      "sha256": "b3ecc5afab58f6fc40d58066ae9ff83b89ff24c5e3a1f8363ea93e342492275c"
+    },
+    {
+      "path": "results/s0/stored/adjudication_d7_s",
+      "role": "stored form",
+      "sha256": "cb19b7f82a9381fa8208a69159c9fb5732c9cfd41cb9dd70e167a3a01330e4ee"
+    }
+  ],
+  "depends_on": [
+    "s0.pass-a",
+    "s0.pass-b"
+  ],
+  "results": [
+    {
+      "name": "decisions",
+      "value": 107,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "guideline_gap_decisions",
+      "value": 27,
+      "of": 107,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Twelve adjudicated batches; 27 of 107 decisions marked guideline gaps, concentrated in indexed premises, statement roles and proves evidence.",
+  "consumed_by": [
+    "s0.sonnet-scores"
+  ]
+}

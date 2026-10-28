@@ -1,0 +1,87 @@
+comparison	unit	ref_claim	pred_claim	predicate	ref_statement_role	class
+ref_vs_a	T1	c_X_def	c_X_def	defined_as	definiens	different premise references
+ref_vs_b	T1	c_constr	c_construction	construction_formula	definiens	different premise references
+ref_vs_b	U5	c_S_mean	c_sum_mean	mean_value	conclusion	different premise references
+ref_vs_b	U5	c_S_normal	c_sum_normal	has_distribution	conclusion	different premise references
+ref_vs_b	U5	c_S_var	c_sum_var	variance_value	conclusion	different premise references
+ref_vs_b	U5	c_Xi_normal	c_Xi_normal	has_distribution	premise	pass omits the condition tree
+ref_vs_b	U9	c_P_lognormal	c_prod_lognormal	has_distribution	conclusion	premises and restrictions both differ
+ref_vs_b	U9	c_Xi_lognormal	c_Xi_lognormal	has_distribution	premise	pass omits the condition tree
+ref_vs_b	U11	c_S_gamma	c_sum_gamma	has_distribution	conclusion	premises and restrictions both differ
+ref_vs_b	U11	c_Xi_gamma	c_Xi_gamma	has_distribution	premise	pass omits the condition tree
+ref_vs_sg	T1	c_X_def	c2	defined_as	definiens	pass omits the condition tree
+ref_vs_sg	T1	c_constr	c3	construction_formula	definiens	different premise references
+ref_vs_sg	T2	c_loc_is_mean	c2	identical_parameter	conclusion	pass adds a condition tree the reference lacks
+ref_vs_sg	T2	c_scale_is_sd	c3	identical_parameter	conclusion	pass adds a condition tree the reference lacks
+ref_vs_sg	T4	c_LN_transform	c5	transformation_of	definiens	pass adds a condition tree the reference lacks
+ref_vs_sg	T4	c_SLN_transform	c15	transformation_of	definiens	pass adds a condition tree the reference lacks
+ref_vs_sg	T4	c_W_def	c13	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_sg	T4	c_X_def	c2	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_sg	T4	c_X_lognormal	c3	has_distribution	definiens	same premises; reference repeats restrictions
+ref_vs_sg	T4	c_Y_normal	c1	has_distribution	premise	pass adds a condition tree the reference lacks
+ref_vs_sg	U6	c_Z_stdnormal	c6	has_distribution	conclusion	different premise references
+ref_vs_sg	U9	c_P_lognormal	c2	has_distribution	conclusion	same premises; reference repeats restrictions
+ref_vs_sg	U9	c_Xi_lognormal	c1	has_distribution	premise	same premises; pass adds restrictions
+ref_vs_sg	U10	c_G_transform	c5	transformation_of	definiens	pass adds a condition tree the reference lacks
+ref_vs_sg	U10	c_X_def	c2	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_sg	U10	c_X_gamma	c3	has_distribution	definiens	same premises; reference repeats restrictions
+ref_vs_sg	U10	c_Z_stdgamma	c1	has_distribution	premise	pass adds a condition tree the reference lacks
+ref_vs_sg	U11	c_S_gamma	c2	has_distribution	conclusion	same premises; reference repeats restrictions
+ref_vs_sg	U11	c_Xi_gamma	c1	has_distribution	premise	same premises; pass adds restrictions
+ref_vs_sp	T1	c_constr	c4	construction_formula	definiens	different premise references
+ref_vs_sp	T2	c_loc_is_mean	c2	identical_parameter	conclusion	pass adds a condition tree the reference lacks
+ref_vs_sp	T2	c_scale_is_sd	c3	identical_parameter	conclusion	pass adds a condition tree the reference lacks
+ref_vs_sp	T3	c_aX_def	c2	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_sp	T4	c_LN_transform	c5	transformation_of	definiens	pass adds a condition tree the reference lacks
+ref_vs_sp	T4	c_SLN_transform	c16	transformation_of	definiens	pass adds a condition tree the reference lacks
+ref_vs_sp	T4	c_W_def	c13	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_sp	T4	c_X_def	c2	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_sp	T4	c_X_lognormal	c3	has_distribution	definiens	same premises; reference repeats restrictions
+ref_vs_sp	T4	c_Y_normal	c1	has_distribution	premise	pass adds a condition tree the reference lacks
+ref_vs_sp	U5	c_S_mean	c5	mean_value	conclusion	different premise references
+ref_vs_sp	U5	c_S_normal	c4	has_distribution	conclusion	different premise references
+ref_vs_sp	U5	c_S_var	c6	variance_value	conclusion	different premise references
+ref_vs_sp	U6	c_Z_stdnormal	c6	has_distribution	conclusion	different premise references
+ref_vs_sp	U9	c_P_lognormal	c3	has_distribution	conclusion	same premises; reference repeats restrictions
+ref_vs_sp	U9	c_Xi_lognormal	c1	has_distribution	premise	premises and restrictions both differ
+ref_vs_sp	U10	c_G_transform	c5	transformation_of	definiens	pass adds a condition tree the reference lacks
+ref_vs_sp	U10	c_X_def	c2	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_sp	U10	c_X_gamma	c3	has_distribution	definiens	same premises; reference repeats restrictions
+ref_vs_sp	U10	c_Z_stdgamma	c1	has_distribution	premise	pass adds a condition tree the reference lacks
+ref_vs_sp	U11	c_S_gamma	c4	has_distribution	conclusion	premises and restrictions both differ
+ref_vs_sp	U12	c_X_mean	c1	mean_value	conclusion	pass adds a condition tree the reference lacks
+ref_vs_sp	U12	c_X_var	c2	variance_value	conclusion	pass adds a condition tree the reference lacks
+ref_vs_h	T1	c_constr	cl_03	construction_formula	definiens	different premise references
+ref_vs_h	T4	c_W_def	cl_06	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_h	T4	c_X_def	cl_02	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_h	T4	c_X_lognormal	cl_03	has_distribution	definiens	same premises; reference repeats restrictions
+ref_vs_h	T4	c_Y_normal	cl_01	has_distribution	premise	pass adds a condition tree the reference lacks
+ref_vs_h	U5	c_S_mean	cl_04	mean_value	conclusion	different premise references
+ref_vs_h	U5	c_S_normal	cl_03	has_distribution	conclusion	different premise references
+ref_vs_h	U5	c_S_var	cl_05	variance_value	conclusion	different premise references
+ref_vs_h	U6	c_Z_def	cl_02	defined_as	definiens	premises and restrictions both differ
+ref_vs_h	U6	c_score_formula	cl_03	definition_formula	definiens	pass omits the condition tree
+ref_vs_h	U7	c_const_normal	cl_01	has_distribution		pass omits the condition tree
+ref_vs_h	U9	c_P_lognormal	cl_02	has_distribution	conclusion	same premises; reference repeats restrictions
+ref_vs_h	U9	c_Xi_lognormal	cl_01	has_distribution	premise	same premises; pass adds restrictions
+ref_vs_h	U10	c_X_def	cl_03	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_h	U10	c_X_gamma	cl_02	has_distribution	definiens	same premises; reference repeats restrictions
+ref_vs_h	U10	c_Z_stdgamma	cl_01	has_distribution	premise	pass adds a condition tree the reference lacks
+ref_vs_h	U11	c_S_gamma	cl_03	has_distribution	conclusion	premises and restrictions both differ
+ref_vs_p	T1	c_X_def	c2	defined_as	definiens	different premise references
+ref_vs_p	T1	c_constr	c3	construction_formula	definiens	different premise references
+ref_vs_p	T4	c_W_def	c13	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_p	T4	c_X_def	c2	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_p	U5	c_S_mean	c3	mean_value	conclusion	pass omits the condition tree
+ref_vs_p	U5	c_S_normal	c2	has_distribution	conclusion	same premises; pass adds restrictions
+ref_vs_p	U5	c_S_var	c4	variance_value	conclusion	pass omits the condition tree
+ref_vs_p	U5	c_Xi_normal	c1	has_distribution	premise	pass omits the condition tree
+ref_vs_p	U6	c_Z_def	c2	defined_as	definiens	premises and restrictions both differ
+ref_vs_p	U6	c_score_formula	c4	definition_formula	definiens	pass omits the condition tree
+ref_vs_p	U7	c_const_normal	c1	has_distribution		pass omits the condition tree
+ref_vs_p	U9	c_Xi_lognormal	c1	has_distribution	premise	pass omits the condition tree
+ref_vs_p	U10	c_X_def	c2	defined_as	definiens	pass adds a condition tree the reference lacks
+ref_vs_p	U10	c_X_gamma	c3	has_distribution	definiens	same premises; reference repeats restrictions
+ref_vs_p	U10	c_Z_stdgamma	c1	has_distribution	premise	pass adds a condition tree the reference lacks
+ref_vs_p	U11	c_S_gamma	c2	has_distribution	conclusion	same premises; pass adds restrictions
+ref_vs_p	U11	c_Xi_gamma	c1	has_distribution	premise	pass omits the condition tree

@@ -1,0 +1,23 @@
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/instructions_sg.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/guideline.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/schema.yaml
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/model.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/format.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/T1.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/T2.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/T3.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/T4.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/U5.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/U6.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/U7.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/U8.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/U9.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/U10.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/U11.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/units/U12.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/pages/special__LocationScale.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/pages/special__Normal.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/pages/special__LogNormal.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/golden_sg/pages/special__Gamma.md
+(listed only, not opened) /home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/code (directory listing via ls)
+(ran, not read) code/s0_check.py via the validation command
