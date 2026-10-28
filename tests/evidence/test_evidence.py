@@ -140,3 +140,13 @@ def test_cli_build_and_check(root: Path, tmp_path: Path):
     assert main(["--root", str(root), "finalize", FOLDER, "probe.result"]) == 0
     assert main(["--root", str(root), "--catalog", str(tmp_path / "c.duckdb")]) == 0
     assert main(["--root", str(root), "check"]) == 0
+
+
+@pytest.mark.parametrize("outcome", ["passed", "failed", "blocked", "partial", "not_run"])
+def test_record_outcomes_accepted(outcome: str) -> None:
+    assert Record.model_validate(_record(outcome=outcome)).outcome == outcome
+
+
+def test_record_outcome_unknown_refused() -> None:
+    with pytest.raises(ValidationError):
+        Record.model_validate(_record(outcome="skipped"))

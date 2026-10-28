@@ -312,7 +312,8 @@
         "passed",
         "failed",
         "blocked",
-        "partial"
+        "partial",
+        "not_run"
       ],
       "title": "Outcome",
       "type": "string"

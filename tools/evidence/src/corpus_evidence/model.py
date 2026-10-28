@@ -94,7 +94,7 @@ class Record(_Strict):
         default_factory=list, description="Records whose outputs it used"
     )
     results: list[Result] = Field(default_factory=list)
-    outcome: Literal["passed", "failed", "blocked", "partial"]
+    outcome: Literal["passed", "failed", "blocked", "partial", "not_run"]
     conclusion: str = Field(min_length=3)
     consumed_by: list[str] = Field(
         default_factory=list, description="Reports, plans, ADRs that rely on it"

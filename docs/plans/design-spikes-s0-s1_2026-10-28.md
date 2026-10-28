@@ -310,7 +310,7 @@ row. "Needs" names the input a package consumes, not merely an earlier row.
 | 22 | E1–E3 Evidence records, catalog and generated reports (ADR-0010) | this plan §3.4 | — | `tools/evidence/`, `records/`, generated indexes, `build/evidence.duckdb` |
 | 22a | S1-R2 html5lib rerun and rendition identity (executed 2026-10-28) | S1 | S1-D | `results/s1_html5lib/`; records `s1.corpus-html5lib`, `s1.rendition-identity` |
 | 22b | S0-R2 Annotator inputs v1 revisit (executed 2026-10-28) | S0, [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md) | S0-G | `results/s0r2/`; records `s0r2.*` |
-| 23 | E4 Environments for S2–S7 | §3.5 | — | the four environments with their records; OPEN-D9-1 evidence for gliner2 and z3 |
+| 23 | E4 Environments for S2–S7: **E4a** the CPU environment now (with gliner2 on CPU torch for the wheel evidence); **E4b** the ANTLR, GPU and vLLM environments when S5, S2, S3 and S7 start (operator, 2026-10-28) | §3.5 | — | the environments with their records; OPEN-D9-1 evidence for gliner2 and z3 |
 | 24 | I-R2 Instruments revision: token-form keys (ADR-0012), sizing commands, frozen revision | Instruments | E4 (CPU) | revised `mathgrammar` and `instruments/values`; S0-G and S0-R2 figures rerun, superseding records (nothing removed) |
 | 24b | I-R3 Mention-level alignment for S2 and S7 (I-R2 plus one module, checked by hand on T1–T4); kept apart from I-R2 so S5 and S6-F, on phase 0's path, do not wait on it | Instruments, S2 §1 | I-R2 | the alignment module and its hand check |
 | 25 | E5 `not_run` outcome in evidence records | §3.5 | — | `tools/evidence` model and test |

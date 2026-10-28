@@ -100,7 +100,7 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 
 | Package | Version | Used by |
 |---|---|---|
-| pydantic, pydantic-settings | 2.14.1, 2.16.0 | core types, method configs, settings |
+| pydantic, pydantic-settings | 2.14.1, 2.16.1 | core types, method configs, settings |
 | sqlalchemy, psycopg[binary], psycopg-pool, alembic | 2.1.5, 3.3.6, 3.3.3, 1.20.0 | core.db, migrations, bulk COPY |
 | pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/pgevector.md)) | `halfvec` column type (phase 1, with `kb.embedding`) |
 | pg_textsearch (server extension) | 1.5.1 (Debian package `postgresql-18-pg-textsearch`; [overview](../libraries/postgresql-18-pg-textsearch.md)) | BM25 lexical search for `find` (D3 §5, D8 §5.1). A phase 0 server prerequisite: in `shared_preload_libraries`, and created once by the operator in the template database, so the cloned test databases (§4) carry it |

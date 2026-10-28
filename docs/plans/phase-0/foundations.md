@@ -68,7 +68,7 @@ no decision that needs the pack, a parse or the pipeline's state.
 | Label rules (articles, head words, rewrites) | D1 §10.1, D5 §3.3 point 5; the `aliases:` section of the pack's `methods.yaml` (D2 §12.1) · data loaded by the method registry (orchestration O1) | F2b label normalization |
 | Fates as of `ops.run.finished_at`; the run's resolved scope; policy actions by `<method>/<name>` | D3 §4, §6.3, §8, D6 §7.1, §8 · [orchestration](orchestration.md) | F4 views and JSON models |
 | Spike evidence | S6 records `s6.ddl`, `s6.constraints`, `s6.queries`, `s6.bm25`, `s6.dry-run`, `s6.volume`, `s6.sizes`, `s6.keys`, `s6.restated`; S5 records `s5.keys-property`, `s5.macros`; S4 record `s4.batch-validation` | F4; F2a's freeze; F2b |
-| The operator's provisioning: `pg_textsearch` preloaded, `cs_template` with the extension | D3 §3 · coordinator §2 | F1's database fixtures, F4 |
+| A PostgreSQL 18 instance with `pg_textsearch` preloaded and `cs_template`: in the interim the project-local cluster that P0-F-1's `just db-up` provides (D3 §3); later the system instance | D3 §3 · coordinator §2 | F1's database fixtures, F4 |
 
 ### 2.2 Produced
 
@@ -224,7 +224,7 @@ grammar ([text-math note](../../design_review/evidence/2026-10-28_library-text-m
   spaces skipped, an optional `[…]` first argument with its default), and stops at a fixed depth;
   a token left unexpanded at the bound is kept and reported, never dropped.
 - **The form.** `token_form(latex, table)` strips one outer pair of math delimiters (`\(…\)`,
-  `\[…\]`, `$…$`, `$$…$$`), expands macros, removes whitespace and every drop-list token outside
+  `\[…\]`, an environment's `\begin`/`\end`; not `$`, which Siegrist uses as prose; D1 §6.2), expands macros, removes whitespace and every drop-list token outside
   text-mode arguments (inside them, drop-list tokens are removed and whitespace collapses), drops
   braces around a single token (`b^{2}` is `b^2`), and serializes with one space after a control
   word that is followed by a letter, so `\mu x` stays apart from `\mux`. With unbalanced braces it

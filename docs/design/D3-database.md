@@ -53,6 +53,13 @@ the server, and creates it (and later `vector`) as `postgres` in the template da
 extension: it asserts it and fails with that instruction (design authority, 2026-10-28, after the
 operator confirmed the installed package; [store note](../design_review/evidence/2026-10-28_library-store/README.md)
 §0, L-S5; [overview](../libraries/postgresql-18-pg-textsearch.md) §11.2).
+
+**Interim instance (operator, 2026-10-28).** Until the system instance is set up, development and
+tests use a project-local PostgreSQL 18 cluster built from the system's PG18 binaries: `just db-up`
+initializes it once under `build/pg/` (owned by the developer, who is its superuser), starts it on its
+own port and socket with `shared_preload_libraries = 'pg_textsearch'`, and creates `cs_template` with
+both extensions; `just db-down` stops it. No sudo and no restart of the system cluster is needed.
+Moving to the system instance later changes only `CORPUS_DATABASE__URL` (P0-F-1).
 > Status: **Interface-checked** (store note §0, 2026-10-28): the 1.5.1 install script refuses to
 > run unless the library is preloaded, and neither control file is marked trusted; the
 > provisioning step and the assertion are **Proposed** (2026-10-28)
