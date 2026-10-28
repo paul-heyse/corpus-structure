@@ -1,0 +1,557 @@
+{
+  "created": "2026-10-28",
+  "sentence_variant": "provisional: P1 parser + b′ + rule c",
+  "adapter_config": {
+    "adapter": "s1_adapter",
+    "version": "0.1.0",
+    "profile": "siegrist",
+    "parser": "lxml",
+    "unicode": "NFC",
+    "math_whitespace": "keep",
+    "sections": "h3h4",
+    "apps": "keep",
+    "render": {
+      "aref": "browser",
+      "q": "quotes",
+      "list_markers": "parenthesized",
+      "summary": "heading",
+      "figure": "caption"
+    }
+  },
+  "units": {
+    "T1": {
+      "page": "special/LocationScale.html",
+      "document_key": "doc:01e7737ec9188c4149789ee8bd19d56b",
+      "rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "parts": [
+        {
+          "locator": "special/LocationScale.html@p:As usual, our starting point",
+          "found_by": "@p",
+          "segment_key": "seg:461ade98bfb3c5eab5a9dda35ee81c12",
+          "kind": "paragraph",
+          "start": 41,
+          "end": 436,
+          "sha256": "06c1f35a24410fe59a8422438f23ad060cac03fe34e1830de0cce86ec5c74d1c",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:7f5bfd7ae1551fb8a61e4be44b09ea78",
+              "start": 41,
+              "end": 149
+            },
+            {
+              "id": "s2",
+              "key": "seg:fc39a3c1625a0ca3eb930e388d369827",
+              "start": 150,
+              "end": 312
+            },
+            {
+              "id": "s3",
+              "key": "seg:e1a33c047bb86880316815686144c6cd",
+              "start": 313,
+              "end": 436
+            }
+          ],
+          "first_80": "As usual, our starting point is a random experiment, modeled by a probability sp"
+        },
+        {
+          "locator": "special/LocationScale.html#dfn1",
+          "found_by": "#d",
+          "segment_key": "seg:175c96a27cc62630afd30222ac6b06cd",
+          "kind": "unit",
+          "start": 450,
+          "end": 744,
+          "sha256": "7872209559110b45a6c779ebb438b79a97d010d8ad6fe22edf91f3d3ce13a0a4",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:f862503906430becb5c3e114fbbd5af5",
+              "start": 450,
+              "end": 518
+            },
+            {
+              "id": "s2",
+              "key": "seg:ebe0e73fe08976c567af5859a2b77bbd",
+              "start": 519,
+              "end": 667
+            },
+            {
+              "id": "s3",
+              "key": "seg:af77a6ba98384db9ded612eff96d3984",
+              "start": 668,
+              "end": 744
+            }
+          ],
+          "first_80": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\), let \\(X = a + b \\, Z\\). The two-par"
+        }
+      ]
+    },
+    "T2": {
+      "page": "special/Normal.html",
+      "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+      "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "parts": [
+        {
+          "locator": "special/Normal.html@p:Suppose again that \\( X \\) has the normal distribution with location parameter",
+          "found_by": "@p",
+          "segment_key": "seg:a3c88aa2d5cdbd70f8a179347967faa2",
+          "kind": "paragraph",
+          "start": 11565,
+          "end": 11826,
+          "sha256": "1b75e32e7af0c5c30397ad155ace2f39b02b7bc5112e0bba6b4319b85acd8b2f",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:f0640da77bd7c8b14e91e1681babddc7",
+              "start": 11565,
+              "end": 11710
+            },
+            {
+              "id": "s2",
+              "key": "seg:0f7a63ff92a79c2f2572c034a1dbfbc5",
+              "start": 11711,
+              "end": 11826
+            }
+          ],
+          "first_80": "Suppose again that \\( X \\) has the normal distribution with location parameter \\"
+        }
+      ]
+    },
+    "T3": {
+      "page": "special/Normal.html",
+      "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+      "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "parts": [
+        {
+          "locator": "special/Normal.html#rel1",
+          "found_by": "#r",
+          "segment_key": "seg:284382a0386cf655a9e8cf94ac12980a",
+          "kind": "unit",
+          "start": 14382,
+          "end": 14925,
+          "sha256": "faf7117416d79752eec3053b004463d47bb5bdfb0800c773e4937d0ea94973a6",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:00e021f9f31ec4b64dcd0865bcfeb8b1",
+              "start": 14382,
+              "end": 14469
+            },
+            {
+              "id": "s2",
+              "key": "seg:ecb3cd5053f5a67593c76acdc749caff",
+              "start": 14470,
+              "end": 14615
+            },
+            {
+              "id": "s3",
+              "key": "seg:5a2f009d4c96aa7a005f3f3d5efa512a",
+              "start": 14627,
+              "end": 14925
+            }
+          ],
+          "first_80": "Suppose that \\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sig"
+        }
+      ]
+    },
+    "T4": {
+      "page": "special/LogNormal.html",
+      "document_key": "doc:0dd78f24fc1bdaaf8caf3c23abd9ff33",
+      "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "parts": [
+        {
+          "locator": "special/LogNormal.html#dfn",
+          "found_by": "#d",
+          "segment_key": "seg:3fd093d02f8f19cfc6e08e97885fed09",
+          "kind": "unit",
+          "start": 54,
+          "end": 518,
+          "sha256": "9e2d4bd1725b54ac908c3f50559b42fcb48aefc19d6719c6f949b6a73bcafe23",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:976de78285608bb4b079721b2bf6c4de",
+              "start": 54,
+              "end": 176
+            },
+            {
+              "id": "s2",
+              "key": "seg:5818940b2a2bd086e7f8ed6bfa2d6bec",
+              "start": 177,
+              "end": 264
+            },
+            {
+              "id": "s3",
+              "key": "seg:2353eb7bc99d057cf0cbff85edaa628f",
+              "start": 266,
+              "end": 340
+            },
+            {
+              "id": "s4",
+              "key": "seg:24c1e8d853c094e30146919e8e3241ab",
+              "start": 341,
+              "end": 413
+            },
+            {
+              "id": "s5",
+              "key": "seg:af52796cbd07aeede7e42ecf22ef7f46",
+              "start": 415,
+              "end": 518
+            }
+          ],
+          "first_80": "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and stan"
+        }
+      ]
+    },
+    "U5": {
+      "page": "special/Normal.html",
+      "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+      "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "parts": [
+        {
+          "locator": "special/Normal.html#rel2",
+          "found_by": "#r",
+          "segment_key": "seg:24a8a9e0116b7804e4e8a88cc7a70c39",
+          "kind": "unit",
+          "start": 15741,
+          "end": 16491,
+          "sha256": "cf473b4d7a2b790e2de80b197e90ce29b1eb8a7f461c7227f60c49187f63901b",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:1f176d498ace05b6e46c77bd6ba20004",
+              "start": 15741,
+              "end": 15920
+            },
+            {
+              "id": "s2",
+              "key": "seg:0c0de42de7ca0d1fb80723719b2a0704",
+              "start": 15921,
+              "end": 15968
+            },
+            {
+              "id": "s3",
+              "key": "seg:193ed5f44ae395e1a493b9c83c04da36",
+              "start": 15970,
+              "end": 16007
+            },
+            {
+              "id": "s4",
+              "key": "seg:2b97cdfddbfea3582d7a291c9026eb3f",
+              "start": 16008,
+              "end": 16057
+            },
+            {
+              "id": "s5",
+              "key": "seg:f5e79a0886514c2a2231a752576be53c",
+              "start": 16069,
+              "end": 16491
+            }
+          ],
+          "first_80": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_"
+        }
+      ]
+    },
+    "U6": {
+      "page": "special/Normal.html",
+      "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+      "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "parts": [
+        {
+          "locator": "special/Normal.html@p:Recall that in general, if \\(X\\) is a random variable with mean",
+          "found_by": "@p",
+          "segment_key": "seg:57bebab2809e83fa2c27612c682ef9bf",
+          "kind": "paragraph",
+          "start": 14927,
+          "end": 15341,
+          "sha256": "88a9ed6788a85468a5c08221efa523750a47dda30c84bfd3137a912ceb7fbb85",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:c4911a7f4faa75ff5bf326ba9647d648",
+              "start": 14927,
+              "end": 15103
+            },
+            {
+              "id": "s2",
+              "key": "seg:28cfa3f4055ede760eb40320bc762a96",
+              "start": 15104,
+              "end": 15243
+            },
+            {
+              "id": "s3",
+              "key": "seg:72ebc16e02cb1e80ee804bbd71f8cb84",
+              "start": 15244,
+              "end": 15341
+            }
+          ],
+          "first_80": "Recall that in general, if \\(X\\) is a random variable with mean \\(\\mu\\) and stan"
+        }
+      ]
+    },
+    "U7": {
+      "page": "special/Normal.html",
+      "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+      "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "parts": [
+        {
+          "locator": "special/Normal.html@p:In some settings, it's convenient to consider a constant",
+          "found_by": "@p",
+          "segment_key": "seg:56cd22bafd1c152d7f14817bf7521324",
+          "kind": "paragraph",
+          "start": 21098,
+          "end": 21680,
+          "sha256": "1ec751445d2cd7ceaeb859b05c03bb07b05d8e015ad55ae11824be440b666290",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1",
+              "start": 21098,
+              "end": 21244
+            },
+            {
+              "id": "s2",
+              "key": "seg:a92e794aa544c8922ed156fee2a14236",
+              "start": 21245,
+              "end": 21333
+            },
+            {
+              "id": "s3",
+              "key": "seg:c4c8c220064b7baae0c9dd5163d76845",
+              "start": 21334,
+              "end": 21591
+            },
+            {
+              "id": "s4",
+              "key": "seg:40928ef040f210259852048694d4901f",
+              "start": 21592,
+              "end": 21680
+            }
+          ],
+          "first_80": "In some settings, it's convenient to consider a constant as having a normal dist"
+        }
+      ]
+    },
+    "U8": {
+      "page": "special/Normal.html",
+      "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+      "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "parts": [
+        {
+          "locator": "special/Normal.html@u:A metal rod is designed",
+          "found_by": "@u",
+          "segment_key": "seg:9aa15b25543793d52a4f180a6feb350f",
+          "kind": "unit",
+          "start": 20257,
+          "end": 20769,
+          "sha256": "a6824de52c4693e59005fc77f3d0f1406832d227e522a0c9c458c35e66c14d6b",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:d7f5c560d0d153559e24ae58937b434a",
+              "start": 20257,
+              "end": 20331
+            },
+            {
+              "id": "s2",
+              "key": "seg:2d62bec8ef4a94814838147187f9d1d4",
+              "start": 20332,
+              "end": 20425
+            },
+            {
+              "id": "s3",
+              "key": "seg:327c806dbcfb87aa63c4cca2502ddab9",
+              "start": 20426,
+              "end": 20523
+            },
+            {
+              "id": "s4",
+              "key": "seg:c06b44e7a1bd2f44fffbab96fb3905fd",
+              "start": 20524,
+              "end": 20598
+            },
+            {
+              "id": "s5",
+              "key": "seg:6c2c1fc5b53a20e305e21ddfeef3eca4",
+              "start": 20599,
+              "end": 20656
+            },
+            {
+              "id": "s6",
+              "key": "seg:13319312f522a9ddd2cf2e75e4e97b5b",
+              "start": 20668,
+              "end": 20740
+            },
+            {
+              "id": "s7",
+              "key": "seg:17abf3faaf5997aa5a5f035ebdc4ba48",
+              "start": 20741,
+              "end": 20769
+            }
+          ],
+          "first_80": "A metal rod is designed to fit into a circular hole on a certain assembly. The r"
+        }
+      ]
+    },
+    "U9": {
+      "page": "special/LogNormal.html",
+      "document_key": "doc:0dd78f24fc1bdaaf8caf3c23abd9ff33",
+      "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "parts": [
+        {
+          "locator": "special/LogNormal.html@u:Suppose that \\(n \\in \\N_+\\) and that",
+          "found_by": "@u",
+          "segment_key": "seg:bf89d85bb1bd8d84eab6e3dafa1064ce",
+          "kind": "unit",
+          "start": 10048,
+          "end": 10936,
+          "sha256": "23a1dfc2e7f0bbf847b19a81c1d198710e476fe00d3a058f0aa2c9541ecdb730",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:c8858445283cc4b3aeebf62b43bc2380",
+              "start": 10048,
+              "end": 10298
+            },
+            {
+              "id": "s2",
+              "key": "seg:d4d15a5c15b937f230d666afa222625c",
+              "start": 10299,
+              "end": 10474
+            },
+            {
+              "id": "s3",
+              "key": "seg:ae936ca6dd75a6556c16350058871c9a",
+              "start": 10486,
+              "end": 10743
+            },
+            {
+              "id": "s4",
+              "key": "seg:f5bda7a82a6394d9651a5a2520b503bb",
+              "start": 10744,
+              "end": 10808
+            },
+            {
+              "id": "s5",
+              "key": "seg:cc5662bf909023b827077c3ccad88c2a",
+              "start": 10809,
+              "end": 10936
+            }
+          ],
+          "first_80": "Suppose that \\(n \\in \\N_+\\) and that \\((X_1, X_2, \\ldots, X_n)\\) is a sequence o"
+        }
+      ]
+    },
+    "U10": {
+      "page": "special/Gamma.html",
+      "document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+      "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "parts": [
+        {
+          "locator": "special/Gamma.html#dfn4",
+          "found_by": "#d",
+          "segment_key": "seg:6a12d5c892b53e0caf55405219674c69",
+          "kind": "unit",
+          "start": 10263,
+          "end": 10480,
+          "sha256": "662ccef1773f1128c066be8aca7aa5a3f9d754a7eef24ce6f51767723758a6c6",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:f866c716530e7e0d81a76b88d387d242",
+              "start": 10263,
+              "end": 10480
+            }
+          ],
+          "first_80": "If \\(Z\\) has the standard gamma distribution with shape parameter \\(k \\in (0, \\i"
+        }
+      ]
+    },
+    "U11": {
+      "page": "special/Gamma.html",
+      "document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+      "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "parts": [
+        {
+          "locator": "special/Gamma.html#rel2",
+          "found_by": "#r",
+          "segment_key": "seg:7d33a74d20d3f223e0806f7823a80949",
+          "kind": "unit",
+          "start": 16771,
+          "end": 17354,
+          "sha256": "ec0b2447a80f98cdc6c7f775970c34dd9360ce34147c839a751309baa4373898",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:3a0fdd2baeab629e1d8efe4065a86e9b",
+              "start": 16771,
+              "end": 16992
+            },
+            {
+              "id": "s2",
+              "key": "seg:ef641d35c7067a79e9a255ee53e5de15",
+              "start": 16993,
+              "end": 17100
+            },
+            {
+              "id": "s3",
+              "key": "seg:761456882896712fbe868b5815b43840",
+              "start": 17112,
+              "end": 17354
+            }
+          ],
+          "first_80": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_"
+        }
+      ]
+    },
+    "U12": {
+      "page": "special/Gamma.html",
+      "document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+      "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "parts": [
+        {
+          "locator": "special/Gamma.html#mom1",
+          "found_by": "#m",
+          "segment_key": "seg:617e22d84559cfeea7e53551b4a4aee4",
+          "kind": "unit",
+          "start": 7253,
+          "end": 7672,
+          "sha256": "beb4fc41cdd5955463cc0d546797f22707de35b3ad09a2b1cf2483cf5a1468a3",
+          "sentences": [
+            {
+              "id": "s1",
+              "key": "seg:7edc0b114a37b999625e6f5b6393f3f1",
+              "start": 7253,
+              "end": 7289
+            },
+            {
+              "id": "s2",
+              "key": "seg:fffdc9c9a07875ea4f25614d1db1cc51",
+              "start": 7291,
+              "end": 7308
+            },
+            {
+              "id": "s3",
+              "key": "seg:798141f60bd67c856fd7779c40e80b78",
+              "start": 7309,
+              "end": 7328
+            },
+            {
+              "id": "s4",
+              "key": "seg:b32398b5dd210b09054a83c2b028e06c",
+              "start": 7340,
+              "end": 7461
+            },
+            {
+              "id": "s5",
+              "key": "seg:1f928b3871064106c0e965a530dfa590",
+              "start": 7462,
+              "end": 7672
+            }
+          ],
+          "first_80": "The mean and variance of \\( X \\) are\n\n(a) \\(\\E(X) = k\\)\n(b) \\(\\var(X) = k\\)\n\nDet"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "determinism": {
+    "special/LocationScale.html": {
+      "text_identical": true,
+      "keys_identical": true
+    },
+    "special/Normal.html": {
+      "text_identical": true,
+      "keys_identical": true
+    },
+    "special/LogNormal.html": {
+      "text_identical": true,
+      "keys_identical": true
+    },
+    "special/Gamma.html": {
+      "text_identical": true,
+      "keys_identical": true
+    }
+  },
+  "pages": {
+    "special/LocationScale.html": {
+      "structural": {
+        "start_le_end": {
+          "count": 0,
+          "examples": []
+        },
+        "inside_parent": {
+          "count": 0,
+          "examples": []
+        },
+        "siblings_ordered": {
+          "count": 0,
+          "examples": []
+        },
+        "keys_unique": {
+          "count": 0,
+          "examples": []
+        }
+      },
+      "independent_text": {
+        "checked": 145,
+        "mismatched": 0,
+        "skipped_no_element": 207,
+        "examples": []
+      }
+    },
+    "special/Normal.html": {
+      "structural": {
+        "start_le_end": {
+          "count": 0,
+          "examples": []
+        },
+        "inside_parent": {
+          "count": 0,
+          "examples": []
+        },
+        "siblings_ordered": {
+          "count": 0,
+          "examples": []
+        },
+        "keys_unique": {
+          "count": 0,
+          "examples": []
+        }
+      },
+      "independent_text": {
+        "checked": 251,
+        "mismatched": 0,
+        "skipped_no_element": 267,
+        "examples": []
+      }
+    },
+    "special/LogNormal.html": {
+      "structural": {
+        "start_le_end": {
+          "count": 0,
+          "examples": []
+        },
+        "inside_parent": {
+          "count": 0,
+          "examples": []
+        },
+        "siblings_ordered": {
+          "count": 0,
+          "examples": []
+        },
+        "keys_unique": {
+          "count": 0,
+          "examples": []
+        }
+      },
+      "independent_text": {
+        "checked": 123,
+        "mismatched": 0,
+        "skipped_no_element": 198,
+        "examples": []
+      }
+    },
+    "special/Gamma.html": {
+      "structural": {
+        "start_le_end": {
+          "count": 0,
+          "examples": []
+        },
+        "inside_parent": {
+          "count": 0,
+          "examples": []
+        },
+        "siblings_ordered": {
+          "count": 0,
+          "examples": []
+        },
+        "keys_unique": {
+          "count": 0,
+          "examples": []
+        }
+      },
+      "independent_text": {
+        "checked": 243,
+        "mismatched": 0,
+        "skipped_no_element": 285,
+        "examples": []
+      }
+    }
+  }
+}

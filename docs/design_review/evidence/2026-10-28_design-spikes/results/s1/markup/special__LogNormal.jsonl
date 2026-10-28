@@ -1,0 +1,44 @@
+{"start": 81, "end": 100, "markup": "a", "href": "Normal.html", "segment": "seg:433abdc489f598a161ee504d23879f92", "text": "normal distribution"}
+{"start": 202, "end": 224, "markup": "dfn", "segment": "seg:433abdc489f598a161ee504d23879f92", "text": "lognormal distribution"}
+{"start": 266, "end": 270, "markup": "list_marker", "segment": "seg:c55d11e7becfb2511bbf468ba578be8a", "text": "(a) "}
+{"start": 304, "end": 319, "markup": "dfn", "segment": "seg:c55d11e7becfb2511bbf468ba578be8a", "text": "shape parameter"}
+{"start": 341, "end": 345, "markup": "list_marker", "segment": "seg:794c4c37b1a56730c645d9e8157882e8", "text": "(b) "}
+{"start": 377, "end": 392, "markup": "dfn", "segment": "seg:794c4c37b1a56730c645d9e8157882e8", "text": "scale parameter"}
+{"start": 486, "end": 517, "markup": "dfn", "segment": "seg:97da5c2b5ea4a984d999d857c5a1283a", "text": "standard lognormal distribution"}
+{"start": 665, "end": 688, "markup": "a", "href": "../dist/Continuous.html", "segment": "seg:b09df0ac92217a09440a51e6fb92f76b", "text": "continuous distribution"}
+{"start": 1179, "end": 1183, "markup": "list_marker", "segment": "seg:860280fa07d431f7022d5eec52ec98b1", "text": "(a) "}
+{"start": 1276, "end": 1280, "markup": "list_marker", "segment": "seg:9cbfc708579c0efeaa7a7d9a1b8e3092", "text": "(b) "}
+{"start": 1462, "end": 1466, "markup": "list_marker", "segment": "seg:42864bd9d25f451ff29b7f59151bc0a1", "text": "(c) "}
+{"start": 1582, "end": 1609, "markup": "a", "href": "../dist/Transformations.html", "segment": "seg:3e7700c03113dd609f8c1f4f5d4487fe", "text": "change of variables theorem"}
+{"start": 2152, "end": 2182, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:6ffd618d3c6efb3702cddb16600ff0c4", "text": "special distribution simulator"}
+{"start": 2503, "end": 2524, "markup": "a", "href": "../dist/CDF.html", "segment": "seg:5acc04c66742310573a073e946789835", "text": "distribution function"}
+{"start": 3573, "end": 3585, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:b5ddf4c32256c0a8b1bdc96ea4f11500", "text": "quantile app"}
+{"start": 3843, "end": 3850, "markup": "a", "href": "../expect/Properties.html#mom", "segment": "seg:00a4b64db3b709994014b818eb15c610", "text": "moments"}
+{"start": 3906, "end": 3932, "markup": "a", "href": "../expect/Generating.html#mgf", "segment": "seg:00a4b64db3b709994014b818eb15c610", "text": "moment generating function"}
+{"start": 4595, "end": 4599, "markup": "a", "href": "../expect/Properties.html", "segment": "seg:2e9f7084ced7184a064a1af46d3b7d67", "text": "mean"}
+{"start": 4604, "end": 4612, "markup": "a", "href": "../expect/Variance.html", "segment": "seg:2e9f7084ced7184a064a1af46d3b7d67", "text": "variance"}
+{"start": 4627, "end": 4631, "markup": "list_marker", "segment": "seg:a7bc9541e28ae5788872c13cfe937f24", "text": "(a) "}
+{"start": 4687, "end": 4691, "markup": "list_marker", "segment": "seg:4b14bd2c53038ab7d6d11c93c720f668", "text": "(b) "}
+{"start": 4803, "end": 4833, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:cd84aa2685d2f91590d3791a362cfdc7", "text": "special distribution simulator"}
+{"start": 5157, "end": 5165, "markup": "a", "href": "../expect/Skew.html#skw", "segment": "seg:e5d19908ea73d8d8f2e5e694e4333566", "text": "skewness"}
+{"start": 5170, "end": 5178, "markup": "a", "href": "../expect/Skew.html#kur", "segment": "seg:e5d19908ea73d8d8f2e5e694e4333566", "text": "kurtosis"}
+{"start": 5251, "end": 5255, "markup": "list_marker", "segment": "seg:db1cd961e21d627d1befc5b65802e194", "text": "(a) "}
+{"start": 5325, "end": 5329, "markup": "list_marker", "segment": "seg:8028367902541d78f08ef3db00685cfb", "text": "(b) "}
+{"start": 5492, "end": 5495, "markup": "aref", "href": "#mom", "rendered": "[7]", "segment": "seg:f7a40a66b06f0b1fe6ccfd0bfa4a4bf4", "text": "[7]"}
+{"start": 5904, "end": 5919, "markup": "dfn", "segment": "seg:dede1151e52b9a50d8841d200d8cb717", "text": "excess kurtosis"}
+{"start": 6078, "end": 6104, "markup": "a", "href": "../expect/Generating.html#mgf", "segment": "seg:12dee7c3ecd01a539bff67efa60db483", "text": "moment generating function"}
+{"start": 6422, "end": 6449, "markup": "a", "href": "../expect/Properties.html#cov", "segment": "seg:46952232fba778dedd5dac699e23873d", "text": "change of variables formula"}
+{"start": 8083, "end": 8095, "markup": "a", "href": "LocationScale.html", "segment": "seg:32766591081c6421e7b4e2e8f776a5b6", "text": "scale family"}
+{"start": 8374, "end": 8377, "markup": "aref", "href": "#dfn", "rendered": "[1]", "segment": "seg:f73ba83504ded7b334cb7c6925c51eb2", "text": "[1]"}
+{"start": 8956, "end": 8959, "markup": "aref", "href": "#dfn", "rendered": "[1]", "segment": "seg:e86e9331b4167c081f86c8831bfe5557", "text": "[1]"}
+{"start": 9320, "end": 9324, "markup": "aref", "href": "#rel2", "rendered": "[14]", "segment": "seg:b422d4aadb62b52ca3626c41aa483249", "text": "[14]"}
+{"start": 9617, "end": 9620, "markup": "aref", "href": "#dfn", "rendered": "[1]", "segment": "seg:c6378793d65e13202fc750cfbb5a587d", "text": "[1]"}
+{"start": 10508, "end": 10511, "markup": "aref", "href": "#dfn", "rendered": "[1]", "segment": "seg:602ca4c1b831d5adcded6291a03c0f13", "text": "[1]"}
+{"start": 10999, "end": 11032, "markup": "a", "href": "GeneralExponential.html", "segment": "seg:4ab4491a92955284416778844b692f4f", "text": "general exponential distributions"}
+{"start": 11290, "end": 11294, "markup": "list_marker", "segment": "seg:987e146adbaeaf3e3e4c7782aa47e289", "text": "(a) "}
+{"start": 11345, "end": 11349, "markup": "list_marker", "segment": "seg:9d17bcea53105051bb17dd6a4c9408ee", "text": "(b) "}
+{"start": 11501, "end": 11504, "markup": "aref", "href": "#pdf", "rendered": "[2]", "segment": "seg:f9a4dcf99d7ae1ec9bf467be04ee283a", "text": "[2]"}
+{"start": 12189, "end": 12193, "markup": "list_marker", "segment": "seg:c9f7858870e357cd9a0616370c7ef896", "text": "(a) "}
+{"start": 12203, "end": 12207, "markup": "list_marker", "segment": "seg:c3f8081a92df12c60987c6f005dcf898", "text": "(b) "}
+{"start": 12230, "end": 12234, "markup": "list_marker", "segment": "seg:1bf198f5ee2d5e797b5d2785b44bb766", "text": "(a) "}
+{"start": 12270, "end": 12274, "markup": "list_marker", "segment": "seg:14d7e5333f67f2dc349291232605a817", "text": "(b) "}

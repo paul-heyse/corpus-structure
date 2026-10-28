@@ -122,7 +122,7 @@ dependency is added.
 | Purpose | Pins |
 |---|---|
 | HTML | `lxml==6.1.3`, `html5lib==1.1`, `cssselect==1.6.0`, `cssselect2==0.10.1` (`tinycss2==1.5.1`), `trafilatura==2.3.1` |
-| LaTeX | `pylatexenc==2.11` (stable; span validation, macro tables, M13-probe symbols, sentence variant (d)), `sympy==1.14.0`; `pylatexenc==3.0b2` only in an isolated overlay for S1 variant V6 (`uv run --no-project --with pylatexenc==3.0b2 …`) |
+| LaTeX | `pylatexenc==3.0b2` (prerelease, chosen by operator direction 2026-10-28 over 2.11 plus an overlay: its configurable `ParsingState` is what makes LaTeX parsing safe on HTML prose; used for span validation, macro tables, V6, M13-probe symbols and sentence variant (d)), `sympy==1.14.0` |
 | Sentences | `spacy==3.8.18`, `en_core_web_sm` 3.8.0 and `en_core_web_trf` 3.8.0 wheels by URL, `spacy-curated-transformers==0.3.1`, `torch==2.14.1` (CPU) |
 | Sizing | `tokenizers==0.23.3` with the locally cached `Qwen/Qwen3.5-9B` and `fastino/gliner2.5-base-v1` tokenizers (revision hashes recorded) |
 | Instruments | `pydantic==2.14.1`, `linkml==1.12.1`, `rapidfuzz==3.14.6`, `scipy==1.18.1`, `statsmodels==0.15.0`, `numpy==2.5.4` |

@@ -1,0 +1,93 @@
+{
+  "special/LocationScale.html@p:As usual, our starting point": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:461ade98bfb3c5eab5a9dda35ee81c12"
+    ]
+  },
+  "special/LocationScale.html#dfn1": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:175c96a27cc62630afd30222ac6b06cd"
+    ]
+  },
+  "special/Normal.html@p:Suppose again that \\( X \\) has the normal distribution with location parameter": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:a3c88aa2d5cdbd70f8a179347967faa2"
+    ]
+  },
+  "special/Normal.html#rel1": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:284382a0386cf655a9e8cf94ac12980a"
+    ]
+  },
+  "special/LogNormal.html#dfn": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:3fd093d02f8f19cfc6e08e97885fed09"
+    ]
+  },
+  "special/Normal.html#rel2": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:24a8a9e0116b7804e4e8a88cc7a70c39"
+    ]
+  },
+  "special/Normal.html@p:Recall that in general, if \\(X\\) is a random variable with mean": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:57bebab2809e83fa2c27612c682ef9bf"
+    ]
+  },
+  "special/Normal.html@p:In some settings, it's convenient to consider a constant": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:56cd22bafd1c152d7f14817bf7521324"
+    ]
+  },
+  "special/Normal.html@u:A metal rod is designed": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:9aa15b25543793d52a4f180a6feb350f"
+    ]
+  },
+  "special/LogNormal.html@u:Suppose that \\(n \\in \\N_+\\) and that": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:bf89d85bb1bd8d84eab6e3dafa1064ce"
+    ]
+  },
+  "special/Gamma.html#dfn4": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:6a12d5c892b53e0caf55405219674c69"
+    ]
+  },
+  "special/Gamma.html#rel2": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:7d33a74d20d3f223e0806f7823a80949"
+    ]
+  },
+  "special/Gamma.html#mom1": {
+    "matches": 1,
+    "ok": true,
+    "segments": [
+      "seg:617e22d84559cfeea7e53551b4a4aee4"
+    ]
+  }
+}

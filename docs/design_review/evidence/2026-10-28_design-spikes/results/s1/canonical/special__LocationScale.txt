@@ -1,0 +1,184 @@
+Location-Scale Families
+
+General Theory
+
+As usual, our starting point is a random experiment, modeled by a probability space \((\Omega, \ms F, \P)\). So \( \Omega \) is the set of outcomes, \( \ms F \) the collection of events, and \( \P \) the probability measure on the sample space \( (\Omega, \mathscr F) \). In this section, we assume that we fixed random variable \( Z \) defined on the probability space, with values in \( \R \).
+
+Definition
+
+For \(a \in \R\) and \(b \in (0, \infty) \), let \(X = a + b \, Z\). The two-parameter family of distributions associated with \(X\) is called the location-scale family associated with the given distribution of \(Z\). Specifically, \(a\) is the location parameter and \(b\) the scale parameter.
+
+Thus a linear transformation, with positive slope, of the underlying random variable \(Z\) creates a location-scale family for the underlying distribution. In the special case that \(b = 1\), the one-parameter family is called the location family associated with the given distribution, and in the special case that \(a = 0\), the one-parameter family is called the scale family associated with the given distribution. Scale transformations, as the name suggests, occur naturally when physical units are changed. For example, if a random variable represents the length of an object, then a change of units from meters to inches corresponds to a scale transformation. Location transformations often occur when the zero reference point is changed, in measuring distance or time, for example. Location-scale transformations can also occur with a change of physical units. For example, if a random variable represents the temperature of an object, then a change of units from Fahrenheit to Celsius corresponds to a location-scale transformation.
+
+Distribution Functions
+
+Our goal is to relate various functions that determine the distribution of \( X = a + b Z \) to the corresponding functions for \( Z \). First we consider the (cumulative) distribution function
+
+If \(Z\) has distribution function \(G\) then \(X\) has distribution function \(F\) given by \[  F(x) = G \left( \frac{x - a}{b} \right), \quad x \in \R\]
+
+Details:
+
+For \( x \in \R \) \[ F(x) = \P(X \le x) = \P(a + b Z \le x) = \P\left(Z \le \frac{x - a}{b}\right) = G\left(\frac{x - a}{b}\right) \]
+
+Next we consider the probability density function. The results are a bit different for discrete distributions and continuous distribution, not surprising since the density function has different meanings in these two cases.
+
+If \( Z \) has a discrete distribution with probability density function \( g \) then \( X \) also has a discrete distribution, with probability density function \( f \) given by \[ f(x) = g\left(\frac{x - a}{b}\right), \quad x \in \R \]
+
+Details:
+
+If \( Z \) takes values in a countable subset \( S \subset \R \) then \( X \) takes values in \( T = \{a + b z: z \in S\} \), which is also countable. Moreover \[ f(x) = \P(X = x) = \P\left(Z = \frac{x - a}{b}\right) = g\left(\frac{x - a}{b}\right), \quad x \in \R \]
+
+If \(Z\) has a continuous distribution with probability density function \(g\), then \(X\) also has a continuous distribution, with probability density function \(f\) given by
+
+\[ f(x) = \frac{1}{b} \, g \left( \frac{x - a}{b} \right), \quad x \in \R\]
+
+(a) For the location family associated with \(g\), the graph of \(f\) is obtained by shifting the graph of \(g\), \(a\) units to the right if \(a \gt 0\) and \(-a\) units to the left if \(a \lt 0\).
+(b) For the scale family associated with \(g\), if \(b \gt 1\), the graph of \(f\) is obtained from the graph of \(g\) by stretching horizontally and compressing vertically, by a factor of \(b\). If \(0 \lt b \lt 1\), the graph of \(f\) is obtained from the graph of \(g\) by compressing horizontally and stretching vertically, by a factor of \(b\).
+
+Details:
+
+First note that \( \P(X = x) = \P\left(Z = \frac{x - a}{b}\right) = 0 \), so \( X \) has a continuous distribution. Typically, \( Z \) takes values in an interval of \( \R \) and thus so does \( X \). The formula for the density function follows by taking derivatives of the distribution function in [2], since \( f = F^\prime \) and \( g = G^\prime \).
+
+If \(Z\) has a mode at \(z\), then \(X\) has a mode at \(x = a + b z\).
+
+Details:
+
+This follows from density function in [3] in the discrete case or the density function in [4] in the continuous case. If \( g \) has a maximum at \( z \) then \( f \) has a maximum at \( x = a + b z \)
+
+Next we relate the quantile functions of \(Z\) and \(X\).
+
+If \(G\) and \(F\) are the distribution functions of \(Z\) and \(X\), respectively, then
+
+(a) \(F^{-1}(p) = a + b \, G^{-1}(p)\) for \(p \in (0, 1)\)
+(b) If \(z\) is a quantile of order \(p\) for \(Z\) then \(x = a + b \, z\) is a quantile of order \(p\) for \(X\).
+
+Details:
+
+These results follow from the distribution function in [2].
+
+Suppose now that \( Z \) has a continuous distribution on \([0, \infty)\), and that we think of \(Z\) as the failure time of a device (or the time of death of an organism). Let \(X = b Z\) where \( b \in (0, \infty)\), so that the distribution of \(X\) is the scale family associated with the distribution of \(Z\). Then \(X\) also has a continuous distribution on \([0, \infty)\) and can also be thought of as the failure time of a device (perhaps in different units).
+
+Let \(G^c\) and \(F^c\) denote the reliability functions of \(Z\) and \(X\) respectively, and let \(r\) and \(s\) denote the failure rate functions of \(Z\) and \(X\), respectively. Then
+
+(a) \(F^c(x) = G^c(x / b)\) for \(x \in [0, \infty)\)
+(b) \(s(x) = (1 / b)r(x / b)\) for \(x \in [0, \infty)\)
+
+Details:
+
+Recall that \( G^c = 1 - G \), \( F^c = 1 - F \), \( r = g / \bar{G} \), and \( R = f / \bar{F} \). So the results follow from the distribution function in [2] and the density function in [4].
+
+In particular, from part (b) note that the \(X\) has the same general failure rate features (increasing, decreasing, etc.) as \(Z\).
+
+The entropy of \(X\) and \(Z\) are related by \(H(X) = H(Z) + \ln b\).
+
+Details:
+
+The result follows easily from the definition of entropy as an expected value: \[ H(X) = -\E[\ln f(X)] = -\E[\ln f(b Z)] = -\E(\ln [ g(Z) / b]) = -\E[\ln g(Z) - \ln b] = H(Z) + \ln b \]
+
+Moments
+
+The following theorem relates the mean, variance, and standard deviation of \(Z\) and \(X\).
+
+As before, suppose that \(X = a + b \, Z\) with \(a \in \R\) and \(b \in (0, \infty)\). Then
+
+(a) \(\E(X) = a + b \, \E(Z)\)
+(b) \(\var(X) = b^2 \, \var(Z)\)
+(c) \(\sd(X) = b \, \sd(Z)\)
+
+Details:
+
+These result follow immediately from basic properties of expected value and variance.
+
+Recall that the standard score of a random variable is obtained by subtracting the mean and dividing by the standard deviation. The standard score is dimensionless (that is, has no physical units) and measures the directed distance from the mean to the random variable in standard deviations. Since location-scale familes essentially correspond to a change of units, it's not surprising that the standard score is unchanged by a location-scale transformation.
+
+The standard scores of \(X\) and \(Z\) are the same:
+
+\[ \frac{X - \E(X)}{\sd(X)} = \frac{Z - \E(Z)}{\sd(Z)} \]
+
+Details:
+
+From the mean and variance in [9]:
+
+\[ \frac{X - \E(X)}{\sd(X)} = \frac{a + b Z - [a + b \E(Z)]}{b \sd(Z)} = \frac{Z - \E(Z)}{\sd(Z)} \]
+
+Recall that the skewness and kurtosis of a random variable are the third and fourth moments, respectively, of the standard score. Thus it follows from [10] that skewness and kurtosis are unchanged by location-scale transformations: \(\skw(X) = \skw(Z)\), \(\kur(X) = \kur(Z)\). We can represent the moments of \( X \) about 0 (sometimes called raw moments) to those of \( Z \) by means of the binomial theorem: \[ \E\left(X^n\right) = \sum_{k=0}^n \binom{n}{k} b^k a^{n - k} \E\left(Z^k\right), \quad n \in \N \] Of course, the moments of \( X \) about the location parameter \( a \) have a simple representation in terms of the moments of \( Z \) about 0: \[ \E\left[(X - a)^n\right] = b^n \E\left(Z^n\right), \quad n \in \N \] The following exercise relates the moment generating functions of \(Z\) and \(X\).
+
+If \(Z\) has moment generating function \(m\) then \(X\) has moment generating function \(M\) given by
+
+\[ M(t) = e^{a t} m(b t) \]
+
+Details:
+
+\[ M(t) = \E\left(e^{tX}\right) = \E\left[e^{t(a + bZ)}\right] = e^{ta} \E\left(e^{t b Z}\right) = e^{a t} m(b t) \]
+
+Type
+
+As we noted earlier, two probability distributions that are related by a location-scale transformation can be thought of as governing the same underlying random quantity, but in different physical units. This relationship is important enough to deserve a name.
+
+Suppose that \( P \) and \( Q \) are probability distributions on \( \R \) with distribution functions \(F\) and \(G\), respectively. Then \( P \) and \( Q \) are of the same type if there exist constants \(a \in \R\) and \(b \in (0, \infty)\) such that \[ F(x) = G \left( \frac{x - a}{b} \right), \quad x \in \R \]
+
+Being of the same type is an equivalence relation on the collection of probability distributions on \(\R\). That is, if \(P\), \(Q\), and \(R\) are probability distribution on \( \R \) then
+
+(a) \(P\) is the same type as \(P\) (the reflexive property).
+(b) If \(P\) is the same type as \(Q\) then \(Q\) is the same type as \(P\) (the symmetric property).
+(c) If \(P\) is the same type as \(Q\), and \(Q\) is the same type as \(R\), then \(P\) is the same type as \(R\) (the transitive property).
+
+Details:
+
+Let \( F \), \( G \), and \( H \) denote the distribution functions of \( P \), \( Q \), and \( R \) respectively.
+
+(a) This is trivial, of course, since we can take \( a = 0 \) and \( b = 1 \).
+(b) Suppose there exists \( a \in \R \) and \( b \in (0, \infty) \) such that \( F(x) = G\left(\frac{x - a}{b}\right) \) for \( x \in \R \). Then \( G(x) = F(a + b x) = F\left(\frac{x - (-a/b)}{1/b}\right) \) for \( x \in \R \).
+(c) Suppose there exists \( a, \, c \in \R \) and \( b, \, d \in (0, \infty) \) such that \( F(x) = G\left(\frac{x - a}{b}\right) \) and \( G(x) = H\left(\frac{x - c}{d}\right) \) for \( x \in \R \). Then \( F(x) = H\left(\frac{x - (a + bc)}{bd}\right)\) for \( x \in \R \).
+
+So, the collection of probability distributions on \( \R \) is partitioned into mutually exclusive equivalence classes, where the distributions in each class are all of the same type.
+
+Examples and Applications
+
+Special Distributions
+
+Many of the special parametric families of distributions studied in this chapter and elsewhere in this text are location and/or scale families.
+
+The arcsine distribution is a location-scale family.
+
+The Cauchy distribution is a location-scale family.
+
+The exponential distribution is a scale family.
+
+The exponential-logarithmic distribution is a scale family for each value of the shape parameter.
+
+The extreme value distribution is a location-scale family.
+
+The gamma distribution is a scale family for each value of the shape parameter.
+
+The Gompertz distribution is a scale family for each value of the shape parameter.
+
+The half-normal distribution is a scale family.
+
+The hyperbolic secant distribution is a location-scale family.
+
+The Lévy distribution is a location scale family.
+
+The logistic distribution is a location-scale family.
+
+The log-logistic distribution is a scale family for each value of the shape parameter.
+
+The Maxwell distribution is a scale family.
+
+The normal distribution is a location-scale family.
+
+The Pareto distribution is a scale family for each value of the shape parameter.
+
+The Rayleigh distribution is a scale family.
+
+The semicircle distribution is a location-scale family.
+
+The triangle distribution is a location-scale family for each value of the shape parameter.
+
+The uniform distribution on an interval is a location-scale family.
+
+The U-power distribution is a location-scale family for each value of the shape parameter.
+
+The Weibull distribution is a scale family for each value of the shape parameter.
+
+The Wald distribution is a scale family, although in the usual formulation, neither of the parameters is a scale parameter.

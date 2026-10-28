@@ -1,0 +1,42 @@
+# Siegrist source profile for the S1 adapter.
+# Base: docs/design/D2-schema-and-guidelines.md §12.1 `source_profiles.siegrist` (copied 2026-10-28),
+# kept verbatim under `d2_12_1`. S1's additions and corrections are under `s1_additions`, each with
+# the evidence that motivated it; the S1 report proposes the merged profile back to D2.
+d2_12_1:
+  applies_to: "siegrist_random/random/**/*.html"
+  exclude:
+    scripts: "script, noscript"
+    macro_block: "div.latex"
+    navigation: "header ol.map, footer"
+    controls: "button"
+    images: "img"
+  title: "header h2"
+  sections: ["h3", "h4"]
+  unit: "div.unit"
+  block_hints:
+    "p.dfn": {statement_kind: definition}
+    "p.dfm": {statement_kind: definition}
+    "p.dfin": {statement_kind: definition}
+    "p.math": {statement_kind: theorem}
+    "p.exercise": {statement_kind: exercise}
+    "p.exericse": {statement_kind: exercise}
+    "p.app": {statement_kind: remark, claim_bearing: false}
+  section_hints:
+    "Examples and Applications": example
+    "Examples and Special Cases": example
+    "Special Cases": example
+    "Computational Exercises": exercise
+  details_kinds:
+    default: proof
+    inside_example_or_exercise: solution
+    by_summary: {"Answer": solution, "Answwer:": solution, "Notes:": remark}
+  math: {inline: ["\\(", "\\)"], display: ["\\[", "\\]"], page_macros: true}
+
+s1_additions:
+  exclude:
+    chapter_lists: "ul.map"            # inventory: 75 chapter-index lists (ul.map / li.sister)
+  math:
+    display_environments: ["align", "align*"]   # inventory: 106 bare align blocks without \[
+  block_hints:
+    "p.stat": {statement_kind: theorem}         # inventory: 10 units open with p.stat
+    "p.Proof": {statement_kind: proof}          # inventory: 1 (special/Divisible.html)

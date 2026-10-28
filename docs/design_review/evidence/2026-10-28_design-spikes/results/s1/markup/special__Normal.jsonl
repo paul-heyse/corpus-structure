@@ -1,0 +1,125 @@
+{"start": 124, "end": 145, "markup": "a", "href": "../sample/CLT.html", "segment": "seg:de3e8f18013e32e55bcfabc7ea4bb9c3", "text": "central limit theorem"}
+{"start": 360, "end": 381, "markup": "dfn", "segment": "seg:de3e8f18013e32e55bcfabc7ea4bb9c3", "text": "Gaussian distribution"}
+{"start": 395, "end": 415, "markup": "a", "href": "JavaScript:openAncillary('../biographies/Gauss.html')", "classes": ["ancillary"], "segment": "seg:de3e8f18013e32e55bcfabc7ea4bb9c3", "text": "Carl Friedrich Gauss"}
+{"start": 529, "end": 557, "markup": "dfn", "segment": "seg:2a1549e6230ce0c0b72491783f136a5f", "text": "standard normal distribution"}
+{"start": 604, "end": 632, "markup": "a", "href": "../dist/Continuous.html", "segment": "seg:2a1549e6230ce0c0b72491783f136a5f", "text": "probability density function"}
+{"start": 1736, "end": 1748, "markup": "q", "segment": "seg:2f7b695cfb2b39d69dfff9d0574d97a4", "text": "“bell shape”"}
+{"start": 1871, "end": 1875, "markup": "list_marker", "segment": "seg:e305e0cccc9d04a691ea6f8f3d69d047", "text": "(a) "}
+{"start": 1914, "end": 1918, "markup": "list_marker", "segment": "seg:70967694e11e302f84c1f18f516f6862", "text": "(b) "}
+{"start": 1980, "end": 1984, "markup": "list_marker", "segment": "seg:ab391e0bb2adb42cf2f94018dc7f742b", "text": "(c) "}
+{"start": 2093, "end": 2097, "markup": "list_marker", "segment": "seg:3cd30158d87d0949ec2efb8d509bf6b3", "text": "(d) "}
+{"start": 2370, "end": 2400, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html');", "classes": ["ancillary"], "segment": "seg:451e4edd2d8c8bb193bc49256e61ed01", "text": "Special Distribution Simulator"}
+{"start": 2665, "end": 2686, "markup": "a", "href": "../dist/CDF.html", "segment": "seg:7fdb3dddebf4ba1ad058cbafec0c36ea", "text": "distribution function"}
+{"start": 3008, "end": 3020, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:7fdb3dddebf4ba1ad058cbafec0c36ea", "text": "quantile app"}
+{"start": 3138, "end": 3155, "markup": "em", "segment": "seg:7fdb3dddebf4ba1ad058cbafec0c36ea", "text": "special functions"}
+{"start": 3261, "end": 3265, "markup": "list_marker", "segment": "seg:4b04347e09a2f45abec283cf31d58679", "text": "(a) "}
+{"start": 3309, "end": 3313, "markup": "list_marker", "segment": "seg:ac0cc9f47ef0c27e86f6a6d42f89e986", "text": "(b) "}
+{"start": 3371, "end": 3375, "markup": "list_marker", "segment": "seg:3a207bec0b7e3773ec2ee208f5982d2a", "text": "(c) "}
+{"start": 3572, "end": 3584, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:23a4fae76b5085c4c4fa106803b90843", "text": "quantile app"}
+{"start": 3649, "end": 3653, "markup": "list_marker", "segment": "seg:c947a38fe01721a56ada2439e77cf380", "text": "(a) "}
+{"start": 3723, "end": 3727, "markup": "list_marker", "segment": "seg:9fca9101c032731bee810904ad5052b7", "text": "(b) "}
+{"start": 3763, "end": 3767, "markup": "list_marker", "segment": "seg:885312fc41e5da257451a8aaad954e6d", "text": "(c) "}
+{"start": 3808, "end": 3820, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:be3ab627f3e52281050abcee6635479a", "text": "quantile app"}
+{"start": 3966, "end": 3970, "markup": "list_marker", "segment": "seg:cac8d60828fc4e33eda1f76a0efd79ae", "text": "(a) "}
+{"start": 3999, "end": 4003, "markup": "list_marker", "segment": "seg:8d2b1501303fa77cb27c088bd0b23b9b", "text": "(b) "}
+{"start": 4030, "end": 4034, "markup": "list_marker", "segment": "seg:8d4e4172aa2364edc93a5a42ac251a57", "text": "(c) "}
+{"start": 4149, "end": 4153, "markup": "a", "href": "../expect/Properties.html", "segment": "seg:2250960a92253d197f6856bec95434d9", "text": "mean"}
+{"start": 4158, "end": 4166, "markup": "a", "href": "../expect/Variance.html", "segment": "seg:2250960a92253d197f6856bec95434d9", "text": "variance"}
+{"start": 4183, "end": 4187, "markup": "list_marker", "segment": "seg:57e4e313bd4564d177b0a4961c04bd2f", "text": "(a) "}
+{"start": 4203, "end": 4207, "markup": "list_marker", "segment": "seg:237ae960b05b781a14dcc6f14fb542dd", "text": "(b) "}
+{"start": 4236, "end": 4240, "markup": "list_marker", "segment": "seg:a65c5a770965e103e4de0c56147e83d7", "text": "(a) "}
+{"start": 4275, "end": 4278, "markup": "em", "segment": "seg:a65c5a770965e103e4de0c56147e83d7", "text": "has"}
+{"start": 4788, "end": 4792, "markup": "list_marker", "segment": "seg:823c44470700a786459855480be8fb78", "text": "(b) "}
+{"start": 5188, "end": 5191, "markup": "list_marker", "segment": "seg:ff0c205416853011ffa816a703dfd3cb", "text": "(c)"}
+{"start": 5200, "end": 5230, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:445a637fce5529b74cb08ccb99632e71", "text": "Special Distribution Simulator"}
+{"start": 5732, "end": 5735, "markup": "aref", "href": "#pdf2", "rendered": "[2]", "segment": "seg:7fba9ae8e96f3e6c9f11978783bd8d1c", "text": "[2]"}
+{"start": 6286, "end": 6290, "markup": "list_marker", "segment": "seg:6f1e757edd7730acacea446e09c207d3", "text": "(a) "}
+{"start": 6328, "end": 6332, "markup": "list_marker", "segment": "seg:baf5f450fa70ceb487ed4304da529928", "text": "(b) "}
+{"start": 6476, "end": 6479, "markup": "aref", "href": "#mom1", "rendered": "[7]", "segment": "seg:224181849dbda84c2b85f5ad56b618d3", "text": "[7]"}
+{"start": 6506, "end": 6509, "markup": "aref", "href": "#mom2", "rendered": "[9]", "segment": "seg:224181849dbda84c2b85f5ad56b618d3", "text": "[9]"}
+{"start": 6512, "end": 6516, "markup": "list_marker", "segment": "seg:fd49e520cf288fa0f562be99728351a4", "text": "(a) "}
+{"start": 6613, "end": 6617, "markup": "list_marker", "segment": "seg:9c48e4af967003f3ff8921be1e0adbbf", "text": "(b) "}
+{"start": 6975, "end": 6983, "markup": "a", "href": "../expect/Skew.html#skw", "segment": "seg:19766543781a849ae62eba6261691b05", "text": "skewness"}
+{"start": 6988, "end": 6996, "markup": "a", "href": "../expect/Skew.html#kur", "segment": "seg:19766543781a849ae62eba6261691b05", "text": "kurtosis"}
+{"start": 7077, "end": 7081, "markup": "list_marker", "segment": "seg:be1b4b889977e8b92c63d3ffb95b39c1", "text": "(a) "}
+{"start": 7097, "end": 7101, "markup": "list_marker", "segment": "seg:75302242b57654a5577d6661cc003a1d", "text": "(b) "}
+{"start": 7128, "end": 7132, "markup": "list_marker", "segment": "seg:7b873f84c100f712f2239ee72b151fbe", "text": "(a) "}
+{"start": 7287, "end": 7291, "markup": "list_marker", "segment": "seg:bc734b3d889924a57caa231d3c978475", "text": "(b) "}
+{"start": 7468, "end": 7476, "markup": "em", "segment": "seg:64dc78890dc94a86fb870aa5a130f71d", "text": "standard"}
+{"start": 7483, "end": 7498, "markup": "dfn", "segment": "seg:64dc78890dc94a86fb870aa5a130f71d", "text": "excess kurtosis"}
+{"start": 7722, "end": 7748, "markup": "a", "href": "../expect/Generating.html#mgf", "segment": "seg:5f674ae4dbad9e546fd28329df473a49", "text": "moment generating function"}
+{"start": 7756, "end": 7779, "markup": "a", "href": "../expect/Generating.html#chf", "segment": "seg:5f674ae4dbad9e546fd28329df473a49", "text": "characteristic function"}
+{"start": 7885, "end": 7889, "markup": "list_marker", "segment": "seg:1b03e03856d1790ad799e6b6ff1b705a", "text": "(a) "}
+{"start": 7932, "end": 7936, "markup": "list_marker", "segment": "seg:7188935f711813405413d248ff196ab5", "text": "(b) "}
+{"start": 7994, "end": 7998, "markup": "list_marker", "segment": "seg:07930d8910ce302e67c4a291ee86b71a", "text": "(a) "}
+{"start": 8639, "end": 8643, "markup": "list_marker", "segment": "seg:5d9019351e34e9cd672f8bab1193450a", "text": "(b) "}
+{"start": 9101, "end": 9122, "markup": "a", "href": "LocationScale.html", "segment": "seg:97bde7c7a7bd4b078e0392e5243cd20f", "text": "location-scale family"}
+{"start": 9324, "end": 9343, "markup": "dfn", "segment": "seg:97fd8e4d477460d08e99975b13baa399", "text": "normal distribution"}
+{"start": 9717, "end": 9745, "markup": "a", "href": "../dist/Continuous.html", "segment": "seg:fb9e9ef3beaac24f35ae7c2776ae1cdb", "text": "probability density function"}
+{"start": 10005, "end": 10024, "markup": "a", "href": "../dist/Transformations.html#cov1", "segment": "seg:3ded189bda70aae341a58acddfe7fdd5", "text": "change of variables"}
+{"start": 10172, "end": 10176, "markup": "list_marker", "segment": "seg:b760fbd6f34c56d73a41e5b030f006ef", "text": "(a) "}
+{"start": 10214, "end": 10218, "markup": "list_marker", "segment": "seg:c1d8bee9f6ba74a1b7d412141b254e3b", "text": "(b) "}
+{"start": 10278, "end": 10282, "markup": "list_marker", "segment": "seg:7c5b55e2e201d17f603c664b6602bc1c", "text": "(c) "}
+{"start": 10391, "end": 10395, "markup": "list_marker", "segment": "seg:a5f27ed749622037b6c4f5fc992f4cc0", "text": "(d) "}
+{"start": 10542, "end": 10545, "markup": "aref", "href": "#pdf2", "rendered": "[2]", "segment": "seg:7e08158bd238191c2578cda3883b1049", "text": "[2]"}
+{"start": 10555, "end": 10585, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:c7d38ddc6152cc01d1c701f968ee8626", "text": "special distribution simulator"}
+{"start": 11099, "end": 11103, "markup": "list_marker", "segment": "seg:c15ecbcdbe88e2d05898a8862fc77bec", "text": "(a) "}
+{"start": 11175, "end": 11179, "markup": "list_marker", "segment": "seg:e057f3f671fb07d6b15c75d92fdf912f", "text": "(b) "}
+{"start": 11246, "end": 11250, "markup": "list_marker", "segment": "seg:9a14c2418fa1fb1d346472c7ca29363b", "text": "(c) "}
+{"start": 11415, "end": 11427, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:75fd2e60dff2659a6fe0a88e928f3a6d", "text": "quantile app"}
+{"start": 11784, "end": 11788, "markup": "a", "href": "../expect/Properties.html", "segment": "seg:a3c88aa2d5cdbd70f8a179347967faa2", "text": "mean"}
+{"start": 11793, "end": 11811, "markup": "a", "href": "../expect/Variance.html", "segment": "seg:a3c88aa2d5cdbd70f8a179347967faa2", "text": "standard deviation"}
+{"start": 11866, "end": 11870, "markup": "list_marker", "segment": "seg:67df10e448c2b0bbf9607e78b41c1524", "text": "(a) "}
+{"start": 11886, "end": 11890, "markup": "list_marker", "segment": "seg:097af5ff01d1f47ed431baaf8b835c0f", "text": "(b) "}
+{"start": 12116, "end": 12120, "markup": "em", "segment": "seg:6e517ed828bc829ac4c673a93842bbd0", "text": "mean"}
+{"start": 12125, "end": 12143, "markup": "em", "segment": "seg:6e517ed828bc829ac4c673a93842bbd0", "text": "standard deviation"}
+{"start": 12156, "end": 12164, "markup": "em", "segment": "seg:6e517ed828bc829ac4c673a93842bbd0", "text": "location"}
+{"start": 12169, "end": 12174, "markup": "em", "segment": "seg:6e517ed828bc829ac4c673a93842bbd0", "text": "scale"}
+{"start": 12414, "end": 12418, "markup": "list_marker", "segment": "seg:ceebe269906296e3e550f9a84458a592", "text": "(a) "}
+{"start": 12532, "end": 12536, "markup": "list_marker", "segment": "seg:a50264c6f92013ecc41a18ed1822470f", "text": "(b) "}
+{"start": 12721, "end": 12751, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:906050c59dfb4cae58e92d09b7187d8e", "text": "special distribution simulator"}
+{"start": 13093, "end": 13101, "markup": "a", "href": "../expect/Skew.html#skw", "segment": "seg:59a2877478bf3f4f50e4699506d727f3", "text": "skewness"}
+{"start": 13106, "end": 13114, "markup": "a", "href": "../expect/Skew.html#kur", "segment": "seg:59a2877478bf3f4f50e4699506d727f3", "text": "kurtosis"}
+{"start": 13159, "end": 13163, "markup": "list_marker", "segment": "seg:d4d0ba991d4201caa8e540e9a0150d45", "text": "(a) "}
+{"start": 13179, "end": 13183, "markup": "list_marker", "segment": "seg:8ff12ec43b4b13459d4cb31dbec825da", "text": "(b) "}
+{"start": 13364, "end": 13368, "markup": "aref", "href": "#mom4", "rendered": "[11]", "segment": "seg:039ff7e94c2ef96086ecbe37e9ac9992", "text": "[11]"}
+{"start": 13474, "end": 13478, "markup": "list_marker", "segment": "seg:1b3b130c506042326d185bca7e4658ec", "text": "(a) "}
+{"start": 13561, "end": 13565, "markup": "list_marker", "segment": "seg:61456881c585e363f9a3ee37d8fbc305", "text": "(b) "}
+{"start": 13663, "end": 13667, "markup": "list_marker", "segment": "seg:832c97cbdd0820ab066cbecddf89321c", "text": "(a) "}
+{"start": 13792, "end": 13796, "markup": "aref", "href": "#mgf1", "rendered": "[12]", "segment": "seg:832c97cbdd0820ab066cbecddf89321c", "text": "[12]"}
+{"start": 13990, "end": 13994, "markup": "list_marker", "segment": "seg:1c93ae6c032c7149735ed13fdf87df27", "text": "(b) "}
+{"start": 15079, "end": 15093, "markup": "dfn", "segment": "seg:57bebab2809e83fa2c27612c682ef9bf", "text": "standard score"}
+{"start": 15360, "end": 15364, "markup": "list_marker", "segment": "seg:7dd98db6ea1fc78076b26035d8a228d6", "text": "(a) "}
+{"start": 15527, "end": 15531, "markup": "list_marker", "segment": "seg:cbaff2658656bb700c03f38b902b15ed", "text": "(b) "}
+{"start": 15970, "end": 15974, "markup": "list_marker", "segment": "seg:1fc4f1523c99b2bbf59d103ac4089f1d", "text": "(a) "}
+{"start": 16008, "end": 16012, "markup": "list_marker", "segment": "seg:67bbb7982f68a465555a729bc7378413", "text": "(b) "}
+{"start": 16501, "end": 16505, "markup": "aref", "href": "#rel2", "rendered": "[26]", "segment": "seg:961bd2f195a522959949a1bc0e280447", "text": "[26]"}
+{"start": 16811, "end": 16815, "markup": "aref", "href": "#rel1", "rendered": "[24]", "segment": "seg:961bd2f195a522959949a1bc0e280447", "text": "[24]"}
+{"start": 16860, "end": 16866, "markup": "a", "href": "Stable.html", "segment": "seg:961bd2f195a522959949a1bc0e280447", "text": "stable"}
+{"start": 17302, "end": 17306, "markup": "aref", "href": "#rel2", "rendered": "[26]", "segment": "seg:7ac05059040aa97393b705ef12f1c5c7", "text": "[26]"}
+{"start": 17422, "end": 17426, "markup": "aref", "href": "#rel1", "rendered": "[24]", "segment": "seg:7ac05059040aa97393b705ef12f1c5c7", "text": "[24]"}
+{"start": 17670, "end": 17690, "markup": "a", "href": "Divisible.html", "segment": "seg:3563f3ae466497eb25a83ea31dd9c7bf", "text": "infinitely divisible"}
+{"start": 18276, "end": 18309, "markup": "a", "href": "GeneralExponential.html", "segment": "seg:44a7a55189b25266a889e45347c64493", "text": "general exponential distributions"}
+{"start": 19015, "end": 19037, "markup": "a", "href": "LogNormal.html", "segment": "seg:0642d39435a9938f9998cb98053287dd", "text": "lognormal distribution"}
+{"start": 19042, "end": 19068, "markup": "a", "href": "FoldedNormal.html", "segment": "seg:2345cf23e0d97c77a9284e513589d24a", "text": "folded normal distribution"}
+{"start": 19136, "end": 19157, "markup": "a", "href": "Rayleigh.html", "segment": "seg:eafe3e16886168c0bd2841996feba51d", "text": "Rayleigh distribution"}
+{"start": 19162, "end": 19182, "markup": "a", "href": "Maxwell.html", "segment": "seg:a9b705ea19248245f9c5540f3a080d65", "text": "Maxwell distribution"}
+{"start": 19187, "end": 19204, "markup": "a", "href": "Levy.html", "segment": "seg:e5641c0107ab4cf5ff3e9ec4a0596313", "text": "Lévy distribution"}
+{"start": 19330, "end": 19351, "markup": "a", "href": "../sample/CLT.html", "segment": "seg:82f078688be95055a143cb2a38d7b68e", "text": "central limit theorem"}
+{"start": 19643, "end": 19664, "markup": "a", "href": "../bernoulli/Binomial.html", "segment": "seg:84e4aed524b33fc3f0343483e024f987", "text": "binomial distribution"}
+{"start": 19669, "end": 19699, "markup": "a", "href": "../bernoulli/NegativeBinomial.html", "segment": "seg:14b627f98867b4ba4c2a5e52dd8d71de", "text": "negative binomial distribution"}
+{"start": 19704, "end": 19724, "markup": "a", "href": "../poisson/Poisson.html", "segment": "seg:3194e5d06d29536f49da9e212eab9d4e", "text": "Poisson distribution"}
+{"start": 19729, "end": 19747, "markup": "a", "href": "Gamma.html", "segment": "seg:1afa32439081e2b1ffa09798ded4cc63", "text": "gamma distribution"}
+{"start": 19752, "end": 19775, "markup": "a", "href": "ChiSquare.html", "segment": "seg:b7ef9bc0c9f6d487babd378ce084b4a3", "text": "chi-square distribution"}
+{"start": 19780, "end": 19808, "markup": "a", "href": "Student.html", "segment": "seg:244572ec415558c2f9b1adb2e0bdc270", "text": "student \\( t \\) distribution"}
+{"start": 19813, "end": 19836, "markup": "a", "href": "IrwinHall.html", "segment": "seg:459b7063206e07df6d2bbcd99b8308d3", "text": "Irwin-Hall distribution"}
+{"start": 20006, "end": 20010, "markup": "list_marker", "segment": "seg:3ab99c9c17a1e1eda06161af3714d174", "text": "(a) "}
+{"start": 20079, "end": 20083, "markup": "list_marker", "segment": "seg:892f87e2075e8c2eca9579ca360b2489", "text": "(b) "}
+{"start": 20197, "end": 20201, "markup": "list_marker", "segment": "seg:b1083d5fe86b0c5ae0b366f660f1d9c8", "text": "(a) "}
+{"start": 20229, "end": 20233, "markup": "list_marker", "segment": "seg:e0449944581837d44828643ea91ac5fe", "text": "(b) "}
+{"start": 21395, "end": 21399, "markup": "aref", "href": "#pdf3", "rendered": "[14]", "segment": "seg:56cd22bafd1c152d7f14817bf7521324", "text": "[14]"}
+{"start": 21430, "end": 21434, "markup": "aref", "href": "#cdf2", "rendered": "[17]", "segment": "seg:56cd22bafd1c152d7f14817bf7521324", "text": "[17]"}
+{"start": 21526, "end": 21530, "markup": "aref", "href": "#mgf2", "rendered": "[23]", "segment": "seg:56cd22bafd1c152d7f14817bf7521324", "text": "[23]"}
+{"start": 21555, "end": 21559, "markup": "aref", "href": "#rel1", "rendered": "[24]", "segment": "seg:56cd22bafd1c152d7f14817bf7521324", "text": "[24]"}
+{"start": 21570, "end": 21574, "markup": "aref", "href": "#rel2", "rendered": "[26]", "segment": "seg:56cd22bafd1c152d7f14817bf7521324", "text": "[26]"}
+{"start": 21640, "end": 21644, "markup": "aref", "href": "#rel1", "rendered": "[24]", "segment": "seg:56cd22bafd1c152d7f14817bf7521324", "text": "[24]"}

@@ -1,0 +1,73 @@
+{"start": 75, "end": 92, "markup": "a", "href": "../prob/Experiments.html", "segment": "seg:461ade98bfb3c5eab5a9dda35ee81c12", "text": "random experiment"}
+{"start": 107, "end": 124, "markup": "a", "href": "../prob/Probability2.html", "segment": "seg:461ade98bfb3c5eab5a9dda35ee81c12", "text": "probability space"}
+{"start": 354, "end": 369, "markup": "a", "href": "../prob/Events.html", "segment": "seg:461ade98bfb3c5eab5a9dda35ee81c12", "text": "random variable"}
+{"start": 597, "end": 618, "markup": "dfn", "segment": "seg:80a1bea8017a84beea5f9eb8683503d8", "text": "location-scale family"}
+{"start": 695, "end": 713, "markup": "dfn", "segment": "seg:80a1bea8017a84beea5f9eb8683503d8", "text": "location parameter"}
+{"start": 728, "end": 743, "markup": "dfn", "segment": "seg:80a1bea8017a84beea5f9eb8683503d8", "text": "scale parameter"}
+{"start": 753, "end": 774, "markup": "em", "segment": "seg:35df087a1c3c216c66af0f6fd481cddf", "text": "linear transformation"}
+{"start": 847, "end": 868, "markup": "em", "segment": "seg:35df087a1c3c216c66af0f6fd481cddf", "text": "location-scale family"}
+{"start": 977, "end": 992, "markup": "dfn", "segment": "seg:35df087a1c3c216c66af0f6fd481cddf", "text": "location family"}
+{"start": 1112, "end": 1124, "markup": "dfn", "segment": "seg:35df087a1c3c216c66af0f6fd481cddf", "text": "scale family"}
+{"start": 1985, "end": 2006, "markup": "a", "href": "../dist/CDF.html", "segment": "seg:2eae47ea7a864b686aa2561127d6699a", "text": "distribution function"}
+{"start": 2397, "end": 2419, "markup": "a", "href": "../dist/Discrete.html", "segment": "seg:bf3c531b0f52b1d1c2fa148374429525", "text": "discrete distributions"}
+{"start": 2424, "end": 2447, "markup": "a", "href": "../dist/Continuous.html", "segment": "seg:bf3c531b0f52b1d1c2fa148374429525", "text": "continuous distribution"}
+{"start": 3307, "end": 3311, "markup": "list_marker", "segment": "seg:ef4aa7772da5ace923321cd0bb5f238c", "text": "(a) "}
+{"start": 3506, "end": 3510, "markup": "list_marker", "segment": "seg:6c00f50f6fa25ce4b6c2f5e5d70da8ec", "text": "(b) "}
+{"start": 4167, "end": 4170, "markup": "aref", "href": "#cdf", "rendered": "[2]", "segment": "seg:531df07dfeb823b290c6aed0a4a865d0", "text": "[2]"}
+{"start": 4237, "end": 4241, "markup": "a", "href": "../dist/Introduction.html", "segment": "seg:71da0b09a0bbaaa4ffd3eaf583083ad0", "text": "mode"}
+{"start": 4343, "end": 4346, "markup": "aref", "href": "#pdf1", "rendered": "[3]", "segment": "seg:504a9d3217390c0817da25c9943712e5", "text": "[3]"}
+{"start": 4395, "end": 4398, "markup": "aref", "href": "#pdf2", "rendered": "[4]", "segment": "seg:504a9d3217390c0817da25c9943712e5", "text": "[4]"}
+{"start": 4527, "end": 4545, "markup": "a", "href": "../dist/CDF.html", "segment": "seg:108134838d6c3d5ba2f5a393983e7112", "text": "quantile functions"}
+{"start": 4657, "end": 4661, "markup": "list_marker", "segment": "seg:5d0927aad9d96bf1aa2e3193f82fa5d6", "text": "(a) "}
+{"start": 4717, "end": 4721, "markup": "list_marker", "segment": "seg:9e855369582c88e3250930abe66ac6ac", "text": "(b) "}
+{"start": 4899, "end": 4902, "markup": "aref", "href": "#cdf", "rendered": "[2]", "segment": "seg:916a4cc68cc41f87e25603b60f83a0a0", "text": "[2]"}
+{"start": 5564, "end": 5568, "markup": "list_marker", "segment": "seg:c5a2e86f2e68e743259140865b941913", "text": "(a) "}
+{"start": 5618, "end": 5622, "markup": "list_marker", "segment": "seg:6e3ef1859250a1a2e333cb7e0cd20157", "text": "(b) "}
+{"start": 5842, "end": 5845, "markup": "aref", "href": "#cdf", "rendered": "[2]", "segment": "seg:fe9dec7a4992b656f85029a161219ca6", "text": "[2]"}
+{"start": 5874, "end": 5877, "markup": "aref", "href": "#pdf2", "rendered": "[4]", "segment": "seg:fe9dec7a4992b656f85029a161219ca6", "text": "[4]"}
+{"start": 6326, "end": 6330, "markup": "a", "href": "../expect/Properties.html", "segment": "seg:6829e256b97a8fe858a1aca6abaaa976", "text": "mean"}
+{"start": 6332, "end": 6340, "markup": "a", "href": "../expect/Variance.html", "segment": "seg:6829e256b97a8fe858a1aca6abaaa976", "text": "variance"}
+{"start": 6480, "end": 6484, "markup": "list_marker", "segment": "seg:d8437ecff0348423362855ef48a2866c", "text": "(a) "}
+{"start": 6511, "end": 6515, "markup": "list_marker", "segment": "seg:0573b543959eb34d62c526cc0e0d4a74", "text": "(b) "}
+{"start": 6544, "end": 6548, "markup": "list_marker", "segment": "seg:48875dc7770c3e5b5ad762e1bd67a3b2", "text": "(c) "}
+{"start": 6687, "end": 6701, "markup": "a", "href": "../expect/Variance.html#std", "segment": "seg:f9ce3558f9634e35094a18fff26ace0d", "text": "standard score"}
+{"start": 7285, "end": 7288, "markup": "aref", "href": "#mom", "rendered": "[9]", "segment": "seg:012c3bc2e799b4fff02731a7429a82d1", "text": "[9]"}
+{"start": 7409, "end": 7417, "markup": "a", "href": "../expect/Skew.html#skw", "segment": "seg:3601ad8708e549d630e8a3d543813044", "text": "skewness"}
+{"start": 7422, "end": 7430, "markup": "a", "href": "../expect/Skew.html#kur", "segment": "seg:3601ad8708e549d630e8a3d543813044", "text": "kurtosis"}
+{"start": 7544, "end": 7548, "markup": "aref", "href": "#std", "rendered": "[10]", "segment": "seg:3601ad8708e549d630e8a3d543813044", "text": "[10]"}
+{"start": 7737, "end": 7748, "markup": "dfn", "segment": "seg:3601ad8708e549d630e8a3d543813044", "text": "raw moments"}
+{"start": 7786, "end": 7802, "markup": "a", "href": "../foundations/Structures.html", "segment": "seg:3601ad8708e549d630e8a3d543813044", "text": "binomial theorem"}
+{"start": 8910, "end": 8914, "markup": "dfn", "segment": "seg:bbe41744c0580e77480257ac1b23658c", "text": "type"}
+{"start": 9052, "end": 9074, "markup": "em", "segment": "seg:0f96b171598df863faff499ef94eeb98", "text": "Being of the same type"}
+{"start": 9081, "end": 9101, "markup": "a", "href": "../foundations/Equivalence.html", "segment": "seg:0f96b171598df863faff499ef94eeb98", "text": "equivalence relation"}
+{"start": 9243, "end": 9247, "markup": "list_marker", "segment": "seg:cebf524a2b330c369f2bc2c0bdb2bb20", "text": "(a) "}
+{"start": 9284, "end": 9293, "markup": "dfn", "segment": "seg:cebf524a2b330c369f2bc2c0bdb2bb20", "text": "reflexive"}
+{"start": 9305, "end": 9309, "markup": "list_marker", "segment": "seg:3f75df639908c160ce998391ededea34", "text": "(b) "}
+{"start": 9386, "end": 9395, "markup": "dfn", "segment": "seg:3f75df639908c160ce998391ededea34", "text": "symmetric"}
+{"start": 9407, "end": 9411, "markup": "list_marker", "segment": "seg:89ab4bec418c350dc0acd058c0e1eb34", "text": "(c) "}
+{"start": 9526, "end": 9536, "markup": "dfn", "segment": "seg:89ab4bec418c350dc0acd058c0e1eb34", "text": "transitive"}
+{"start": 9675, "end": 9679, "markup": "list_marker", "segment": "seg:897267a32ff4929933ae40a4e41116ea", "text": "(a) "}
+{"start": 9754, "end": 9758, "markup": "list_marker", "segment": "seg:fd952d92b09630a5d9406337aff8f8a4", "text": "(b) "}
+{"start": 9983, "end": 9987, "markup": "list_marker", "segment": "seg:6d8053f2847f772a0cdcf374746de5f1", "text": "(c) "}
+{"start": 10643, "end": 10663, "markup": "a", "href": "Arcsine.html", "segment": "seg:1ca53c66c33f55ca4f36f098564a5499", "text": "arcsine distribution"}
+{"start": 10697, "end": 10716, "markup": "a", "href": "Cauchy.html", "segment": "seg:7687f358e97bd44567ad9b8d135fbec3", "text": "Cauchy distribution"}
+{"start": 10750, "end": 10774, "markup": "a", "href": "../poisson/Exponential.html", "segment": "seg:bac9fcfbc833bf32aea03c70aaf6e56c", "text": "exponential distribution"}
+{"start": 10799, "end": 10822, "markup": "a", "href": "ExponentialLogarithmic.html", "segment": "seg:4bdd212053beaa83ed60fc90b1aa0a5d", "text": "exponential-logarithmic"}
+{"start": 10898, "end": 10924, "markup": "a", "href": "ExtremeValue.html", "segment": "seg:7785dc3073632b4eeb9e8fe0b66b3a0d", "text": "extreme value distribution"}
+{"start": 10958, "end": 10976, "markup": "a", "href": "Gamma.html", "segment": "seg:092e6c0a1a8611c0c638e521f5a7e9c1", "text": "gamma distribution"}
+{"start": 11039, "end": 11060, "markup": "a", "href": "Gompertz.html", "segment": "seg:9573b3c19c7b969a4cf1270ab00b14f8", "text": "Gompertz distribution"}
+{"start": 11123, "end": 11147, "markup": "a", "href": "FoldedNormal.html", "segment": "seg:73247a6a8032f57d958c1e87de62f51e", "text": "half-normal distribution"}
+{"start": 11172, "end": 11202, "markup": "a", "href": "HyperbolicSecant.html", "segment": "seg:1b4c10439d04e362d232dc957199cb22", "text": "hyperbolic secant distribution"}
+{"start": 11236, "end": 11253, "markup": "a", "href": "Levy.html", "segment": "seg:57dbe64218054820dd494f6a154c0a35", "text": "Lévy distribution"}
+{"start": 11287, "end": 11308, "markup": "a", "href": "Logistic.html", "segment": "seg:bbb007fe6db5a7bbe8762a4f34872ef4", "text": "logistic distribution"}
+{"start": 11342, "end": 11367, "markup": "a", "href": "LogLogistic.html", "segment": "seg:16076aa1ca9610a80331e2c9f2e67a38", "text": "log-logistic distribution"}
+{"start": 11430, "end": 11450, "markup": "a", "href": "Maxwell.html", "segment": "seg:969e0067612765c26659de3f575cefe3", "text": "Maxwell distribution"}
+{"start": 11475, "end": 11494, "markup": "a", "href": "Normal.html", "segment": "seg:734244a9c4d0654488084cd70c63db6e", "text": "normal distribution"}
+{"start": 11528, "end": 11547, "markup": "a", "href": "Pareto.html", "segment": "seg:7f922d59d1b32f3b9febfd65f0ae1164", "text": "Pareto distribution"}
+{"start": 11610, "end": 11631, "markup": "a", "href": "Rayleigh.html", "segment": "seg:c496ac5e991b18962b4b3c69b013faab", "text": "Rayleigh distribution"}
+{"start": 11656, "end": 11679, "markup": "a", "href": "Semicircle.html", "segment": "seg:7231030e8541195fccdd1d4f132a7881", "text": "semicircle distribution"}
+{"start": 11713, "end": 11734, "markup": "a", "href": "Triangle.html", "segment": "seg:c162aa5f11af13307191109f4f5da0ac", "text": "triangle distribution"}
+{"start": 11806, "end": 11841, "markup": "a", "href": "UniformContinuous.html", "segment": "seg:bad5edcfa151dfdfe8c1d661aa11a258", "text": "uniform distribution on an interval"}
+{"start": 11875, "end": 11895, "markup": "a", "href": "UPower.html", "segment": "seg:42c008694cb4f4872934d774ed9220fa", "text": "U-power distribution"}
+{"start": 11967, "end": 11987, "markup": "a", "href": "Weibull.html", "segment": "seg:3456784137f82da60f283d4ee0f315c6", "text": "Weibull distribution"}
+{"start": 12050, "end": 12067, "markup": "a", "href": "Wald.html", "segment": "seg:73d33d6d8ecb6bc438ea602f5143ced4", "text": "Wald distribution"}

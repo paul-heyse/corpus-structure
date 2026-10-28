@@ -1,0 +1,691 @@
+{
+  "special/LocationScale.html": {
+    "page": "special/LocationScale.html",
+    "source_uri": "siegrist_random/random/special/LocationScale.html",
+    "document_key": "doc:01e7737ec9188c4149789ee8bd19d56b",
+    "rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+    "config": {
+      "adapter": "s1_adapter",
+      "version": "0.1.0",
+      "profile": "siegrist",
+      "parser": "lxml",
+      "unicode": "NFC",
+      "math_whitespace": "keep",
+      "sections": "h3h4",
+      "apps": "keep",
+      "render": {
+        "aref": "browser",
+        "q": "quotes",
+        "list_markers": "parenthesized",
+        "summary": "heading",
+        "figure": "caption"
+      }
+    },
+    "config_hash": "34008df1e4c303fb77a0a632e690069f",
+    "title": "Location-Scale Families",
+    "meta": {
+      "author": "Kyle Siegrist",
+      "viewport": "width=device-width, initial-scale=1",
+      "keywords": "probability, statistics, location-scale family, arcsine distribution, Cauchy distribution, exponential distribution, exponential-logarithmic distribution, extreme value distribution, gamma distribution, Gompertz distribution, half-normal distribution, hyperbolic secant distribution, Levy distribution, logistic distribution, log-logistic distribution, Maxwell distribution, normal distribution, Pareto distribution, Rayleigh distribution, semicircle distribution, triangle distribution, continuous uniform distribution, u-power distribution, Weibull distribution, Wald distribution"
+    },
+    "parse_detail": {
+      "macros": {
+        "\\P": {
+          "nargs": 0,
+          "body": "\\mathbb{P}"
+        },
+        "\\R": {
+          "nargs": 0,
+          "body": "\\mathbb{R}"
+        },
+        "\\E": {
+          "nargs": 0,
+          "body": "\\mathbb{E}"
+        },
+        "\\N": {
+          "nargs": 0,
+          "body": "\\mathbb{N}"
+        },
+        "\\var": {
+          "nargs": 0,
+          "body": "\\text{var}"
+        },
+        "\\sd": {
+          "nargs": 0,
+          "body": "\\text{sd}"
+        },
+        "\\skw": {
+          "nargs": 0,
+          "body": "\\text{skew}"
+        },
+        "\\kur": {
+          "nargs": 0,
+          "body": "\\text{kurt}"
+        },
+        "\\ms": {
+          "nargs": 0,
+          "body": "\\mathscr"
+        }
+      },
+      "math_anomalies": [],
+      "orphans": [
+        {
+          "container": "unit",
+          "sourceline": 79,
+          "text": "\\[ f(x) = \\frac{1}{b} \\, g \\left( \\frac{x - a}{b} \\right), \\quad x \\in \\R\\]"
+        },
+        {
+          "container": "unit",
+          "sourceline": 159,
+          "text": "\\[ \\frac{X - \\E(X)}{\\sd(X)} = \\frac{Z - \\E(Z)}{\\sd(Z)} \\]"
+        },
+        {
+          "container": "details",
+          "sourceline": 162,
+          "text": "\\[ \\frac{X - \\E(X)}{\\sd(X)} = \\frac{a + b Z - [a + b \\E(Z)]}{b \\sd(Z)} = \\frac{Z"
+        },
+        {
+          "container": "unit",
+          "sourceline": 175,
+          "text": "\\[ M(t) = e^{a t} m(b t) \\]"
+        },
+        {
+          "container": "details",
+          "sourceline": 178,
+          "text": "\\[ M(t) = \\E\\left(e^{tX}\\right) = \\E\\left[e^{t(a + bZ)}\\right] = e^{ta} \\E\\left("
+        }
+      ],
+      "unicode_changed": [],
+      "aref_rendered": 8
+    },
+    "parser": "lxml",
+    "libxml2": "2.14.6",
+    "profile_engines": {
+      "per_rule": {
+        "block_hint:p.dfn": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "block_hint:p.math": {
+          "cssselect2": 33,
+          "xpath": 33,
+          "identical": true
+        },
+        "details:details": {
+          "cssselect2": 11,
+          "xpath": 11,
+          "identical": true
+        },
+        "exclude:chapter_lists": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:controls": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:images": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:macro_block": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:navigation": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "exclude:scripts": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "summary:summary": {
+          "cssselect2": 11,
+          "xpath": 11,
+          "identical": true
+        },
+        "title:title": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "unit:unit": {
+          "cssselect2": 35,
+          "xpath": 35,
+          "identical": true
+        }
+      },
+      "all_identical": true,
+      "role_conflicts": []
+    },
+    "profile_xpaths": {
+      "script, noscript": "descendant-or-self::script | descendant-or-self::noscript",
+      "div.latex": "descendant-or-self::div[@class and contains(@class, 'latex') and contains(concat(' ', normalize-space(@class), ' '), ' latex ')]",
+      "header ol.map, footer": "descendant-or-self::header/descendant::ol[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')] | descendant-or-self::footer",
+      "button": "descendant-or-self::button",
+      "img": "descendant-or-self::img",
+      "ul.map": "descendant-or-self::ul[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')]",
+      "div.unit": "descendant-or-self::div[@class and contains(@class, 'unit') and contains(concat(' ', normalize-space(@class), ' '), ' unit ')]",
+      "header h2": "descendant-or-self::header/descendant::h2",
+      "p.dfn": "descendant-or-self::p[@class and contains(@class, 'dfn') and contains(concat(' ', normalize-space(@class), ' '), ' dfn ')]",
+      "p.dfm": "descendant-or-self::p[@class and contains(@class, 'dfm') and contains(concat(' ', normalize-space(@class), ' '), ' dfm ')]",
+      "p.dfin": "descendant-or-self::p[@class and contains(@class, 'dfin') and contains(concat(' ', normalize-space(@class), ' '), ' dfin ')]",
+      "p.math": "descendant-or-self::p[@class and contains(@class, 'math') and contains(concat(' ', normalize-space(@class), ' '), ' math ')]",
+      "p.exercise": "descendant-or-self::p[@class and contains(@class, 'exercise') and contains(concat(' ', normalize-space(@class), ' '), ' exercise ')]",
+      "p.exericse": "descendant-or-self::p[@class and contains(@class, 'exericse') and contains(concat(' ', normalize-space(@class), ' '), ' exericse ')]",
+      "p.app": "descendant-or-self::p[@class and contains(@class, 'app') and contains(concat(' ', normalize-space(@class), ' '), ' app ')]",
+      "p.stat": "descendant-or-self::p[@class and contains(@class, 'stat') and contains(concat(' ', normalize-space(@class), ' '), ' stat ')]",
+      "p.Proof": "descendant-or-self::p[@class and contains(@class, 'Proof') and contains(concat(' ', normalize-space(@class), ' '), ' Proof ')]",
+      "details": "descendant-or-self::details",
+      "details > summary": "descendant-or-self::details/summary"
+    }
+  },
+  "special/Normal.html": {
+    "page": "special/Normal.html",
+    "source_uri": "siegrist_random/random/special/Normal.html",
+    "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+    "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+    "config": {
+      "adapter": "s1_adapter",
+      "version": "0.1.0",
+      "profile": "siegrist",
+      "parser": "lxml",
+      "unicode": "NFC",
+      "math_whitespace": "keep",
+      "sections": "h3h4",
+      "apps": "keep",
+      "render": {
+        "aref": "browser",
+        "q": "quotes",
+        "list_markers": "parenthesized",
+        "summary": "heading",
+        "figure": "caption"
+      }
+    },
+    "config_hash": "34008df1e4c303fb77a0a632e690069f",
+    "title": "The Normal Distribution",
+    "meta": {
+      "author": "Kyle Siegrist",
+      "viewport": "width=device-width, initial-scale=1",
+      "keywords": "probability, statistics, normal distribution, location-scale family, exponential family, infintely divisible distribution"
+    },
+    "parse_detail": {
+      "macros": {
+        "\\R": {
+          "nargs": 0,
+          "body": "\\mathbb{R}"
+        },
+        "\\N": {
+          "nargs": 0,
+          "body": "\\mathbb{N}"
+        },
+        "\\P": {
+          "nargs": 0,
+          "body": "\\mathbb{P}"
+        },
+        "\\E": {
+          "nargs": 0,
+          "body": "\\mathbb{E}"
+        },
+        "\\var": {
+          "nargs": 0,
+          "body": "\\text{var}"
+        },
+        "\\sd": {
+          "nargs": 0,
+          "body": "\\text{sd}"
+        },
+        "\\skw": {
+          "nargs": 0,
+          "body": "\\text{skew}"
+        },
+        "\\kur": {
+          "nargs": 0,
+          "body": "\\text{kurt}"
+        }
+      },
+      "math_anomalies": [],
+      "orphans": [],
+      "unicode_changed": [],
+      "aref_rendered": 16
+    },
+    "parser": "lxml",
+    "libxml2": "2.14.6",
+    "profile_engines": {
+      "per_rule": {
+        "block_hint:p.app": {
+          "cssselect2": 7,
+          "xpath": 7,
+          "identical": true
+        },
+        "block_hint:p.dfm": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "block_hint:p.dfn": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "block_hint:p.math": {
+          "cssselect2": 23,
+          "xpath": 23,
+          "identical": true
+        },
+        "details:details": {
+          "cssselect2": 21,
+          "xpath": 21,
+          "identical": true
+        },
+        "exclude:controls": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:images": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:macro_block": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:navigation": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "exclude:scripts": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "summary:summary": {
+          "cssselect2": 21,
+          "xpath": 21,
+          "identical": true
+        },
+        "title:title": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "unit:unit": {
+          "cssselect2": 32,
+          "xpath": 32,
+          "identical": true
+        }
+      },
+      "all_identical": true,
+      "role_conflicts": []
+    },
+    "profile_xpaths": {
+      "script, noscript": "descendant-or-self::script | descendant-or-self::noscript",
+      "div.latex": "descendant-or-self::div[@class and contains(@class, 'latex') and contains(concat(' ', normalize-space(@class), ' '), ' latex ')]",
+      "header ol.map, footer": "descendant-or-self::header/descendant::ol[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')] | descendant-or-self::footer",
+      "button": "descendant-or-self::button",
+      "img": "descendant-or-self::img",
+      "ul.map": "descendant-or-self::ul[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')]",
+      "div.unit": "descendant-or-self::div[@class and contains(@class, 'unit') and contains(concat(' ', normalize-space(@class), ' '), ' unit ')]",
+      "header h2": "descendant-or-self::header/descendant::h2",
+      "p.dfn": "descendant-or-self::p[@class and contains(@class, 'dfn') and contains(concat(' ', normalize-space(@class), ' '), ' dfn ')]",
+      "p.dfm": "descendant-or-self::p[@class and contains(@class, 'dfm') and contains(concat(' ', normalize-space(@class), ' '), ' dfm ')]",
+      "p.dfin": "descendant-or-self::p[@class and contains(@class, 'dfin') and contains(concat(' ', normalize-space(@class), ' '), ' dfin ')]",
+      "p.math": "descendant-or-self::p[@class and contains(@class, 'math') and contains(concat(' ', normalize-space(@class), ' '), ' math ')]",
+      "p.exercise": "descendant-or-self::p[@class and contains(@class, 'exercise') and contains(concat(' ', normalize-space(@class), ' '), ' exercise ')]",
+      "p.exericse": "descendant-or-self::p[@class and contains(@class, 'exericse') and contains(concat(' ', normalize-space(@class), ' '), ' exericse ')]",
+      "p.app": "descendant-or-self::p[@class and contains(@class, 'app') and contains(concat(' ', normalize-space(@class), ' '), ' app ')]",
+      "p.stat": "descendant-or-self::p[@class and contains(@class, 'stat') and contains(concat(' ', normalize-space(@class), ' '), ' stat ')]",
+      "p.Proof": "descendant-or-self::p[@class and contains(@class, 'Proof') and contains(concat(' ', normalize-space(@class), ' '), ' Proof ')]",
+      "details": "descendant-or-self::details",
+      "details > summary": "descendant-or-self::details/summary"
+    }
+  },
+  "special/LogNormal.html": {
+    "page": "special/LogNormal.html",
+    "source_uri": "siegrist_random/random/special/LogNormal.html",
+    "document_key": "doc:0dd78f24fc1bdaaf8caf3c23abd9ff33",
+    "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+    "config": {
+      "adapter": "s1_adapter",
+      "version": "0.1.0",
+      "profile": "siegrist",
+      "parser": "lxml",
+      "unicode": "NFC",
+      "math_whitespace": "keep",
+      "sections": "h3h4",
+      "apps": "keep",
+      "render": {
+        "aref": "browser",
+        "q": "quotes",
+        "list_markers": "parenthesized",
+        "summary": "heading",
+        "figure": "caption"
+      }
+    },
+    "config_hash": "34008df1e4c303fb77a0a632e690069f",
+    "title": "The Lognormal Distribution",
+    "meta": {
+      "author": "Kyle Siegrist",
+      "viewport": "width=device-width, initial-scale=1",
+      "keywords": "probability, statistics, lognormal distribution, normal distribution, scale family, exponential family"
+    },
+    "parse_detail": {
+      "macros": {
+        "\\R": {
+          "nargs": 0,
+          "body": "\\mathbb{R}"
+        },
+        "\\N": {
+          "nargs": 0,
+          "body": "\\mathbb{N}"
+        },
+        "\\E": {
+          "nargs": 0,
+          "body": "\\mathbb{E}"
+        },
+        "\\P": {
+          "nargs": 0,
+          "body": "\\mathbb{P}"
+        },
+        "\\var": {
+          "nargs": 0,
+          "body": "\\text{var}"
+        },
+        "\\sd": {
+          "nargs": 0,
+          "body": "\\text{sd}"
+        },
+        "\\cov": {
+          "nargs": 0,
+          "body": "\\text{cov}"
+        },
+        "\\cor": {
+          "nargs": 0,
+          "body": "\\text{cor}"
+        },
+        "\\skw": {
+          "nargs": 0,
+          "body": "\\text{skew}"
+        },
+        "\\kur": {
+          "nargs": 0,
+          "body": "\\text{kurt}"
+        }
+      },
+      "math_anomalies": [],
+      "orphans": [],
+      "unicode_changed": [],
+      "aref_rendered": 7
+    },
+    "parser": "lxml",
+    "libxml2": "2.14.6",
+    "profile_engines": {
+      "per_rule": {
+        "block_hint:p.app": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "block_hint:p.dfn": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "block_hint:p.math": {
+          "cssselect2": 15,
+          "xpath": 15,
+          "identical": true
+        },
+        "details:details": {
+          "cssselect2": 14,
+          "xpath": 14,
+          "identical": true
+        },
+        "exclude:chapter_lists": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:controls": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:images": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:macro_block": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:navigation": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "exclude:scripts": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "summary:summary": {
+          "cssselect2": 14,
+          "xpath": 14,
+          "identical": true
+        },
+        "title:title": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "unit:unit": {
+          "cssselect2": 19,
+          "xpath": 19,
+          "identical": true
+        }
+      },
+      "all_identical": true,
+      "role_conflicts": []
+    },
+    "profile_xpaths": {
+      "script, noscript": "descendant-or-self::script | descendant-or-self::noscript",
+      "div.latex": "descendant-or-self::div[@class and contains(@class, 'latex') and contains(concat(' ', normalize-space(@class), ' '), ' latex ')]",
+      "header ol.map, footer": "descendant-or-self::header/descendant::ol[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')] | descendant-or-self::footer",
+      "button": "descendant-or-self::button",
+      "img": "descendant-or-self::img",
+      "ul.map": "descendant-or-self::ul[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')]",
+      "div.unit": "descendant-or-self::div[@class and contains(@class, 'unit') and contains(concat(' ', normalize-space(@class), ' '), ' unit ')]",
+      "header h2": "descendant-or-self::header/descendant::h2",
+      "p.dfn": "descendant-or-self::p[@class and contains(@class, 'dfn') and contains(concat(' ', normalize-space(@class), ' '), ' dfn ')]",
+      "p.dfm": "descendant-or-self::p[@class and contains(@class, 'dfm') and contains(concat(' ', normalize-space(@class), ' '), ' dfm ')]",
+      "p.dfin": "descendant-or-self::p[@class and contains(@class, 'dfin') and contains(concat(' ', normalize-space(@class), ' '), ' dfin ')]",
+      "p.math": "descendant-or-self::p[@class and contains(@class, 'math') and contains(concat(' ', normalize-space(@class), ' '), ' math ')]",
+      "p.exercise": "descendant-or-self::p[@class and contains(@class, 'exercise') and contains(concat(' ', normalize-space(@class), ' '), ' exercise ')]",
+      "p.exericse": "descendant-or-self::p[@class and contains(@class, 'exericse') and contains(concat(' ', normalize-space(@class), ' '), ' exericse ')]",
+      "p.app": "descendant-or-self::p[@class and contains(@class, 'app') and contains(concat(' ', normalize-space(@class), ' '), ' app ')]",
+      "p.stat": "descendant-or-self::p[@class and contains(@class, 'stat') and contains(concat(' ', normalize-space(@class), ' '), ' stat ')]",
+      "p.Proof": "descendant-or-self::p[@class and contains(@class, 'Proof') and contains(concat(' ', normalize-space(@class), ' '), ' Proof ')]",
+      "details": "descendant-or-self::details",
+      "details > summary": "descendant-or-self::details/summary"
+    }
+  },
+  "special/Gamma.html": {
+    "page": "special/Gamma.html",
+    "source_uri": "siegrist_random/random/special/Gamma.html",
+    "document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+    "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+    "config": {
+      "adapter": "s1_adapter",
+      "version": "0.1.0",
+      "profile": "siegrist",
+      "parser": "lxml",
+      "unicode": "NFC",
+      "math_whitespace": "keep",
+      "sections": "h3h4",
+      "apps": "keep",
+      "render": {
+        "aref": "browser",
+        "q": "quotes",
+        "list_markers": "parenthesized",
+        "summary": "heading",
+        "figure": "caption"
+      }
+    },
+    "config_hash": "34008df1e4c303fb77a0a632e690069f",
+    "title": "The Gamma Distribution",
+    "meta": {
+      "author": "Kyle Siegrist",
+      "viewport": "width=device-width, initial-scale=1",
+      "keywords": "probability, statistics, gamma function, gamma distribution, Stirling's approximation, scale family, infinitely divisible distribution, exponential family, normal approximation"
+    },
+    "parse_detail": {
+      "macros": {
+        "\\R": {
+          "nargs": 0,
+          "body": "\\mathbb{R}"
+        },
+        "\\N": {
+          "nargs": 0,
+          "body": "\\mathbb{N}"
+        },
+        "\\E": {
+          "nargs": 0,
+          "body": "\\mathbb{E}"
+        },
+        "\\P": {
+          "nargs": 0,
+          "body": "\\mathbb{P}"
+        },
+        "\\var": {
+          "nargs": 0,
+          "body": "\\text{var}"
+        },
+        "\\sd": {
+          "nargs": 0,
+          "body": "\\text{sd}"
+        },
+        "\\skw": {
+          "nargs": 0,
+          "body": "\\text{skew}"
+        },
+        "\\kur": {
+          "nargs": 0,
+          "body": "\\text{kurt}"
+        }
+      },
+      "math_anomalies": [],
+      "orphans": [],
+      "unicode_changed": [],
+      "aref_rendered": 26
+    },
+    "parser": "lxml",
+    "libxml2": "2.14.6",
+    "profile_engines": {
+      "per_rule": {
+        "block_hint:p.app": {
+          "cssselect2": 8,
+          "xpath": 8,
+          "identical": true
+        },
+        "block_hint:p.dfn": {
+          "cssselect2": 5,
+          "xpath": 5,
+          "identical": true
+        },
+        "block_hint:p.math": {
+          "cssselect2": 25,
+          "xpath": 25,
+          "identical": true
+        },
+        "details:details": {
+          "cssselect2": 21,
+          "xpath": 21,
+          "identical": true
+        },
+        "exclude:chapter_lists": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:controls": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:images": {
+          "cssselect2": 5,
+          "xpath": 5,
+          "identical": true
+        },
+        "exclude:macro_block": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:navigation": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "exclude:scripts": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "summary:summary": {
+          "cssselect2": 21,
+          "xpath": 21,
+          "identical": true
+        },
+        "title:title": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "unit:unit": {
+          "cssselect2": 38,
+          "xpath": 38,
+          "identical": true
+        }
+      },
+      "all_identical": true,
+      "role_conflicts": []
+    },
+    "profile_xpaths": {
+      "script, noscript": "descendant-or-self::script | descendant-or-self::noscript",
+      "div.latex": "descendant-or-self::div[@class and contains(@class, 'latex') and contains(concat(' ', normalize-space(@class), ' '), ' latex ')]",
+      "header ol.map, footer": "descendant-or-self::header/descendant::ol[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')] | descendant-or-self::footer",
+      "button": "descendant-or-self::button",
+      "img": "descendant-or-self::img",
+      "ul.map": "descendant-or-self::ul[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')]",
+      "div.unit": "descendant-or-self::div[@class and contains(@class, 'unit') and contains(concat(' ', normalize-space(@class), ' '), ' unit ')]",
+      "header h2": "descendant-or-self::header/descendant::h2",
+      "p.dfn": "descendant-or-self::p[@class and contains(@class, 'dfn') and contains(concat(' ', normalize-space(@class), ' '), ' dfn ')]",
+      "p.dfm": "descendant-or-self::p[@class and contains(@class, 'dfm') and contains(concat(' ', normalize-space(@class), ' '), ' dfm ')]",
+      "p.dfin": "descendant-or-self::p[@class and contains(@class, 'dfin') and contains(concat(' ', normalize-space(@class), ' '), ' dfin ')]",
+      "p.math": "descendant-or-self::p[@class and contains(@class, 'math') and contains(concat(' ', normalize-space(@class), ' '), ' math ')]",
+      "p.exercise": "descendant-or-self::p[@class and contains(@class, 'exercise') and contains(concat(' ', normalize-space(@class), ' '), ' exercise ')]",
+      "p.exericse": "descendant-or-self::p[@class and contains(@class, 'exericse') and contains(concat(' ', normalize-space(@class), ' '), ' exericse ')]",
+      "p.app": "descendant-or-self::p[@class and contains(@class, 'app') and contains(concat(' ', normalize-space(@class), ' '), ' app ')]",
+      "p.stat": "descendant-or-self::p[@class and contains(@class, 'stat') and contains(concat(' ', normalize-space(@class), ' '), ' stat ')]",
+      "p.Proof": "descendant-or-self::p[@class and contains(@class, 'Proof') and contains(concat(' ', normalize-space(@class), ' '), ' Proof ')]",
+      "details": "descendant-or-self::details",
+      "details > summary": "descendant-or-self::details/summary"
+    }
+  }
+}

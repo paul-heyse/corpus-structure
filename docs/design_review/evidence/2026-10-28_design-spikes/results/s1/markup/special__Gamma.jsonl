@@ -1,0 +1,123 @@
+{"start": 158, "end": 171, "markup": "a", "href": "../poisson/Gamma.html", "segment": "seg:40cce2e04250b5d73408076a9e0674fb", "text": "arrival times"}
+{"start": 179, "end": 194, "markup": "a", "href": "../poisson/index.html", "segment": "seg:40cce2e04250b5d73408076a9e0674fb", "text": "Poisson process"}
+{"start": 229, "end": 252, "markup": "a", "href": "ChiSquare.html", "segment": "seg:40cce2e04250b5d73408076a9e0674fb", "text": "chi-square distribution"}
+{"start": 463, "end": 475, "markup": "em", "segment": "seg:e16fde6e6e4d82c7cc6ec710fdfc15ba", "text": "distribution"}
+{"start": 508, "end": 516, "markup": "em", "segment": "seg:e16fde6e6e4d82c7cc6ec710fdfc15ba", "text": "function"}
+{"start": 616, "end": 630, "markup": "dfn", "segment": "seg:7ad88e664118d8d542e5a1ab4eb61cef", "text": "gamma function"}
+{"start": 1562, "end": 1576, "markup": "a", "href": "JavaScript:openAncillary('../biographies/Euler.html')", "classes": ["ancillary"], "segment": "seg:a50344a3200802885dff5e50f733fcf9", "text": "Leonhard Euler"}
+{"start": 1651, "end": 1676, "markup": "dfn", "segment": "seg:4bd93884c0fede8ee58ba7afde02551c", "text": "incomplete gamma function"}
+{"start": 2385, "end": 2403, "markup": "a", "href": "../foundations/Structures.html#per", "segment": "seg:62b6f55c15ca6889ad9a8f1ed0fc2297", "text": "factorial function"}
+{"start": 2476, "end": 2479, "markup": "aref", "href": "#gam1", "rendered": "[3]", "segment": "seg:30fb86dcbd7850f8a4d185760f1d8379", "text": "[3]"}
+{"start": 3039, "end": 3067, "markup": "a", "href": "Normal.html", "segment": "seg:dd9a4d322bfe9f352b2abca1d66fe7e0", "text": "standard normal distribution"}
+{"start": 3374, "end": 3377, "markup": "aref", "href": "#gam2", "rendered": "[5]", "segment": "seg:baa9d6afc979fd0749630a930f3d2c70", "text": "[5]"}
+{"start": 3382, "end": 3385, "markup": "aref", "href": "#gam1", "rendered": "[3]", "segment": "seg:baa9d6afc979fd0749630a930f3d2c70", "text": "[3]"}
+{"start": 3483, "end": 3501, "markup": "dfn", "segment": "seg:5878f58ef1d56e515d9bec6c6e01cbad", "text": "Stirling's formula"}
+{"start": 3513, "end": 3527, "markup": "a", "href": "JavaScript:openAncillary('../biographies/Stirling.html')", "classes": ["ancillary"], "segment": "seg:5878f58ef1d56e515d9bec6c6e01cbad", "text": "James Stirling"}
+{"start": 3779, "end": 3798, "markup": "strong", "segment": "seg:993d7d142b4bab476d86eaa85693f349", "text": "Stirling's formula:"}
+{"start": 3918, "end": 3921, "markup": "aref", "href": "#stir", "rendered": "[8]", "segment": "seg:7ca122e7d76fe3fe62acee7e594ff7eb", "text": "[8]"}
+{"start": 4145, "end": 4172, "markup": "dfn", "segment": "seg:1d22aef81a9053fbee3462e18eb6c007", "text": "standard gamma distribution"}
+{"start": 4178, "end": 4193, "markup": "dfn", "segment": "seg:1d22aef81a9053fbee3462e18eb6c007", "text": "shape parameter"}
+{"start": 4223, "end": 4246, "markup": "a", "href": "../dist/Continuous.html", "segment": "seg:1d22aef81a9053fbee3462e18eb6c007", "text": "continuous distribution"}
+{"start": 4896, "end": 4900, "markup": "list_marker", "segment": "seg:0376a6ea2f790bb60a3a8b243e93c244", "text": "(a) "}
+{"start": 4990, "end": 4994, "markup": "list_marker", "segment": "seg:b5d2d2d9aaf10f602c7bb1de7ffcd097", "text": "(b) "}
+{"start": 5047, "end": 5051, "markup": "list_marker", "segment": "seg:04705d14e3d19f6fad6f6a5f4a2a5cbc", "text": "(c) "}
+{"start": 5129, "end": 5133, "markup": "list_marker", "segment": "seg:cab818c3a9dd3a2b5175879728a01535", "text": "(d) "}
+{"start": 5184, "end": 5188, "markup": "list_marker", "segment": "seg:04fe9e4586b52b5c26edd57c45f7a182", "text": "(e) "}
+{"start": 5310, "end": 5314, "markup": "list_marker", "segment": "seg:e7f7723fac36e855652b1b59fa038590", "text": "(f) "}
+{"start": 5768, "end": 5801, "markup": "dfn", "segment": "seg:923b6bd7807a12404d44395d5691100f", "text": "standard exponential distribution"}
+{"start": 5807, "end": 5831, "markup": "a", "href": "../poisson/Exponential.html", "segment": "seg:923b6bd7807a12404d44395d5691100f", "text": "exponential distribution"}
+{"start": 5876, "end": 5891, "markup": "a", "href": "../poisson/index.html", "segment": "seg:923b6bd7807a12404d44395d5691100f", "text": "Poisson process"}
+{"start": 5957, "end": 5987, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:042b19c66b274fa66516b1af9afe4979", "text": "special distribution simulator"}
+{"start": 6292, "end": 6313, "markup": "a", "href": "../dist/CDF.html", "segment": "seg:605c036b5c374e89eda0870c96901360", "text": "distribution function"}
+{"start": 6558, "end": 6561, "markup": "aref", "href": "#dfn1", "rendered": "[1]", "segment": "seg:605c036b5c374e89eda0870c96901360", "text": "[1]"}
+{"start": 6566, "end": 6569, "markup": "aref", "href": "#dfn2", "rendered": "[2]", "segment": "seg:605c036b5c374e89eda0870c96901360", "text": "[2]"}
+{"start": 6915, "end": 6927, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:64b4ef449303b9f51995681b270f425d", "text": "quantile app"}
+{"start": 7038, "end": 7042, "markup": "list_marker", "segment": "seg:7875886700443b3ddfec77281cf6af62", "text": "(a) "}
+{"start": 7052, "end": 7056, "markup": "list_marker", "segment": "seg:f4d4c7085da54c9f09ef7e2fd5a15274", "text": "(b) "}
+{"start": 7066, "end": 7070, "markup": "list_marker", "segment": "seg:d472152cfef9e3f8adfb2355c45b8f62", "text": "(c) "}
+{"start": 7197, "end": 7201, "markup": "a", "href": "../expect/Properties.html", "segment": "seg:47d0a808015024c946ad8b21143b4ecf", "text": "mean"}
+{"start": 7206, "end": 7214, "markup": "a", "href": "../expect/Variance.html", "segment": "seg:47d0a808015024c946ad8b21143b4ecf", "text": "variance"}
+{"start": 7291, "end": 7295, "markup": "list_marker", "segment": "seg:6497c0de46b325a623c8ff2088f9a972", "text": "(a) "}
+{"start": 7309, "end": 7313, "markup": "list_marker", "segment": "seg:4d131dc0f8077614019c89daf2ab97ec", "text": "(b) "}
+{"start": 7340, "end": 7344, "markup": "list_marker", "segment": "seg:228967fd44c042484a95b24665f5d697", "text": "(a) "}
+{"start": 7349, "end": 7352, "markup": "aref", "href": "#gam1", "rendered": "[3]", "segment": "seg:228967fd44c042484a95b24665f5d697", "text": "[3]"}
+{"start": 7462, "end": 7466, "markup": "list_marker", "segment": "seg:a5b46f423e039e5f8fec66092e0177d7", "text": "(b) "}
+{"start": 7471, "end": 7474, "markup": "aref", "href": "#gam1", "rendered": "[3]", "segment": "seg:a5b46f423e039e5f8fec66092e0177d7", "text": "[3]"}
+{"start": 7681, "end": 7711, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:028262d6af994ede858a7d7613b4524b", "text": "special distribution simulator"}
+{"start": 8030, "end": 8037, "markup": "a", "href": "../expect/Properties.html#mom", "segment": "seg:88cd50aad3d08bfba6d91dc46818ef55", "text": "moments"}
+{"start": 8123, "end": 8127, "markup": "list_marker", "segment": "seg:c2072ff2f386576ed689b5b2cac8b73e", "text": "(a) "}
+{"start": 8187, "end": 8191, "markup": "list_marker", "segment": "seg:aa89d5d70500184c43bf7b3043c4bb87", "text": "(b) "}
+{"start": 8271, "end": 8275, "markup": "list_marker", "segment": "seg:0a851f0f832ed52ff699e78555ceac64", "text": "(a) "}
+{"start": 8463, "end": 8467, "markup": "list_marker", "segment": "seg:5ba4183ad5723cac18a98c9b24698857", "text": "(b) "}
+{"start": 8494, "end": 8497, "markup": "aref", "href": "#gam1", "rendered": "[3]", "segment": "seg:5ba4183ad5723cac18a98c9b24698857", "text": "[3]"}
+{"start": 8680, "end": 8688, "markup": "a", "href": "../expect/Skew.html#skw", "segment": "seg:66d4e8a7eca73fc1e411d6e40e9ff52b", "text": "skewness"}
+{"start": 8697, "end": 8705, "markup": "a", "href": "../expect/Skew.html#kur", "segment": "seg:66d4e8a7eca73fc1e411d6e40e9ff52b", "text": "kurtosis"}
+{"start": 8750, "end": 8754, "markup": "list_marker", "segment": "seg:a5c32fc6536fe853d40490d005c34a55", "text": "(a) "}
+{"start": 8789, "end": 8793, "markup": "list_marker", "segment": "seg:db238a757d3bfdf11a6aa3c25635e9bb", "text": "(b) "}
+{"start": 8863, "end": 8867, "markup": "aref", "href": "#mom2", "rendered": "[16]", "segment": "seg:7e2bf82dedd558a902887e2d47391790", "text": "[16]"}
+{"start": 9038, "end": 9053, "markup": "dfn", "segment": "seg:5b5e9e2848d7c1d3dde1d051dac089f1", "text": "excess kurtosis"}
+{"start": 9109, "end": 9139, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:82b7a0803fadb0551441686f44c7092d", "text": "special distribution simulator"}
+{"start": 9456, "end": 9460, "markup": "aref", "href": "#mgf", "rendered": "[19]", "segment": "seg:85790aadc270d2933eece443269322b1", "text": "[19]"}
+{"start": 9476, "end": 9502, "markup": "a", "href": "../expect/Generating.html#mgf", "segment": "seg:85790aadc270d2933eece443269322b1", "text": "moment generating function"}
+{"start": 10136, "end": 10151, "markup": "a", "href": "LocationScale.html", "segment": "seg:3a68dba853b2f2199c983f4040716edd", "text": "scale parameter"}
+{"start": 10408, "end": 10426, "markup": "dfn", "segment": "seg:b235377969af424785b02e0e64bbbd59", "text": "gamma distribution"}
+{"start": 10432, "end": 10447, "markup": "dfn", "segment": "seg:b235377969af424785b02e0e64bbbd59", "text": "shape parameter"}
+{"start": 10458, "end": 10473, "markup": "dfn", "segment": "seg:b235377969af424785b02e0e64bbbd59", "text": "scale parameter"}
+{"start": 10551, "end": 10565, "markup": "dfn", "segment": "seg:b99a82fb543b50dfa23f3932b1b3bcba", "text": "rate parameter"}
+{"start": 10602, "end": 10617, "markup": "a", "href": "../poisson/Gamma.html", "segment": "seg:b99a82fb543b50dfa23f3932b1b3bcba", "text": "Poisson process"}
+{"start": 10685, "end": 10709, "markup": "a", "href": "../poisson/Exponential.html", "segment": "seg:b99a82fb543b50dfa23f3932b1b3bcba", "text": "exponential distribution"}
+{"start": 10881, "end": 10900, "markup": "dfn", "segment": "seg:b99a82fb543b50dfa23f3932b1b3bcba", "text": "Erlang distribution"}
+{"start": 10937, "end": 10949, "markup": "a", "href": "JavaScript:openAncillary('../biographies/Erlang.html')", "classes": ["ancillary"], "segment": "seg:b99a82fb543b50dfa23f3932b1b3bcba", "text": "Agner Erlang"}
+{"start": 11046, "end": 11065, "markup": "a", "href": "../poisson/Gamma.html", "segment": "seg:b99a82fb543b50dfa23f3932b1b3bcba", "text": "Erlang distribution"}
+{"start": 11681, "end": 11684, "markup": "aref", "href": "#pdf1", "rendered": "[9]", "segment": "seg:cb8c45822fc25cc9dd237a8b5dafbd8a", "text": "[9]"}
+{"start": 12008, "end": 12012, "markup": "aref", "href": "#pdf2", "rendered": "[10]", "segment": "seg:7b7e399ef7078cf8ad4ade5de7d7c8cd", "text": "[10]"}
+{"start": 12104, "end": 12108, "markup": "list_marker", "segment": "seg:0c09cae401927a3e80553181f97f8121", "text": "(a) "}
+{"start": 12198, "end": 12202, "markup": "list_marker", "segment": "seg:e627d38ec606cb58056b2eda85632d54", "text": "(b) "}
+{"start": 12255, "end": 12259, "markup": "list_marker", "segment": "seg:68b0a629acfa37dd537cfe58c50342ea", "text": "(c) "}
+{"start": 12341, "end": 12345, "markup": "list_marker", "segment": "seg:3d7358ec00658258818310b7ddd1cbfd", "text": "(d) "}
+{"start": 12396, "end": 12400, "markup": "list_marker", "segment": "seg:0d3d4d603f722af5e5852adab91cd4ae", "text": "(e) "}
+{"start": 12537, "end": 12541, "markup": "list_marker", "segment": "seg:fcec78d4a88ec92108c6b1d3640354f5", "text": "(f) "}
+{"start": 12717, "end": 12747, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:f909fcf8ff2b684174abb97868277b59", "text": "special distribution simulator"}
+{"start": 13055, "end": 13076, "markup": "a", "href": "../dist/CDF.html", "segment": "seg:455bdd919723d619494750a6084cbafc", "text": "distribution function"}
+{"start": 13085, "end": 13102, "markup": "a", "href": "../dist/CDF.html#qnt", "segment": "seg:455bdd919723d619494750a6084cbafc", "text": "quantile function"}
+{"start": 13320, "end": 13323, "markup": "aref", "href": "#dfn1", "rendered": "[1]", "segment": "seg:455bdd919723d619494750a6084cbafc", "text": "[1]"}
+{"start": 13328, "end": 13331, "markup": "aref", "href": "#dfn2", "rendered": "[2]", "segment": "seg:455bdd919723d619494750a6084cbafc", "text": "[2]"}
+{"start": 13487, "end": 13491, "markup": "aref", "href": "#dfn4", "rendered": "[20]", "segment": "seg:ce6643a15cef3f0a22ff8e96e7312753", "text": "[20]"}
+{"start": 13733, "end": 13737, "markup": "aref", "href": "#cdf", "rendered": "[12]", "segment": "seg:ce6643a15cef3f0a22ff8e96e7312753", "text": "[12]"}
+{"start": 13823, "end": 13835, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:e42672f0ab1883f3146118a8d6afd901", "text": "quantile app"}
+{"start": 13909, "end": 13921, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:7586f497b1d8390070e983874b3628a4", "text": "quantile app"}
+{"start": 14318, "end": 14322, "markup": "list_marker", "segment": "seg:116c945c21c08a75158cdb5776ac7a35", "text": "(a) "}
+{"start": 14338, "end": 14342, "markup": "list_marker", "segment": "seg:a75dce3f655965571d19a96a7f521858", "text": "(b) "}
+{"start": 14389, "end": 14393, "markup": "aref", "href": "#dfn4", "rendered": "[20]", "segment": "seg:f113cdce6d2b804888c4ba306e855c66", "text": "[20]"}
+{"start": 14547, "end": 14551, "markup": "aref", "href": "#mom1", "rendered": "[14]", "segment": "seg:f113cdce6d2b804888c4ba306e855c66", "text": "[14]"}
+{"start": 14554, "end": 14558, "markup": "list_marker", "segment": "seg:7225d2d1ab038415b0b5ea8d662669a4", "text": "(a) "}
+{"start": 14586, "end": 14590, "markup": "list_marker", "segment": "seg:af496383374a22b6e16991820e454a22", "text": "(b) "}
+{"start": 14634, "end": 14664, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:eeab8544a26c48a2f735d53fba48157e", "text": "special distribution simulator"}
+{"start": 14996, "end": 15000, "markup": "list_marker", "segment": "seg:f6ac6d6ccedd8e8bb324226457adaae3", "text": "(a) "}
+{"start": 15065, "end": 15069, "markup": "list_marker", "segment": "seg:0532d98f51512ff99ea7219f95736ac4", "text": "(b) "}
+{"start": 15180, "end": 15184, "markup": "aref", "href": "#dfn4", "rendered": "[20]", "segment": "seg:9e67b1cc1f3b812db5d19374113f5ded", "text": "[20]"}
+{"start": 15350, "end": 15354, "markup": "aref", "href": "#mom2", "rendered": "[16]", "segment": "seg:9e67b1cc1f3b812db5d19374113f5ded", "text": "[16]"}
+{"start": 15631, "end": 15635, "markup": "list_marker", "segment": "seg:02816e5b304a6dc7a9dc1f6780909084", "text": "(a) "}
+{"start": 15670, "end": 15674, "markup": "list_marker", "segment": "seg:1ee5a64e4733fc84c63e5ae1f726ffaf", "text": "(b) "}
+{"start": 15864, "end": 15868, "markup": "aref", "href": "#dfn4", "rendered": "[20]", "segment": "seg:986805b9c4407328377182af0c656df8", "text": "[20]"}
+{"start": 16111, "end": 16115, "markup": "aref", "href": "#mgf", "rendered": "[19]", "segment": "seg:986805b9c4407328377182af0c656df8", "text": "[19]"}
+{"start": 16209, "end": 16224, "markup": "em", "segment": "seg:2a5d47eae3d49bfc5ef8629522004dc8", "text": "scale parameter"}
+{"start": 16508, "end": 16512, "markup": "aref", "href": "#dfn4", "rendered": "[20]", "segment": "seg:683a7cf7504886cfcdc4a8dc2fdf53e9", "text": "[20]"}
+{"start": 17361, "end": 17365, "markup": "aref", "href": "#rel2", "rendered": "[32]", "segment": "seg:a34bd8daebe4da5edcedfd5bbf7ae552", "text": "[32]"}
+{"start": 17409, "end": 17429, "markup": "a", "href": "Divisible.html", "segment": "seg:a34bd8daebe4da5edcedfd5bbf7ae552", "text": "infinitely divisible"}
+{"start": 17834, "end": 17838, "markup": "aref", "href": "#rel2", "rendered": "[32]", "segment": "seg:42d46d1597bc811e2972c6f2b6942fe7", "text": "[32]"}
+{"start": 17847, "end": 17867, "markup": "a", "href": "../sample/CLT.html", "segment": "seg:42d46d1597bc811e2972c6f2b6942fe7", "text": "central limit theorm"}
+{"start": 18308, "end": 18317, "markup": "a", "href": "../dist/Convergence.html", "segment": "seg:eb5d3d6d9d280836b9309914fc6bf974", "text": "converges"}
+{"start": 18424, "end": 18454, "markup": "a", "href": "JavaScript:openAncillary('../apps/SpecialSimulator.html')", "classes": ["ancillary"], "segment": "seg:9d46b65d52c740cc448b7e013ccc5fac", "text": "special distribution simulator"}
+{"start": 18585, "end": 18593, "markup": "q", "segment": "seg:9d46b65d52c740cc448b7e013ccc5fac", "text": "“normal”"}
+{"start": 18822, "end": 18841, "markup": "a", "href": "GeneralExponential.html", "segment": "seg:680cad2c584ba60c214a3ed53c3a6c8b", "text": "general exponential"}
+{"start": 19493, "end": 19516, "markup": "a", "href": "ChiSquare.html", "segment": "seg:552dbd9f3681bd87428a137ada789c8d", "text": "chi-square distribution"}
+{"start": 19768, "end": 19772, "markup": "list_marker", "segment": "seg:c620fe95004d63d7b7f68f0dbc06ec5d", "text": "(a) "}
+{"start": 19840, "end": 19844, "markup": "list_marker", "segment": "seg:e9b47812ce013b827df49b3b78d1138d", "text": "(b) "}
+{"start": 19950, "end": 19954, "markup": "list_marker", "segment": "seg:b7fc0f4338f93b3255b11f18143351ae", "text": "(a) "}
+{"start": 19999, "end": 20003, "markup": "list_marker", "segment": "seg:f1ec626da2d2d163e2458aee00ad7f4b", "text": "(b) "}
+{"start": 20186, "end": 20198, "markup": "a", "href": "JavaScript:openAncillary('../apps/QuantileApp.html')", "classes": ["ancillary"], "segment": "seg:a90c79f7780aa397703c0ed4957fcb82", "text": "quantile app"}
+{"start": 20264, "end": 20268, "markup": "list_marker", "segment": "seg:7b1f9e346f765e7507dee385d7500e95", "text": "(a) "}
+{"start": 20292, "end": 20296, "markup": "list_marker", "segment": "seg:f3e32986b0af6f136a2951e9ed4b17e8", "text": "(b) "}
+{"start": 20336, "end": 20340, "markup": "list_marker", "segment": "seg:9fd2d7c76637f4878451453c8452d748", "text": "(a) "}
+{"start": 20413, "end": 20417, "markup": "list_marker", "segment": "seg:452d3671c8e848040efb8b937e4b0e58", "text": "(b) "}

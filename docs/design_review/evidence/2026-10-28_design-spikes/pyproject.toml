@@ -11,8 +11,8 @@ dependencies = [
     "cssselect==1.6.0",
     "cssselect2==0.10.1",
     "trafilatura==2.3.1",
-    # LaTeX and math (pylatexenc 3.0b2 is used only through an isolated `uv run --with` overlay)
-    "pylatexenc==2.11",
+    # LaTeX and math (pylatexenc 3.0 prerelease: its configurable ParsingState is needed for HTML prose)
+    "pylatexenc==3.0b2",
     "sympy==1.14.0",
     "lark==1.3.1",
     # Sentences

@@ -1,0 +1,2372 @@
+{
+  "special/LocationScale.html": {
+    "default_rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+    "V5_profile_engines": {
+      "per_rule": {
+        "block_hint:p.dfn": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "block_hint:p.math": {
+          "cssselect2": 33,
+          "xpath": 33,
+          "identical": true
+        },
+        "details:details": {
+          "cssselect2": 11,
+          "xpath": 11,
+          "identical": true
+        },
+        "exclude:chapter_lists": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:controls": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:images": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:macro_block": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:navigation": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "exclude:scripts": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "summary:summary": {
+          "cssselect2": 11,
+          "xpath": 11,
+          "identical": true
+        },
+        "title:title": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "unit:unit": {
+          "cssselect2": 35,
+          "xpath": 35,
+          "identical": true
+        }
+      },
+      "all_identical": true,
+      "role_conflicts": []
+    },
+    "V6_pylatexenc3_default_state": {
+      "blocks": 97,
+      "spans_agree": 195,
+      "scanner_only": 0,
+      "walker_only": 0,
+      "comment_nodes": 0,
+      "parse_errors": 0,
+      "examples": []
+    },
+    "V6_pylatexenc3_prose_safe": {
+      "blocks": 97,
+      "spans_agree": 195,
+      "scanner_only": 0,
+      "walker_only": 0,
+      "comment_nodes": 0,
+      "parse_errors": 0,
+      "examples": []
+    },
+    "V1_html5lib": {
+      "chars": [
+        12169,
+        12169
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V2_NFKC": {
+      "chars": [
+        12169,
+        12169
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V3_math_ws_collapse": {
+      "chars": [
+        12169,
+        12168
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 5,
+      "segments_only_in_variant": 5,
+      "examples_default": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has distribution function \\(G\\) then \\(X\\) has distribution function \\(F\\) given by \\[  F(x) = G \\left( \\frac{x"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has distribution function \\(G\\) then \\(X\\) has distribution function \\(F\\) given by \\[ F(x) = G \\left( \\frac{x "
+        ]
+      ],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 1,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V4_h3_only": {
+      "chars": [
+        12169,
+        12169
+      ],
+      "segments_by_kind_delta": {
+        "section": -5
+      },
+      "segments_only_in_default": 5,
+      "segments_only_in_variant": 0,
+      "examples_default": [
+        [
+          "section",
+          "Definition\n\nFor \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\), let \\(X = a + b \\, Z\\). The two-parameter family of distributio"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "section",
+          "Moments\n\nThe following theorem relates the mean, variance, and standard deviation of \\(Z\\) and \\(X\\).\n\nAs before, suppos"
+        ],
+        [
+          "section",
+          "Type\n\nAs we noted earlier, two probability distributions that are related by a location-scale transformation can be thou"
+        ]
+      ],
+      "examples_variant": [],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V7_apps_excluded": {
+      "chars": [
+        12169,
+        12169
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R1_aref_empty": {
+      "chars": [
+        12169,
+        12140
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 20,
+      "segments_only_in_variant": 20,
+      "examples_default": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has a continuous distribution with probability density function \\(g\\), then \\(X\\) also has a continuous distrib"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has a continuous distribution with probability density function \\(g\\), then \\(X\\) also has a continuous distrib"
+        ]
+      ],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R1_aref_placeholder": {
+      "chars": [
+        12169,
+        12184
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 20,
+      "segments_only_in_variant": 20,
+      "examples_default": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has a continuous distribution with probability density function \\(g\\), then \\(X\\) also has a continuous distrib"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has a continuous distribution with probability density function \\(g\\), then \\(X\\) also has a continuous distrib"
+        ]
+      ],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R2_q_bare": {
+      "chars": [
+        12169,
+        12169
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R3_markers_none": {
+      "chars": [
+        12169,
+        12109
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 32,
+      "segments_only_in_variant": 32,
+      "examples_default": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has a continuous distribution with probability density function \\(g\\), then \\(X\\) also has a continuous distrib"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has a continuous distribution with probability density function \\(g\\), then \\(X\\) also has a continuous distrib"
+        ]
+      ],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R3_markers_browser": {
+      "chars": [
+        12169,
+        12154
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 32,
+      "segments_only_in_variant": 32,
+      "examples_default": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has a continuous distribution with probability density function \\(g\\), then \\(X\\) also has a continuous distrib"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has a continuous distribution with probability density function \\(g\\), then \\(X\\) also has a continuous distrib"
+        ]
+      ],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R4_summary_drop": {
+      "chars": [
+        12169,
+        12059
+      ],
+      "segments_by_kind_delta": {
+        "heading": -11
+      },
+      "segments_only_in_default": 38,
+      "segments_only_in_variant": 27,
+      "examples_default": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has distribution function \\(G\\) then \\(X\\) has distribution function \\(F\\) given by \\[  F(x) = G \\left( \\frac{x"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "Location-Scale Families\n\nGeneral Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability s"
+        ],
+        [
+          "section",
+          "General Theory\n\nAs usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nOur goal is to relate various functions that determine the distribution of \\( X = a + b Z \\) to "
+        ],
+        [
+          "unit",
+          "If \\(Z\\) has distribution function \\(G\\) then \\(X\\) has distribution function \\(F\\) given by \\[  F(x) = G \\left( \\frac{x"
+        ]
+      ],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R5_figure_drop": {
+      "chars": [
+        12169,
+        12169
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        195,
+        195
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    }
+  },
+  "special/Normal.html": {
+    "default_rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+    "V5_profile_engines": {
+      "per_rule": {
+        "block_hint:p.app": {
+          "cssselect2": 7,
+          "xpath": 7,
+          "identical": true
+        },
+        "block_hint:p.dfm": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "block_hint:p.dfn": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "block_hint:p.math": {
+          "cssselect2": 23,
+          "xpath": 23,
+          "identical": true
+        },
+        "details:details": {
+          "cssselect2": 21,
+          "xpath": 21,
+          "identical": true
+        },
+        "exclude:controls": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:images": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:macro_block": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:navigation": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "exclude:scripts": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "summary:summary": {
+          "cssselect2": 21,
+          "xpath": 21,
+          "identical": true
+        },
+        "title:title": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "unit:unit": {
+          "cssselect2": 32,
+          "xpath": 32,
+          "identical": true
+        }
+      },
+      "all_identical": true,
+      "role_conflicts": []
+    },
+    "V6_pylatexenc3_default_state": {
+      "blocks": 172,
+      "spans_agree": 258,
+      "scanner_only": 0,
+      "walker_only": 0,
+      "comment_nodes": 0,
+      "parse_errors": 0,
+      "examples": []
+    },
+    "V6_pylatexenc3_prose_safe": {
+      "blocks": 172,
+      "spans_agree": 258,
+      "scanner_only": 0,
+      "walker_only": 0,
+      "comment_nodes": 0,
+      "parse_errors": 0,
+      "examples": []
+    },
+    "V1_html5lib": {
+      "chars": [
+        21680,
+        21680
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V2_NFKC": {
+      "chars": [
+        21680,
+        21680
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V3_math_ws_collapse": {
+      "chars": [
+        21680,
+        21674
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 22,
+      "segments_only_in_variant": 22,
+      "examples_default": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that random variable \\( Z \\) has the standard normal distribution.\n\nThe mean and variance of \\( Z \\) ar"
+        ],
+        [
+          "unit",
+          "The mean and variance of \\( Z \\) are\n\n(a) \\( \\E(Z) = 0 \\)\n(b) \\( \\var(Z) = 1 \\)\n\nDetails:\n\n(a) Of course, by symmetry, i"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that random variable \\( Z \\) has the standard normal distribution.\n\nThe mean and variance of \\( Z \\) ar"
+        ],
+        [
+          "unit",
+          "The mean and variance of \\( Z \\) are\n\n(a) \\( \\E(Z) = 0 \\)\n(b) \\( \\var(Z) = 1 \\)\n\nDetails:\n\n(a) Of course, by symmetry, i"
+        ]
+      ],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 5,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V4_h3_only": {
+      "chars": [
+        21680,
+        21680
+      ],
+      "segments_by_kind_delta": {
+        "section": -6
+      },
+      "segments_only_in_default": 6,
+      "segments_only_in_variant": 0,
+      "examples_default": [
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that random variable \\( Z \\) has the standard normal distribution.\n\nThe mean and variance of \\( Z \\) ar"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nSuppose that \\( X \\) has the normal distribution with location parameter \\( \\mu \\in \\R \\) and sc"
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose again that \\( X \\) has the normal distribution with location parameter \\( \\mu \\in \\R \\) and scale param"
+        ]
+      ],
+      "examples_variant": [],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V7_apps_excluded": {
+      "chars": [
+        21680,
+        19792
+      ],
+      "segments_by_kind_delta": {
+        "list": -2,
+        "list_item": -6,
+        "paragraph": -7,
+        "unit": -7
+      },
+      "segments_only_in_default": 29,
+      "segments_only_in_variant": 7,
+      "examples_default": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "unit",
+          "In the Special Distribution Simulator, select the normal distribution and keep the default settings. Note the shape and "
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that random variable \\( Z \\) has the standard normal distribution.\n\nThe mean and variance of \\( Z \\) ar"
+        ]
+      ],
+      "math_spans": [
+        258,
+        250
+      ],
+      "math_texts_changed": 203,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R1_aref_empty": {
+      "chars": [
+        21680,
+        21612
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 29,
+      "segments_only_in_variant": 29,
+      "examples_default": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that random variable \\( Z \\) has the standard normal distribution.\n\nThe mean and variance of \\( Z \\) ar"
+        ],
+        [
+          "unit",
+          "For \\( n \\in \\N_+ \\), \\( \\E\\left(Z^{n+1}\\right) = n \\E\\left(Z^{n-1}\\right) \\)\n\nDetails:\n\nFirst we use the differential e"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that random variable \\( Z \\) has the standard normal distribution.\n\nThe mean and variance of \\( Z \\) ar"
+        ],
+        [
+          "unit",
+          "For \\( n \\in \\N_+ \\), \\( \\E\\left(Z^{n+1}\\right) = n \\E\\left(Z^{n-1}\\right) \\)\n\nDetails:\n\nFirst we use the differential e"
+        ]
+      ],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R1_aref_placeholder": {
+      "chars": [
+        21680,
+        21700
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 29,
+      "segments_only_in_variant": 29,
+      "examples_default": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that random variable \\( Z \\) has the standard normal distribution.\n\nThe mean and variance of \\( Z \\) ar"
+        ],
+        [
+          "unit",
+          "For \\( n \\in \\N_+ \\), \\( \\E\\left(Z^{n+1}\\right) = n \\E\\left(Z^{n-1}\\right) \\)\n\nDetails:\n\nFirst we use the differential e"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that random variable \\( Z \\) has the standard normal distribution.\n\nThe mean and variance of \\( Z \\) ar"
+        ],
+        [
+          "unit",
+          "For \\( n \\in \\N_+ \\), \\( \\E\\left(Z^{n+1}\\right) = n \\E\\left(Z^{n-1}\\right) \\)\n\nDetails:\n\nFirst we use the differential e"
+        ]
+      ],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R2_q_bare": {
+      "chars": [
+        21680,
+        21678
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 4,
+      "segments_only_in_variant": 4,
+      "examples_default": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "paragraph",
+          "The standard normal probability density function has the famous “bell shape” that is known to just about everyone."
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "paragraph",
+          "The standard normal probability density function has the famous bell shape that is known to just about everyone."
+        ]
+      ],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R3_markers_none": {
+      "chars": [
+        21680,
+        21460
+      ],
+      "segments_by_kind_delta": {
+        "list_item": -1
+      },
+      "segments_only_in_default": 110,
+      "segments_only_in_variant": 109,
+      "examples_default": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "unit",
+          "The standard normal density function \\(\\phi\\) satisfies the following properties:\n\n(a) \\(\\phi\\) is symmetric about \\(z ="
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "unit",
+          "The standard normal density function \\(\\phi\\) satisfies the following properties:\n\n\\(\\phi\\) is symmetric about \\(z = 0\\)"
+        ]
+      ],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R3_markers_browser": {
+      "chars": [
+        21680,
+        21625
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 110,
+      "segments_only_in_variant": 110,
+      "examples_default": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "unit",
+          "The standard normal density function \\(\\phi\\) satisfies the following properties:\n\n(a) \\(\\phi\\) is symmetric about \\(z ="
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "unit",
+          "The standard normal density function \\(\\phi\\) satisfies the following properties:\n\na. \\(\\phi\\) is symmetric about \\(z = "
+        ]
+      ],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R4_summary_drop": {
+      "chars": [
+        21680,
+        21470
+      ],
+      "segments_by_kind_delta": {
+        "heading": -21
+      },
+      "segments_only_in_default": 72,
+      "segments_only_in_variant": 51,
+      "examples_default": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "unit",
+          "The standard normal distribution is a continuous distribution on \\( \\R \\) with probability density function \\(\\phi\\) giv"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Normal Distribution\n\nThe normal distribution holds an honored role in probability and statistics, mostly because of "
+        ],
+        [
+          "section",
+          "The Standard Normal Distribution\n\nDistribution Functions\n\nThe standard normal distribution is a continuous distribution "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard normal distribution is a continuous distribution on \\( \\R \\) with probability densi"
+        ],
+        [
+          "unit",
+          "The standard normal distribution is a continuous distribution on \\( \\R \\) with probability density function \\(\\phi\\) giv"
+        ]
+      ],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R5_figure_drop": {
+      "chars": [
+        21680,
+        21680
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        258,
+        258
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    }
+  },
+  "special/LogNormal.html": {
+    "default_rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+    "V5_profile_engines": {
+      "per_rule": {
+        "block_hint:p.app": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "block_hint:p.dfn": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "block_hint:p.math": {
+          "cssselect2": 15,
+          "xpath": 15,
+          "identical": true
+        },
+        "details:details": {
+          "cssselect2": 14,
+          "xpath": 14,
+          "identical": true
+        },
+        "exclude:chapter_lists": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:controls": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:images": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:macro_block": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:navigation": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "exclude:scripts": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "summary:summary": {
+          "cssselect2": 14,
+          "xpath": 14,
+          "identical": true
+        },
+        "title:title": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "unit:unit": {
+          "cssselect2": 19,
+          "xpath": 19,
+          "identical": true
+        }
+      },
+      "all_identical": true,
+      "role_conflicts": []
+    },
+    "V6_pylatexenc3_default_state": {
+      "blocks": 82,
+      "spans_agree": 187,
+      "scanner_only": 5,
+      "walker_only": 2,
+      "comment_nodes": 0,
+      "parse_errors": 0,
+      "examples": [
+        {
+          "segment": "seg:826c8fc3c3fec10d74959fa72030c7f1",
+          "walker_only": "$1000 units) has the lognormal distribution with parameters \\(\\mu = 2\\) and \\(\\sigma = 1\\). Find \\(\\P(X \\gt 20)\\)."
+        },
+        {
+          "segment": "seg:826c8fc3c3fec10d74959fa72030c7f1",
+          "scanner_only": "\\(\\mu = 2\\)"
+        },
+        {
+          "segment": "seg:826c8fc3c3fec10d74959fa72030c7f1",
+          "scanner_only": "\\(\\sigma = 1\\)"
+        },
+        {
+          "segment": "seg:35232e77afb0077b1a56404e63b0df4c",
+          "walker_only": "$1000 units) has the lognormal distribution with parameters \\(\\mu = 2\\) and \\(\\sigma = 1\\). Find each of the following:"
+        },
+        {
+          "segment": "seg:35232e77afb0077b1a56404e63b0df4c",
+          "scanner_only": "\\(\\mu = 2\\)"
+        },
+        {
+          "segment": "seg:35232e77afb0077b1a56404e63b0df4c",
+          "scanner_only": "\\(\\sigma = 1\\)"
+        }
+      ]
+    },
+    "V6_pylatexenc3_prose_safe": {
+      "blocks": 82,
+      "spans_agree": 192,
+      "scanner_only": 0,
+      "walker_only": 0,
+      "comment_nodes": 0,
+      "parse_errors": 0,
+      "examples": []
+    },
+    "V1_html5lib": {
+      "chars": [
+        12319,
+        12319
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V2_NFKC": {
+      "chars": [
+        12319,
+        12319
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V3_math_ws_collapse": {
+      "chars": [
+        12319,
+        12318
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 5,
+      "segments_only_in_variant": 5,
+      "examples_default": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nSuppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\i"
+        ],
+        [
+          "unit",
+          "The probability density function \\(f\\) of \\(X\\) is given by \\[ f(x) = \\frac{1}{\\sqrt{2 \\pi} \\sigma x} \\exp \\left[-\\frac{"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nSuppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\i"
+        ],
+        [
+          "unit",
+          "The probability density function \\(f\\) of \\(X\\) is given by \\[ f(x) = \\frac{1}{\\sqrt{2 \\pi} \\sigma x} \\exp \\left[-\\frac{"
+        ]
+      ],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 1,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V4_h3_only": {
+      "chars": [
+        12319,
+        12319
+      ],
+      "segments_by_kind_delta": {
+        "section": -4
+      },
+      "segments_only_in_default": 4,
+      "segments_only_in_variant": 0,
+      "examples_default": [
+        [
+          "section",
+          "Definition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in "
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nSuppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\i"
+        ],
+        [
+          "section",
+          "Moments\n\nThe moments of the lognormal distribution can be computed from the moment generating function of the normal dis"
+        ],
+        [
+          "section",
+          "Related Distributions\n\nThe most important relations are the ones between the lognormal and normal distributions in the d"
+        ]
+      ],
+      "examples_variant": [],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V7_apps_excluded": {
+      "chars": [
+        12319,
+        11424
+      ],
+      "segments_by_kind_delta": {
+        "paragraph": -3,
+        "unit": -3
+      },
+      "segments_only_in_default": 10,
+      "segments_only_in_variant": 4,
+      "examples_default": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nSuppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\i"
+        ],
+        [
+          "unit",
+          "In the special distribution simulator, select the lognormal distribution. Vary the parameters and note the shape and loc"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nSuppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\i"
+        ],
+        [
+          "section",
+          "Moments\n\nThe moments of the lognormal distribution can be computed from the moment generating function of the normal dis"
+        ]
+      ],
+      "math_spans": [
+        192,
+        189
+      ],
+      "math_texts_changed": 133,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R1_aref_empty": {
+      "chars": [
+        12319,
+        12295
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 23,
+      "segments_only_in_variant": 23,
+      "examples_default": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Moments\n\nThe moments of the lognormal distribution can be computed from the moment generating function of the normal dis"
+        ],
+        [
+          "unit",
+          "The skewness and kurtosis of \\(X\\) are\n\n(a) \\( \\skw(X) = \\left(e^{\\sigma^2} + 2\\right) \\sqrt{e^{\\sigma^2} - 1} \\)\n(b) \\("
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Moments\n\nThe moments of the lognormal distribution can be computed from the moment generating function of the normal dis"
+        ],
+        [
+          "unit",
+          "The skewness and kurtosis of \\(X\\) are\n\n(a) \\( \\skw(X) = \\left(e^{\\sigma^2} + 2\\right) \\sqrt{e^{\\sigma^2} - 1} \\)\n(b) \\("
+        ]
+      ],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R1_aref_placeholder": {
+      "chars": [
+        12319,
+        12332
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 23,
+      "segments_only_in_variant": 23,
+      "examples_default": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Moments\n\nThe moments of the lognormal distribution can be computed from the moment generating function of the normal dis"
+        ],
+        [
+          "unit",
+          "The skewness and kurtosis of \\(X\\) are\n\n(a) \\( \\skw(X) = \\left(e^{\\sigma^2} + 2\\right) \\sqrt{e^{\\sigma^2} - 1} \\)\n(b) \\("
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Moments\n\nThe moments of the lognormal distribution can be computed from the moment generating function of the normal dis"
+        ],
+        [
+          "unit",
+          "The skewness and kurtosis of \\(X\\) are\n\n(a) \\( \\skw(X) = \\left(e^{\\sigma^2} + 2\\right) \\sqrt{e^{\\sigma^2} - 1} \\)\n(b) \\("
+        ]
+      ],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R2_q_bare": {
+      "chars": [
+        12319,
+        12319
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R3_markers_none": {
+      "chars": [
+        12319,
+        12259
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 36,
+      "segments_only_in_variant": 36,
+      "examples_default": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Definition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in "
+        ],
+        [
+          "unit",
+          "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in (0, \\infty)\\"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Definition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in "
+        ],
+        [
+          "unit",
+          "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in (0, \\infty)\\"
+        ]
+      ],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R3_markers_browser": {
+      "chars": [
+        12319,
+        12304
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 36,
+      "segments_only_in_variant": 36,
+      "examples_default": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Definition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in "
+        ],
+        [
+          "unit",
+          "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in (0, \\infty)\\"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Definition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in "
+        ],
+        [
+          "unit",
+          "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in (0, \\infty)\\"
+        ]
+      ],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R4_summary_drop": {
+      "chars": [
+        12319,
+        12179
+      ],
+      "segments_by_kind_delta": {
+        "heading": -14
+      },
+      "segments_only_in_default": 48,
+      "segments_only_in_variant": 34,
+      "examples_default": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nSuppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\i"
+        ],
+        [
+          "unit",
+          "The probability density function \\(f\\) of \\(X\\) is given by \\[ f(x) = \\frac{1}{\\sqrt{2 \\pi} \\sigma x} \\exp \\left[-\\frac{"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Lognormal Distribution\n\nBasic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in"
+        ],
+        [
+          "section",
+          "Basic Theory\n\nDefinition\n\nSuppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nSuppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\i"
+        ],
+        [
+          "unit",
+          "The probability density function \\(f\\) of \\(X\\) is given by \\[ f(x) = \\frac{1}{\\sqrt{2 \\pi} \\sigma x} \\exp \\left[-\\frac{"
+        ]
+      ],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R5_figure_drop": {
+      "chars": [
+        12319,
+        12319
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        192,
+        192
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    }
+  },
+  "special/Gamma.html": {
+    "default_rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+    "V5_profile_engines": {
+      "per_rule": {
+        "block_hint:p.app": {
+          "cssselect2": 8,
+          "xpath": 8,
+          "identical": true
+        },
+        "block_hint:p.dfn": {
+          "cssselect2": 5,
+          "xpath": 5,
+          "identical": true
+        },
+        "block_hint:p.math": {
+          "cssselect2": 25,
+          "xpath": 25,
+          "identical": true
+        },
+        "details:details": {
+          "cssselect2": 21,
+          "xpath": 21,
+          "identical": true
+        },
+        "exclude:chapter_lists": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:controls": {
+          "cssselect2": 4,
+          "xpath": 4,
+          "identical": true
+        },
+        "exclude:images": {
+          "cssselect2": 5,
+          "xpath": 5,
+          "identical": true
+        },
+        "exclude:macro_block": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "exclude:navigation": {
+          "cssselect2": 2,
+          "xpath": 2,
+          "identical": true
+        },
+        "exclude:scripts": {
+          "cssselect2": 3,
+          "xpath": 3,
+          "identical": true
+        },
+        "summary:summary": {
+          "cssselect2": 21,
+          "xpath": 21,
+          "identical": true
+        },
+        "title:title": {
+          "cssselect2": 1,
+          "xpath": 1,
+          "identical": true
+        },
+        "unit:unit": {
+          "cssselect2": 38,
+          "xpath": 38,
+          "identical": true
+        }
+      },
+      "all_identical": true,
+      "role_conflicts": []
+    },
+    "V6_pylatexenc3_default_state": {
+      "blocks": 166,
+      "spans_agree": 273,
+      "scanner_only": 0,
+      "walker_only": 0,
+      "comment_nodes": 0,
+      "parse_errors": 0,
+      "examples": []
+    },
+    "V6_pylatexenc3_prose_safe": {
+      "blocks": 166,
+      "spans_agree": 273,
+      "scanner_only": 0,
+      "walker_only": 0,
+      "comment_nodes": 0,
+      "parse_errors": 0,
+      "examples": []
+    },
+    "V1_html5lib": {
+      "chars": [
+        20465,
+        20465
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V2_NFKC": {
+      "chars": [
+        20465,
+        20465
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 0,
+      "segments_only_in_variant": 0,
+      "examples_default": [],
+      "examples_variant": [],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V3_math_ws_collapse": {
+      "chars": [
+        20465,
+        20459
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 11,
+      "segments_only_in_variant": 11,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Standard Gamma Distribution\n\nDistribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in ("
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ],
+        [
+          "unit",
+          "The gamma probability density function \\( f \\) with shape parameter \\( k \\in (0, \\infty) \\) satisfies the following prop"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Standard Gamma Distribution\n\nDistribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in ("
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ],
+        [
+          "unit",
+          "The gamma probability density function \\( f \\) with shape parameter \\( k \\in (0, \\infty) \\) satisfies the following prop"
+        ]
+      ],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 2,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V4_h3_only": {
+      "chars": [
+        20465,
+        20465
+      ],
+      "segments_by_kind_delta": {
+        "section": -9
+      },
+      "segments_only_in_default": 9,
+      "segments_only_in_variant": 0,
+      "examples_default": [
+        [
+          "section",
+          "Definition\n\nThe gamma function \\( \\Gamma \\) is defined as follows \\[ \\Gamma(k) = \\int_0^\\infty x^{k-1} e^{-x} \\, dx, \\qu"
+        ],
+        [
+          "section",
+          "Properties\n\nHere are a few of the essential properties of the gamma function. The first is the fundamental identity.\n\n\\("
+        ],
+        [
+          "section",
+          "Stirling's Approximation\n\nOne of the most famous asymptotic formulas for the gamma function is Stirling's formula, named"
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ]
+      ],
+      "examples_variant": [],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "V7_apps_excluded": {
+      "chars": [
+        20465,
+        17990
+      ],
+      "segments_by_kind_delta": {
+        "list": -1,
+        "list_item": -3,
+        "paragraph": -8,
+        "unit": -8
+      },
+      "segments_only_in_default": 28,
+      "segments_only_in_variant": 8,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Standard Gamma Distribution\n\nDistribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in ("
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ],
+        [
+          "unit",
+          "Open the special distribution simulator and select the gamma distribution. Keep the app open as you read this section. F"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Standard Gamma Distribution\n\nDistribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in ("
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ],
+        [
+          "section",
+          "Moments\n\nSuppose that \\( X \\) has the standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\). The mean"
+        ]
+      ],
+      "math_spans": [
+        273,
+        265
+      ],
+      "math_texts_changed": 189,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R1_aref_empty": {
+      "chars": [
+        20465,
+        20363
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 54,
+      "segments_only_in_variant": 54,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Gamma Function\n\nBefore we can study the gamma distribution, we need to introduce the gamma function, a special funct"
+        ],
+        [
+          "section",
+          "Properties\n\nHere are a few of the essential properties of the gamma function. The first is the fundamental identity.\n\n\\("
+        ],
+        [
+          "unit",
+          "\\(\\Gamma(k + 1) = k!\\) for \\(k \\in \\N\\).\n\nDetails:\n\nThis follows from [3] and the fact that \\(\\Gamma(1) = 1\\)."
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Gamma Function\n\nBefore we can study the gamma distribution, we need to introduce the gamma function, a special funct"
+        ],
+        [
+          "section",
+          "Properties\n\nHere are a few of the essential properties of the gamma function. The first is the fundamental identity.\n\n\\("
+        ],
+        [
+          "unit",
+          "\\(\\Gamma(k + 1) = k!\\) for \\(k \\in \\N\\).\n\nDetails:\n\nThis follows from and the fact that \\(\\Gamma(1) = 1\\)."
+        ]
+      ],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R1_aref_placeholder": {
+      "chars": [
+        20465,
+        20503
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 54,
+      "segments_only_in_variant": 54,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Gamma Function\n\nBefore we can study the gamma distribution, we need to introduce the gamma function, a special funct"
+        ],
+        [
+          "section",
+          "Properties\n\nHere are a few of the essential properties of the gamma function. The first is the fundamental identity.\n\n\\("
+        ],
+        [
+          "unit",
+          "\\(\\Gamma(k + 1) = k!\\) for \\(k \\in \\N\\).\n\nDetails:\n\nThis follows from [3] and the fact that \\(\\Gamma(1) = 1\\)."
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Gamma Function\n\nBefore we can study the gamma distribution, we need to introduce the gamma function, a special funct"
+        ],
+        [
+          "section",
+          "Properties\n\nHere are a few of the essential properties of the gamma function. The first is the fundamental identity.\n\n\\("
+        ],
+        [
+          "unit",
+          "\\(\\Gamma(k + 1) = k!\\) for \\(k \\in \\N\\).\n\nDetails:\n\nThis follows from [ref] and the fact that \\(\\Gamma(1) = 1\\)."
+        ]
+      ],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R2_q_bare": {
+      "chars": [
+        20465,
+        20463
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 5,
+      "segments_only_in_variant": 5,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The General Gamma Distribution\n\nThe gamma distribution is usually generalized by adding a scale parameter. As usual, sca"
+        ],
+        [
+          "section",
+          "Related Distributions\n\nOur first result is simply a restatement of the meaning of the term scale parameter.\n\nSuppose tha"
+        ],
+        [
+          "unit",
+          "In the special distribution simulator, select the gamma distribution. For various values of the scale parameter, increas"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The General Gamma Distribution\n\nThe gamma distribution is usually generalized by adding a scale parameter. As usual, sca"
+        ],
+        [
+          "section",
+          "Related Distributions\n\nOur first result is simply a restatement of the meaning of the term scale parameter.\n\nSuppose tha"
+        ],
+        [
+          "unit",
+          "In the special distribution simulator, select the gamma distribution. For various values of the scale parameter, increas"
+        ]
+      ],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R3_markers_none": {
+      "chars": [
+        20465,
+        20301
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 81,
+      "segments_only_in_variant": 81,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Standard Gamma Distribution\n\nDistribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in ("
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ],
+        [
+          "unit",
+          "The gamma probability density function \\( f \\) with shape parameter \\( k \\in (0, \\infty) \\) satisfies the following prop"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Standard Gamma Distribution\n\nDistribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in ("
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ],
+        [
+          "unit",
+          "The gamma probability density function \\( f \\) with shape parameter \\( k \\in (0, \\infty) \\) satisfies the following prop"
+        ]
+      ],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R3_markers_browser": {
+      "chars": [
+        20465,
+        20424
+      ],
+      "segments_by_kind_delta": {},
+      "segments_only_in_default": 81,
+      "segments_only_in_variant": 81,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Standard Gamma Distribution\n\nDistribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in ("
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ],
+        [
+          "unit",
+          "The gamma probability density function \\( f \\) with shape parameter \\( k \\in (0, \\infty) \\) satisfies the following prop"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Standard Gamma Distribution\n\nDistribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in ("
+        ],
+        [
+          "section",
+          "Distribution Functions\n\nThe standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\) is a continuous dis"
+        ],
+        [
+          "unit",
+          "The gamma probability density function \\( f \\) with shape parameter \\( k \\in (0, \\infty) \\) satisfies the following prop"
+        ]
+      ],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R4_summary_drop": {
+      "chars": [
+        20465,
+        20255
+      ],
+      "segments_by_kind_delta": {
+        "heading": -21
+      },
+      "segments_only_in_default": 75,
+      "segments_only_in_variant": 54,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Gamma Function\n\nBefore we can study the gamma distribution, we need to introduce the gamma function, a special funct"
+        ],
+        [
+          "section",
+          "Definition\n\nThe gamma function \\( \\Gamma \\) is defined as follows \\[ \\Gamma(k) = \\int_0^\\infty x^{k-1} e^{-x} \\, dx, \\qu"
+        ],
+        [
+          "unit",
+          "The gamma function \\( \\Gamma \\) is defined as follows \\[ \\Gamma(k) = \\int_0^\\infty x^{k-1} e^{-x} \\, dx, \\quad k \\in (0,"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Gamma Function\n\nBefore we can study the gamma distribution, we need to introduce the gamma function, a special funct"
+        ],
+        [
+          "section",
+          "Definition\n\nThe gamma function \\( \\Gamma \\) is defined as follows \\[ \\Gamma(k) = \\int_0^\\infty x^{k-1} e^{-x} \\, dx, \\qu"
+        ],
+        [
+          "unit",
+          "The gamma function \\( \\Gamma \\) is defined as follows \\[ \\Gamma(k) = \\int_0^\\infty x^{k-1} e^{-x} \\, dx, \\quad k \\in (0,"
+        ]
+      ],
+      "math_spans": [
+        273,
+        273
+      ],
+      "math_texts_changed": 0,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    },
+    "R5_figure_drop": {
+      "chars": [
+        20465,
+        20405
+      ],
+      "segments_by_kind_delta": {
+        "caption": -1,
+        "figure": -1
+      },
+      "segments_only_in_default": 5,
+      "segments_only_in_variant": 3,
+      "examples_default": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Gamma Function\n\nBefore we can study the gamma distribution, we need to introduce the gamma function, a special funct"
+        ],
+        [
+          "section",
+          "Definition\n\nThe gamma function \\( \\Gamma \\) is defined as follows \\[ \\Gamma(k) = \\int_0^\\infty x^{k-1} e^{-x} \\, dx, \\qu"
+        ],
+        [
+          "figure",
+          "The graph of the gamma function on the interval \\((0, 5)\\)"
+        ]
+      ],
+      "examples_variant": [
+        [
+          "document",
+          "The Gamma Distribution\n\nIn this section we will study a family of distributions that has special importance in probabili"
+        ],
+        [
+          "section",
+          "The Gamma Function\n\nBefore we can study the gamma distribution, we need to introduce the gamma function, a special funct"
+        ],
+        [
+          "section",
+          "Definition\n\nThe gamma function \\( \\Gamma \\) is defined as follows \\[ \\Gamma(k) = \\int_0^\\infty x^{k-1} e^{-x} \\, dx, \\qu"
+        ]
+      ],
+      "math_spans": [
+        273,
+        272
+      ],
+      "math_texts_changed": 258,
+      "unicode_changed": 0,
+      "unicode_examples": []
+    }
+  }
+}

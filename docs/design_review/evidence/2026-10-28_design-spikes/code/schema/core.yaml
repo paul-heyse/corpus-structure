@@ -1,0 +1,164 @@
+id: https://corpus-structure.dev/core
+name: core
+version: 0.1.0
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  core: https://corpus-structure.dev/core/
+default_prefix: core
+imports:
+  - linkml:types
+
+classes:
+  Entity:
+    abstract: true
+    description: Base of every entity class; instances are D1 entities.
+    slots: [label]
+    annotations: {ci:kind: abstract}
+
+  Statement:
+    is_a: Entity
+    description: >-
+      An authored unit of meaning: a definition, theorem, proof, example, exercise, remark,
+      convention or assumption. Claims belong to statements as premises, conclusions,
+      definientia, restrictions or example values.
+    slots: [kind]
+    annotations:
+      ci:kind: entity
+      ci:scope: local
+      ci:extract: none          # statements come from segments and markup (D5 §3.5), not mentions
+      ci:reify: true
+
+  # value classes (D1 §6)
+  Formula:
+    description: A formula as written, with its symbol bindings (D1 §6.1).
+    attributes:
+      latex: {range: string, required: true, annotations: {ci:role: field}}
+      sympy: {range: string, annotations: {ci:role: field}}        # added by M11; absent from batches
+      parse: {range: ParseStatus, annotations: {ci:role: field}}   # added by M11
+      symbols: {range: SymbolBinding, multivalued: true, inlined: true, annotations: {ci:role: field}}
+    annotations: {ci:kind: value}
+  SetExpr:
+    is_a: Formula
+    description: A set written in LaTeX, such as \R, (0, \infty) or \R \setminus \{0\}.
+    annotations: {ci:kind: value}
+  SymbolBinding:
+    description: How one symbol of a formula is bound (D1 §6.1).
+    attributes:
+      symbol: {range: string, identifier: true, annotations: {ci:role: field}}
+      bind: {range: BindKind, required: true, annotations: {ci:role: field}}
+      entity: {range: string, annotations: {ci:role: field}}   # local ref in batches; entity key once stored
+      claim: {range: string, annotations: {ci:role: field}}    # local ref in batches; claim key once stored
+      param: {range: string, annotations: {ci:role: field}}
+    annotations: {ci:kind: value}
+  TextValue:
+    attributes: {v: {range: string, required: true, annotations: {ci:role: field}}}
+    annotations: {ci:kind: value}
+  NumberValue:
+    attributes:
+      v: {range: string, required: true, annotations: {ci:role: field}}      # decimal string
+      unit: {range: string, annotations: {ci:role: field}}                   # pint unit, or absent
+    annotations: {ci:kind: value}
+  BoolValue:
+    attributes: {v: {range: boolean, required: true, annotations: {ci:role: field}}}
+    annotations: {ci:kind: value}
+  DateValue:
+    attributes: {v: {range: string, required: true, annotations: {ci:role: field}}}  # ISO 8601
+    annotations: {ci:kind: value}
+  IntervalValue:
+    attributes:
+      start: {range: string, annotations: {ci:role: field}}       # a D1 value as JSON, absent if unbounded
+      end: {range: string, annotations: {ci:role: field}}
+      start_incl: {range: boolean, annotations: {ci:role: field}}
+      end_incl: {range: boolean, annotations: {ci:role: field}}
+    annotations: {ci:kind: value}
+  PhraseValue:
+    description: Text kept but not interpreted; anchored to its span once stored.
+    attributes:
+      text: {range: string, required: true, annotations: {ci:role: field}}
+      start: {range: integer, annotations: {ci:role: field}}
+      end: {range: integer, annotations: {ci:role: field}}
+    annotations: {ci:kind: value}
+
+slots:
+  label:
+    range: string
+    description: Canonical display label (D1 §4.1). Identity follows the key rules of D1 §10.1.
+    annotations: {ci:role: field}
+  kind:
+    range: StatementKind
+    annotations: {ci:role: field}
+
+  # core qualifiers: allowed on every predicate, never listed in ci:qualifiers (D2 §4)
+  modality: {range: ClaimModality, annotations: {ci:role: qualifier, ci:object: enum}}
+  polarity: {range: Polarity, annotations: {ci:role: qualifier, ci:object: enum}}
+  hedge: {range: PhraseValue, annotations: {ci:role: qualifier, ci:object: phrase}}
+  attribution: {range: Entity, annotations: {ci:role: qualifier, ci:object: entity}}
+  conditions:
+    range: string
+    description: A condition tree (D1 §7).
+    annotations: {ci:role: qualifier, ci:object: condition}
+  scope:
+    range: ScopeExtent
+    description: How far a supposition reaches beyond its statement; the stored form adds the segment.
+    annotations: {ci:role: qualifier, ci:object: enum}
+  valid_time: {range: IntervalValue, annotations: {ci:role: qualifier, ci:object: interval}}
+
+  # core predicates
+  defines:
+    domain: Statement
+    range: Entity
+    description: The statement defines the entity. "is called the location-scale family".
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: llm, ci:group: structure}
+  proves:
+    domain: Statement
+    range: Statement
+    description: A proof or solution statement proves (or solves) another statement.
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: llm, ci:group: structure}
+  follows_from:
+    domain: Statement
+    range: Statement
+    description: The statement is stated to follow from another ("a corollary of the last result").
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: llm, ci:group: structure}
+  refers_to:
+    domain: Statement
+    range: Entity
+    description: The statement explicitly refers to an entity defined elsewhere ("recall the gamma function").
+    annotations: {ci:role: predicate, ci:object: entity, ci:extract: llm, ci:group: structure}
+  unschematized:
+    domain: Entity
+    range: PhraseValue
+    description: Something the source states that the schema cannot express (D1 §8.1).
+    annotations: {ci:role: predicate, ci:object: phrase, ci:extract: llm, ci:group: unsupported}
+
+enums:
+  StatementKind:
+    annotations: {ci:extract: classification, ci:target: [unit, paragraph]}
+    permissible_values:
+      definition: {annotations: {ci:claim_bearing: true}}
+      theorem: {annotations: {ci:claim_bearing: true}}
+      proposition: {annotations: {ci:claim_bearing: true}}
+      lemma: {annotations: {ci:claim_bearing: true}}
+      corollary: {annotations: {ci:claim_bearing: true}}
+      proof: {annotations: {ci:claim_bearing: false}}
+      example: {annotations: {ci:claim_bearing: true}}
+      exercise: {annotations: {ci:claim_bearing: true}}
+      solution: {annotations: {ci:claim_bearing: false}}
+      remark: {annotations: {ci:claim_bearing: true}}
+      convention: {annotations: {ci:claim_bearing: true}}
+      notation: {annotations: {ci:claim_bearing: true}}
+      assumption: {annotations: {ci:claim_bearing: true}}
+      narrative: {annotations: {ci:claim_bearing: true}}
+  ClaimModality:
+    annotations: {ci:extract: classification, ci:target: sentence}
+    permissible_values: {asserted: {}, supposed: {}, defined: {}, conventional: {}, exemplified: {}, posed: {}, cited: {}}
+  Polarity:
+    permissible_values: {positive: {}, negative: {}}
+  StatementRole:
+    permissible_values: {premise: {}, conclusion: {}, definiens: {}, restriction: {}, example_value: {}}
+  ScopeExtent:
+    permissible_values: {statement: {}, section: {}, document: {}}
+  BindKind:
+    permissible_values: {variable: {}, param_of: {}, param_expr_of: {}, family_param: {}, free: {}, constant: {}, unresolved: {}}
+  ParseStatus:
+    permissible_values: {ok: {}, partial: {}, failed: {}}
