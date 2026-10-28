@@ -69,7 +69,12 @@ annotations, before any code depends on them.
 
 - **Exists:** the briefs (S0 and S1 revised by the 2026-10-28 review fold-in) and report template; the corpus under
   `docs/statistics_corpus/` (gitignored); index tables; the design set D0–D5 and the trace.
-- **Not yet started:** spike environment, code, results, reports.
+- **Executed (2026-10-28):** E0, S1-A…G, I-A, I-B, I-R1, S1-R1, S0-A…G, S0-R1 and the evidence
+  records (row 22). Results are finalized as records in the evidence folder
+  ([records index](../design_review/evidence/2026-10-28_design-spikes/README.md#records)); reports
+  [S1](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) and
+  [S0](../design_review/evidence/2026-10-28_design-spikes/S0-report.md). **Remaining:** X1, gated on
+  the operator's review of both reports.
 - **Pre-execution facts established while planning (2026-10-28)**, recorded so execution does
   not rediscover them:
   - A read-only inventory of all 78 first-pass pages (stdlib parser; summarized in
@@ -272,27 +277,27 @@ inventory (2026-10-28) and are scheduled into S1.
 
 | Item | Component | Consequence and intended correction | Disposition · dependency | Closure check |
 |---|---|---|---|---|
-| OPEN-D1-1 | D1 §3, D4 M03 | Sentence splitting may break inside or around math; adopt the variant with the best boundary F1 on the gold | open · S1-C | Variant matrix on the gold sample; adopted variant named in S1 report |
-| OPEN-D1-2 | D1 §5.2, D4 M13 | Variable scope may need `section` extent | open · S0-D, S0-E | Reference scopes with deciding spans; M13 probe comparison |
-| OPEN-D1-3 | D1 §4, D2 §10.4 | Parameter identity by role or symbol | open · S0-D | Annotator agreement on parameter entities; deciding units |
-| OPEN-D1-4 | D1 §5.2 | Extent for page-level standing assumptions | open · S0-D | Reference treatment of T1's lead-in; both section syntheses |
-| OPEN-D2-4 | D2 §9 | Property predicates versus `has_property` | open · S0-F | Count of distinct properties used and of `unsupported` property items |
-| OPEN-D2-5 | D2 §9, §10.4 | Representation of standardized families | open · S0-D | A/B treatment of "standard normal"/"standard gamma"; adjudication reason |
-| OPEN-D4-4 | D4 §4.1, M10 | Unit of LLM work | open · S0-E, S0-F, S1-D; S3 completes | Size distributions in tokens; packet-pass loss |
-| OPEN-D4-5 | D4 M13 | Rule scoping versus annotator scopes | open · S0-E; S5 completes | `m13_probe.tsv` agreement by binding kind |
-| OPEN-D5-1 | D5 §5.4 | Slots for non-functional formula predicates | open · S0-D | Reference cases with two formula claims of one predicate in one statement |
-| OPEN-D3-4 | D3, D5 §5.5 | Whether a stored meaning key is needed | evidence · S0-D; decided with D7 | Key and meaning-key agreement figures |
-| OPEN-D8-3 | D8 §2.2 | Blind passes must be verifiably separate | open · S0-A, S0-B | S0 report describes the setup, the opened-file records and any rerun |
-| OPEN-D7-2 | D7 §5.3 | Formula equivalence procedure | evidence · S0-D (deciding tier per comparison); S5 decides | Tier counts in the S0 report |
+| OPEN-D1-1 | D1 §3, D4 M03 | Sentence splitting may break inside or around math; adopt the variant with the best boundary F1 on the gold | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposition in X1 after operator review | Variant matrix on the gold sample; adopted variant named in S1 report |
+| OPEN-D1-2 | D1 §5.2, D4 M13 | Variable scope may need `section` extent | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | Reference scopes with deciding spans; M13 probe comparison |
+| OPEN-D1-3 | D1 §4, D2 §10.4 | Parameter identity by role or symbol | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | Annotator agreement on parameter entities; deciding units |
+| OPEN-D1-4 | D1 §5.2 | Extent for page-level standing assumptions | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | Reference treatment of T1's lead-in; both section syntheses |
+| OPEN-D2-4 | D2 §9 | Property predicates versus `has_property` | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | Count of distinct properties used and of `unsupported` property items |
+| OPEN-D2-5 | D2 §9, §10.4 | Representation of standardized families | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | A/B treatment of "standard normal"/"standard gamma"; adjudication reason |
+| OPEN-D4-4 | D4 §4.1, M10 | Unit of LLM work | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | Size distributions in tokens; packet-pass loss |
+| OPEN-D4-5 | D4 M13 | Rule scoping versus annotator scopes | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | `m13_probe.tsv` agreement by binding kind |
+| OPEN-D5-1 | D5 §5.4 | Slots for non-functional formula predicates | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | Reference cases with two formula claims of one predicate in one statement |
+| OPEN-D3-4 | D3, D5 §5.5 | Whether a stored meaning key is needed | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | Key and meaning-key agreement figures |
+| OPEN-D8-3 | D8 §2.2 | Blind passes must be verifiably separate | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | S0 report describes the setup, the opened-file records and any rerun |
+| OPEN-D7-2 | D7 §5.3 | Formula equivalence procedure | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposition in X1 after operator review | Tier counts in the S0 report |
 | OPEN-D9-1 | D9 §2 | Python 3.14 wheels | evidence · E0 | Resolution recorded in both reports (all spike pins resolved on 3.14, 2026-10-28) |
-| HTML-01 | D1 §3.1, M01 | 106 bare `\begin{align}` blocks without `\[` are display math the rules do not name | open · S1-A, S1-D | Rule stated; counts over 78 pages |
-| HTML-02 | D1 §3.1, M01, M09 | 11 unbalanced math delimiters; no rule for resynchronization or `parse_status` | open · S1-A, S1-D | Behaviour per occurrence under both math detectors |
-| HTML-03 | D1 §3.1, M01 | Rendered-text conventions absent from the source (1,200 empty JS-filled `a.ref` links, `<q>`, list markers, `details` summaries) | open · S1-A | Convention chosen per case with sentence and quote-location evidence |
-| HTML-04 | D1 §3.2, M01, M13 | `section` is not an HTML element in Siegrist; it must be synthesized from `h3`/`h4` | open · S1-A, S0-E | Adopted synthesis; scope analysis under both |
-| HTML-05 | M01 | ~26 misnested or unclosed `<p>` repaired differently by parsers; parser error logs do not report them | open · S1-A, S1-D | Parser diff and source-level repair inventory |
-| HTML-06 | M01, M09, M11 | `div.latex` macro definitions: per-source map or per-rendition attribute | open · S1-D | Macro tables compared across 78 pages |
-| HTML-07 | D4 M01 | Source-profile language (CSS rules with roles) and a fallback for unprofiled HTML | open · S1-A, S1-E, S1-F | Rule-engine agreement, coverage inventory, trafilatura and NIST evidence |
-| PARSE-01 | D1 §6.2, D4 §4.3, M01, M09, M11, M13 | Math read four ways by string code (scanner, pylatexenc walker, SymPy rewrite shim, regex expression test); review findings F2/F3/F5a; fixed-width fuzzy quote windows cut words; source facts in adapter code | decided · ADR-0009 (operator approval 2026-10-28); implementation I-R1, S1-R1, S0-R1 | `code/mathgrammar/` coverage record; F2/F3/F5a regression tests on the grammar; locator cascade reproduces `regex_probe` figures; S1-D checks unchanged under the profile-generated delimiter pattern |
+| HTML-01 | D1 §3.1, M01 | 106 bare `\begin{align}` blocks without `\[` are display math the rules do not name | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposition in X1 after operator review | Rule stated; counts over 78 pages |
+| HTML-02 | D1 §3.1, M01, M09 | 11 unbalanced math delimiters; no rule for resynchronization or `parse_status` | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposition in X1 after operator review | Behaviour per occurrence under both math detectors |
+| HTML-03 | D1 §3.1, M01 | Rendered-text conventions absent from the source (1,200 empty JS-filled `a.ref` links, `<q>`, list markers, `details` summaries) | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposition in X1 after operator review | Convention chosen per case with sentence and quote-location evidence |
+| HTML-04 | D1 §3.2, M01, M13 | `section` is not an HTML element in Siegrist; it must be synthesized from `h3`/`h4` | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposition in X1 after operator review | Adopted synthesis; scope analysis under both |
+| HTML-05 | M01 | ~26 misnested or unclosed `<p>` repaired differently by parsers; parser error logs do not report them | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposition in X1 after operator review | Parser diff and source-level repair inventory |
+| HTML-06 | M01, M09, M11 | `div.latex` macro definitions: per-source map or per-rendition attribute | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposition in X1 after operator review | Macro tables compared across 78 pages |
+| HTML-07 | D4 M01 | Source-profile language (CSS rules with roles) and a fallback for unprofiled HTML | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposition in X1 after operator review | Rule-engine agreement, coverage inventory, trafilatura and NIST evidence |
+| PARSE-01 | D1 §6.2, D4 §4.3, M01, M09, M11, M13 | Math read four ways by string code (scanner, pylatexenc walker, SymPy rewrite shim, regex expression test); review findings F2/F3/F5a; fixed-width fuzzy quote windows cut words; source facts in adapter code | implemented in the spike instruments · ADR-0009; I-R1, S1-R1, S0-R1 done 2026-10-28 (records s0.instruments, s1.profile-delimiting, s0.m13-probe-2); production realization with D4's methods | `code/mathgrammar/` coverage record; F2/F3/F5a regression tests on the grammar; locator cascade reproduces `regex_probe` figures; S1-D checks unchanged under the profile-generated delimiter pattern |
 | OPEN-D2-1 | D2 §7.2 | `Schema.from_dict` keys in gliner2 | deferred · S4 | — |
 | OPEN-D2-2 | D2 §7.2, M06/M07 | Raw or masked math for GLiNER2 | deferred · S2 (S1 supplies math token cost) | — |
 | OPEN-D2-3 | D2 §7.4 | rule-engine syntax | deferred · S4 | — |
