@@ -83,7 +83,7 @@ classes to §3.4, `Statement` to §3.5.
 
 ### 3.3 Global entities
 
-1. **Identity attributes.** For classes with `ci:identity_keys`, identity attributes come from
+1. **Identity attributes.** For classes with identity `unique_keys` (D2 §3.1), identity attributes come from
    attribute observations, record fields or proposal `identity` fields; the canonical label is
    derived from them (for `DistributionFamily`, the normalized family name: "normal").
 2. **Linking.** M14's `link` observations rank candidate entities of the run's recorded
@@ -378,9 +378,15 @@ precision.
 A claim's confidence estimates the probability that an adjudicated golden annotation under the
 current guideline would contain the claim (aligned at the full tier, D7 §5). It is calibrated on
 the dev split and reported with its calibration error; it is not a probability that the claim is
-true in the world. Statuses use thresholds per **predicate group** (the predicate's `ci:group`, D2 §3.2; default
-the predicate itself) from the policy (default accept
-at 0.8).
+true in the world. Statuses use thresholds per **predicate group** from the policy (default accept
+at 0.8). A threshold, prior or report key names a predicate subset (D2 §3.2) or a predicate;
+a predicate under no declared key falls to `default`. A predicate under several declared keys
+takes the **most specific** one: its own predicate key, else the keyed subset that holds the
+fewest predicates, and when two keyed subsets are equally specific, the one declared first in the
+pack's subset order (statistics: `transformation_of` and `construction_formula` are in both
+`formula_definition` and `family_structure`). The resolution is per schema version, so a
+predicate's group is fixed for a run.
+> Status: **Proposed** (2026-10-28; coordinator ruling after S4)
 
 ### 6.2 Sources
 
@@ -521,48 +527,56 @@ symbols. The view builder takes both readers' output as data, so `validate` neve
 sites.
 > Status: **Proposed** (2026-10-28)
 
-Symbols available to `when` and `check`:
+Symbols available to `when` and `check` (the claim view; `?` marks a nullable type):
 
 | Symbol | Type | Content |
 |---|---|---|
 | `claim.id` | string | the local ref at submission, the claim key at finalize |
-| `claim.key` | string or null | null at submission |
-| `claim.predicate` | string | |
-| `claim.subject`, `claim.object` | mapping | `key`, `type`, `label`; `object` is null for value objects |
-| `claim.value` | mapping | the D1 value for value objects (`t`, and `latex`/`v`) |
-| `claim.qualifiers` | mapping | qualifiers with defaults filled in |
-| `claim.statement` | mapping or null | `key`, `kind` |
-| `claim.statement_kind` | string or null | the kind of the claim's statement |
-| `claim.statement_role`, `claim.establishment` | string | |
-| `claim.groups` | list of strings | the predicate's group (`ci:group`) and the pack subsets that hold the predicate (`family_structure`, …), which `applies_to: subset:<name>` reads |
-| `claim.subject.symbol` | string or null | the subject entity's symbol (local entities) |
-| `claim.subject.identity` | mapping | the subject entity's identity attributes (`ci:identity_keys`) |
-| `claim.value.enum`, `claim.value.latex` | string or null | the object's enum value; the LaTeX of a formula or set object |
-| `claim.bindings` | mapping | symbol → binding, from the binding maps of the claim's formula and set values (§4) |
-| `claim.condition_nodes` | list of mappings | the claim's condition tree flattened to its nodes |
+| `claim.key` | string? | null at submission |
+| `claim.predicate` | string | prefixed (`stat:has_distribution`, D2 §7.1) |
+| `claim.groups` | list of strings | the predicate subsets that hold the predicate (`structural`, `family_structure`, …, D2 §3.2), which `applies_to: subset:<name>` and `when` expressions read |
+| `claim.subject` | entity view | `id`, `key?`, `type` (prefixed), `label`, `symbol?` (local entities), `identity` (mapping from the class's `unique_keys` slots, by prefixed name such as `stat:canonical_name`, to their values), `index_symbols` (the index letters of an indexed symbol, `i` of `X_i`) |
+| `claim.object` | entity view? | as `claim.subject`; null for value objects |
+| `claim.value` | value view? | `t`, `latex?`, `v?`, `enum?`, `slot_kind` (the object kind of the predicate's range, D2 §3), `parse?` and `math_kind?` (the grammar's parse status and reading; null at submission, §8.2 readers); null for entity objects |
+| `claim.qualifiers` | qualifiers view | one attribute per qualifier of the schema version, by local name, null when absent, with `modality` and `polarity` defaults filled in: map qualifiers as a mapping from key to the value's LaTeX (or string), condition qualifiers as their flattened nodes, entity qualifiers as the ref, formula qualifiers as LaTeX, phrase qualifiers as text, `scope` as its extent |
+| `claim.statement` | statement view? | `id`, `key?`, `kind` |
+| `claim.statement_kind`, `claim.statement_role` | string? | the kind of the claim's statement; the claim's role in it |
+| `claim.establishment` | string | |
+| `claim.bindings` | list of binding views | `{symbol, bind, entity?, claim?, param?}`, one per binding in the binding maps of the claim's formula and set values, object and qualifiers (§4) |
+| `claim.condition_nodes` | list of node views | the claim's condition tree flattened to its nodes: `op`, `ref?`, `name?`, `rel?`, `x_latex?` |
 | `claim.claim_refs` | list of strings | the claims its conditions reference (local refs at submission, keys at finalize) |
-| `claim.statement_premises` | list of strings | the premise claims of its statement |
-| `claim.gives_symbols` | list of strings | the symbols it gives as parameter values (entries of a `ci:param_map` qualifier, §4) |
-| `claim.given_by_others` | list of strings | its symbols that other claims give as parameter values |
-| `claim.evidence_count`, `claim.unresolved_symbols` | integer | |
-> Status: **Proposed** (2026-10-28): the domain-free attributes are those the guideline rules need; S4 (`s4.rules`) fixes their final names
+| `claim.statement_premises` | list of strings | the premise claims of its statement and of the context-premise `assumption` statements of its unit |
+| `claim.gives_symbols` | list of strings | the bare symbols it gives as parameter values (entries of a `ci:param_map` qualifier, §4), counted only when its role is `premise` or `example_value` |
+| `claim.given_by_others` | list of strings | the symbols other claims give as parameter values, under the same restriction |
+| `claim.same_slot` | list of strings | the other claims with the same predicate, subject and statement |
+| `claim.alternative_of` | list of strings | the claims it is marked alternative with |
+| `claim.evidence_count`, `claim.unresolved_symbols` | number | |
+| `claim.<view>` | list of strings | each `views:` declaration of the pack (statistics: `claim.family_params`) |
+
+Builtins: each `tables:` entry as `$<name>`, `$enums` (each enum, by prefixed name, to its values)
+and `$is_a(type, class)` (schema inheritance, prefixed class names); a function is added only for a
+parameterized lookup a rule needs.
+> Status: **Tested** (S4, 2026-10-28, record `s4.rules`): these are the names and types the 16
+> rules of D2 §6 and §9 compile against and the generic view builder computes at both call sites;
+> the prefixed `type`, `identity` keys, `$enums` and `$is_a` names are **Proposed** (S4 used local
+> names there); qualifier attributes stay local because a rule-engine attribute cannot contain `:`
 
 Facts about the claim pool are **cached attributes of the view**, computed once per claim by the
-view builder (OPEN-D2-3, answered 2026-10-28). The generic builder computes the domain-free ones
-in the table: `claim.groups`, the statement facts, `claim.bindings`, the flattened condition nodes
-and claim refs, and the "given as a parameter value" pair (`claim.gives_symbols`,
-`claim.given_by_others`, over the pack's `ci:param_map` qualifiers, §4); at submission they cover
-the batch only. Domain facts are pack data: `rules.yaml`'s
+view builder (OPEN-D2-3, closed 2026-10-28). The generic builder computes the domain-free ones in
+the table: `claim.groups`, the statement facts, `claim.bindings`, the flattened condition nodes and
+claim refs, the "given as a parameter value" pair over the pack's `ci:param_map` qualifiers (§4),
+and `claim.same_slot` and `claim.alternative_of`, which `stat.one_distribution_per_statement`
+reads; at submission they cover the batch only. Domain facts are pack data: `rules.yaml`'s
 declarative `views:` section ([D2 §7.4](D2-schema-and-guidelines.md#74-to-rule-engine-rules))
 names, for each projected field, a source predicate, a match and the field projected, and the
 generic builder compiles it, so a second domain's cross-claim rule needs no Python in the builder
 (P0CL-07; operator, 2026-10-28). Statistics declares `claim.family_params` there: canonical
 names from `has_parameter` claims of the family, any status except `rejected`; at submission
-only those in the batch, which is why rules reading it run `at: [finalize]`. Registered functions
-remain for parameterized lookups: `claims_of(id, predicate)`, `is_a(type, class)` (schema
-inheritance), `value_type(v)`. Neither reads the database during evaluation; the view builder
-reads the pool once.
-> Status: **Proposed** (2026-10-28): the `views:` section is not yet built or probed
+only those in the batch, which is why rules reading it run `at: [finalize]`. Neither the builder
+nor a builtin reads the database during evaluation; the view builder reads the pool once.
+> Status: **Tested** (S4, 2026-10-28, record `s4.rules`): `family_params` computed from its
+> `views:` declaration by the generic builder agrees with a `$family_params(id)` function form on
+> 21 of 21 evaluations; the finalize pool used spike keys, which P0-F-2b's keys replace
 
 ### 8.3 Invariants
 

@@ -299,16 +299,29 @@ class DomainQuery(Protocol):
 | `parameter_mapping(construction, family)` | The parameters a construction adds and how the member family's parameters map |
 | `construction_profile(construction)` | Construction formula, base variable, parameter symbols, parameters with roles and domains, member families |
 
+`family_profile` and `construction_profile` read two branches of D3 §9's family-profile pattern:
+the claims whose subject is the family or construction, and the claims on the `stat:FamilyParameter`
+entities whose identity names it. A family's parameters are often stated only on those entities.
+> Status: **Tested** (S6, 2026-10-28, on the v1 trace rows): the pattern without the parameter branch
+> returns 1 row for the normal family and misses T2's answer; with it, T1's `construction_profile`
+> and T2's and T4's `family_profile` return every expected trace claim
+> ([s6.queries](../design_review/evidence/2026-10-28_design-spikes/records/s6.queries.json))
+
 ### 5.3 The trace's typed questions (phase 0 acceptance)
 
 | Unit | Question | Query | Expected rows (trace claim refs) |
 |---|---|---|---|
-| T1 | What is a location-scale family, and what are its parameters? | `statement(LocationScale#dfn1)`, `construction_profile(location-scale family)` | Statement S1 (definition) with C2 (definiens, conditions), C3, C4–C8 (all definiens except C3); profile: C4 with base variable Z and parameter symbols, parameters location and scale (C5, C6) with domains ℝ and (0, ∞) (C7, C8). C1 only with `include_suppositions` |
+| T1 | What is a location-scale family, and what are its parameters? | `statement(LocationScale#dfn1)`, `statement(LocationScale@p:As usual, our starting point)`, `construction_profile(location-scale family)` | Statement S1 (definition) with C2 (definiens, conditions), C3, C4–C8 (all definiens except C3); statement S0 (the lead-in's assumption) with C1 only with `include_suppositions`; profile: C4 with base variable Z and parameter symbols, parameters location and scale (C5, C6) with domains ℝ and (0, ∞) (C7, C8). The unit locator `#dfn1` cannot reach C1: it sits in the lead-in paragraph outside the unit, and no condition of S1's claims references it, so the lead-in's own locator (the trace slice's, D2 §12.2) asks for it |
 | T2 | What are the location and scale parameters of the normal distribution? | `family_profile(normal)` | Parameters location and scale (the `FamilyParameter` entities N.loc and N.scale, whose identity names the family), identical to mean and standard deviation (C4, C5). The trace slice holds no `has_parameter` claim for the normal family: guideline v1 states those only in a family's definition, which T2 is not. C1 only with `include_suppositions` |
 | T3 | What is the distribution of an affine transformation of a normal variable, and under what conditions? | `transformations_of(normal)` | C3 with conditions a ∈ ℝ, b ∈ ℝ ∖ {0} and premise C1, and C2 defining Y under the same restrictions. D1 from phase 2 |
 | T4 | How is the lognormal distribution defined, and what are its shape and scale parameters? | `statement(LogNormal#dfn)`, `family_profile(lognormal)` | C1–C17 in the statement (with the standard lognormal, C13–C17); profile: parameters mu, sigma and scale (C5, C6, C9) with domains ℝ and (0, ∞) (C11, C12), sigma's role shape (C8), scale = e^μ (C10), transformation of normal with its mapping (C7) |
 
 Expected answers are the trace's target claims; D9 §4 turns them into tests.
+> Status: **Tested** (S6, 2026-10-28) as SQL sketches over the D3 §9 patterns on the v1 trace rows:
+> every question returns all its expected trace claims (0 missing), the extra rows coming from the
+> run's other core units and from T3's derived D1; `statement(LocationScale#dfn1)` returned S1's
+> seven claims and no option of a unit-locator query reached C1
+> ([s6.queries](../design_review/evidence/2026-10-28_design-spikes/records/s6.queries.json)); the typed queries themselves are **Proposed**
 
 **The spike pages' typed questions** are `statement(locator)` for each core unit (`core12`, the
 trace units among them).

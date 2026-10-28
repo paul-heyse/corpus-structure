@@ -1,12 +1,13 @@
 ---
 id: ADR-0018
 title: Escalation is routed by versioned policies over measurements
-status: proposed
+status: accepted
 date: 2026-10-28
 supersedes: []
 superseded-by: null
 design: [§B6]
-evidence: Proposed
+evidence: Interface-checked
+revisit: rule-engine cannot express a needed routing condition over measurements, or routing needs learned scores.
 ---
 
 ## Context
@@ -47,5 +48,9 @@ written. Acceptance follows S4 and the design/target review that precedes phase 
 - "Why did this unit go to the agent" is a query over the task's trigger. Scale-back is a policy
   version whose thresholds rise as measured reliability improves (D6 §7.5).
 - Policies are data under experiment control, so a routing change is evaluated like any other.
+- **Evidence (S4, 2026-10-28; operator accepted the report):** the shared rule-language helper compiles
+  every pack rule and refuses typos, nullable misuse, wrong arguments, unknown symbols and
+  nondeterministic builtins at compile time (record `s4.rules`). Routing over measurements has not
+  run yet; P0-O-2 implements it.
 - **Revisit** if rule-engine cannot express a needed routing condition over measurements, or routing
   needs learned scores (then thresholds become fitted parameters, not a new mechanism).

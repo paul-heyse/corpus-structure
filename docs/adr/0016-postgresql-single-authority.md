@@ -1,12 +1,13 @@
 ---
 id: ADR-0016
 title: PostgreSQL 18 is the single authority for knowledge, operations and evaluation
-status: proposed
+status: accepted
 date: 2026-10-28
 supersedes: []
 superseded-by: null
 design: [§B4]
-evidence: Proposed
+evidence: Tested
+revisit: Path queries come to dominate, write volume exceeds one database, or many corpora or tenants need separate stores.
 ---
 
 ## Context
@@ -44,7 +45,10 @@ the design/target review that precedes phase 0 execution.
 
 - "Why did this run on that unit, and what did it cost" is a query (D3 §9), not a debugging session.
 - Managed PostgreSQL hosting exists for the commercial product.
-- **Depends on S6:** OPEN-D3-1 (BM25 on the corpus), OPEN-D3-3 (segment text), OPEN-D3-4 (meaning key) and
-  the DDL corrections. Embeddings wait on S7 (OPEN-D3-2).
+- **Evidence (S6, 2026-10-28; operator accepted the report):** D3's DDL applies after two corrections,
+  the trace rows and queries run, BM25 and halfvec search work, and the queue runs each task once
+  through a killed and a stalled worker ([S6 report](../design_review/evidence/2026-10-28_design-spikes/S6-report.md),
+  records `s6.*`, on the interim cluster). OPEN-D3-1 and OPEN-D3-3 are answered; OPEN-D3-4 waits
+  on phase 1 goldens; embeddings wait on S7 (OPEN-D3-2).
 - **Revisit** if path queries come to dominate, write volume exceeds one database, or many corpora or
   tenants need separate stores.

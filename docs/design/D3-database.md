@@ -53,6 +53,13 @@ the server, and creates it (and later `vector`) as `postgres` in the template da
 extension: it asserts it and fails with that instruction (design authority, 2026-10-28, after the
 operator confirmed the installed package; [store note](../design_review/evidence/2026-10-28_library-store/README.md)
 §0, L-S5; [overview](../libraries/postgresql-18-pg-textsearch.md) §11.2).
+> Status: **Tested** (S6, 2026-10-28, PostgreSQL 18.6 on the interim project-local cluster): as a
+> non-superuser in a database cloned from the template, `CREATE EXTENSION` of either extension
+> fails with `42501`, the assertion fails with `P0001` and its instruction in a database without
+> pg_textsearch, and D3's DDL of §3–§8 with fixes F1 (the `::regconfig` cast, §5) and F2 (the
+> segment kind CHECK, §5) applies with 0 errors in 73 statements; `task_unit` and the
+> per-`target_type` HNSW indexes came after that copy
+> ([s6.ddl](../design_review/evidence/2026-10-28_design-spikes/records/s6.ddl.json))
 
 **Instance.** The project runs on one dedicated PostgreSQL 18 cluster on this machine, apart
 from the `main` cluster that other projects use (§13). Its provisioning creates the extensions
@@ -105,8 +112,8 @@ CREATE TABLE meta.compiled_artifact (           -- D2 §7 compiler outputs; rows
 
 CREATE TABLE meta.schema_class (
   schema_version_id bigint NOT NULL REFERENCES meta.schema_version ON DELETE CASCADE,
-  name          text NOT NULL,
-  parent        text,
+  name          text NOT NULL,                   -- prefixed: 'stat:RandomVariable', 'core:Statement'
+  parent        text,                            -- prefixed
   kind          text NOT NULL CHECK (kind IN ('entity','value','abstract')),
   scope         text CHECK (scope IN ('global','local')),
   identity_keys text[] NOT NULL DEFAULT '{}',
@@ -117,11 +124,11 @@ CREATE TABLE meta.schema_class (
 
 CREATE TABLE meta.schema_slot (
   schema_version_id   bigint NOT NULL REFERENCES meta.schema_version ON DELETE CASCADE,
-  name                text NOT NULL,             -- prefixed: 'stat:has_distribution'
+  name                text NOT NULL,             -- prefixed: 'stat:has_distribution'; a class-local attribute '<prefix>:<Class>.<attr>', e.g. 'core:Formula.latex'
   role                text NOT NULL CHECK (role IN ('predicate','qualifier','identity','field')),
-  domain_class        text,
-  range               text,
-  object_kind         text,                      -- D2 §3.2 ci:object
+  domain_class        text,                      -- prefixed class name
+  range               text,                      -- prefixed class or enum name, or a built-in type ('string', 'integer', ...)
+  object_kind         text,                      -- derived from the range (D2 §3): formula, set, entity, enum, map, condition, ...
   multivalued         boolean NOT NULL DEFAULT false,
   qualifiers          text[] NOT NULL DEFAULT '{}',
   identity_qualifiers text[] NOT NULL DEFAULT '{}',
@@ -189,7 +196,38 @@ version's `schema_class`, `schema_slot`, `schema_enum` and `schema_rule` rows ar
 it. No run reads them as input: methods read compiled artifacts by hash, so replacing the
 projection changes nothing a run computed. They serve SQL joins from claims to their schema
 definitions and the grouping of metrics by class and predicate.
-> Status: **Proposed** (2026-10-28)
+> Status: **Proposed** (2026-10-28). The path from pack to rows is **Tested** (S6, 2026-10-28):
+> S4's compiled tables for schema version 0.2.0 register with their content hash and artifact
+> hashes recomputed (4 of 4), all 148 compiled rows insert, and the twelve v1 core units inserted
+> against that version agree with it on predicates, types and value kinds
+> ([s6.dry-run-2](../design_review/evidence/2026-10-28_design-spikes/records/s6.dry-run-2.json))
+
+**One spelling of schema names: prefixed everywhere** (operator, 2026-10-28, on S6). A class,
+slot or enum is named by its prefixed name (`stat:RandomVariable`, `core:Statement`,
+`stat:param_values`, `core:modality`, `core:ParseStatus`) in every place that names it: the
+compiled rows (`schema_class.name` and `parent`, `schema_slot.name`, `domain_class`, `range`,
+`qualifiers` and `identity_qualifiers`, `schema_enum.name`), `kb.entity.type`, `kb.claim.predicate`
+and the keys of `kb.claim.qualifiers` (§6.1). The SQL joins from claims and entities to their
+schema definitions are then plain equalities. The schema-table compiler emits the names
+([D2 §7.1](D2-schema-and-guidelines.md#71-to-schema-tables), "To schema tables"), and the
+repository writes rows in the same spelling: the model-facing batch writes local names, unique
+within a schema version, and the stored form carries the prefixed ones
+([D2 §7.3](D2-schema-and-guidelines.md#73-to-json-schema-for-llm-claim-proposals), Names). Names
+inside a value are not schema names and keep their own spelling: the keys of a parameter map
+(`mean`, `variance`), a condition tree's `op`, a value's `t`.
+> Status: **Proposed** (2026-10-28). The mismatch it removes is **Tested** (S6, 2026-10-28): with
+> bare types and qualifier keys beside prefixed compiled names, 6 entity types and 5 (predicate,
+> qualifier) pairs matched only once prefixed, and 43 `domain_class`/`range` values in the compiled
+> rows were bare while class names were prefixed ([s6.dry-run-2](../design_review/evidence/2026-10-28_design-spikes/records/s6.dry-run-2.json))
+
+**Class-local attributes are named by their class.** An attribute of a value class (`v` of
+`NumberValue`, `BoolValue` and `TextValue`, `latex` of `Formula`) is a `meta.schema_slot` row named
+`<prefix>:<Class>.<attr>` (`core:NumberValue.v`, `core:Formula.latex`) with `domain_class` its
+class, so the key `(schema_version_id, name)` holds one attribute name under several classes
+without a further key column; free slots keep their plain prefixed names.
+> Status: **Tested** (S6, 2026-10-28): S4's compiled tables carry 29 such rows, and all insert
+> under the key ([s6.dry-run-2](../design_review/evidence/2026-10-28_design-spikes/records/s6.dry-run-2.json));
+> the convention is **Proposed** (2026-10-28)
 
 ## 4. `ops`: methods, policies, runs and tasks
 
@@ -313,7 +351,7 @@ CREATE TABLE kb.rendition (                     -- one content of a document (D1
   content_digest text NOT NULL,                  -- sha256 of canonical JSON of the content-identity relation (D1 §3.2)
   canonical_text text NOT NULL,
   macros         jsonb NOT NULL DEFAULT '{}',    -- the page's macro table (D4 M01); content, inside the digest
-  parse_status   text NOT NULL CHECK (parse_status IN ('ok','partial','failed')),   -- from its segments
+  parse_status   text NOT NULL CHECK (parse_status IN ('ok','partial','failed')),   -- from its segments: delimiting status, never 'ambiguous' (below)
   created_at     timestamptz NOT NULL DEFAULT now(),
   UNIQUE (document_id, content_digest)
 );
@@ -323,7 +361,9 @@ CREATE TABLE kb.segment (
   rendition_id bigint NOT NULL REFERENCES kb.rendition ON DELETE CASCADE,
   key          text NOT NULL UNIQUE,             -- 'seg:…'
   parent_id    bigint REFERENCES kb.segment,
-  kind         text NOT NULL,                    -- D1 §3.2; checked against a list in the migration
+  kind         text NOT NULL CHECK (kind IN ('document','section','unit','paragraph','list','list_item','details',
+                    'math_display','math_inline','heading','table','table_row','table_cell','caption','footnote',
+                    'figure','sentence','email_message','quoted_block','signature')),   -- D1 §3.2
   ordinal      integer NOT NULL,                 -- position among siblings
   depth        integer NOT NULL,
   start_offset integer NOT NULL,
@@ -331,7 +371,7 @@ CREATE TABLE kb.segment (
   text         text NOT NULL,                    -- canonical_text[start:end], stored for search
   ts_config    regconfig NOT NULL DEFAULT 'english',   -- from the source profile's language (default 'english'), selecting its BM25 index; not content
   attrs        jsonb NOT NULL DEFAULT '{}',      -- author markup (D1 §3.2); never diagnostics, which live in kb.rendition_build.parse_detail
-  parse_status text NOT NULL DEFAULT 'ok' CHECK (parse_status IN ('ok','partial','failed')),
+  parse_status text NOT NULL DEFAULT 'ok' CHECK (parse_status IN ('ok','partial','failed')),   -- delimiting status (D1 §3.1–§3.2), never 'ambiguous'
   parse_reason text,                             -- why `partial`/`failed` (delimiting, D1 §3.1); content, inside the digest
   CHECK ((parse_status = 'ok') = (parse_reason IS NULL)),
   CHECK (start_offset <= end_offset)
@@ -339,10 +379,10 @@ CREATE TABLE kb.segment (
 CREATE INDEX segment_range ON kb.segment (rendition_id, start_offset, end_offset);
 CREATE INDEX segment_kind  ON kb.segment (rendition_id, kind);
 -- BM25 over one non-overlapping block level, so a token is counted once and hits do not nest
--- (store note L-S3); one partial index per text-search configuration; the kind list is confirmed
--- on the corpus by S6
+-- (store note L-S3); one partial index per text-search configuration; the regconfig literal is
+-- cast, because regconfig = unknown resolves to oid = oid (S6)
 CREATE INDEX segment_bm25 ON kb.segment USING bm25 (text) WITH (text_config = 'english')
-  WHERE kind IN ('paragraph','heading','list_item','math_display') AND ts_config = 'english';
+  WHERE kind IN ('paragraph','heading','list_item','caption') AND ts_config = 'english'::regconfig;
 
 CREATE TABLE kb.span (
   id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -360,10 +400,13 @@ CREATE TABLE kb.embedding (
   target_type     text NOT NULL CHECK (target_type IN ('segment','entity','alias')),
   target_id       bigint NOT NULL,
   model_config_id bigint NOT NULL REFERENCES ops.method_config,
-  vec             halfvec(1024) NOT NULL,        -- dimension fixed by S7 (OPEN-D3-2)
+  vec             halfvec(1024) NOT NULL,        -- dimension fixed by S7 (OPEN-D3-2): 1024 or 2048
   UNIQUE (target_type, target_id, model_config_id)
 );
-CREATE INDEX embedding_hnsw ON kb.embedding USING hnsw (vec halfvec_cosine_ops);
+-- one partial HNSW index per target_type, queried with SET LOCAL hnsw.iterative_scan = relaxed_order (below)
+CREATE INDEX embedding_hnsw_segment ON kb.embedding USING hnsw (vec halfvec_cosine_ops) WHERE target_type = 'segment';
+CREATE INDEX embedding_hnsw_entity  ON kb.embedding USING hnsw (vec halfvec_cosine_ops) WHERE target_type = 'entity';
+CREATE INDEX embedding_hnsw_alias   ON kb.embedding USING hnsw (vec halfvec_cosine_ops) WHERE target_type = 'alias';
 ```
 
 **Renditions are content-addressed** (D1 §3.1, §3.2). A rendition row is one content of a
@@ -380,20 +423,44 @@ the digest covers whole segments (P0CL-01; operator, 2026-10-28).
 > Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
 > Status: **Proposed** (2026-10-28)
 
+**Segment kinds and parse statuses are closed sets.** `kb.segment.kind` is checked against the
+D1 §3.2 kinds, which the BM25 partial index's kind list relies on. `kb.segment.parse_status` and
+`kb.rendition.parse_status` are **delimiting** statuses (D1 §3.1–§3.2): `ok`, `partial` or
+`failed`. They are not the compiled `core:ParseStatus` enum, which is the range of a formula
+value's `parse` outcome (D1 §6.1) and adds `ambiguous` (a grammar reading a formula in more than
+one way); that outcome lives in values inside observation payloads and claims, never in a
+segment column, so the two CHECK lists differ by design and no CHECK is generated from the enum.
+> Status: the kind CHECK **Tested** (S6, 2026-10-28): D3's block lacked the CHECK its comment
+> promised; with it, the constraint sweep's bad rows are refused and every kind S1 emits on the
+> four spike pages inserts ([s6.ddl](../design_review/evidence/2026-10-28_design-spikes/records/s6.ddl.json),
+> [s6.constraints](../design_review/evidence/2026-10-28_design-spikes/records/s6.constraints.json));
+> the parse-status split is **Proposed** (2026-10-28), answering S6's finding that the compiled
+> enum has `ambiguous` and these CHECKs do not ([s6.dry-run-2](../design_review/evidence/2026-10-28_design-spikes/records/s6.dry-run-2.json))
+
 **Lexical search** (OPEN-D3-1) is BM25 through pg_textsearch, for the `find` query (D8 §5.1) and
-candidate lookup for linking. A query always names the index and repeats its predicate, because
-the implicit string form skips partial BM25 indexes, and a bound parameter defeats it in any case
+candidate lookup for linking. A query always names the index and repeats its predicate in the
+same form, `'english'::regconfig` cast included, because the implicit string form skips partial
+BM25 indexes, and a bound parameter defeats it in any case
 ([overview](../libraries/postgresql-18-pg-textsearch.md) §3.3; store note §6):
 
 ```sql
 SELECT s.id, s.key, s.text <@> to_bm25query(:q, 'kb.segment_bm25') AS score
 FROM kb.segment s
-WHERE s.kind IN ('paragraph','heading','list_item','math_display') AND s.ts_config = 'english'
+WHERE s.kind IN ('paragraph','heading','list_item','caption') AND s.ts_config = 'english'::regconfig
   AND s.rendition_id = ANY(:renditions)          -- the run's renditions (kb.run_rendition, §8)
 ORDER BY s.text <@> to_bm25query(:q, 'kb.segment_bm25')
 LIMIT :k;
 ```
 
+- **The predicate is never omitted.** Without it, or in a form the planner cannot prove implies
+  the index predicate, the query does not fail: it falls back to standalone scoring over every
+  row, rows the index does not hold included. The repository therefore writes the predicate from
+  one constant shared with the index definition. The uncast literal fails outright (`22P02`,
+  `regconfig = unknown` resolving to `oid = oid`), as does the unqualified index name (`42704`).
+- **The kind list** is one non-overlapping block level: `paragraph`, `heading`, `list_item` and
+  `caption`. `math_display` is not in it: display formulas nest in paragraphs and list items, and
+  a display formula placed bare in a container is already an orphan `paragraph` (D1 §3.2), so
+  indexing the kind would count its text twice.
 - **Scores** are negative, best first (ascending order). Corpus statistics are those of the
   partial index, every row in it, renditions no current run selects included (overview §8.2), so
   a score ranks hits within one query; it is not calibrated and not comparable across indexes.
@@ -405,28 +472,47 @@ LIMIT :k;
   selective filters.
 - **SQLAlchemy** writes `WITH` values verbatim: `Index("segment_bm25", segment.c.text,
   postgresql_using="bm25", postgresql_with={"text_config": "'english'"},
-  postgresql_where=…)` (store note §2).
+  postgresql_where=…)` with the predicate's `::regconfig` cast (store note §2).
 - **Same-row text.** The BM25 index reads `kb.segment.text` on the same row, which is why the
   column stays (OPEN-D3-3); no index or generated column can read `kb.rendition`.
 
-> Status: index and query syntax **Interface-checked** (2026-10-28): source-read for 1.5.1 (store
-> note §6) and documented (overview §2–§3); the design is **Proposed**. S6 runs it on the corpus
-> with the partial index and checks with `EXPLAIN` that the planner uses it
+> Status: index and query **Tested** (S6, 2026-10-28, PostgreSQL 18.6 and pg_textsearch 1.5.1 on
+> the interim project-local cluster, the four spike pages): with the cast predicate repeated, the
+> query gives an ordered `Index Scan using segment_bm25`, the forced generic plan of a prepared
+> statement uses it too, and all five probe queries use it, with negative scores ascending; the
+> uncast form fails with `22P02`, the implicit string form and the unqualified index name with
+> `42704`, and an omitted predicate falls back to standalone scoring without error. Under the
+> earlier kind list, `math_display` segments nested in indexed paragraphs and list items put 6552 of
+> 54826 non-space characters in the index twice; with `('paragraph','heading','list_item','caption')`
+> the overlap is 0 and no character of the four pages is left out, the index holding 587 of 2335
+> segment rows ([s6.bm25](../design_review/evidence/2026-10-28_design-spikes/records/s6.bm25.json),
+> [s6.ddl](../design_review/evidence/2026-10-28_design-spikes/records/s6.ddl.json)). The kind list's
+> coverage of the 78-page corpus (tables, footnotes, figures beyond one caption) is not yet checked
 
 `ts_config` is the segment's language, set by ingest from the source profile's `language` (default
 `english`, [D4 M01](D4-method-catalog.md#m01-ingesthtml)) when a rendition's segments are first
 written; it is search configuration, outside the content digest (D1 §3.2).
-Each configuration has its own partial BM25 index, whose `text_config` and `ts_config =` predicate
-agree, so a second language is an additive index over rows with another value, never a rewrite of
-the table or of the first index; a query chooses the index by the configuration it searches.
+Each configuration has its own partial BM25 index, whose `text_config` and `ts_config =
+'<config>'::regconfig` predicate agree, so a second language is an additive index over rows with
+another value, never a rewrite of the table or of the first index; a query chooses the index by the configuration it searches.
 > Status: **Proposed** (2026-10-28)
 
 For phase 1 (store note L-S6): `halfvec` HNSW indexes up to 4,000 dimensions (1024 and 2048 fit;
 the 8B model's native 4096 does not); pgvector filters after the index scan, so `kb.embedding`
-gets one partial HNSW index per `target_type` plus `hnsw.iterative_scan`. Rows reference their
-target's row: renditions are content-addressed, so a content-preserving re-ingest keeps every
-segment row and no embedding is orphaned, while a content change makes new segments, which need
-new embeddings anyway.
+gets one partial HNSW index per `target_type`, and filtered queries set
+`hnsw.iterative_scan = relaxed_order` (`SET LOCAL`), re-sorting the few rows returned when exact
+order matters. Rows reference their target's row: renditions are content-addressed, so a
+content-preserving re-ingest keeps every segment row and no embedding is orphaned, while a
+content change makes new segments, which need new embeddings anyway.
+> Status: **Measured** (S6, 2026-10-28, pgvector 0.8.7 on the interim project-local cluster, 10,000
+> random unit vectors per dimension, a filtered top-10 join with the HNSW scan forced): `halfvec`
+> at 1024 and 2048 dimensions loads by binary COPY and indexes (builds of 3.7 s and 7.2 s, indexes
+> of 27 MB and 82 MB); recall@10 without iterative scan is 0.15–0.22, with `relaxed_order` 0.80–0.87
+> (median 1.6–3.4 ms) and with `strict_order` 0.41–0.47, global or per-`target_type` index alike;
+> at that size the planner prefers an exact scan (recall 1.0, about 0.7 ms)
+> ([s6.vectors](../design_review/evidence/2026-10-28_design-spikes/records/s6.vectors.json)). Random
+> vectors are a worst case for recall; the dimension, `ef_search` and recall with real embeddings
+> wait on S7 (OPEN-D3-2), and the design is **Proposed**
 
 `kb.embedding` is created by the phase 1 migration that adds M04, not by 0001: nothing reads it in
 phase 0, and its dimension waits on S7 (P11 in the design rationale). The rest of this section is
@@ -468,6 +554,7 @@ CREATE INDEX task_lease   ON ops.task (lease_until) WHERE status = 'running';
 CREATE INDEX task_agent   ON ops.task (run_id, priority DESC, id) WHERE status = 'awaiting_agent';
 CREATE INDEX task_cache ON ops.task (method_config_id, input_hash) WHERE status IN ('done','empty') AND unit_type <> 'run';   -- run-level tasks are never reused (§8)
 CREATE INDEX task_run   ON ops.task (run_id, stage);
+CREATE INDEX task_unit  ON ops.task (run_id, unit_key);   -- "why a method ran" (§9) and per-unit reads
 
 CREATE TABLE kb.rendition_build (                -- provenance: which adapter configurations produced a rendition
   document_id      bigint NOT NULL REFERENCES kb.document,
@@ -503,7 +590,7 @@ CREATE TABLE kb.entity (
   run_id            bigint NOT NULL REFERENCES ops.run ON DELETE CASCADE,
   key               text NOT NULL,               -- 'ent:…' or 'stm:…'
   schema_version_id bigint NOT NULL REFERENCES meta.schema_version,
-  type              text NOT NULL,               -- schema class
+  type              text NOT NULL,               -- schema class, prefixed (§3): 'stat:RandomVariable', 'core:Statement'
   label             text NOT NULL,
   scope             text NOT NULL CHECK (scope IN ('global','local')),
   scope_segment_id  bigint REFERENCES kb.segment,
@@ -512,7 +599,7 @@ CREATE TABLE kb.entity (
   confidence        real,
   UNIQUE (run_id, key),
   CHECK ((scope = 'local') = (scope_segment_id IS NOT NULL)),
-  CHECK ((type = 'Statement') = (kind IS NOT NULL))
+  CHECK ((type = 'core:Statement') = (kind IS NOT NULL))
 );
 CREATE INDEX entity_type ON kb.entity (run_id, type);
 
@@ -542,10 +629,10 @@ CREATE TABLE kb.claim (
   run_id           bigint NOT NULL REFERENCES ops.run ON DELETE CASCADE,
   key              text NOT NULL,                -- 'clm:…'
   subject_id       bigint NOT NULL REFERENCES kb.entity,
-  predicate        text NOT NULL,                -- 'stat:has_distribution'
+  predicate        text NOT NULL,                -- prefixed (§3): 'stat:has_distribution'
   object_entity_id bigint REFERENCES kb.entity,
   object_value     jsonb,                        -- D1 §6 value
-  qualifiers       jsonb NOT NULL DEFAULT '{}',  -- core + schema qualifiers, incl. conditions
+  qualifiers       jsonb NOT NULL DEFAULT '{}',  -- core + schema qualifiers, incl. conditions; keys prefixed (§3, §6.1)
   statement_id     bigint REFERENCES kb.entity,
   statement_role   text CHECK (statement_role IN ('premise','conclusion','definiens','restriction','example_value')),
   status           text NOT NULL CHECK (status IN ('candidate','accepted','rejected','ambiguous','conflicting','unsupported')),
@@ -587,9 +674,24 @@ CREATE INDEX claim_link_to ON kb.claim_link (to_claim_id);   -- cascading delete
 
 **JSONB indexes only with a query that uses them** (store note L-S4). Earlier drafts had GIN
 `jsonb_path_ops` indexes on `kb.observation.payload` and `kb.claim.qualifiers`. Neither had a
-consumer: §9's `qualifiers @? '$.param_values.variance'` cannot use a `jsonb_path_ops` index, which
-serves only `== constant` path clauses, and is carried by `claim_pred`. Every GIN index also slows
-each COPY. A JSONB index is added in the migration that adds the query needing it.
+consumer: §9's `qualifiers @? '$."stat:param_values".variance'` cannot use a `jsonb_path_ops`
+index, which serves only `== constant` path clauses, and is carried by `claim_pred`. Every GIN
+index also slows each COPY. A JSONB index is added in the migration that adds the query needing it.
+> Status: **Tested** (S6, 2026-10-28): the `@?` query's index condition is `claim_pred`'s
+> `(run_id, predicate)`, the path test a filter on the fetched rows
+> ([s6.queries](../design_review/evidence/2026-10-28_design-spikes/records/s6.queries.json)); at run
+> scale (20,000 claims, no GIN index) it returns 1410 claims in about 1.0 ms on the interim
+> project-local cluster (**Measured**, [s6.volume](../design_review/evidence/2026-10-28_design-spikes/records/s6.volume.json))
+
+**A statement row always has a kind.** `entity_check` refuses a `core:Statement` entity without
+one. An external reference ("the last result", "definition [1]") names a statement outside the
+batch, which has no kind there; until the `extref` value exists (OPEN-D1-5), such a reference stays
+an `unsupported` item and is never stored as a `core:Statement` entity (operator, 2026-10-28,
+on S6).
+> Status: **Tested** (S6, 2026-10-28): the v1 reference's U6 stored "the last result" as a
+> Statement-typed entity without a kind; `entity_check` refused it, so it and its claim
+> `c_follows` were not loaded, the only misfit of the trace and golden rows
+> ([s6.constraints](../design_review/evidence/2026-10-28_design-spikes/records/s6.constraints.json))
 
 Remaining `ops` tables:
 
@@ -685,11 +787,13 @@ Summaries of the shapes:
 
 - **Value** (`kb.claim.object_value`, values inside qualifiers and conditions): D1 §6, tagged by
   `t`.
-- **`kb.claim.qualifiers`**: an object whose keys are core qualifier names (`modality`,
-  `polarity`, `hedge`, `attribution`, `conditions`, `scope`, `valid_time`) or schema qualifier
-  names valid for the predicate in the run's schema version; values are D1 §6 values, maps of
-  values (`param_values`), or the condition tree (`conditions`, D1 §7). Defaults are omitted
-  (`modality: asserted`, `polarity: positive` are not stored), so equal meaning gives equal JSON.
+- **`kb.claim.qualifiers`**: an object whose keys are prefixed qualifier slot names (§3): the core
+  qualifiers (`core:modality`, `core:polarity`, `core:hedge`, `core:attribution`,
+  `core:conditions`, `core:scope`, `core:valid_time`) or schema qualifiers valid for the predicate
+  in the run's schema version (`stat:param_values`); values are D1 §6 values, maps of values
+  (`stat:param_values`, whose own keys are parameter names, `mean`, `variance`), or the condition
+  tree (`core:conditions`, D1 §7). Defaults are omitted (`core:modality: asserted`,
+  `core:polarity: positive` are not stored), so equal meaning gives equal JSON.
 - **Condition tree**: D1 §7. `claim` nodes carry claim **keys**; readers resolve them within the
   same run.
 
@@ -856,6 +960,21 @@ the seeded order, the seed.
   claims, links, alignments, results, by `run_id`); the `ops.run` row and its tasks stay, because
   later runs may reuse those tasks (D6 §4) and observations are kept while referenced (below)
   (store note L-S2). `eval.alignment` and `eval.result` are indexed by `run_id` for that delete.
+  The delete runs in one transaction in the order results, alignments, **claims, then
+  entities**: deleting claims cascades to their evidence, supports and links, which the cascade
+  finds through `claim_link_to` and the `(from_claim_id, …)` unique index, so `kb.claim_link`
+  needs no `run_id` index and is never deleted by `run_id` directly (one would be added only for
+  such a direct delete). Deleting entities then runs the referential checks on
+  `kb.claim.subject_id`, `object_entity_id` and `statement_id`, which reach the `(run_id, …)`
+  indexes `claim_subject`, `claim_object` and `claim_statement` through PostgreSQL 18's skip scan,
+  so they need no single-column indexes of their own (operator, 2026-10-28, on S6).
+  > Status: **Tested** (S6, 2026-10-28): deleting one slice run removed its entities, claims,
+  > links, evidence, aliases, alignments and results, kept its run row, tasks and measurements,
+  > and left the other run unchanged; every referential check the delete fires is index-backed
+  > ([s6.constraints](../design_review/evidence/2026-10-28_design-spikes/records/s6.constraints.json)).
+  > **Measured** at run scale on the interim project-local cluster: 25,000 materialized rows
+  > (entities, claims and their cascades) deleted in 260.8 ms
+  > ([s6.volume](../design_review/evidence/2026-10-28_design-spikes/records/s6.volume.json))
 - **Golden passes are tasks** of a run of kind `golden` (one per golden set, guideline
   version and authoring round), with `unit_type = 'golden_unit'` and method `golden.pass` (configs `golden.pass/a`,
   `/b`, `/c`), so `golden_next` leases through the same queue and fencing as every other task
@@ -876,7 +995,13 @@ the seeded order, the seed.
   leases keep status `awaiting_agent`, so their expiry needs no action. Reuse (D6 §4) is resolved at
   task creation in one `INSERT … SELECT … LEFT JOIN LATERAL` over `task_cache`. Tasks of
   `unit_type 'run'` (an M19 pass, D4 M19) are never reused: their input is the run itself, and
-  `task_cache` leaves them out (**Proposed**, 2026-10-28).
+  `task_cache` leaves them out (**Proposed**, 2026-10-28). The claim statement, its plan and the
+  two-branch form for larger queues are in [D6 §3.2](D6-orchestration-metrics-policies.md#32-workers).
+  > Status: claiming and `attempt` fencing **Tested** (S6, 2026-10-28, interim project-local
+  > cluster, lease 2 s): 10,200 of 10,200 tasks done exactly once with one observation, no claim
+  > while a lease was live, a killed worker's and a stalled worker's batches re-claimed by the
+  > ordinary claim, and the stalled worker's late fencing `UPDATE` matching 0 of 50 rows
+  > ([s6.queue](../design_review/evidence/2026-10-28_design-spikes/records/s6.queue.json))
 - **Promotion.** `meta.project.promoted_run_id` is set by the experiment decision
   ([D7 §7](D7-evaluation-goldens-outer-loop.md#7-experiments-and-promotion)). "Current
   knowledge" queries resolve it once per journey and then name the run by id (D8 §5; P0CL-11);
@@ -949,21 +1074,41 @@ These back the typed queries of [D8 §5](D8-agent-and-query-interfaces.md#5-type
 each result carries it, with the coverage of its scope (below). A run that has not finished is
 refused before any of these runs (D8 §5).
 
-**Family profile** (everything stated about a family in the run):
+**Family profile** (everything stated about a family in the run): the claims whose subject is
+the family, and the claims about its parameters, the `stat:FamilyParameter` entities whose
+identity names the family (their identity attribute `family` holds the family's entity key,
+D1 §4.1). A family's parameters are often stated only on those entities ("the location parameter
+is the mean"), with no claim whose subject is the family:
 
 ```sql
-SELECT c.predicate, c.qualifiers, c.object_value, o.label AS object_label, c.status, c.confidence
+SELECT NULL AS parameter, c.predicate, c.qualifiers, c.object_value, o.label AS object_label, c.status, c.confidence
 FROM kb.claim c
 JOIN kb.entity s ON s.id = c.subject_id
 LEFT JOIN kb.entity o ON o.id = c.object_entity_id
-WHERE c.run_id = :run AND s.type = 'DistributionFamily' AND s.key = :family_key
+WHERE c.run_id = :run AND s.type = 'stat:DistributionFamily' AND s.key = :family_key
+  AND c.status IN ('accepted','candidate')
+UNION ALL
+SELECT p.label, c.predicate, c.qualifiers, c.object_value, o.label, c.status, c.confidence
+FROM kb.entity p
+JOIN kb.claim c ON c.run_id = p.run_id AND c.subject_id = p.id
+LEFT JOIN kb.entity o ON o.id = c.object_entity_id
+WHERE p.run_id = :run AND p.type = 'stat:FamilyParameter' AND p.attrs ->> 'stat:family' = :family_key
   AND c.status IN ('accepted','candidate');
 ```
+
+The parameter branch has no index on `attrs`: it filters the run's `stat:FamilyParameter` rows,
+found through `entity_type`, which stays small beside the run's claims. `construction_profile`
+(D8 §5.2) has the same shape, with a `stat:FamilyConstruction` subject.
+> Status: **Tested** (S6, 2026-10-28, on the v1 trace rows): without the parameter branch the
+> pattern returns 1 row for the normal family and misses T2's answer; the two-branch form returns
+> every expected trace claim of T1's `construction_profile` and of T2's and T4's `family_profile`
+> ([s6.queries](../design_review/evidence/2026-10-28_design-spikes/records/s6.queries.json)), run there
+> with the bare type names of the rows as stored; the prefixed names (§3) are **Proposed**
 
 **Statement reconstruction** (premises, conditions, conclusions and proof of a theorem):
 
 ```sql
-SELECT c.statement_role, c.key, c.predicate, c.qualifiers -> 'conditions' AS conditions, c.qualifiers
+SELECT c.statement_role, c.key, c.predicate, c.qualifiers -> 'core:conditions' AS conditions, c.qualifiers
 FROM kb.claim c
 WHERE c.run_id = :run AND c.statement_id = :statement_id
 ORDER BY CASE c.statement_role WHEN 'premise' THEN 0 WHEN 'definiens' THEN 1
@@ -975,18 +1120,39 @@ ORDER BY CASE c.statement_role WHEN 'premise' THEN 0 WHEN 'definiens' THEN 1
 ```sql
 SELECT key FROM kb.claim
 WHERE run_id = :run AND predicate = 'stat:has_distribution'
-  AND qualifiers @? '$.param_values.variance';
+  AND qualifiers @? '$."stat:param_values".variance';
 ```
 
-**Evidence for a claim** with the canonical text around it:
+A key with a prefix is quoted in a JSON path (`$."stat:param_values"`) and written as a plain
+string with `->` and `?` (`qualifiers -> 'core:conditions'`).
+> Status: the query form **Tested** (S6, 2026-10-28) with bare keys, returning the five expected
+> claims ([s6.queries](../design_review/evidence/2026-10-28_design-spikes/records/s6.queries.json));
+> the quoted prefixed key is **Proposed**
+
+**Evidence for a claim** with the canonical text around it. The unit is the span's nearest
+`unit` ancestor, not the span's own segment, which is the smallest containing one (a `sentence`
+or a `math_inline`, as a rule); a span outside every unit has no unit:
 
 ```sql
-SELECT ce.role, sp.text, sp.start_offset, sp.end_offset, seg.kind, seg.attrs ->> 'id' AS unit_id
+SELECT ce.role, sp.text, sp.start_offset, sp.end_offset, seg.kind, u.attrs ->> 'id' AS unit_id
 FROM kb.claim_evidence ce
 JOIN kb.span sp ON sp.id = ce.span_id
 JOIN kb.segment seg ON seg.id = sp.segment_id
+LEFT JOIN LATERAL (
+  SELECT a.attrs FROM kb.segment a                 -- segment_kind, then the range
+  WHERE a.rendition_id = sp.rendition_id AND a.kind = 'unit'
+    AND a.start_offset <= sp.start_offset AND sp.end_offset <= a.end_offset
+  ORDER BY a.depth DESC
+  LIMIT 1
+) u ON true
 WHERE ce.claim_id = :claim_id;
 ```
+> Status: **Proposed** (2026-10-28). The defect it corrects is **Tested** (S6, 2026-10-28): reading
+> `seg.attrs ->> 'id'` from the span's own segment gave a null unit for every evidence row of the
+> trace data, whose spans sit in sentences and inline formulas
+> ([s6.queries](../design_review/evidence/2026-10-28_design-spikes/records/s6.queries.json)); the range
+> lookup over `segment_kind` is the one S6's `statement(page#unit)` sketch ran, and a `parent_id`
+> walk would serve equally
 
 **Coverage of a scope** (units extracted, skipped by reason, failed, unresolved), from the fates
 of §8 as of the run's `finished_at`, over the documents a query's scope names:
@@ -1020,6 +1186,17 @@ LEFT JOIN ops.policy_rule pr ON pr.id = t.trigger_rule_id
 WHERE t.run_id = :run AND t.unit_key = :unit_key
 ORDER BY t.id;
 ```
+> Status: **Measured** (S6, 2026-10-28, interim project-local cluster): without an index on
+> `unit_key` the query scans the run's tasks, 0.56 ms at 12,500 tasks and linear in a run's tasks
+> ([s6.volume](../design_review/evidence/2026-10-28_design-spikes/records/s6.volume.json)); `task_unit`
+> `(run_id, unit_key)` (§5) serves it and other per-unit reads (operator, 2026-10-28, on S6), its
+> plan **Proposed**
+
+Every pattern of this section, in the form S6 ran it, returned its rows in under 2 ms on the v1
+trace rows of the four spike pages
+(**Measured**, S6, 2026-10-28, [s6.queries](../design_review/evidence/2026-10-28_design-spikes/records/s6.queries.json)),
+on tables of tens to thousands of rows, so the plans show what the planner chose at that size;
+the run-scale figures are §11's.
 
 ## 10. The trace as rows (T3)
 
@@ -1039,11 +1216,11 @@ run (ids illustrative; keys abbreviated).
 
 | key | type | label | kind | scope | scope segment |
 |---|---|---|---|---|---|
-| `stm:rel1` | `Statement` | theorem rel1 | `theorem` | local | `seg:n-rel1` |
-| `stm:rel1-proof` | `Statement` | proof of rel1 | `proof` | local | `seg:n-rel1-d` |
-| `ent:X@rel1` | `RandomVariable` | X | — | local | `seg:n-rel1` |
-| `ent:Y@rel1` | `RandomVariable` | a + b X | — | local | `seg:n-rel1` |
-| `ent:normal` | `DistributionFamily` | normal distribution | — | global | — |
+| `stm:rel1` | `core:Statement` | theorem rel1 | `theorem` | local | `seg:n-rel1` |
+| `stm:rel1-proof` | `core:Statement` | proof of rel1 | `proof` | local | `seg:n-rel1-d` |
+| `ent:X@rel1` | `stat:RandomVariable` | X | — | local | `seg:n-rel1` |
+| `ent:Y@rel1` | `stat:RandomVariable` | a + b X | — | local | `seg:n-rel1` |
+| `ent:normal` | `stat:DistributionFamily` | normal distribution | — | global | — |
 
 A statement's kind is its `kind` column, a field chosen by consolidation (D1 §4.1); its `attrs`
 are empty, because a statement is keyed by its anchor locator and first-sentence ordinal, not by
@@ -1063,11 +1240,11 @@ the `details` block and one the author states share a key, D1 §5.5):
 
 | key | subject | predicate | object | qualifiers (abridged) | role | status | establishment |
 |---|---|---|---|---|---|---|---|
-| `clm:C1` | `ent:X@rel1` | `stat:has_distribution` | `ent:normal` | `{"modality":"supposed","param_values":{"mean":{"t":"formula","latex":"\\mu",…},"variance":{"t":"formula","latex":"\\sigma^2",…}}}` | premise | accepted | stated |
-| `clm:C2` | `ent:Y@rel1` | `stat:defined_as` | value `{"t":"formula","latex":"a + b X",…}` | `{"modality":"defined","conditions":{"op":"and","args":[member(a, ℝ), member(b, ℝ∖{0})]}}` | definiens | accepted | stated |
-| `clm:C3` | `ent:Y@rel1` | `stat:has_distribution` | `ent:normal` | `{"param_values":{"mean":{…"latex":"a + b \\mu","symbols":{"mu":{"bind":"param_of","claim":"clm:C1","param":"mean"}}},"variance":{…}},"conditions":{"op":"and","args":[{"op":"claim","ref":"clm:C1"},{"op":"member","x":{…"a"},"set":{…"\\R"}},{"op":"member","x":{…"b"},"set":{…"\\R \\setminus \\{0\\}"}}]}}` | conclusion | accepted | stated |
+| `clm:C1` | `ent:X@rel1` | `stat:has_distribution` | `ent:normal` | `{"core:modality":"supposed","stat:param_values":{"mean":{"t":"formula","latex":"\\mu",…},"variance":{"t":"formula","latex":"\\sigma^2",…}}}` | premise | accepted | stated |
+| `clm:C2` | `ent:Y@rel1` | `stat:defined_as` | value `{"t":"formula","latex":"a + b X",…}` | `{"core:modality":"defined","core:conditions":{"op":"and","args":[member(a, ℝ), member(b, ℝ∖{0})]}}` | definiens | accepted | stated |
+| `clm:C3` | `ent:Y@rel1` | `stat:has_distribution` | `ent:normal` | `{"stat:param_values":{"mean":{…"latex":"a + b \\mu","symbols":{"mu":{"bind":"param_of","claim":"clm:C1","param":"mean"}}},"variance":{…}},"core:conditions":{"op":"and","args":[{"op":"claim","ref":"clm:C1"},{"op":"member","x":{…"a"},"set":{…"\\R"}},{"op":"member","x":{…"b"},"set":{…"\\R \\setminus \\{0\\}"}}]}}` | conclusion | accepted | stated |
 | `clm:C4` | `stm:rel1-proof` | `core:proves` | `stm:rel1` | `{}` | — | accepted | stated |
-| `clm:D1` | `ent:Y@rel1` | `stat:has_distribution` | `ent:normal` | `{"param_values":{"mean":…,"standard_deviation":{…"latex":"\\lvert b \\rvert \\sigma"}}, "conditions": …}` | conclusion | accepted | derived |
+| `clm:D1` | `ent:Y@rel1` | `stat:has_distribution` | `ent:normal` | `{"stat:param_values":{"mean":…,"standard_deviation":{…"latex":"\\lvert b \\rvert \\sigma"}}, "core:conditions": …}` | conclusion | accepted | derived |
 
 `kb.claim_link`: `clm:D1 derived_from clm:C3` with `detail {"rule": "stat.variance_to_sd"}`.
 
@@ -1083,15 +1260,23 @@ pattern above is index-backed at that scale. Growth axes to watch, qualitatively
 grow with methods × units × iterations, so reuse (D6 §4) matters more than indexes; claims grow
 per run, so old non-promoted runs should be deleted after their experiments close. No
 partitioning is needed until a project holds many corpora.
+> Status: **Measured** (S6, 2026-10-28, on the interim project-local cluster with its small default
+> memory settings; a finished synthetic run of 2,500 units with payloads in the §6.2 shapes): binary
+> COPY wrote 12,500 tasks in 103 ms, 100,000 observations in 1.1 s, 5,000 entities in 39 ms,
+> 20,000 claims in 229 ms and 40,000 support and evidence rows in 214 ms; the per-unit and
+> per-claim queries took 0.04–1.0 ms and the run's observations by kind through
+> `kb.run_observation` 18 ms; the database held 77 MB
+> ([s6.volume](../design_review/evidence/2026-10-28_design-spikes/records/s6.volume.json), [s6.sizes](../design_review/evidence/2026-10-28_design-spikes/records/s6.sizes.json)).
+> The figures are to be rerun on `18/corpus` (§13)
 
 ## 12. Open questions
 
 | ID | Question | Resolved by |
 |---|---|---|
-| OPEN-D3-1 | Lexical search: index and query form | **Answered** (2026-10-28): BM25 through pg_textsearch 1.5.1, installed (§5): one partial `bm25` index per text-search configuration over one block level, queried by named index; syntax source-read (store note §6) and documented (overview); S6 runs it on the corpus and checks the planner uses the partial index |
+| OPEN-D3-1 | Lexical search: index and query form | **Answered** (2026-10-28, S6): BM25 through pg_textsearch 1.5.1 (§5): one partial `bm25` index per text-search configuration over the block level `('paragraph','heading','list_item','caption')`, with `ts_config = '<config>'::regconfig` in the index predicate and repeated in every query, queried by schema-qualified index name; on the four spike pages the planner uses the index (also under a generic plan), the kind list neither overlaps nor leaves text out, and an omitted predicate falls back silently to standalone scoring ([s6.bm25](../design_review/evidence/2026-10-28_design-spikes/records/s6.bm25.json), [s6.ddl](../design_review/evidence/2026-10-28_design-spikes/records/s6.ddl.json)). Open follow-up: the kind list's coverage on the 78-page corpus |
 | OPEN-D3-2 | Embedding model and dimension (Qwen3-Embedding-0.6B at 1024, or 8B truncated by Matryoshka to 1024 or 2048) | Spike S7 |
-| OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | **Answered by mechanism** (2026-10-28): the BM25 index reads same-row text, and neither an index nor a generated column can read `kb.rendition`; the column stays |
-| OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | Spikes S6 and S0; phase 1 goldens if S0 has too few units; S0 evidence (2026-10-28): on 70 aligned claim pairs, meaning keys agreed for 41 (54 after the D1 §10.1 key-rule changes) against 21 (48) for claim keys. Migration 0001 has no meaning-key column; one is added only if an `s6.*` record calls for it (design authority, 2026-10-28) |
+| OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | **Answered by mechanism** (2026-10-28): the BM25 index reads same-row text, and neither an index nor a generated column can read `kb.rendition`; the column stays. The sizes support it (**Measured**, S6, 2026-10-28, interim cluster): about 2.6 kB of segment text per author unit against about 11.6 kB of observation payload per unit at run scale ([s6.sizes](../design_review/evidence/2026-10-28_design-spikes/records/s6.sizes.json)) |
+| OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | **Migration 0001 has no meaning-key column; phase 1 goldens decide** (operator, 2026-10-28, on S6). S6 evidence (**Tested**, 2026-10-28): on the 70 aligned S0 claim pairs, the revised statement key (ADR-0019) raises claim-key agreement from 21 to 38, and with the label rule to 51 against 54 for meaning keys; the 3 remaining pairs differ by one statement-segmentation disagreement in U6, the other 16 differing pairs disagree about the fact itself; no fact is restated across the twelve units (0 of 71), so nothing calls for a stored meaning key yet ([s6.keys](../design_review/evidence/2026-10-28_design-spikes/records/s6.keys.json), [s6.restated](../design_review/evidence/2026-10-28_design-spikes/records/s6.restated.json)). Rerun on phase 1 goldens drawn across pages |
 
 ## 13. Operating PostgreSQL on this machine
 

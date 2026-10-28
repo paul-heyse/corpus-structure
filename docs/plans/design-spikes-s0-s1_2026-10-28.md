@@ -116,7 +116,8 @@ annotations, before any code depends on them.
   I-R2 (token-form keys; S0/S0-R2 figures unchanged; records `*-ir2`, `i-r2.token-form-parity`),
   S4 (records `s4.*`, [S4 report](../design_review/evidence/2026-10-28_design-spikes/S4-report.md)) and
   S6 (records `s6.*`, [S6 report](../design_review/evidence/2026-10-28_design-spikes/S6-report.md)).
-  Their fold-in (X2) waits on the operator's review of the reports.
+  X2 for S4 and S6 done 2026-10-28: the operator accepted both reports; D1–D3, D5, D6, D8 amended,
+  ADR-0016/0017/0018 accepted. X2 for S2, S3, S5 and S7 follows their reports.
 - **Planned:** E4b (ANTLR, GPU, vLLM environments), C1, I-R3, S5, S2, S3, S7, G1 (rows 23–34).
 - **Pre-execution facts established while planning (2026-10-28)**, recorded so execution does
   not rediscover them:

@@ -1,12 +1,13 @@
 ---
 id: ADR-0017
 title: A domain is a LinkML pack compiled into every consumer
-status: proposed
+status: accepted
 date: 2026-10-28
 supersedes: []
 superseded-by: null
 design: [§B5]
-evidence: Proposed
+evidence: Tested
+revisit: LinkML's generators block a compiler, or a domain needs logical inference over the schema.
 ---
 
 ## Context
@@ -55,5 +56,9 @@ execution.
 - A new distinction is a schema edit and a migration mapping (D2 §8); a new domain is a new pack.
 - The compilers are product code that must keep pace with LinkML releases (`docs/pins.md` once
   pinned).
-- **Revisit** if LinkML's generators block a compiler (S4), or a domain needs logical inference over
+- **Evidence (S4, 2026-10-28; operator accepted the report):** the pack in native LinkML form compiles
+  to the schema tables, both batch forms, the GLiNER2 schemas, the rules and the annotator reference;
+  135 batches validate ([S4 report](../design_review/evidence/2026-10-28_design-spikes/S4-report.md),
+  records `s4.*`).
+- **Revisit** if LinkML's generators block a compiler, or a domain needs logical inference over
   the schema.

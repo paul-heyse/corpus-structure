@@ -209,7 +209,8 @@ unresolved; golden passes go through the same tools by Sonnet subagents
 
 ### §B4 PostgreSQL 18 is the single authority
 
-**Proposed**; ADR-0016 is proposed until S6 reports. One database holds knowledge, operations and
+**Tested** in spike S6 (2026-10-28: DDL, trace rows, queries, BM25, halfvec and the queue on smoke
+data); accepted, migration 0001 not yet built. One database holds knowledge, operations and
 evaluation, with JSONB payloads, pgvector and BM25 text search; DuckDB serves analytics and exports
 only ([D3](D3-database.md)).
 
@@ -219,7 +220,8 @@ only ([D3](D3-database.md)).
 
 ### §B5 A domain is a LinkML pack compiled into every consumer
 
-**Proposed**; ADR-0017 is proposed until S4 reports. Schema tables, GLiNER2 schemas, batch JSON
+**Tested** in spike S4 (2026-10-28: schema v0 compiled to every consumer, 135 batches validated);
+accepted, the product compilers not yet built. Schema tables, GLiNER2 schemas, batch JSON
 Schemas, rules and the annotator reference are compiled from one pack per domain
 ([D2](D2-schema-and-guidelines.md)).
 
@@ -229,7 +231,8 @@ Schemas, rules and the annotator reference are compiled from one pack per domain
 
 ### §B6 Escalation is routed by versioned policies over measurements
 
-**Proposed**; ADR-0018 is proposed until S4 reports (OPEN-D2-3). Ordered policy chains compiled to
+**Interface-checked** in spike S4 (2026-10-28: the rule syntax compiles and refuses errors at compile
+time); accepted, routing not yet built. Ordered policy chains compiled to
 rule-engine `Chain`s decide routing; every task records the rule and trigger values; conditional
 methods enter only through gap proposals and experiments ([D6 §7](D6-orchestration-metrics-policies.md)).
 

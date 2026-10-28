@@ -189,6 +189,30 @@ method, and in one transaction (store note §3, §4):
 3. writes the outcome, `cost` and `finished_at`.
 Pipeline mode is not used: it is experimental in psycopg 3.3 and cannot carry COPY. D3 §8 gives
 the indexes and the reuse insert.
+> Status: the claim statement as written, with `attempt` fencing, **Tested** (S6, 2026-10-28, on
+> the interim project-local cluster, lease 2 s and wait timeout 1 s in place of 5 min and 30–60 s):
+> 10,200 of 10,200 tasks done exactly once with one observation; no claim while a lease was live;
+> the 100 re-claimed tasks were exactly a SIGKILLed worker's in-flight batch and a stalled worker's
+> batch, taken by the ordinary claim with no reaper; the stalled worker's late fencing `UPDATE`
+> matched 0 of 50 rows and it committed nothing; a `NOTIFY` in the inserting transaction woke a
+> waiting worker below the timer's resolution, and tasks inserted without one were found by the
+> timeout re-query after 0.69 s ([s6.queue](../design_review/evidence/2026-10-28_design-spikes/records/s6.queue.json)).
+> The binary COPY notes **Tested** (S6, 2026-10-28): a `real` column refuses `float8` (`22P03`),
+> and a `str` sent into a declared `jsonb` column is accepted and stored as a JSON string, so
+> payloads go as dicts ([s6.volume](../design_review/evidence/2026-10-28_design-spikes/records/s6.volume.json))
+
+**Larger queues: the two-branch claim.** The statement's `OR` across pending rows and expired
+leases plans as a `BitmapOr` of `task_pending` and `task_lease`, then a sort of every qualifying
+row before `LIMIT` (S6). That is cheap at phase 0's queue sizes, but the sort grows with the
+pending rows of the stage. For larger queues the claim splits into two branches, each a
+`LIMIT`ed `FOR UPDATE SKIP LOCKED` select, combined by `UNION ALL` in the one claiming `UPDATE`:
+pending tasks in `task_pending`'s order (`priority DESC, id`, read off the index with no sort),
+and expired `running` tasks through `task_lease`; the fencing and the outcome writes are
+unchanged (operator, 2026-10-28, on S6).
+> Status: the plan of the single statement **Tested** (S6, 2026-10-28,
+> [s6.queue](../design_review/evidence/2026-10-28_design-spikes/records/s6.queue.json)); the
+> two-branch form is **Proposed**, to be measured against the single statement at 10⁵ pending
+> tasks per stage before the queue size calls for it
 
 **Retries.** Transient failures (CUDA out of memory, a vLLM timeout or 5xx, a dropped database
 connection) retry up to twice; an out-of-memory retry halves the batch. Deterministic failures
@@ -309,7 +333,7 @@ budgets:
   agent_packets_per_iteration: 20
   llm_tokens_per_run: 2_000_000
 thresholds:
-  accept: {default: 0.8, distribution: 0.85}   # by predicate group (ci:group)
+  accept: {default: 0.8, distribution: 0.85}   # by predicate group: a predicate subset or predicate (D5 §6.1)
   identity: {accept: 0.85, margin: 0.1, new_entity: 0.4}
 priors:                                        # cold-start source priors (D5 §6.3)
   agent: 0.9

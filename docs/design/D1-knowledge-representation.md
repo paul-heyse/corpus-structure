@@ -171,6 +171,12 @@ Evaluation does not use author markup as a gold for anything the pipeline consum
 
 A segment also carries `parse_status`: `ok`, `partial` (some content dropped, with reason) or
 `failed`. A failed segment is retained so that its absence of claims is explained, not silent.
+This is the delimiting status of §3.1, never `ambiguous`: ambiguity is a formula value's parse
+outcome (§6.1, the schema's `ParseStatus`), which values carry and segments do not
+([D3 §5](D3-database.md#5-kb-evidence-observations-entities-and-claims)).
+> Status: **Proposed** (2026-10-28), answering S6's finding that the compiled `ParseStatus` has
+> `ambiguous` and the segment and rendition CHECKs do not
+> ([s6.dry-run-2](../design_review/evidence/2026-10-28_design-spikes/records/s6.dry-run-2.json))
 
 ### 3.3 Spans
 
@@ -249,7 +255,7 @@ An `Entity` is a resolved identity of an instance of a schema class. It has:
 | `aliases` | Every surface form observed, each with kind `label`, `symbol`, `abbreviation`, `term` or `expression` |
 | `scope` | `global`, or `local` with a scope segment |
 | `key` | Deterministic identity key (§10) |
-| `attrs` | Identity attributes declared by the schema (`ci:identity_keys`); never facts |
+| `attrs` | Identity attributes declared by the schema (the class's identity `unique_keys`, D2 §3.1), keyed by prefixed slot name (`stat:family`, `stat:canonical_name`); never facts |
 | `kind` | Statements only: the `StatementKind` value (§4.3) that consolidation chooses ([D5 §3.5](D5-consolidation-identity-confidence.md#35-statements)); a field like `label`, never identity |
 
 **All facts about an entity are claims.** `attrs` holds only what the schema declares as part
@@ -313,7 +319,9 @@ to its rank.
 
 ### 5.2 Core qualifiers
 
-Every claim may carry these, whatever the domain:
+Every claim may carry these, whatever the domain. They are named here by their local names, as
+the model-facing batch writes them; stored claims, keys and compiled rows use the prefixed names
+(`core:modality`, `core:attribution`, …), like every schema element (D2 §7.1):
 
 | Qualifier | Values | Meaning | In the key (§10.1) |
 |---|---|---|---|
@@ -400,19 +408,22 @@ A value is a tagged JSON object. Every value has `t` (type). Value types:
 | `text` | `v` | `{"t":"text","v":"location-scale family"}` |
 | `number` | `v` (canonical decimal string, §6.2); optional `unit` (the unit as the source states it) and `basis` (a reference basis the source states, such as `gauge` or `absolute`) | `{"t":"number","v":"0.002","unit":"cm"}`, `{"t":"number","v":"300","unit":"kPa","basis":"gauge"}` |
 | `bool` | `v` | `{"t":"bool","v":true}` |
-| `enum` | `enum`, `v` | `{"t":"enum","enum":"ParameterRole","v":"scale"}` |
-| (entity reference) | `{ref}` (a local ref in batches, an entity key once keyed) | not a value variant: one entity-reference shape, `{ref}` without `t`, in every position that names an entity (claim objects, `pred` arguments, entity-ranged qualifiers such as `attribution` and `base_variable`), so decoding has one shape per position (D2 §7.3). Proposed (2026-10-28, S4 variant V1; `s4.batch-validation`) |
+| `enum` | `enum` (the enum's name: local in the model-facing batch, prefixed once stored), `v` | `{"t":"enum","enum":"stat:ParameterRole","v":"scale"}` (stored) |
+| (entity reference) | `{ref}` (a local ref in batches, an entity key once keyed) | an entity reference, a position type, not a value: one shape, `{ref}` without `t`, in every position that may take an entity (claim objects, `pred` arguments, entity-ranged qualifiers such as `attribution` and `base_variable`), so decoding has one shape per position (D2 §7.3). Fields that only ever hold a reference (a claim's subject and statement, identity slots, binding targets) are plain ref strings. **Tested** (S4 variant V1, 2026-10-28, record `s4.batch-validation`: 135 of 135 batches valid in this shape) |
 | `formula` | `latex`, `sympy`, `parse`, `symbols` | below |
 | `set` | `latex`, `sympy`, `parse`, `symbols` | `ℝ`, `(0, ∞)`, `ℝ ∖ {0}` |
 | `date` | `v` (ISO 8601, kept verbatim) | business domains |
-| `interval` | `start`, `end`, `start_incl`, `end_incl` (values or null for unbounded) | valid time |
+| `interval` | `start`, `end` (values, absent when unbounded), `start_incl`, `end_incl` | valid time |
 | `phrase` | model-facing: `text`, optional `sentence` (the `sN` or `cN` it lies in); stored: `start`, `end`, `text`, optional `coarse` | text kept but not interpreted |
 
 A `phrase` has one field set per batch form (D2 §7.3): an author writes the text and may name its
 sentence; the stored form adds the offsets the quote cascade locates on the observation's
 rendition ([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing)), with `coarse: true`
-when the text was not located exactly and the span covers the cited sentence.
-> Status: **Proposed** (2026-10-28)
+when the text was not located exactly and the span covers the cited sentence. An optional field is
+absent when it has no value, never `null` (D2 §7.3).
+> Status: **Proposed** (2026-10-28); the value shapes, their form-specific fields and absent-not-null
+> are **Tested** against core.yaml's mirror (S4, 2026-10-28, record `s4.batch-validation`: the
+> contract test and the 135 listed batches)
 
 ### 6.1 Formulas and symbol bindings
 
@@ -536,11 +547,14 @@ because any later change to them moves keys:
 - **Text-mode arguments** (`\text`, `\mathrm`, `\textrm`, `\mbox`, `\operatorname`): each
   whitespace run inside them collapses to one space instead of being removed, so
   `\text{ for all }` never becomes `\text{forall}`.
+- **Control spaces**: `\ ` followed by a space, a tab, a newline or CR LF is one token, spelled `\ `,
+  and blanks directly after it are skipped, as TeX skips them (in text mode also when only a
+  dropped command such as `\,` separates them from it). A control space is still content:
+  `a\ b`, `ab` and `a\,b` differ.
 
-The spike's token form (`mathgrammar/printer.py`) breaks all three: its drop set is read from the
-shipped grammar's string `%ignore` lines and so misses the sizing commands, its control words
-take a trailing `*`, and it deletes text-mode whitespace. The production normalizer follows these
-rules, not the spike.
+The spike instruments follow these rules since I-R2, and the product normalizer reproduces their
+token form on every math span of the four spike pages (`fixtures/tex/token_form_spike_pages.jsonl`,
+918 rows; record `i-r2.token-form-parity`). Status: **Tested** (2026-10-28).
 
 A property test holds the token form and the tree together: for every parsed value the tree
 printer and the token form agree, and where they cannot, the token form is the key and the case is
@@ -681,8 +695,10 @@ An observation has: `task` (which records method configuration and run), `kind`,
 
 ### 10.1 Hashing
 
-`key = <prefix> + ":" + hex(sha256(canonical_json(parts)))[:32]`. `canonical_json` is one
-function, used for keys, rendition content digests (§3.2) and configuration hashes:
+`key = <prefix> + ":" + hex(sha256(canonical_json(parts)))[:32]`. Key parts name schema
+elements (classes, predicates, qualifiers, identity slots, enums) by their prefixed names, as the
+stored form does (D2 §7.1), so a key never depends on which spelling a batch used. `canonical_json`
+is one function, used for keys, rendition content digests (§3.2) and configuration hashes:
 
 - UTF-8, with no insignificant whitespace;
 - every string, object keys included, NFC-normalized; an object with two keys that are equal
@@ -703,7 +719,7 @@ function, used for keys, rendition content digests (§3.2) and configuration has
 | Global entity | `ent` | type and identity attributes; the normalized canonical label only when the type's identity attributes are incomplete (a `FamilyParameter` keys by family and canonical name alone) |
 | Local entity | `ent` | type, scope locator (§3.4, structured form, which carries the document key), normalized symbol or label |
 | Statement | `stm` | the statement's anchor locator (§3.4, structured form, which carries the document key) and the ordinal, within the anchor segment, of the statement's first sentence. The anchor segment is the `unit` for a statement inside a unit, the `details` block for a proof or solution, and the `paragraph` outside units; a statement in no annotation unit (a top-level list, table, figure, caption or footnote) anchors on its enclosing top-level block, never on the document; so "the unit" and "its first sentences" key alike, two statements in one block do not collide, and an edit in another block moves no statement's key |
-| Claim | `clm` | subject key, predicate, object key or canonical value, identity qualifiers; a member of an alternative group whose candidates share these parts adds its own canonical values of the disagreeing qualifiers and of its disagreeing bindings ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)), so claim keys stay unique within a run |
+| Claim | `clm` | subject key, predicate, object key or canonical value, the statement key (its own part, beside the qualifiers object), identity qualifiers by prefixed name; a member of an alternative group whose candidates share these parts adds its own canonical values of the disagreeing qualifiers and of its disagreeing bindings ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)), so claim keys stay unique within a run |
 | Alternative group | `alt` | the sorted keys of its members ([D5 §5.4](D5-consolidation-identity-confidence.md#54-slots-core-support-refinements-and-alternatives)) |
 | Identity group | `idg` | the sorted keys of its members ([D5 §3.7](D5-consolidation-identity-confidence.md#37-identity-alternatives)) |
 | Method config | `cfg` | method name, method version, canonical params |
@@ -750,6 +766,9 @@ linking reuses the reference run's keys but not its canonical labels
 > Status: **Measured** on the S0 passes (2026-10-28): with the earliest rules (sorted anchor keys;
 > label always in the key) 21 of 70 aligned claim pairs had equal claim keys; with the covering-
 > segment statement key and the label rule 48 did, and the rest are real differences (../design_review/evidence/2026-10-28_design-spikes/results/s0/key_variants/, record s0.agreement).
+> Under the ADR-0019 statement key (anchor locator plus first-sentence ordinal) 51 of the 70 pairs
+> have equal claim keys with the label rule; 3 of the rest differ only by one statement-segmentation
+> disagreement (U6), the others by the fact itself (record `s6.keys`, 2026-10-28).
 
 **Identity qualifiers** are those that change meaning: `modality`, `polarity`, `statement`,
 canonical `conditions`, `valid_time`, the attributed entity when modality is `cited`, and every
@@ -808,9 +827,21 @@ maps each cited sentence id to `{locator, text}`. A stored item is one element o
 batch (an entity, statement, claim, alternative or unsupported item, D2 §7.3) with its offsets
 and segment keys on one rendition, as golden items (D3 `eval.golden_item`) and stored proposals
 (D3 §6.2 `claim_proposal`) hold them. A pack's compiled batch schema types only what a predicate
-contributes inside an item (its object and qualifiers); the frame model, the generic item models
-and their checks are domain-free, and their owner in the build is foundations, beside the keys.
-> Status: **Proposed** (2026-10-28)
+contributes inside an item (its object and qualifiers) and the enum of entity classes; the frame
+model, the generic item models and their checks, the entity-type side table (D2 §7.3) among them,
+are domain-free, reading only schema facts, and their owner in the build is foundations, beside the
+keys.
+> Status: **Tested** for the generic item models and the side table (S4, 2026-10-28, record
+> `s4.batch-validation`: per-predicate branches over domain-free item models validate the 135 listed
+> batches in both forms, and the side table, reading only the pack's schema facts, catches every
+> seeded reference error); **Proposed** for the frame model, which S4 did not build
+
+Because an entity item is generic, the decoding form does not tie an entity's `scope` or identity
+slots to its `type`: a model can emit a global `RandomVariable`, which only the side table refuses
+after decoding. Per-class entity branches (one `entities[]` branch per class, with its scope and
+identity typed by `type`) would let the decoder refuse it; they are not built, and are added if S3
+shows models emitting class and scope mismatches.
+> Status: **Proposed** (2026-10-28; S4 follow-up)
 
 Judgments target observations or claim keys; a judgment whose target key no longer exists in a
 run is reported as orphaned, never silently dropped ([D5 §7](D5-consolidation-identity-confidence.md#7-applying-judgments)).
