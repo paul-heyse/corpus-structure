@@ -1,0 +1,250 @@
+---
+name: create-plan
+description: Create or revise an implementation plan from a design, functional-extension or library-leverage review, or an existing plan, grounded in current code and the applicable design standard.
+---
+
+# Create a plan
+
+Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) together with the
+[efficient architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) before material physical choices become entrenched.
+Select relevant patterns for qualitative assessment of consequential choices and alternatives;
+no exhaustive checklist, cost model or additional proof machinery follows. The manifest declares
+the companion and the binding owns its local mapping.
+
+Develop a plan that gives an intelligent implementer a coherent understanding of the intended
+system, the reasoning behind its boundaries, and a credible path from the current state to
+completion. Explain consequential choices and leave room for implementation judgment.
+Use the supplied review or existing plan as the starting reference. When the reference
+is implicit, resolve it from the conversation and current repository context; ask only when
+the ambiguity would materially change the work.
+
+Read the relevant architectural owners and current code. Load the [design-review skill](../design-review/SKILL.md)
+and discover the applicable principles, profiles and repository binding through the repository's
+instructions and `standard.toml`. Preserve the reference material's relevant obligations while
+reconsidering assumptions when current evidence or the intended capabilities warrant a different
+approach. Distinguish the implemented baseline, accepted decisions and proposed changes.
+
+The refreshed design principle audit belongs to a new design-review engagement, not routine plan authoring or
+execution. Use the plan's source findings and relevant architectural owners; loading review
+criteria for a consequential question does not start a broad principle audit. Preserve audit/source-review
+identities and the one scheduled-disposition owner without copying the audit's account into
+another mutable ledger.
+
+If [design-review-audit](../design-review-audit/SKILL.md) has revised the reference review,
+consume the integrated principal and identify its revision. The companion explains changed
+recommendations and unresolved choices; it is not another progress ledger or a competing target.
+An audited recommendation remains a proposal, including its rule impacts. Existing accepted
+plans retain their scope until a change is authorized.
+
+A [functional-extension review](../functional-extension-review/SKILL.md) is also a planning
+input. Carry selected opportunities, their value argument, intended behavior and concrete enabling
+mechanisms into the target and relevant packages, preserving source references such as `O01`.
+Distinguish selection from mere mention; an illustrative opportunity is not an accepted obligation.
+Use the same owning plan for scheduled disposition without relabeling opportunities as defects.
+Functional-review inputs require no broad diagnostic audit; the focused foundation assessment below
+still applies. The plan makes proposed functional-target and rule changes explicit through existing
+authorization routes rather than treating the source review as approval.
+
+A [library-leverage opportunity review](../leverage-opportunity-review/SKILL.md) is another
+planning input. Carry selected `CBO` identities, comparative rationale, concrete mechanisms,
+semantic conditions and unresolved choices into the target and packages. Reconcile the source
+and library baselines; preserve reusable types and pattern definitions in their owning accounts.
+The accepted plan owns scheduled disposition. The source review recommends a target without
+approving scope or replacing a formal review due under the binding.
+
+## Assess the foundations the plan will use
+
+As part of developing the plan, assess the existing components and contracts on which the
+proposed work will depend. Consider whether the intended capabilities reveal opportunities to
+improve those foundations, clarify responsibilities or simplify the combined design. Use the
+applicable design-review criteria, with depth proportional to the consequential questions.
+Carry warranted changes into the target design and execution sequence, including preparatory
+work where later packages depend on it.
+
+This focused assessment is integral to authoring the plan. Choose the investigation that settles
+the material questions: source inspection may suffice; scenarios, probes or wider review can
+help where uncertainty warrants them. Capture suitable integration boundaries as well as needed
+changes. Keep unresolved choices and their consequences for dependent work visible.
+
+Usually the conclusions belong in the plan's baseline and design discussion. Follow the
+repository's cadence for a separate formal review when applicable; this focused assessment
+does not certify an enclosing subsystem. Use existing review conclusions where they settle
+the relevant questions. Plan authoring does not require a principle-by-principle reassessment,
+compliance matrix or additional review ceremony.
+
+Use the [shared agent roles](../../../.agents/roles/README.md) to delegate bounded code mapping,
+library research or focused design advice where useful. Give consequential alternatives independent
+consideration and inspect decisive evidence. Keep one author responsible for assembling the plan;
+the coordinator retains design decisions. Delegation does not make the foundation assessment optional.
+
+## Confirm rule changes with the operator
+
+A design review lists the rules its recommendations would change, replace or retire (its rule
+impacts, `review#RCnn`). Before fixing the target design, present each item to the operator with
+its consequence and obtain an explicit accept or reject; never infer acceptance from the review.
+Record the outcome in a short rule-changes section of the plan: the item, the decision and its
+date, and the route (a superseding ADR, a product-ruling entry, or an edit to the binding,
+agent instructions or memory). Schedule accepted changes before the work that depends on them.
+For a rejected item, keep the rule, adapt the affected recommendation and state the consequence;
+seek focused design advice when a rejection undermines a central recommendation. A rule change
+that plan authoring itself reveals follows the same confirmation. Once confirmed, the rules
+govern execution as usual.
+
+## Explain the target and its reasoning
+
+Describe the resulting responsibilities, contracts and interactions, including how the target
+differs from the current system. Make preserved guarantees, intentional behavior changes and
+support limits clear where they affect implementation or acceptance. Relevant distinctions may
+include data interpretation, failure behavior, ordering, precision or information loss.
+
+Use a few credible future changes to explain what the target is meant to accommodate. Show
+where an extension would be expressed, what it would reuse and what should remain unaffected.
+These scenarios clarify the reason for a boundary; they need not expand implementation scope.
+
+Explain consequential decisions through their benefits, costs and assumptions. Consider library
+capabilities and alternatives where they affect the design, using the repository's overview, Context7 and primary-source
+research routes. Preserve enough rationale for an implementer to recognize
+evidence that would reopen a decision. Relate an expected benefit to its mechanism and workload
+or conditions, and consider material integration, lifecycle and maintenance obligations qualitatively.
+Quantitative benefits need a baseline and measurement route; unmeasured benefits remain hypotheses.
+
+Where the target materially depends on library functionality, carry the selected concrete
+mechanisms and precise source references from the review or research into the relevant target
+design and work-package explanation. Preserve recognizable API names, their composition and
+role, the reason for the choice, and material conditions or limits. Give the
+implementer enough local explanation to understand the intended realization; links can supply
+deeper detail. Reconcile changed choices explicitly and distinguish selected mechanisms from
+candidates, examples and unresolved feasibility. This applies across review types. Use prose or
+a compact table as useful, without a separate capability register or a catalog of routine calls.
+
+For material execution choices, qualitatively assess a workload premise grounded in functional intent and a
+credible physical route: access paths, necessary/repeated work, crossings/intermediates, locality,
+preparation/reuse, admission/contention, assurance and transaction/recovery scope. Compare composed
+library capabilities and total runtime/operator machinery. Semantic ownership need not dictate
+layout or execution granularity. Carry known amplification corrections into the target and its
+dependencies; "performance unmeasured" does not justify an unsuitable route. Select relevant
+growth/failure scenarios and explain material tradeoffs in plain language. This consideration
+requires no numerical estimates, cost models, estimators, runtime cost accounting, execution-planning
+machinery, instrumentation, formal cost proofs or additional proof artifacts. Introduce such
+mechanisms only for a separate concrete functional or operational requirement. Quantitative
+performance/capacity claims still require measurements; semantic correctness obligations remain.
+
+Resolve choices that materially shape responsibilities, semantics, sequencing or acceptance.
+If uncertainty remains, state the question, the evidence needed and the dependent work it
+constrains. A bounded investigation can be a work package when its decision outcome changes
+the execution path. Local organization, names and routine implementation choices can remain open.
+
+## Organize documents for understanding
+
+Document boundaries group reasoning that belongs together; execution packages group changes
+that can be undertaken and verified together. They need not coincide. Split a large plan when
+an area has a coherent target, substantial internal reasoning and identifiable contracts with
+other areas. Keep tightly coupled explanations together when splitting would force readers to
+reconstruct them across documents. Let responsibility, context burden and boundary stability
+guide decomposition; document length or a fixed number of phases is insufficient by itself.
+A package is not automatically an agent assignment. Several packages may form one coherent
+contribution, while one package may expose independently useful contributions. Choose assignment
+boundaries from shared decisions, available inputs and integration work.
+
+For a series, give the coordinator the combined target, scope, shared decisions, cross-plan
+dependencies and overall completion conditions. Supporting documents develop their respective
+designs and work packages. Each should explain why its work exists, what it consumes and
+produces, and where its responsibility ends. A single document can provide these same levels
+of explanation for smaller work.
+
+Give shared contracts and current state identifiable owners and link to them. Brief contextual
+summaries make a document readable without creating competing definitions or status records.
+The coordinator should make the whole undertaking understandable; a supporting document should
+make its work actionable with a bounded set of references. Follow local conventions for naming,
+location and durable architectural authority.
+
+## Sequence coherent changes through explicit dependencies
+
+Describe prerequisites through the contract, capability or evidence they supply, why it is
+needed and what makes it available. Distinguish a settled design from an implemented contract,
+migrated consumer or verified behavior: design work and production integration may need different
+levels of readiness. An agreed interface alone does not establish a working prerequisite.
+
+Look below whole-document dependencies. An apparent cycle may separate into an early shared
+contract and later consumers. An ordered table can provide a convenient route without making
+every row a synchronization barrier. Among ready packages, consider establishing widely consumed
+contracts or resolving consequential uncertainty early; explain such ordering when it matters.
+Carry warranted foundation improvements ahead of the work that relies on them.
+
+Keep prerequisites, runtime interactions, shared editing surfaces and common acceptance journeys
+distinct. Independent capabilities may still contend for the same files. Semantic ownership and
+execution responsibility also differ: a package may migrate several consumers without taking
+authority over their contracts. When delegation helps, coordinate shared edit scope and integration
+responsibility as well as logical dependencies.
+
+Choose packages that deliver coherent changes in behavior. Consider producers, affected consumers,
+interfaces, stored representations and verification together. Cross-cutting work may have a
+continuing owner while participating incrementally in other packages. Schedule needed consumer
+migrations alongside the change they support; a later inventory-completion phase should not
+silently defer necessary integration.
+
+When an early package needs only part of a larger one, identify that prerequisite slice and the
+actual target contract it delivers, including the consumers needed for its scope. Keep the
+enclosing package's remaining obligations visible. Partial delivery neither requires a temporary
+substitute for the target nor establishes completion of the larger package.
+
+## Make work packages concrete
+
+Give the implementer a picture of the resulting behavior: the inputs and context an operation
+receives, the decisions it owns, the product or state change it produces, and how consumers use
+it. Explain preserved meaning, failure cases, effects, resource lifetime or state transitions
+where they resolve consequential uncertainty. Connect these in prose; use tables, diagrams,
+interface sketches, file pointers or algorithms when they clarify the work.
+
+Conceptual product names express required meaning, not a demand for a new type, service or file
+for every named concept. Choose detail for its decision value. A successful example paired with
+a revealing failure case often settles ambiguity better than an exhaustive implementation script.
+Distinguish illustrative consumers from the actual migration scope so an example does not become
+an accidental completion boundary.
+
+Describe preservation and retirement with replacement, following the project's migration policy.
+Explain meaningful intermediate states: which capabilities become usable, which consumers have
+moved and which constraints remain. Where adoption requires data migration, activation, rebuilding
+derived artifacts or operational coordination, schedule that work explicitly. Address interruption,
+recovery and coordinated cutover where consequential; do not introduce rollout or compatibility
+machinery without a relevant need and authorization.
+
+## Establish completion and keep the plan usable
+
+Derive acceptance from the behavior and distinctions the design must establish. Choose evidence
+capable of exposing a wrong implementation or premise; expected results produced by the same
+questionable transformation may only reproduce its defect. Explain suitable independent evidence
+where that risk matters, without requiring a new oracle for every change.
+
+Local verification, assembled-system qualification and benefit measurement establish different
+claims. Give each relevant scope an owner and deliberate timing under the repository's execution
+policy. Package and document boundaries do not automatically require full campaigns. Make clear
+which evidence is necessary for completion and which measurements are deferred, with their purpose
+and trigger. Retain source-review finding identifiers and link to the single disposition owner;
+a package can finish while a broader finding still has other contributors or evidence obligations.
+
+Keep design intent, current progress and completed evidence distinguishable. A checkpoint explains
+what exists, which prerequisites are available, what remains uncertain and the next executable
+work. Record current state at its owner rather than accumulating duplicate logs. When evidence
+changes a shared decision, update its owning explanation and affected dependencies and consumer
+expectations together. Move enduring knowledge to the repository's established owners as work
+closes, following its retention policy.
+
+## Write the plan
+
+Use [the suggested structure and examples](references/plan-structure.md) when choosing the
+document layout or developing package descriptions. Scale the plan to the work; combine, expand,
+rename or omit sections according to the subject. These principles describe useful content and
+reasoning, not mandatory headings or a checklist. Include detail when it changes an implementer's
+understanding or decisions. Repository-specific commands, review cadence and migration policies
+come from local instructions, not from this general authoring guidance.
+
+Check that the proposed contracts, work dependencies and completion evidence agree, and that
+material source obligations have an explicit route. Distinguish planned verification from
+commands actually run, with the repository's evidence labels and qualification boundaries.
+Route operator-confirmed rule changes through the repository's existing decision process.
+
+For a plan-writing request, improvements are designed and scheduled in the document. Follow any
+separate authorization to implement them; creating a plan does not itself authorize production
+changes. Return the document path, its principal design choices and any unresolved decisions
+that constrain execution.

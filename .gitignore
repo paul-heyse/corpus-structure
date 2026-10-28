@@ -1,0 +1,44 @@
+# Build output, local stores and generated sites (rebuildable)
+/build/
+/target/
+# insta pending snapshots — review, then `cargo insta accept`
+*.snap.new
+*.pending-snap
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Central library-skill references are inactive; only process skills are discovered.
+# Only the small process skills are tracked.
+/.claude/skills/*
+!/.claude/skills/README.md
+!/.claude/skills/adr/
+!/.claude/skills/plan-design-review/
+!/.claude/skills/functional-extension-review/
+!/.claude/skills/plan-functional-extension-review/
+!/.claude/skills/leverage-codebase-audit/
+!/.claude/skills/leverage-library-assessment/
+!/.claude/skills/leverage-opportunity-review/
+!/.claude/skills/plan-creation/
+!/.claude/skills/create-plan/
+!/.claude/skills/plan-execution/
+!/.claude/skills/plan-improvement-review/
+!/.claude/skills/execute-plan/
+!/.claude/skills/design-review/
+!/.claude/skills/design-review-code-intelligence/
+!/.claude/skills/handoff/
+!/.claude/skills/pin-check/
+
+.claude/settings.local.json
+
+# Personal direnv overrides
+/.envrc.local
+
+!/.claude/skills/design-principle-audit/
+!/.claude/skills/design-principle-audit-tests/
+
+!/.claude/skills/design-review-audit/
+
+!/.claude/skills/plan-completion-audit/

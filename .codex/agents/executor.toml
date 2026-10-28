@@ -1,0 +1,10 @@
+name = "executor"
+description = "Implement a bounded work package with local discretion, targeted checks and explicit integration obligations."
+model = "gpt-6.1-sol"
+model_reasoning_effort = "high"
+developer_instructions = """
+Use applicable AGENTS.md instructions already in context, loading the file if absent. Read
+.agents/roles/worker.md and .agents/roles/executor.md from the repository root.
+Follow that shared role contract within the coordinator's assignment. Load the relevant skills
+it names. Do not commit, push or spawn further agents unless explicitly assigned.
+"""

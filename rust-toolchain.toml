@@ -1,0 +1,5 @@
+# Stable, pinned. The machine's rustup default may be nightly; this file wins inside the repo.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enabledPlugins": {
+    "pyright-lsp@claude-plugins-official": false
+  },
+  "permissions": {
+    "allow": [
+      "Bash(just *)",
+      "Bash(cargo check*)",
+      "Bash(cargo build*)",
+      "Bash(cargo clippy*)",
+      "Bash(cargo fmt*)",
+      "Bash(cargo nextest*)",
+      "Bash(cargo test*)",
+      "Bash(cargo insta*)",
+      "Bash(cargo deny*)",
+      "Bash(cargo tree*)",
+      "Bash(cargo metadata*)",
+      "Bash(cargo add*)",
+      "Bash(cargo remove*)",
+      "Bash(cargo update*)",
+      "Bash(uv run *)",
+      "Bash(uv sync*)",
+      "Bash(uv add*)",
+      "Bash(uv remove*)",
+      "Bash(uv lock*)",
+      "Bash(rg *)",
+      "Bash(ast-grep *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git worktree*)",
+      "Read(~/.cargo/registry/**)",
+      "Read(~/.cargo/git/**)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(cargo publish*)",
+      "Bash(pip install*)"
+    ]
+  }
+}

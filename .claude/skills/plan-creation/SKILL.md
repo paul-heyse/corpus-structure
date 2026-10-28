@@ -1,0 +1,136 @@
+---
+name: plan-creation
+description: Plan how to create an implementation-plan document from a design, functional-extension or library-leverage review, or an existing plan, including the investigations and design questions that matter.
+---
+
+# Plan the creation of a plan
+
+Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) together with the
+[efficient architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) before material physical choices become entrenched.
+Select relevant patterns for qualitative assessment of consequential choices and alternatives;
+no exhaustive checklist, cost model or additional proof machinery follows. The manifest declares
+the companion and the binding owns its local mapping.
+
+Prepare the investigation and decision-making needed to produce a coherent, implementable
+proposal. Build on the user's intended outcome and any approach already supplied. Choose the
+questions, context and division of reasoning that will make authoring productive; leave the
+target and document structure responsive to what is learned.
+
+Load [create-plan](../create-plan/SKILL.md) for the authoring contract and follow its routes
+to the applicable design-review skills, principles and repository binding. Identify the
+reference review or existing plan and explore enough current code and architectural context
+to make the approach specific. The considerations below guide attention, not required stages
+or an exhaustive investigation sequence.
+
+The refreshed design principle audit belongs to a new design-review engagement, not routine plan authoring or
+execution. Use the plan's source findings and relevant architectural owners; loading review
+criteria for a consequential question does not start a broad principle audit. Preserve audit/source-review
+identities and the one scheduled-disposition owner without copying the audit's account into
+another mutable ledger.
+
+When a recommendation audit has revised the source review, use its integrated principal as the
+planning input and record the consumed revision. Consult the net-change companion for a material
+rationale or unresolved issue; it is not a second set of recommendations to reconcile. Do not
+silently expand an accepted plan because a newer review proposes a different target.
+
+A functional-extension review supplies opportunities and a functional-value argument alongside
+design proposals. Identify which opportunities are selected for planning and preserve their
+references and enabling mechanisms. No diagnostic audit is needed for this input; preparation
+still identifies consequential foundation and integration questions under create-plan.
+
+A library-leverage opportunity review supplies comparative choices and bounded targets. Identify
+selected `CBO` opportunities, concrete mechanisms and unresolved conditions; retain source
+revisions and reusable knowledge. Follow create-plan's foundation and review-cadence routes
+without turning assessment accounts into execution ledgers.
+
+## Separate obligations from open design choices
+
+Establish what the source material supplies: the problem to solve, guarantees to preserve,
+current rules, proposed remedies, rule impacts and unresolved questions. A review's rule impacts
+are proposals: create-plan has the operator confirm or reject each before the target design
+depends on it. Raise them early, since a rejection can change dependent design work. A review's illustrative
+remedy is not automatically a requirement. Carry forward settled reasoning whose assumptions
+remain applicable, and identify where the intended capability or current evidence requires
+fresh design work.
+
+Distinguish accepted decisions and intended behavior from implemented foundations. Identify
+the existing components and contracts whose suitability for the proposed work needs focused
+assessment. That assessment remains integral to plan creation under create-plan; preparation
+chooses how to conduct it without repeating an assessment already supported by relevant evidence.
+
+## Investigate consequential decisions in a useful order
+
+Some questions shape many later choices: who owns a meaning, whether an existing foundation
+supports the new consumers, or whether a library capability fits the required semantics.
+Execution-fit questions may also shape the target: access paths, optimizer visibility, data
+movement, working set, reuse/invalidation, assurance placement and publication/recovery scope for
+the intended workload. Examine composed library routes before fixing a backend-neutral interface.
+Keep necessary whole-universe work distinct from avoidable repeated work, and output limits from
+examined-work limits.
+
+Assess execution fit qualitatively and explain material tradeoffs in plain language. This
+consideration requires no numerical estimates, cost models, estimators, runtime cost accounting,
+execution-planning machinery, instrumentation, formal cost proofs or additional proof artifacts.
+Introduce them only for a separate concrete functional or operational requirement. Quantitative
+performance/capacity claims still require measurements; semantic correctness obligations remain.
+
+Investigate such questions early enough to avoid developing substantial detail around an
+unstable premise. Explain what a result would enable or change in the proposed design.
+
+Choose source inspection, scenarios, library evidence or focused design advice according to
+the question. Probes remain discretionary. Overlap inquiries when each can produce a useful
+result with its available inputs; an investigation may itself resolve an open shared premise.
+Reconsider dependent reasoning when that premise changes. Keep decisions within the eventual
+implementer's accepted outcome and contracts available to that implementer.
+
+This is the order of reasoning while creating the plan. The eventual implementation sequence
+and its explanation belong to create-plan. Preparation does not need to settle every target
+decision before authoring begins.
+
+## Delegate questions that produce usable design inputs
+
+Explain which decision an assignment will inform and whether the worker is supplying evidence,
+recommending a choice or deciding within an accepted boundary. Supply relevant source obligations,
+target behavior, current contracts and constraints, distinguishing settled decisions from alternatives
+still open. Explain why each reference matters and allow workers to follow discovered
+dependencies. Ask for supported conclusions and consequential uncertainty that the author can
+use, without prescribing the preferred answer.
+
+For example, the reasoning portion of a brief might say:
+
+> Determine whether the existing request-resolution operation can support the proposed
+> persistence consumer. The review establishes a loss-of-meaning problem; it does not establish
+> that a new service is necessary. Inspect the current contract and affected consumers.
+> Explain what can be reused, what must change, and which assumptions constrain the choice.
+
+Use the [shared agent roles and coordination contract](../../../.agents/roles/README.md) for
+assignment mechanics, permissions and evidence handling. Bounded code or library investigation,
+independent consideration of alternatives, and focused design advice can help where they resolve
+material questions. Delegation is discretionary; the coordinator owns the approach and design
+choices. Focused advice does not replace a formal review due under the repository binding.
+
+Bounded drafting can help once its consumed decisions are sufficiently settled. A chapter that
+looks independently assignable may still depend on unresolved shared semantics. Choose the
+assignment for the design input it can produce, not merely an available document section.
+
+## Reserve attention for assembling the proposal
+
+Consider where investigations will inform a common decision. Individually reasonable proposals
+can disagree about ownership, meaning, preservation or dependencies. Keep one author responsible
+for assembling the plan, with enough visibility to reconcile those tensions before elaborating
+dependent sections. Identify useful follow-up questions when findings conflict; do not resolve
+them by simply concatenating contributions.
+
+Keep segmentation provisional until the reasoning reveals useful boundaries. Create-plan owns
+document organization, work-package descriptions and acceptance content; this preparation
+should enable those decisions without reproducing their authoring guidance.
+
+Present an adaptable approach in the conversation, explaining consequential scope choices,
+investigation priorities, assumptions and uncertainties. Use the available planning interface
+when useful; ask only for information that materially changes the work. The approach is ready
+when useful investigation or authoring can begin, consequential uncertainties have a route,
+and further preparation depends on evidence that work will produce.
+
+Follow the user's boundary between preparing the approach and writing the plan with create-plan.
+No separate durable preparation document is required by default. Producing the plan does not
+itself authorize implementation.

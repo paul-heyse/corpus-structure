@@ -1,0 +1,174 @@
+---
+name: plan-execution
+description: Develop a conversational approach to executing an existing approved plan, grounded in current scope, dependencies and acceptance evidence.
+---
+
+# Plan the execution approach
+
+For consequential choices still open or material mismatches exposed by current evidence, use
+the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) together with the
+[efficient architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) before physical choices become entrenched.
+Carry settled reasoning forward; do not restart settled reviews or repeat a whole-list assessment.
+Select relevant patterns qualitatively, without cost models, exhaustive checklists or proof machinery.
+
+Develop an execution approach that makes the existing plan actionable in the current tree.
+Concentrate advance reasoning on decisions whose consequences cross work boundaries,
+prerequisites that determine readiness, and uncertainties that could substantially change the
+work. Leave decisions within an assignment's accepted outcome and contracts with the implementer
+who has the best evidence. When delegation helps, shape assignments and context so workers can
+exercise independent judgment while contributing to one coherent result.
+
+Resolve the plan and authorized scope from the conversation and repository context, building
+on the approach the user has supplied. Read `STATUS.md` for the current
+checkpoint when relevant to the task.
+Read the relevant packages and receipts, and enough current code and architectural owners to
+establish what exists. Preserve concurrent work and distinguish implemented scope, accepted
+decisions and proposals. The following principles guide attention; they are not required stages
+or another plan template.
+
+The refreshed design principle audit belongs to a new design-review engagement, not routine plan authoring or
+execution. Use the plan's source findings and relevant architectural owners; loading review
+criteria for a consequential question does not start a broad principle audit. Preserve audit/source-review
+identities and the one scheduled-disposition owner without copying the audit's account into
+another mutable ledger.
+
+## Allocate advance thought by consequence
+
+Consider a decision's reach, reversibility and cost of learning later. Resolve questions early
+when they constrain several assignments, determine whether work can begin, or could cause
+substantial rework. Shared failure semantics may need agreement before delegation; an internal
+representation can often wait for implementation evidence.
+
+Choose the least investigation that can change the approach. Source inspection, library
+evidence or a bounded decision may settle a prerequisite. Some uncertainty is more cheaply
+resolved by implementing a bounded part of the actual target. Preserve the enclosing scope and
+its remaining obligations when using such a slice to learn.
+
+## Shape assignments around responsibility and readiness
+
+Document boundaries provide navigation; assignments group work that someone can usefully
+complete with the inputs available. An assignment may span documents or components, or cover one
+of several consumers of a shared contract. Roles supply capabilities for these contributions.
+Consider whether its owner can deliver a coherent result without repeatedly negotiating the same unresolved decisions with siblings. If coordination
+dominates, reconsider the split or establish the shared prerequisite first.
+
+Delegation can supply independent judgment, isolate a demanding investigation or parallelize
+useful work. Weigh these benefits against briefing and integration costs; tightly coupled work
+may be simpler to keep together. Delegation can help serial work, and overlapping investigations
+can provide independent judgment without authorizing conflicting edits.
+
+Readiness depends on the requested result. An investigation can resolve an open contract; agreed
+semantics can enable consumer preparation before the working prerequisite exists. Production
+consumers and integrated acceptance need the implemented capabilities they rely on. Identify
+consequential provisional assumptions and follow the repository's contract-publication rules.
+
+Use the [shared agent roles and coordination contract](../../../.agents/roles/README.md) for
+assignment mechanics, permissions, baseline and edit ownership. Choose roles that serve the work;
+no agent count or role sequence is prescribed. The coordinator remains accountable for design
+coherence, integration and acceptance.
+
+## Give workers context for judgment
+
+Explain why an assignment exists, the result others need from it, and the decisions left to its
+owner. Select references for what they contribute: the relevant plan package supplies intended
+behavior and completion boundaries; the architectural owner supplies applicable contracts;
+a review finding can explain a diagnosis, failure scenario or consequential rationale; current
+code and checkpoints establish the actual baseline.
+
+Carry relevant selected library mechanisms and their source pointers into assignments through
+the owning plan sections, explaining which guarantee or advantage depends on them. Give workers
+the preserved discovery leads and material limits, distinguishing settled choices from candidates
+or feasibility questions; broad rediscovery should not be necessary to recover the intended target.
+
+Briefly explain why a reference matters rather than transferring the whole reading burden.
+Preserve enough reasoning for the worker to recognize a locally attractive choice that would
+undermine the combined target. A historical review's suggested remedy is not automatically
+an accepted decision. Workers may follow discovered dependencies beyond the initial references.
+
+For example, the reasoning portion of a persistence assignment might say:
+
+> Implement the persistence consumer in package C against the resolved-identity contract in
+> section X. Finding F-12 explains why reapplying current defaults loses meaning; use that
+> rationale when choosing round-trip checks. Another worker owns the producer. Choose the
+> internal storage mapping locally and raise any need to change the shared identity semantics.
+
+This illustrates useful context and discretion, not a complete brief or mandatory format.
+Include task-specific scope, permissions and baseline through the existing coordination contract.
+
+## Anticipate divergence across boundaries
+
+Disjoint files do not guarantee independent decisions. Workers can differ over identity,
+ordering, absence, failure behavior or lifecycle assumptions while each satisfies a local reading
+of the plan. Identify the shared assumptions that materially constrain parallel work and how
+changes to them will reach affected workers. Let workers decide within agreed outcomes and
+contracts; reconcile changes affecting other assignments with the coordinator and semantic owners.
+
+The necessary agreement depends on what dependent work relies on; not every interface needs to
+be frozen upfront. When a premise changes, reassess the affected assignments and evidence.
+Coordinate shared editing surfaces, generators, build resources or test environments where
+actual contention is likely, following repository policy.
+
+## Plan how contributions become a working whole
+
+Consider who will connect contributions, migrate adjacent consumers, retire replaced paths and
+establish the combined behavior. Account for the plan's preservation and transition obligations
+when assigning that work. Ask what could remain wrong even if every worker satisfies its local
+brief; the answer identifies where coordinator attention or a revealing cross-boundary check
+would help.
+
+Choose useful points for implementation review and functional feedback against identifiable
+inputs. A worker's completion report should expose remaining assumptions, evidence limits and
+integration obligations. Inspect decisive evidence and reconcile contributions before accepting
+the combined result. Local completion and enclosing qualification establish different claims;
+handoffs do not create additional qualification gates.
+
+If a dedicated claimed-completion assessment is requested or explicitly included in the approach,
+use [plan-completion-audit](../plan-completion-audit/SKILL.md). Give it the accepted scope and
+identifiable implementation baseline, including adjacent consumers and cross-package obligations.
+Its conclusion corrects the existing plan in place and distinguishes implementation from
+qualification and benefit evidence. It is not an automatic review of every package or handoff.
+
+Follow `AGENTS.md` for verification scope and timing, generation, formatting and hook ownership.
+Use focused checks during implementation and reserve integrated qualification for the boundary
+specified by repository policy.
+
+## Keep detail proportional to what is known
+
+Prepare the first ready assignments concretely. Later work may need only an intended outcome,
+a dependency and the condition that makes it actionable. Explain what would change the approach:
+an unavailable prerequisite, a broader migration, a contract contradiction, a result that no
+longer serves its consumer, or a split that produces excessive coordination. Reconsider affected
+work while continuing independent authorized scope.
+
+Follow the repository binding's
+[review cadence](../../../docs/design_review/design_principles/binding/corpus-structure.md#reviews-in-this-repository).
+The foundation assessment belongs to [create-plan](../create-plan/SKILL.md); ordinary execution
+does not repeat it or initiate recurring architecture or domain-model reviews. Reopen a
+consequential question when new evidence warrants it. Library questions follow the repository's
+overview, Context7 and primary-source research routes. Assess material execution tradeoffs qualitatively
+and explain them in plain language. This design consideration requires no numerical estimates,
+cost models, estimators, runtime accounting, execution-planning machinery, instrumentation, formal
+cost proofs or additional proof artifacts; such mechanisms need a separate concrete functional or
+operational requirement. Quantitative claims still need measurements; correctness obligations remain.
+
+Present material sequencing choices, assumptions and unresolved prerequisites in the conversation.
+Use the available planning interface when useful. The approach is sufficiently detailed when
+ready work can begin with understood boundaries and useful feedback, and further planning
+depends on evidence implementation will produce. The existing plan remains the owner of
+durable decisions, status and findings within the repository's authority structure; there is
+no separate durable execution plan by default.
+
+Ask only for information that materially changes the work. Follow the user's boundary between
+planning and action: this skill does not switch modes or force execution. When execution is
+authorized, [execute-plan](../execute-plan/SKILL.md) supplies the execution contract without
+requiring another planning round.
+
+Routine typing/lint checks and repair belong at declared substantial-task endpoints, not per edit
+or turn. Narrow read-only diagnostics may resolve named unresolved defects. Final source mutation
+precedes qualification or requires affected evidence to be reassessed (ADR-0001). At full-scope
+closure, explicitly scoped applicable native results must cover every declared required functional,
+applicable-provider and nonfunctional obligation; `test-all`/`hygiene` remain broad routes.
+The owning plan accounts for actual selected scope, reporting health and final-source/context
+applicability. Preserve failed/interrupted records and keep incomplete required obligations open;
+a bounded pass establishes only that scope. Shared changes or uncertain impact require broader
+reassessment rather than optimistic reuse.

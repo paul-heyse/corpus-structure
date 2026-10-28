@@ -1,0 +1,70 @@
+# Publication choices only. Architecture/lifecycle remain with their existing owners.
+[site]
+repository = "https://github.com/paul-heyse/corpus-structure"
+branch = "main"
+base_url = "/"
+
+# Documentation binaries, pinned exactly; `just bootstrap-docs` installs these versions and
+# publication checks them.
+[tools]
+mdbook = "0.5.4"
+pagefind = "1.5.2"
+lychee = "0.24.2"
+
+[publication]
+entrypoints = ["README.md", "docs/README.md", "docs/design/README.md", "STATUS.md", "AGENTS.md", "docs/publishing.md", "docs/library_leverage/README.md", "docs/library_leverage/library-leverage-framework.md", "docs/library_leverage/patterns.md"]
+# The active plan, once written, e.g. ["docs/plans/<topic>_<YYYY-MM-DD>.md"]
+current_work = []
+exclude = []
+assets = []
+
+[[collections]]
+title = "Start here"
+include = ["README.md", "STATUS.md", "AGENTS.md"]
+scope = "Current"
+[[collections]]
+title = "Documentation"
+include = ["docs/*.md"]
+scope = "Reference"
+[[collections]]
+title = "Architecture"
+include = ["docs/design/**/*.md"]
+scope = "Current"
+[[collections]]
+title = "Decisions"
+include = ["docs/adr/*.md"]
+scope = "Reference"
+[[collections]]
+title = "Work plans"
+include = ["docs/plans/**/*.md"]
+scope = "Reference"
+[[collections]]
+title = "Design standard"
+include = ["docs/design_review/design_principles/**/*.md"]
+scope = "Current"
+[[collections]]
+title = "Reviews"
+include = ["docs/design_review/reviews/**/*.md", "docs/functional_reviews/**/*.md", "docs/plan_improvement_reviews/**/*.md"]
+scope = "Reference"
+[[collections]]
+title = "Evidence"
+include = ["docs/design_review/evidence/**/README.md"]
+scope = "Reference"
+[[collections]]
+title = "Process"
+include = [".agents/roles/*.md", ".claude/skills/README.md", ".claude/skills/adr/*.md", ".claude/skills/design-review/*.md", ".claude/skills/design-principle-audit/**/*.md", ".claude/skills/design-review-audit/*.md", ".claude/skills/plan-completion-audit/*.md", ".claude/skills/plan-design-review/*.md", ".claude/skills/functional-extension-review/*.md", ".claude/skills/plan-functional-extension-review/*.md", ".claude/skills/leverage-codebase-audit/**/*.md", ".claude/skills/leverage-library-assessment/*.md", ".claude/skills/leverage-opportunity-review/*.md", ".claude/skills/plan-creation/*.md", ".claude/skills/create-plan/**/*.md", ".claude/skills/plan-execution/*.md", ".claude/skills/plan-improvement-review/*.md", ".claude/skills/execute-plan/*.md", ".claude/skills/design-review-code-intelligence/*.md", ".claude/skills/handoff/*.md", ".claude/skills/pin-check/*.md"]
+scope = "Current"
+
+[[collections]]
+title = "Design principle audit"
+include = ["docs/design_review/audit/**/*.md"]
+scope = "Reference"
+[[collections]]
+title = "Library overviews"
+include = ["docs/libraries/**/*.md"]
+scope = "Reference"
+
+[[collections]]
+title = "Library leverage"
+include = ["docs/library_leverage/**/*.md"]
+scope = "Reference"

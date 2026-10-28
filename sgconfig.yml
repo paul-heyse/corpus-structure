@@ -1,0 +1,6 @@
+# ast-grep rules land here from design-review findings: one rule per recurring code shape, each
+# with fixtures in rule-tests/. `just rules-scan` / `just rules-test` report not_run while empty.
+ruleDirs:
+  - rules
+testConfigs:
+  - testDir: rule-tests

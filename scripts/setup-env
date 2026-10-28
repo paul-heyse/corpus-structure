@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Explicit preparation. Installed toolchains are selected by the existing pin files.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+[[ $# -eq 0 ]] || { echo 'usage: bash scripts/setup-env' >&2; exit 2; }
+unset VIRTUAL_ENV UV_NO_SYNC
+
+export UV_PROJECT_ENVIRONMENT=.venv
+uv sync --locked --inexact
+

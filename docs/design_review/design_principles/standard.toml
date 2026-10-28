@@ -1,0 +1,24 @@
+# Which layers of the design standard apply in this repository.
+# Read by the design-review skills; paths are relative to this file.
+
+[core]
+# Repository owns this edition (ADR-0002); template updates arrive through `copier update`.
+owner = "repository"
+version = "3.3"
+principles = "core/design-principles.md"
+heuristics = "core/efficient-architecture-heuristics.md"
+test_assessment = "core/test-assessment.md"
+template = "core/design-review-template.md"
+
+[[profiles]]
+name = "code-intelligence"
+version = "1.4"
+prefix = "CI"
+principles = "profiles/code-intelligence/principles.md"
+review = "profiles/code-intelligence/review.md"
+skill = "design-review-code-intelligence"
+
+[binding]
+name = "corpus-structure"
+path = "binding/corpus-structure.md"
+reviews = "../reviews"

@@ -1,0 +1,14 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.6.0
+_src_path: gh:paul-heyse/project-template
+crate_name: corpus-structure
+github_owner: paul-heyse
+project_description: Builds a highly structured representation of a set of documents
+project_name: corpus-structure
+python_version: 3.14.8
+rust_toolchain: 1.98.1
+with_ast_grep: true
+with_ci_profile: true
+with_docs_site: true
+with_python: true
+with_rust: true

@@ -1,0 +1,29 @@
+"""Recognize retained inactive central library-skill reference identities."""
+
+import re
+import subprocess
+from pathlib import Path
+
+
+def local_skill(root: Path, path: Path) -> bool:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    if relative.parts[:2] != (".claude", "skills") or len(relative.parts) < 3:
+        return False
+    index = root / ".claude/skills/README.md"
+    names = (
+        set(re.findall(r"\]\(([a-z0-9-]+)/SKILL\.md\)", index.read_text()))
+        if index.exists()
+        else set()
+    )
+    # Existing checkouts may still have a central symlink; Git cannot inspect beyond it.
+    # The retained index also recognizes inactive references after discovery links are removed.
+    entry = Path(*relative.parts[:3])
+    asked = entry if (root / entry).is_symlink() else relative
+    return (
+        relative.parts[2] in names
+        and subprocess.run(["git", "check-ignore", "-q", "--", str(asked)], cwd=root).returncode
+        == 0
+    )

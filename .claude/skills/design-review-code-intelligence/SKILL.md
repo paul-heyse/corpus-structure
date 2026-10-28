@@ -1,0 +1,86 @@
+---
+name: design-review-code-intelligence
+description: Code-intelligence profile for the design-review skill — applies CI-01–CI-13 and gates CI-G1–CI-G3 (attributed facts, typed fidelity with no relabelled relations, relationship identity, unknown-is-not-absent, declared graph projections, claims relative to a stated model, routing analyses by semantics, bounded cardinality, governed heuristics, hermetic analysis inputs, evidence closure for served claims, non-circular evaluation, pinned serving). Use together with design-review whenever the subject is static analysis, fact extraction, code graphs, program or graph analyses, retrieval, or evidence-backed answers served to agents.
+allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Agent
+---
+
+# Design review — code-intelligence profile
+
+Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md) and [efficient-architecture heuristics](../../../docs/design_review/design_principles/core/efficient-architecture-heuristics.md) together
+with the core review and this profile. Apply relevant qualitative guidance before physical
+choices become entrenched; it adds no checklist, cost model or proof machinery.
+
+This skill **layers onto `design-review`**; it never replaces it. Load the core skill first.
+The core fixes slots 1–12, foundations FP-01–FP-07, architectural judgments A1–A4,
+gates G1–G8, findings and decisions. This profile adds domain constraints. Its fact and
+fidelity analysis supports ownership, contracts, change and composition; it does not replace them.
+Core FP-04/A2 require an adequate domain model that governs behavior; an attributed fact schema
+alone does not establish alignment.
+
+## The standard
+
+Find the profile through the repository's `standard.toml` (`[[profiles]]` entry
+`code-intelligence`). It points to two documents:
+
+| Document | Role |
+|---|---|
+| Profile principles | CI-01–CI-13 with the core principles each refines, gates CI-G1–CI-G3, false positives, and the functional target the design must serve |
+| Profile review additions | What the profile adds to each core slot: fact and fidelity table, analysis record columns, journeys, known-answer shapes, and calibrated finding shapes |
+
+Profile principles tighten core principles; a profile MUST is never waived by an exception
+record. The repository binding says which analyzers, stores and libraries fill each role. This
+profile names none.
+
+## What the profile adds to the review
+
+1. **Profile gates CI-G1–CI-G3 in slot 6**, settled independently like the core gates.
+2. **The fact and fidelity table** (slot 2), after the responsibility/dependency map.
+   Reconstruct it from the subject; invented cells are unresolved decisions.
+3. **Analysis record columns in slot 4** for every projection, analysis or synthesis stage.
+4. **Code-intelligence journeys in slot 5**, chosen by relevance. In a target-purpose review the
+   workloads in the profile's functional target are in scope even when current plans exclude them.
+5. **Architectural consequences of domain changes:** distinguish instances, bindings,
+   compositions, policies, domain concepts and mechanisms. Assess the meanings and owned
+   operations behind the facts and relations in the review scope.
+   Check whether consumers independently classify the same concept or interpret an operation's
+   outcomes, and identify the affected owners.
+6. **Qualitative execution-fit assessment under A4:** canonical graph-native artifacts are permitted; declared views
+   retain their universe/edge semantics without necessarily rebuilding a graph. Compare semantic
+   and physical fit across query engines, graph libraries and transfer/fixpoint kernels. Include
+   degree, examined work and intermediate bytes beside output bounds. Consumer pins cover the
+   entire declared journey, including evidence references, resources and continuations. Explain
+   material tradeoffs in plain language; cost estimates, models, estimators, runtime accounting,
+   planning machinery, instrumentation and proof artifacts need a separate concrete requirement.
+   Quantitative claims still require measurements; semantic correctness obligations remain.
+
+## Lenses
+
+Use these lenses when a concrete fidelity or evidence question remains unresolved. Select only
+the relevant paths and follow them far enough to settle it; this is not a required tracing checklist:
+
+- **Follow a served claim backwards** (CI-11): answer → synthesis → finding → fact → span, all in
+  one snapshot. The step where a citation could resolve elsewhere, or where "mentions" stands in
+  for "establishes", is usually the finding.
+- **Follow an empty answer** (CI-04): what coverage sits under it, and does the served form say
+  "none" or "not known"?
+- **Read each relation at its source** (CI-02): what did the provider actually assert, and is it
+  consumed under that meaning downstream?
+- **Check each projection's universe** (CI-05): is anything filtered before a traversal or a
+  global metric that the answer depends on?
+- **Find the model** (CI-06): for each behavioural claim, which runtime model and assumptions,
+  and are they visible where the claim is served?
+- **Trace heuristics to their consumers** (CI-09): may a ranking, community or similarity output
+  become a control, limit or behaviour in a served answer?
+- **Look for ambient inputs** (CI-10, CI-12): analyzer configuration discovered at run time, and
+  any path from evaluation references into inputs or parameters.
+
+A known-answer shape (profile review additions, slot 10) settles a doubtful graph or analysis
+claim cheaply; use one where reasoning leaves real doubt.
+
+## Failure modes specific to this profile
+
+- An empty result accepted as evidence that a caller, use or capability does not exist.
+- A relation's meaning taken from its name rather than from what its provider asserts.
+- A heuristic score or community accepted as a structural or behavioural fact.
+- A behavioural claim judged sound without asking which model it assumes.
+- Evidence closure judged from the synthesis code alone, without following a claim to its facts.

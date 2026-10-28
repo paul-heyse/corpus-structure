@@ -1,0 +1,310 @@
+# Design review — reference
+
+Companion to [SKILL.md](SKILL.md); the audit skill can also consult its diagnostic calibration
+without initiating a solution review. Lenses and calibration examples that have repeatedly
+turned up real defects. None is a required step. Foundation and rule IDs refer to the core design
+principles; profile lenses live in the profile's own skill.
+
+## Architecture calibration
+
+Begin with owners and expected change. These examples distinguish reportable architecture
+findings from preferences; no broken output is required.
+
+| Scenario | Reportable evidence and consequence | Correction direction |
+|---|---|---|
+| Another model of an existing kind | Compiler and server independently dispatch on the same model kind; addition requires matching semantic branches in both. FP-03/04, A2/A3. | One owned model interpretation and a derived serving contract; retain independent behavioral controls. |
+| Upgrade a provider | An unrelated analytic inspects provider-private nodes to recover meaning absent from its input contract; upgrade propagates through private APIs. FP-01/02, A1. | Normalize the required semantic fact at the provider boundary and expose the narrow contract. |
+| Test a pure transformation | The entry point requires a live store to obtain policy and lookup state even though the computation only uses immutable inputs. FP-05/06, A1/A3. | Pass the actual inputs into the transformation; keep acquisition and publication in orchestration. |
+| Another workflow | Each orchestration branch duplicates validation/defaulting rather than composing one owned operation. FP-03/04, A2/A3. | Move the decision to its semantic owner and compose the existing contract. |
+| Add a new contextual role | A role is encoded as an intrinsic entity flag; different consumers infer its meaning from the workflow that supplied it. FP-04/05, A2. | Model the context and binding, with one owned interpretation reused by the affected operations. |
+| Proposed provider abstraction | One fixed implementation and no identified testing/variation need, but a new registry duplicates the adopted framework's selection lifecycle. FP-02/03, A3. | Keep the existing function/module boundary and revisit when a concrete consumer needs substitution. |
+
+A strong finding names the expected change, both dependency/definition sites, the contract that
+should contain it, and the consequence. A large module, many files or one implementation behind a
+trait proves nothing alone. A genuine new semantic category can properly affect several owners.
+An Arrow-shaped boundary may be the intentional shared contract; a wrapper must protect something.
+
+Model adequacy and authority are separate questions. Domain-named records may only standardize
+outputs while several procedures define what they mean. A single classifier may be authoritative
+yet collapse a distinction required by supported behavior. Assess the relevant definitions and
+operations at the depth needed to settle A2. A typed domain function can establish authority
+without a declarative engine, serializable operation object or prescribed flow trace.
+
+**Example finding:** "Adding a second output rendering requires reinterpreting completion status
+in the rendering module as well as the analysis module. Both match on the same semantic variants,
+and neither consumes the other's interpretation. The new renderer must understand analysis
+internals and can diverge on unknown outcomes. Keep completion interpretation in the analysis
+contract; render that result. Closure: trace an additional rendering through the shared result
+without a second classifier, with independent unknown-outcome controls. FP-02/03/04, A1/A2/A3."
+
+**Acceptable alternative:** "The new analytic consumes the existing projection contract and
+returns typed results; the workflow only binds its configuration and publishes those results.
+Its small fixture test uses no store. Existing source modules need no additional analytic rule.
+A1 and A3 satisfied for this addition; broader serving composition was not examined."
+
+For proposed scenarios, label the path Proposed. For inspected code, label existence Implemented;
+only executed checks justify Tested. Do not convert a source walkthrough into a time-saving metric.
+
+## §1 Lenses
+
+### When the subject is a document
+
+**Reconstruct the design.** Establish the responsibilities and scenarios from the substance of
+the document rather than the apparent completeness of its tables. Use the template's maps or
+tables where they help explain a material question. A consequential distinction you must invent
+is an unresolved decision; an unused template cell is not itself a defect. Where relevant, deepen:
+
+- the **responsibility/dependency map** (slot 2), followed by semantic authorities and their
+  revision/update paths, including domain operations and the phenomena they represent;
+- the **invariant table** (slot 3): enforcement point and failure behaviour per invariant. An
+  invariant with neither is unresolved under DP-03, whatever the prose claims;
+- the **stage table** (slot 4): inputs, observed dependencies, output contract, effects and reuse
+  boundary per stage. Undeclared effects fall under DP-18;
+- the **absence lattice** (DP-02): for each value that can be missing, which of not supplied /
+  not applicable / not computed / unknown / invalid / partial / failed the design distinguishes,
+  and which collapse into one representation.
+
+**Sort the load-bearing sentences** to keep claim strength honest:
+
+| Kind | How it reads | What it deserves |
+|---|---|---|
+| Specification | States what holds, where enforced, what is rejected | Assess directly |
+| Intention | A desirable property with no mechanism | Unresolved until a mechanism is named |
+| Assumption | Rests on an external system, library or later decision | Unstated assumptions are a DP-22 finding |
+| Benefit assertion | Performance, simplicity, extensibility | A hypothesis unless evidence is cited (DP-22) |
+
+**The divergence sentence.** For a core mechanism, the one sentence two implementers would read
+differently is often the whole finding: "identity is content-based" (over which canonical form —
+DP-04); "invalid input is rejected" (at ingest, at query or at publication — DP-03); "the plan is
+cached" (keyed on what, invalidated by what — DP-09); "conversion is lossless" (byte, structural,
+semantic or approximate — DP-08).
+
+### When the subject is code
+
+The bar in the second column is what makes a shape reportable. Below it, record the item in the
+coverage note as examined and unsettled.
+
+| Shape | What makes it evidence | Judgment/gate · principles |
+|---|---|---|
+| **Output-only model** — domain records standardize results while procedures supply their meaning independently | The consequential distinction or operation, the definitions or executing sites, and a supported change that needs independent semantic edits. Correct current output does not settle the architectural defect | A2 · FP-04, DP-01, DP-08 |
+| **Inadequate single authority** — one definition owns a concept but omits a required distinction | The domain cases the supported contract must distinguish, the representation that collapses them, and the affected operation or consumer | A2 · FP-04, DP-02 |
+| **Second authority** — one fact independently editable in two places (constant and schema, schema and validator, validator and adapter, default and fixture) | Both sites cited, and no derivation, generation step or assertion linking them. Check for a derivation first | G1 · DP-01 |
+| **Unguarded boundary** — external input, partial construction or deserialization reaching an operation that assumes an invariant | Entry point, operation, and no rejecting check between them (a warning or opt-in check is advisory). Type-level enforcement counts | G3 · DP-03, DP-08 |
+| **Hidden effect** — `validate`, `inspect`, `plan`, `explain` paths that mutate, register, lazily initialize or read clock, environment, filesystem, globals or randomness | The mutation or read, and a caller that reasonably assumes purity | G4 · DP-18 |
+| **Silent degradation** — default on absence, catch-alls flattening failure classes, unsupported branches with different semantics, lossy conversions | The branch, what the caller observes in each case, and no declared loss or approximation policy | G2/G7 · DP-02, DP-15 |
+| **Incomplete reuse key** — a cache or memo key missing a result-affecting input (policy, provider version, configuration, schema revision, upstream identity) | The key, the omitted dependency, and the change that yields a stale hit. Volatile inputs (timestamps, paths, addresses) in a key are the mirror defect | G6 · DP-09 |
+| **Unbacked capability** — the accepted surface (enum, trait, registry, config schema, API) wider than the implementation that handles it | The set difference, with the accepted variant and the fallback cited. A typed `Unsupported` is aligned; a silent semantic fallback is not | G7 · DP-15 |
+| **Bespoke generic machinery** — own solver loop, graph traversal, cache, parser, retry framework, derivative routine or hand-rolled built-in | The code, the library or built-in that provides the capability, and no stated reason for building it | G8 · DP-13, DP-14 |
+| **Adapter with policy** — a conversion layer holding defaults, selection or domain rules found nowhere else | The rule, and the authority that should own it | G1/G2 · DP-14, DP-01 |
+
+When a finding depends on execution or dispatch, inspect the implementation selected under the
+relevant configuration. Follow the path far enough to resolve that question.
+
+### When the scope computes: reuse, graphs and staged execution
+
+| Shape | What makes it evidence | Gate · principles |
+|---|---|---|
+| **Second reuse mechanism** — a cache or dependency tracker duplicating one another mechanism already owns | Both mechanisms, and a change one invalidates and the other does not | G1 · DP-09, DP-01 |
+| **Handle mistaken for version** — a key on a handle, name or "latest" reference whose contents can change under the same identity | The key, the mutable content, and the edit that leaves the key equal | G6 · DP-09 |
+| **Absence untracked** — failed lookups and membership not recorded as dependencies | The lookup, the missing membership dependency, and the addition that stays stale | G6 · DP-09 |
+| **Effect inside a memo** — a write, registration or external call inside a body that may be skipped or repeated | The effect and the reuse path that skips or repeats it | G4 · DP-18 |
+| **Unsound equality** — reuse on allocation identity, iteration order, loose float tolerance or non-canonical labels | The equality, and two results it equates that a consumer would treat differently | G6 · DP-04, DP-11 |
+| **Output filter used as input filter** — a projection built from what the answer should contain | The predicate, the omitted element, and the changed result | G6 · DP-07 |
+| **Silent graph reinterpretation** — symmetrized direction, collapsed parallel edges, dropped isolates, a weight read under the wrong meaning | The conversion site and the algorithm requirement it violates | G2 · DP-07 |
+| **Index-space or version bridge** — results zipped against another iteration order, implicit compaction, types from two library majors joined by casts | The mapping or its absence, and the two index spaces or versions | G2/G3 · DP-04, DP-15 |
+| **Misnamed algorithm** — a routine recorded under the name of an algorithm it does not implement | The entry point, its actual behaviour, and the recorded name | G7 · DP-15 |
+| **Heuristic promoted to fact** — communities, rankings or similarity used as dependency, equivalence or execution boundaries | The consuming decision and the missing validation | G2/G7 · DP-07 |
+| **Global computation per partition** — a whole-structure analysis run per batch, or a predicate pushed into it | The plan shape and the global result that differs | G6 · DP-08 |
+| **Silent truncation** — a limit, iteration cap or sampling returning something indistinguishable from the complete result | The limit, and what the caller sees when it is hit | G5 · DP-12, DP-20 |
+
+For reuse claims, the settling question is always: after the edit that would expose it, would
+the incremental result equal a clean recomputation? Answer it by reasoning over the observed
+dependencies; a comparison is worth running only where that reasoning leaves real doubt.
+
+### When the subject is both
+
+| Question | Finding shape |
+|---|---|
+| Do the document's semantics and the implementation's match? | Divergence against the pair; name the authority and the reconciliation (DP-01) |
+| Does the document describe a state the code has left? | Stale specification — say whether the document is a target or a record; one that is neither competes with the code |
+| Does the code implement semantics the document omits? | Undocumented surface (DP-24) |
+| Does the document claim capabilities the code lacks? | G7 — narrow the claim or relabel it *Proposed* |
+| Which evidence label does each claim now deserve? | Re-label per principles §D |
+
+## §2 Finding calibration
+
+Adequate and inadequate versions of the same observation. The difference is always the same
+three things: a concrete consequence, evidence at the right grain, and citations that do work.
+
+### A — Authority
+
+**Inadequate.** "Violates DP-01: the schema appears in several places. Recommend consolidating."
+
+**Adequate.** "Column nullability for the state-variable table is independently editable at
+`catalog/schema.rs:88` and at `ingest/validate.rs:214`, which re-lists required fields as string
+literals; neither derives from the other and no test compares them. **Consequence:** making a
+field required only in the validator admits nulls the kernels assume absent, panicking at
+`solve/assemble.rs:131`. **Correction:** derive the validator's required set from the schema
+(~2 call sites). **Verification:** a test asserting the two sets are equal; it fails today.
+DP-01, DP-03, G1."
+
+### B — Absence semantics
+
+**Inadequate.** "DP-02 is not fully satisfied; absence states should be clearer."
+
+**Adequate.** "An unsolved variable, a variable outside its domain and a variable whose upstream
+computation failed are all null in the result column (§4.3). **Consequence:** a consumer counting
+nulls cannot separate a failed solve from a partial one. **Correction:** a typed status beside the
+value — one declaration if made before the result contract has consumers. **Verification:** a
+negative test asserting the three cases are distinguishable at the result boundary. DP-02, DP-19,
+G2."
+
+### C — Over-construction of bespoke machinery
+
+**Inadequate.** Silence, or praise for extensibility.
+
+**Adequate.** "§6 introduces an own provider registry with a capability-negotiation protocol for
+one backend. The registry adds a declaration surface and conformance obligations the design does
+not fund, and duplicates the selection mechanism the adopted framework already offers.
+**Consequence:** the first real second backend needs distinctions the negotiation vocabulary
+cannot express, so the registry is rewritten. **Correction:** use the framework's mechanism
+behind the existing trait and typed `Unsupported`; remove the own registry. **Verification:** none
+needed — this removes machinery. DP-16, DP-13, G8."
+
+### D — Bespoke generic code
+
+**Inadequate.** "Consider using a library here."
+
+**Adequate.** "`solve/newton.rs:40–210` implements a damped Newton iteration with its own line
+search for square systems. The adopted nonlinear solver library provides globalized Newton with
+scaling and typed failure status; no stated reason explains the bespoke
+path. **Consequence:** two convergence behaviours with different failure semantics, and fixes to
+one do not reach the other. **Correction:** route square systems through the library; delete the
+module and its tests. **Verification:** existing square-system tests pass through the library
+path, and the module is gone. DP-13, DP-16, G8."
+
+### E — Evidence labels
+
+**Inadequate.** "The design is validated end to end — see the integration tests."
+
+**Adequate.** "Round trip is *Tested* for the structural case (`tests/roundtrip.rs::schema_roundtrip`,
+14 fixtures, exact structural equality) and *Proposed* for metadata, which §3 claims is preserved
+but nothing exercises. Narrow the claim or add the metadata case. DP-22, DP-23."
+
+### F — Projection scope
+
+**Adequate.** "The block-analysis projection keeps only equations reachable backwards from the
+requested outputs (§4.2), then decomposes cycles on that subgraph. An equation outside the
+ancestor set that closes a cycle through two ancestors is dropped. **Consequence:** two coupled
+equations are solved sequentially and converge elsewhere or fail, with no diagnostic.
+**Correction:** decompose on the enclosing scope, then select every block the ancestors intersect.
+**Verification:** a fixture with such a cycle asserting one block of size two; it fails today.
+DP-07, DP-12, G6."
+
+### G — Qualitative execution fit without a benchmark claim
+
+Assess execution fit qualitatively and explain material tradeoffs in plain language. This
+consideration requires no numerical estimates, cost models, estimators, runtime cost accounting,
+execution-planning machinery, instrumentation, formal cost proofs or additional proof artifacts.
+Introduce them only for a separate concrete functional or operational requirement. Quantitative
+performance/capacity claims still require measurements; semantic correctness obligations remain.
+
+**Inadequate.** "The implementation uses a database and bounds every response, so performance
+is outside this review until benchmarks exist."
+
+**Adequate.** "A request for ten records rehashes an unchanged immutable catalog, then makes one
+round trip per semantic kind before fetching the records. More unrelated catalog data and more
+kinds therefore increase work for the same answer. **Consequence:** unnecessary global work and
+crossings in a supported repeated-small-request workload. **Correction:** establish immutable
+validity at sealing, retain its premises, use indexed batch access, and keep checks for new trust
+boundaries. **Verification:** inspect the new access and validity lifetimes; benchmark separately
+before claiming latency or capacity. FP-07, DP-03, DP-10, DP-23, A4."
+
+A global SCC computation can legitimately need all nodes and edges even when returning one node's
+component. An output selector cannot justify shrinking the semantic universe. A single native
+query also needs scrutiny of its physical work. These counterexamples prevent "less work" from
+becoming a reason to weaken correctness or a synonym for "one call."
+
+## §3 How the slots compress
+
+| Slot | Document subject | Code subject | Change review |
+|---|---|---|---|
+| 1 Scope and coverage | With method note | With method note | Compressed; keep the coverage note |
+| 2 Owners and authority | Reconstruct domain model, boundaries/dependencies | Actual semantic definitions, operations and consumers | Affected boundary and consumers |
+| 3 Contracts | Concepts and operations | Invariant owners and enforcement sites cited | Merged into findings |
+| 4 Composition/execution | Semantic and physical routes | Actual access, work, movement, reuse and lifecycle | Affected operations |
+| 5 Scenarios | Changes plus relevant growth/skew/concurrency/failure | Actual owners and credible workload | Relevant scenario or explicit scope reason |
+| 6 Gates | Tabular | Tabular | Tabular |
+| 7 Findings | Tabular | Tabular | Tabular |
+| 8 Library fit | Composed capabilities and total machinery | Actual composition/optimizer/locality | Changed capability or scope reason |
+| 9 Alternatives | Worth the work | Worth the work | Optional; say why omitted |
+| 10 Verification | Proposed checks | Existing coverage and gaps | Top gaps only |
+| 11 Authority changes / exceptions | Rule impacts (`review#RCnn`); deviations | Same | Same; state "none" when nothing is affected |
+| 12 Architecture and decision | A1–A4 and scoped decision | A1–A4 and scoped decision | Bounded judgment; enclosing limit |
+
+<a id="synthesis-and-corrective-reasoning"></a>
+
+## §4 Synthesis and corrective reasoning
+
+These examples illustrate reasoning useful to an intelligent reader, not required paragraphs or
+new assessment criteria. Apply the selected standard's judgments and evidence vocabulary.
+
+### A coherent argument across findings
+
+**Thin synthesis.** "Request validation is duplicated, persisted requests are ambiguous, and
+errors need improvement. Consolidate the helpers and update the schema."
+
+**Useful synthesis.** "The affected entry points interpret references independently, while
+persistence records the submitted spelling without its interpretation context. These findings
+share a missing operation contract: resolution should establish the selected identities and
+retain failures before execution begins. Execution and persistence can then consume that
+interpretation. Defining the resolution contract precedes choosing its durable representation;
+merely merging helper functions leaves the interpretation and storage problems intact."
+
+The argument connects cause, boundary and corrective dependency. It does not establish that every
+error-handling defect has this cause. An independent resource-lifetime finding remains separate,
+even if it affects the same request path. A resolution fix and a storage fix can contribute to
+one obligation without either alone proving complete correction.
+
+### An established diagnosis with an unresolved remedy
+
+"Source inspection establishes that two consumers interpret the same operation outcome
+differently. One treats partial completion as usable; the other refuses it. The requested policy
+is shared, so these are competing interpretations. A shared permission decision would remove
+that disagreement, but the inspected design does not settle whether permission depends on each
+output or on the operation as a whole. Resolve that requirement before selecting the result
+contract. The evidence establishes the divergence; the proposed decision boundary still needs
+that distinction."
+
+This finding does not need a fully designed replacement to be useful. A mixed-output scenario
+can settle the missing requirement, and the review can explain which recommendation changes
+with the answer. Numerical confidence scores would add little. A later remedy refinement can
+preserve the original finding and its source evidence.
+
+### Strengths constrain a correction
+
+"The existing operation emits a detailed failure identity, and several identities deliberately
+share a broad presentation category. The transport boundary currently loses the identity.
+Preserve the detailed cause through that boundary and derive presentation and retry views from
+it with their relevant context. Reconstructing the identity from the broad category would erase
+valid distinctions. The correction should retain independent retry policy and diagnostics even
+when no execution result exists."
+
+A malformed input and a transient external failure can test the recommendation's meaning without
+requiring a new universal error framework. Existing guarantees shape the remedy; mentioning them
+is more useful than general praise. Static reasoning can establish the many-to-one information
+loss, while any claim about executed transport behavior needs its own evidence.
+
+### Choosing presentation and handoff depth
+
+A substantial review might lead with its integrated assessment, develop request interpretation
+and persistence as one connected argument, and link a separate resource-lifecycle analysis.
+The principal document retains the overall verdict, coverage and interactions. A short boundary
+review may express the same reasoning in a few paragraphs with one finding. Neither form needs
+to reproduce the review team's assignments or every template table.
+
+An urgent consumer defect may depend on a less urgent contract clarification. Explain both
+severity and prerequisite meaning. If adoption requires old records to retain their interpretation,
+identify that preservation constraint and any unresolved feasibility question. Subsequent planning
+chooses the work packages and migration sequence; the review owns the argument and the evidence
+needed to distinguish a genuine correction from moved complexity.

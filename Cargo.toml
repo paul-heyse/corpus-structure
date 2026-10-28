@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98.1"
+publish = false
+
+# Crate families whose types cross crate boundaries must resolve to one version each
+# (`just deps`). Anchored regexes over crate names, e.g. ["arrow(-.+)?", "datafusion(-.+)?"].
+[workspace.metadata.pins]
+families = []
+
+# Pin exactly: `cargo add name@=x.y.z`, or a git dependency by its `rev` (`just deps` checks it).
+[workspace.dependencies]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+allow_attributes_without_reason = "warn"
+
+# Debug info stays off to keep target/ small and links fast; enable it locally when debugging.
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0
