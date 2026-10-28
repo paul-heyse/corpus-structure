@@ -1,6 +1,6 @@
 # S1 · Ingest and segmentation: plan
 
-**Proposed (2026-10-28).** Part of the [S0/S1 plan series](../design-spikes-s0-s1_2026-10-28.md),
+**Status: Complete (2026-10-28)**: S1 executed and folded into the design; see the coordinator's status. Written as **Proposed (2026-10-28).** Part of the [S0/S1 plan series](../design-spikes-s0-s1_2026-10-28.md),
 which owns shared decisions, the execution queue and finding disposition. The question is the
 [S1 brief](../../design_review/evidence/2026-10-28_design-spikes/S1-ingest-and-segmentation.md)'s;
 this document extends its scope and specifies how to answer it.

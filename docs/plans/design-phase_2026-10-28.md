@@ -49,8 +49,10 @@ or proposal id.
 
 Q1–Q4 run in parallel where their dependencies allow. Q5 may start per spike as reports land.
 
-Q1 and Q2 are executed in detail under the spike lane's
-[S0/S1 execution plan](design-spikes-s0-s1_2026-10-28.md), which governs their procedure. By
+Q1 and Q2 were executed in detail under the spike lane's
+[S0/S1 execution plan](design-spikes-s0-s1_2026-10-28.md), now **complete** (2026-10-28): Q1 and Q2
+are done, and Q5's S0/S1 part (with the S0-R2 revisit) is folded in; Q5's S4, S6 and library-pass parts
+remain. By
 operator decision (2026-10-28) more than one plan may be active; the plans are reconciled later.
 
 ## Library lane brief

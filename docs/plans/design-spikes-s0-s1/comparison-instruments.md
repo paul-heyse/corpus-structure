@@ -1,6 +1,6 @@
 # Comparison instruments: plan
 
-**Proposed (2026-10-28).** Part of the [S0/S1 plan series](../design-spikes-s0-s1_2026-10-28.md).
+**Status: Complete (2026-10-28)**: the instruments executed and folded into the design; see the coordinator's status. Written as **Proposed (2026-10-28).** Part of the [S0/S1 plan series](../design-spikes-s0-s1_2026-10-28.md).
 These are the throwaway tools that let S0 compare claim batches with each other and with the
 trace, and that S2 and S3 will reuse to score GLiNER2 and the local LLM against the S0
 reference. They live in the spike's `code/instruments/` and are not product code.

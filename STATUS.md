@@ -5,9 +5,10 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 ## Increment and slice
 
 - **Design phase:** the proposed target design is written ([D0–D9 and the worked trace](docs/design/README.md),
-  all Proposed, nothing in production). Two plans are active by operator choice:
-  [design-phase](docs/plans/design-phase_2026-10-28.md) (governs where they differ) and the
-  [spike plan series](docs/plans/design-spikes-s0-s1_2026-10-28.md).
+  all Proposed, nothing in production). The active plan is
+  [design-phase](docs/plans/design-phase_2026-10-28.md); the
+  [S0/S1 spike plan series](docs/plans/design-spikes-s0-s1_2026-10-28.md) is **complete** (2026-10-28),
+  its disposition pending the operator's revised process.
 - **Spikes S0 and S1 executed** (2026-10-28) in
   [the design-spikes evidence folder](docs/design_review/evidence/2026-10-28_design-spikes/README.md):
   [S1 report](docs/design_review/evidence/2026-10-28_design-spikes/S1-report.md) (D1 §3 fits;

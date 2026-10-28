@@ -1,9 +1,11 @@
 # Design spikes: execution plan series (S0 and S1 first)
 
-**Status:** Active, alongside [design-phase_2026-10-28](design-phase_2026-10-28.md) by operator
-decision (2026-10-28); this plan executes that plan's queue items Q1 (S1) and Q2 (S0) and governs
-their procedure. **Revised:** 2026-10-28.
-**Label:** Proposed (nothing in this plan has been executed).
+**Status:** **Complete** (2026-10-28). Every package ran: S1, S0, the instrument and parsing
+revisits, the evidence records and the S0-R2 revisit, and X1 folded the results into the design
+(ADR-0009, ADR-0010, ADR-0011). Reports: [S1](../design_review/evidence/2026-10-28_design-spikes/S1-report.md), [S0](../design_review/evidence/2026-10-28_design-spikes/S0-report.md),
+[S0-R2](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md). It executed queue items Q1 (S1), Q2 (S0) and the S0/S1 part of Q5 of
+[design-phase_2026-10-28](design-phase_2026-10-28.md), which remains active. The file's further
+disposition is pending the operator's revised process. **Revised:** 2026-10-28.
 
 This coordinator owns the combined scope, shared decisions, cross-document contracts, the
 execution queue, finding disposition and completion conditions for the design spikes. It
