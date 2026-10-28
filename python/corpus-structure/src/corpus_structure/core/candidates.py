@@ -8,7 +8,7 @@ not fields here. Qualifiers, values and evidence are in stored form.
 
 from __future__ import annotations
 
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -41,7 +41,9 @@ class CandidateStatement(CoreModel):
     id: Id
     key: str | None = None
     kind: str
-    anchor: Annotated[tuple[str, ...], Field(min_length=1)]  # segment keys
+    # Segment keys, or "outside": a statement the unit refers to but that lies outside it, kept
+    # with key None until consolidation resolves it to the statement it names.
+    anchor: Literal["outside"] | Annotated[tuple[str, ...], Field(min_length=1)]
 
 
 class CandidateClaim(CoreModel):

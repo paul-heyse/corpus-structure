@@ -17,10 +17,10 @@ import unicodedata
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Any
+from typing import Any, Self
 
 import regex
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from corpus_structure.core.candidates import (
     CandidateClaim,
@@ -154,11 +154,12 @@ def canonical_condition(
                 if c is None:
                     continue
                 args.extend(c["args"] if c["op"] == op else [c])
-            if not args:
+            unique = list({canonical_json(a): a for a in args}.values())  # identical args once
+            if not unique:
                 return None
-            if len(args) == 1:
-                return args[0]
-            return {"op": op, "args": _sort(args)}
+            if len(unique) == 1:
+                return unique[0]
+            return {"op": op, "args": _sort(unique)}
         if op == "not":
             inner = walk(n["arg"])
             return None if inner is None else {"op": op, "arg": inner}
@@ -171,12 +172,10 @@ def canonical_condition(
             rel, lhs, rhs = n["rel"], n["lhs"], n["rhs"]
             if rel in (">", ">="):
                 rel, lhs, rhs = {">": "<", ">=": "<="}[rel], rhs, lhs
-            return {
-                "op": op,
-                "rel": rel,
-                "lhs": canonical_value(lhs, macros, resolve),
-                "rhs": canonical_value(rhs, macros, resolve),
-            }
+            sides = [canonical_value(lhs, macros, resolve), canonical_value(rhs, macros, resolve)]
+            if rel in ("=", "!="):  # symmetric relations: operands in canonical order
+                sides = _sort(sides)
+            return {"op": op, "rel": rel, "lhs": sides[0], "rhs": sides[1]}
         if op == "pred":
             pred_args = [canonical_value(a, macros, resolve) for a in n["args"]]
             if n["name"] in symmetric:
@@ -232,7 +231,8 @@ def canonical_binding(
 
 
 def _bindings(node: Json, macros: Mapping[str, MacroDef], resolve: Resolve) -> list[Json]:
-    """Every formula's or set's canonical bindings, beside its canonical value, in a fixed order."""
+    """Every formula's or set's canonical bindings beside its canonical value, sorted by canonical
+    JSON, so neither argument order nor a rewritten comparison moves them."""
     out: list[Json] = []
 
     def walk(n: Any) -> None:
@@ -251,23 +251,43 @@ def _bindings(node: Json, macros: Mapping[str, MacroDef], resolve: Resolve) -> l
                 walk(item)
 
     walk(node)
-    return out
+    return _sort(out)
 
 
 # --- Schema facts and the rendition ------------------------------------------------------------
 
 
+class KeyingError(LookupError):
+    """A candidate that cannot be keyed: the reason is counted, never raised past `key_claims`."""
+
+
 class KeySchema(CoreModel):
-    """The schema facts keys need (from S1's compiled lookup)."""
+    """The schema facts keys need (from S1's compiled lookup).
+
+    `predicate_names` maps every predicate the schema knows from its bare name to its prefixed
+    name; keys and every lookup use the prefixed spelling, so `has_distribution` and
+    `stat:has_distribution` are one predicate and an unknown one is refused."""
 
     identity_keys: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # class -> slots
     entity_identity: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # entity-valued
-    identity_qualifiers: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # predicate
+    predicate_names: dict[str, str] = Field(default_factory=dict)  # bare -> prefixed
+    identity_qualifiers: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # by prefixed
     symmetric_predicates: frozenset[str] = frozenset()  # condition predicates
-    predicate_names: dict[str, str] = Field(default_factory=dict)  # name -> prefixed name
 
-    def prefixed(self, predicate: str) -> str:
-        return self.predicate_names.get(predicate, predicate)
+    @model_validator(mode="after")
+    def _qualifiers_by_prefixed_name(self) -> Self:
+        for name in self.identity_qualifiers:
+            if name not in self.predicate_names.values():
+                raise ValueError(f"identity_qualifiers names {name!r}, not a prefixed predicate")
+        return self
+
+    def predicate(self, name: str) -> str:
+        """The prefixed spelling of a bare or prefixed predicate name; refuses an unknown one."""
+        if name in self.predicate_names:
+            return self.predicate_names[name]
+        if name in self.predicate_names.values():
+            return name
+        raise KeyingError(f"predicate {name!r} is not in the schema")
 
 
 @dataclass
@@ -301,7 +321,7 @@ class KeyContext:
         try:
             return self.segments[key]
         except KeyError:
-            raise KeyError(f"segment key {key} is not on this rendition") from None
+            raise KeyingError(f"segment key {key} is not on this rendition") from None
 
     def ancestors(self, segment: Segment) -> list[Segment]:
         """The segment's ancestors, innermost first."""
@@ -351,16 +371,24 @@ def statement_anchor(statement: CandidateStatement, ctx: KeyContext) -> tuple[Se
     """The statement's anchor segment and the 1-based ordinal of its first sentence there.
 
     The anchor is the innermost `details` or `unit` containing the first anchor segment, else the
-    annotation unit containing it, else the document."""
+    annotation unit containing it, else the top-level block outside every unit that contains it (a
+    list, table, figure, …: an `uncovered` block of `annotation_units`), else the outermost
+    block below sections and the document; never the document unless that is the segment itself.
+    """
+    if statement.anchor == "outside":
+        raise KeyingError(f"statement {statement.id!r} lies outside the unit and is unresolved")
     first = min((ctx.segment(k) for k in statement.anchor), key=lambda s: (s.start, -s.end))
     chain = [first, *ctx.ancestors(first)]
     anchor = next((s for s in chain if s.kind in (SegmentKind.DETAILS, SegmentKind.UNIT)), None)
     if anchor is None:
-        units = {
-            (u.segment.kind, u.segment.start, u.segment.end)
-            for u in ctx.index.annotation_units().units
+        found = ctx.index.annotation_units()
+        tops = {
+            (s.kind, s.start, s.end) for s in (*(u.segment for u in found.units), *found.uncovered)
         }
-        anchor = next((s for s in chain if (s.kind, s.start, s.end) in units), ctx.content.document)
+        anchor = next((s for s in chain if (s.kind, s.start, s.end) in tops), None)
+    if anchor is None:
+        blocks = [s for s in chain if s.kind not in (SegmentKind.SECTION, SegmentKind.DOCUMENT)]
+        anchor = blocks[-1] if blocks else first
     before = sum(
         1 for s in anchor.walk() if s.kind is SegmentKind.SENTENCE and s.start < first.start
     )
@@ -383,12 +411,13 @@ def claim_parts(
     resolve: Resolve,
 ) -> Json:
     """The parts of a claim key: subject, prefixed predicate, object, identity qualifiers."""
+    predicate = schema.predicate(claim.predicate)
     raw = claim.model_dump(mode="json")
     qualifiers_raw: Json = raw.get("qualifiers", {})
     obj = raw["object"]
     parts: Json = {
         "subject": resolve(claim.subject),
-        "predicate": schema.prefixed(claim.predicate),
+        "predicate": predicate,
         "object": {"key": resolve(obj["ref"])}
         if "t" not in obj
         else {"value": canonical_value(obj, macros, resolve)},
@@ -409,7 +438,7 @@ def claim_parts(
         identity["valid_time"] = canonical_value(qualifiers_raw["valid_time"], macros, resolve)
     if qualifiers_raw.get("modality") == "cited" and "attribution" in qualifiers_raw:
         identity["attribution"] = resolve(qualifiers_raw["attribution"]["ref"])
-    for name in schema.identity_qualifiers.get(claim.predicate, ()):
+    for name in schema.identity_qualifiers.get(predicate, ()):
         if name in qualifiers_raw:
             identity[name] = canonical_qualifier(qualifiers_raw[name], macros, resolve)
     parts["qualifiers"] = identity
@@ -437,24 +466,27 @@ class Member:
 
 
 def member_parts(
-    claim: CandidateClaim,
-    member: Member,
-    base: Json,
-    macros: Mapping[str, MacroDef],
-    resolve: Resolve,
+    claim: CandidateClaim, member: Member, base: Json, ctx: KeyContext, resolve: Resolve
 ) -> Json:
     """A member's key parts: the claim's parts plus its canonical disagreeing qualifiers (null when
-    it leaves one unset) and, when bindings disagree, its canonical bindings."""
+    it leaves one unset) and, when bindings disagree, its canonical bindings. A stored `scope`
+    enters by its extent and its segment's locator, never by the physical segment key."""
     raw = claim.model_dump(mode="json")
     qualifiers_raw: Json = raw.get("qualifiers", {})
     own: Json = {}
     for name in sorted(member.qualifiers):
         value = qualifiers_raw.get(name)
-        own[name] = None if value is None else canonical_qualifier(value, macros, resolve)
+        if value is None:
+            own[name] = None
+        elif name == "scope":
+            locator = ctx.locator_key(ctx.segment(value["segment"]))
+            own[name] = {"extent": value["extent"], "segment": locator}
+        else:
+            own[name] = canonical_qualifier(value, ctx.macros, resolve)
     extra: Json = {"qualifiers": own}
     if member.bindings:
-        extra["bindings"] = _bindings({"object": raw["object"], "qualifiers": qualifiers_raw},
-                                      macros, resolve)  # fmt: skip
+        tree = {"object": raw["object"], "qualifiers": qualifiers_raw}
+        extra["bindings"] = _bindings(tree, ctx.macros, resolve)
     return {**base, "member": extra}
 
 
@@ -485,12 +517,16 @@ class Keys:
     claims: dict[str, str] = field(default_factory=dict)
     members: dict[str, str] = field(default_factory=dict)
     dropped: dict[str, str] = field(default_factory=dict)
+    dropped_members: dict[str, str] = field(default_factory=dict)
+    outside: set[str] = field(default_factory=set)  # unresolved "outside" statements
 
     def of(self, ref: str) -> str:
         for table in (self.entities, self.statements, self.claims):
             if ref in table:
                 return table[ref]
-        raise KeyError(ref)
+        if ref in self.outside:
+            raise KeyingError(f"statement {ref!r} lies outside the unit and is unresolved")
+        raise KeyingError(f"unknown or dropped item {ref!r}")
 
 
 def _entity_keys(
@@ -508,9 +544,9 @@ def _entity_keys(
             return keys.entities[entity_id]
         entity = by_id.get(entity_id)
         if entity is None:
-            raise KeyError(f"identity names unknown entity {entity_id!r}")
+            raise KeyingError(f"identity names unknown entity {entity_id!r}")
         if entity_id in visiting:
-            raise ValueError(f"entity identity cycle through {entity_id!r}")
+            raise KeyingError(f"entity identity cycle through {entity_id!r}")
         visiting.add(entity_id)
         if entity.key is not None:
             key = entity.key
@@ -523,7 +559,11 @@ def _entity_keys(
         return key
 
     for entity in candidates.entities:
-        key_of(entity.id)
+        try:
+            key_of(entity.id)
+        except KeyingError as error:
+            keys.dropped.setdefault(entity.id, str(error))
+            visiting.clear()
 
 
 def key_claims(
@@ -534,12 +574,22 @@ def key_claims(
     members: Mapping[str, Member] | None = None,
 ) -> Keys:
     """Key every candidate: entities, statements, then claims in a topological order of their
-    condition `claim` references. Claims on or behind a reference cycle, or referencing an unknown
-    claim, are dropped with their reason (D5 §5.2). `members` (C1's) adds member keys."""
+    condition `claim` references. A candidate that cannot be keyed (on or behind a reference
+    cycle, naming an unknown or dropped item, an unknown predicate, an unresolved `outside`
+    statement) is dropped with its reason (D5 §5.2), never raised. `members` (C1's) adds member
+    keys; a member that cannot be keyed is in `dropped_members` with its reason."""
     keys = Keys()
     _entity_keys(candidates, ctx, schema, rules, keys)
     for statement in candidates.statements:
-        keys.statements[statement.id] = statement.key or statement_key(statement, ctx)
+        if statement.key is not None:
+            keys.statements[statement.id] = statement.key
+        elif statement.anchor == "outside":
+            keys.outside.add(statement.id)  # consolidation resolves it to the statement it names
+        else:
+            try:
+                keys.statements[statement.id] = statement_key(statement, ctx)
+            except KeyingError as error:
+                keys.dropped[statement.id] = str(error)
 
     claims = {c.id: c for c in candidates.claims}
     deps: dict[str, list[str]] = {}
@@ -584,8 +634,8 @@ def key_claims(
             keys.claims[claim_id] = claim.key or make_key(
                 "clm", claim_parts(claim, schema, ctx.macros, keys.of)
             )
-        except KeyError as missing:
-            drop(claim_id, f"references unknown item {missing.args[0]!r}")
+        except KeyingError as error:
+            drop(claim_id, str(error))
             return False
         state[claim_id] = "done"
         return True
@@ -594,9 +644,15 @@ def key_claims(
         visit(claim.id)
 
     for claim_id, member in (members or {}).items():
-        if claim_id in keys.claims:
-            claim = claims[claim_id]
+        if claim_id not in keys.claims:
+            keys.dropped_members[claim_id] = f"claim {claim_id!r} has no key"
+            continue
+        claim = claims[claim_id]
+        try:
             base = claim_parts(claim, schema, ctx.macros, keys.of)
-            parts = member_parts(claim, member, base, ctx.macros, keys.of)
-            keys.members[claim_id] = make_key("clm", parts)
+            parts = member_parts(claim, member, base, ctx, keys.of)
+        except KeyingError as error:
+            keys.dropped_members[claim_id] = str(error)
+            continue
+        keys.members[claim_id] = make_key("clm", parts)
     return keys

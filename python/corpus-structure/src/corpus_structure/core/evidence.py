@@ -28,13 +28,14 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
-from corpus_structure.core.canonical import digest, make_key
+from corpus_structure.core.canonical import CanonicalJsonError, canonical_json, digest, make_key
 
 # The `attrs` key under which the store writes a segment's parse reason (D3 has no column for it),
 # so author markup may not use it.
 RESERVED_ATTR = "parse_reason"
 
-MACRO_NAME = r"^\\(?:[A-Za-z]+|[^A-Za-z])$"
+# Macros are expanded by whole control-word name (D1 §6.2), so a name is a control word.
+MACRO_NAME = r"^\\[A-Za-z]+$"
 
 
 class SegmentKind(StrEnum):
@@ -74,8 +75,8 @@ def _child_order(segment: Segment) -> tuple[int, int, str]:
 
 class Segment(_Frozen):
     kind: SegmentKind
-    start: int = Field(ge=0)
-    end: int = Field(ge=0)
+    start: int = Field(ge=0, strict=True)
+    end: int = Field(ge=0, strict=True)
     parse_status: ParseStatus = "ok"
     parse_reason: str | None = None
     attrs: dict[str, JsonValue] = Field(default_factory=dict)
@@ -96,6 +97,10 @@ class Segment(_Frozen):
             raise ValueError(f"a {self.parse_status} segment needs its parse_reason")
         if RESERVED_ATTR in self.attrs:
             raise ValueError(f"attrs key {RESERVED_ATTR!r} is reserved for the store")
+        try:  # author markup is content: refuse what the digest would refuse, here
+            canonical_json(self.attrs)
+        except CanonicalJsonError as error:
+            raise ValueError(f"attrs are not canonical JSON: {error}") from None
         for child in self.children:
             if child.start < self.start or child.end > self.end:
                 raise ValueError(
@@ -144,7 +149,7 @@ class RenditionContent(_Frozen):
     def _macro_names(cls, macros: dict[str, MacroDef]) -> dict[str, MacroDef]:
         for name in macros:
             if not re.match(MACRO_NAME, name):
-                raise ValueError(f"macro name {name!r} is not a control sequence")
+                raise ValueError(f"macro name {name!r} is not a control word")
         return macros
 
     @model_validator(mode="after")
@@ -179,8 +184,11 @@ class RenditionContent(_Frozen):
 
 
 def content_digest(content: RenditionContent) -> str:
-    """SHA-256 of the canonical JSON of the whole content: text, segment tree and macro table."""
-    return digest(content.model_dump(mode="json"))
+    """SHA-256 of the canonical JSON of the whole content: text, segment tree and macro table.
+
+    Defaults are left out (`exclude_defaults`), so adding a defaulted field later moves no digest;
+    a non-default parse status or reason, like every other field, is content."""
+    return digest(content.model_dump(mode="json", exclude_defaults=True))
 
 
 def document_key(project_name: str, source_uri: str, content_hash: str) -> str:

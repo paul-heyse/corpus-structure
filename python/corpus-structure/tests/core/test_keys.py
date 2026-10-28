@@ -255,9 +255,14 @@ def candidates(ctx: KeyContext, **claim: Any) -> KeyedCandidateSet:
 
 
 SCHEMA = KeySchema(
-    identity_qualifiers={"has_distribution": ("param_values",)},
+    predicate_names={
+        "has_distribution": "stat:has_distribution",
+        "defined_as": "stat:defined_as",
+        "proves": "core:proves",
+        "follows_from": "core:follows_from",
+    },
+    identity_qualifiers={"stat:has_distribution": ("param_values",)},
     symmetric_predicates=frozenset({"independent"}),
-    predicate_names={"has_distribution": "stat:has_distribution"},
 )
 
 
@@ -313,10 +318,34 @@ def test_parts_outside_the_key_do_not_move_it() -> None:
     assert claim_key(bound) == claim_key(other)
 
 
+def page_from_rows(units: list[list[str]]) -> RenditionContent:
+    """An independent builder for `page(units)`'s content, as another adapter might produce it:
+    the text first, then flat rows of raw segment dicts, assembled last-block-first, and validated
+    from JSON."""
+    text = "\n\n".join(" ".join(sentences) for sentences in units)
+    rows: list[dict] = []
+    offset = 0
+    for i, sentences in enumerate(units):
+        block = " ".join(sentences)
+        cursor, sentence_rows = offset, []
+        for sentence in sentences:
+            end = cursor + len(sentence)
+            sentence_rows.append({"kind": "sentence", "start": cursor, "end": end})
+            cursor += len(sentence) + 1
+        paragraph = {"kind": "paragraph", "start": offset, "end": offset + len(block),
+                     "children": list(reversed(sentence_rows))}  # fmt: skip
+        rows.insert(0, {"kind": "unit", "start": offset, "end": offset + len(block),
+                        "attrs": {"id": f"u{i + 1}"}, "children": [paragraph]})  # fmt: skip
+        offset += len(block) + 2
+    root = {"kind": "document", "start": 0, "end": len(text), "children": rows}
+    raw = {"canonical_text": text, "macros": {"\\R": {"body": "\\mathbb{R}"}}, "document": root}
+    return RenditionContent.model_validate_json(json.dumps(raw))
+
+
 def test_content_identical_renditions_give_identical_keys() -> None:
     one = page(UNITS)
-    two = RenditionContent.model_validate_json(one.model_dump_json())
-    assert content_digest(one) == content_digest(two)
+    two = page_from_rows(UNITS)  # built independently, in another order
+    assert one is not two and content_digest(one) == content_digest(two)
     k1 = key_claims(candidates(context(one)), context(one), SCHEMA, RULES)
     k2 = key_claims(candidates(context(two)), context(two), SCHEMA, RULES)
     assert (k1.entities, k1.statements, k1.claims) == (k2.entities, k2.statements, k2.claims)
@@ -580,8 +609,7 @@ def t3(content: RenditionContent) -> tuple[KeyContext, KeyedCandidateSet]:
 
 
 def test_the_t3_claims_key_deterministically() -> None:
-    schema = KeySchema(identity_qualifiers={"has_distribution": ("param_values",)},
-                       predicate_names={"proves": "core:proves"})  # fmt: skip
+    schema = SCHEMA
     ctx, cands = t3(normal_page())
     keys = key_claims(cands, ctx, schema, RULES)
     again_ctx, again = t3(normal_page())
@@ -631,3 +659,155 @@ def test_equivalent_formulas_key_apart_and_the_key_format() -> None:
         prefix, digits = key.split(":")
         assert prefix in ("ent", "stm", "clm") and len(digits) == 32
         assert int(digits, 16) >= 0
+
+
+# --- Implementation-review fixes -------------------------------------------------------------
+
+
+def keys_for(claims: list[dict], members: dict | None = None, content=None):
+    ctx = context(content or page(UNITS))
+    return key_claims(candidates(ctx, claims=claims), ctx, SCHEMA, RULES, members=members)
+
+
+def test_one_predicate_spelling_and_unknown_predicates() -> None:
+    pv1 = {"param_values": {"mean": {"t": "formula", "latex": "\\mu"}}}
+    pv2 = {"param_values": {"mean": {"t": "formula", "latex": "0"}}}
+
+    def key(predicate: str, qualifiers: dict) -> str:
+        claims = [{"id": "c1", "predicate": predicate, "qualifiers": qualifiers}]
+        return keys_for(claims).claims["c1"]
+
+    assert key("stat:has_distribution", pv1) != key("stat:has_distribution", pv2)
+    assert key("has_distribution", pv1) == key("stat:has_distribution", pv1)
+    unknown = keys_for([{"id": "c1", "predicate": "stat:has_distrib"}])
+    assert unknown.claims == {} and "not in the schema" in unknown.dropped["c1"]
+    with pytest.raises(ValueError, match="not a prefixed predicate"):
+        KeySchema(predicate_names={"p": "x:p"}, identity_qualifiers={"p": ("q",)})
+
+
+def test_member_scope_keys_by_locator_not_by_segment_key() -> None:
+    def member_keys(content: RenditionContent) -> tuple[dict, str]:
+        ctx = context(content)
+        unit = next(s for s in content.document.walk() if s.kind is SegmentKind.UNIT)
+        scoped = {"scope": {"extent": "section", "segment": seg_key(ctx, unit)}}
+        claims = [{"id": "c1", "qualifiers": scoped}, {"id": "c2", "qualifiers": {}}]
+        m = Member(qualifiers=("scope",))
+        keys = key_claims(candidates(ctx, claims=claims), ctx, SCHEMA, RULES,
+                          members={"c1": m, "c2": m})  # fmt: skip
+        return keys.members, seg_key(ctx, unit)
+
+    one, seg_one = member_keys(page(UNITS))
+    two, seg_two = member_keys(page([UNITS[0], [*UNITS[1], "An extra sentence."]]))
+    assert seg_one != seg_two  # the scope segment's physical key moved with the rendition
+    assert one == two and one["c1"] != one["c2"]
+
+
+def formula(latex: str, symbol: str, bind: str) -> dict:
+    return {"t": "formula", "latex": latex, "symbols": {symbol: {"bind": bind}}}
+
+
+def test_member_bindings_do_not_depend_on_argument_order() -> None:
+    in_r = {"t": "set", "latex": "\\R"}
+    a = {"op": "member", "x": formula("a", "a", "free"), "set": in_r}
+    b = {"op": "member", "x": formula("b", "b", "free"), "set": in_r}
+    m = {"c1": Member(bindings=True)}
+
+    def member(conditions: dict) -> str:
+        return keys_for([{"id": "c1", "qualifiers": {"conditions": conditions}}], m).members["c1"]
+
+    assert member({"op": "and", "args": [a, b]}) == member({"op": "and", "args": [b, a]})
+
+    bind = {"t": "free", "e": "constant"}  # each symbol keeps its binding, whichever side it is on
+
+    def cmp(rel: str, lhs: str, rhs: str) -> dict:
+        return {"op": "cmp", "rel": rel, "lhs": formula(lhs, lhs, bind[lhs]),
+                "rhs": formula(rhs, rhs, bind[rhs])}  # fmt: skip
+
+    assert member(cmp(">", "t", "e")) == member(cmp("<", "e", "t"))
+    other = {"op": "cmp", "rel": "<", "lhs": formula("e", "e", "free"),
+             "rhs": formula("t", "t", "constant")}  # fmt: skip
+    assert member(cmp("<", "e", "t")) != member(other)  # a different binding still counts
+
+
+def test_a_member_naming_a_dropped_or_unknown_item_is_dropped_with_its_reason() -> None:
+    def bound(claim: str) -> dict:
+        binding = {"bind": "param_of", "claim": claim, "param": "mean"}
+        mean = {"t": "formula", "latex": "\\mu", "symbols": {"mu": binding}}
+        return {"param_values": {"mean": mean}}
+
+    claims = [
+        {"id": "c9", "qualifiers": premise("c9")},  # a self-cycle: dropped
+        {"id": "c1", "qualifiers": bound("c9")},
+        {"id": "c2", "qualifiers": bound("nowhere")},
+        {"id": "c3", "qualifiers": {}},
+    ]
+    m = Member(bindings=True)
+    keys = keys_for(claims, {c: m for c in ("c1", "c2", "c3", "c9")})
+    assert set(keys.members) == {"c3"}
+    assert "'c9'" in keys.dropped_members["c1"] and "'nowhere'" in keys.dropped_members["c2"]
+    assert "has no key" in keys.dropped_members["c9"]
+    assert {"c1", "c2", "c3"} <= set(keys.claims)  # bindings are outside the base key
+
+
+def list_page(paragraph: list[str], item: str) -> tuple[RenditionContent, Segment]:
+    """A paragraph, then a top-level list whose one item is a sentence: outside every unit."""
+    text, parts = "", []
+    for sentence in paragraph:
+        if parts:
+            text += " "
+        end = len(text) + len(sentence)
+        parts.append(Segment(kind=SegmentKind.SENTENCE, start=len(text), end=end))
+        text += sentence
+    first = Segment(kind=SegmentKind.PARAGRAPH, start=0, end=len(text), children=parts)
+    text += "\n\n"
+    start = len(text)
+    text += item
+    sentence = Segment(kind=SegmentKind.SENTENCE, start=start, end=len(text))
+    li = Segment(kind=SegmentKind.LIST_ITEM, start=start, end=len(text), children=(sentence,))
+    block = Segment(kind=SegmentKind.LIST, start=start, end=len(text), children=(li,))
+    root = Segment(kind=SegmentKind.DOCUMENT, start=0, end=len(text), children=(first, block))
+    return RenditionContent(canonical_text=text, document=root), sentence
+
+
+def test_a_statement_outside_every_unit_anchors_on_its_top_level_block() -> None:
+    def anchored(paragraph: list[str]) -> tuple[Segment, int, str]:
+        content, sentence = list_page(paragraph, "If X then Y.")
+        ctx = context(content)
+        st = CandidateStatement(id="s", kind="theorem", anchor=(seg_key(ctx, sentence),))
+        anchor, ordinal = statement_anchor(st, ctx)
+        keys = key_claims(KeyedCandidateSet(statements=(st,)), ctx, SCHEMA, RULES)
+        return anchor, ordinal, keys.statements["s"]
+
+    before = anchored(["Alpha one."])
+    after = anchored(["Alpha one.", "Alpha two."])  # an edit in the preceding paragraph
+    assert before[0].kind is SegmentKind.LIST and before[1] == 1
+    assert before[2] == after[2]
+
+
+def test_outside_statements_wait_for_consolidation() -> None:
+    ctx = context(page(UNITS))
+    cands = candidates(ctx, claims=[
+        {"id": "c1", "predicate": "follows_from", "subject": "st1", "object": {"ref": "last"}},
+    ])  # fmt: skip
+    outside = CandidateStatement(id="last", kind="theorem", anchor="outside")
+    assert outside.key is None
+    pending = cands.model_copy(update={"statements": (*cands.statements, outside)})
+    keys = key_claims(pending, ctx, SCHEMA, RULES)
+    assert "last" in keys.outside and "outside the unit" in keys.dropped["c1"]
+    resolved = outside.model_copy(update={"key": "stm:resolved"})
+    later = cands.model_copy(update={"statements": (*cands.statements, resolved)})
+    assert "c1" in key_claims(later, ctx, SCHEMA, RULES).claims
+
+
+def test_and_or_drop_duplicates_and_equality_is_symmetric() -> None:
+    a, b = member("a", "\\R"), member("b", "\\R")
+    assert cc({"op": "and", "args": [a, a]}) == cc(a)
+    assert cc({"op": "or", "args": [a, b, a]}) == cc({"op": "or", "args": [b, a]})
+
+    def cmp(rel: str, lhs: str, rhs: str) -> dict:
+        return {"op": "cmp", "rel": rel, "lhs": {"t": "formula", "latex": lhs},
+                "rhs": {"t": "formula", "latex": rhs}}  # fmt: skip
+
+    for rel in ("=", "!="):
+        assert cc(cmp(rel, "x", "y")) == cc(cmp(rel, "y", "x"))
+    assert cc(cmp("=", "x", "y")) != cc(cmp("!=", "x", "y"))

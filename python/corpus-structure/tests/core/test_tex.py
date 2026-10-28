@@ -169,7 +169,9 @@ def test_text_mode_keeps_collapsed_whitespace() -> None:
         ("\\begin{align} a &= b \\\\ c \\end{align}", "a&=b\\\\c"),
         ("\\begin{align*}x\\end{align*}", "x"),
         ("\\begin{equation}x\\end{equation}", "x"),
-        ("\\begin{alignat*}{2} x &= 1 \\end{alignat*}", "2x&=1"),  # the column count is content
+        ("\\begin{alignat*}{2} x &= 1 \\end{alignat*}", "x&=1"),  # the column count is layout
+        ("\\begin{alignat} {2} x &= 1 \\end{alignat}", "x&=1"),
+        ("\\begin{align} 2x &= 1 \\end{align}", "2x&=1"),  # no longer equal to the alignat
         ("\\begin{math}x\\end{math}", "x"),
         ("\\begin{cases}x\\end{cases}", "\\begin{cases}x\\end{cases}"),  # not a delimiter
         ("\\begin{align}x\\end{align} + y", "\\begin{align}x\\end{align}+y"),
@@ -370,3 +372,11 @@ def test_parity_fixture_reproduced_in_full() -> None:
         if token_form(row["latex"], table) != row["token_form"]:
             differ.append((row["page"], row["start"], row["latex"], row["token_form"]))
     assert differ == []
+
+
+def test_canonically_equivalent_input_has_one_form() -> None:
+    decomposed = "\\alpha e\u0301 \\text{caf e\u0301}"
+    composed = "\\alpha \u00e9 \\text{caf \u00e9}"
+    assert tf(decomposed) == tf(composed) == "\\alpha\u00e9\\text{caf \u00e9}"
+    # composition can change the tokens (`\\R` + U+0301 is `\\Ŕ`); both spellings agree
+    assert tf("\\R\u0301", R) == tf("\\\u0154", R)

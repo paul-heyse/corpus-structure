@@ -24,6 +24,7 @@ migration and goes through the design owner.
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, cast
@@ -36,6 +37,9 @@ MAX_DEPTH = 16
 # An expansion that would grow a formula beyond this many tokens stops there (the macro is kept
 # and reported, like one at the depth bound), so a pathological table cannot exhaust memory.
 MAX_TOKENS = 100_000
+
+# Outer environments whose first argument is a column count, stripped with the delimiter.
+COLUMN_COUNT_ENVIRONMENTS: frozenset[str] = frozenset({"alignat", "alignat*"})
 
 # Environments whose `\begin`/`\end` pair is an outer math delimiter (the display environments
 # M01's profiles declare; operator ruling 2026-10-28, widened to I-R2's set). Any other
@@ -331,6 +335,16 @@ def strip_delimiters(toks: list[str]) -> list[str]:
             k += 1
         if end_at is None or _skip_spaces_list(toks, k) <= last:
             return toks
+        if name in COLUMN_COUNT_ENVIRONMENTS:  # the column count is layout, not the formula
+            j = _skip_spaces_list(toks, body_start)
+            if j < end_at and toks[j] == "{":
+                depth = 0
+                for m in range(j, end_at):
+                    depth += toks[m] == "{"
+                    depth -= toks[m] == "}"
+                    if depth == 0:
+                        body_start = m + 1
+                        break
         return toks[body_start:end_at]
     return toks
 
@@ -413,8 +427,10 @@ class TokenForm:
 
 
 def normalize(latex: str, table: Mapping[str, MacroDef]) -> TokenForm:
-    """The token form of `latex` under `table` (an effective macro table), with its report."""
-    toks = strip_delimiters(_texts(latex))
+    """The token form of `latex` under `table` (an effective macro table), with its report.
+
+    The input is NFC-normalized first, so canonically equivalent LaTeX has one form."""
+    toks = strip_delimiters(_texts(unicodedata.normalize("NFC", latex)))
     toks = [t for t in toks if t not in DROP]
     expansion = expand(toks, table, DROP)
     toks = [t for t in expansion.tokens if t not in DROP]

@@ -75,10 +75,8 @@ def test_children_sorted_so_construction_order_does_not_matter() -> None:
 
 def test_digest_of_a_minimal_content_covers_exactly_the_model() -> None:
     minimal = RenditionContent(canonical_text="ab", document=seg("document", 0, 2))
-    expected = (
-        b'{"canonical_text":"ab","document":{"attrs":{},"children":[],"end":2,'
-        b'"kind":"document","parse_reason":null,"parse_status":"ok","start":0},"macros":{}}'
-    )
+    # defaults are left out, so a defaulted field added later moves no digest
+    expected = b'{"canonical_text":"ab","document":{"end":2,"kind":"document","start":0}}'
     assert content_digest(minimal) == hashlib.sha256(expected).hexdigest()
 
 
@@ -151,7 +149,7 @@ def test_segment_and_macro_refusals(build, message: str) -> None:
                 "document": seg("document", 0, 2),
                 "macros": {"R": MacroDef(body="x")},
             },
-            "not a control sequence",
+            "not a control word",
         ),
     ],
 )
@@ -197,3 +195,43 @@ def test_keys() -> None:
 def test_a_float_in_a_configuration_never_hashes() -> None:
     with pytest.raises(CanonicalJsonError, match=r"\$\.params\.threshold: float"):
         config_key("M01", "0.1.0", {"threshold": 0.5})
+
+
+@pytest.mark.parametrize("name", ["\\|", "\\,", "R", "\\R1"])
+def test_macro_names_are_control_words(name: str) -> None:
+    with pytest.raises(ValidationError, match="not a control word"):
+        RenditionContent(canonical_text="ab", document=seg("document", 0, 2),
+                         macros={name: MacroDef(body="x")})  # fmt: skip
+
+
+@pytest.mark.parametrize("bad", ["0", 0.0, True])
+def test_offsets_are_strict_integers(bad: object) -> None:
+    with pytest.raises(ValidationError):
+        Segment.model_validate({"kind": "paragraph", "start": bad, "end": 1})
+
+
+@pytest.mark.parametrize(
+    "attrs", [{"w": 1.5}, {"w": [1, {"x": float("nan")}]}, {"e\u0301": 1, "\u00e9": 2}]
+)
+def test_attrs_are_refused_at_validation_when_not_canonical_json(attrs: dict) -> None:
+    with pytest.raises(ValidationError, match="not canonical JSON"):
+        seg("paragraph", 0, 1, attrs=attrs)
+
+
+def test_a_defaulted_field_given_explicitly_digests_alike() -> None:
+    implicit = RenditionContent(canonical_text="ab", document=seg("document", 0, 2))
+    explicit = RenditionContent(
+        canonical_text="ab",
+        document=seg("document", 0, 2, parse_status="ok", parse_reason=None, attrs={}),
+        macros={},
+    )
+    assert content_digest(implicit) == content_digest(explicit)
+    partial = RenditionContent(
+        canonical_text="ab",
+        document=seg("document", 0, 2, seg("paragraph", 0, 1, parse_status="partial",
+                                            parse_reason="unclosed at block end")),
+    )  # fmt: skip
+    plain = RenditionContent(
+        canonical_text="ab", document=seg("document", 0, 2, seg("paragraph", 0, 1))
+    )
+    assert content_digest(partial) != content_digest(plain)

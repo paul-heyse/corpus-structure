@@ -75,13 +75,46 @@ def test_nfd_input_gives_equal_keys(value: Any) -> None:
     assert make_key("t", nfd(value)) == make_key("t", value)
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, b"null"),
+        (True, b"true"),
+        (-12, b"-12"),
+        (10**20, b"100000000000000000000"),
+        ("", b'""'),
+        ('a"b\\c\n\u0001', b'"a\\"b\\\\c\\n\\u0001"'),
+        ("e\u0301\U0001f600", b'"\xc3\xa9\xf0\x9f\x98\x80"'),  # NFC, raw UTF-8, never \u escapes
+        ([], b"[]"),
+        ({}, b"{}"),
+        ([1, [2, {}]], b"[1,[2,{}]]"),
+        ({"b": 1, "a": [True, None], "B": "x"}, b'{"B":"x","a":[true,null],"b":1}'),
+        ({"z": {"y": 1, "x": 2}}, b'{"z":{"x":2,"y":1}}'),
+        ({"\u00e9": 1, "f": 2, "e": 3}, b'{"e":3,"f":2,"\xc3\xa9":1}'),
+        ((1, "a"), b'[1,"a"]'),  # a tuple is an array
+    ],
+)
+def test_canonical_bytes(value: Any, expected: bytes) -> None:
+    assert canonical_json(value) == expected
+
+
 @given(JSON)
-def test_output_is_compact_sorted_nfc_json(value: Any) -> None:
+def test_output_parses_back_to_the_nfc_value(value: Any) -> None:
     assume(not nfc_collides(value))
-    out = canonical_json(value).decode("utf-8")
-    parsed = json.loads(out)
-    assert json.dumps(parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False) == out
-    assert unicodedata.is_normalized("NFC", out)
+    out = canonical_json(value)
+    assert json.loads(out) == nfc(value)
+    text = out.decode("utf-8")
+    assert unicodedata.is_normalized("NFC", text)
+
+
+def nfc(value: Any) -> Any:
+    if isinstance(value, str):
+        return unicodedata.normalize("NFC", value)
+    if isinstance(value, list):
+        return [nfc(v) for v in value]
+    if isinstance(value, dict):
+        return {nfc(k): nfc(v) for k, v in value.items()}
+    return value
 
 
 def test_known_bytes_and_key() -> None:

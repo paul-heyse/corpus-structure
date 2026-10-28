@@ -142,7 +142,8 @@ between renditions.
 **Content identity.** Two builds of one document are content-identical when their canonical
 text, their segments' kinds, offsets, parse statuses, attributes and tree, their sentence
 segments and their macro table are identical. That relation is the rendition's identity: the
-**content digest** is the SHA-256 of the canonical JSON (§10.1) of the canonical text, the
+**content digest** is the SHA-256 of the canonical JSON (§10.1), with default-valued fields
+left out so that adding a defaulted field later moves no key, of the canonical text, the
 segment tree (each whole segment: kind, offsets, parse status and attributes, children in order,
 sentences included) and the macro table, and the rendition key is the document key plus that
 digest (§10.1). Because segments hold no diagnostics, the digest covers whole segments and needs
@@ -495,6 +496,7 @@ those above). It is total and does not depend on whether the value parses, so ex
 grammar never changes a key. The parse tree of the one math grammar (D4 M11) serves validation,
 slot typing, SymPy conversion and equivalence fusion.
 
+Macro names are control words (`\` and letters); a definition of a control symbol is refused.
 The **effective macro table** of a rendition, its own macro table merged over the pack's fallback
 map (a page definition wins), is computed by one `core` function beside the tokenizer
 (`core/tex.py`), and every reader of math calls it: the grammar's generated macro rules (D4 M11),
@@ -508,7 +510,9 @@ because any later change to them moves keys:
 
 - **One outer pair of math delimiters is removed** (`\(…\)`, `\[…\]`, or the `\begin`/`\end` of
   one of `equation`, `align`, `alignat`, `flalign`, `gather`, `multline`, `eqnarray`,
-  `displaymath`, `math`, and the starred forms of those that have one), so the same formula written inline or displayed keys alike; `$` is not a delimiter.
+  `displaymath`, `math`, and the starred forms of those that have one), so the same formula
+  written inline or displayed keys alike; `$` is not a delimiter. An environment's layout
+  argument (the column count of `alignat`) is removed with its delimiter.
   Inner delimiters cannot occur: M01's delimiting never leaves one inside a span, and the drop list
   (which includes SymPy's `\(` literal) is applied as written. Macro expansion substitutes
   arguments as TeX does, without added braces, and is bounded at depth 16 and at 100,000 tokens of output;
@@ -605,8 +609,10 @@ apply bottom-up until none applies:
 - an `and` inside an `and`, or an `or` inside an `or`, is flattened into its parent;
 - an `and` or `or` without arguments is dropped, and a tree left empty is no condition (null);
 - an `and` or `or` with one argument is replaced by that argument;
-- the arguments of `and` and `or` are sorted by their canonical JSON (§10.1);
-- a `cmp` with `>` or `>=` is written as `<` or `<=` with `lhs` and `rhs` swapped;
+- the arguments of `and` and `or` are sorted by their canonical JSON (§10.1), and identical
+  arguments are kept once;
+- a `cmp` with `>` or `>=` is written as `<` or `<=` with `lhs` and `rhs` swapped, and a `cmp` with
+  `=` or `!=` orders its two sides by their canonical JSON;
 - the arguments of a `pred` are sorted only when the schema declares the condition predicate
   symmetric ([D2 §5](D2-schema-and-guidelines.md#5-condition-predicates)); otherwise their
   order is part of the meaning;
@@ -696,7 +702,7 @@ function, used for keys, rendition content digests (§3.2) and configuration has
 | Annotation unit | — | unit key: the string form of its generated locator (§3.4) |
 | Global entity | `ent` | type and identity attributes; the normalized canonical label only when the type's identity attributes are incomplete (a `FamilyParameter` keys by family and canonical name alone) |
 | Local entity | `ent` | type, scope locator (§3.4, structured form, which carries the document key), normalized symbol or label |
-| Statement | `stm` | the statement's anchor locator (§3.4, structured form, which carries the document key) and the ordinal, within the anchor segment, of the statement's first sentence. The anchor segment is the `unit` for a statement inside a unit, the `details` block for a proof or solution, and the `paragraph` outside units; so "the unit" and "its first sentences" key alike, and two statements in one block do not collide |
+| Statement | `stm` | the statement's anchor locator (§3.4, structured form, which carries the document key) and the ordinal, within the anchor segment, of the statement's first sentence. The anchor segment is the `unit` for a statement inside a unit, the `details` block for a proof or solution, and the `paragraph` outside units; a statement in no annotation unit (a top-level list, table, figure, caption or footnote) anchors on its enclosing top-level block, never on the document; so "the unit" and "its first sentences" key alike, two statements in one block do not collide, and an edit in another block moves no statement's key |
 | Claim | `clm` | subject key, predicate, object key or canonical value, identity qualifiers; a member of an alternative group whose candidates share these parts adds its own canonical values of the disagreeing qualifiers and of its disagreeing bindings ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)), so claim keys stay unique within a run |
 | Alternative group | `alt` | the sorted keys of its members ([D5 §5.4](D5-consolidation-identity-confidence.md#54-slots-core-support-refinements-and-alternatives)) |
 | Identity group | `idg` | the sorted keys of its members ([D5 §3.7](D5-consolidation-identity-confidence.md#37-identity-alternatives)) |
