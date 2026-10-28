@@ -20,21 +20,24 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
   [pins](docs/pins.md).
 - **ADR-0010** (evidence records): finalized results are typed records (`records/<id>.json`);
   `just evidence` regenerates indexes, the DuckDB catalog (`build/evidence.duckdb`) and checks them;
-  reports render from the catalog. 31 records (30 current) for the design spikes.
+  reports render from the catalog. 37 records (34 current) for the design spikes.
 - Toolchain: Python 3.14.10; Rust unpinned (rustup nightly); dev tools at latest.
-- Golden and annotation subagents run on Haiku 5.5 by operator direction; S0 shows Opus
-  materially better as annotator (S0 report, design implication for D7 §3).
+- Golden and annotation subagents run on Haiku 5.5 by operator direction. Sonnet 5.5 reran the
+  Haiku exercises: Opus-level on what is claimed, adjudicator 0.97/0.82; the qualifier gap of the
+  smaller models sits where the annotator inputs leave conventions unstated or context is chosen by
+  position (S0 report; [summary for the design owner](docs/design_review/evidence/2026-10-28_design-spikes/summary-for-design-owner.md)).
 
 ## Last verified (2026-10-28)
 
 | Command | Outcome and scope |
 |---|---|
 | `uv run pytest` | `passed`: 59 tests (incl. 7 for `corpus_evidence`) |
-| `just evidence` | `passed`: 31 records, 0 errors, 1 warning (superseded `s0.m13-probe`'s output changed, expected) |
-| `just docs-check` | `passed` (before S0-G; generated READMEs and record links) |
+| `just evidence` | `passed`: 37 records, 0 errors, 4 warnings (all on superseded records, expected) |
+| `just docs-check` | `passed` (after the Sonnet runs and the design labels) |
+| `just hygiene` | `passed` (2026-10-28, before the design-label edits; docs-only changes since) |
 | `just adr-lint`, `ruff check`, `pyrefly check` | `passed` on the new package |
 | Spike instruments `code/tests_instruments/run_all.py` | `passed`: 75 tests (spike env) |
-| `just test-all`, `just hygiene` | `not_run` since the evidence package landed; run at the next scope end |
+| `just test-all` | `not_run` since the evidence package landed; run at the next scope end |
 
 ## Known failures, blocks and decisions
 
@@ -48,5 +51,9 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 ## Next
 
 - Operator review of the S0 and S1 reports; then X1 with design-phase Q5.
+- Proposed (S0 report, "Where the non-Opus passes lose points"): restructure the annotator inputs
+  (schema-generated predicate reference, written condition/role/binding rules, standing context
+  assembled by query over segment and scope indexes, citable by id), then rerun Sonnet and Haiku
+  passes including units outside the twelve.
 - Spikes S2–S5 can start on the S0 reference and S1 renditions (S2/S3 score against
   `results/s0/reference`); new results are finalized as records (`just evidence finalize`).
