@@ -49,6 +49,8 @@ ingest ─► embed ─► extract ─► normalize ─► scope ─► link ─
 | `derive` | M23, then incremental assemble and finalize | Run |
 | `evaluate` | D7 alignment and scoring | Golden units in the run's scope |
 
+A run of kind `ingest` (created by `ci ingest`) has only the `ingest` stage.
+
 **Iterations.** `route` runs after each `measure`. If it creates tasks and `run.iteration <
 run.iteration_limit` (default 3), they run in `escalate` and the loop returns to `assemble`.
 Each iteration's measurements are stored with its number, so the effect of escalation is
@@ -97,7 +99,7 @@ and in one transaction writes observations (COPY), the outcome, `cost` and `fini
 **Retries.** Transient failures (CUDA out of memory, a vLLM timeout or 5xx, a dropped database
 connection) retry up to twice; an out-of-memory retry halves the batch. Deterministic failures
 (a parse error, a schema violation after the repair attempt) are not retried. A worker that dies
-leaves `running` tasks whose `claimed_by` lease (5 minutes, renewed while working) expires; they
+leaves `running` tasks whose lease (`lease_until`, 5 minutes, renewed while working) expires; they
 return to `pending`.
 
 ## 4. Caching and reuse
@@ -164,7 +166,7 @@ scope `method`.
 | `unit.low_confidence` | segment (unit) | candidate claims below the accept threshold | escalation to M16 |
 | `run.status.<status>` | predicate | claims per status | reports, gates |
 | `run.alternative_groups` | run, predicate | unresolved alternative groups | routing to judges |
-| `run.identity_grey_zone` | run, class | identity alternative groups | routing to judges |
+| `run.identity_grey_zone` | run, class | identity groups | routing to judges |
 | `run.conflicts` | run, predicate | `contradicts` links | reports |
 | `run.orphaned_judgments`, `run.stale_judgments` | run | D5 §7.3 | reports |
 | `method.empty_rate`, `method.failed_rate` | method | outcomes over tasks run (not reused) | reports, gates |
@@ -190,12 +192,18 @@ budgets:
   agent_packets_per_iteration: 20
   llm_tokens_per_run: 2_000_000
 thresholds:
-  accept: {default: 0.8}
+  accept: {default: 0.8, distribution: 0.85}   # by predicate group (ci:group)
   identity: {accept: 0.85, margin: 0.1, new_entity: 0.4}
+priors:                                        # cold-start source priors (D5 §6.3)
+  agent: 0.9
+  local_llm_full: 0.6
+  local_llm_core: 0.4
+  encoders: 0.4
+  patterns: 0.5
 chains:
   propose:
     - key: propose.phase0.agent_all
-      when: "phase == 0 and unit.claim_bearing"
+      when: "phase == 0 and unit.claim_bearing and unit.split != 'test'"
       do: {method: agent.opus/extract, then: stop}
     - key: propose.local_llm.claim_bearing
       when: "phase >= 1 and unit.claim_bearing"
@@ -220,8 +228,15 @@ chains:
       do: {method: llm.judge/identity, then: stop}
 ```
 
-- `method` names a method and a named configuration (`<method>/<config name>`, resolved to a
-  config hash when the policy version is loaded).
+- `method` names a method and a named configuration, `<method>/<name>`, declared in the domain's
+  `methods.yaml` under `configs:`. Loading the policy version resolves each to a config hash and
+  creates the `ops.method_config` row with that name.
+- **Rows.** Each chain entry becomes one `ops.policy_rule` row: `chain` = the chain's name,
+  `priority` = the entry's position, `rule_key` = `key`, `condition` = `when`, `action` =
+  `{method_config: <hash>, limit, then}`, `unit_type` = the entry's `unit_type` or the chain's
+  default (`propose`, `escalate`: `segment`; `adjudicate`: `alternative_group`, or `claim` for
+  entries that target claims; `identity`: `identity_group`). The `propose` chain is evaluated in
+  stage `propose`; the others in stage `route`, and the tasks they create run in `escalate`.
 - `limit` caps tasks this entry creates per iteration (in addition to global budgets); excess
   units are recorded as `skipped` with reason `limit`.
 - `then: stop` ends the chain for the unit; `then: continue` evaluates the rest of the chain.
@@ -234,9 +249,10 @@ chains:
 | Symbol | Content |
 |---|---|
 | `phase`, `iteration` | run settings |
+| `unit.split` | `dev`, `test` or null: the split of the unit's document (`eval.document_split`, D7 §3.1) |
 | `unit.kind`, `unit.statement_kind`, `unit.claim_bearing` | segment kind; statement kind from markup or M05; whether the kind is claim-bearing (schema `ci:claim_bearing` on `StatementKind` values) |
 | `unit.<metric>` | the unit's latest measurements (§6) |
-| `target.kind`, `target.size`, `target.max_confidence`, `target.margin` | for alternative and identity groups |
+| `target.kind` (`alternative_group`, `claim`, `identity_group`), `target.size`, `target.max_confidence`, `target.margin` | for adjudication and identity targets |
 | `ran(m)`, `outcome(m)` | whether method `m` ran on the unit in this run, and its outcome |
 | `judged_by(m)`, `judgment(m)` | whether a judgment from `m` exists for the target, and its decision or confidence |
 | `budget.agent_packets_left`, `budget.llm_tokens_left` | remaining budgets |
@@ -271,7 +287,7 @@ asked. During heavy debugging the operator keeps `agent_packets_per_iteration` s
 
 | Phase | `propose` | `escalate` | `adjudicate`, `identity` |
 |---|---|---|---|
-| 0 | M24 on every claim-bearing unit of the slice | — | M24 on alternatives (rare: one proposer) |
+| 0 | M24 on every claim-bearing unit outside the test split (test units stay unextracted in phase 0, D7 §4) | — | — (alternatives are rare with one proposer; adjudication arrives in phase 1) |
 | 1 | M10 on every claim-bearing unit | M10 retry with hints where symbols are unresolved; M24 where M10 produced nothing | M16, then M24 for `unsure` or low |
 | 2 | as 1 | as 1 | as 1, plus identity grey zone |
 | 3 | M10 only where `unit.encoder_coverage` < 0.7 or the statement kind's encoder sensitivity < 0.8 | M24 only below calibrated confidence 0.5 | M24 only for groups with margin < 0.1 |
@@ -284,6 +300,12 @@ falls.
 
 Named slices (`ops.debug_slice`) restrict a run to selected documents and units; the run kind is
 `slice`, and a slice run is never promoted.
+
+Slices are declared in the domain's `slices.yaml` by **locator**: `page` (a source URI),
+`page#unit-id`, or `page@p:<text prefix>` (the paragraph whose canonical text starts with the
+prefix, for paragraphs without ids such as T1's lead-in and T2). Locators resolve to segments of
+the selected rendition when a run starts, so a slice survives adapter changes; a locator that
+does not resolve fails the run's start.
 
 | Slice | Content | Use |
 |---|---|---|

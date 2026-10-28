@@ -23,22 +23,29 @@ protocol.
 | OPEN-D1-4 | Is `section` the right extent for page-level standing assumptions? |
 | OPEN-D2-4 | Separate property predicates (`mean_value`, `pdf`, …) or one `has_property` with a qualifier? |
 | OPEN-D2-5 | "Standard normal": a family with `special_case_of`, or a parameterization of the normal family? |
+| OPEN-D5-1 | Is the slot definition right for non-functional formula predicates? |
+| OPEN-D8-3 | How blind passes are kept verifiably separate |
 
 and, more broadly, which facts in the core units the schema cannot state (`unsupported` items)
 and where the guideline is ambiguous.
 
 ## Inputs
 
-- The twelve core units and their offsets (`sample.json` from S1), or the raw page text.
+- The twelve core units and their offsets (`sample.json` from S1), or the raw page text; and
+  each unit's full page, which annotators may read for context (guideline §10.2).
 - D1 §1–§11 (not §12), D2 §9 (schema v0) and §10 (guideline v0).
-- The output format `ClaimProposalBatch` of D2 §7.3. The compiled JSON Schema does not exist
-  yet; follow the field list by hand.
+- The **model-facing** `ClaimProposalBatch` of D2 §7.3: evidence by sentence id and quote,
+  `extent` on local entities, `alternatives`, local refs in conditions and symbol bindings. The
+  compiled JSON Schema does not exist yet; follow the field list by hand.
 
 ## Procedure
 
 1. **Two blind passes.** Use two fresh subagents, A and B. Give each only: the guideline (D2
-   §10), the schema (D2 §9), D1 §1–§11, the output format (D2 §7.3) and the source text of the
-   units with their offsets. **Neither may read [trace.md](../../../design/trace.md), D1 §12 or
+   §10), the schema (D2 §9), D1 §1–§11, the output format (D2 §7.3) and the pages' text with
+   the units to annotate marked and their sentences numbered. Record how the two passes were kept
+   separate (subagent setup, tools allowed); this answers `OPEN-D8-3` for golden authoring.
+   Convert each pass to the stored form with `code/s0_locate.py` (quote location as in D4 §4.3)
+   and report unlocated quotes. **Neither may read [trace.md](../../../design/trace.md), D1 §12 or
    the other's output.** Each annotates all twelve core units and writes one batch per unit.
 2. **Compare with the trace.** For T1–T4, compare each pass with the trace's target tables. List
    every difference and classify it: the trace is wrong, the pass is wrong, or both readings are
@@ -53,15 +60,18 @@ and where the guideline is ambiguous.
 5. **Collect gaps.** Gather every `unsupported` item from both passes and every point where an
    annotator had to guess, and group them: schema gap (a predicate, class or qualifier is
    missing), guideline gap (the rule is unclear), representation gap (D1 cannot express it).
-6. **Answer the OPEN questions** above, each with the units and spans that decided it.
-7. **Size.** Record the output size per unit (characters and approximate tokens) for each pass.
+6. **Slots (`OPEN-D5-1`).** List every case where one unit states two different objects for the
+   same subject and predicate, or a formula predicate (`pdf`, `cdf`, `mgf`) twice for one family
+   in one statement.
+7. **Answer the OPEN questions** above, each with the units and spans that decided it.
+8. **Size.** Record the output size per unit (characters and approximate tokens) for each pass.
    This sizes the work packets of D8.
 
 ## Data to collect
 
 | File | Content |
 |---|---|
-| `results/s0/pass_a/<unit>.json`, `results/s0/pass_b/<unit>.json` | The two blind batches |
+| `results/s0/pass_a/<unit>.json`, `results/s0/pass_b/<unit>.json` | The two blind batches, model-facing form; `results/s0/stored/` holds their converted stored form |
 | `results/s0/reference/<unit>.json` | Adjudicated reference batches, with decision reasons |
 | `results/s0/agreement.tsv` | Unit × predicate × tier: A count, B count, agreed |
 | `results/s0/trace_diff.md` | T1–T4: pass versus trace differences and their classification |

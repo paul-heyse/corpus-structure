@@ -82,14 +82,19 @@ classes to §3.4, `Statement` to §3.5.
    the current run. A cluster takes the top candidate when its score is at least the accept
    threshold and beats the runner-up by the margin; it proposes a new entity when the best
    score is below the new-entity threshold; otherwise it is in the **identity grey zone** and
-   forms an identity alternative group (§3.7).
+   forms an identity group (§3.7).
 3. **Keys.** `ent:` over type, identity attributes and normalized canonical label (D1 §10.1).
-   Linking to an existing entity reuses its key, so keys stay stable across runs while the
-   entity's identity is unchanged.
+   A key is computed only when an entity is first created; linking to an existing entity
+   reuses its key and canonical label, so keys stay stable across runs while the entity's
+   identity is unchanged.
 4. **Canonical label.** The identity-derived label when the class declares identity keys;
    otherwise the most frequent normalized surface form among mentions with score ≥ 0.8,
    preferring a `dfn` term or a page title. Ties break lexicographically, so the choice is
    deterministic.
+5. **Label normalization** (for matching, and for labels of classes without identity keys):
+   NFC, casefold, collapsed whitespace, leading articles removed, the class's head words removed
+   and its adverb rules applied (`methods.yaml`: "normally distributed" → "normal"). In phase 0,
+   without M14, clusters of one type with equal normalized labels are one entity.
 
 ### 3.4 Local entities
 
@@ -109,7 +114,9 @@ One `Statement` per anchor segment: each `unit` segment, each `details` block (k
 `solution` by its summary text and markup), and each paragraph outside units that a claim
 proposal or a claim-bearing classification places in a statement. Kind: author-markup hint
 (highest weight), M05 classification, proposal `kind`, in that order of precedence until the
-confidence model learns weights. A `details` block inside a unit yields the claim `proof
+confidence model learns weights. Markup hints are skipped when the consolidation configuration
+sets `use_markup_hints: false` (witness ablations, D7 §6). The label is `<kind> <unit id>`, else
+`<kind> ¶<n>` (D2 §6); kind and label are not identity. A `details` block inside a unit yields the claim `proof
 core:proves unit-statement` (`establishment: stated`, evidence the `details` summary span).
 
 ### 3.6 Merges and cannot-links
@@ -127,7 +134,7 @@ override earlier merges because judgments are applied before merges are computed
 
 ### 3.7 Identity alternatives
 
-A grey-zone cluster produces an identity alternative group: the candidate entities with their
+A grey-zone cluster produces an identity group: the candidate entities with their
 scores. Until a judgment resolves it, the cluster links to the top candidate (so claims are not
 lost) and the group is listed for routing (`identity_grey_zone` metric, D6 §6). Judges see the
 mention in context, both candidates' labels, aliases and three of their claims.
@@ -175,7 +182,7 @@ form), so improving binding does not change claim identity.
 | Record (M06) | **Core plus fields**: the claim the record maps to, with qualifiers the record carries (for example `param_values` names without values) |
 | Relation (M07, M08) | **Core**: subject and object from the head and tail clusters; qualifiers from classifications of the evidence sentence (modality from M05, polarity, hedge and attribution from M22); no conditions |
 | Attribute (M06) | **Core**, for attributes the schema maps to claims |
-| Unsupported item of a proposal | Predicate `core:unschematized`, subject the statement (or the document outside statements), object a `phrase` value; status `unsupported` |
+| Unsupported item of a proposal | Predicate `core:unschematized`, subject the statement whose anchor holds the item (a paragraph outside units becomes a `narrative` statement for this, §3.5), object a `phrase` value; status `unsupported` |
 
 Statement and role for core candidates: the statement whose anchor contains the evidence
 sentence; role from the sentence's modality (`supposed` → premise, `defined` → definiens,
@@ -185,7 +192,8 @@ asserted in a theorem → conclusion), else none.
 
 Qualifier defaults are dropped (`modality: asserted`, `polarity: positive`); values take their
 canonical form (D1 §6.2); condition trees are canonicalized (flatten nested `and`/`or`, sort
-arguments by canonical JSON, replace claim refs by keys). Keys are computed in dependency order:
+arguments by canonical JSON, replace claim refs by keys). Formula and set values enter keys in their normalized LaTeX form (D1 §6.2), never their SymPy
+form. Keys are computed in dependency order:
 a claim's key depends on the keys of claims its conditions reference, so candidates are keyed in
 a topological order of condition references; a reference cycle is malformed and both candidates
 are dropped with a reason (counted).
@@ -195,6 +203,10 @@ are dropped with a reason (counted).
 Candidates with the same key are one claim: supports, evidence spans and source votes are
 unioned. This is how a statement found by the local LLM and by Opus, or on two pages under
 identical meaning and statement, becomes one claim with two independent supports.
+
+Candidates in the same slot (§5.4) whose keys differ only in formula or set values that M11
+proves equivalent (`simplify(a - b) == 0`; set equality) are fused too; the fused claim takes the
+smallest of their keys, which keeps the choice deterministic.
 
 ### 5.4 Slots: core support, refinements and alternatives
 
@@ -220,6 +232,9 @@ Within a slot:
    until a judgment resolves the group (§7) or, when the policy enables it, the top member's
    confidence exceeds the next by the auto-resolution margin (then the others are `rejected`
    with reason `alternative_lost`, counted separately from adjudicated rejections).
+
+Derived claims (`establishment: derived`) never enter a slot: they neither compete with nor
+absorb the claims they were derived from, and are assessed on their own (§9).
 
 Slots are the mechanism that decides between "two readings of one sentence" and "two facts":
 only candidates for the same question compete.
@@ -254,7 +269,8 @@ dropped as malformed (counted). This keeps INV-01 without inventing precision.
 A claim's confidence estimates the probability that an adjudicated golden annotation under the
 current guideline would contain the claim (aligned at the full tier, D7 §5). It is calibrated on
 the dev split and reported with its calibration error; it is not a probability that the claim is
-true in the world. Statuses use per-predicate-group thresholds from the policy (default accept
+true in the world. Statuses use thresholds per **predicate group** (the predicate's `ci:group`, D2 §3.2; default
+the predicate itself) from the policy (default accept
 at 0.8).
 
 ### 6.2 Sources
@@ -279,7 +295,7 @@ the reason D4 rule 2 records `empty` outcomes.
 ### 6.3 Cold start (phases 0–1)
 
 Before enough goldens exist (fewer than 30 aligned claims per predicate group), confidence is a
-fixed-weight noisy-OR over supporting sources with per-source priors from the policy (agent 0.9,
+fixed-weight noisy-OR over supporting sources with per-source priors from the policy's `priors:` block (D6 §7.1; defaults agent 0.9,
 local LLM full 0.6, core 0.4, encoders 0.4, patterns 0.5), multiplied by 0.7 per rule warning,
 by 0.2 for a `refuted` verification, and capped at 0.5 for claims with
 `completeness.evidence_coarse` or more than one unresolved symbol. These numbers are policy
@@ -420,7 +436,7 @@ Finalize assigns each claim the first status that applies:
 
 | Phase | Realization |
 |---|---|
-| 0 | Proposals from M24 only. §3 without M14/M15 (identity by normalized label and scope), §4 with unit scope only, §5.1–§5.3 and §5.6, statuses from judgments and rules; agent proposals `accepted` unless a rule error |
+| 0 | Proposals from M24 only. Entities: identity by type and normalized label (§3.3 point 5); local scopes from the proposals' `extent`, not M13. Bindings as the proposals state them (local refs resolved to keys; §4 does not run). Claims: §5.1–§5.3, §5.6. Status: M19 rules (stage `check`) and agent judgments; agent proposals `accepted` unless a rule error. No derived claims (trace T3 D1 is phase 2) |
 | 1 | Encoder and local LLM candidates; slots and alternatives (§5.4); M13 scopes; M14 linking; cold-start confidence (§6.3) |
 | 2 | Latent-truth confidence and calibration (§6.4); M15 merges; M20 conflicts; derived claims (§9) |
 | 4 | Verifiers as confidence sources |

@@ -31,12 +31,13 @@ python/corpus-structure/                 uv workspace member; distribution corpu
 domains/
   core/schema/core.yaml
   statistics/        schema/ (statistics.yaml, rules.yaml, migrations/), guideline.md,
-                     policies.yaml, methods.yaml, verifiers.py, reference/, README.md
+                     policies.yaml, methods.yaml, slices.yaml, verifiers.py, reference/, README.md
 fixtures/
   trace/             the trace as data: segments, target entities and claims per unit (from trace.md)
   s0/                adjudicated S0 reference batches (copied from the spike results when accepted)
 services/vllm-native/                    the vLLM 0.31 environment (separate uv project, own lock)
-.claude/skills/work-queue/SKILL.md       how the Claude Code session works the agent queue (D8 §3)
+.claude/skills/work-queue/SKILL.md       how the Claude Code session works the agent queue (D8 §3);
+                                         needs a `!/.claude/skills/work-queue/` line in .gitignore
 .mcp.json                                registers the MCP server for Claude Code
 ```
 
@@ -105,7 +106,7 @@ in a side environment like vLLM), never by lowering the product's Python version
 | Ingest | Trace segments and offsets; S1 counts | `fixtures/trace/*.segments.json`; corpus-gated tests skipped when `docs/statistics_corpus` is absent |
 | Methods | Each method on trace units | Fixtures; GPU tests marked `gpu`; LLM tests replay recorded responses (stored under `fixtures/llm/`) so they are deterministic and offline |
 | Consolidation | The trace through D5: proposals from `fixtures/s0` produce the trace's target claims and keys | End-to-end on the trace slice without GPU or agent |
-| Acceptance | The trace's typed questions (D8 §5.3) answered from the database after a `trace` slice run | `tests/acceptance/test_trace.py`; the phase 0 gate |
+| Acceptance | The trace's typed questions (D8 §5.3) answered from the database after a `trace` slice run. Phase 0 checks every trace target except derived claims (T3 D1, phase 2), with scopes and bindings as the proposals state them (D5 §11) | `tests/acceptance/test_trace.py`; the phase 0 gate |
 | Evaluation | Alignment tiers on hand-made golden/run pairs, including formula equivalence and faithful ambiguity | Unit tests |
 
 The trace is the acceptance spine: a design change that alters a trace target changes
@@ -122,14 +123,14 @@ typed questions from the database; evaluation runs.
 | P0.1 | Package skeleton as a workspace member; settings; `ci` with `--help` | — | `just check` passes with the package's first tests |
 | P0.2 | `core`: values, conditions, claims, canonical JSON, keys | P0.1 | Property tests; the trace's claims construct and key deterministically |
 | P0.3 | Migration 0001 (D3, with S6 corrections); `ci db init`, `ci db migrate` | P0.2, S6 | Upgrade and downgrade on a test database; trace rows of D3 §10 insert and the D3 §9 queries return them |
-| P0.4 | `schema`: load `core.yaml` and `statistics.yaml` v0; compilers to schema tables, JSON Schema (both forms), prompt inventory, rules (compiled), GLiNER2 dicts (compiled, unused until phase 1); `ci schema compile` | P0.2, S4 | Deterministic artifact hashes; a rule with a type error fails compilation; S0 reference batches validate against the stored-form schema |
+| P0.4 | `schema`: load `core.yaml` and `statistics.yaml` v0; compilers to schema tables, JSON Schema (both forms), prompt inventory, rules (compiled), GLiNER2 dicts (compiled, unused until phase 1); `ci schema compile` | P0.2, S4 | Deterministic artifact hashes; a rule with a type error fails compilation; S0 reference batches validate against the model-facing schema, and their converted stored form against the stored schema |
 | P0.5 | `ingest`: M01 with the Siegrist source profile, M02, M03 (variant from S1) | P0.3, S1 | Trace segment fixtures match; S1 count criterion holds on the 78 pages; invariants hold |
-| P0.6 | `orchestrate` minimum: runs, tasks, queue, reuse, the stages `ingest → propose → assemble → finalize → measure`, agent barrier (`wait`), slices | P0.3, P0.5 | A `trace` slice run creates `awaiting_agent` tasks; a second run reuses the ingest tasks |
-| P0.7 | `intervene`: MCP server with queue tools, `propose_claims` (validation, quote location), `adjudicate`, golden tools, `record_direction`; the work-queue skill | P0.4, P0.6 | Submitting an S0 reference batch completes a task; errors come back per item |
+| P0.6 | `ci project init` (project, documents, versions, named configurations, slices by locator); `orchestrate` minimum: runs, tasks, queue, reuse, the stages `ingest → propose → assemble → check (M19) → finalize → measure`, agent barrier (`wait`) | P0.3, P0.5 | A `trace` slice run creates `awaiting_agent` tasks; a second run reuses the ingest tasks |
+| P0.7 | `intervene`: MCP server with queue tools, `read_instructions`, `propose_claims` (validation, quote location), golden tools, `record_direction`; the work-queue skill (`adjudicate` follows in phase 1) | P0.4, P0.6 | Submitting an S0 reference batch completes a task; errors come back per item |
 | P0.8 | `consolidate` phase 0 realization (D5 §11) | P0.6, P0.7 | Fixture proposals for the trace produce the target claims, statements, bindings that the proposals state, and invariants |
 | P0.9 | `serve`: typed queries of D8 §5.1–§5.3, `ci query`, claims JSONL export | P0.8 | The trace acceptance test passes |
-| P0.10 | `evaluate`: golden sets (dev 40, test 40; trace and core units in dev), alignment tiers, scores with bootstrap intervals, `ci eval`, digest v0 | P0.7, P0.8 | Alignment unit tests; scoring a run against S0 references gives the S0 A-versus-B numbers when fed the passes |
-| P0.11 | Phase 0 runs: `trace`, then `spike-pages`, then `first-pass` with Opus working the queue; goldens authored by the D7 protocol | all | The D0 phase 0 gate (D7 §9) |
+| P0.10 | `evaluate`: page split and unit sampler (`ci golden split`, `ci golden create`), golden sets (dev 40, test 40; trace and core units in dev), alignment tiers, scores with bootstrap intervals, `ci eval`, digest v0 | P0.7, P0.8 | Alignment unit tests; scoring a run against S0 references gives the S0 A-versus-B numbers when fed the passes |
+| P0.11 | Phase 0 runs: `trace`, then `spike-pages`, then `first-pass` with Opus working the queue (test-split units are not sent to the agent and stay unextracted in phase 0); goldens authored by the D7 protocol | all | The D0 phase 0 gate (D7 §9) |
 
 P0.2–P0.4 can proceed in parallel with the spikes S1, S4 and S6, absorbing their results as they
 land; P0.5 waits for S1, P0.3 for S6.

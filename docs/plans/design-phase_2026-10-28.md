@@ -17,7 +17,8 @@ ADRs, and replace this plan with the phase 0 build plan of [D9 §5](../design/D9
 | Spike briefs S0–S7 | Written ([spike README](../design_review/evidence/2026-10-28_design-spikes/README.md)); none run |
 | Library realization in D4 | First-pass realizations written by the design owner; not yet deepened against the library overviews |
 | Code | None. The template's scripts and tests only |
-| DESIGN §1, §2 | Template text; the objective and binding decisions are not yet recorded (queue item Q8) |
+| Fresh review | A fresh-eyes completeness review (2026-10-28; 37 findings: 2 blockers, 17 major, 18 minor) was folded into D1–D9, the trace and the S0, S1 and S6 briefs; none remains open |
+| DESIGN §1, §2 | §1 objective and out-of-scope written (Proposed); §2 binding decisions wait for ADRs (Q8) |
 
 ## Lanes
 
@@ -47,6 +48,10 @@ or proposal id.
 | Q9 | Replace this plan with the phase 0 build plan (D9 §5) | Design owner | Q8 | This file deleted; the new plan active |
 
 Q1–Q4 run in parallel where their dependencies allow. Q5 may start per spike as reports land.
+
+Q1 and Q2 are being executed in detail under the spike lane's
+[S0/S1 execution plan](design-spikes-s0-s1_2026-10-28.md), which governs their procedure. The two
+plans should be one: see Risks (two active plans).
 
 ## Library lane brief
 
@@ -164,6 +169,8 @@ Library proposals join as `L-nn` rows.
 | Design churn while spikes run | Spikes never edit D-documents; fold-ins are batched (Q5, Q8) |
 | Python 3.14 wheel gaps | OPEN-D9-1, resolved per package |
 | Output volume overwhelming review during debugging | Slices, caps and budgets (D6 §8, D8 §3) |
+| Two active plans: this plan and the spike lane's S0/S1 plan both declare themselves the sole plan (AGENTS.md allows one) | Operator decision pending: proposed resolution is that this plan stays the single active plan and the S0/S1 plan becomes its supporting document for Q1–Q2, with its findings rows merged here |
+| The S0/S1 plan was written against D0–D5 before the 2026-10-28 review fold-in, which changed the ClaimProposalBatch (D2 §7.3: model-facing quote form, `extent`, `alternatives`, local refs) and the S0 brief | The spike lane re-reads D2 §7.3 and the S0 brief before fixing its batch contract |
 
 ## Standing conventions
 

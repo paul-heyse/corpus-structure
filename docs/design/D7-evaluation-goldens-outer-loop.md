@@ -54,26 +54,37 @@ small while debugging: **dev 40 units, test 40 units** from the first-pass chapt
 by statement kind, chapter and math share; growing to about 150 each by phase 2 (`OPEN-D7-1`).
 The trace units T1–T4 are in dev; the spike core units are in dev.
 
+**Split assignment** (`ci golden split`). Within each chapter, pages are ordered by
+`sha256(source_uri + seed)` and every fifth goes to test (about 20%); the four spike pages are
+forced to dev. Assignments live in `eval.document_split` and change only by operator direction.
+
+**Unit sampling** (`ci golden create --split S --size N --seed K`). Units are drawn from the
+split's pages; strata are statement kind (markup hint, else M05, else `narrative`) × math-share
+tercile (M02); allocation is proportional with at least one unit per non-empty stratum; within a
+stratum units are taken in order of `sha256(unit_key + seed)`.
+
 ### 3.2 Pass A and pass B (blind)
 
 Two fresh Opus subagent sessions, dispatched by the Claude Code session, each receive only:
 
 - the guideline version (full text) and schema inventory;
-- the unit packet in golden mode: the D4 §4.1 packet **without hints, alternatives or any
+- the unit packet in golden mode: the D4 §4.1 packet **without hints, known entities, alternatives or any
   pipeline output**, with standing context chosen by the rule "previous binding sentences in the
   same section" computed from the text alone (not from M13);
+- the page's full canonical text for reference (guideline §10.2: read the page, annotate only
+  the unit);
 - the model-facing ClaimProposalBatch schema (D2 §7.3).
 
 They do not see each other's output, earlier golden versions, run claims or metrics. Each pass
 is submitted through `write_golden` (D8) with `pass: a` or `pass: b` and stored as an
-intervention; quotes are located into offsets as in D4 §4.3. A pass whose quotes cannot be
+`eval.golden_pass` row (the intervention row references it); quotes are located into offsets as in D4 §4.3. A pass whose quotes cannot be
 located is returned to its author once with the failures listed.
 
 ### 3.3 Agreement
 
 Passes A and B are aligned with the scorer of §5 (treating A as reference and B as prediction,
 then symmetrized). Per unit and predicate, agreement at the core, full and evidence tiers is
-stored in the unit's `passes` record and aggregated per predicate as the **ceiling**.
+stored in the unit's `agreement` record and aggregated per predicate as the **ceiling**.
 
 ### 3.4 Adjudication (pass C)
 
@@ -179,7 +190,7 @@ registry in `evaluate/witnesses.py` declares, per witness, which method inputs d
 
 | Witness | Measures | Independence condition |
 |---|---|---|
-| **Author markup** | `dfn` terms imply a definition statement defining that term: recall of `defines` claims for marked terms; unit id prefixes imply statement kinds | Disqualified for statement kind when M05 or consolidation used the prefix hint; for `dfn` when M08 used `dfn` terms |
+| **Author markup** | `dfn` terms imply a definition statement defining that term: recall of `defines` claims for marked terms; unit id prefixes imply statement kinds | Valid only in an ablation run (consolidation `use_markup_hints: false`, M08 off) that the experiment harness makes on dev units; never in ordinary runs, which use markup |
 | **Computation** | Correctness (not guideline compliance) of distribution, moment and support claims: M21 verifier outcomes over accepted claims | Reported separately from runs where verifiers were confidence sources (the experiment harness can mask verifier sources) |
 | **Reference facts** | A small reference pack in the domain (`domains/statistics/reference/`): supports, standard parameterizations, means and variances of common families, written from `sympy.stats` and `scipy.stats` definitions | Not readable by any method; consulted only by evaluation |
 | **Cross-pass agreement** | Annotator agreement (§3.3) | Independent of the pipeline, not of Opus |

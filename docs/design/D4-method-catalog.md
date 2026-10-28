@@ -33,8 +33,9 @@ class Method(Protocol):
 Rules every method follows:
 
 1. **Write observations, never knowledge.** A method returns `ObservationDraft`s (kind, span or
-   segment, payload, score). Only M01 and M03 also write evidence rows (renditions, segments),
-   and only consolidation (M17, M18) writes entities and claims.
+   segment, payload, score). Only M01 and M03 also write evidence rows (renditions, segments);
+   spans are upserted by the repository layer for any writer; only consolidation (M17, M18)
+   writes entities and claims.
 2. **Outcome per unit.** `produced` (at least one observation), `empty` (ran correctly, found
    nothing: an observation-free `empty` task outcome, so absence is recorded, not silent) or
    `failed` (with an error payload). A unit result never mixes failure with partial output; a
@@ -78,7 +79,7 @@ when a named measured gap calls for them (D6 §7, D0 "deliberately left out").
 | M01 | `ingest.html` | ingest | document | rendition, segments, `author_markup` | det. | 0 | base | S1 |
 | M02 | `profile.segments` | profile | rendition | measurements | det. | 0 | base | S1 |
 | M03 | `segment.sentences` | ingest | rendition | `sentence` segments | det. | 0 | base | S1 |
-| M04 | `embed.segments` | profile | segment, alias | embeddings | encoder | 1 | base | S7 |
+| M04 | `embed.segments` | profile | segment, entity (aliases) | embeddings | encoder | 1 | base | S7 |
 | M05 | `classify.segments` | extract | segment | `classification` | encoder | 1 | base | S2 |
 | M06 | `extract.gliner_schema` | extract | segment | `mention`, `attribute`, `record` | encoder | 1 | base | S2 |
 | M07 | `extract.gliner_joint` | extract | segment | `mention`, `relation` | encoder | 1 | base | S2 |
@@ -88,12 +89,12 @@ when a named measured gap calls for them (D6 §7, D0 "deliberately left out").
 | M11 | `normalize.formula` | normalize | math segment | `value` | det. | 1 | base | S5 |
 | M12 | `normalize.quantity` | normalize | span | `value` | det. | 1 | base | — |
 | M13 | `resolve.symbol_scope` | resolve | rendition | `scope` | det. | 1 | base | S0, S5 |
-| M14 | `resolve.concept_link` | resolve | mention | `link` | det. + encoder | 1 (vectors 2) | base | S7 |
+| M14 | `resolve.concept_link` | resolve | observation (mention) | `link` | det. + encoder | 1 (vectors 2) | base | S7 |
 | M15 | `resolve.record_link` | resolve | run | `link` | det. (Splink) | 2 | conditional | — |
-| M16 | `llm.judge` | llm | alternative group, claim, entity pair | `judgment` | local LLM | 1 | base | S3 |
+| M16 | `llm.judge` | llm | alternative group, claim, identity group | `judgment` | local LLM | 1 | base | S3 |
 | M17 | `consolidate.entities` | consolidate | run | entities | det. | 0 | base | S6 |
 | M18 | `consolidate.claims` | consolidate | run | claims, links | det. | 0 | base | S6 |
-| M19 | `validate.rules` | validate | claim | `verification` | det. | 2 | base | S4 |
+| M19 | `validate.rules` | validate | claim | `verification` | det. | 0 | base | S4 |
 | M20 | `validate.conditions` | validate | claim, statement | `verification` | det. (z3) | 2 | conditional | S5 |
 | M21 | `verify.statistics` | verify | claim | `verification` | det. | 4 | base | S5 |
 | M22 | `classify.cues` | extract | sentence | `classification` | det. | 1 | base | — |
@@ -119,6 +120,9 @@ written by the pipeline:
 ## Standing context
 [c1] <sentence that binds a symbol used in the unit, from M13 scope observations>
 [c2] …
+## Known entities                         (canonical labels already identified for this page)
+- distribution family "normal" · aliases: normal distribution, normally distributed
+- family parameter "normal · mean"
 ## Text
 [s1] <first sentence of the unit, canonical text, LaTeX kept verbatim>
 [s2] …
@@ -136,6 +140,9 @@ A2: …
 - **Standing context** is at most five sentences, chosen by M13 (the binding sentences of
   symbols the unit uses but does not bind). Without M13 output, the section's first paragraph is
   used.
+- **Known entities** are the canonical labels of global entities in the reference run, or
+  proposed earlier in this run, that are linked to the page (at most 30). Proposals reuse them,
+  so identity across units holds by label (D5 §3.3). Golden packets omit them (D7 §3.2).
 - **Hints** are encoder observations above a threshold. They are off by default for proposal
   tasks (to keep LLM output independent evidence for confidence, D5 §6) and on for judge tasks.
 
@@ -238,7 +245,7 @@ math token (split-error proxies).
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| segment (`unit`, `paragraph`, `sentence`), entity alias | text | `kb.embedding` | encoder · 1 · base |
+| segment (`unit`, `paragraph`, `sentence`); entity (its aliases) | text | `kb.embedding` | encoder · 1 · base |
 
 **Behaviour.** Embeds segments for example selection (§4.2) and retrieval in agent packets, and
 entity aliases with their class description for concept linking (M14). Not an observation:
@@ -271,7 +278,7 @@ enums (`.single()` per task); constraints from the schema where they exist (for 
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| `paragraph`, `list_item`, short `unit` (≤ 384 words) | text (raw or masked), compiled schema (a) (D2 §7.2) | `mention`, `attribute`, `record` | encoder · 1 · base |
+| `paragraph`, `list_item`, short `unit` (≤ 384 words) | text (raw or masked), compiled schema (a) (D2 §7.2) | `mention`, `attribute` (`record` once the schema declares a structure; none in v0) | encoder · 1 · base |
 
 **Behaviour.** One combined `extract` call per segment with entity types, span attribute groups
 and record structures from the compiled schema. Mentions inside a math span are kept with
@@ -367,7 +374,7 @@ recall against goldens by predicate; tokens and latency (task `cost`).
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| alternative group, low-confidence claim, or entity pair in the identity grey zone | judge packet (§4.1 with Alternatives) | `judgment` | local LLM · 1 · base |
+| alternative group, low-confidence claim, or identity group (D5 §3.7) | judge packet (§4.1 with Alternatives) | `judgment` | local LLM · 1 · base |
 
 **Behaviour.** Pre-adjudication: decides what it can and writes a rationale either way. Its
 judgments enter confidence as one more source (D5 §6); a `judgment` with confidence `low` or
@@ -377,12 +384,13 @@ decision `unsure` leaves the unit for the agent tier if a policy routes it there
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| unit packet (mode `extract`) or judge packet (mode `adjudicate`) | packet via MCP `read_unit` (D8) | `claim_proposal` or `judgment`, plus an `ops.intervention` row | agent · 0 · base |
+| unit packet (mode `extract`) or judge packet (mode `adjudicate`) | packet via MCP `read_unit`, prompt parts via `read_instructions` (D8) | `claim_proposal` or `judgment`, plus an `ops.intervention` row that references it | agent · 0 · base |
 
 **Behaviour.** The pipeline never calls Opus. A task for M24 is created with status
 `awaiting_agent`; the Claude Code session pulls it with `queue_next`, reads the packet, and
 submits through `propose_claims` or `adjudicate`; the submission is validated and parsed exactly
-as §4.3 and completes the task. In phase 0 M24 is the only extractor; later it receives what
+as §4.3 and completes the task. The prompt parts' hashes are part of M24's input digest, so a
+guideline, schema or example change requests new proposals (D6 §4). In phase 0 M24 is the only extractor; later it receives what
 policies escalate. Golden authoring is not M24: it is a D7 protocol with its own tools and its
 own tables.
 
@@ -445,7 +453,7 @@ annotators' scopes, S5.
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| `mention` of a **global** class | mention text, alias table of entities in the reference run, embeddings | `link` (top k candidates or a new-entity proposal) | deterministic + encoder · 1 (vectors in 2) · base |
+| observation: a `mention` of a **global** class | mention text, alias table of entities in the reference run, embeddings | `link` (top k candidates or a new-entity proposal) | deterministic + encoder · 1 (vectors in 2) · base |
 
 **Behaviour.** Candidate generation in order: normalized-alias exact match; lemma match after
 removing the class's head words ("distribution", "family") and mapping adverbial forms
@@ -486,7 +494,7 @@ changes a claim. Consolidation's finalization reads them (D5 §8).
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| claim | claim view, rule context (D5 §8.2), compiled rules | `verification` with `verifier: rule:<id>` | deterministic · 2 · base |
+| claim | claim view, rule context (D5 §8.2), compiled rules | `verification` with `verifier: rule:<id>` | deterministic · 0 · base |
 
 **Library realization.** rule-engine 5.1 `Rule` objects compiled once per schema version under a
 typed `Context` (type resolver from the schema, registered functions such as `family_params`);

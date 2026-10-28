@@ -30,8 +30,10 @@ domains/<name>/
     migrations/          schema migration mappings for breaking changes, §8
   guideline.md           the annotation guideline (§10 is v0 for statistics)
   policies.yaml          routing policies for this domain (D6 §7)
-  methods.yaml           domain parameters of methods: source profiles, math macro map, binder
-                         lexicon, alias head words, cue lexicons, patterns (D4 §1)
+  methods.yaml           domain parameters of methods and named configurations (`configs:`):
+                         source profiles, math macro map, binder lexicon, alias head words and
+                         adverb rules, cue lexicons, patterns (D4 §1, D6 §7.1)
+  slices.yaml            debug slices by locator (D6 §8)
   verifiers.py           optional domain verifiers implementing validate.Verifier (§7.6)
   README.md              scope of the pack, source corpora, owner notes
 domains/core/schema/core.yaml   core classes, predicates, value classes and enums shared by all packs
@@ -66,15 +68,15 @@ normal meaning.
 | Annotation | Values | Meaning |
 |---|---|---|
 | `ci:role` | `predicate`, `qualifier`, `identity`, `field` | `predicate`: claims use it. `qualifier`: usable as a qualifier on the predicates that list it. `identity`: an identity attribute of a class. `field`: a field of a value class |
-| `ci:object` | `entity`, `formula`, `set`, `text`, `number`, `enum`, `date`, `interval`, `map` | Object value type (D1 §6); for `entity` the LinkML `range` names the class |
+| `ci:object` | `entity`, `formula`, `set`, `text`, `number`, `bool`, `enum`, `date`, `interval`, `phrase`, `map`, `condition` | Object value type (D1 §6); for `entity` the LinkML `range` names the class |
 | `ci:qualifiers` | list of qualifier slot names | Schema qualifiers allowed on this predicate (D1 §5.3) |
 | `ci:identity_qualifiers` | list | Which of them enter the claim key (D1 §10.1) |
 | `ci:extract` | `relation`, `record`, `llm`, `none` | How extraction proposes claims of this predicate: GLiNER2 relation, GLiNER2 record field, LLM only, or not extracted (derived only) |
 | `ci:symmetric` | `true` | `identical_parameter`-style predicates; consolidation orders subject and object canonically |
 | `ci:functional` | `true` | At most one object per subject and statement: candidates compete in one slot ([D5 §5.4](D5-consolidation-identity-confidence.md#54-slots-core-support-refinements-and-alternatives)), and across statements a second object is a conflict (D5 §5.5) |
-| `ci:record` | structure name | For `ci:extract: record`, the GLiNER2 structure that carries it (§7.2) |
-| `ci:anchor` | `true` | On a record field: the GLiNER2 record-mode anchor |
+| `ci:record`, `ci:anchor` | — | Reserved for GLiNER2 record structures (§7.2). **No v0 predicate uses them**: a record needs fields that one predicate cannot supply, so records are declared only when spike S2 or a measured gap shows a structure earns its place |
 | `ci:examples` | list | As on classes |
+| `ci:group` | name | Predicate group for acceptance thresholds, confidence priors and reports ([D5 §6](D5-consolidation-identity-confidence.md#6-confidence), D6 §7); default: the predicate itself |
 
 ### 3.3 On enums and permissible values
 
@@ -84,6 +86,7 @@ normal meaning.
 | `ci:extract: classification` with `ci:target: <segment kind>` | Compile to a GLiNER2 classification task on segments of that kind |
 | `ci:z3` (on a permissible value of a condition-predicate enum) | Name of the z3 encoding for this condition predicate, or absent if not encodable |
 | `ci:arity` | For condition predicates: `1`, `2`, `2+` |
+| `ci:args` | For condition predicates: the class of the arguments |
 | `ci:claim_bearing` (on a permissible value of `StatementKind`) | `true` when units of this kind are expected to state claims; policies route proposals by it ([D6 §7.2](D6-orchestration-metrics-policies.md#72-unit-context)). Core defaults: true for every kind except `proof` and `solution` (narrative paragraphs such as T2 state claims) |
 
 ## 4. Predicates and qualifiers
@@ -117,7 +120,7 @@ domain schema, each with `ci:arity`, the class of its arguments (`ci:args`) and 
 | Element | Kind | Content |
 |---|---|---|
 | `Entity` | abstract class | Base of all entity classes |
-| `Statement` | entity class, local | D1 §4.3; slot `kind` (enum `StatementKind`) as identity attribute |
+| `Statement` | entity class, local | D1 §4.3; slot `kind` (enum `StatementKind`), an ordinary attribute: a statement is identified by its anchor segments (D1 §10.1). Label: `<kind> <unit id>` for authored units, else `<kind> ¶<n>` with n the paragraph's ordinal in its section |
 | `StatementKind` | enum, `ci:extract: classification`, target `unit` and `paragraph` | Values in D1 §4.3 |
 | `Formula`, `SetExpr`, `TextValue`, `NumberValue`, `DateValue`, `IntervalValue`, `PhraseValue` | value classes | Fields as D1 §6 |
 | `SymbolBinding` | value class | D1 §6.1 binding kinds |
@@ -153,7 +156,7 @@ the builder: descriptions, thresholds, examples, attributes):
 | Entity types with descriptions | Classes with `ci:kind: entity` and `ci:extract: mention`; label = `ci:gliner_label`; description = LinkML `description` plus `ci:examples` |
 | Span attribute groups | Enums with `ci:extract: attribute`; `applies_to` = `ci:applies_to`; `qualify_labels=True` |
 | Classification tasks | Enums with `ci:extract: classification` (run on segments of the target kind by M05) |
-| Structures (record mode) | One structure per `ci:record` name; fields from the predicates that name it; anchor = the field marked `ci:anchor: true`; cardinalities from `required` and `multivalued` |
+| Structures (record mode) | None in v0 (§3.2). The fragment below shows the form a hand-written structure takes in spike S2 |
 | Relations (independent) | Predicates with `ci:extract: relation`, label = predicate name in words, description from the slot |
 
 **(b) The joint schema** for `JointIE`: entity types as in (a); one `.relation(name, head=…,
@@ -196,18 +199,38 @@ compiler emits one JSON Schema (draft 2020-12) used both as the vLLM structured-
 and for validating Opus submissions:
 
 ```text
-ClaimProposalBatch
-  unit_ref            string
+ClaimProposalBatch                   model-facing form; "stored:" notes where the stored form differs
+  unit_ref            string         the packet's unit key
   entities[]          { local_ref, type ∈ enum(entity classes), label, scope ∈ {global, local},
-                        symbol?, aliases[], identity{…} }
-  statements[]        { local_ref, kind ∈ enum(StatementKind), anchors[] (span offsets) }
+                        extent?: statement | section        local entities only (D1 §4.2)
+                        symbol?, aliases[], identity{ slot: value } }
+                                     stored: adds scope_segment (segment key) for local entities
+  statements[]        { local_ref, kind ∈ enum(StatementKind), anchor: "unit" | [sentence ids] }
+                                     stored: anchor = [segment keys]
   claims[]            oneOf per predicate:
                         { local_ref, predicate: const <p>, subject: local_ref,
-                          object: local_ref | <value schema of p>,
+                          object: { ref: local_ref } | <value of p>,
                           qualifiers: { core qualifiers, schema qualifiers of p },
-                          statement?, statement_role?, evidence[] { start, end, role } }
-  unsupported[]       { text, start, end, reason }
+                          statement?: local_ref, statement_role?,
+                          evidence[]: { sentence, quote, role } }
+                                     stored: evidence[] = { start, end, role, coarse? }
+  alternatives[]      { refs: [claim local_refs] (2 or more), reason }
+  unsupported[]       { local_ref, sentence, quote, reason }
+                                     stored: start, end instead of sentence, quote
 ```
+
+- **Local refs** are unique within a batch and are the only way items refer to each other:
+  `subject`, `object.ref`, `statement`, condition nodes `{"op": "claim", "ref": …}`, and symbol
+  bindings (`variable` and `family_param` name an entity local ref in `entity`; `param_of` and
+  `param_expr_of` name a claim local ref in `claim`, plus `param`). Consolidation replaces local
+  refs with keys ([D5 §5.2](D5-consolidation-identity-confidence.md#52-normalization-and-keys)).
+- **Values.** Formula and set values carry `t`, `latex` and `symbols` (the binding map, D1 §6.1);
+  `sympy` and `parse` are added by M11 during consolidation and appear in neither batch form.
+- **Global entities** are identified across units by `label` and `identity`; packets list the
+  canonical labels already known for the page (D4 §4.1) so proposals reuse them.
+- **Extent.** `statement` scopes a local entity to the statement that binds it; `section` to the
+  enclosing section from the binding sentence on (D1 §4.2). The stored form resolves it to a
+  `scope_segment`.
 
 Per-predicate branches restrict the subject and object types (via an `entity_types` side table
 resolved at validation, because JSON Schema cannot follow local references), the value type, and
@@ -216,9 +239,10 @@ so the model sees them. The same compiler emits a compact **prompt inventory**: 
 class and predicate with its description and examples, ordered by class.
 
 **Model-facing and stored forms.** The compiler emits the batch schema twice. The *model-facing*
-form, given to LLMs and Opus, cites evidence and statement anchors by quote (`{sentence, quote,
-role}`), because models do not count characters reliably. The *stored* form, held in
-`claim_proposal` observations and golden items, has rendition offsets (`{start, end, role}`).
+form, given to LLMs and Opus, cites evidence by sentence id and quote and anchors statements by
+sentence ids, because models do not count characters reliably. The *stored* form, held in
+`claim_proposal` observations, golden passes and golden items, has rendition offsets and segment
+keys.
 Quote location is shared post-processing ([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing)).
 
 LinkML's own `gen-json-schema` is used for the value classes (`Formula`, `SetExpr`, …) and the
@@ -235,7 +259,7 @@ rules:
     severity: warning          # warning | error
     description: Every param_values key is a parameter the family has.
     when: "claim.predicate == 'stat:has_distribution'"
-    check: "all([k in family_params(claim.object) for k in claim.qualifiers.param_values.keys])"
+    check: "all([k in family_params(claim.object.key) for k in claim.qualifiers.param_values.keys])"
 ```
 
 The compiler parses each `when` and `check` with `rule_engine.Rule` under a typed `Context`
@@ -391,7 +415,9 @@ classes:
       ci:kind: value
 
   ParamMapping:
-    description: One target-parameter to source-parameter entry of a param_mapping map.
+    description: >-
+      One entry of a param_mapping map. key is the target family's parameter canonical name; value
+      is the canonical name of the base family's parameter it corresponds to.
     attributes:
       key: {range: string, identifier: true, annotations: {ci:role: field}}
       value: {range: string, annotations: {ci:role: field}}
@@ -424,7 +450,8 @@ slots:
       ci:qualifiers: [param_values]
       ci:identity_qualifiers: [param_values]
       ci:extract: relation
-      ci:record: distribution statement
+      ci:functional: true
+      ci:group: distribution
   defined_as:
     domain: RandomVariable
     range: Formula
@@ -533,9 +560,9 @@ slots:
     inlined: true
     annotations: {ci:role: qualifier, ci:object: map}
   param_constraints:
-    range: Formula
-    description: A condition tree over the base family's parameters (k = 1).
-    annotations: {ci:role: qualifier, ci:object: formula}
+    range: string
+    description: A condition tree (D1 §7) over the base family's parameters (k = 1).
+    annotations: {ci:role: qualifier, ci:object: condition}
   transform:
     range: Formula
     annotations: {ci:role: qualifier, ci:object: formula}
@@ -546,7 +573,7 @@ slots:
     annotations: {ci:role: qualifier, ci:object: map}
   limit:
     range: PhraseValue
-    annotations: {ci:role: qualifier, ci:object: text}
+    annotations: {ci:role: qualifier, ci:object: phrase}
   base:
     range: Entity
     annotations: {ci:role: qualifier, ci:object: entity}
@@ -590,16 +617,18 @@ Initial `rules.yaml` (expressions to be syntax-checked in S4):
 |---|---|---|---|
 | `stat.param_keys_known` | `has_distribution` | warning | Every `param_values` key is a canonical name of a parameter the family has in this run, or a `ParameterRole` value |
 | `stat.supposed_is_used` | any `supposed` claim | warning | INV-06: referenced by a condition or has a `scope` |
-| `stat.one_distribution_per_statement` | `has_distribution` | error | At most one asserted or defined `has_distribution` per variable per statement |
-| `stat.domain_is_set` | `parameter_domain`, `takes_values_in`, `support` | error | Object parses as a set (`parse = ok`) or is kept as `phrase` with status `unsupported` |
-| `stat.variance_nonnegative` | `has_distribution` with a `variance` key | warning | z3: the conditions imply variance ≥ 0 when the formula parses |
+| `stat.one_distribution_per_statement` | `has_distribution` | error | At most one asserted or defined `stated` `has_distribution` per variable per statement; derived claims are exempt |
+| `stat.domain_is_set` | `parameter_domain`, `takes_values_in`, `support` | warning | Object parses as a set (`parse = ok`); otherwise a warning, and the object is kept as written |
+| `stat.variance_nonnegative` | `has_distribution` with a `variance` key | warning | Checked by M20 with z3, not by rule-engine: the conditions imply variance ≥ 0 when the formula parses |
 | `stat.no_family_on_variable` | `has_parameter` | error | Subject is not a `RandomVariable` |
 
 ## 10. Guideline v0 (statistics)
 
 This is the starting content of `domains/statistics/guideline.md`. Opus writes goldens from it
 alone ([D7 §3](D7-evaluation-goldens-outer-loop.md#3-golden-authoring-protocol)); the operator
-steers it ([D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop)).
+steers it ([D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop)). In
+`guideline.md`, sections 10.3–10.8 carry the `<!-- core -->` tag that puts them into LLM prompts
+(D4 §4.2, D7 §2).
 
 ### 10.1 Purpose
 

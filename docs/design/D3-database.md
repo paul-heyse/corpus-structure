@@ -63,6 +63,7 @@ CREATE TABLE meta.schema_version (
   source        jsonb NOT NULL,                  -- {"statistics.yaml": "...", "rules.yaml": "...", "core.yaml": "..."}
   compiled      jsonb NOT NULL,                  -- D2 §7 artifacts, keyed by compiler, each with its hash
   migration     jsonb,                           -- D2 §8 mapping from parent, breaking changes only
+  state         text NOT NULL DEFAULT 'active' CHECK (state IN ('proposed','active','rejected','retired')),
   created_by    text NOT NULL,                   -- 'human:operator', 'agent:opus-5.5', ...
   created_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, content_hash)
@@ -125,6 +126,7 @@ CREATE TABLE meta.guideline_version (
   schema_version_id bigint NOT NULL REFERENCES meta.schema_version,
   parent_id         bigint REFERENCES meta.guideline_version,
   change_note       text,
+  state             text NOT NULL DEFAULT 'active' CHECK (state IN ('proposed','active','rejected','retired')),
   created_by        text NOT NULL,
   created_at        timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, content_hash)
@@ -147,6 +149,7 @@ CREATE TABLE ops.method (
 CREATE TABLE ops.method_config (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   method_id   bigint NOT NULL REFERENCES ops.method,
+  name        text NOT NULL DEFAULT 'default',   -- named configuration from methods.yaml: '<method>/<name>'
   params      jsonb NOT NULL,                    -- canonical JSON; includes compiled-artifact hashes it depends on
   config_hash text NOT NULL UNIQUE,              -- D1 §10.1 'cfg:' key
   tier        text CHECK (tier IN ('deterministic','encoder','local_llm','agent','hosted_llm','human')),
@@ -159,6 +162,7 @@ CREATE TABLE ops.policy_version (
   label        text NOT NULL,
   content_hash text NOT NULL,
   source       text NOT NULL,                    -- policies.yaml as loaded
+  state        text NOT NULL DEFAULT 'active' CHECK (state IN ('proposed','active','rejected','retired')),
   created_by   text NOT NULL,
   created_at   timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, content_hash)
@@ -168,9 +172,9 @@ CREATE TABLE ops.policy_rule (
   id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   policy_version_id bigint NOT NULL REFERENCES ops.policy_version ON DELETE CASCADE,
   rule_key          text NOT NULL,               -- 'escalate.low_confidence.local_llm'
-  stage             text NOT NULL,
-  priority          integer NOT NULL,            -- lower runs first within a chain (D6 §7)
-  unit_type         text NOT NULL,
+  chain             text NOT NULL CHECK (chain IN ('propose','escalate','adjudicate','identity')),
+  priority          integer NOT NULL,            -- position in the chain (D6 §7.1)
+  unit_type         text NOT NULL,               -- the chain's default or the entry's own (D6 §7.1)
   condition         text NOT NULL,               -- rule-engine expression over the unit context
   action            jsonb NOT NULL,              -- {"method_config": "cfg:…", "limit": 50, "then": "stop|continue"}
   enabled           boolean NOT NULL DEFAULT true,
@@ -181,7 +185,7 @@ CREATE TABLE ops.debug_slice (
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   project_id bigint NOT NULL REFERENCES meta.project,
   name       text NOT NULL,
-  selector   jsonb NOT NULL,                     -- {"documents": [...], "segment_keys": [...], "unit_ids": [...]}
+  selector   jsonb NOT NULL,                     -- {"locators": ["special/Normal.html#rel1", "special/Normal.html@p:Suppose again that", ...]}; resolved per rendition (D6 §8)
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, name)
 );
@@ -189,7 +193,9 @@ CREATE TABLE ops.debug_slice (
 CREATE TABLE ops.run (
   id                   bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   project_id           bigint NOT NULL REFERENCES meta.project,
-  kind                 text NOT NULL CHECK (kind IN ('full','slice','experiment','rescore')),
+  kind                 text NOT NULL CHECK (kind IN ('ingest','full','slice','experiment','rescore')),
+  phase                smallint NOT NULL,        -- 0–5 (D0); policies read it
+  options              jsonb NOT NULL DEFAULT '{}',  -- agent_mode, agent_reuse, fresh methods, gpu mode (D6 §2, §4, §5)
   debug_slice_id       bigint REFERENCES ops.debug_slice,
   corpus_hash          text NOT NULL,            -- hash over selected rendition keys
   schema_version_id    bigint NOT NULL REFERENCES meta.schema_version,
@@ -271,7 +277,7 @@ CREATE TABLE kb.span (
 
 CREATE TABLE kb.embedding (
   id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  target_type     text NOT NULL CHECK (target_type IN ('segment','span','entity','alias')),
+  target_type     text NOT NULL CHECK (target_type IN ('segment','entity','alias')),
   target_id       bigint NOT NULL,
   model_config_id bigint NOT NULL REFERENCES ops.method_config,
   vec             halfvec(1024) NOT NULL,        -- dimension fixed by S7 (OPEN-D3-2)
@@ -287,9 +293,10 @@ CREATE TABLE ops.task (
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   run_id           bigint NOT NULL REFERENCES ops.run,
   stage            text NOT NULL,                -- D6 §2 stage names
-  unit_type        text NOT NULL CHECK (unit_type IN ('rendition','segment','span','entity','claim','alternative_group','run')),
-  unit_id          bigint,                       -- id in the table named by unit_type (null for 'run')
-  unit_key         text,                         -- stable key of the unit, for cross-run reuse
+  unit_type        text NOT NULL CHECK (unit_type IN ('document','rendition','segment','observation','entity','claim',
+                        'alternative_group','identity_group','run')),
+  unit_id          bigint,                       -- id in the table named by unit_type; null for groups and 'run'
+  unit_key         text,                         -- stable key of the unit (the group key for groups), for cross-run reuse
   method_config_id bigint NOT NULL REFERENCES ops.method_config,
   trigger_rule_id  bigint REFERENCES ops.policy_rule,  -- null for base-stage tasks
   trigger_metrics  jsonb NOT NULL DEFAULT '{}',  -- the metric values the rule saw
@@ -300,8 +307,10 @@ CREATE TABLE ops.task (
   attempt          integer NOT NULL DEFAULT 0,
   priority         integer NOT NULL DEFAULT 0,
   claimed_by       text,                         -- worker id or agent session while running
+  lease_until      timestamptz,                  -- 5 min for workers, 30 min for agent leases (D6 §3.2, D8 §2.1)
   cost             jsonb NOT NULL DEFAULT '{}',  -- {"wall_ms":…, "gpu_ms":…, "tokens_in":…, "tokens_out":…}
   error            jsonb,
+  reason           text,                         -- why skipped or cancelled: 'limit', 'budget', 'prerequisite_failed', ...
   created_at       timestamptz NOT NULL DEFAULT now(),
   started_at       timestamptz,
   finished_at      timestamptz
@@ -349,7 +358,7 @@ CREATE TABLE kb.entity_alias (
   entity_id  bigint NOT NULL REFERENCES kb.entity ON DELETE CASCADE,
   alias      text NOT NULL,
   normalized text NOT NULL,
-  alias_kind text NOT NULL CHECK (alias_kind IN ('label','symbol','abbreviation','term')),
+  alias_kind text NOT NULL CHECK (alias_kind IN ('label','symbol','abbreviation','term','expression')),
   PRIMARY KEY (entity_id, normalized, alias_kind)
 );
 CREATE INDEX entity_alias_lookup ON kb.entity_alias (normalized);
@@ -400,7 +409,6 @@ CREATE TABLE kb.claim_evidence (
 CREATE TABLE kb.claim_support (
   claim_id       bigint NOT NULL REFERENCES kb.claim ON DELETE CASCADE,
   observation_id bigint NOT NULL REFERENCES kb.observation,
-  stance         text NOT NULL DEFAULT 'supports' CHECK (stance IN ('supports','contradicts')),
   PRIMARY KEY (claim_id, observation_id)
 );
 
@@ -444,8 +452,9 @@ CREATE TABLE ops.intervention (
                    'schema_proposal','guideline_change','policy_proposal','experiment_decision',
                    'direction','ack','veto','audit')),
   target      jsonb NOT NULL,                    -- what it acts on (unit key, claim key, golden unit, ...)
-  before      jsonb,
-  after       jsonb,
+  refs        jsonb NOT NULL DEFAULT '{}',       -- where the content is: {"observations": [...], "golden_pass": id,
+                                                 --   "schema_version": id, "guideline_version": id, "policy_version": id, "experiment": id}
+  body        text,                              -- a direction's text; otherwise null (content lives where refs point)
   rationale   text,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
@@ -493,17 +502,19 @@ validated on write by the repository layer. Summaries:
 | `mention` | `label`, `text`, `start`, `end` | `attributes` {group: {label, score}}, `math_ref` |
 | `relation` | `label` (predicate), `head` {`start`,`end`,`label`}, `tail` {…} | `joint` (bool: from `JointIE`), `feasible` |
 | `record` | `structure`, `fields` {name: [{`text`,`start`,`end`,`score`}]} | `anchor` |
-| `attribute` | `mention_obs` (observation id), `group`, `value` | — |
+| `attribute` | `mention_ref`, `group`, `value` | — |
 | `classification` | `task`, `labels` [{label, score}] | `feasible`, `violations` (constrained classifier) |
 | `value` | `value` (D1 §6) | `parse_error` |
-| `scope` | `mention_obs`, `scope_segment` (key), `extent` | `binding` (D1 §6.1) |
-| `link` | `mention_obs`, `candidate` (entity key, or `{"new": {type, label}}`), `score`, `features` | `rank` |
-| `claim_proposal` | `batch` (a `ClaimProposalBatch`, D2 §7.3) | `rationale` |
-| `judgment` | `target` {`kind`: observation, claim, alternative_group, entity_pair; `ref`}, `decision` (`accept`, `reject`, `choose`, `merge`, `split`, `unsure`), `rationale` | `chosen` (for `choose`), `confidence` |
+| `scope` | `mention_ref`, `binding_site` (a `mention_ref`), `scope_segment` (key), `extent` | `binding` (provisional kind, D4 M13) |
+| `link` | `mention_ref` (M14) or `pair` of entity keys (M15), `candidate` (entity key, or `{"new": {type, label}}`), `score`, `features` | `rank` |
+| `claim_proposal` | `batch` (a stored-form `ClaimProposalBatch`, D2 §7.3) | `rationale`; `rejected` [{`item`, `reason`}] (D4 §4.3); `establishment: derived`, `derived_from` (claim keys) and `rule` for M23 |
+| `judgment` | `target` {`kind`: observation, claim, alternative_group, identity_group; `ref`}, `decision` (`accept`, `reject`, `choose`, `merge`, `split`, `unsure`), `rationale`, `guideline_version` | `chosen` (for `choose`), `faithful` (bool, with several chosen), `confidence` (`low`, `medium`, `high`) |
 | `verification` | `claim_key`, `verifier`, `verdict` (`consistent`, `refuted`, `not_checkable`) | `detail`, `counterexample` |
 
 ### 6.3 Operations JSON
 
+- **`mention_ref`** is `{"task": id, "ordinal": n}`, or `{"ordinal": n}` inside the same task,
+  because observation ids are assigned only when a task's observations are copied in.
 - `ops.task.trigger_metrics`: `{metric_name: value}` exactly as the policy rule evaluated them.
 - `ops.task.cost`: `wall_ms`, `gpu_ms`, `tokens_in`, `tokens_out`, `model`.
 - `ops.policy_rule.action`: `method_config` (config hash), `limit` (max tasks this rule may
@@ -514,6 +525,14 @@ validated on write by the repository layer. Summaries:
 ## 7. `eval`: goldens and results
 
 ```sql
+CREATE TABLE eval.document_split (               -- page-level split assignment (D7 §3.1, §4)
+  project_id  bigint NOT NULL REFERENCES meta.project,
+  document_id bigint NOT NULL REFERENCES kb.document,
+  split       text NOT NULL CHECK (split IN ('dev','test')),
+  assigned_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (project_id, document_id)
+);
+
 CREATE TABLE eval.golden_set (
   id                   bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   project_id           bigint NOT NULL REFERENCES meta.project,
@@ -533,15 +552,27 @@ CREATE TABLE eval.golden_unit (
   segment_id    bigint NOT NULL REFERENCES kb.segment,   -- the annotation unit
   unit_key      text NOT NULL,
   status        text NOT NULL CHECK (status IN ('draft','adjudicated','stale','retired')),
-  passes        jsonb NOT NULL DEFAULT '{}',     -- {"a": intervention id, "b": ..., "adjudication": ...}
+  agreement     jsonb NOT NULL DEFAULT '{}',     -- A/B agreement by tier and predicate (D7 §3.3)
   created_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE (golden_set_id, unit_key)
+);
+
+CREATE TABLE eval.golden_pass (                  -- the single store of authored passes (D7 §3)
+  id                   bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  golden_unit_id       bigint NOT NULL REFERENCES eval.golden_unit ON DELETE CASCADE,
+  pass                 text NOT NULL CHECK (pass IN ('a','b','c')),
+  guideline_version_id bigint NOT NULL REFERENCES meta.guideline_version,
+  batch                jsonb NOT NULL,           -- stored-form ClaimProposalBatch (pass c: the adjudicated batch)
+  decisions            jsonb,                    -- pass c: per-difference decision, reason, guideline_gap marks
+  session_ref          text NOT NULL,            -- authoring session; passes a and b of a unit must differ
+  created_at           timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (golden_unit_id, pass, guideline_version_id)
 );
 
 CREATE TABLE eval.golden_item (
   id             bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   golden_unit_id bigint NOT NULL REFERENCES eval.golden_unit ON DELETE CASCADE,
-  item_type      text NOT NULL CHECK (item_type IN ('entity','statement','claim','unsupported')),
+  item_type      text NOT NULL CHECK (item_type IN ('entity','statement','claim','alternative','unsupported')),
   local_ref      text NOT NULL,
   payload        jsonb NOT NULL,                 -- ClaimProposalBatch element (D2 §7.3), offsets into the rendition
   UNIQUE (golden_unit_id, item_type, local_ref)
@@ -663,7 +694,7 @@ run (ids illustrative; keys abbreviated).
 | `seg:n-rel1` | `unit` | section | `{"id": "rel1", "class": ["unit"]}` |
 | `seg:n-rel1-p` | `paragraph` | `seg:n-rel1` | `{"class": ["math"]}` |
 | `seg:n-rel1-d` | `details` | `seg:n-rel1` | `{}` |
-| 7 × `math_inline` | `math_inline` | `seg:n-rel1-p` | `{"latex": "\\mu"}` … |
+| 8 × `math_inline` | `math_inline` | `seg:n-rel1-p` | `{"latex": "\\mu"}` … |
 
 `kb.entity`:
 
@@ -709,4 +740,4 @@ partitioning is needed until a project holds many corpora.
 | OPEN-D3-1 | Exact pg_textsearch index and query syntax (`USING bm25`, `<@>`, `to_bm25query`), and whether it indexes `kb.segment.text` in place | Spike S6 |
 | OPEN-D3-2 | Embedding model and dimension (Qwen3-Embedding-0.6B at 1024, or 8B truncated by Matryoshka to 1024 or 2048) | Spike S7 |
 | OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | Spike S6 |
-| OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | D7 alignment design, S6 |
+| OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | Spikes S6 and S0; phase 1 goldens if S0 has too few units |

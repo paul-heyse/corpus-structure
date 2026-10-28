@@ -46,10 +46,13 @@ downstream is unreliable and D1 §3 must change before D3 fixes the tables.
    example a unit interrupted by an app or figure, or `<details>` placed elsewhere). D1 assumes
    contiguity.
 5. **Sentence segmentation (`OPEN-D1-1`).** On the four spike pages, split paragraphs into
-   sentences with spaCy `en_core_web_sm` three ways:
+   sentences with spaCy `en_core_web_sm` four ways:
    - (a) raw canonical text;
    - (b) inline math replaced by a placeholder token (e.g. `⟨m12⟩`), with offsets mapped back;
-   - (c) (b) plus a rule that never splits inside display math.
+   - (c) (b) plus a rule that never splits inside display math;
+   - (b′) no masking: a spaCy component before the parser merges each inline math span into one
+     token (`doc.retokenize()`, `POS=PROPN`) and sets `is_sent_start = False` inside display
+     math (D4 M03's candidate).
    Judge 60 paragraphs sampled across the pages: count bad splits (inside math, after
    abbreviations such as "i.e.", before "Then") and missed splits for each variant.
 6. **Core units.** Locate the twelve core units of the [README](README.md#the-spike-sample) and

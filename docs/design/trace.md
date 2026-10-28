@@ -17,6 +17,11 @@ judgments:
 | T3 | `normal-affine-nonzero-scale` | `special/Normal.html` | A theorem with a premise, restrictions, a derived variable, a conclusion, symbol bindings, a proof and a derived standard deviation |
 | T4 | `lognormal-definition` | `special/LogNormal.html` | A family defined by transformation; parameters named by symbol; shape and scale roles stated afterwards |
 
+**Acceptance by phase.** Phase 0 checks every target below except derived claims (T3 D1, phase 2,
+[D5 §9](D5-consolidation-identity-confidence.md#9-derived-claims)), taking scopes and symbol
+bindings as the agent's proposals state them ([D5 §11](D5-consolidation-identity-confidence.md#11-by-phase)).
+From phase 1 the same scopes and bindings must also come from M13 and D5 §4.
+
 Notation in the tables: entities are given short local references (`X`, `S1`); `≔` introduces a
 formula value; symbol bindings are listed under each claim. Source text is quoted from Siegrist,
 *Random* (CC BY 2.0, <https://www.randomservices.org/random/>).
@@ -192,7 +197,7 @@ and its list items:
 | C4 | S1 | `defines` | LN | asserted | — | — |
 | C5 | LN | `has_parameter` | LN.mu | defined | S1 | — |
 | C6 | LN | `has_parameter` | LN.sigma | defined | S1 | — |
-| C7 | LN | `transformation_of` | N; qualifiers `transform: ≔ X = e^Y`, `param_mapping {mu: N.mean, sigma: N.sd}` | defined | S1 | — |
+| C7 | LN | `transformation_of` | N; qualifiers `transform: ≔ X = e^Y`, `param_mapping {mu: mean, sigma: standard_deviation}` (canonical names of N's parameters) | defined | S1 | — |
 | C8 | LN.sigma | `parameter_role` | enum `ParameterRole.shape` | asserted | S1 | — |
 | C9 | LN | `has_parameter` | LN.scale | asserted | S1 | — |
 | C10 | LN.scale | `derived_parameter` | formula ≔ `e^\mu` | asserted | S1 | — |
@@ -219,7 +224,7 @@ method design, not a gold: methods are scored on claims ([D7](D7-evaluation-gold
 | M01 ingest | `dfn1` unit and `dfn` markup "location-scale family" | paragraph | unit `rel1`, `details` | unit `dfn`, list items |
 | M06 GLiNER2 entities | "location-scale family", "location parameter", "scale parameter", `Z`, `X` | `X`, "normal distribution", "location parameter", "mean", "standard deviation" | `X`, "normally distributed", "mean", "variance" | `Y`, `X`, "normal distribution", "lognormal distribution", "shape parameter", "scale parameter" |
 | M07 `JointIE` relations | — | `has_distribution(X, normal distribution)` | `has_distribution(X, normally distributed)` | `has_distribution(Y, normal)`, `has_distribution(X, lognormal)` |
-| M09 math spans | 7 inline | 2 | 7 | 6 |
+| M09 math spans (S1 confirms) | 8 inline (lead-in 1, `dfn1` 7) | 3 | 8 | 8 (unit 6, list items 2) |
 | M11 SymPy parse | all except `\R` without a macro map | all | all; `\R \setminus \{0\}` as a set | all |
 | M13 symbol scope | Z → section; X → S1 | X → section ("again") | X, Y → S1 | Y, X → S1 |
 | M10 LLM claims | C1–C8 | C1–C5 | C1–C4 | C1–C10 |

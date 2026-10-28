@@ -35,7 +35,9 @@ work with the syntax assumed?
 3. **Rows.** Insert a project, schema version, configs, one finished run, the four spike pages'
    renditions and segments, and the trace units' entities, claims, evidence, supports (a fake
    task and observations) and links. Check every constraint fires on a deliberately bad row
-   (object both entity and value; local entity without scope segment; span outside text).
+   (object both entity and value; local entity without scope segment). A span outside its
+   rendition's text is a repository-layer check (INV-10), not a database constraint: note it,
+   do not expect a database error.
 4. **Queries.** Run each D3 §9 pattern and the four trace questions of D8 §5.3 in SQL; record
    rows returned and time. Check `kb.run_observation` with a reused task.
 5. **BM25.** Create the BM25 index on `kb.segment.text`; run five queries ("affine
@@ -50,7 +52,8 @@ work with the syntax assumed?
 8. **Size.** Table and index sizes; the share taken by `kb.segment.text` (`OPEN-D3-3`).
 9. **Meaning key.** Over the S0 reference batches (if available), count facts restated in more
    than one unit (same subject, predicate, object and qualifiers, different statement)
-   (`OPEN-D3-4`).
+   (`OPEN-D3-4`). Twelve units may be too few to decide; if so, say so and leave the question to
+   phase 1 goldens.
 10. Drop the database at the end; keep only results.
 
 ## Data to collect

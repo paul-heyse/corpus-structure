@@ -104,7 +104,8 @@ A segment also carries `parse_status`: `ok`, `partial` (some content dropped, wi
 
 A `Span` is `(rendition, start, end)` with its text. It is the only anchor type: every citation
 of evidence resolves to one or more spans. A span records the smallest segment that contains it.
-Spans are deduplicated by `(rendition, start, end)`.
+Spans are deduplicated by `(rendition, start, end)` and upserted by the repository layer for
+any writer (ingest, methods, consolidation), so citing an offset never requires owning span rows.
 
 ## 4. Entities
 
@@ -116,7 +117,7 @@ An `Entity` is a resolved identity of an instance of a schema class. It has:
 |---|---|
 | `type` | Schema class name, e.g. `DistributionFamily`, `RandomVariable`, `Statement` |
 | `label` | Canonical display label (chosen by consolidation, [D5 §3](D5-consolidation-identity-confidence.md#3-entity-resolution)) |
-| `aliases` | Every surface form observed, each with kind `label`, `symbol`, `abbreviation` or `term` |
+| `aliases` | Every surface form observed, each with kind `label`, `symbol`, `abbreviation`, `term` or `expression` |
 | `scope` | `global`, or `local` with a scope segment |
 | `key` | Deterministic identity key (§10) |
 | `attrs` | Identity attributes declared by the schema (`ci:identity_keys`); never facts |
@@ -300,15 +301,20 @@ bindings never block a claim; they lower its completeness and are measured.
 
 ### 6.2 Canonical form
 
-For keys and comparisons, a value has a canonical form: formulas and sets by `sympy` when
-`parse = ok`, otherwise by LaTeX with whitespace and spacing commands (`\,`, `\;`, `\!`)
-removed; numbers as normalized decimal strings with pint base units; text NFC-casefolded with
+For keys and comparisons, a value has a canonical form: formulas and sets by **normalized
+LaTeX** (source macros expanded by the domain's macro map; spacing commands `\,`, `\;`, `\!`,
+`\left`, `\right` and whitespace removed; braces around single tokens dropped, so `b^{2}` is
+`b^2`). The SymPy form is never part of a key, so adding or upgrading the parser never changes
+keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)); numbers as normalized decimal strings with pint base units; text NFC-casefolded with
 collapsed whitespace. Formula equivalence for evaluation uses SymPy simplification
 ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)), not canonical form.
 
 ## 7. Conditions
 
-A condition is a JSON tree. It states under what circumstances a claim holds.
+A condition is a JSON tree. It states under what circumstances a claim holds. Every node
+names its type in the key `op` (`{"op": "member", "x": …, "set": …}`); the other fields are
+as listed. Inside a ClaimProposalBatch, `claim` nodes carry the batch's local refs; consolidation
+replaces them with claim keys.
 
 | Node | Fields | Meaning |
 |---|---|---|
@@ -389,7 +395,7 @@ An observation has: `task` (which records method configuration and run), `kind`,
 | `scope` | mention ref, scope segment, binding | M13 |
 | `link` | mention ref, candidate entity key or new-entity proposal, score | M14, M15 |
 | `claim_proposal` | a full claim in D1 form with local entity references | M10, agent |
-| `judgment` | target (observation, claim key, or alternative group), decision, rationale | M16, agent, human |
+| `judgment` | target (observation, claim key, alternative group or identity group), decision, rationale | M16, agent, human |
 | `verification` | claim key, verifier, verdict (`consistent`, `refuted`, `not_checkable`), detail | M21 |
 
 ## 10. Identity and keys
@@ -410,6 +416,11 @@ keys, uses no insignificant whitespace, encodes UTF-8 and NFC-normalizes strings
 | Statement | `stm` | anchor segment keys (sorted) |
 | Claim | `clm` | subject key, predicate, object key or canonical value, identity qualifiers |
 | Method config | `cfg` | method name, method version, canonical params |
+
+A key is computed when an entity is first created. A global entity that consolidation links
+to an entity of the reference run keeps that entity's key and canonical label
+([D5 §3.3](D5-consolidation-identity-confidence.md#33-global-entities)), so keys are stable
+across runs. A statement's `kind` and label are attributes, not identity.
 
 **Identity qualifiers** are those that change meaning: `modality`, `polarity`, `statement`,
 canonical `conditions`, and every schema qualifier the schema lists in `ci:identity_qualifiers`
