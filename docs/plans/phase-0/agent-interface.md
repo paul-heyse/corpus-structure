@@ -1,7 +1,14 @@
 # Phase 0: agent interface
 
-**Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md), which
+**Status:** Proposed (2026-10-28); nothing built. Part of the [phase 0 series](../phase-0_2026-10-28.md), which
 owns shared decisions, contracts, the dependency graph and build findings.
+**Revised:** 2026-10-28, for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md) and its
+[target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md) ("TM"), following coordinator decisions 2, 15, 16, 21 and 23 and
+§9.2's RC11 and RC13 as decided: parse reports typed frame and drop codes and a cascade version, and
+a re-location becomes a new citation-frame version written by its consumer (A0); proposals record
+their derivation, M24's digest defines `agent_reuse: by_unit`, `read_instructions` serves versioned
+JSON Schemas, and the authored `outside` statement carries an `ExternalReference` descriptor (A1).
+Prerequisites follow [coordinator §7](../phase-0_2026-10-28.md#7-dependencies-and-readiness).
 
 This document builds D9 §5 step P0.7: the parse step that turns an authored batch and its citation
 frame into the stored form on a rendition, M24's method definition and the packet it serves, the
@@ -15,13 +22,15 @@ P0-A-3 (coordinator §7, rows A0–A3).
 
 - **Parse (A0).** `methods.llm.parse`: a pure, schema-free function from a rendition, an authored
   model-facing batch and its citation frame to the stored batch on that rendition, with a report
-  of how every citation resolved and every quote was located ([D4 §4.3](../../design/D4-method-catalog.md#43-output-form-and-post-processing),
+  of how every citation resolved and every quote was located, each outcome a typed code, and the
+  cascade version that derived it ([D4 §4.3](../../design/D4-method-catalog.md#43-output-form-and-post-processing),
   [D2 §7.3](../../design/D2-schema-and-guidelines.md#73-to-json-schema-for-llm-claim-proposals),
   [D1 §10.3](../../design/D1-knowledge-representation.md#103-stability-limits); ADR-0019). It is
   early because fixtures, consolidation and golden items all derive stored forms with it
   (coordinator decisions 2 and 6).
-- **M24 and its packet (A1).** The `agent.opus` method definition (`select`, `input_digest`,
-  configuration) and `methods.llm.packet`, the assembler, as a pure function of recorded inputs
+- **M24 and its packet (A1).** The `agent.opus` method definition (`select`, `input_digest` with
+  its `agent_reuse: by_unit` form, configuration) and `methods.llm.packet`, the assembler, as a
+  pure function of recorded inputs
   with caps in characters ([D4 §4.1](../../design/D4-method-catalog.md#41-the-packet),
   [D4 M24](../../design/D4-method-catalog.md#m24-agentopus), [D8 §3](../../design/D8-agent-and-query-interfaces.md#3-work-packets-and-size-caps);
   coordinator decision 5).
@@ -62,6 +71,7 @@ the math grammar; the golden server reaches it only through one spawned worker p
 | A hosted model replaces the session (ADR-0015 revisit) | An M10/M16 configuration against a hosted endpoint, called by the pipeline | Packets, prompts, A0 | The queue tools remain for the session's work |
 | A second domain pack | The pack's guideline (its `<!-- core -->` sections), schema, compiled reference and worked examples | Everything here: packets, prompts and parse name no predicate | — |
 | An email thread's segment kinds | The packet header names the segment kind; locators carry kinds (D1 §3.4) | The cascade, which is text-based | — |
+| A guideline section edit under `agent_reuse: by_unit` (phase 1, once the guideline is no longer frozen) | The section's text, and the section → unit-feature mapping when the edit changes what it applies to (§3.2) | M24's digest, the packets, the prompt parts as served | Every unit whose applicable sections are unchanged: its task stays `reused` |
 | Another golden author model | `golden.pass`'s declared `model` and the agent file's `model:` (an ADR-0011 revisit) | The golden tools | — |
 
 ## 2. Contracts
@@ -72,6 +82,9 @@ the math grammar; the golden server reaches it only through one spawned worker p
 |---|---|---|
 | Canonical JSON, content digest, segment keys, `core/tex.py` tokenizer and drop list | D1 §10.1, coordinator decision 13; [foundations](foundations.md) P0-F-2a | A0 (token step, stored anchors), A1 (packet hash, digests) |
 | D1 value, condition and binding shapes; batch items in both forms; the citation-frame model; the generic stored-item models | D1 §5–§7, D2 §7.3; foundations P0-F-2b | A0, A1, A2 |
+| Frame resolution (`core/frame.py`'s `resolve_frame` on I0's resolver) with typed failure codes; complete translations (T1's core half), typed references, `ExternalReference` and the stored batch's rendition reference | D1 §10.3, TM §7; coordinator decisions 21, 23; foundations P0-F-2b, P0-F-2c (codes), P0-F-2e | A0, A1 |
+| The generated vocabularies (`FrameFailureReason`, `DropReason` and the rest) and the unit-feature vocabulary declared in `system`; JSON Schemas with a `$id` per model revision; the payload-schema registry | ADR-0020, ADR-0022; TM §9, §11; [model and projections](model-and-projections.md) P0-M-1, P0-M-3, P0-M-4 | A0 (codes), A1 (`by_unit`, `read_instructions`, `payload_schema_id`) |
+| `agent_reuse: by_unit` defined, with the section → unit-feature mapping and where a pack declares it | D6 §4, D2 §10, §12, D4 M24, D7 §8, as amended at P0-D-2; coordinator decision 15, §9.2 RC13 | A1 (M24's digest) |
 | Locator generator and resolver with refusal, over a rendition's segments, including `sentence` segments | D1 §3.4; [ingest and math](ingest-and-math.md) P0-I-0 | A0 (frame resolution), A1/A2 (frames for served packets) |
 | Rendition content (canonical text, segment tree with kinds, attributes and statement-kind hints, sentences), title and section path, the per-rendition macro table, `author_markup` observations | D1 §3, D4 M01–M03, D3 §6.2; ingest and math P0-I-1a (functions), P0-I-1b (rows) | A0, A1 |
 | The standing-context function (unit → at most six `cN` sentences from the rendition's recorded `scope` observations) and the M13 version | D4 §4.1, M13; ingest and math P0-I-2a | A1, A2 |
@@ -79,7 +92,7 @@ the math grammar; the golden server reaches it only through one spawned worker p
 | Compiled artifacts per schema version, resolved from a method config's (compiler, kind) references: the model-facing JSON Schema, the annotator reference, the rule set, with hashes | D2 §7, §7.5, D3 §3; [schema and rules](schema-and-rules.md) P0-S-1, P0-S-1b | A1 (prompt parts, digest), A2 |
 | Batch conformance, reference and type checks with item paths; the batch→candidate adapter; M19 at `at: batch` with the `guideline:` group, reading symbols with `core/tex.py` | D2 §7.4, D5 §8.2, D4 §4.3 steps 1 and 3 as amended; coordinator decision 3; schema and rules P0-S-2 | A1 (`propose_claims`), A2 (`write_golden`) |
 | Repository writes on the caller's connection: `claim_proposal` observations (`batch`, `authored`, `citation_frame`, `rejected`, `rationale`), `ops.intervention` | D1 §10.2, D3 §5 (Writers), §6–§7; foundations P0-F-4 | A1, A2 |
-| Runs with `reference_run_id`; task creation calling `select` and `input_digest` and recording `packet_hash`; agent leases (30 minutes, renewed by any call, `attempt` fencing, release), leasing restricted to a candidate set; the agent completion primitive in the caller's transaction (fenced completion, the held-open outcome that keeps the first rejection in `ops.task.error`, twin settlement, `NOTIFY cs_agent_task_done`) | D6 §3–§4, D3 §4, §8; coordinator decisions 4, 15, 16; orchestration P0-O-1 | A1, A2 |
+| Runs with `reference_run_id`, model revision, schema version, key scheme and the `agent_reuse` option; task creation calling `select` and `input_digest` and recording `packet_hash`; agent leases (30 minutes, renewed by any call, `attempt` fencing, release), leasing restricted to a candidate set; the agent completion primitive in the caller's transaction (fenced completion, the held-open outcome that keeps the first rejection in `ops.task.error`, twin settlement, `NOTIFY cs_agent_task_done`) | D6 §3–§4, D3 §4, §8; coordinator decisions 4, 15, 16; orchestration P0-O-1 | A1, A2 |
 | Golden sets and units (unit key, authored rendition, split); the golden run (kind `golden`, `parent_run_id` naming the run whose renditions and M13 output its packets read) and its pass A and B tasks | D7 §3.1, D3 §7, §8; [evaluation and goldens](evaluation-and-goldens.md) P0-E-1 | A2 |
 | The golden store (`evaluate/goldens.py`): `record_pass`, `record_agreement`, `mark_adjudicated` and `settle_golden_run`, writing `eval.golden_*` rows through foundations' repository primitives | D7 §3.2–§3.5, D3 §7; evaluation and goldens P0-E-1 | A2 (`write_golden`) |
 | Alignment of two claim sets: agreement by tier and predicate, and the diff (matched with differing fields, A-only, B-only, entities) | D7 §3.3–§3.4, §5; evaluation and goldens P0-E-2a | A2 (agreement, the pass-C packet), A3 |
@@ -91,8 +104,8 @@ the math grammar; the golden server reaches it only through one spawned worker p
 
 | Contract | Design owner | What this document implements | Consumers |
 |---|---|---|---|
-| Parse: (rendition, authored batch, frame) → stored batch + citation report | D4 §4.3, D2 §7.3, D1 §10.3, D5 §5.6; ADR-0019 | `methods.llm.parse` (A0) | foundations P0-F-3 (fixture acceptance), consolidation P0-C-1 (fixture and reused proposals), evaluation P0-E-1/E-2b (golden items, D3 §7), A1, A2 |
-| M24 `agent.opus` | D4 M24, §1; D2 §12.1 | the method, its configuration model and digest, registered with the registry (A1) | orchestration P0-O-1/O-2 (task creation, reuse, policies) |
+| Parse: (rendition, authored batch, frame) → stored batch + citation report with typed codes; the cascade version; T1's cascade half | D4 §4.3, D2 §7.3, D1 §10.3, D5 §5.6; ADR-0019; TM §7 | `methods.llm.parse` (A0) | foundations P0-F-3 (fixture acceptance), consolidation P0-C-1 (fixture and reused proposals), evaluation P0-E-1/E-2b (golden items, D3 §7), A1, A2 |
+| M24 `agent.opus` | D4 M24, §1; D2 §12.1; D6 §4 (`by_unit`) | the method, its configuration model and digest (both forms), registered with the registry (A1) | orchestration P0-O-1/O-2 (task creation, reuse, policies) |
 | The packet, agent and golden modes, caps in characters | D4 §4.1, D8 §3 | `methods.llm.packet` (A1) | M24's digest, `read_unit`, `read_golden_unit`; M10 in phase 1 |
 | Prompt parts with hashes | D4 §4.2, D2 §10 | `methods/llm/prompts/` and the part assembly (A1) | M24's and `golden.pass`'s digests; `read_instructions`, `read_golden_unit` |
 | The main MCP server | D8 §1–§3; ADR-0015 | `intervene` main profile, `ci mcp serve`, `ci direct`, `.mcp.json`, the in-process `Client(mcp)` fixture (A1) | the session; orchestration's agent barrier (`NOTIFY`) |
@@ -115,16 +128,27 @@ batch (P0-F-2b's generic stored items, which P0-S-1's stored-form adapter valida
 The function reads no database, clock or randomness that reaches its output; per-quote timings are
 report-only diagnostics.
 
-**Frame resolution first.** Each frame entry is resolved with P0-I-0's resolver on the rendition and
-checked against its recorded text (D1 §10.3). Outcomes: `resolved`; `relocated`, when the locator is
-refused or selects a sentence with other text but exactly one sentence of the rendition carries the
-recorded text (the D7 §3.5 rule, applied to every authored batch; the new locator is reported so a
-consumer can rewrite its frame); `unresolved` otherwise. The batch's `unit_ref` resolves the same way
-to the unit segment. A consumer decides what `unresolved` means: evaluation marks the golden unit
-stale (D7 §3.5); consolidation falls back as D5 §5.6 states; submission cannot meet it, because the
-frame was generated on the same rendition. The case it exists for: a reused proposal whose packet
+**Frame resolution first.** Each frame entry is resolved with foundations' `resolve_frame` on P0-I-0's
+resolver and checked against its recorded text (D1 §10.3). Outcomes: `resolved`; `relocated`, when the
+locator is refused or selects a sentence with other text but exactly one sentence of the rendition
+carries the recorded text (the D7 §3.5 rule, applied to every authored batch); `unresolved` otherwise.
+Every entry that does not resolve as recorded carries a `FrameFailureReason` code (M1's generated
+vocabulary; coordinator decision 23; [R07](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r07)): `LocatorRefused`'s typed reasons, plus
+`cited_not_in_frame`, `not_in_served_packet`, `text_differs` and `not_a_sentence`. Report messages are
+projections of the codes. The batch's `unit_ref` resolves the same way to the unit segment. A
+consumer decides what `unresolved` means: evaluation marks the golden unit stale (D7 §3.5);
+consolidation falls back as D5 §5.6 states; submission cannot meet it, because the frame was
+generated on the same rendition.
+
+**A re-location is reported, never written.** The case it exists for: a reused proposal whose packet
 text is unchanged while an edit elsewhere on the page lengthened a sentence locator's prefix (D1
-§10.3), so packet hash and reuse hold but the old locator is ambiguous. *Proposed.*
+§10.3), so packet hash and reuse hold but the old locator is ambiguous. For `relocated` the report
+carries the locator P0-I-0's generator gives the matching sentence on this rendition. A0 writes
+nothing: a consumer that keeps the re-location writes a **new citation-frame version** with a parent
+link to the version it resolved, and never rewrites a frame in place, because a result or a reused
+proposal may already cite the old one (coordinator decision 2; [R06](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r06)). Evaluation does this
+for golden passes (P0-E-1, D7 §3.5); any other consumer that persists a re-location follows the same
+rule. *Proposed.*
 
 **The cascade** follows D4 §4.3's order (*Tested* in the spike instruments for the exact and
 spacing steps on 735 real S0 quotes, record `s0.stored`; the token step *Measured on synthetic
@@ -156,8 +180,15 @@ Every span is snapped outward to word boundaries; several equal matches are reco
 step outcome and the cascade continues. Using the same tokenizer as the token form keeps one
 definition of a TeX token (coordinator decision 13).
 
+**The cascade version.** `parse.py` declares a `CASCADE_VERSION`, bumped by any change that can alter a
+stored form: a step, its order, a cutoff, the window widening, snapping, or a `regex` or rapidfuzz bump
+that changes an output. The report carries it. It is the derivation identity that `claim_proposal`
+payloads (A1) and golden items (P0-E-1) record beside the schema version ([R06](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r06); DA-009,
+[coordinator §11](../phase-0_2026-10-28.md#11-findings-disposition)).
+
 **Unlocated quotes** get the cited sentence's span with `coarse: true`; an item without a valid cited
-sentence is dropped and counted (D2 §7.3's `coarse?`, D5 §5.6; D4 §4.3 as amended). Phrase leaves
+sentence is dropped and counted with a `DropReason` code (D2 §7.3's `coarse?`, D5 §5.6; D4 §4.3 as
+amended). Phrase leaves
 (`{"t": "phrase", "text", "sentence"?}` and condition `phrase` nodes) are located the same way, from
 their cited sentence or, without one, over the frame's sentences, and stored with `start`, `end`,
 `text` and optional `coarse`.
@@ -170,10 +201,21 @@ of a local entity is the earliest statement among the claims that mention it (su
 entity-valued qualifiers, `variable`/`family_param` bindings, `pred` arguments), as the spike does.
 An extent that cannot be resolved is reported and the field left out, never guessed.
 
-**The report** lists per citation the frame outcome, and per located item its path
-(`claims[3].evidence[0]`), quote, cited sentence, step, matches, scores, fuzzy counts, timeouts and
-coarse or dropped. Submission turns it into the result's unlocated quotes; consolidation counts
-coarse and dropped items; evaluation reads frame outcomes.
+An authored `outside` statement carries an `ExternalReference` descriptor: the citing sentence and its
+quote, and the author's link target when there is one ([RC11](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#rc11); [R04](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r04)). A0 locates the
+quote like an evidence quote and stores the descriptor with its span. It neither keys nor resolves the
+reference: keys are foundations' (P0-F-2e) and resolution is consolidation's (P0-C-1).
+
+**Translation T1** (coordinator decision 21; TM §7). A0 is T1's cascade half; `validate` holds its name
+map and checks (P0-S-2). The stored batch carries the typed rendition reference that P0-F-2e adds. A test
+derived from the model enumerates the authored item slots, each mapped to a stored slot or declared
+omitted: sentence ids are replaced by offsets, and a refusal is a typed frame or drop code (DA-005).
+
+**The report** carries the cascade version and lists per citation the frame outcome with its code
+(and, for `relocated`, the new locator), and per located item its path (`claims[3].evidence[0]`),
+quote, cited sentence, step, matches, scores, fuzzy counts, timeouts and coarse or dropped with its
+code. Submission turns it into the result's unlocated quotes; consolidation counts coarse and dropped
+items by code (DA-013); evaluation reads frame outcomes and re-locations.
 
 ### 3.2 M24 and its digest (A1)
 
@@ -197,6 +239,26 @@ P0-O-0's types.
   amended). Task ids never enter it, so re-running M13 with identical output leaves M24 tasks reused,
   while a guideline, schema, rule, prompt or packet change requests new proposals (D4 §1 rule 4,
   coordinator decision 15). *Proposed.*
+- **`agent_reuse: by_unit`** (coordinator decision 15; [§9.2](../phase-0_2026-10-28.md#92-rule-changes-of-the-domain-model-alignment-review) RC13 as decided, which keeps
+  the option and defines it instead of removing it as [R07](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r07) proposed; DA-017). The run option is
+  orchestration's, recorded on the run (P0-O-1); D6 §4, D2 §10 and D4 M24 define it at P0-D-2; M24
+  implements it here. Under it the digest's `guideline` input is not the part's hash but the hash of
+  the canonical JSON of the applicable sections' ids and texts together with the mapping's hash:
+  - the **mapping** states, per guideline section, the unit features it applies to, as values of the
+    unit-feature vocabulary declared in `system` (P0-M-1);
+  - a unit's **features** come from its recorded inputs only (the unit view: segment kind,
+    statement-kind hint, claim-bearing hint and whatever else the vocabulary declares), so they are as
+    fixed as the packet;
+  - a section **applies** to a unit when the unit has one of its features, or when its declared
+    features are ones the recorded features cannot exclude; a section with no declaration applies to
+    every unit. The mapping over-approximates: a section left out wrongly would hide a change from the
+    digest, while one included needlessly only asks again.
+
+  Every other input is unchanged, so a schema, rule, prompt-part or packet change still asks again for
+  every affected unit, and so does a change of the mapping, through its hash. The served `guideline`
+  part is the same under both forms (§3.4); only what the digest covers differs. The two forms hash
+  different inputs, so the first run with the option asks again once for every unit; later section
+  edits then ask again only where they apply. *Proposed.*
 
 ### 3.3 The packet assembler (A1)
 
@@ -258,13 +320,14 @@ a column and a second copy of what the inputs already determine.
 | Part | Source | Served to |
 |---|---|---|
 | `system` | `methods/llm/prompts/extract.md` (how to read a packet, cite `sN`/`cN` with exact quotes, use local refs, set `unit_ref` to the unit key, keep rationales to two sentences, fix or explain warnings) | `read_instructions` |
-| `guideline` | the run's guideline version, the §10 sections tagged `<!-- core -->` (D2 §10) | `read_instructions` |
+| `guideline` | the run's guideline version, the §10 sections tagged `<!-- core -->` (D2 §10); served whole under either digest form (§3.2) | `read_instructions` |
 | `reference` | the compiled annotator reference with its worked examples (D2 §7.5; phase 0 `examples: reference`) | `read_instructions`, `read_golden_unit` |
-| `format` | `methods/llm/prompts/format.md`: the D2 §7.3 outline and the notes that are part of the format | `read_instructions`, `read_golden_unit` |
-| `schema` | the compiled model-facing JSON Schema; optional reading, since the reference states every exact shape | `read_instructions`, `read_golden_unit` |
+| `format` | `methods/llm/prompts/format.md`: the D2 §7.3 outline and the notes that are part of the format, including the `outside` statement's `ExternalReference` descriptor (citing sentence, quote, and the link target when the text gives one; [RC11](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#rc11)) | `read_instructions`, `read_golden_unit` |
+| `schema` | the compiled model-facing JSON Schema, carrying the `$id` of the run's model revision (`…/<model revision>/<name>`, P0-M-3; [R10](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r10)); optional reading, since the reference states every exact shape | `read_instructions`, `read_golden_unit` |
 | `golden` | `methods/llm/prompts/golden.md` (passes A and B) or `golden_c.md` (pass C), and the full guideline (D7 §3.2) | `read_golden_unit` |
 
-Each part has a hash: of its text, or the compiled artifact's hash. They are identical for all tasks
+Each part has a hash: of its text, or the compiled artifact's hash (for `schema` it covers the
+`$id`, so a new model revision is a new part). They are identical for all tasks
 of a run and mode, so the session reads them once per run. Each part is served on its own and
 paginated at 24,000 characters (about 8,000 tokens at D8 §3's conservative three characters per
 token), below Claude Code's 10,000-token warning and its 50,000-character file threshold (interfaces
@@ -324,7 +387,8 @@ interfaces note §1.1). The pipeline, outside any transaction:
    packet (the frame attached is the one served); `schema_hash`, when given, equals the run's;
    `unit_ref` equals the task's unit key (else an error at path `unit_ref`).
 2. **Conformance, references and types** through P0-S-2 against the run's schema version: rejected
-   items with D8-style paths (`claims[3].qualifiers.param_values.mean: …`).
+   items with D8-style paths (`claims[3].qualifiers.param_values.mean: …`), a wrong-kind reference
+   with its code and an `outside` statement without a descriptor among them (coordinator decision 21).
 3. **Parse** (A0) on the task's rendition with the served frame: the stored form of the accepted
    items, and the unlocated quotes.
 4. **M19 at the batch call site** through P0-S-2's adapter and runner: `guideline:` warnings and rule
@@ -334,14 +398,22 @@ interfaces note §1.1). The pipeline, outside any transaction:
 
 **Outcomes.** A first submission with any error, unlocated quote or warning is held open: P0-O-1's
 primitive records the result in `ops.task.error`, keeps the task `awaiting_agent` and renews the
-lease, and the result says `task_open: true`. Warnings count because D2 §7.4 asks the author to fix
-the batch or say why the rule does not apply; a batch kept on purpose is resubmitted with a
-`rationale` saying why. A second submission, or a clean first one, completes the task: `done` with a
-`claim_proposal` observation whose stored `batch` holds the accepted items (unlocated quotes as coarse
-spans), `authored` and `citation_frame` the submission as served, and `rejected` the rest; `empty`
-with no observation when a clean batch has no items (D4 §1 rule 2). An all-rejected second submission
-is still `done`, so the malformed-output rate counts it and no later run asks for the packet again.
-The unlocated-quote reading (D7 §7) therefore counts the stored batches, after the one correction.
+lease, and the result says `task_open: true`; frame and drop problems reach it as A0's codes.
+Warnings count because D2 §7.4 asks the author to fix the batch or say why the rule does not apply; a
+batch kept on purpose is resubmitted with a `rationale` saying why. A second submission, or a clean
+first one, completes the task: `done` with a `claim_proposal` observation whose stored `batch` holds
+the accepted items (unlocated quotes as coarse spans), `authored` and `citation_frame` the submission
+as served, and `rejected` the rest; `empty` with no observation when a clean batch has no items (D4 §1
+rule 2). An all-rejected second submission is still `done`, so the malformed-output rate counts it and
+no later run asks for the packet again. The unlocated-quote reading (D7 §7) therefore counts the
+stored batches, after the one correction.
+
+**The derivation is recorded.** The `claim_proposal` payload also records what derived its `batch`:
+the cascade version (§3.1) and the run's schema version, whose compiled names the stored form uses
+([R06](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r06); DA-009). A later reader can then tell which cascade and which names produced it, and a
+consumer that derives the batch again under another cascade or schema version knows it must. These are
+fields of foundations' `claim_proposal` payload model; the repository writes the row's
+`payload_schema_id` from the registry (P0-F-4, P0-M-4).
 
 **The transaction.** One transaction on one pooled connection: P0-O-1's completion primitive first
 (fenced on `attempt`; it settles every `awaiting_agent` twin with the same method configuration and
@@ -420,7 +492,8 @@ them (D7 §4).
    (D7 §3.2).
 3. One transaction: lock the `eval.golden_unit` row (`SELECT … FOR UPDATE`), so two subagents writing
    A and B of one unit at the same moment serialize; store the pass through P0-E-1's golden store
-   (`record_pass`: authored batch, frame, `decisions`, `session_ref`, `model`, `inputs`: guideline
+   (`record_pass`: authored batch, frame as the pass's first frame version, `decisions`,
+   `session_ref`, `model`, `inputs`: guideline
    version, reference hash, packet hash, M13 version, and for C the A and B pass ids); write an
    intervention (`golden_write` or `golden_adjudicate`) through P0-F-4; call the completion
    primitive. When this is the second of A and B, compute the agreement (below), store it on the
@@ -499,21 +572,24 @@ design owner. The record lives in `docs/design_review/evidence/<date>_open-d8-2-
 
 | Package | Scope | Prerequisites | Acceptance | Revealing failure case |
 |---|---|---|---|---|
-| P0-A-0 | Parse: frame resolution with re-location, the cascade, stored conversion, the report | P0-F-2b, P0-I-0, P0-I-1a | Re-deriving the S0 batch sets on the production renditions reproduces the spike's stored offsets and step counts (`s0.stored`: 733 exact, 2 at spacing), and the S0-R2 sets their stored forms, with anchors equal by locator; the perturbation set reaches the L-10 figures (at least 523 found and 428 exact, at least 514 at IoU ≥ 0.9, no mid-word cut); on a rendition with an edit elsewhere on the page the spans are the same text at shifted offsets; a frame whose sentence text changed is `unresolved`, one whose locator lengthened is `relocated` | A dropped-word quote longer than 64 characters: a character-level window comes back one token short, the token step must return the whole span; a `c1` quote whose text also occurs in the unit must land in the context sentence |
-| P0-A-1 | M24, the packet assembler with its sentence map, prompt parts, the main server and its tools, submission, the submission harness (`intervene.testing`), `record_direction`, `ci mcp serve`, `ci direct`, `.mcp.json`, the `Client(mcp)` fixture | P0-O-1 (with P0-O-0), P0-S-1, P0-S-1b, P0-S-2, P0-I-1a, P0-I-2a, P0-A-0; P0-F-3's `fixtures/s0` files for its tests; P0-I-2b for the M13-rerun reuse test | D9 P0.7's: a v1 reference batch completes a task, errors and warnings come back per item; golden-mode packets reproduce `packet_v1/units/*.md` (unit key in the header) and the pack's `reference/E*` exactly; P0CL-05's packet half (identical packet hashes whatever order the queue is worked in, and after a promotion during the run); P0CL-02's M24 half (an M13 rerun with identical output leaves M24 tasks `reused`); P0CL-14 (a pathological formula returns within its bound, and a fresh interpreter importing the main server and serving a submission has no grammar module loaded); twins settled end to end across two `complete` runs; the harness submits every `fixtures/s0` trace batch through the tools and each completes on its first submission | A promotion between task creation and `read_unit`: an assembler reading the promoted pointer serves a packet whose hash differs from the task's |
+| P0-A-0 | Parse: frame resolution with typed codes and reported re-location, the cascade and its version, stored conversion (T1's cascade half, the `ExternalReference` descriptor), the report | P0-F-2e, P0-I-0, P0-I-1a | Re-deriving the S0 batch sets on the production renditions reproduces the spike's stored offsets and step counts (`s0.stored`: 733 exact, 2 at spacing), and the S0-R2 sets their stored forms, with anchors equal by locator; the perturbation set reaches the L-10 figures (at least 523 found and 428 exact, at least 514 at IoU ≥ 0.9, no mid-word cut); on a rendition with an edit elsewhere on the page the spans are the same text at shifted offsets; a frame whose sentence text changed is `unresolved` with `text_differs`, one whose locator lengthened is `relocated` with its new locator, and A0 writes no frame; every frame failure and dropped item carries its code (DA-013); the T1 completeness test passes (DA-005); an `outside` descriptor is stored with its span; the report carries the cascade version | A dropped-word quote longer than 64 characters: a character-level window comes back one token short, the token step must return the whole span; a `c1` quote whose text also occurs in the unit must land in the context sentence; a re-location that edits the frame it resolved instead of reporting the new locator |
+| P0-A-1 | M24, the packet assembler with its sentence map, prompt parts, the main server and its tools, submission, the submission harness (`intervene.testing`), `record_direction`, `ci mcp serve`, `ci direct`, `.mcp.json`, the `Client(mcp)` fixture | P0-O-1 (with P0-O-0), P0-S-1, P0-S-1b, P0-S-2, P0-I-1a, P0-I-2a, P0-A-0, P0-D-2, P0-F-2e; P0-F-3's `fixtures/s0` files for its tests | D9 P0.7's: a v1 reference batch completes a task, errors and warnings come back per item; golden-mode packets reproduce `packet_v1/units/*.md` (unit key in the header) and the pack's `reference/E*` exactly; P0CL-05's packet half (identical packet hashes whatever order the queue is worked in, and after a promotion during the run); P0CL-02's M24 half (an M13 rerun with identical output, played by a test-registered `scope` method writing identical payloads, leaves M24 tasks `reused`; the real M13 rerun repeats it at qualification, after P0-I-2b); DA-017 on a fixture guideline (§6): under `agent_reuse: by_unit` a section edit outside a unit's applicable sections leaves its task `reused` and an applicable edit asks again; every `claim_proposal` records its cascade and schema versions (DA-009); the `schema` part carries the run's model-revision `$id`; P0CL-14 (a pathological formula returns within its bound, and a fresh interpreter importing the main server and serving a submission has no grammar module loaded); twins settled end to end across two `complete` runs; the harness submits every `fixtures/s0` trace batch through the tools and each completes on its first submission | A promotion between task creation and `read_unit`: an assembler reading the promoted pointer serves a packet whose hash differs from the task's; a `by_unit` mapping that leaves out a section the unit's recorded features cannot exclude, so an edit to it is reused unasked |
 | P0-A-2 | The golden profile and its page-text variant, `golden.pass`, the golden tools, agreement in the spawned worker, pass-C creation, the work-queue skill, the golden agent file, the separation probe | P0-A-1, P0-E-1, P0-E-2a | D9 P0.7's: a golden pass without model or inputs is refused; pass B from pass A's instance is refused; concurrent A and B writes for one unit yield exactly one pass-C task; the stored agreement equals E2a's result computed directly; a worker timeout leaves no pass and the next call succeeds; the page-text variant writes no `eval` row and changes no task; the probe record shows a distinct instance id per subagent invocation | Two subagents writing A and B of one unit at once: without the unit-row lock neither sees the other and no pass C is ever created |
 | P0-A-3 | The OPEN-D8-2 comparison on `core12` | P0-A-1, P0-E-2a, P0-E-3 | The evidence record with both arms' readings, the pre-registered rule and the operator's decision; `max_units` set accordingly | Arms sharing one configuration: the second arm's tasks are reused from the first and the comparison measures nothing |
 
 **P0-A-0.** Mechanisms: `regex` 2026.9.29 patterns with `timeout` and `BESTMATCH`/`fuzzy_counts`;
 rapidfuzz 3.14.6 `fuzz.partial_ratio_alignment`, `distance.Levenshtein.opcodes`,
-`process.extractOne` (D4 §4.3; text-math note §6, L-10); `core/tex.py`'s tokenizer. Evidence:
+`process.extractOne` (D4 §4.3; text-math note §6, L-10); `core/tex.py`'s tokenizer; foundations'
+`resolve_frame` with F2c's codes, F2e's typed references and `ExternalReference`, and M1's
+`FrameFailureReason` and `DropReason`. Evidence:
 `s0.stored`, `parse.regex-probe`, `s1.rendition-identity` (production canonical text equals the spike
 renditions, so offsets are comparable), and `s5.keys-property` through the frozen `core/tex.py`.
 
 **P0-A-1.** Mechanisms: FastMCP 4.1.3 lifespan with the pool, synchronous tools, Pydantic results,
 `ToolResult` packets, the loose batch parameter, in-process `Client(mcp)` (D8 §1; interfaces note
 §1.1–§1.6, IE-1, IE-3, IE-4); psycopg 3.3 `NOTIFY` inside the submission transaction (through P0-O-1);
-Typer 0.27 for the two commands. Evidence: `s0r2.inputs`, `s0r2.scores` (the rendering),
+Typer 0.27 for the two commands; M1's unit-feature vocabulary for `by_unit`, M3's `$id`-carrying
+schemas and M4's registry ids. Evidence: `s0r2.inputs`, `s0r2.scores` (the rendering),
 `s0.sizes` (output budget), `s4.reference-diff` and `s4.sizes` (prompt parts and their pages),
 `s4.batch-validation` and `s4.rules` (through P0-S-1/S-2), `s6.queue` (leasing and fencing through
 P0-O-1).
@@ -535,8 +611,10 @@ synthetic reference run builder. Async tests use anyio's pytest plugin, which `m
 
 - **P0-A-0** establishes that each cascade step finds what it should and nothing it should not
   (inline sentences per step, ambiguity, word snapping, a regex timeout forced by a tiny bound and
-  recorded), that conversion resolves anchors, scopes and extents, that frame outcomes are classified
-  correctly, and the identity and perturbation checks above (corpus-gated, skipped without
+  recorded), that conversion resolves anchors, scopes, extents and `outside` descriptors, that frame
+  outcomes are classified correctly with their codes and a re-location returns the new locator without
+  touching the frame, the T1 completeness test derived from the model, and the identity and
+  perturbation checks above (corpus-gated, skipped without
   `docs/statistics_corpus`). A Hypothesis property draws word-aligned substrings of real sentences and
   respaced or delimiter-swapped variants: the exact or spacing step must return the original span,
   and no result cuts a word. Expected spans come from the original text, never from a second run of
@@ -544,8 +622,14 @@ synthetic reference run builder. Async tests use anyio's pytest plugin, which `m
 - **P0-A-1** establishes the packet (golden-mode equality with the v1 packets and `reference/E*`;
   agent mode with the bootstrap list and with a synthetic reference run; splitting under the cap with
   shared context and continuous ids; hash equality across two processes with different hash seeds),
-  the digest (a prompt-part change gives a new digest; an identical M13 rerun gives the same), and the
-  tools through `mcp_client`: leasing and renewal, parts and pagination at 24,000 characters,
+  the digest (a prompt-part change gives a new digest; an identical M13 rerun gives the same), the
+  `by_unit` form on a fixture guideline, since guideline v1 is frozen for phase 0 (coordinator
+  decision 9): a fixture mapping over three sections, one applying to definition units only, one to
+  every claim-bearing unit and one undeclared; an edit to the first leaves a non-definition unit's
+  task `reused` and asks again for a definition unit, an edit to the undeclared one asks again for
+  every unit, and a mapping edit asks again for every unit (DA-017), the derivation recorded on every
+  stored proposal, and the tools through `mcp_client`: leasing and renewal, parts and pagination
+  at 24,000 characters,
   per-item results with paths, the held-open first submission and its record in `ops.task.error`,
   completion, a lost lease committing nothing, twins, `NOTIFY` received by a listening connection at
   commit and never on rollback, the pathological-formula bound and the import check, `record_direction`

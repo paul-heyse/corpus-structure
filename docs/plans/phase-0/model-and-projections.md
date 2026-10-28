@@ -143,8 +143,12 @@ The annotation bar is AGENTS.md's: each declaration has a named consumer.
 - the new sets `Stage`, `SkipReason`, `MarkupKind`, `InterventionTargetKind`, `JudgmentTargetKind`,
   `JudgmentDecision`, `JudgmentConfidence`, `VerificationVerdict`, `DropReason`,
   `FrameFailureReason` (introduced by F2c as hand enums and taken over by M1 with the same members) and
-  `ConfidenceSource` are added, together with `GpuMode` and `AgentMode`, which
-  `settings.py` and the run-options class import instead of restating (coordinator decision 26);
+  `ConfidenceSource` are added, together with `GpuMode` (imported by `settings.py` and the `RunOptions`
+  class) and `AgentMode` (`RunOptions` only; no setting supplies it; coordinator decision 26). Members
+  follow the consumers: `SkipReason` (`scope`, `limit`, `budget`, `prerequisite_failed`,
+  `run_cancelled`; orchestration §3.5) and `DropReason` (including `orphaned_premise`, `identity_cycle`,
+  `malformed_evidence`; consolidation §3.7); the `system` method class carries a `ConfidenceSource`
+  attribute. `ClaimModality` is schema-version-scoped, so packs may add members with properties;
 - `PolicyChain` gains `gaps`.
 
 **Consumer migration in the same package:**
@@ -207,7 +211,8 @@ TM §6:
 - **Run and versioning tables and columns:**
   - `UNIQUE (run_id, id)` as the target of same-run composite FKs;
   - `kb.entity.resolved_to_id` for `ExternalReference`;
-  - `ops.run.cut_at` and the run's revision, schema and scheme columns;
+  - `ops.run.cut_at`, `ops.run.cut_m19_task_id` (the sealed final M19 task, DA-015) and the run's revision,
+    schema and scheme columns;
   - `meta.model_revision` and `meta.payload_schema` (TM §9);
   - citation-frame versions: a frame-version relation for golden passes (and any authored frame), each
     version with a parent link, written by the consumer of a re-location (E1), never rewritten
@@ -233,6 +238,7 @@ PostgreSQL implementation does not compare enum values (Interface-checked, lib n
 - the BM25 partial index, with `'english'::regconfig` and the kind predicate read from
   `_model.sql.SEARCH_BLOCK`;
 - views, through SQLAlchemy 2.1's `CreateView`, or `DDL` where needed, carrying the run-cut predicate;
+  the run's own finalize-stage outputs, which finish after the cut, are read by `cut_m19_task_id`;
 - the extension assertion, by version: it reads F5's record of expected extension versions (DA-018),
   never mere presence.
 

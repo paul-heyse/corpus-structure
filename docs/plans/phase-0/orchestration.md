@@ -1,19 +1,30 @@
 # Phase 0: orchestration
 
 **Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md), which
-owns shared decisions, contracts, the dependency graph and build findings.
+owns shared decisions, contracts, the dependency graph and build findings. S4 and S6 have reported
+and were folded in (X2 accepted, 2026-10-28; ADR-0016–0018 accepted). Nothing here is built.
+**Revised** 2026-10-28 for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md)
+and its [target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md)
+("TM"), as the coordinator decided them (§9.2): the run's cut is sealed in a short transaction
+([R08](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r08), RC10);
+operational vocabularies and policy symbols are typed ([R07](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r07),
+RC14); runs record their model revision, schema version and key scheme (coordinator decision 16);
+source profiles are validated against the run's schema version (RC12); `agent_reuse: by_unit` is kept
+and defined (RC13 as decided). The settings boundary follows coordinator decision 26.
 
 Packages P0-O-0, P0-O-1 and P0-O-2 (coordinator §7: O0, O1, O2). The basis is the design as amended
 on 2026-10-28: [D6](../../design/D6-orchestration-metrics-policies.md) in full,
 [D3 §4](../../design/D3-database.md#4-ops-methods-policies-runs-and-tasks) and
 [§8](../../design/D3-database.md#8-runs-snapshots-and-reads),
 [D4 §1](../../design/D4-method-catalog.md#1-the-method-contract), [D8 §4](../../design/D8-agent-and-query-interfaces.md#4-cli),
-[ADR-0015](../../adr/0015-agent-work-queue.md) and [ADR-0018](../../adr/0018-policy-routed-escalation.md)
-(proposed until S4 reports). The mechanisms come from the
+[ADR-0015](../../adr/0015-agent-work-queue.md) and [ADR-0018](../../adr/0018-policy-routed-escalation.md),
+both accepted. The routes the alignment review adds are P0-D-2's amendments of D6 §3.1, §4 and
+§7.1–§7.2, D3 §4 and §8 and D4 §1 (coordinator §9.2); until they land, this document states the
+decided rule and cites the review. The mechanisms come from the
 [store note](../../design_review/evidence/2026-10-28_library-store/README.md) §3–§5, the
 [interfaces note](../../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) §2 and the
-[schema-rules note](../../design_review/evidence/2026-10-28_library-schema-rules/README.md) §5. Nothing
-is built. Every design statement here is **Proposed** unless it carries another label.
+[schema-rules note](../../design_review/evidence/2026-10-28_library-schema-rules/README.md) §5. Every
+design statement here is **Proposed** unless it carries another label.
 
 ## 1. What this document builds
 
@@ -23,13 +34,16 @@ Orchestration turns a domain pack and a corpus into recorded runs. It builds:
   registry that turns `methods.yaml` into method and configuration rows, resolved per run;
 - **project initialization** and the pack-version upsert that `ci run` and `ci ingest` perform
   first;
-- **runs** with their recorded reference run and corpus hash;
+- **runs** with their recorded reference run, corpus hash, model revision, schema version and key
+  scheme, and their resolved options;
 - **tasks** with reuse by content digest;
 - **queueing**: claiming, leases and `attempt` fencing for workers and for the agent, and the agent
   completion primitive with its twin rule;
+- **the run's cut**: `ops.run.cut_at`, sealed in a short transaction that also records the final
+  M19 task;
 - **the phase 0 stage graph** and its barriers, including the calls into consolidation at assemble
   and finalize, the measure stage and the call into evaluation;
-- **fates**: a recorded fate for every eligible unit, and the one reader of fates;
+- **fates**: a recorded fate for every eligible unit, as of the cut, and the one reader of fates;
 - **routing and scope**: policies compiled to rule-engine `Chain`s; slices, the run's corpus and its
   scope; the agent barrier; successive `complete` runs over the `phase0-golden` scope, with an
   in-process run driver for tests;
@@ -56,7 +70,9 @@ Orchestration turns a domain pack and a corpus into recorded runs. It builds:
 | Change | Where it lands | What stays unchanged |
 |---|---|---|
 | A second domain pack | its `methods.yaml`, `policies.yaml`, `slices.yaml` and source profile | The loaders, the registry's reference resolution, the stage runner and fates: no module under `orchestrate/` names a statistics method, metric, slice or page. The toy pack (P0-C-4) is the check |
-| The local LLM tier (M10, phase 1) | a new method with `llm` resources and an async `llm` worker kind; the phase 1 graph adds `route` and `escalate` with iterations; budgets produce `skipped(budget)` | Reuse, leases, fencing, twins, fates and the policy loader. M10's digest holds its packet hash like M24's (D4 §1) |
+| The local LLM tier (M10, phase 1) | a new method with `llm` resources, an async `llm` worker kind and a declared `ConfidenceSource`; the phase 1 graph adds `route` and `escalate` with iterations; budgets produce `skipped(budget)`; the policy gains its priors under that source's key | Reuse, leases, fencing, twins, fates, the seal (which still precedes the final pass, so the sealed M19 task stays the final one) and the policy loader. M10's digest holds its packet hash like M24's (D4 §1) |
+| A new stage, skip reason or confidence source | a member in the `system` model, regenerated by P0-M-1 and CHECKed by P0-M-2 | The runner, the fate reader and the policy loader, which read the generated vocabularies |
+| Encoders with a result-neutral resource choice (the GPU mode) | the setting's default and the run's resolved option | Digests and configurations: no setting enters a `cfg:` key |
 | Encoders and new segment kinds (tables, email threads) | encoder methods and the `encoder` worker (D6 §3.2, §5); new kinds change which segments are annotation units (D1 §3.4) | The propose stage enumerates annotation units through ingest and math's function, so new kinds need no orchestration change |
 | Per-unit dataflow instead of stage barriers (OPEN-D6-1, phase 2) | the stage runner only | Tasks, reuse, leases and fates |
 | A rule with `or`/`not` conditions | M19 and the schema compilers | Policy conditions are already full rule-engine expressions |
@@ -67,16 +83,19 @@ Orchestration turns a domain pack and a corpus into recorded runs. It builds:
 
 | Contract | Owner (design · this series) | Used by |
 |---|---|---|
-| Settings built once per entry point; the Typer app, group registration and `--json` emission; the shared conftest and per-session database `ci_test_<pid>` | D9 §3, §4, D8 §4 · [foundations](foundations.md) P0-F-1 | every package's commands and tests |
+| Settings built once per entry point (result-neutral by contract, never stored, hashed or recorded as configuration; coordinator decision 26); the Typer app, group registration and `--json` emission; the shared conftest and per-session database `ci_test_<pid>` | D9 §3, §4, D8 §4 · [foundations](foundations.md) P0-F-1 | every package's commands and tests; O1 (option resolution, §3.4) |
 | `canonical_json`, `digest`, `make_key` (the `cfg:` key), the canonical-decimal helper for loaders | D1 §10.1 · P0-F-2a | O0 (`payload_hash`), O1 (config hashes, `input_hash`, `corpus_hash`) |
-| Observation payload and operations JSON models (`ops.run.options`, `ops.policy_rule.action`, `trigger_metrics`, `cost`) | D3 §6.2–§6.3 · P0-F-2b (their content follows §3 here) | O0 drafts, O1, O2 |
-| Metadata and migration 0001: the queue's partial indexes, `task_cache` without `run` tasks; the views `kb.run_observation`, `kb.run_rendition` and `ops.run_measurement` with the `finished_at` cut; the pool lent to SQLAlchemy; `get_or_create`, `store_rendition`, `upsert_spans`, `write_observations`, `copy_rows`, `insert_returning`; `classify_error` | D3 §3–§8 · P0-F-4 | O1 (every write), the Reader |
+| The model's generated vocabularies: `Stage`, `SkipReason`, `TaskUnitType`, `RunKind`, `RunStatus`, `TaskStatus`, `ConfidenceSource`, `JudgmentDecision`, `JudgmentConfidence`, `PolicyChain`, `GpuMode`, `AgentMode`, regenerated at `core/vocab.py`; the `system` classes for run options and policy files, with their declared defaults; the unit-feature vocabulary of `by_unit` | coordinator decisions 1, 23, 26 · [model and projections](model-and-projections.md) P0-M-1 | O0 (`TaskUnitType`, `ConfidenceSource`), O1 (stages, skip reasons, options), O2 (typed symbols) |
+| Observation payload and operations JSON models (`ops.policy_rule.action`, `trigger_metrics`, `cost`); payload classes and their registered versions | D3 §6.2–§6.3 · P0-F-2b, reworked by P0-F-2c–2e; registry P0-M-4 | O0 drafts, O1, O2 |
+| The generated `MetaData` and the overlay: `ops.run.cut_at`, `ops.run`'s model-revision, schema-version and key-scheme columns, CHECKs on `ops.task.stage`, `ops.task.reason` and `ops.policy_rule.unit_type`; the queue's partial indexes; the views `kb.run_observation`, `kb.run_rendition` and `ops.run_measurement` with the run-cut predicate | coordinator decision 18 · P0-M-2 | O1 (every write), the Reader |
+| Migration 0001 and the repository: the pool lent to SQLAlchemy; `get_or_create`, `store_rendition`, `upsert_spans`, `write_observations` (writing `payload_schema_id`), `copy_rows`, `insert_returning`; `classify_error` | D3 §1, §3–§8 · P0-F-4 | O1 (every write), the Reader |
+| The model revision and the key scheme in force: `meta.model_revision` registered by `ensure()`; the key scheme of F2d's `KeySchema`, frozen as scheme 1 by F2e | coordinator decisions 16, 20 · P0-S-1b, P0-F-2d, P0-F-2e | O1 (recorded on every run, §3.4) |
 | Locators: parse, resolve and refuse, `LocatorIndex`, unit keys, pages from the profile's `root`; `annotation_units(rendition)` | D1 §3.4 · [ingest and math](ingest-and-math.md) P0-I-0, P0-I-1a | O1 (`unit_key`), O2 (slices, scope, the propose stage's candidates) |
-| Source profiles: `load_profile`, `root`, `index`, `language`; statement-kind and `claim_bearing` hints in segment attributes | D4 M01, D2 §12.1 · P0-I-1a | O1 (`ci project init`), O2 (unit context) |
+| Source profiles: `load_profile` returning the typed profile model (typed against core vocabulary, RC12), `root`, `index`, `language`; statement-kind and `claim_bearing` hints in segment attributes | D4 M01, D2 §12.1 · P0-I-1a; profiles in change records P0-M-4 | O1 (`ci project init`, the run-start check, §3.4), O2 (unit context) |
 | The phase 0 methods as D4 §1 methods: `ingest.html` (M01 with M03), `profile.segments` (M02), `extract.math` (M09), `normalize.formula` (M11), `resolve.symbol_scope` (M13) · `agent.opus` (M24) · `golden.pass` · `validate.rules` (M19) | D4 §1, §3 · P0-I-1b, P0-I-2b · [agent interface](agent-interface.md) P0-A-1, P0-A-2 · [schema and rules](schema-and-rules.md) P0-S-2 | the phase 0 graph and registry (runtime; O tests use stubs) |
 | `schema.registry.ensure()`; compiled artifacts by (schema version, compiler, kind); `ci:claim_bearing` per `StatementKind` value from the schema lookup | D2 §7, D3 §3 · P0-S-1, P0-S-1b | O1 (pack upsert, artifact references), O2 (unit context) |
-| The rule-language helper `schema/rulelang.py` (typed contexts, `mapping_attribute_lookup=False`, UTC, one context per rule, banned builtins) | D2 §7.4, D6 §7.1; ADR-0018 · P0-S-2 | O2 (policy `Chain`s) |
-| `consolidate.run_pass(conn, run_id, pass_, m19_task_id) -> PassReport` (counts, M19 per-rule counts, consumed propose tasks) | D5 §1, §11 · [consolidation and queries](consolidation-and-queries.md) P0-C-1 | O1 (assemble, finalize, measure) |
+| The rule-language helper `schema/rulelang.py` (typed contexts, `mapping_attribute_lookup=False`, UTC, one context per rule, banned builtins) and its literal check (string literals compared with an enum-typed symbol checked against that vocabulary at compile) | D2 §7.4, D6 §7.1; ADR-0018; coordinator decision 23 · P0-S-2 | O2 (policy `Chain`s) |
+| `consolidate.run_pass(conn, run_id, pass_, m19_task_id) -> PassReport` (counts by code, M19 per-rule counts, consumed propose tasks); at finalize it reads the pool as of the run's cut through pool and interchange's loader | D5 §1, §11 · [consolidation and queries](consolidation-and-queries.md) P0-C-1; [pool and interchange](pool-and-interchange.md) P0-P-1 | O1 (assemble, finalize, measure) |
 | `golden_units(project, label)` (a set's unit keys and their hash); `settle_golden_run` finishing a golden run through O1's `finish_run`; `evaluate.score`, a run-level method of the `evaluate` stage | D7 §3.1, §5 · [evaluation and goldens](evaluation-and-goldens.md) P0-E-1, P0-E-2b | O2 (`{golden_set}`), O1 (golden runs, the evaluate stage) |
 | Spike evidence | `s6.queue` (claiming, a kill mid-batch, fencing, `LISTEN`/`NOTIFY`), `s6.ddl` (queue indexes, views) · design-spikes S6 | O1 |
 
@@ -87,13 +106,14 @@ Orchestration turns a domain pack and a corpus into recorded runs. It builds:
 | Method-contract types and the registry interface (`core/method.py`) | D4 §1 | §3.1 (P0-O-0) | ingest and math P0-I-1b, P0-I-2b; agent interface P0-A-1, P0-A-2; schema and rules P0-S-2; consolidation P0-C-1 |
 | The registry: named configurations, reference resolution, the run's recorded configuration map; the top-level `methods.yaml` sections it loads as data (`aliases:`, `math:`, `binders:`) | D4 §1, D3 §3, D6 §7.1, D2 §12.1 | §3.2 (P0-O-1) | every method; policies; P0-A-2 (pass-C configuration); foundations' label rules (P0-F-2b's `LabelRules`, from `aliases:`), M09 and M13 (`math:`, `binders:`), consolidation and evaluation (`aliases:`, `math:`) |
 | Pack-version upsert (schema through S1b, guideline, policy, slices) and project initialization | D8 §4 | §3.3 (P0-O-1) | P0-I-1b (`ci ingest`), P0-C-3, P0-E-1 |
-| Runs: creation with `reference_run_id` and `corpus_hash` at insert, kinds, options, transitions, finishing, cancelling, liveness | D3 §4, D6 §2 | §3.4 (P0-O-1) | P0-I-1b (kind `ingest`), P0-E-1 (kind `golden`), P0-A-1 and P0-C-1 (read the reference run), P0-E-2b |
-| Task creation with reuse, `packet_hash`, terminal-at-creation fates, `prerequisite_failed` | D6 §2, §4 | §3.5 (P0-O-1) | P0-E-1 (pass A and B tasks), P0-A-2 (pass-C task) |
+| Runs: creation with `reference_run_id`, `corpus_hash`, the model revision, schema version and key scheme at insert; kinds; resolved options; the run-start profile check; transitions, finishing, cancelling, liveness | D3 §4, D6 §2; coordinator decisions 16, 19, 26 | §3.4 (P0-O-1) | P0-I-1b (kind `ingest`), P0-E-1 (kind `golden`), P0-A-1 and P0-C-1 (read the reference run, the scheme), P0-E-2b (records the scheme) |
+| Task creation with reuse, `packet_hash`, terminal-at-creation fates with `SkipReason` codes, `prerequisite_failed` | D6 §2, §4 | §3.5 (P0-O-1) | P0-E-1 (pass A and B tasks), P0-A-2 (pass-C task) |
 | Worker claiming, leases, fencing, retries | D6 §3.2, D3 §8 | §3.6 (P0-O-1) | every worker method, through the runner |
-| Agent leases with a candidate filter; the completion primitive (held-open outcome, twins, `NOTIFY`, run-row lock) | D6 §3.1, §4; D8 §2.1 | §3.7 (P0-O-1) | P0-A-1 (`queue_next`, `release`, `propose_claims`), P0-A-2 (`golden_next`, `write_golden`) |
+| Agent leases with a candidate filter; the completion primitive (held-open outcome, twins, `NOTIFY`, the run-row share lock that orders it against the seal) | D6 §3.1, §4; D8 §2.1 | §3.7 (P0-O-1) | P0-A-1 (`queue_next`, `release`, `propose_claims`), P0-A-2 (`golden_next`, `write_golden`) |
+| The run cut: `ops.run.cut_at`, sealed in a short transaction, and the sealed final M19 task | D6 §3.1, D3 §4, §8 (RC10, at P0-D-2); [R08](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r08) | §3.8 (P0-O-1) | P0-C-1 and P0-P-1 (the pool as of the cut), P0-C-2 (coverage, `explain`), P0-E-2b (scores as of the cut) |
 | The stage runner and the phase 0 graph; M19 per-rule counts; phase 0 metrics | D6 §2, §6, D3 §5 | §3.8 (P0-O-1) | P0-C-1 (called), P0-E-2b (called) |
-| The fate reader | D6 §1, D3 §8 | §3.9 (P0-O-1) | P0-C-2 (coverage), P0-E-2b (`ci promote`), `ci status` |
-| Policies | D6 §7; ADR-0018 | §3.10 (P0-O-2) | P0-C-2 (`explain unit`, the "why a method ran" query of D3 §9) |
+| The fate reader, as of the cut | D6 §1, D3 §8 | §3.9 (P0-O-1) | P0-C-2 (coverage), P0-E-2b (`ci promote`), `ci status` |
+| Policies with typed symbols, checked literals and confidence-source blocks | D6 §7; ADR-0018; coordinator decision 23 | §3.10 (P0-O-2) | P0-C-2 (`explain unit`, the "why a method ran" query of D3 §9); phase 1 confidence (D5 §6.3) |
 | Slices, corpus and scope, with the recorded resolution | D6 §8, D2 §12.2 | §3.11 (P0-O-2) | P0-C-2, P0-C-3, P0-C-4, P0-E-2b |
 | The agent barrier, the `complete`-run protocol and the in-process run driver | D6 §2, D7 §7 item 5 | §3.12 (P0-O-2) | P0-C-3, P0-C-4, P0-E-2b's golden-expectation run, qualification |
 | `ci project init`, `ci run`, `ci run cancel`, `ci status`, `ci tasks` | D8 §4 | §3.13 | the operator, qualification |
@@ -108,13 +128,19 @@ The objects of D4 §1's block, as amended. The types live in `core` because the 
 without importing orchestration.
 
 - **`Method`** is a `Protocol` with D4 §1's attributes and calls, plus `tier`, which
-  `ops.method_config.tier` records. `input_digest` returns a **`Digest`**, a named tuple of the
-  digest bytes and `packet_hash`.
+  `ops.method_config.tier` records, and `confidence_source`, a `ConfidenceSource` member or none:
+  the source its observations contribute to confidence (D5 §6.2; R07, DA-016). The registry records
+  it, and the policy's confidence blocks are keyed by it (§3.10). `input_digest` returns a
+  **`Digest`**, a named tuple of the digest bytes and `packet_hash`.
 - **`UnitRef`** (unit type, id, unit key) and **`UnitView`** (the ref, its document and rendition
-  where they apply, and the run view).
-- **`RunView`**: the run's id, kind, phase, reference run, schema, guideline and policy versions,
-  its options, and a **`Reader`**. The reader returns what a method reads, already scoped to the
-  run:
+  where they apply, and the run view). The unit type is the generated `TaskUnitType`, the one
+  vocabulary that `Method.unit_type`, `ops.task.unit_type` and `ops.policy_rule.unit_type` share
+  (RC14). O0 types it with today's `vocab.TaskUnitType`; P0-M-1 regenerates `vocab.py` at the same
+  import path, so O0 is unchanged by it (coordinator §7). Whether `span` stays a member is P0-D-2's
+  decision: it stays only if a method's unit is a span.
+- **`RunView`**: the run's id, kind, phase, reference run, model revision, schema, guideline and
+  policy versions, key scheme, its resolved options, and a **`Reader`**. The reader returns what a
+  method reads, already scoped to the run:
   - the run's documents and its rendition of each (`kb.run_rendition`);
   - rendition content: canonical text, segments, sentences, the macro table;
   - the run's effective observations of a rendition by method and kind (`kb.run_observation`);
@@ -127,13 +153,22 @@ without importing orchestration.
   run's rendition selection. One implementation keeps every method from rediscovering those joins,
   and that is the place where a text-only digest once went wrong (P0CL-02).
 - **`ObservationDraft`** (kind, rendition or segment, span offsets, payload, score, outcome) and
-  **`MeasurementDraft`** (metric, scope, value, detail). **`UnitResult`** holds the ref, an outcome
-  (`produced`, `empty` or `failed`, D4 §1 rule 2), the drafts, an error and the cost. For
-  `ingest.html` it also holds F2a's `RenditionContent` and the build's `parse_detail`. O1 turns
-  drafts into rows: spans through `upsert_spans`, then `write_observations`. So foundations' writers
-  take rows, not drafts, and F4 does not depend on O0.
+  **`MeasurementDraft`** (metric, scope, value, detail). An observation draft's payload is an
+  instance of a model payload class, and the draft names that class and its version, so the row is
+  written with the `payload_schema_id` the registry holds for it (coordinator decision 19; P0-M-4).
+  It also names its `ConfidenceSource`, which defaults to the method's. **`UnitResult`** holds the
+  ref, an outcome (`produced`, `empty` or `failed`, D4 §1 rule 2), the drafts, an error and the
+  cost. For `ingest.html` it also holds F2a's `RenditionContent` and the build's `parse_detail`. O1
+  turns drafts into rows: spans through `upsert_spans`, then `write_observations`. So foundations'
+  writers take rows, not drafts, and F4 does not depend on O0.
 - **`Resources`** (worker kind `cpu`, `encoder`, `llm` or `agent`; batch size; maximum concurrency)
-  and **`MethodContext`** (the run view, the reader, the settings a method may read, a logger).
+  and **`MethodContext`** (the run view, the reader, a settings view, a logger). The settings view is
+  a frozen `MethodSettings`, a narrowed, typed copy of the result-neutral settings only (in phase 0
+  the data and model-cache paths; the LLM endpoint as a locator in phase 1). The GPU mode reaches a
+  method as the run's resolved option (§3.4), not as a setting. A method never receives `Settings`
+  itself, and anything that can change its output
+  (timeouts, thresholds, model identities) is configuration, hashed into `cfg:` (coordinator
+  decision 26; D2 §12.1).
 - **Configuration references**, as `Annotated` markers on `Config` fields. They carry D4 §1's
   merge, with named profiles and embedded configurations resolved to their content, and D3 §3's
   artifact references, without the registry naming any section, profile or compiler:
@@ -166,20 +201,45 @@ is one, since `evaluate` sits above `orchestrate`, so its method object is regis
 point (`cli`) into the same registry. Tests build their own registries from stubs.
 
 **Loading `methods.yaml`.** PyYAML `safe_load` reads the file into a model with `version`, the
-top-level sections and `configs: {method: {name: params}}`. Validation:
+top-level sections and `configs: {method: {name: params}}`. The loader reads the file and nothing
+else: no settings source, no environment and no `BaseSettings` class takes part, and each `Config`
+is a frozen plain `BaseModel` (coordinator decision 26: validating a `BaseSettings` reads the
+environment, so a stored `params` re-read through one would mix it in). Validation:
 
 - a configuration of an unregistered method is refused;
 - unknown params fail the method's `Config` (`extra="forbid"`);
 - a float parameter becomes its canonical decimal before hashing, through F2a's loader helper
   (D1 §10.1).
 
+**The overlay `defaults ⊕ named params`** is an own pure function, never the library's settings
+layering. Its depth is **whole top-level replacement** (decided here, 2026-10-28, because it fixes
+which documents `cfg:` calls equal before key scheme 1 freezes in P0-F-2e):
+
+- the method's defaults are its `Config` field defaults (D4 §1: defaults live with the method);
+- each top-level field the named params give replaces the default whole. A nested object or map
+  given there (a macro table under `math:`, a sentence-splitter profile, alias head words) replaces
+  the default object; it is never merged key by key;
+- a field the named params omit takes its declared default;
+- the result is the `Config` instance validated from the named params alone, and `cfg:` hashes its
+  complete canonical dump, defaults included, so a changed default is a new configuration.
+
+Deep merging was rejected: a nested map would then inherit default entries its author never wrote
+and could not remove without a deletion syntax, and two spellings of one effective document (a
+nested key restated or inherited) would need a normalization to hash alike. Under whole
+replacement, each named configuration states its nested objects exactly, at the cost of restating
+one when a single entry changes. References (`ConfigRef`, `PackSection`, `SourceProfileRef`,
+`ArtifactRef`) are resolved after the overlay, on the result.
+
 **Resolution per run.** Every named configuration of every registered method is resolved when the
 run is created:
 
-1. Take the method's defaults, overlay the named params, and resolve the references against the
-   run's schema version, the current `methods.yaml` and `sources/`.
+1. Overlay the named params on the method's defaults (above), and resolve the references against
+   the run's schema version, the current `methods.yaml` and `sources/`.
 2. Hash the canonical params to the `cfg:` key, and get-or-create the `ops.method` and
-   `ops.method_config` rows (D3 §4).
+   `ops.method_config` rows (D3 §4). The registry records each method's declared
+   `ConfidenceSource` beside its tier (an attribute of the `system` method class, generated by
+   P0-M-1 and P0-M-2), so the policy's confidence blocks have a declared key to attach to (§3.10;
+   DA-016).
 3. Record the map from `<method>/<name>` to config hash in `ops.run.options.configs` at insert.
 
 Every later lookup for the run reads that map: a policy action's name (D6 §7.1 as amended), A2
@@ -223,9 +283,51 @@ between the read and the insert (D3 §4, "recorded, not looked up"). The run sto
 that writes `reference_run_id` afterwards. Status changes are conditional updates
 (`WHERE status = :from`), and an illegal transition raises.
 
-The options are a frozen model stored as canonical JSON:
+**What the insert records** (coordinator decision 16), each immutable afterwards:
 
-- `agent_mode`: `wait` is the default for kind `slice`, `complete` for every other kind;
+- `model_revision_id`: the running code's model revision, as `meta.model_revision` holds it
+  (registered by `ensure()`, P0-S-1b; the checked-in revision log is the authority, P0-M-1). The
+  schema version `ensure()` returns has a hash that covers the model revision id (coordinator
+  decision 1), so a run never pairs code with another revision's schema version;
+- `schema_version_id`, with the guideline and policy versions as before;
+- the key scheme: the version of F2d's `KeySchema` that this build keys under (scheme 1 once P0-F-2e
+  freezes it). Consolidation keys under it and evaluation records it beside its scores (decision 20;
+  [R02](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r02));
+- `reference_run_id`, `corpus_hash` and the resolved options (below).
+
+These are the run's columns that P0-M-2 generates from the `system` model. A stored run's options
+are read by the run's recorded model revision: when the options class changes, the change record
+declares the upcast (P0-M-4), and a reader refuses a revision it cannot read. Whether
+`ops.run.options` also carries its own `payload_schema_id` is model and projections' call; nothing
+here depends on it.
+
+**The options** are a `system` model class (`RunOptions`, declared in the model by P0-M-1 with its
+defaults; its class structure follows P0-M-5's variant), frozen, a plain `BaseModel` and never a
+`BaseSettings`, stored as canonical JSON with **every option resolved**: no stored field means "the
+current setting". Each option is resolved once at creation, in this order (coordinator decision 26):
+
+1. the explicit option (a `ci run` flag, or the API argument);
+2. a setting, only for an option declared result-neutral: in phase 0 that is `gpu_mode`, from
+   `Settings.gpu`. No setting supplies any other option;
+3. the model's declared default.
+
+The resolved value is recorded; re-reading the stored options never consults the environment
+(DP-24). The options:
+
+- `agent_mode` (`AgentMode`): the model declares `wait` as the default for kind `slice` and
+  `complete` for every other kind. It decides which agent tasks a run resolves, so it is not
+  result-neutral and no setting supplies it;
+- `agent_reuse`: `full` (the default) or `by_unit`, admitted in phase 0 (RC13 as decided; coordinator
+  decision 15; DA-017). Under `by_unit`, M24's digest covers only the guideline sections applicable
+  to the unit, through the declared section → unit-feature mapping in `system`, which
+  over-approximates: a section that recorded features cannot exclude applies to every unit. The
+  digest is M24's and P0-A-1 implements it; orchestration records the option, passes it to
+  `input_digest` through `RunView.options`, and matches reuse by equal `input_hash` as for every
+  method (§3.5). A `by_unit` run therefore reuses exactly the earlier tasks whose `input_hash`
+  equals the one computed under the run's mode; whether a digest computed under one mode can equal
+  one computed under the other is M24's to define (P0-A-1). With guideline v1 frozen (coordinator
+  decision 9), phase 0 exercises it with a fixture guideline (coordinator ruling 5);
+- `gpu_mode` (`GpuMode`): recorded as resolved. Phase 0 has no GPU method, so nothing reads it yet;
 - `corpus`: a slice name, default `first-pass`, or an explicit document list for `ci ingest PATH…`;
   the expanded document keys are recorded;
 - `scope`: the slice name with its expanded entries and their hash (§3.11);
@@ -235,9 +337,22 @@ The options are a frozen model stored as canonical JSON:
   The golden-expectation run names `agent.opus/expectation` this way. Its distinct config hash keeps
   its tasks from settling with, or being reused by, live agent tasks.
 
-`agent_reuse` and the GPU mode are refused in phase 0: the guideline is frozen (coordinator decision
-9) and no method uses a GPU. `corpus_hash` is D3 §4's, computed at insert. `code_commit` is
-`git rev-parse HEAD`, with a marker when the tree is dirty.
+Where the GPU mode is recorded is a note for P0-D-2: D6 §5 has the orchestrator record "the mode and
+the vLLM launch arguments in the run notes", while D3 §4's `ops.run.options` comment lists the GPU
+mode among the options. This document records the resolved mode in `options.gpu_mode`, where the
+precedence above is resolved and recorded, and leaves the vLLM launch arguments (phase 1) to the run
+notes; P0-D-2 amends D6 §5 to say so, or decides otherwise.
+
+**The run-start profile check** (RC12; DA-010). After the configurations resolve, every source
+profile a configuration names (`SourceProfileRef`, §3.1) is checked against the run's schema
+version: each statement kind, segment-kind hint and `claim_bearing` hint it names must be a member of
+the run's `StatementKind` (core members plus the pack's) or of the core vocabulary it is typed
+against. The typed profile model is P0-I-1a's, the schema lookup P0-S-1's, and profiles appear in
+change records (P0-M-4). A profile naming an unknown kind refuses the run's creation, naming the
+profile, field and value, before any task exists.
+
+`corpus_hash` is D3 §4's, computed at insert. `code_commit` is `git rev-parse HEAD`, with a marker
+when the tree is dirty.
 
 **Kinds:**
 
@@ -250,8 +365,12 @@ The options are a frozen model stored as canonical JSON:
   is adjudicated.
 - `experiment` and `rescore` are refused in phase 0.
 
-**Finishing** stamps `finished_at = clock_timestamp()` while holding the run row's update lock
-(§3.7, §3.8). The fate rule depends on that stamp.
+**The cut and finishing.** The fate rule depends on `cut_at`, not on `finished_at`
+([R08](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r08); RC10).
+A run with a stage graph is sealed at the start of finalize (§3.8) and stamps `finished_at` last,
+after measure and evaluate. `finish_run` on a run without a final pass (kind `ingest`, or a `golden`
+run settled by evaluation) seals and finishes in one short transaction, so the cut rule is the same
+for every kind.
 
 **Liveness** (D6 §2, orphaned runs). `ci run` opens one dedicated autocommit connection outside the
 pool for the run's life. On it, it takes `pg_advisory_lock(<namespace>, run_id)`, and in `wait`
@@ -290,6 +409,12 @@ computed at creation because the task's fate is known then, and the packet is fi
 
 **Fates written at creation:**
 
+- **Reasons are codes.** `ops.task.reason` takes members of the generated `SkipReason` only (TM §11;
+  coordinator decision 23), checked by a CHECK (P0-M-2): `scope`, `limit`, `budget` (phase 1) and
+  `prerequisite_failed` for skips, and `run_cancelled` for cancellation (§3.4). Coverage groups by
+  this column, so a misspelt reason fails the write instead of forming its own group. `ops.task.stage`
+  likewise takes members of the generated `Stage`, and the phase 0 graph (§3.8) names its stages by
+  those constants.
 - **`skipped`** fates are inserted with their `reason`, `finished_at` and the sentinel
   `input_hash` `skip:<reason>`, with no digest computed. An out-of-scope unit's packet is never
   assembled. A sentinel can never match: `task_cache` covers only `done` and `empty`, and twins only
@@ -336,8 +461,10 @@ each worker builds its registry and settings in its initializer and opens its ow
 the grammar's `setitimer` timeout needs (D4 M11). `workers=0` runs the same loop inline on the
 orchestrator's main thread, for tests and small slices.
 
-**Evidence.** The claiming statement and fencing are source-read (store note §4). `s6.queue` gives
-the concurrency evidence, and the statement stays provisional until that record exists.
+**Evidence.** The claiming statement and fencing are source-read (store note §4) and **Tested** by
+`s6.queue` (passed, 2026-10-28): 10,000 tasks claimed in batches by concurrent worker processes, a
+worker killed holding a batch, a stalled worker's late write fenced out, and `LISTEN`/`NOTIFY` with
+a timeout, on PostgreSQL 18.6.
 
 ### 3.7 Agent leases, the completion primitive and twins (P0-O-1)
 
@@ -368,7 +495,7 @@ observations and intervention.
   earlier result in `ops.task.error`, it is a first imperfect submission. The primitive writes
   `first_result` into `error` and renews the lease, both fenced on `(id, attempt, status =
   'awaiting_agent')`. It returns `held`. The caller writes nothing else, and no run lock is needed,
-  because no status changes.
+  because no status or `finished_at` changes.
 - **Completed.** A clean submission, or a second one, takes these steps:
   1. Lock the task's run row `FOR SHARE`.
   2. Run the fenced update to `outcome` with `finished_at = clock_timestamp()`. Zero rows raises
@@ -381,27 +508,37 @@ observations and intervention.
   4. Send `pg_notify('cs_agent_task_done', <run id>)`. It is delivered only at commit (store note
      §4), and the payload is informational.
 
-**Why the share locks and `clock_timestamp()`.** A run's final transaction holds its row's update
-lock while it reads the pool and stamps `finished_at` (§3.8). A completion's transaction may have
-begun long before it reaches the primitive, so `now()` could predate a pass whose read it missed.
-With the share lock taken first and the stamp taken after it, every completion falls on one side:
+**Why the share locks and `clock_timestamp()`.** The seal (§3.8) takes the run row's update lock,
+stamps `cut_at = clock_timestamp()` after it holds the lock, and commits at once
+([R08](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r08)). A
+completion's transaction may have begun long before it reaches the primitive, so `now()` could
+predate a cut it missed; the share lock is taken first and the stamp after it. Every completion
+therefore falls on one side of the cut:
 
-- it commits before the final pass reads, and counts and is consolidated; or
-- it waits for the run to finish, is stamped later, and counts as unresolved for that run.
+- it holds the share lock before the seal asks for the row. The seal waits for its commit, so its
+  stamp precedes `cut_at`, it is committed before the final pass reads, and it counts and is
+  consolidated; or
+- the seal holds the row first. The completion waits only for the seal's one-row update, is stamped
+  after `cut_at`, and counts as unresolved for that run. After the seal commits, a completion takes
+  its share lock without waiting at all.
 
-Twin settlement locks every run it writes to for the same reason. A twin in a run that is in its
-final transaction waits for that transaction. Locks are taken in id order and the final transaction
-locks only its own run, so no cycle forms. The cost is that a submission to a run's task waits while
-that run finalizes, which is seconds at phase 0 volume. D6 §3.1 states the share lock on the
-completing task's run. The locks on the twins' runs and the `clock_timestamp()` stamps are this
-document's realization of it.
+No task of the run can be stamped at or before `cut_at` once the seal commits, so the set the final
+pass reads (`t.finished_at <= r.cut_at`) is fixed by a timestamp predicate, not by holding a lock
+across the pass (DA-024). Twin settlement locks every run it writes to for the same reason, and is
+ordered against each run's seal in the same way: a twin settled before that run's cut is in, one
+settled after is out. Locks are taken in id order and a seal locks only its own run, so no cycle
+forms. The cost is that a submission to a run's task waits while that run's seal updates one row.
+D6 §3.1 states the share lock on the completing task's run; the locks on the twins' runs and the
+`clock_timestamp()` stamps are this document's realization of it, and P0-D-2 amends D6 §3.1 from
+the long update lock to the seal (RC10).
 
 **Twins at creation and lease.** Under Read Committed, a run's reuse insert and a concurrent
 completion can miss each other. The insert's lateral lookup runs before the completion commits, and
 the completion's twin update cannot see the uncommitted insert. That leaves an open task whose
 result already exists. Settling after creation commits, and again before each lease, closes the gap,
 so no packet is served after its result exists. Both settle points take the same share locks and
-stamps.
+stamps. A twin settled in a run that is already sealed is stamped after its cut and stays unresolved
+for that run (D6 §4).
 
 ### 3.8 The stage runner (P0-O-1)
 
@@ -416,50 +553,78 @@ policy chain) and its upstream methods:
 | `scope` | `resolve.symbol_scope/default` (M13) | M09, M11 |
 | `propose` | the `propose` chain (§3.10) | M24: M01, M13 |
 | `assemble` | one consolidation pass | — |
-| `finalize` | one consolidation pass with M19, then measure, evaluate and finish | — |
+| `finalize` | the seal; one consolidation pass with M19 as of the cut; then measure, evaluate and finish | — |
 
-A run of kind `ingest` has only the `ingest` stage. Scope and slice locators resolve after `ingest`,
-which selects the run's renditions (§3.11).
+Stage names are members of the generated `Stage` (§3.5). A run of kind `ingest` has only the
+`ingest` stage. Scope and slice locators resolve after `ingest`, which selects the run's renditions
+(§3.11).
 
 **Barriers.** A step is complete when none of its tasks is `pending` or `running`. Open agent tasks
 are the agent barrier's business (§3.12). A `failed` task in `ingest` fails the run (D6 §2). In
 later stages, downstream units get `prerequisite_failed`. Run statuses follow D6 §2: `running`
-through `assemble`, then `consolidating` (committed before the final transaction begins), then
-`finished`.
+through `assemble`, then `consolidating` from the seal, then `finished`.
 
 **Consolidation passes.** The orchestrator creates each pass's tasks itself, `running`, with
-`claimed_by = 'orchestrator:<pid>'` and attempt 1, and commits them:
+`claimed_by = 'orchestrator:<pid>'` and attempt 1:
 
 - the pass task (`consolidate.claims`, unit `run`);
-- at finalize, also the run-level M19 task (`validate.rules`, unit `run`).
+- at finalize, also the run-level M19 task (`validate.rules`, unit `run`) and the evaluate stage's
+  `evaluate.score` task, both never reused.
 
-At `assemble`, one transaction calls `consolidate.run_pass(conn, run, 'assemble', None)` and writes
-the pass task's fenced terminal status.
+At `assemble`, the pass task is created and committed, then one transaction calls
+`consolidate.run_pass(conn, run, 'assemble', None)` and writes the pass task's fenced terminal
+status. The run is not sealed, so the pass reads the run's current effective observations.
 
-At `finalize`, **the final transaction** does the following:
+**The seal** ([R08](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r08);
+RC10; DA-024, DA-015) opens finalize. It is one short transaction:
 
-1. Lock the run row `FOR NO KEY UPDATE`. That conflicts with the completions' `FOR SHARE`, but not
-   with the `FOR KEY SHARE` taken by the pass's own foreign-key inserts (PostgreSQL 18
-   documentation §13.3.2, Table 13.3, *Interface-checked* 2026-10-28).
-2. Stamp both tasks' `started_at = clock_timestamp()`.
-3. Call `consolidate.run_pass(conn, run, 'finalize', m19_task)`.
-4. Write the M19 per-rule counts from the `PassReport` as `ops.measurement` rows: metric
+1. Lock the run row with `SELECT … FOR NO KEY UPDATE`. That conflicts with the completions'
+   `FOR SHARE`, but not with the `FOR KEY SHARE` that foreign-key inserts referencing the run take
+   (PostgreSQL 18 documentation §13.3.2, Table 13.3, *Interface-checked* 2026-10-28).
+2. Create the finalize pass task, the M19 task and the `evaluate.score` task.
+3. In one conditional update (`WHERE status = 'running'`), stamp `cut_at = clock_timestamp()`, taken
+   after the lock is held, record the M19 task as the run's final M19 task, and set the status to
+   `consolidating`.
+4. Commit.
+
+The seal is the only writer of `cut_at` and of the final M19 task, and neither changes afterwards.
+Phase 0 has one finalize pass; in phase 1, whose route iterations add passes, the seal still precedes
+the final one, so the recorded task is always the final pass's (DA-015). Readers of M19 outcomes
+(`explain`, P0-C-2; the rule-warning reading, P0-E-2b) select that task's observations; they never
+guess the current pass. Where the final M19 task is stored (a column beside `cut_at`) is declared in
+the `system` model and generated by P0-M-2.
+
+**The final pass** is its own transaction, after the seal has committed:
+
+1. Stamp the pass and M19 tasks' `started_at = clock_timestamp()`, fenced on their attempt.
+2. Call `consolidate.run_pass(conn, run, 'finalize', m19_task)`. Consolidation loads the pool as of
+   the cut through pool and interchange's loader (P0-P-1), with the predicate
+   `t.finished_at <= r.cut_at`; it takes no lock on the run row, and a completion committing
+   meanwhile is excluded by the predicate.
+3. Write the M19 per-rule counts from the `PassReport` as `ops.measurement` rows: metric
    `rules.evaluated`, scope type `rule`, scope key the rule id, `task_id` the M19 task (D3 §5).
-5. Run the measure stage.
-6. Run the evaluate stage's `evaluate.score` task inside a savepoint. It is evaluation's run-level
-   method, created with the pass tasks and never reused. A failure there is rolled back to the
-   savepoint, the task is written `failed` with its error, and the run is scored later with
-   `ci eval RUN` (D8 §4). An evaluation defect therefore never discards a consolidated run.
-7. Write the tasks' terminal status, fenced, then the run's `finished` status with
-   `finished_at = clock_timestamp()`.
-8. Commit.
+4. Write the pass and M19 tasks' fenced terminal status.
+5. Commit. The run's knowledge rows are now complete and are never rewritten for this run.
 
-D6 §3.1's rule follows: the final pass sets `finished_at` in the transaction that read the pool.
-Consolidation runs on the orchestrator's main thread, where C1 parses claim values once per pass.
+**Then**, each in its own transaction over immutable rows:
 
-**Failure.** An exception before step 7 rolls the transaction back. A second transaction then writes
-the pass tasks `failed` with the error and the run `failed` (a consolidation invariant violation,
-D6 §2), and the run has no knowledge rows.
+- **measure** (below), reading fates as of the cut;
+- **evaluate**: the `evaluate.score` task (P0-E-2b), which scores as of the cut. A failure writes the
+  task `failed` with its error and the run still finishes; it is scored later with `ci eval RUN`
+  (D8 §4). An evaluation defect therefore never discards a consolidated run;
+- **finish**: a conditional update to `finished` with `finished_at = clock_timestamp()`, last.
+
+Typed queries refuse a run until it is `finished` (D8 §5), so nothing serves a run between its final
+pass and its finish. Consolidation runs on the orchestrator's main thread, where C1 parses claim
+values once per pass.
+
+**Failure.** An exception in the final pass rolls its transaction back. A second transaction then
+writes the pass tasks `failed` with the error and the run `failed` (a consolidation invariant
+violation, D6 §2), and the run has no knowledge rows from the final pass. An exception in measure
+fails the run the same way. The cut stays recorded on a failed run. An orchestrator that dies after
+the seal leaves the run `consolidating` and orphaned (§3.4); it is cancelled like any orphan, and a
+new run reuses what finished. Because the cut is fixed, re-running the final pass of a sealed run
+would be well defined, but phase 0 does not resume runs.
 
 **Measure** writes the phase 0 subset of D6 §6 as run metrics (no `task_id`):
 
@@ -489,26 +654,48 @@ run's scope. Its outcome is `empty` when no adjudicated unit is in scope.
 
 Terminal-at-creation tasks (`reused`, `skipped`) carry `finished_at` from creation (D3 §4).
 
-**The rule** is D6 §1's and D3 §8's: a finished run's fates are its tasks as of
-`ops.run.finished_at`. A task whose `finished_at` is later, or null, counts as unresolved for that
-run. §3.7 and §3.8 make the cut exact: `finished_at` is stamped in the transaction that read the
-pool, under a lock that every agent-task completion must pass.
+**The rule** is D6 §1's and D3 §8's, generalized from `finished_at` to the cut (RC10, amended in D6
+§3.1 and D3 §8 by P0-D-2): a sealed run's fates are its tasks as of `ops.run.cut_at`. A task whose
+`finished_at` is later, or null, counts as unresolved for that run. §3.7 and §3.8 make the cut exact:
+`cut_at` is stamped after the seal holds the row lock that every agent-task completion and twin
+settlement must pass, and nothing of the run can be stamped at or before it afterwards. Completions
+after the seal are unresolved for the run, whatever happens to them later.
 
-**One definition.** The cut is the one comparison `t.finished_at <= r.finished_at`. It appears in
-the coverage query of D3 §9, `kb.run_observation` and `ops.run_measurement` (P0-F-4's views), and in
-the reader here, `fates(conn, run, *, stage='propose', documents=None, unit_keys=None)`. The reader
-returns rows of unit key, document, fate and reason, and `unresolved(conn, run)` counts the open
-ones. C2's coverage counts these rows, and E2b's `ci promote` requires `unresolved = 0`. For a run
-that has not finished, the reader gives the current statuses, which `ci status` shows as progress.
+**One definition.** The cut is the one comparison `t.finished_at <= r.cut_at`. It appears in the
+coverage query of D3 §9, `kb.run_observation` and `ops.run_measurement` (the views P0-M-2's overlay
+defines), in pool and interchange's loader (P0-P-1), and in the reader here,
+`fates(conn, run, *, stage='propose', documents=None, unit_keys=None)`. The reader returns rows of
+unit key, document, fate and reason (a `SkipReason`), and `unresolved(conn, run)` counts the open
+ones. C2's coverage counts these rows, measure and evaluate read them, and E2b's `ci promote`
+requires a finished run with `unresolved = 0`. For a run that has not been sealed, the reader gives
+the current statuses, which `ci status` shows as progress.
+
+**Run-level tasks are outside the fate rule.** Fates are the fates of eligible units. The finalize
+pass's own tasks (the pass, M19 and `evaluate.score`) finish after the cut by construction, so the
+cut views exclude their outputs. That is intended: the pool never reads M19 observations (D5 §8.1),
+and their readers select them through the seal's recorded final M19 task, not through the cut. The
+M19 per-rule counts carry that task's id and are read the same way. `ci status` reports run-level
+tasks by status.
 
 ### 3.10 Policies (P0-O-2)
 
-**Loading.** `policies.yaml` goes through PyYAML `safe_load` into a frozen model (`version`,
-optional `budgets`, `thresholds` and `priors`, `chains`):
+**Loading.** `policies.yaml` goes through PyYAML `safe_load` into a frozen model (the `system`
+policy-file class, P0-M-1; a plain `BaseModel`), with `version`, optional `budgets`, `thresholds`
+and the confidence blocks, and `chains`:
 
 - An action names `<method>/<name>` (D6 §7.1, D3 §6.3 as amended).
 - Loading refuses an action whose method the registry does not hold, or whose configuration
   `methods.yaml` lacks (D6 §7.1, "Registered methods only").
+- Each chain's name is a `PolicyChain` member (including `gaps`), and each entry's `unit_type` a
+  `TaskUnitType` member; `ops.policy_rule.unit_type` is CHECKed by the same vocabulary (P0-M-2).
+- **Confidence blocks keyed by `ConfidenceSource`** (DA-016;
+  [R07](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r07)): `priors`,
+  `multipliers` and `caps` are maps from `ConfidenceSource` members to decimals, the policy data D5
+  §6.3 names. Loading refuses a key that is not a member, and each registered method's declared
+  source (§3.2) is the key its observations attach to. D6 §7.1's example keys (`agent`,
+  `local_llm_full`, …) become the vocabulary's members at P0-D-2. Confidence is phase 1 (D5 §11), so
+  the statistics phase 0 policy declares no block and nothing reads one yet; the loader and its
+  refusal are built and tested now.
 - `ops.policy_version` is keyed by the content hash of the parsed file's canonical JSON, with one
   `ops.policy_rule` row per entry (D6 §7.1 "Rows").
 
@@ -518,6 +705,17 @@ one expression discipline (ADR-0018). A type error raises at construction, so lo
 the entry (schema-rules note §5, *Tested* by probe P8, 2026-10-28). The entry value carries the rule
 key, because `ChainEntry` has no id. `then: continue` evaluates `chain[i+1:]` after
 `Chain.index(entry)`, with the same context (rule-engine overview §2.1).
+
+**Literal checks at compile** (RC14; coordinator decision 23; DA-012). The unit context declares
+which symbols are typed by a vocabulary: `unit.kind` (`SegmentKind`), `unit.statement_kind` (the run
+schema version's `StatementKind`), `outcome(m)` (`ObservationOutcome`), `target.kind`
+(`JudgmentTargetKind`), `decision(m)` (`JudgmentDecision`) and `confidence(m)`
+(`JudgmentConfidence`). After construction, `rulelang`'s literal check (P0-S-2) walks the parsed
+expression and checks every string literal compared with, or tested for membership against, such a
+symbol against its vocabulary. A typo such as `target.kind == 'alternative_grup'` then fails loading
+naming the entry, instead of compiling and never matching. If the walk over rule-engine's parsed
+expression proves infeasible, R07's fallback applies: `$enums` membership symbols with a lint, and
+P0-S-2 reports the choice.
 
 **The unit context** (D6 §7.2) is typed per schema version:
 
@@ -533,8 +731,14 @@ key, because `ChainEntry` has no id. `then: continue` evaluates `chain[i+1:]` af
 - FUNCTIONs `ran(m)` and `outcome(m)` over the run's tasks on the unit;
 - `budget`, an OBJECT.
 
-`target`, `judged_by` and `judgment` are typed but empty until phase 1. A metric with no value is
-null, so a condition discharges it with `??`.
+`target`, `judged_by(m)`, `decision(m)` and `confidence(m)` are typed but empty until phase 1.
+D6 §7.2's `judgment(m)`, which returned "its decision or confidence" under one untyped symbol, is
+split into `decision(m)` and `confidence(m)`, each typed by its own vocabulary (R07; RC14, amended in
+D6 §7.1–§7.2 by P0-D-2). D6 §7.1's example `judgment('llm.judge') in ['unsure', 'low']` mixes a
+decision (`unsure`) with a confidence level (`low`) in one list (D4 §4.3's judge output has both); it
+becomes
+`decision('llm.judge') == 'unsure' or confidence('llm.judge') == 'low'`, and each literal is checked
+against its own vocabulary. A metric with no value is null, so a condition discharges it with `??`.
 
 **Evaluation in the propose stage.** The candidates are `annotation_units(rendition)` (ingest and
 math) for each of the run's renditions. For each candidate, `Chain.find` gives the first matching
@@ -607,7 +811,7 @@ claim-bearing unit to the agent, so an unscoped run would be the workload P0CL-0
   note §2, with psycopg's `notifies(*, timeout, stop_after)` signature verified against 3.3.6
   (*Interface-checked* there, 2026-10-28).
 - **`complete`.** The run continues at once. Its open tasks stay in the queue and read as
-  unresolved for it once it finishes (§3.9).
+  unresolved for it from its seal on (§3.9).
 
 **The protocol** (D6 §2, D7 §7 item 5): `ci run --scope phase0-golden --agent-mode complete`,
 repeated. In each run:
@@ -616,15 +820,15 @@ repeated. In each run:
   completed before the run was created;
 - the still-open agent tasks are twins of earlier runs' open tasks, so a submission to either
   settles both;
-- the run finishes as a coherent snapshot.
+- the run finishes as a coherent snapshot of its cut.
 
 `ci run` ends by printing the unresolved count, and `ci status` lists it per run. The operator
 promotes the first run with zero, through evaluation's `ci promote`.
 
 **Why it converges.** A packet depends only on recorded inputs (D4 §4.1). During the sequence
 nothing changes those inputs: base stages are reused, the configurations are the same, and no run
-is promoted before convergence, so every run records the same reference run (null at bootstrap)
-and serves the same known-entity section. Each packet is asked once and reused by every later run.
+is promoted before convergence, so every run records the same reference run (null at bootstrap),
+the same model revision, schema version and key scheme, and serves the same known-entity section. Each packet is asked once and reused by every later run.
 A promotion mid-sequence would change the reference run and with it every packet. So the protocol
 promotes only at convergence.
 
@@ -647,12 +851,15 @@ emits (D8 §4):
 
 - `ci project init --domain NAME --corpus PATH [--name NAME]` (§3.3).
 - `ci run [--slice NAME | --scope NAME] [--corpus SLICE] [--phase N] [--agent-mode wait|complete]
-  [--fresh METHOD]…`, and `ci run cancel RUN`. The latter is a subcommand of a `run` group whose
+  [--agent-reuse full|by_unit] [--gpu-mode MODE] [--fresh METHOD]…`, and `ci run cancel RUN`. The
+  flags are the explicit options of §3.4's precedence; the result model prints every option as
+  resolved, with its source (option, setting or default). The latter is a subcommand of a `run` group whose
   callback starts a run when no subcommand is given (Typer `invoke_without_command=True` with
   `ctx.invoked_subcommand`; Typer documentation, *Interface-checked* 2026-10-28). `--slice` and
   `--scope` are P0-O-2's; P0-O-1's `ci run` runs over an explicit corpus.
-- `ci status [RUN]`: for each stage, task counts by status and reason; unresolved agent tasks; any
-  orphaned run; the settings it resolved (D9 §3).
+- `ci status [RUN]`: for each stage, task counts by status and reason; the run's cut and its final
+  M19 task once sealed; unresolved agent tasks as of the cut; any orphaned run; the settings it
+  resolved (D9 §3).
 - `ci tasks [RUN] [--status S] [--method M]`: a bounded listing (unit key, configuration name,
   status, reason, rule key, cost), with counts beyond the bound (D6 §8).
 
@@ -679,8 +886,11 @@ now small beside the work it records.
 passes. Observations are never copied (`kb.run_observation` resolves them).
 
 **Contention.** One session, plus a few golden subagents, leases from a small partial index with
-`SKIP LOCKED`. The run-row share lock delays a submission only while that submission's run, or a
-twin's run, is in its final transaction.
+`SKIP LOCKED`. The run-row share lock delays a submission only while the seal of that submission's
+run, or of a twin's run, updates its one row. Before the alignment review the wait covered the whole
+final transaction, measure and evaluate included (DA-024); under the seal it no longer grows with the
+pass, which matters at phase 1's 10⁴–10⁵ claims and for a session that keeps submitting while a
+`complete` run finalizes.
 
 **Growth.** Rows grow with runs × eligible units, mostly through skipped fates. Deleting old runs'
 materialized rows keeps their tasks (D3 §8). If skipped rows ever mattered, a per-run count could
@@ -695,15 +905,18 @@ None of these figures is measured.
 | A worker process dies mid-task | Its lease expires after 5 minutes. The next claim takes the task with a new `attempt`, and the dead worker's late write matches no row |
 | Transient database error in a write | Retried while `attempt < 3` |
 | A method fails | `failed`, not retried. Downstream units are `skipped(prerequisite_failed)`; in `ingest` the run fails |
-| A consolidation pass raises | Rolled back; the pass tasks are written `failed` and the run `failed` |
-| Evaluation raises in the final transaction | Rolled back to its savepoint and noted; the run finishes; `ci eval RUN` scores it later |
-| The orchestrator dies | Its advisory lock is released, `ci status` reports the run orphaned, `ci run cancel` cancels it, and a new run reuses finished tasks |
+| A consolidation pass raises | Rolled back; the pass tasks are written `failed` and the run `failed`; the cut stays recorded |
+| Evaluation raises after the final pass | The `evaluate.score` task is written `failed` with its error; the run finishes; `ci eval RUN` scores it later |
+| The orchestrator dies | Its advisory lock is released, `ci status` reports the run orphaned (also when it is `consolidating` after its seal), `ci run cancel` cancels it, and a new run reuses finished tasks |
 | A notification is lost | The timeout re-query finds the change |
 | A submission to a task settled by a twin, cancelled or leased again | Fenced out with `TaskNotOpen` and its reason; the caller rolls back |
 | A reuse insert passes a concurrent completion | Twins settled after creation and before each lease |
-| A completion during a run's final transaction | Waits on the share lock and counts as unresolved for that run |
+| A completion while a run's seal holds the row | Waits for the seal's one-row update only, is stamped after the cut and counts as unresolved for that run |
+| A completion during the final pass, measure or evaluate | Commits without waiting; unresolved for that run, and absent from its pool by the cut predicate |
+| A source profile names a kind outside the run's schema version | Run creation is refused, naming the profile, field and value (DA-010) |
+| An option or skip reason outside its vocabulary | Refused at load or by the column's CHECK |
 | A slice locator is refused | The run's start fails with the candidates listed |
-| A policy type error or an unregistered method | Loading fails, naming the entry |
+| A policy type error, an unregistered method, a literal outside a typed symbol's vocabulary, or a confidence key outside `ConfidenceSource` | Loading fails, naming the entry |
 | Invalid configuration params | Run creation fails, naming method, configuration and field |
 | A promotion during a run | Nothing the run computes changes: the reference run was recorded at insert |
 
@@ -718,9 +931,9 @@ propose entry needs none of it, so mining it waits for phase 1's escalation chai
 
 | Package | Scope | Prerequisites | Acceptance | Revealing failure case |
 |---|---|---|---|---|
-| P0-O-0 | `core/method.py`: protocol, views, `Reader` protocol, drafts, results, resources, context, `Digest`, configuration references, `payload_hash`, registry interface (§3.1) | P0-F-2b (with P0-F-2a) | Stub methods of each unit type check against the protocol under pyrefly. A `Config`'s references are found by introspection. `payload_hash` is equal across key order and NFC variants and refuses a float. A non-packet method's `Digest` has no packet hash | A payload read back from JSONB, keys reordered by PostgreSQL, must hash as it did when written; a hash over `jsonb::text` would move every downstream digest |
-| P0-O-1 | Registry and `methods.yaml` loader; pack-version upsert; `ci project init`; runs, options, liveness and `ci run cancel`; tasks and reuse; worker claiming, leases, fencing and retries; agent leases, the completion primitive and twins; the stage runner with the phase 0 graph, the passes, M19 counts, measure and the evaluate call; fates and their reader; `ci run` over an explicit corpus, `ci status`, `ci tasks`; the stateful test (§3.2–§3.9, §3.13) | P0-F-4, P0-S-1b, P0-O-0, P0-I-1a (`load_profile` for `ci project init`); `s6.queue` before the claiming statement is final | See "P0-O-1 acceptance" below | `--fresh` on the M09 stub with identical output must leave the M13 stub's and the agent stub's tasks `reused`; a digest carrying upstream task ids re-creates every downstream task, the agent's included (P0CL-02) |
-| P0-O-2 | Policies; slices, corpus and scope with the recorded resolution; `ci run --slice/--scope/--corpus/--agent-mode`; the agent barrier; the `complete`-run protocol and its convergence test; the in-process run driver; `domains/statistics/policies.yaml` and `slices.yaml` (§3.10–§3.12) | P0-O-1, P0-S-2 (`rulelang`), P0-E-1 (golden set by label), P0-I-0, P0-I-1a (`annotation_units`) | See "P0-O-2 acceptance" below | A unit that the propose chain matches outside the scope must get `skipped(scope)`. A chain evaluated only over in-scope units leaves it without a fate, and coverage of its page reads as complete (P0CL-11) |
+| P0-O-0 | `core/method.py`: protocol (with `confidence_source`), views, `Reader` protocol, drafts naming their payload class and version and their `ConfidenceSource`, results, resources, context with the narrowed `MethodSettings` view, `Digest`, configuration references, `payload_hash`, registry interface; unit types as `TaskUnitType` (§3.1) | P0-F-2b (with P0-F-2a); P0-M-1 later regenerates the enums it imports at the same path | Stub methods of each unit type check against the protocol under pyrefly. A `Config`'s references are found by introspection. `payload_hash` is equal across key order and NFC variants and refuses a float. A non-packet method's `Digest` has no packet hash. A draft without a payload class fails to type-check; `MethodSettings` exposes no database URL and no field outside its result-neutral list | A payload read back from JSONB, keys reordered by PostgreSQL, must hash as it did when written; a hash over `jsonb::text` would move every downstream digest |
+| P0-O-1 | Registry and `methods.yaml` loader with the whole-replacement overlay; pack-version upsert; `ci project init`; runs recording model revision, schema version and key scheme; resolved options with `by_unit` admitted; the run-start profile check; liveness and `ci run cancel`; tasks and reuse with `Stage` and `SkipReason` codes; worker claiming, leases, fencing and retries; agent leases, the completion primitive and twins; the seal with the final M19 task; the stage runner with the phase 0 graph, the passes, M19 counts, measure, the evaluate call and finishing; fates and their reader as of the cut; `ci run` over an explicit corpus, `ci status`, `ci tasks`; the stateful test (§3.2–§3.9, §3.13) | P0-F-4, P0-S-1b, P0-O-0, P0-I-1a (the typed profile model and `load_profile`), P0-D-2 (the seal, `by_unit`, vocabularies, profile routes), P0-M-4 (registry and the profile change records) | See "P0-O-1 acceptance" below | `--fresh` on the M09 stub with identical output must leave the M13 stub's and the agent stub's tasks `reused`; a digest carrying upstream task ids re-creates every downstream task, the agent's included (P0CL-02). A completion committed while measure runs must neither wait nor change the sealed run's fates; a lock held across the pass makes it wait, a cut read from `finished_at` counts it (DA-024) |
+| P0-O-2 | Policies with typed symbols (`decision(m)`, `confidence(m)`), literal checks at compile and confidence blocks keyed by `ConfidenceSource`; slices, corpus and scope with the recorded resolution; `ci run --slice/--scope/--corpus/--agent-mode/--agent-reuse`; the agent barrier; the `complete`-run protocol and its convergence test; the in-process run driver; `domains/statistics/policies.yaml` and `slices.yaml` (§3.10–§3.12) | P0-O-1, P0-S-2 (`rulelang` and its literal check), P0-E-1 (golden set by label), P0-I-0, P0-I-1a (`annotation_units`), P0-D-2 (typed symbols, the confidence vocabulary) | See "P0-O-2 acceptance" below | A unit that the propose chain matches outside the scope must get `skipped(scope)`. A chain evaluated only over in-scope units leaves it without a fate, and coverage of its page reads as complete (P0CL-11). A policy comparing `target.kind` with a misspelt literal must fail loading; an untyped literal compiles and never matches (DA-012) |
 
 **P0-O-1 acceptance** (the table row's checks):
 
@@ -732,22 +945,46 @@ propose entry needs none of it, so mining it waits for phase 1's escalation chai
 - A second run reuses every task except those of unit `run`. A content-identical new build reuses
   every rendition-level task.
 - `reference_run_id` equals the pointer at insert, and moving the pointer during the run changes
-  nothing.
+  nothing. The run row holds the model revision, schema version and key scheme in force at insert.
+- Options: every stored option is resolved; an explicit `--gpu-mode` beats `CORPUS_GPU__MODE`,
+  which beats the model default; re-reading a stored run's options with a different
+  `CORPUS_GPU__MODE` in the environment returns the stored value; no setting changes `agent_mode`.
+  `by_unit` is admitted and reaches `input_digest` through the run view.
+- A configuration whose named params give a nested object stores that object exactly, with no
+  default entry merged into it; two methods' configurations equal after the overlay share a `cfg:`
+  key.
+- A test pack whose source profile names a statement kind outside the run's schema version refuses
+  run creation, naming the profile, field and value, and creates no task (DA-010).
+- A misspelt skip reason or stage is refused by the column's CHECK.
 - The completion primitive:
   - holds a first unclean submission and completes the second;
   - settles twins in another run, never from `failed`;
   - refuses a late submission to a twin-settled task;
   - after the two-connection race, leaves no open task with a finished twin.
-- A completion blocked by a run's final transaction reads as unresolved for that run; one that
-  committed first reads as resolved and is in `kb.run_observation`.
-- A failing pass leaves the run `failed` with no knowledge rows.
-- A killed `ci run` is reported orphaned and is cancelled.
+- **The seal** (two connections, commit-capable; DA-024, DA-015):
+  - a completion that holds its share lock first makes the seal wait, is stamped before `cut_at`,
+    reads as resolved and is in `kb.run_observation` and the pool;
+  - a completion that arrives while the seal holds the row waits only for that update, is stamped
+    after `cut_at` and reads as unresolved;
+  - a completion submitted while the final pass, measure or a blocked stub `evaluate.score` runs
+    commits without waiting and reads as unresolved for that run;
+  - twin-settlement ordering: a twin in run R2 settled by a completion in R1 before R2's seal is
+    resolved for R2 and its observation is in R2's pool; one settled after R2's seal is unresolved
+    for R2 and absent from its pool;
+  - the sealed run records the finalize pass's M19 task, and `cut_at` and that task never change
+    afterwards.
+- A failing pass leaves the run `failed` with no final-pass knowledge rows and its cut recorded.
+- A killed `ci run` is reported orphaned, also after its seal, and is cancelled.
 - The stateful test passes.
 
 **P0-O-2 acceptance** (the table row's checks):
 
 - The statistics phase 0 policy compiles. A type error in a `when`, or an unregistered method,
   fails loading and names the entry. `continue` evaluates the remainder.
+- A fixture policy with `target.kind == 'alternative_grup'`, or `decision(m) == 'maybe'`, fails
+  loading naming the entry; the same policy with the vocabulary's spelling compiles (DA-012).
+- A fixture policy with `priors`, `multipliers` and `caps` keyed by `ConfidenceSource` members loads,
+  and one with an unknown source key is refused (DA-016).
 - A `trace` slice run with a stub agent method creates `awaiting_agent` tasks for the five trace
   units, each with its rule and trigger values, and `skipped(scope)` for the other units of those
   pages.
@@ -762,7 +999,9 @@ propose entry needs none of it, so mining it waits for phase 1's escalation chai
 - Phase 0 refuses an unscoped `full` run.
 
 **P0-O-0.** Mechanisms: `typing.Protocol`, `Annotated` markers, frozen Pydantic models; F2a's
-canonical JSON. Evidence: none.
+canonical JSON; the generated `TaskUnitType` and `ConfidenceSource` (P0-M-1). Evidence: none.
+Closes, with others (coordinator §11): DA-012 (the unit-type vocabulary, with P0-D-2, P0-M-1,
+P0-M-2, P0-O-2 and P0-S-2).
 
 **P0-O-1.** Mechanisms:
 
@@ -772,13 +1011,19 @@ canonical JSON. Evidence: none.
 - binary COPY through F4 inside the fenced transaction (store note §3);
 - one pool per process plus a dedicated autocommit connection holding a session advisory lock
   (store note §5; PostgreSQL 18 §13.3.5);
-- `FOR SHARE` and `FOR NO KEY UPDATE` on the run row, with `clock_timestamp()` stamps (PostgreSQL 18
-  §13.3.2);
+- `FOR SHARE` on the run row for completions and twin settlement, and `FOR NO KEY UPDATE` for the
+  short seal only, with `clock_timestamp()` stamps taken after the locks (PostgreSQL 18 §13.3.2);
 - `pg_notify` inside the completion transaction;
-- `forkserver` worker processes running methods on their main thread.
+- `forkserver` worker processes running methods on their main thread;
+- plain frozen `BaseModel`s for options and configurations, with the precedence of §3.4 resolved in
+  code; `Settings` (pydantic-settings 2.16.1, F1) read only for result-neutral defaults.
 
-Evidence: `s6.queue` and `s6.ddl`. Findings: P0CL-02 and P0CL-05 (build halves; the real-method
-checks belong to P0-A-1, which needs P0-I-2b for the M13 rerun), P0CL-13 (task counts, §3.14).
+Evidence: `s6.queue` (passed, 2026-10-28) and `s6.ddl`; `p0q.settings-env` (F5) for the
+`BaseSettings` environment read that rules out projecting options through settings. Findings: P0CL-02
+and P0CL-05 (build halves; the real-method checks belong to P0-A-1, which needs P0-I-2b for the M13
+rerun), P0CL-13 (task counts, §3.14). Closes, with others (coordinator §11): DA-024 (the seal);
+DA-015 (the seal records the final M19 task; readers in P0-C-2); DA-010 (the run-start refusal, with
+P0-I-1a and P0-M-4); DA-017 (the option admitted and recorded; the digest and its test in P0-A-1).
 
 **P0-O-2.** Mechanisms:
 
@@ -786,15 +1031,18 @@ checks belong to P0-A-1, which needs P0-I-2b for the M13 rerun), P0CL-13 (task c
   probe P8; rule-engine overview §2.1);
 - psycopg `notifies(timeout=…, stop_after=…)` on the dedicated connection (store note §4,
   interfaces note §2, psycopg overview §13.1);
-- the I0 resolver and `LocatorIndex`.
+- the I0 resolver and `LocatorIndex`;
+- `rulelang`'s literal check over the parsed expression (P0-S-2), with the generated vocabularies.
 
 Evidence: the schema-rules probe P8 for `Chain`; `s4.rules` confirms the rule syntax the helper
 compiles. Findings: P0CL-09 (the scope's expression; the packet count is stated in the evaluation
-document), P0CL-11 (fates outside scope), P0CL-12 (the convergence test).
+document), P0CL-11 (fates outside scope), P0CL-12 (the convergence test). Closes, with others
+(coordinator §11): DA-012 (policy literal typos fail at compile), DA-016 (confidence blocks keyed by
+`ConfidenceSource`).
 
 **Order inside P0-O-1.** The registry, runs, task creation, agent leases and the completion
-primitive come first, because P0-I-1b, P0-I-2b, P0-A-1 and P0-E-1 need them. The stage runner, the
-passes, measure, the fate reader and the commands follow. The first part is a convenient milestone,
+primitive come first, because P0-I-1b, P0-I-2b, P0-A-1 and P0-E-1 need them. The seal, the stage
+runner, the passes, measure, the fate reader and the commands follow. The first part is a convenient milestone,
 not a barrier.
 
 ## 6. Tests
@@ -811,9 +1059,9 @@ subprocesses need them. Thin fixtures are added here, under `tests/orchestrate/`
 
 | Package | What the tests establish |
 |---|---|
-| P0-O-0 | Protocol conformance of the stubs (pyrefly); reference markers by introspection; `payload_hash` invariance and float refusal |
-| P0-O-1 | **Registry:** resolution with every reference kind; float canonicalization; an unregistered method or unknown param refused; the recorded map used for later lookups. **Runs:** the reference run at insert and no update path; `corpus_hash` stable for equal bytes and configuration. **Tasks:** reuse at creation; `fresh`; never reusing `run` tasks; skipped sentinels never matched; `prerequisite_failed`. **Leases and completion:** held-open then complete; twins, never from `failed`; `TaskNotOpen` reasons. **Two-connection tests** (commit-capable): the reuse/completion race, settled after creation; a completion blocked by a final transaction, unresolved for that run; one that committed first, consolidated. **Lifecycle** (`RuleBasedStateMachine`, below). **Stages:** with stubs, task counts per stage, barriers, a failing pass, evaluate's savepoint. **Liveness** (subprocess): kill `ci run` with `SIGKILL`; `ci status` reports orphaned; `ci run cancel`. **Commands:** `CliRunner` with stdout and stderr apart and a fixed width; `--json` equal to the result model |
-| P0-O-2 | **Policies:** load, type error, unregistered method, `continue`, trigger recording, `limit`. **Slices:** include, pages, index and golden-set expansion; cycles; refusal with candidates; the recorded scope immutable. **Scope:** a trace slice run and a scoped run. **Barrier** (commit-capable): `LISTEN` woken by a completion from another connection; a lost notification caught on timeout; cancel noticed. **Convergence:** three `complete` runs; two completion orders; no `input_hash` completed twice. **Guard:** the unscoped phase 0 run. **Driver:** a slice run to completion with stubs |
+| P0-O-0 | Protocol conformance of the stubs (pyrefly); reference markers by introspection; `payload_hash` invariance and float refusal; drafts name a payload class; `MethodSettings` holds only its declared result-neutral fields |
+| P0-O-1 | **Registry:** resolution with every reference kind; float canonicalization; an unregistered method or unknown param refused; whole-replacement overlay of nested params; the recorded map used for later lookups; the loader unaffected by `CORPUS_*` variables. **Runs:** the reference run, model revision, schema version and key scheme at insert, with no update path; options resolved and recorded with their precedence, and re-read unchanged under a different environment; `by_unit` recorded; `corpus_hash` stable for equal bytes and configuration; the run-start profile refusal. **Tasks:** reuse at creation; `fresh`; never reusing `run` tasks; skipped sentinels never matched; `prerequisite_failed`; reasons and stages outside their vocabularies refused by CHECK. **Leases and completion:** held-open then complete; twins, never from `failed`; `TaskNotOpen` reasons. **Two-connection tests** (commit-capable): the reuse/completion race, settled after creation; the seal's orderings of P0-O-1's acceptance (a completion before the seal, one during it, one during measure and evaluate, twin settlement on each side of a cut); the final M19 task recorded once. **Lifecycle** (`RuleBasedStateMachine`, below). **Stages:** with stubs, task counts per stage, barriers, a failing pass with its cut kept, a failing `evaluate.score` with the run finished. **Liveness** (subprocess): kill `ci run` with `SIGKILL`, before and after the seal; `ci status` reports orphaned; `ci run cancel`. **Commands:** `CliRunner` with stdout and stderr apart and a fixed width; `--json` equal to the result model |
+| P0-O-2 | **Policies:** load, type error, unregistered method, `continue`, trigger recording, `limit`; literal checks against each typed symbol's vocabulary; `decision(m)` and `confidence(m)` typed apart; confidence blocks keyed by `ConfidenceSource` and an unknown key refused. **Slices:** include, pages, index and golden-set expansion; cycles; refusal with candidates; the recorded scope immutable. **Scope:** a trace slice run and a scoped run. **Barrier** (commit-capable): `LISTEN` woken by a completion from another connection; a lost notification caught on timeout; cancel noticed. **Convergence:** three `complete` runs; two completion orders; no `input_hash` completed twice. **Guard:** the unscoped phase 0 run. **Driver:** a slice run to completion with stubs |
 
 **The lifecycle state machine** (D9 §4; Hypothesis overview §4, §10.1):
 
@@ -826,7 +1074,8 @@ subprocesses need them. Thin fixtures are added here, under `tests/orchestrate/`
     is fixed within the example's transaction);
   - write late from a stale lease;
   - agent lease, release, hold, complete;
-  - settle.
+  - settle;
+  - seal a run.
 - **Invariants after every step**, against a reference model of status, attempt, holder and the set
   of finished hashes:
   - no task is held by two workers;
@@ -834,7 +1083,9 @@ subprocesses need them. Thin fixtures are added here, under `tests/orchestrate/`
   - `attempt` never decreases;
   - every `reused` task points at a `done` or `empty` task with its configuration and hash;
   - after a settle, no `awaiting_agent` task has a finished twin;
-  - every terminal task has `finished_at`.
+  - every terminal task has `finished_at`;
+  - after a seal rule, no task of the sealed run is stamped at or before its `cut_at` by a later
+    step.
 - **Isolation.** Each example runs in its own rolled-back transaction, with savepoints standing in
   for the separate transactions of claim and write.
 - **Not covered.** Scheduling is not explored; real interleavings are `s6.queue`'s and the
@@ -842,14 +1093,16 @@ subprocesses need them. Thin fixtures are added here, under `tests/orchestrate/`
 
 ## 7. Indicative size
 
-The coordinator's budget for this document is 1,800 product lines, tests excluded.
+The coordinator's budget for this document is 1,800 product lines, tests excluded. The alignment
+review adds the seal, the recorded revisions, option resolution, the profile check, typed symbols and
+the confidence blocks; the vocabularies themselves are generated (P0-M-1) and not counted.
 
 | Package | Indicative lines |
 |---|---|
-| P0-O-0 | about 200 (types 120, references and `payload_hash` 50, registry interface 30) |
-| P0-O-1 | about 1,150 (registry and loader 180, project init and pack upsert 140, runs and liveness 120, tasks and reuse 120, worker queue 150, agent leases and completion 150, stage runner, passes and measure 200, fates 40, commands 120, phase 0 graph 30) |
-| P0-O-2 | about 450 (policy loader, context and evaluation 220, slices and scope 150, barrier, protocol and driver 80) |
-| **Total** | about 1,800 |
+| P0-O-0 | about 210 (types 125, references and `payload_hash` 50, registry interface 25, the settings view 10) |
+| P0-O-1 | about 1,170 (registry, loader and overlay 170, project init and pack upsert 125, runs, options and liveness 140, the profile check 25, tasks and reuse 110, worker queue 135, agent leases and completion 135, the seal, stage runner, passes, measure and finish 190, fates 30, commands 90, phase 0 graph 20) |
+| P0-O-2 | about 470 (policy loader, typed context, literal-check wiring, confidence blocks and evaluation 245, slices and scope 145, barrier, protocol and driver 80) |
+| **Total** | about 1,850, about 50 above the coordinator's 1,800 (§8); if it holds at review, the commands' result models and the worker-process code are where to simplify |
 
 The risks are worker-process management and the commands. Neither grows with phase 0's scope; if
 either outgrows its share, the inline loop and the result models are where to simplify.
@@ -864,4 +1117,7 @@ either outgrows its share, the inline loop and the result models are where to si
 - Batch sizes for `create_tasks` and the claim.
 - The advisory-lock namespace constant, and the form of the dirty marker on `code_commit`.
 - Hypothesis settings for the state machine (examples, steps, `deadline=None` for database work).
-- Message wording for refusals, and the layout of `ci status` and `ci tasks`.
+- Message wording for refusals, and the layout of `ci status` and `ci tasks`. Refusals carry codes
+  (a vocabulary member or a typed error); messages are projections of them (coordinator decision 23).
+- The fields of `MethodSettings` beyond the result-neutral list of §3.1, provided each is
+  result-neutral by contract.

@@ -1,7 +1,14 @@
 # Phase 0: evaluation and goldens
 
-**Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md), which
+**Status:** Proposed (2026-10-28); nothing built. Part of the [phase 0 series](../phase-0_2026-10-28.md), which
 owns shared decisions, contracts, the dependency graph and build findings.
+**Revised:** 2026-10-28, for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md) and its
+[target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md) ("TM"), following coordinator decisions 2, 16, 19, 20 and 22: re-location adds a
+citation-frame version with a parent link instead of rewriting a frame, golden items are keyed by
+their derivation, and golden passes carry `payload_schema_id` (E1; [DA-009](../../design_review/audit/semantic-model-and-authority.md#da-009)); scoring
+reads the run as of its cut, records the key scheme, maps keys across schemes only through the
+carry-over map, and may run its set steps in pool and interchange's engine (E2b). Prerequisites
+follow [coordinator §7](../phase-0_2026-10-28.md#7-dependencies-and-readiness).
 
 This document builds `evaluate/` and its `ci` groups (`ci golden`, `ci eval`, `ci digest`,
 `ci promote`; coordinator §3 decision 10) for D9 §5 P0.10 and the golden part of P0.11. It carries
@@ -21,13 +28,13 @@ its tables in [D3 §7](../../design/D3-database.md) and its commands in
 - **Split, sets and the golden store (E1).** The page split; golden sets sampled with the trace
   and core units forced into dev; each set's golden run and its pass A and B tasks; the one owner
   of `eval.golden_*` writes, through the repository's primitives (P0-F-4); golden items derived
-  per rendition; staleness and re-location; when a golden run finishes; the golden-unit list
-  behind the `phase0-golden` scope.
+  per pass, rendition, cascade version and schema version; staleness, and re-location as a new
+  frame version; when a golden run finishes; the golden-unit list behind the `phase0-golden` scope.
 - **Alignment (E2a).** Two claim sets of one unit on one rendition, aligned at the D7 §5.3 tiers
   with tiered value equivalence; the A/B agreement record and the diff pass C reads.
-- **Scores and the operator's readings (E2b).** Run scoring with intervals, the `evaluate` stage's
-  method, `ci eval`; the pre-registered promotion readings and `ci promote`; live-run answers for
-  the gate; digest v0.
+- **Scores and the operator's readings (E2b).** Run scoring with intervals, as of the run's cut and
+  under its key scheme, the `evaluate` stage's method, `ci eval`; the pre-registered promotion
+  readings and `ci promote`; live-run answers for the gate; digest v0.
 - **Dev goldens (E3).** Authoring the dev set by the Sonnet protocol through the golden tools; the
   exact `phase0-golden` packet count; the ceiling; the v1 reference as witness; the OPEN-D7-5
   comparison.
@@ -37,7 +44,10 @@ packet, the alignment process inside the golden server and the work-queue skill 
 interface's (A2). This document provides what they call. Slice resolution, runs, tasks, leases
 and fates are orchestration's; E1 supplies the unit list that orchestration resolves. The stored
 form of a batch is A0's cascade, keys and canonical forms are foundations', and the grammar is
-ingest and math's. Consolidation and the typed queries belong to consolidation and queries.
+ingest and math's. Consolidation and the typed queries belong to consolidation and queries. The
+golden and frame-version tables are generated from `system` (model and projections, P0-M-1,
+P0-M-2), and the payload-schema registry is P0-M-4's; the cut is orchestration's (P0-O-1); the
+in-process engine is pool and interchange's (P0-P-2).
 Outside phase 0: experiments and `ci experiment` (D7 §7 items 1–4, phase 1), the PPI audit
 (phase 2), and the author-markup, computation and reference-facts witnesses (which need ablation
 runs, M21 and the reference pack). Test goldens are sampled but not authored (§3.12).
@@ -91,6 +101,9 @@ the spike pages. E3 computes the exact count (§3.4).
 - **Guideline v2 at the phase 0 boundary.** Affected units become `stale` and are re-authored in
   a new authoring round (§3.3). Results keep the pass-C ids they scored (`golden_snapshot`), so
   earlier results remain readable.
+- **A key-scheme change** (decision 20). Goldens carry no keys, so alignment is unaffected. Each
+  result records its run's key scheme, and a comparison of two runs under different schemes maps
+  keys through the carry-over map, never by recomputation (§3.7).
 
 ## 2. Contracts
 
@@ -101,12 +114,16 @@ the spike pages. E3 computes the exact count (§3.4).
 | Package, settings, Typer app and its registration, conftest and database fixtures | foundations · F1 (D9 §1, §3) | all |
 | Canonical value forms, condition canonicalization, the symbol rule, label normalization; stored-item and citation-frame models; `RenditionContent` | foundations · F2a, F2b (D1 §6.2, §7, §10.1, §10.3; D2 §7.3) | E1, E2a |
 | Locator generator, resolver and refusal; the unit key | ingest and math · I0 (D1 §3.4) | E1, E2b |
-| The `eval`, `kb` and `ops` tables. They include `eval.golden_set.sampling`, the split's seed and reason, and the `promotion` intervention kind. Also the repository, `kb.run_rendition` and `kb.run_observation` | foundations · F4 (D3 §4, §7, §8, as amended) | E1, E2b |
+| The `eval`, `kb` and `ops` tables. They include `eval.golden_set.sampling`, the split's seed and reason, the `promotion` intervention kind, `payload_schema_id` on `eval.golden_pass`, and the frame-version rows (generated from `system` by model and projections, P0-M-2). Also the repository, `kb.run_rendition` and `kb.run_observation` | foundations · F4 (D3 §4, §7, §8, as amended; §7's frame versions at P0-D-1) | E1, E2b |
+| The payload-schema registry and reader dispatch (an unknown id refused) | ADR-0022; TM §9 · [model and projections](model-and-projections.md) P0-M-4 | E1 (passes and frames), E2b (reading proposal payloads) |
+| The run's cut `ops.run.cut_at` (fates `finished_at <= cut_at`) and its recorded key scheme | D6 §3.1, D3 §8 as amended at P0-D-2; coordinator decision 16 · orchestration P0-O-1 | E2b |
+| The key scheme and the carry-over map (translation T8) | D1 §10.1, §10.3; ADR-0023; coordinator decision 20 · foundations P0-F-2d, P0-F-2e | E2b |
+| The engine interface over Arrow relations: DuckDB 2.0 in process beside a Python reference, set-equal | ADR-0021; TM §10; coordinator decision 22 · [pool and interchange](pool-and-interchange.md) P0-P-1, P0-P-2 | E2b (candidate pairs, run diffs, score aggregates), optionally |
 | Renditions, annotation units, sentences, author markup, M02 math share and macro tables, as functions and as a run recorded them | ingest and math · I1a, I1b (D4 M01–M03) | E1 (strata), E2a (macros) |
 | The grammar's reading of a value under a declared kind, its SymPy value, the time limit and the main-thread guard | ingest and math · I2a (D4 M11; ADR-0012) | E2a |
-| The quote cascade: authored batch and citation frame to stored form on a rendition | agent interface · A0 (D4 §4.3) | E1, E2a, E2b, E3 |
+| The quote cascade: authored batch and citation frame to stored form on a rendition, with its cascade version, typed frame outcomes (`FrameFailureReason`) and re-location reported, never written | agent interface · A0 (D4 §4.3) | E1, E2a, E2b, E3 |
 | Compiled schema lookup: class scope, `ci:identity_keys`, per-predicate identity qualifiers, qualifier and map-value kinds. Also the pack's worked examples `reference/E*`, whose pages are reserved | schema and rules · S1 (D2 §3, §7, §7.5) | E1, E2a |
-| Projects and documents (`kb.document.meta` chapter and `first_pass`); runs and task creation; the method-contract types and registry; pack configuration (`aliases`, `math`); fates as of `ops.run.finished_at` | orchestration · O0, O1 (D4 §1; D6 §1–§4; D3 §4, §8) | E1, E2b |
+| Projects and documents (`kb.document.meta` chapter and `first_pass`); runs and task creation; the method-contract types and registry; pack configuration (`aliases`, `math`); fates as of the run's cut | orchestration · O0, O1 (D4 §1; D6 §1–§4; D3 §4, §8) | E1, E2b |
 | Declared slices (`trace`, `core12`, stored as `ops.debug_slice` rows); slice resolution with the `{golden_set: <label>}` include; the run's recorded `scope` | orchestration: P0-O-1 stores the declared slices (pack-version upsert); P0-O-2 resolves slices and scope (D2 §12.2, D6 §8) | E1 (the forced units, read from the stored rows; its tests write their own rows, so the package needs no O2 code), E2b, E3 (packet count) |
 | Materialized claims, entities, statements and evidence; statuses; `completeness.evidence_coarse`; M19 warning outcomes | consolidation and queries · C1 (D5 §5.6, §8, §11) | E2b |
 | Typed queries with the run selector | consolidation and queries · C2 (D8 §5) | E2b |
@@ -121,7 +138,7 @@ the spike pages. E3 computes the exact count (§3.4).
 |---|---|---|---|
 | Page split | D7 §3.1, §4; D3 §7 | `ci golden split`; `eval.document_split`; a split lookup | E1; agent interface's example exclusion (phase 1); digest |
 | Golden sets and units; each set's golden run with its A/B tasks; golden-run settlement | D7 §3.1; D3 §7, §8 | `ci golden create --label`, `ci golden status` | A2 (`golden_next`), O2, E2b, E3 |
-| The golden store: passes, agreement record, adjudication, items per rendition, staleness and re-location | D7 §3.2–§3.5; D3 §7 | `evaluate/goldens.py` | A2 (`write_golden`, `read_golden_unit`), E2b, E3 |
+| The golden store: passes with `payload_schema_id`, frame versions, agreement record, adjudication, items per (pass, rendition, cascade version, schema version), staleness and re-location | D7 §3.2–§3.5; D3 §7 | `evaluate/goldens.py` | A2 (`write_golden`, `read_golden_unit`), E2b, E3 |
 | The unit list of a golden set, with its hash | D2 §12.2; D7 §3.1 | `golden_units(project, label)` | O2 (slice resolution), E3 (packet count) |
 | Alignment and value equivalence | D7 §5.2, §5.3 | `evaluate/align.py`, `evaluate/equivalence.py` | A2's alignment process, E2b, E3, A3 |
 | Agreement and the pass-C diff: one result model, stored whole as the unit's agreement | D7 §3.3, §3.4; D3 §7 | `unit_agreement` and its result model | A2 (computes and stores it), E1, E2b (digest) |
@@ -214,32 +231,43 @@ D7 §3.1 gives the protocol; the realization below fixes what D7 leaves open. **
 through the repository's primitives (P0-F-4: `store_golden_pass`, `set_golden_unit` and the bulk
 helpers). A2 calls it inside its own transactions. The functions:
 
-- `record_pass` writes the authored batch, citation frame, decisions, session reference, model and
-  inputs (D3 §7), unique per (unit, pass, guideline version). The session check between passes A
-  and B is A2's.
+- `record_pass` writes the authored batch, its citation frame as the pass's first frame version,
+  decisions, session reference, model and inputs (D3 §7), unique per (unit, pass, guideline
+  version). Batch and frame carry the `payload_schema_id` of their registered payload classes
+  (P0-M-4; [R06](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r06), TM §9), so a reader dispatches by the recorded schema and refuses an
+  unknown one. The session check between passes A and B is A2's.
 - `record_agreement` stores E2a's whole agreement result on the unit (§3.6), validated against
   E2a's model at this boundary. `mark_adjudicated` follows pass C. The lock on the
   `eval.golden_unit` row, which ensures that concurrent A and B writes create exactly one pass-C
   task, is `write_golden`'s (A2).
-- `ensure_items(pass_c, rendition)` derives a unit's golden items. If items for that pair are
-  absent, it resolves the frame (below) and derives the stored form from pass C's batch and frame
-  with A0's cascade. It writes one `eval.golden_item` per entity, statement, claim, alternative
-  group and `unsupported` item.
+- `ensure_items(pass_c, rendition, schema_version)` derives a unit's golden items. Items are keyed
+  by pass, rendition, cascade version and schema version ([R06](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r06); DA-009): the cascade
+  version is A0's, and the schema version is the one whose compiled names derive the stored form
+  (the golden set's frozen version in phase 0). If items under that key are absent, it resolves the
+  pass's frame versions on the rendition (below) and derives the stored form from pass C's batch and
+  the newest frame version that resolves, with A0's cascade. It writes one `eval.golden_item` per
+  entity, statement, claim, alternative group and `unsupported` item, each recording the frame
+  version it came from.
   - `context` is set on a context premise of this unit: an `assumption` statement anchored only at
     `cN` sentences, or a premise claim whose evidence cites only `cN` sentences (D2 §10.2). Such
     items are scored only through the `claim` nodes that reference them (D7 §5.1).
   - An unlocated golden quote gets a coarse span over its cited sentence, as proposals do
     (D4 §4.3, D5 §5.6). It is counted per unit in `ci golden status`.
   - Items are never edited (D3 §7). `write_golden` derives none.
-- **Frame resolution.** `frame_status(frame, rendition)` resolves each locator with I0 and checks
-  that the selected sentence's text equals the recorded text.
+- **Frame resolution.** `frame_status(pass, rendition)` resolves the pass's frame versions through
+  A0's frame resolution (foundations' `resolve_frame` on I0's resolver), whose outcomes carry
+  `FrameFailureReason` codes. Evaluation keeps no resolver or re-location rule of its own.
 - **Staleness and re-location (D7 §3.5).** A frame that does not resolve marks the unit `stale`,
   and nothing is derived.
-  - Re-location then looks for each cited sentence's recorded text among the page's sentences on
-    the new rendition; exactly one match is required.
-  - On success it regenerates the locators with I0's generator, rewrites only the frame's
-    locators on the unit's passes (D3 §7), derives the items and returns the unit to
-    `adjudicated`.
+  - Re-location is A0's rule: each cited sentence's recorded text must occur in exactly one
+    sentence of the page on the new rendition, and A0 reports the locator I0's generator gives it.
+  - On success E1 **adds a frame version** to each of the unit's passes, in one transaction: the
+    new locators with the recorded texts unchanged, a parent link to the version it re-located, the
+    rendition it was re-located onto and its `payload_schema_id`. No frame is rewritten in place, so
+    a result whose `golden_snapshot` scored the unit, and the items derived from the earlier
+    version, stay exactly as they were (coordinator decision 2; [R06](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r06); D3 §7 as amended at
+    P0-D-1, replacing its "re-location rewrites only the frame's locators"). It then derives the
+    items, updates the unit's `current_locator` (D3 §7) and returns the unit to `adjudicated`.
   - Otherwise the unit stays `stale` for re-authoring by the full protocol, in a new authoring
     round (§8, open point 4).
 
@@ -412,6 +440,15 @@ are plain data, for the alignment process. **Proposed** (2026-10-28).
 guideline version. Only its `adjudicated` units in the run's scope are scored: the slice, the
 recorded scope list, or all units.
 
+**As of the cut** (coordinator decision 16; [R08](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r08); DA-024). The run is read as of
+`ops.run.cut_at`, which orchestration seals in a short transaction before the final pass: the
+materialized rows the final pass wrote from the pool as of the cut, the proposals' `unsupported`
+items through `kb.run_observation` as of the cut, and fates with `finished_at <= cut_at`. The
+`evaluate` stage runs after the seal over rows that no longer change, and a completion stamped after
+the cut is unresolved for the run, so a score never includes work the run did not consolidate. The run's own finalize-stage outputs (M19 verifications, `rules.evaluated` measurements) finish
+after the cut, so the rule-warning reading selects them by the sealed `ops.run.cut_m19_task_id`
+(coordinator decision 16; DA-015), not through the cut views.
+
 For each unit, scoring follows D7 §5.1:
 
 - The unit key is resolved on the run's selected rendition (`kb.run_rendition`) with I0. A
@@ -423,6 +460,16 @@ For each unit, scoring follows D7 §5.1:
   - their entities and the unit's statements and alternative groups;
   - the `unsupported` items of the unit's proposals, read through `kb.run_observation` and
     located on the run's rendition with A0.
+
+**Where the set steps run** (coordinator decision 22; TM §10; [R09](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r09)). Candidate pairs
+(golden × run entities and claims of a unit, filtered by type before similarity), run diffs and
+score aggregates are joins and group-bys, so E2b may run them in pool and interchange's in-process
+DuckDB engine over Arrow relations, through P0-P-2's interface (built before E2b, since C1 needs
+it). Similarity, the masking, `linear_sum_assignment` and the bootstrap stay in Python, NumPy and
+SciPy. Every aggregate that feeds a float sums in key order on both paths (`sum(x ORDER BY key)` in
+the engine), so a score is the same bit for bit on either; if the engine path is used, it is tested
+set-equal to the Python path on the same fixtures. Phase 0's dev set of 40 units needs nothing beyond
+the Python path, so using the engine there is a choice (§8), not a requirement.
 
 Two readings are scored: *strict* (`accepted`) and *lenient* (`accepted`, `candidate`,
 `ambiguous`). The precision–recall curve and calibration wait for a confidence model; derived
@@ -469,10 +516,17 @@ axis=-1)`.
 - `eval.alignment`: one row per golden item and tier it matched, or `none` with a null target.
 - `eval.result`, whose `golden_snapshot` holds the sorted pass-C ids scored (Observation 6). Its
   detail holds the interval, the undefined share, the unit-order hash, the seed, the library
-  versions, the reading and the undecided count.
+  versions, the reading, the undecided count and the run's key scheme.
 
 Re-scoring adds rows, and readers take the latest per run and set. Re-scoring a kept run is
 `ci eval RUN`, so phase 0 needs no `rescore` run kind.
+
+**Keys and their scheme** (coordinator decision 20; [R02](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r02)). The keys an alignment or result
+names are under its run's recorded key scheme, which the result records. Goldens carry no keys, so
+scoring a run against goldens never depends on a scheme. Where E2b compares rows of two runs by key
+(a run diff, the digest's changes), it compares within one scheme, or carries the earlier run's keys
+and any judgment that names them through foundations' carry-over map (T8). A key with no
+counterpart in the map is reported, never matched by recomputation or guess.
 
 **Entry points.**
 
@@ -492,18 +546,18 @@ inform the operator and set no threshold.
 |---|---|
 | Dev full-tier F1 | Micro, strict and lenient, with its 95 % percentile interval and n units (§3.7). It is shown beside the baselines in `domains/statistics/eval/baselines.yaml`, all from record `s0r2.scores`: `refv1_vs_a_full_f1` 0.676 and `refv1_vs_b_full_f1` 0.681 (Opus v0 passes against the v1 reference); `refv1_vs_sv_full_f1` 0.766 (Sonnet v1); `sv_vs_hv.held_out_full_f1` 0.759 (Sonnet against Haiku on held-out units, no reference). The dev set's own full-tier A/B ceiling is shown with them. The display states that these are other measurements, with other references, units and authors |
 | Identity | B-cubed precision and recall of the run's global entities against the golden canonical labels, with merges and splits |
-| Unlocated-quote rate | Evidence items left `evidence_unlocated` over all evidence items, in the M24 proposals of the run's in-scope units (`kb.run_observation`, reused proposals included) |
+| Unlocated-quote rate | Evidence items left `evidence_unlocated` over all evidence items, in the M24 proposals of the run's in-scope units (`kb.run_observation` as of the cut, reused proposals included) |
 | Rule-warning rate | Claims of the run with at least one M19 warning outcome, the `guideline:` group included, over the run's claims |
 
 Coverage is shown beside them as context: eligible units, extracted, skipped by reason, and
-unresolved as of `finished_at`; dev units scored out of those adjudicated. Each `baselines.yaml`
+unresolved as of the run's cut; dev units scored out of those adjudicated. Each `baselines.yaml`
 entry carries its id, record, result name, value, label, units and reference. A test checks every
 value against its record.
 
 **`ci promote RUN`** refuses unless all of the following hold:
 
 - the run is finished and of kind `full` (never `slice` or `golden`);
-- no agent task is unresolved as of its `finished_at` (orchestration's fate reader);
+- no agent task is unresolved as of its cut (orchestration's fate reader, `finished_at <= cut_at`);
 - it uses the golden set's schema and guideline versions.
 
 If the run's latest dev result does not cover every adjudicated unit, the command scores the run
@@ -546,8 +600,9 @@ with expectations from the re-authored dev goldens (D9 §4 as amended). The step
 (D7 §8.1):
 
 1. **Dev metric changes.** The latest scored run against the previous one of the same scope (or
-   `--since`), with intervals and the paired difference on shared units. Test metrics appear only
-   at gates, in aggregate.
+   `--since`), with intervals and the paired difference on shared units. Units are paired by unit
+   key, which no key scheme affects; a listing of changed claims compares keys as §3.7 states.
+   Test metrics appear only at gates, in aggregate.
 2. **Guideline versions** since then. The phase 0 freeze normally leaves this empty.
 3. **Disagreement themes.** Pass-C decisions and A/B diffs grouped by predicate and by the guideline
    rule a decision cites, with up to three dev examples each (quote, the two readings, the reason).
@@ -632,15 +687,16 @@ the variant passes cannot enter the golden tables. The design:
 
 | Package | Scope | Prerequisites | Acceptance | Revealing failure case |
 |---|---|---|---|---|
-| P0-E-1 | The split, sampler, sets and units, the golden run with its A/B tasks and its settlement, the golden store, items per rendition, staleness and re-location, `golden_units`; `ci golden split`, `create`, `status` | P0-F-4, P0-I-1a, P0-O-1, P0-A-0 (P0-I-0 and P0-S-1 through them) | Same seed, same split and sample. The 13 forced units are in dev and counted towards their strata, with exactly N units. A set opens a golden run with 2N tasks, which finishes only when every unit is adjudicated. Items are derived per rendition with `context` flags. `golden_units` holds no test unit | A new paragraph before a golden unit: its frame resolves and items are re-derived at shifted offsets. An edit to a cited sentence marks the unit stale; re-location by recorded text fails, and re-authoring is required |
+| P0-E-1 | The split, sampler, sets and units, the golden run with its A/B tasks and its settlement, the golden store with `payload_schema_id`, items keyed by pass, rendition, cascade version and schema version, staleness, re-location as frame versions, `golden_units`; `ci golden split`, `create`, `status` | P0-F-4, P0-I-1a, P0-O-1, P0-A-0, P0-M-4 (P0-I-0 and P0-S-1 through them) | Same seed, same split and sample. The 13 forced units are in dev and counted towards their strata, with exactly N units. A set opens a golden run with 2N tasks, which finishes only when every unit is adjudicated. Items are derived per rendition with `context` flags, keyed by pass, rendition, cascade version and schema version, and a cascade-version change derives new items beside the old. A re-location writes a new frame version with a parent link and leaves the earlier version, its items and every result that scored it unchanged. Passes and frames carry `payload_schema_id`, and an unknown id is refused on read (DA-009). `golden_units` holds no test unit | A new paragraph before a golden unit: its frame resolves and items are re-derived at shifted offsets. An edit that lengthens a cited sentence's locator: an in-place rewrite would change the frame an earlier `golden_snapshot` scored, while a new version keeps it. An edit to a cited sentence marks the unit stale; re-location by recorded text fails, and re-authoring is required |
 | P0-E-2a | Alignment, value equivalence, agreement and the pass-C diff | P0-F-2b, P0-S-1, P0-I-2a, P0-A-0 | The ported suite passes. S0 parity: aligning the spike's stored passes A and B (`results/s0/stored/pass_a`, `pass_b`) per S0 unit gives `s0.agreement`'s 0.933, 0.627 and 0.600, with S0's 13 recorded equivalence decisions supplied through a test-only decision input; the figures under the product rule and the pairs that differ are reported beside them. The identity-key pass aligns a toy class with no statistics names | Masking before assignment keeps the 0.98 pair in `[[0.5, 0], [0.98, 0.49]]`. A comparison called off the main thread raises |
-| P0-E-2b | Scoring and intervals, `eval.alignment` and `eval.result`, `evaluate.score`, `ci eval`, the readings and `ci promote`, `baselines.yaml`, live-run answers, digest v0 | P0-C-1, P0-C-2, P0-E-2a, P0-A-1 (`intervene.testing`, for the answers) | Intervals reproduce the P3 figures in S0's recorded unit order (core 0.827064…–1.0, full 0.428544…–0.752607, evidence 0.367967…–0.746849) and differ in unit-key order. Every result carries `golden_snapshot`. `ci promote` refuses a slice run and a run with unresolved tasks, and writes one `promotion` intervention when confirmed. `baselines.yaml` values equal their records | A run whose evaluate stage sees no adjudicated unit records `empty`, not NaN. The expectation run's submissions leave the live run's awaiting tasks untouched |
+| P0-E-2b | Scoring and intervals, `eval.alignment` and `eval.result`, `evaluate.score`, `ci eval`, the readings and `ci promote`, `baselines.yaml`, live-run answers, digest v0 | P0-C-1, P0-C-2, P0-E-2a, P0-A-1 (`intervene.testing`, for the answers) | Intervals reproduce the P3 figures in S0's recorded unit order (core 0.827064…–1.0, full 0.428544…–0.752607, evidence 0.367967…–0.746849) and differ in unit-key order. Every result carries `golden_snapshot`. `ci promote` refuses a slice run and a run with tasks unresolved as of its cut, and writes one `promotion` intervention when confirmed. A completion stamped after the cut is absent from the scored side and counted unresolved. Every result records its run's key scheme; a comparison across two schemes goes through the carry-over map. `baselines.yaml` values equal their records | A run whose evaluate stage sees no adjudicated unit records `empty`, not NaN. The expectation run's submissions leave the live run's awaiting tasks untouched. A run diff that recomputes earlier keys under the current scheme instead of carrying them over |
 | P0-E-3 | Authoring the dev set, the exact `phase0-golden` packet count in `ci golden status`, the ceiling, the v1 witness, OPEN-D7-5 | P0-A-2, P0-F-3, P0-O-2 | 40 dev units `adjudicated` and the golden run `finished`. `ci golden status` prints the packet count, and the first `phase0-golden` run's `propose` task count equals it. Every pass records Sonnet and its inputs, A and B come from different server instances, and every transcript is audited. The ceiling is reported, the witness record written, and the OPEN-D7-5 record written with its decision | A subagent whose transcript shows it read another pass: that pass is discarded and re-run |
 
 **Mechanisms and evidence per package.**
 
 - **P0-E-1.** The repository and SQLAlchemy Core (F4); `hashlib.sha256`; I0's generator and
-  resolver; A0's cascade; orchestration's task creation and registry interface. It consumes the
+  resolver; A0's cascade, cascade version and frame resolution; M4's registry ids and reader
+  dispatch; orchestration's task creation and registry interface. It consumes the
   `s6.*` records through F4's migration 0001 and `s1.corpus` and `s1.rendition-identity` through
   I1.
 - **P0-E-2a.** `linear_sum_assignment(maximize=True)` with masking first (interfaces note §5.1);
@@ -648,7 +704,8 @@ the variant passes cannot enter the golden tables. The design:
   `token_sort_ratio` for near-miss diagnostics only. It consumes `s0.instruments` and
   `s0.agreement` as test oracles, and `s4.*` (through S1's lookup), `s5.coverage` and
   `s5.keys-property` (through I2a and F2a).
-- **P0-E-2b.** `scipy.stats.bootstrap` as in §3.7 (interfaces note §5.2, IE-5). It consumes
+- **P0-E-2b.** `scipy.stats.bootstrap` as in §3.7 (interfaces note §5.2, IE-5); the run's cut
+  (O1); F2e's carry-over map; optionally P2's engine with ordered aggregates. It consumes
   `s0.agreement`, P3's recorded output and `s0r2.scores`.
 - **P0-E-3.** ADR-0011's protocol; O2's resolver for the packet count. It consumes
   `s0r2.reference-v1`, `s0r2.inputs` and `s0r2.adjudication` as the comparison context.
@@ -669,7 +726,10 @@ parity tests read the tracked spike results as data and never import spike code 
   - Golden-run creation and settlement with a test method; item derivation and the `context`
     flag on a T2-like unit with a context premise.
   - Frame resolution and re-location across three renditions: content-identical, an edit
-    elsewhere, a changed cited sentence.
+    elsewhere, a changed cited sentence; a re-location adds frame version 2 with parent 1, and
+    version 1, its items and a result that scored them are byte-for-byte unchanged.
+  - Items keyed by derivation: a bumped cascade version derives a second item set beside the first.
+  - The registry boundary: a pass whose `payload_schema_id` is unknown is refused on read.
 - **P0-E-2a.**
   - The ported perturbation and value suites, with expected outcomes written from D7 §5.3, not
     from the aligner.
@@ -686,6 +746,12 @@ parity tests read the tracked spike results as data and never import spike code 
     stdout and stderr apart.
   - A digest over a test set prints no test item.
   - The expectation-run isolation test.
+  - The cut: a completion stamped after `cut_at` is absent from the scored side and counted
+    unresolved by `ci promote`'s check.
+  - Key schemes: each result records its run's scheme; a fixture run pair under two schemes is
+    compared through F2e's carry-over map, and a key the map lacks is reported.
+  - If the engine path is used: set equality with the Python path on shuffled fixtures, and equal
+    scores bit for bit.
 - **P0-E-3.** The packet count equals the `propose` task count of a `phase0-golden` run on
   fixture pages (with O2). Authoring is operational: its checks are the acceptance queries above,
   the transcript audit and the two evidence records. A probe at A2 checks golden-server separation
@@ -717,6 +783,9 @@ taking canonical forms from F2b.
 - CLI rendering and `--json` models;
 - cache sizes;
 - whether `ci golden status` gives the ceiling with intervals;
+- whether E2b's candidate pairs, run diffs and aggregates run in P2's engine or in Python
+  (set-equal either way, §3.7);
+- the layout of a frame-version row beyond §3.3's fields, within D3 §7;
 - the form of the test-only decision input used by the parity test, which no command or
   configuration reaches.
 
@@ -729,9 +798,11 @@ taking canonical forms from F2b.
    pages. That changes the qualification order's `spike-pages` slice run.
 2. **Naming the expectation configuration for a run (P0-E-2b; orchestration, agent interface).**
    This needs a run option, or a policy entry, that routes `propose` to `agent.opus/expectation`.
-3. **A golden unit whose own key moves (P0-E-1; D3 §7).** An edit elsewhere on its page can
-   lengthen its generated prefix (D1 §10.3). Proposed: re-key the unit in the re-location
-   transaction. D3 is silent on whether the earlier key is kept.
+3. **A golden unit whose own key moves (P0-E-1; D3 §7; orchestration).** An edit elsewhere on its
+   page can lengthen its generated prefix (D1 §10.3). D3 §7 now keeps `unit_key` as the unit's
+   identity and records the moved locator in `current_locator`, which re-location updates (§3.3).
+   Open: whether `golden_units` hands orchestration the current locators for scope resolution, so a
+   `phase0-golden` run on the new rendition does not refuse the old key (O2).
 4. **Re-authoring rounds (P0-E-1; D3 §8).** D3 §8 says one golden run per set and guideline
    version. Proposed: one golden run per authoring round, so re-authoring stale units after the
    first run finished opens a second.

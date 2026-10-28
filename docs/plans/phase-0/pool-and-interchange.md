@@ -72,7 +72,7 @@ two implementations, the writer and the exports.
 |---|---|
 | `pool.load(run, cut)` returning model-typed Arrow relations; T3 hydration into the keyed candidate set | consolidation (C1) |
 | The engine interface, with both implementations and the set-equality harness | consolidation (C1); evaluation (run diffs, candidate pairs, score aggregates) |
-| The bulk writer: rows from the generated schemas into PostgreSQL | consolidation (C1), every bulk writer that adopts it |
+| The Arrow-native write route and the export, over F4's bulk-write primitives | consolidation once P3 lands (C1 is built on F4's primitives and switches without change of meaning), the export |
 | `ci export`: Parquet run export | the operator; downstream tools |
 | The evidence catalog and checked citations | `tools/evidence`; design and ADR text |
 
@@ -81,7 +81,8 @@ two implementations, the writer and the exports.
 ### 3.1 The pool contract and loader (P1)
 
 **The pool tables** are one Arrow relation each, with schemas from M3: candidate entities, statements,
-claims, alternatives, unsupported items, supports and the observation index. Each relation carries the
+`ExternalReference` candidates, claims, alternatives, unsupported items, supports, the observation index,
+and the reference run's entities and aliases (which alias-equality linking joins). Each relation carries the
 `cs.*` metadata.
 
 **The loader.** `pool.load` reads `kb.run_observation` and the payloads as of `cut_at`.

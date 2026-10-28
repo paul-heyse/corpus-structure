@@ -1,7 +1,14 @@
 # Phase 0: ingest and math
 
-**Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md),
-which owns shared decisions, contracts, the dependency graph and build findings.
+**Status:** Proposed (2026-10-28); P0-I-0 built and reviewed on 2026-10-28 (coordinator §11, IR
+rows), the rest not built. Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns shared
+decisions, contracts, the dependency graph and build findings.
+**Revised:** 2026-10-28, for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md) and its
+[target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md) ("TM"), following coordinator decisions 1, 19 and 23 and §9.2's RC12: I0's
+literal kind subsets give way to generated member-property sets ([DA-003](../../design_review/audit/semantic-model-and-authority.md#da-003)), migrated by
+P0-M-1 with the locator contract unchanged; I1a's source profiles are declared in `system`, typed
+against core vocabulary and checked against the run's schema version ([DA-010](../../design_review/audit/semantic-model-and-authority.md#da-010)), and M01
+emits `DelimitingStatus`. Prerequisites follow [coordinator §7](../phase-0_2026-10-28.md#7-dependencies-and-readiness).
 
 This document builds the locator function, HTML ingest (M01 with M03, and M02) and the math
 methods (the one grammar, M09, M11's grammar part, M13 and the standing context). Packages are
@@ -17,7 +24,8 @@ P0-I-0, P0-I-1a, P0-I-1b, P0-I-2a and P0-I-2b (coordinator §7).
   rendition, refuses ambiguous ones, and gives the structured key form and the unit key. It also
   lists a rendition's annotation units with their unit keys.
 - **Ingest** (P0-I-1a functions, P0-I-1b methods): the Siegrist source profile
-  (`sources/siegrist.yaml`) and its loader. M01 on html5lib turns a document's bytes into the
+  (`sources/siegrist.yaml`), its loader into the profile class `system` declares, and the profile's
+  check against a schema version. M01 on html5lib turns a document's bytes into the
   rendition content of [D1 §3.1–§3.2](../../design/D1-knowledge-representation.md#31-document-rendition-and-canonical-text):
   canonical text, segments, the macro table and author markup. M03 adds sentence segments
   (variant b′) as a step of M01's task. M02 writes character and math features. P0-I-1b wires them
@@ -31,15 +39,21 @@ P0-I-0, P0-I-1a, P0-I-1b, P0-I-2a and P0-I-2b (coordinator §7).
 
 **Where responsibility ends.**
 
-- Foundations (P0-F-2a) owns the evidence types (`Segment`, the segment-kind list,
-  `RenditionContent`), the content digest and the rendition and segment keys. It also owns
+- Model and projections (P0-M-1) owns the vocabularies and their member properties (segment kinds
+  with `annotation_unit`, `section_like` and the rest, statement kinds with `claim_bearing`,
+  `DelimitingStatus`, `ParseOutcome`, `MarkupKind`) and the source-profile class in `system`. This
+  document reads the generated sets and never restates a kind list (DA-003).
+- Foundations (P0-F-2a) owns the evidence types (`Segment`, `RenditionContent`), the content
+  digest and the rendition and segment keys. It also owns
   `core/tex.py`: the TeX tokenizer, the drop list, macro expansion and the token form that keys
   use. This document produces rendition content and consumes those functions. It never computes a
   digest or a key itself.
 - The repository (P0-F-4) is the only writer of evidence and observation rows. M01 hands it
   rendition content and observation drafts.
 - Orchestration (P0-O-0, P0-O-1, P0-O-2) owns the method contract, the registry, tasks, reuse,
-  stages, slices and when a locator is resolved for a run. This document gives each method its
+  stages, slices and when a locator is resolved for a run. It refuses, at run start, a run whose
+  source profile fails this document's schema-version check (P0-O-1; DA-010). This document gives
+  each method its
   `input_digest` and `Config`, and gives the resolver orchestration calls.
 - The agent interface owns packet assembly, the quote cascade and citation-frame resolution. It
   calls the standing-context function and the locator function; it does not reimplement them.
@@ -59,10 +73,13 @@ scope here.
   (`section_source: layout`, `layout`) are accepted by the profile model but refused as "not
   implemented" until a source needs them, so a profile never silently loses structure.
 - **Email thread segment kinds** come from a new adapter (`ingest.email`). It produces the same
-  `RenditionContent` with the email kinds of D1 §3.2. Locators, annotation units, M03, M09, M11 and
-  M13 work over any kind list and change nothing.
+  `RenditionContent` with the email kinds of D1 §3.2, whose roles are member properties in the model
+  (`email_message` carrying `annotation_unit` and `container`; TM §11). Locators, annotation units,
+  M03, M09, M11 and M13 read those properties and change nothing.
 - **A second domain pack over Siegrist** names `source_profile: siegrist`. The adapter
-  configuration is then equal, so the builds and renditions are shared.
+  configuration is then equal, so the builds and renditions are shared. A profile hint naming a
+  statement kind that the run's schema version lacks is refused at run start, never carried as an
+  unknown string (DA-010).
 - **A table with quantities** is already segmented (`table`, `table_row`, `table_cell`, with cell
   text in canonical text). M03 splits table cells, and M12 (phase 1) reads them.
 - **Phase 1 additions:**
@@ -85,9 +102,12 @@ scope here.
 
 | Contract | Owner (design · this series) | Used by |
 |---|---|---|
-| Canonical JSON; `Segment`, the segment-kind list, `RenditionContent`; the content digest; `doc`, `ren`, `seg` and `cfg` keys | D1 §3.2, §10.1; ADR-0019 · foundations P0-F-2a | P0-I-0 (types), P0-I-1a (produces the content), P0-I-2a |
+| Canonical JSON; `Segment` and `RenditionContent`; the content digest; `doc`, `ren`, `seg` and `cfg` keys | D1 §3.2, §10.1; ADR-0019 · foundations P0-F-2a | P0-I-0 (types), P0-I-1a (produces the content), P0-I-2a |
+| Generated vocabularies with member-property sets (`core/_model/`, `core/vocab.py`): `SegmentKind` with `annotation_unit`, `top_level_annotation_unit`, `section_like`, `label`, `statement_anchor` and `search_block`; `StatementKind` with `claim_bearing`; `DelimitingStatus` (merging `evidence.ParseStatus` and `vocab.SegmentParseStatus`); `ParseOutcome` (renamed from `ParseStatus`); `MarkupKind` | ADR-0020; TM §11; coordinator decisions 1, 23 · [model and projections](model-and-projections.md) P0-M-1 | P0-I-0 (annotation units, uncovered blocks), P0-I-1a (kinds, statuses, hints, markup), P0-I-2a (`ParseOutcome`) |
+| The source-profile class in `system`, typed against core vocabulary; change records that list the profiles a change affects | ADR-0022; [RC12](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#rc12), [R06](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r06); D4 M01 and D6 §7.2 as amended at P0-D-2 · P0-M-1, P0-M-4 | P0-I-1a |
+| A schema version's statement-kind members (core and pack-scoped) | D2 §2, §3.3 · schema and rules P0-S-1 | P0-I-1a's profile check |
 | `core/tex.py`: the TeX tokenizer, the drop list (every `%ignore` literal of SymPy 1.14's `latex.lark` plus the sizing commands), macro expansion over a rendition's table with the pack map as fallback, and the token form | D1 §6.2; ADR-0012; coordinator decision 13 · P0-F-2a, frozen after `s5.keys-property` | P0-I-1a (macro reader), P0-I-2a (grammar `%ignore` check, property test, symbol names) |
-| D1 value model, with `parse` ∈ {`ok`, `partial`, `ambiguous`, `failed`}; the symbol key rule (token form; a lone control word without its backslash) | D1 §6.1–§6.2 · P0-F-2b | P0-I-2a (M11 values, M09 symbol names) |
+| D1 value model, with `parse` a `ParseOutcome` ∈ {`ok`, `partial`, `ambiguous`, `failed`}; the symbol key rule (token form; a lone control word without its backslash) | D1 §6.1–§6.2 · P0-F-2b | P0-I-2a (M11 values, M09 symbol names) |
 | Observation payloads: `author_markup` with `synthesize`; `mention` with optional `math`; `relation`; `value` with optional `math_kind`; `scope` with optional `reopens` | [D3 §6.2](../../design/D3-database.md#62-observation-payloads-by-kind), as amended 2026-10-28 · foundations | P0-I-1b, P0-I-2b |
 | The write by content (insert the rendition on `(document_id, content_digest)`, write segments only when it is new, a build row either way), bulk observation COPY, measurement rows carrying `task_id` | [D3 §5](../../design/D3-database.md#5-kb-evidence-observations-entities-and-claims), §6; ADR-0019 · P0-F-4 | P0-I-1b, P0-I-2b |
 | Method-contract types (`Method`, `UnitView`, `UnitResult`, `ObservationDraft`, `Digest`, `Resources`, `MethodContext`) and the registry interface | [D4 §1](../../design/D4-method-catalog.md#1-the-method-contract) · orchestration P0-O-0 | P0-I-1b, P0-I-2b |
@@ -100,9 +120,9 @@ scope here.
 
 | Contract | Design owner | What this document implements | Consumers |
 |---|---|---|---|
-| Locators: parse, generate, resolve, refuse; the structured key form; unit keys; annotation units | D1 §3.4, §10.1; ADR-0019; coordinator decision 14 | P0-I-0 (`core/locators.py`) | foundations (statement and local-entity keys, fixture frames); orchestration (`ops.task.unit_key`, slices and the `{golden_set}` scope at run start); agent interface (`unit_ref`, frame generation and resolution); evaluation (golden unit keys, sampling order, re-location); consolidation (anchors, `synthesize` objects, `extref` when OPEN-D1-5 is decided); queries (`statement(locator)`, evidence locators) |
-| Source profiles: vocabulary, `root`, `index`, `language` | D4 M01 (profile vocabulary); [D2 §2](../../design/D2-schema-and-guidelines.md#2-domain-pack-layout), [§12.1](../../design/D2-schema-and-guidelines.md#121-methodsyaml) | P0-I-1a (`ingest/profile.py`, `sources/siegrist.yaml`) | orchestration (project init reads `index` and `root`); consolidation (the toy pack's `sources/toy.yaml`) |
-| Rendition content, builds, segments with hints, sentences, macro tables, author markup, parse detail | D1 §3.1–§3.2; [D4 M01](../../design/D4-method-catalog.md#m01-ingesthtml), [M03](../../design/D4-method-catalog.md#m03-segmentsentences) | P0-I-1a, P0-I-1b | everything downstream: the quote cascade (sentences, macro table), packets, consolidation (markup, `synthesize`, statement-kind hints), policies (`unit.claim_bearing`, `unit.statement_kind`), BM25 (`ts_config`) |
+| Locators: parse, generate, resolve, refuse; the structured key form; unit keys; annotation units by member property | D1 §3.4, §10.1; ADR-0019; coordinator decision 14 | P0-I-0 (`core/locators.py`; its kind subsets migrated by P0-M-1) | foundations (statement and local-entity keys, fixture frames); orchestration (`ops.task.unit_key`, slices and the `{golden_set}` scope at run start); agent interface (`unit_ref`, frame generation and resolution); evaluation (golden unit keys, sampling order, re-location); consolidation (anchors, `synthesize` objects, `extref` when OPEN-D1-5 is decided); queries (`statement(locator)`, evidence locators) |
+| Source profiles: the loader into the `system` class, `root`, `index`, `language`; the check against a schema version | D4 M01 (profile vocabulary); [D2 §2](../../design/D2-schema-and-guidelines.md#2-domain-pack-layout), [§12.1](../../design/D2-schema-and-guidelines.md#121-methodsyaml); ADR-0022 | P0-I-1a (`ingest/profile.py`, `sources/siegrist.yaml`) | orchestration (project init reads `index` and `root`; run start calls the check, P0-O-1); consolidation (the toy pack's `sources/toy.yaml`) |
+| Rendition content, builds, segments with `DelimitingStatus` and typed hints, sentences, macro tables, author markup, parse detail | D1 §3.1–§3.2; [D4 M01](../../design/D4-method-catalog.md#m01-ingesthtml), [M03](../../design/D4-method-catalog.md#m03-segmentsentences) | P0-I-1a, P0-I-1b | everything downstream: the quote cascade (sentences, macro table), packets, consolidation (markup, `synthesize`, statement-kind hints), policies (`unit.claim_bearing`, `unit.statement_kind`), BM25 (`ts_config`) |
 | M02 features | [D4 M02](../../design/D4-method-catalog.md#m02-profilesegments), [D6 §6](../../design/D6-orchestration-metrics-policies.md#6-metrics) | P0-I-1a, P0-I-1b | policies (unit context), reports |
 | `ci ingest` | D8 §4; coordinator decision 10 | P0-I-1b | the operator; qualification |
 | The math grammar: `parse`, the tree printer, the SymPy conversion, occurrences | D1 §6.2; [D4 M11](../../design/D4-method-catalog.md#m11-normalizeformula); ADR-0012 | P0-I-2a (`methods/math/`) | consolidation (finalize: values parsed under their slot kind); evaluation (SymPy for value equivalence, D7 §5.3); M09, M11, M13 |
@@ -157,24 +177,40 @@ renditions (D1 §3.4).
   per-page work is small. The point of the index is not to repeat it per call.
 - **Structured form.** `{"doc": <document key>, "id": …}` or `{"doc": …, "kind": <full name>,
   "prefix": …[, "n": …]}`. F2b hashes it; this document never hashes.
-- **Annotation units.** `annotation_units(rendition)` returns, in document order, every `unit`
-  segment and every paragraph whose ancestors are only sections and the document, each with its
-  unit key (the string form of its generated locator). Orchestration's policy chains, evaluation's
-  sampler and the packet assembler all take units from this one function.
+- **Annotation units.** `annotation_units(rendition)` returns, in document order, every segment
+  whose kind carries `annotation_unit`, and every one whose kind carries `top_level_annotation_unit`
+  and whose ancestors' kinds all carry `section_like`, each with its unit key (the string form of its
+  generated locator). For Siegrist these are D1 §3.4's `unit` segments and paragraphs outside units.
+  Orchestration's policy chains, evaluation's sampler and the packet assembler all take units from
+  this one function.
+  - The sets are M1's generated member properties (TM §11; DA-003). P0-I-0 was built with literal
+    kind subsets; P0-M-1 migrates them to the generated sets in the same package as `vocab.py`, and
+    keys' `statement_anchor` the same way. The locator contract and every generated locator are
+    unchanged, and the IR regression tests stay as they are.
   - **Open question for the design owner:** D1 §3.4 and D2 §10.2 define a unit as a `unit`
     segment or a paragraph outside units, so a top-level list, table or figure outside any unit
     belongs to none. On the seven S0/S0-R2 pages that is two lists on Normal (lists of related
     distributions), one on ChiSquare and one figure caption on Gamma.
   - **Proposed answer:** keep D1's definition for phase 0. The function also returns these blocks
-    as `uncovered`, so coverage can name the text no unit holds.
+    as `uncovered` (outside every unit, of a kind carrying neither `section_like` nor `label`), so
+    coverage can name the text no unit holds.
 
 **Failure behaviour.** Parse errors and refusals are typed exceptions carrying the input and the
 candidates. Generation cannot fail: an ordinal always separates identical texts.
 
 ### 3.2 Source profiles (P0-I-1a)
 
-`ingest/profile.py` holds a frozen Pydantic model of the D4 M01 profile vocabulary, `extra="forbid"`,
-with these additions agreed on 2026-10-28:
+`ingest/profile.py` loads a profile into the source-profile class that `system` declares (P0-M-1;
+coordinator decision 19; [RC12](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#rc12), [R06](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r06)): a frozen Pydantic model of the D4 M01
+profile vocabulary, `extra="forbid"`, whose domain-bearing fields are typed by the generated
+vocabularies, not strings. Statement-kind hints are `StatementKind` members, block and section roles
+`SegmentKind` members, `synthesize.predicate` a core predicate such as `core:proves`, and markup a
+`MarkupKind`. Keeping the field set equal to the `system` class until a generated form exists is
+model and projections' interim guard (P0-M-1).
+
+The hints stay in the profile: they are facts about one source's conventions over core vocabulary,
+and moving them into the pack would split one convention across every pack that shares the source
+(the review's refinement of DA-010). The class has these additions agreed on 2026-10-28:
 
 - `root`: the directory pages are relative to;
 - `index`: the corpus index that `ci project init` registers documents from;
@@ -185,7 +221,8 @@ with these additions agreed on 2026-10-28:
 under `root`.
 
 - **Loading.**
-  - `load_profile(name)` reads `sources/<name>.yaml` and validates it.
+  - `load_profile(name)` reads `sources/<name>.yaml` and validates it against the class; an unknown
+    core name (a misspelt kind, `Proof` for `proof`) is refused here.
   - Each selector is compiled with `cssselect2.compile_selector_list`; a `SelectorError` rejects
     the whole profile.
   - The profile is registered once, as role payloads in one `cssselect2.Matcher`
@@ -196,6 +233,13 @@ under `root`.
 - **XPath export.** The cssselect→XPath translation (`CSSSelector(css, translator="html").path`)
   appears only in a profile test that checks both engines select the same nodes. Production runs
   one engine.
+- **The schema-version check.** `check_profile(profile, schema_version)` returns the profile's
+  version-scoped names (statement kinds, pack-scoped kinds included) that the schema version's
+  member rows lack, each with its field and name; static core names were checked at load. It is a
+  pure function over the compiled schema version (P0-S-1). Orchestration calls it at run start and
+  refuses the run on any result, naming the profile (P0-O-1). That is DA-010's closure: a profile
+  naming an unknown kind is refused at run start. Change records list the profiles a schema change
+  affects (P0-M-4).
 - **`sources/siegrist.yaml`** is D2 §12.1's profile with `root: siegrist_random/random`, `index`,
   `language: english` and `details_kinds.synthesize`. Its other values are those S1 tested on 78
   pages (record `s1.corpus`).
@@ -250,7 +294,10 @@ It is pure: no database, no clock. Its steps:
      last of duplicate ids, as the page script does.
    - A non-unit `div` and `blockquote` are transparent: their blocks attach to the parent, and
      their direct text is an orphan paragraph. The spike's `division` and `block` kinds are not
-     ported. A test asserts every emitted kind is on F2a's list.
+     ported. A test asserts every emitted kind is a `SegmentKind` member.
+   - No segment with empty text is emitted: an element whose collapsed text is empty yields no
+     block. An empty segment's only locator is positional (`page@p[n]:`), which an insertion
+     earlier on the page moves (IR-13, coordinator §11).
 5. **Delimiting.**
    - One `regex` pattern is generated from the profile's delimiters and display environments:
      `(?V1)` explicit; the named lists `\L<opens>`, `\L<closes>`, `\L<delims>` and `\L<envs>`;
@@ -260,7 +307,9 @@ It is pure: no database, no clock. Its steps:
      `partial` with reason `delimiter scan timeout`.
    - An unclosed or wrongly closed span is `partial` with its reason, and a stray closer is
      recorded in `parse_detail`.
-   - Segment status comes from delimiting alone (D1 §3.1). Evidence: Tested on 517 blocks
+   - Segment status comes from delimiting alone (D1 §3.1) and is a `DelimitingStatus`, M1's one
+     definition replacing `evidence.ParseStatus` and `vocab.SegmentParseStatus` (TM §11; DA-002);
+     the formula outcome `ParseOutcome` is M11's, never a segment's. Evidence: Tested on 517 blocks
      (`s1.profile-delimiting`; text-math note L-05).
 6. **Normalization.** NFC is applied chunk by chunk between math, markup and run boundaries, so
    every boundary offset stays exact even where NFC would change a length. That is the spike's
@@ -268,12 +317,13 @@ It is pure: no database, no clock. Its steps:
 7. **Markup and hints.**
    - Author markup goes into segment `attrs`: element id, classes, `dfn` terms with offsets, link
      targets.
-   - It is also emitted as `author_markup` drafts (D3 §6.2).
+   - It is also emitted as `author_markup` drafts (D3 §6.2), each typed by `MarkupKind`.
    - A `details` block of a kind the profile's `details_kinds.synthesize` names carries
      `synthesize: {predicate, object, evidence}`. `object` is the enclosing unit (its segment key
      on this rendition, and its locator); `evidence` is the summary heading's span. Consolidation
      turns it into a claim without knowing the convention (D5 §3.5; coordinator decision 17).
-   - Statement-kind hints: a unit takes the hint of its first hinted block. A section hint (the
+   - Statement-kind hints, each a `StatementKind` member: a unit takes the hint of its first hinted
+     block. A section hint (the
      innermost section whose title the profile names) takes precedence and keeps the block hint
      beside it.
    - `claim_bearing: false` is carried as a hint.
@@ -393,7 +443,7 @@ require (D3 §5, §8).
 - **`parse(latex, kind, macros, context) → MathResult`.**
   - `macros` is the merged table from `core/tex.py`.
   - `context` declares `functions` and `variables`.
-  - The result holds the status (`ok`, `partial` when only trailing `.,;` was dropped,
+  - The result holds the status (a `ParseOutcome`: `ok`, `partial` when only trailing `.,;` was dropped,
     `ambiguous`, `failed`), the detected kind, the tree, a reason with its category, the notes, and
     occurrences with offsets into the span.
 - **Ambiguity** is resolved only from declared context. Six readings are settled:
@@ -452,7 +502,7 @@ Both methods read every `math_inline` and `math_display` segment of a rendition.
 - **M11** writes one `value` observation per span, parsed under `any_value`:
   - the D1 value with `t: set` for a set kind and `t: formula` otherwise;
   - `latex` verbatim;
-  - `parse`;
+  - `parse` (a `ParseOutcome`);
   - the free symbols, named by F2b's symbol rule, each `unresolved`, because binding is
     consolidation's (D5 §4);
   - no `sympy` in phase 0.
@@ -569,8 +619,8 @@ M02 has no spike module. Its features are S1's counts (`code/s1d_corpus.py`).
 
 | Package | Scope | Prerequisites | Acceptance | Revealing failure case |
 |---|---|---|---|---|
-| P0-I-0 | Locators over F2a's types: parse, generate, resolve, refuse, structured form, unit keys, annotation units, `LocatorIndex`, pages from `root` | P0-F-2a | On a thin fixture of the four spike pages' segments (extracted from the frozen S1 renditions): the 13 D2 §12.2 locators resolve to one segment each under D1's forms, and generate → resolve returns every segment. Properties: content-identical renditions give identical locators; a structured form never holds a short kind; an edit after a block's generated prefix leaves every other block's locator unchanged | Two paragraphs where one's whole text opens the other (`Proof.` and `Proof. By induction…`): the shorter must get an ordinal over both, never a prefix that also selects the longer; a resolver that falls back to a near match on an edited page |
-| P0-I-1a | Profile model and loader, `sources/siegrist.yaml`, M01, M03, M02 as pure functions | P0-F-2a, P0-I-0 | On 78 pages (corpus-gated): S1's structural invariants; all 19,432 element texts equal an independent path; unit, definition-unit, `dfn`, `details` and display-math counts equal the index on 77 of 78; 8 `partial` math spans, each with its reason; 44 orphan runs; 51 figures. On the seven S0/S0-R2 pages: canonical text, segment kinds, offsets and tree, and sentences, equal the spike renditions. The macro table holds `\P` on the 22 `\renewcommand` pages. Locators round-trip on every segment of the 78 renditions. Two builds whose M03 configurations differ but give equal sentences have equal digests. The trace segment fixtures match. A profile with an invalid selector is refused | An unclosed `<p>` before `<details>` (4 pages): html5lib closes the paragraph, where libxml2 nests the proof inside it; an inline formula straddling tokenizer boundaries (`mean\( \pm \)standard`) must stay one token whose text is the span |
+| P0-I-0 | Locators over F2a's types: parse, generate, resolve, refuse, structured form, unit keys, annotation units, `LocatorIndex`, pages from `root`. Built and reviewed 2026-10-28; P0-M-1 migrates its kind subsets to member properties (DA-003), with this acceptance unchanged | P0-F-2a | On a thin fixture of the four spike pages' segments (extracted from the frozen S1 renditions): the 13 D2 §12.2 locators resolve to one segment each under D1's forms, and generate → resolve returns every segment. Properties: content-identical renditions give identical locators; a structured form never holds a short kind; an edit after a block's generated prefix leaves every other block's locator unchanged | Two paragraphs where one's whole text opens the other (`Proof.` and `Proof. By induction…`): the shorter must get an ordinal over both, never a prefix that also selects the longer; a resolver that falls back to a near match on an edited page |
+| P0-I-1a | The profile loader into the `system` class, typed against core vocabulary, and the schema-version check; `sources/siegrist.yaml`; M01 (emitting `DelimitingStatus`), M03, M02 as pure functions | P0-F-2a, P0-I-0, P0-M-1, P0-D-2 | On 78 pages (corpus-gated): S1's structural invariants; all 19,432 element texts equal an independent path; unit, definition-unit, `dfn`, `details` and display-math counts equal the index on 77 of 78; 8 `partial` math spans, each with its reason; 44 orphan runs; 51 figures. On the seven S0/S0-R2 pages: canonical text, segment kinds, offsets and tree, and sentences, equal the spike renditions. The macro table holds `\P` on the 22 `\renewcommand` pages. Locators round-trip on every segment of the 78 renditions. Two builds whose M03 configurations differ but give equal sentences have equal digests. The trace segment fixtures match. No segment has empty text (IR-13). Every segment status is a `DelimitingStatus` member and every hint a `StatementKind` member. A profile with an invalid selector, or naming an unknown core kind, is refused at load; one naming a kind the schema version lacks is reported by the check, which O1's run-start refusal consumes (DA-010) | An unclosed `<p>` before `<details>` (4 pages): html5lib closes the paragraph, where libxml2 nests the proof inside it; an inline formula straddling tokenizer boundaries (`mean\( \pm \)standard`) must stay one token whose text is the span; a hint spelled `Proof` loading as an unknown string that no policy ever matches |
 | P0-I-1b | `ingest.html` and `profile.segments` as methods; the write by content; `ci ingest` | P0-O-0, P0-F-4, P0-O-1, P0-I-1a | `ci ingest --slice spike-pages` writes four renditions, their builds, segments, `author_markup` and measurements; a second run reuses every task; a run under a changed configuration with identical content adds build rows and writes no segment; a profile change that alters text adds a rendition beside the old one; `kb.run_rendition` selects each run's rendition | A content-identical rebuild that writes segments again (duplicate rows) or rewrites the existing rendition |
 | P0-I-2a | Grammar, M11's grammar part, M09, M13 and the standing context as pure functions | P0-F-2b (with P0-F-2a's `core/tex.py`, frozen after `s5.keys-property`), P0-I-0, P0-I-1a; S5-A finished | The ported grammar tests; the `%ignore` build check; a call from a thread raises; a pathological formula returns `timeout` within its bound; the property test (§6) with every disagreement listed by cause, matching `s5.keys-property`; coverage reported per page, not a gate, beside `s5.coverage`; M09 offsets equal the source substring of every occurrence on the spike-page spans; the 21 S0-R2 standing contexts equal `sample.json` by sentence text and locator; 18 of 20 annotated scopes reported | `x \leftarrow y` read as the product `xarrowy`, which would give M09 the mentions `a`, `r`, `o`, `w`; T2 ("Suppose again …") must yield both its context sentences |
 | P0-I-2b | `normalize.formula` and `extract.math` (stage `normalize`) and `resolve.symbol_scope` (stage `scope`) as methods, one task per rendition | P0-O-0, P0-F-4, P0-O-1, P0-I-1b, P0-I-2a | On the spike pages a run writes one task per rendition and method; a rerun reuses them; a content-identical rendition reuses all three; M13's digest holds M09's and M11's payload hashes, so rerunning M09 with identical output leaves M13 reused; methods run on a worker's main thread | An M13 digest built from M09's task id, which would re-run M13 and every packet after an identical M09 rerun |
@@ -587,7 +637,8 @@ parsers).
     test only);
   - `regex` 2026.9.29 named lists, `(*SKIP)(*F)` and `timeout`;
   - spaCy 3.8.18 with `en_core_web_sm` 3.8.0;
-  - PyYAML.
+  - PyYAML;
+  - M1's generated vocabularies and the `system` profile class (no library of its own).
 - Each is added pinned when the package uses it (D9 §2).
 - Evidence: `s1.corpus`, `s1.corpus-html5lib`, `s1.rendition-identity`, `s1.profile-delimiting`,
   `s1.sentence-gold`, `s1.variants`, `s1.adapter`, `s1.trafilatura`, `s1.nist` (the vocabulary's
@@ -622,10 +673,13 @@ parsers).
 
   The corpus round trip on the 78 renditions belongs to P0-I-1a's acceptance.
 - **P0-I-1a.**
-  - Profile tests: load, selector rejection, both engines agree per rule.
+  - Profile tests: load, selector rejection, both engines agree per rule; an unknown core kind
+    refused at load; `check_profile` against a hand-made schema version with a pack-scoped kind,
+    reporting a kind it lacks and passing one it has.
   - Adapter tests on small HTML fixtures, one per D1 §3.1 convention: an empty `a.ref`, `<q>`,
     `ol.sub`, a `details` summary, orphan text, a bare `align`, each kind of unbalanced delimiter,
-    a delimiter-scan timeout, `\renewcommand`, a non-unit `div`.
+    a delimiter-scan timeout, `\renewcommand`, a non-unit `div`, and an empty element, which yields
+    no segment (IR-13).
   - Corpus-gated tests on the 78 pages (skipped when `docs/statistics_corpus` is absent) check
     S1's figures.
   - The seven-page identity check compares against a thin fixture extracted once from the frozen
