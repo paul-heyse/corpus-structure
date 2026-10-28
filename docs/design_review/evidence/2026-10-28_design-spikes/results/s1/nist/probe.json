@@ -1,0 +1,1779 @@
+{
+ "profile": {
+  "applies_to": "nist_ehandbook/html/**/*.htm",
+  "exclude": {
+   "scripts": "script, noscript, style",
+   "controls": "button",
+   "images": "img"
+  },
+  "title": "head > title",
+  "sections": [
+   "h1",
+   "h2",
+   "h3",
+   "h4",
+   "h5",
+   "h6"
+  ],
+  "block_hints": {},
+  "math": {
+   "inline": [
+    "\\(",
+    "\\)"
+   ],
+   "display": [
+    "\\[",
+    "\\]"
+   ],
+   "display_environments": [
+    "align",
+    "align*"
+   ],
+   "page_macros": false
+  }
+ },
+ "config": {
+  "adapter": "s1_adapter",
+  "version": "0.1.0",
+  "profile": "generic-structural",
+  "parser": "lxml",
+  "unicode": "NFC",
+  "math_whitespace": "keep",
+  "sections": "h3h4",
+  "apps": "keep",
+  "render": {
+   "aref": "browser",
+   "q": "quotes",
+   "list_markers": "parenthesized",
+   "summary": "heading",
+   "figure": "caption"
+  }
+ },
+ "pages": {
+  "eda361.htm": {
+   "generic": {
+    "title": "1.3.6.1. What is a Probability Distribution",
+    "chars": 3080,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 5,
+     "table_cell": 9,
+     "paragraph": 19,
+     "heading": 2,
+     "list": 2,
+     "list_item": 6,
+     "math_display": 4
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.1.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "What is a Probability Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 4,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Discrete Distributions",
+     "Continuous Distributions",
+     "Probability Mass Functions Versus Probability Density Functions"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions\n\n1.3.6.1.\tWhat is a Probability Distri",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {
+     "sub": 2
+    }
+   },
+   "generic_alt": {
+    "title": "1.3.6.1. What is a Probability Distribution",
+    "chars": 3080,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 5,
+     "table_cell": 9,
+     "paragraph": 19,
+     "heading": 2,
+     "list": 2,
+     "list_item": 6,
+     "math_display": 4
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.1.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "What is a Probability Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 4,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Discrete Distributions",
+     "Continuous Distributions",
+     "Probability Mass Functions Versus Probability Density Functions"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions\n\n1.3.6.1.\tWhat is a Probability Distri",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {
+     "sub": 2
+    }
+   },
+   "siegrist_rule_hits": {
+    "block_hint:p.Proof": 0,
+    "block_hint:p.app": 0,
+    "block_hint:p.dfin": 0,
+    "block_hint:p.dfm": 0,
+    "block_hint:p.dfn": 0,
+    "block_hint:p.exercise": 0,
+    "block_hint:p.exericse": 0,
+    "block_hint:p.math": 0,
+    "block_hint:p.stat": 0,
+    "details:details": 0,
+    "exclude:chapter_lists": 0,
+    "exclude:controls": 0,
+    "exclude:images": 2,
+    "exclude:macro_block": 0,
+    "exclude:navigation": 0,
+    "exclude:scripts": 6,
+    "summary:summary": 0,
+    "title:title": 0,
+    "unit:unit": 0
+   },
+   "trafilatura": {
+    "returned": true,
+    "our_chars": 2571,
+    "traf_chars": 2571,
+    "missing_chars": 38,
+    "missing_pct": 1.48,
+    "inserted_chars": 38,
+    "inserted_heads": [
+     "1.3.6.1. What is a Probability Distribution"
+    ],
+    "largest_missing": [
+     {
+      "chars": 38,
+      "head": "1.3.6.1. What is a Probability Distribution"
+     }
+    ],
+    "math_spans": 4,
+    "math_verbatim": 4,
+    "tags": {
+     "body": 1,
+     "table": 2,
+     "row": 5,
+     "cell": 10,
+     "p": 9,
+     "hi:#i": 7,
+     "list:ol": 2,
+     "item": 6,
+     "hi:#b": 3,
+     "hi:#sub": 2,
+     "head:h2": 2
+    },
+    "heads": [
+     "1.3.6.1.",
+     "What is a Probability Distribution"
+    ]
+   }
+  },
+  "eda3652.htm": {
+   "generic": {
+    "title": "1.3.6.5.2. Maximum Likelihood",
+    "chars": 4348,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 6,
+     "table_cell": 11,
+     "paragraph": 17,
+     "heading": 2,
+     "list": 4,
+     "list_item": 11
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.5.2.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Maximum Likelihood",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Maximum Likelihood",
+     "Advantages",
+     "Disadvantages",
+     "Software"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.5. Estimating the Parameters of ",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {}
+   },
+   "generic_alt": {
+    "title": "1.3.6.5.2. Maximum Likelihood",
+    "chars": 4348,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 6,
+     "table_cell": 11,
+     "paragraph": 17,
+     "heading": 2,
+     "list": 4,
+     "list_item": 11
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.5.2.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Maximum Likelihood",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Maximum Likelihood",
+     "Advantages",
+     "Disadvantages",
+     "Software"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.5. Estimating the Parameters of ",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {}
+   },
+   "siegrist_rule_hits": {
+    "block_hint:p.Proof": 0,
+    "block_hint:p.app": 0,
+    "block_hint:p.dfin": 0,
+    "block_hint:p.dfm": 0,
+    "block_hint:p.dfn": 0,
+    "block_hint:p.exercise": 0,
+    "block_hint:p.exericse": 0,
+    "block_hint:p.math": 0,
+    "block_hint:p.stat": 0,
+    "details:details": 0,
+    "exclude:chapter_lists": 0,
+    "exclude:controls": 0,
+    "exclude:images": 2,
+    "exclude:macro_block": 0,
+    "exclude:navigation": 0,
+    "exclude:scripts": 5,
+    "summary:summary": 0,
+    "title:title": 0,
+    "unit:unit": 0
+   },
+   "trafilatura": {
+    "returned": true,
+    "our_chars": 3718,
+    "traf_chars": 3718,
+    "missing_chars": 27,
+    "missing_pct": 0.73,
+    "inserted_chars": 27,
+    "inserted_heads": [
+     "1.3.6.5.2. Maximum Likelihood"
+    ],
+    "largest_missing": [
+     {
+      "chars": 17,
+      "head": "Likelihood Maximum"
+     },
+     {
+      "chars": 10,
+      "head": "1.3.6.5.2."
+     }
+    ],
+    "math_spans": 0,
+    "math_verbatim": 0,
+    "tags": {
+     "body": 1,
+     "table": 2,
+     "row": 6,
+     "cell": 12,
+     "p": 7,
+     "hi:#i": 4,
+     "list:ul": 2,
+     "item": 11,
+     "list:ol": 2,
+     "head:h2": 2
+    },
+    "heads": [
+     "1.3.6.5.2.",
+     "Maximum Likelihood"
+    ]
+   }
+  },
+  "eda3661.htm": {
+   "generic": {
+    "title": "1.3.6.6.1. Normal Distribution",
+    "chars": 4213,
+    "segment_kinds": {
+     "document": 1,
+     "table": 3,
+     "table_row": 22,
+     "table_cell": 43,
+     "paragraph": 29,
+     "heading": 2,
+     "math_inline": 9,
+     "list": 2,
+     "list_item": 5
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.6.1.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Normal Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 9,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Probability Density Function",
+     "Cumulative Distribution Function",
+     "Percent Point Function",
+     "Hazard Function",
+     "Cumulative Hazard Function",
+     "Survival Function",
+     "Inverse Survival Function",
+     "Common Statistics",
+     "Parameter Estimation",
+     "Comments",
+     "Theroretical Justification - Central Limit Theorem",
+     "Software"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.6. Gallery of Distributions\n\n1.3",
+    "exclusions": {
+     "images": 9,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {}
+   },
+   "generic_alt": {
+    "title": "1.3.6.6.1. Normal Distribution",
+    "chars": 4510,
+    "segment_kinds": {
+     "document": 1,
+     "table": 3,
+     "table_row": 22,
+     "table_cell": 43,
+     "paragraph": 36,
+     "heading": 2,
+     "math_inline": 9,
+     "list": 2,
+     "list_item": 5
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.6.1.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Normal Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 9,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Probability Density Function",
+     "Cumulative Distribution Function",
+     "Percent Point Function",
+     "Hazard Function",
+     "Cumulative Hazard Function",
+     "Survival Function",
+     "Inverse Survival Function",
+     "Common Statistics",
+     "Parameter Estimation",
+     "Comments",
+     "Theroretical Justification - Central Limit Theorem",
+     "Software"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.6. Gallery of Distributions\n\n1.3",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [
+     "plot of the standard normal probability density function",
+     "plot of the normal cumulative distribution function",
+     "plot of the normal percent point function",
+     "plot of the normal hazard function",
+     "plot of the normal cumulative hazard function",
+     "normal survival function",
+     "normal inverse survival function"
+    ],
+    "img_alts_surfaced": [
+     {
+      "src": "gif/norpdf.gif",
+      "alt": "plot of the standard normal probability density function"
+     },
+     {
+      "src": "gif/norcdf.gif",
+      "alt": "plot of the normal cumulative distribution function"
+     },
+     {
+      "src": "gif/norppf.gif",
+      "alt": "plot of the normal percent point function"
+     },
+     {
+      "src": "gif/norhaz.gif",
+      "alt": "plot of the normal hazard function"
+     },
+     {
+      "src": "gif/norcha.gif",
+      "alt": "plot of the normal cumulative hazard function"
+     },
+     {
+      "src": "gif/norsurv.gif",
+      "alt": "normal survival function"
+     },
+     {
+      "src": "gif/norisurv.gif",
+      "alt": "normal inverse survival function"
+     }
+    ],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {}
+   },
+   "siegrist_rule_hits": {
+    "block_hint:p.Proof": 0,
+    "block_hint:p.app": 0,
+    "block_hint:p.dfin": 0,
+    "block_hint:p.dfm": 0,
+    "block_hint:p.dfn": 0,
+    "block_hint:p.exercise": 0,
+    "block_hint:p.exericse": 0,
+    "block_hint:p.math": 0,
+    "block_hint:p.stat": 0,
+    "details:details": 0,
+    "exclude:chapter_lists": 0,
+    "exclude:controls": 0,
+    "exclude:images": 9,
+    "exclude:macro_block": 0,
+    "exclude:navigation": 0,
+    "exclude:scripts": 6,
+    "summary:summary": 0,
+    "title:title": 0,
+    "unit:unit": 0
+   },
+   "trafilatura": {
+    "returned": true,
+    "our_chars": 3575,
+    "traf_chars": 3575,
+    "missing_chars": 216,
+    "missing_pct": 6.04,
+    "inserted_chars": 216,
+    "inserted_heads": [
+     "1.3.6.6.1. Normal Distribution Mean The location parameter μ"
+    ],
+    "largest_missing": [
+     {
+      "chars": 188,
+      "head": "Mean The location parameter μ. Median The location parameter μ. Mode T"
+     },
+     {
+      "chars": 28,
+      "head": "1.3.6.6.1. Normal Distribution"
+     }
+    ],
+    "math_spans": 9,
+    "math_verbatim": 9,
+    "tags": {
+     "body": 1,
+     "table": 3,
+     "row": 22,
+     "cell": 44,
+     "p": 27,
+     "hi:#i": 23,
+     "hi:#b": 1,
+     "list:ul": 1,
+     "item": 5,
+     "list:ol": 1,
+     "head:h2": 2
+    },
+    "heads": [
+     "1.3.6.6.1.",
+     "Normal Distribution"
+    ]
+   }
+  },
+  "eda3662.htm": {
+   "generic": {
+    "title": "1.3.6.6.2. Uniform Distribution",
+    "chars": 3734,
+    "segment_kinds": {
+     "document": 1,
+     "table": 3,
+     "table_row": 20,
+     "table_cell": 39,
+     "paragraph": 35,
+     "heading": 2,
+     "math_inline": 16,
+     "list": 4
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.6.2.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Uniform Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 16,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Probability Density Function",
+     "Cumulative Distribution Function",
+     "Percent Point Function",
+     "Hazard Function",
+     "Cumulative Hazard Function",
+     "Survival Function",
+     "Inverse Survival Function",
+     "Common Statistics",
+     "Parameter Estimation",
+     "Comments",
+     "Software"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.6. Gallery of Distributions\n\n1.3",
+    "exclusions": {
+     "images": 9,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 4,
+    "html_math_markup": {}
+   },
+   "generic_alt": {
+    "title": "1.3.6.6.2. Uniform Distribution",
+    "chars": 4053,
+    "segment_kinds": {
+     "document": 1,
+     "table": 3,
+     "table_row": 20,
+     "table_cell": 39,
+     "paragraph": 42,
+     "heading": 2,
+     "math_inline": 16,
+     "list": 4
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.6.2.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Uniform Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 16,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Probability Density Function",
+     "Cumulative Distribution Function",
+     "Percent Point Function",
+     "Hazard Function",
+     "Cumulative Hazard Function",
+     "Survival Function",
+     "Inverse Survival Function",
+     "Common Statistics",
+     "Parameter Estimation",
+     "Comments",
+     "Software"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.6. Gallery of Distributions\n\n1.3",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [
+     "plot of the uniform probability density function",
+     "plot of the uniform cumulative distribution function",
+     "plot of the uniform percent point function",
+     "plot of the uniform hazard function",
+     "plot of the uniform cumulative hazard function",
+     "plot of the uniform survival function",
+     "plot of the uniform inverse survival function"
+    ],
+    "img_alts_surfaced": [
+     {
+      "src": "gif/unipdf.gif",
+      "alt": "plot of the uniform probability density function"
+     },
+     {
+      "src": "gif/unicdf.gif",
+      "alt": "plot of the uniform cumulative distribution function"
+     },
+     {
+      "src": "gif/unippf.gif",
+      "alt": "plot of the uniform percent point function"
+     },
+     {
+      "src": "gif/unihaz.gif",
+      "alt": "plot of the uniform hazard function"
+     },
+     {
+      "src": "gif/unicha.gif",
+      "alt": "plot of the uniform cumulative hazard function"
+     },
+     {
+      "src": "gif/unisurv.gif",
+      "alt": "plot of the uniform survival function"
+     },
+     {
+      "src": "gif/uniisurv.gif",
+      "alt": "plot of the uniform inverse survival function"
+     }
+    ],
+    "engines_identical": true,
+    "orphans": 4,
+    "html_math_markup": {}
+   },
+   "siegrist_rule_hits": {
+    "block_hint:p.Proof": 0,
+    "block_hint:p.app": 0,
+    "block_hint:p.dfin": 0,
+    "block_hint:p.dfm": 0,
+    "block_hint:p.dfn": 0,
+    "block_hint:p.exercise": 0,
+    "block_hint:p.exericse": 0,
+    "block_hint:p.math": 0,
+    "block_hint:p.stat": 0,
+    "details:details": 0,
+    "exclude:chapter_lists": 0,
+    "exclude:controls": 0,
+    "exclude:images": 9,
+    "exclude:macro_block": 0,
+    "exclude:navigation": 0,
+    "exclude:scripts": 6,
+    "summary:summary": 0,
+    "title:title": 0,
+    "unit:unit": 0
+   },
+   "trafilatura": {
+    "returned": true,
+    "our_chars": 3081,
+    "traf_chars": 3081,
+    "missing_chars": 267,
+    "missing_pct": 8.67,
+    "inserted_chars": 267,
+    "inserted_heads": [
+     "1.3.6.6.2. Uniform Distribution Mean (A + B)/2 Median (A + B",
+     "\\hat{h} = 0.5[\\mbox{range}(Y_{1}, Y_{2}, ... , Y_{n})] \\) \\(",
+     "The maximum likelihood estimators for"
+    ],
+    "largest_missing": [
+     {
+      "chars": 153,
+      "head": "Mean (A + B)/2 Median (A + B)/2 Range B - A Standard Deviation \\( \\sqr"
+     },
+     {
+      "chars": 52,
+      "head": "\\( \\hat{h} = 0.5[\\mbox{range}(Y_{1}, Y_{2}, ... , Y_{n})] \\)"
+     },
+     {
+      "chars": 33,
+      "head": "The maximum likelihood estimators for"
+     },
+     {
+      "chars": 29,
+      "head": "1.3.6.6.2. Uniform Distribution"
+     }
+    ],
+    "math_spans": 16,
+    "math_verbatim": 16,
+    "tags": {
+     "body": 1,
+     "table": 3,
+     "row": 20,
+     "cell": 40,
+     "p": 32,
+     "hi:#i": 21,
+     "hi:#b": 1,
+     "list:ul": 3,
+     "item": 3,
+     "lb": 1,
+     "head:h2": 2
+    },
+    "heads": [
+     "1.3.6.6.2.",
+     "Uniform Distribution"
+    ]
+   }
+  },
+  "eda367.htm": {
+   "generic": {
+    "title": "1.3.6.7. Tables for Probability Distributions",
+    "chars": 947,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 3,
+     "table_cell": 5,
+     "paragraph": 3,
+     "heading": 2,
+     "list": 1,
+     "list_item": 6
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.7.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Tables for Probability Distributions",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Tables"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions\n\n1.3.6.7.\tTables for Probability Distr",
+    "exclusions": {
+     "images": 3,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {
+     "sub": 2,
+     "sup": 1
+    }
+   },
+   "generic_alt": {
+    "title": "1.3.6.7. Tables for Probability Distributions",
+    "chars": 950,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 3,
+     "table_cell": 5,
+     "paragraph": 3,
+     "heading": 2,
+     "list": 1,
+     "list_item": 6
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.7.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Tables for Probability Distributions",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "Tables"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions\n\n1.3.6.7.\tTables for Probability Distr",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [
+     "nu"
+    ],
+    "img_alts_surfaced": [
+     {
+      "src": "eqns/nu.gif",
+      "alt": "nu"
+     }
+    ],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {
+     "sub": 2,
+     "sup": 1
+    }
+   },
+   "siegrist_rule_hits": {
+    "block_hint:p.Proof": 0,
+    "block_hint:p.app": 0,
+    "block_hint:p.dfin": 0,
+    "block_hint:p.dfm": 0,
+    "block_hint:p.dfn": 0,
+    "block_hint:p.exercise": 0,
+    "block_hint:p.exericse": 0,
+    "block_hint:p.math": 0,
+    "block_hint:p.stat": 0,
+    "details:details": 0,
+    "exclude:chapter_lists": 0,
+    "exclude:controls": 0,
+    "exclude:images": 3,
+    "exclude:macro_block": 0,
+    "exclude:navigation": 0,
+    "exclude:scripts": 5,
+    "summary:summary": 0,
+    "title:title": 0,
+    "unit:unit": 0
+   },
+   "trafilatura": {
+    "returned": true,
+    "our_chars": 812,
+    "traf_chars": 812,
+    "missing_chars": 41,
+    "missing_pct": 5.05,
+    "inserted_chars": 41,
+    "inserted_heads": [
+     "1.3.6.7. Tables for Probability Distributions"
+    ],
+    "largest_missing": [
+     {
+      "chars": 33,
+      "head": "for Probability Distributions Tables"
+     },
+     {
+      "chars": 8,
+      "head": "1.3.6.7."
+     }
+    ],
+    "math_spans": 0,
+    "math_verbatim": 0,
+    "tags": {
+     "body": 1,
+     "table": 2,
+     "row": 3,
+     "cell": 6,
+     "p": 4,
+     "hi:#i": 1,
+     "list:ol": 1,
+     "item": 6,
+     "hi:#sub": 2,
+     "hi:#sup": 1,
+     "head:h2": 2
+    },
+    "heads": [
+     "1.3.6.7.",
+     "Tables for Probability Distributions"
+    ]
+   }
+  },
+  "eda3671.htm": {
+   "generic": {
+    "title": "1.3.6.7.1. Cumulative Distribution Function of the Standard Normal Distribution",
+    "chars": 5659,
+    "segment_kinds": {
+     "document": 1,
+     "table": 5,
+     "table_row": 8,
+     "table_cell": 34,
+     "paragraph": 13,
+     "heading": 2,
+     "list": 2,
+     "math_inline": 2,
+     "list_item": 3
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.7.1.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Cumulative Distribution Function of the Standard Normal Dist",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 2,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "How to Use This Table"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.7. Tables for Probability Distri",
+    "exclusions": {
+     "images": 3,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 1,
+    "html_math_markup": {
+     "sub": 2
+    }
+   },
+   "generic_alt": {
+    "title": "1.3.6.7.1. Cumulative Distribution Function of the Standard Normal Distribution",
+    "chars": 5704,
+    "segment_kinds": {
+     "document": 1,
+     "table": 5,
+     "table_row": 8,
+     "table_cell": 34,
+     "paragraph": 14,
+     "heading": 2,
+     "list": 2,
+     "math_inline": 2,
+     "list_item": 3
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.7.1.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Cumulative Distribution Function of the Standard Normal Dist",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 2,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [],
+    "marginal_notes": [
+     "How to Use This Table"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.7. Tables for Probability Distri",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [
+     "normal PDF with shaded area between 0 and a"
+    ],
+    "img_alts_surfaced": [
+     {
+      "src": "gif/norpdftb.gif",
+      "alt": "normal PDF with shaded area between 0 and a"
+     }
+    ],
+    "engines_identical": true,
+    "orphans": 1,
+    "html_math_markup": {
+     "sub": 2
+    }
+   },
+   "siegrist_rule_hits": {
+    "block_hint:p.Proof": 0,
+    "block_hint:p.app": 0,
+    "block_hint:p.dfin": 0,
+    "block_hint:p.dfm": 0,
+    "block_hint:p.dfn": 0,
+    "block_hint:p.exercise": 0,
+    "block_hint:p.exericse": 0,
+    "block_hint:p.math": 0,
+    "block_hint:p.stat": 0,
+    "details:details": 0,
+    "exclude:chapter_lists": 0,
+    "exclude:controls": 0,
+    "exclude:images": 3,
+    "exclude:macro_block": 0,
+    "exclude:navigation": 0,
+    "exclude:scripts": 6,
+    "summary:summary": 0,
+    "title:title": 0,
+    "unit:unit": 0
+   },
+   "trafilatura": {
+    "returned": true,
+    "our_chars": 4807,
+    "traf_chars": 4807,
+    "missing_chars": 118,
+    "missing_pct": 2.45,
+    "inserted_chars": 118,
+    "inserted_heads": [
+     "These are critical values for the normal distribution. 1.3.6"
+    ],
+    "largest_missing": [
+     {
+      "chars": 71,
+      "head": "1.3.6.7.1. Cumulative Distribution Function of the Standard Normal Dis"
+     },
+     {
+      "chars": 47,
+      "head": "These are critical values for the normal distribution."
+     }
+    ],
+    "math_spans": 2,
+    "math_verbatim": 2,
+    "tags": {
+     "body": 1,
+     "table": 5,
+     "row": 8,
+     "cell": 36,
+     "p": 11,
+     "hi:#i": 9,
+     "list:ul": 1,
+     "item": 4,
+     "list:ol": 1,
+     "head:h2": 2,
+     "hi:#sub": 2,
+     "hi:#b": 1,
+     "code": 1,
+     "lb": 2
+    },
+    "heads": [
+     "1.3.6.7.1.",
+     "Cumulative Distribution Function of the Standard Normal Dist"
+    ]
+   }
+  },
+  "eda3672.htm": {
+   "generic": {
+    "title": "1.3.6.7.2. Critical Values of the Student's-t Distribution",
+    "chars": 5786,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 4,
+     "table_cell": 6,
+     "paragraph": 8,
+     "heading": 2,
+     "list": 1,
+     "list_item": 3
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.7.2.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Critical Values of the Student's t Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [
+     {
+      "chars": 4174,
+      "newlines_kept": 0,
+      "head": "Probability less than the critical value (t1-α,ν) ν 0.90 0.95 0.975 0."
+     }
+    ],
+    "marginal_notes": [
+     "How to Use This Table"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.7. Tables for Probability Distri",
+    "exclusions": {
+     "images": 4,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {
+     "sub": 4
+    }
+   },
+   "generic_alt": {
+    "title": "1.3.6.7.2. Critical Values of the Student's-t Distribution",
+    "chars": 5828,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 4,
+     "table_cell": 6,
+     "paragraph": 9,
+     "heading": 2,
+     "list": 1,
+     "list_item": 3
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.7.2.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Critical Values of the Student's t Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [
+     {
+      "chars": 4183,
+      "newlines_kept": 0,
+      "head": "Probability less than the critical value (t1-α,ν) ν 0.90 0.95 0.975 0."
+     }
+    ],
+    "marginal_notes": [
+     "How to Use This Table"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.7. Tables for Probability Distri",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [
+     "two-sided test for alpha = 0.05",
+     "infinity"
+    ],
+    "img_alts_surfaced": [
+     {
+      "src": "gif/tpdftb.gif",
+      "alt": "two-sided test for alpha = 0.05"
+     },
+     {
+      "src": "eqns/infty.gif",
+      "alt": "infinity"
+     }
+    ],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {
+     "sub": 4
+    }
+   },
+   "siegrist_rule_hits": {
+    "block_hint:p.Proof": 0,
+    "block_hint:p.app": 0,
+    "block_hint:p.dfin": 0,
+    "block_hint:p.dfm": 0,
+    "block_hint:p.dfn": 0,
+    "block_hint:p.exercise": 0,
+    "block_hint:p.exericse": 0,
+    "block_hint:p.math": 0,
+    "block_hint:p.stat": 0,
+    "details:details": 0,
+    "exclude:chapter_lists": 0,
+    "exclude:controls": 0,
+    "exclude:images": 4,
+    "exclude:macro_block": 0,
+    "exclude:navigation": 0,
+    "exclude:scripts": 6,
+    "summary:summary": 0,
+    "title:title": 0,
+    "unit:unit": 0
+   },
+   "trafilatura": {
+    "returned": true,
+    "our_chars": 4780,
+    "traf_chars": 4780,
+    "missing_chars": 51,
+    "missing_pct": 1.07,
+    "inserted_chars": 51,
+    "inserted_heads": [
+     "1.3.6.7.2. Critical Values of the Student's t Distribution"
+    ],
+    "largest_missing": [
+     {
+      "chars": 51,
+      "head": "1.3.6.7.2. Critical Values of the Student's t Distribution"
+     }
+    ],
+    "math_spans": 0,
+    "math_verbatim": 0,
+    "tags": {
+     "body": 1,
+     "table": 2,
+     "row": 4,
+     "cell": 8,
+     "p": 9,
+     "hi:#i": 28,
+     "hi:#sub": 4,
+     "list:ol": 1,
+     "item": 3,
+     "hi:#b": 1,
+     "code": 1,
+     "lb": 2,
+     "head:h2": 2
+    },
+    "heads": [
+     "1.3.6.7.2.",
+     "Critical Values of the Student's t Distribution"
+    ]
+   }
+  },
+  "eda3675.htm": {
+   "generic": {
+    "title": "1.3.6.7.5. Critical Values of the t<sup>*</sup> Distribution",
+    "chars": 1902,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 4,
+     "table_cell": 6,
+     "paragraph": 3,
+     "heading": 2
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.7.5.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Critical Values of the t* Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [
+     {
+      "chars": 1096,
+      "newlines_kept": 0,
+      "head": "ν ν 1 37.544 61 2.455 2 7.582 62 2.454 3 4.826 63 2.453 4 3.941 64 2.4"
+     }
+    ],
+    "marginal_notes": [
+     "How to Use This Table"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.7. Tables for Probability Distri",
+    "exclusions": {
+     "images": 4,
+     "scripts": 2
+    },
+    "alt_spans": [],
+    "img_alts_surfaced": [],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {
+     "sup": 1
+    }
+   },
+   "generic_alt": {
+    "title": "1.3.6.7.5. Critical Values of the t<sup>*</sup> Distribution",
+    "chars": 1926,
+    "segment_kinds": {
+     "document": 1,
+     "table": 2,
+     "table_row": 4,
+     "table_cell": 6,
+     "paragraph": 3,
+     "heading": 2
+    },
+    "headings": [
+     {
+      "tag": "h2",
+      "text": "1.3.6.7.5.",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     },
+     {
+      "tag": "h2",
+      "text": "Critical Values of the t* Distribution",
+      "ancestors": [
+       "table_cell",
+       "table_row",
+       "table",
+       "table_cell",
+       "table_row",
+       "table",
+       "document"
+      ]
+     }
+    ],
+    "sections": 0,
+    "math": {
+     "inline": 0,
+     "display": 0,
+     "partial": []
+    },
+    "math_anomalies": [],
+    "pre_blocks": [
+     {
+      "chars": 1120,
+      "newlines_kept": 0,
+      "head": "ν t*(.05)(nu) ν t*(.05)(nu) 1 37.544 61 2.455 2 7.582 62 2.454 3 4.826"
+     }
+    ],
+    "marginal_notes": [
+     "How to Use This Table"
+    ],
+    "first_table_cell": "1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.7. Tables for Probability Distri",
+    "exclusions": {
+     "images": 2,
+     "scripts": 2
+    },
+    "alt_spans": [
+     "t*(.05)(nu)",
+     "t*(.05)(nu)"
+    ],
+    "img_alts_surfaced": [
+     {
+      "src": "eqns/tstar05.gif",
+      "alt": "t*(.05)(nu)"
+     },
+     {
+      "src": "eqns/tstar05.gif",
+      "alt": "t*(.05)(nu)"
+     }
+    ],
+    "engines_identical": true,
+    "orphans": 0,
+    "html_math_markup": {
+     "sup": 1
+    }
+   },
+   "siegrist_rule_hits": {
+    "block_hint:p.Proof": 0,
+    "block_hint:p.app": 0,
+    "block_hint:p.dfin": 0,
+    "block_hint:p.dfm": 0,
+    "block_hint:p.dfn": 0,
+    "block_hint:p.exercise": 0,
+    "block_hint:p.exericse": 0,
+    "block_hint:p.math": 0,
+    "block_hint:p.stat": 0,
+    "details:details": 0,
+    "exclude:chapter_lists": 0,
+    "exclude:controls": 0,
+    "exclude:images": 4,
+    "exclude:macro_block": 0,
+    "exclude:navigation": 0,
+    "exclude:scripts": 6,
+    "summary:summary": 0,
+    "title:title": 0,
+    "unit:unit": 0
+   },
+   "trafilatura": {
+    "returned": true,
+    "our_chars": 1531,
+    "traf_chars": 1531,
+    "missing_chars": 43,
+    "missing_pct": 2.81,
+    "inserted_chars": 43,
+    "inserted_heads": [
+     "1.3.6.7.5. Critical Values of the t* Distribution"
+    ],
+    "largest_missing": [
+     {
+      "chars": 43,
+      "head": "1.3.6.7.5. Critical Values of the t* Distribution"
+     }
+    ],
+    "math_spans": 0,
+    "math_verbatim": 0,
+    "tags": {
+     "body": 1,
+     "table": 2,
+     "row": 4,
+     "cell": 8,
+     "p": 3,
+     "hi:#i": 4,
+     "hi:#b": 1,
+     "code": 1,
+     "head:h2": 2,
+     "hi:#sup": 1
+    },
+    "heads": [
+     "1.3.6.7.5.",
+     "Critical Values of the t* Distribution"
+    ]
+   }
+  }
+ }
+}

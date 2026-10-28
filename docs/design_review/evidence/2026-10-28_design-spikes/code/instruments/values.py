@@ -824,7 +824,7 @@ class ValueComparator:
         # tier 3: numeric
         rng = random.Random(self.seed)
         members, rels = _collect_constraints(conds, self.macros)
-        syms = set().union(*(d.free_symbols for d in diffs))
+        syms = set(ea.free_symbols) | set(eb.free_symbols)  # all symbols: the relative scale needs them
         pts = sample_points(syms, members, rels, rng)
         verdicts = []
         for k, d in enumerate(diffs):

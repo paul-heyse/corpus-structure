@@ -1,0 +1,75 @@
+1. Exploratory Data Analysis 1.3. EDA Techniques 1.3.6. Probability Distributions 1.3.6.6. Gallery of Distributions
+
+1.3.6.6.1.	Normal Distribution
+Probability Density Function	The general formula for the probability density function of the normal distribution is
+
+\( f(x) = \frac{e^{-(x - \mu)^{2}/(2\sigma^{2}) }} {\sigma\sqrt{2\pi}} \)
+
+where μ is the location parameter and σ is the scale parameter. The case where μ = 0 and σ = 1 is called the standard normal distribution. The equation for the standard normal distribution is
+
+\( f(x) = \frac{e^{-x^{2}/2}} {\sqrt{2\pi}} \)
+
+Since the general form of probability functions can be expressed in terms of the standard distribution, all subsequent formulas in this section are given for the standard form of the function.
+
+The following is the plot of the standard normal probability density function.
+
+plot of the standard normal probability density function
+Cumulative Distribution Function	The formula for the cumulative distribution function of the standard normal distribution is
+
+\( F(x) = \int_{-\infty}^{x} \frac{e^{-x^{2}/2}} {\sqrt{2\pi}} \)
+
+Note that this integral does not exist in a simple closed formula. It is computed numerically.
+
+The following is the plot of the normal cumulative distribution function.
+
+plot of the normal cumulative distribution function
+Percent Point Function	The formula for the percent point function of the normal distribution does not exist in a simple closed formula. It is computed numerically.
+
+The following is the plot of the normal percent point function.
+
+plot of the normal percent point function
+Hazard Function	The formula for the hazard function of the normal distribution is
+
+\( h(x) = \frac{\phi(x)} {\Phi(-x)} \)
+
+where \(\Phi\) is the cumulative distribution function of the standard normal distribution and \(\phi\) is the probability density function of the standard normal distribution.
+
+The following is the plot of the normal hazard function.
+
+plot of the normal hazard function
+Cumulative Hazard Function	The normal cumulative hazard function can be computed from the normal cumulative distribution function.
+
+The following is the plot of the normal cumulative hazard function.
+
+plot of the normal cumulative hazard function
+Survival Function	The normal survival function can be computed from the normal cumulative distribution function.
+
+The following is the plot of the normal survival function.
+
+normal survival function
+Inverse Survival Function	The normal inverse survival function can be computed from the normal percent point function.
+
+The following is the plot of the normal inverse survival function.
+
+normal inverse survival function
+Common Statistics	Mean	The location parameter μ.
+Median	The location parameter μ.
+Mode	The location parameter μ.
+Range	\(-\infty\) to \(\infty\).
+Standard Deviation	The scale parameter σ.
+Coefficient of Variation	σ/μ
+Skewness	0
+Kurtosis	3
+Parameter Estimation	The location and scale parameters of the normal distribution can be estimated with the sample mean and sample standard deviation, respectively.
+Comments	For both theoretical and practical reasons, the normal distribution is probably the most important distribution in statistics. For example,
+
+Many classical statistical tests are based on the assumption that the data follow a normal distribution. This assumption should be tested before applying these tests.
+In modeling applications, such as linear and non-linear regression, the error term is often assumed to follow a normal distribution with fixed location and scale.
+The normal distribution is used to find significance levels in many hypothesis tests and confidence intervals.
+Theroretical Justification - Central Limit Theorem	The normal distribution is widely used. Part of the appeal is that it is well behaved and mathematically tractable. However, the central limit theorem provides a theoretical basis for why it has wide applicability.
+
+The central limit theorem basically states that as the sample size (N) becomes large, the following occur:
+
+The sampling distribution of the mean becomes approximately normal regardless of the distribution of the original variable.
+The sampling distribution of the mean is centered at the population mean, μ, of the original variable. In addition, the standard deviation of the sampling distribution of the mean approaches \( \sigma / \sqrt{N} \).
+Software	Most general purpose statistical software programs support at least some of the probability functions for the normal distribution.

@@ -1,0 +1,108 @@
+{
+  "unit_ref": "T3",
+  "entities": [
+    {"local_ref": "e_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {"symbol": "X"}},
+    {"local_ref": "e_aXb", "type": "RandomVariable", "label": "a + b X", "scope": "local", "extent": "statement", "symbol": "a + b X", "aliases": [], "identity": {"symbol": "a + b X"}},
+    {"local_ref": "e_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normally distributed"], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "s_thm", "kind": "theorem", "anchor": "unit"},
+    {"local_ref": "s_proof", "kind": "proof", "anchor": "unit"}
+  ],
+  "claims": [
+    {
+      "local_ref": "c_premise",
+      "predicate": "has_distribution",
+      "subject": "e_X",
+      "object": {"ref": "e_normal"},
+      "qualifiers": {
+        "modality": "supposed",
+        "param_values": {
+          "mean": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "free"}}},
+          "variance": {"t": "formula", "latex": "\\sigma^2", "symbols": {"sigma": {"bind": "free"}}}
+        }
+      },
+      "statement": "s_thm",
+      "statement_role": "premise",
+      "evidence": [
+        {"start": 13, "end": 86, "role": "primary"},
+        {"start": 0, "end": 12, "role": "supporting"}
+      ]
+    },
+    {
+      "local_ref": "c_aXb_def",
+      "predicate": "defined_as",
+      "subject": "e_aXb",
+      "object": {
+        "t": "formula",
+        "latex": "a + b X",
+        "symbols": {
+          "a": {"bind": "free"},
+          "b": {"bind": "free"},
+          "X": {"bind": "variable", "entity": "e_X"}
+        }
+      },
+      "qualifiers": {"modality": "asserted"},
+      "statement": "s_thm",
+      "evidence": [
+        {"start": 143, "end": 154, "role": "primary"}
+      ]
+    },
+    {
+      "local_ref": "c_conclusion",
+      "predicate": "has_distribution",
+      "subject": "e_aXb",
+      "object": {"ref": "e_normal"},
+      "qualifiers": {
+        "modality": "asserted",
+        "param_values": {
+          "mean": {
+            "t": "formula",
+            "latex": "a + b \\mu",
+            "symbols": {
+              "a": {"bind": "free"},
+              "b": {"bind": "free"},
+              "mu": {"bind": "param_of", "claim": "c_premise", "param": "mean"}
+            }
+          },
+          "variance": {
+            "t": "formula",
+            "latex": "b^2 \\sigma^2",
+            "symbols": {
+              "b": {"bind": "free"},
+              "sigma": {"bind": "param_expr_of", "claim": "c_premise", "param": "variance"}
+            }
+          }
+        },
+        "conditions": {
+          "op": "and",
+          "args": [
+            {"op": "claim", "ref": "c_premise"},
+            {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}},
+            {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R \\setminus \\{0\\}", "symbols": {}}}
+          ]
+        }
+      },
+      "statement": "s_thm",
+      "statement_role": "conclusion",
+      "evidence": [
+        {"start": 143, "end": 232, "role": "primary"},
+        {"start": 91, "end": 103, "role": "condition"},
+        {"start": 108, "end": 136, "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_proves",
+      "predicate": "proves",
+      "subject": "s_proof",
+      "object": {"ref": "s_thm"},
+      "qualifiers": {"modality": "asserted"},
+      "evidence": [
+        {"start": 235, "end": 243, "role": "primary"},
+        {"start": 432, "end": 542, "role": "supporting"}
+      ]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

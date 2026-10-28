@@ -1,0 +1,213 @@
+<body>
+  <table>
+    <row><cell>
+
+1.
+Exploratory Data Analysis
+<p>1.3. EDA Techniques</p><p>1.3.6. Probability Distributions</p><p>1.3.6.6. Gallery of Distributions</p></cell>
+<cell/></row>
+    <row><cell>
+
+<hi rend="#i">
+
+Probability Density Function
+
+</hi>
+</cell>
+<cell>
+
+The general formula for the probability
+density function of the uniform distribution is
+<p>\( f(x) = \frac{1} {B - A} \;\;\;\;\;\;\; \mbox{for} \ A \le x \le B \)</p><p>
+where A is the location parameter and (B - A)
+is the scale parameter.  The case where A = 0
+and B = 1 is called the <hi rend="#b">standard uniform distribution</hi>.  The
+equation for the standard uniform distribution is
+</p><p>\( f(x) = 1 \;\;\;\;\;\;\; \mbox{for} \ 0 \le x \le 1 \)</p><p>Since the general form of probability functions can be expressed in terms of the standard distribution, all subsequent formulas in this section are given for the standard form of the function.</p><p>The following is the plot of the uniform probability density function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Cumulative Distribution Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the cumulative distribution
+function of the uniform distribution is
+<p>\( F(x) = x \;\;\;\;\;\;\; \mbox{for} \ 0 \le x \le 1 \)</p><p>The following is the plot of the uniform cumulative distribution function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Percent Point Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the percent point
+function of the uniform distribution is
+<p>\( G(p) = p \;\;\;\;\;\;\; \mbox{for} \ 0 \le p \le 1 \)</p><p>The following is the plot of the uniform percent point function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Hazard Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the hazard
+function of the uniform distribution is
+<p>\( h(x) = \frac{1} {1-x} \;\;\;\;\;\;\; \mbox{for} \ 0 \le x &lt; 1 \)</p><p>The following is the plot of the uniform hazard function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Cumulative Hazard Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the cumulative
+hazard function of the uniform distribution is
+<p>\( H(x) = -ln{(1-x)} \;\;\;\;\;\;\; \mbox{for} \ 0 \le x &lt; 1 \)</p><p>The following is the plot of the uniform cumulative hazard function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Survival Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the uniform survival
+function is
+<p>\( S(x) = 1 - x \;\;\;\;\;\;\; \mbox{for} \ 0 \le x \le 1 \)</p><p>The following is the plot of the uniform survival function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Inverse Survival Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the uniform inverse
+survival function is
+<p>\( Z(p) = 1 - p \;\;\;\;\;\;\; \mbox{for} \ 0 \le p \le 1 \)</p><p>The following is the plot of the uniform inverse survival function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Common Statistics
+</hi>
+</cell>
+<cell>
+
+</cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Parameter Estimation
+</hi>
+</cell>
+<cell>
+
+The method of moments estimators for A and B are
+<list rend="ul"><item>
+    
+   \( \hat{A} = \bar{x} - \sqrt{3}s \)
+   </item></list>
+<p>\( \hat{B} = \bar{x} + \sqrt{3}s \)</p><p>
+The maximum likelihood estimators are usually given in terms
+of the parameters <hi rend="#i">a</hi> and <hi rend="#i">h</hi> where
+</p>
+The maximum likelihood estimators for <hi rend="#i">A</hi> = <hi rend="#i">a</hi> - <hi rend="#i">h</hi>
+   <lb/><hi rend="#i">B</hi> = <hi rend="#i">a</hi> + <hi rend="#i">h</hi>
+<hi rend="#i">a</hi> and <hi rend="#i">h</hi> are
+<list rend="ul"><item>
+   
+   \( \hat{a} = \mbox{midrange}(Y_{1}, Y_{2}, ... , Y_{n}) \)
+   </item></list>
+This gives the following maximum likelihood estimators for A and B
+<p>\( \hat{h} = 0.5[\mbox{range}(Y_{1}, Y_{2}, ... , Y_{n})] \)</p><list rend="ul"><item>
+   
+   \( \hat{A} = \mbox{midrange}(Y_{1}, Y_{2}, ... , Y_{n}) -
+   0.5[\mbox{range}(Y_{1}, Y_{2}, ... , Y_{n})] = Y_{1} \)
+   </item></list>
+
+<p>\( \hat{B} = \mbox{midrange}(Y_{1}, Y_{2}, ... , Y_{n}) + 0.5[\mbox{range}(Y_{1}, Y_{2}, ... , Y_{n})] = Y_{n} \)</p></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Comments
+</hi>
+</cell>
+<cell>
+
+The uniform distribution defines equal probability over a given range
+for a continuous distribution.  For this reason, it is important as a
+reference distribution.
+<p>One of the most important applications of the uniform distribution is in the generation of random numbers. That is, almost all random number generators generate random numbers on the (0,1) interval. For other distributions, some transformation is applied to the uniform random numbers.</p></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Software
+</hi>
+</cell>
+<cell>Most general purpose statistical software programs support at least some of the probability functions for the uniform distribution.</cell></row>
+  </table>
+  <table>
+    <row><cell>
+<head rend="h2">1.3.6.6.2.</head></cell>
+<cell>
+<head rend="h2">Uniform Distribution</head></cell>
+</row>
+  </table>
+  <table>
+    <row>
+      <cell>Mean</cell>
+      <cell>(A + B)/2</cell>
+    </row>
+    <row>
+      <cell>Median</cell>
+      <cell>(A + B)/2</cell>
+    </row>
+    <row>
+      <cell>Range</cell>
+      <cell>B - A</cell>
+    </row>
+    <row>
+      <cell>Standard Deviation</cell>
+      <cell>\( \sqrt{\frac{(B - A)^{2}} {12}} \)</cell>
+    </row>
+    <row>
+      <cell>Coefficient of Variation</cell>
+      <cell>\( \frac{(B - A)} {\sqrt{3}(B + A)} \)</cell>
+    </row>
+    <row>
+      <cell>Skewness</cell>
+      <cell>0</cell>
+    </row>
+    <row>
+      <cell>Kurtosis</cell>
+      <cell>9/5</cell>
+    </row>
+  </table>
+</body>

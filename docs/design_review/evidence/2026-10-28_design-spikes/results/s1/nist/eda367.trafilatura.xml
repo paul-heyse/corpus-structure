@@ -1,0 +1,37 @@
+<body>
+  <table>
+    <row><cell>
+
+1.
+Exploratory Data Analysis
+<p>1.3. EDA Techniques</p><p>1.3.6. Probability Distributions</p></cell>
+<cell/></row>
+    <row><cell>
+
+<hi rend="#i">
+Tables
+</hi>
+</cell>
+<cell>
+
+Several commonly used tables for probability distributions can
+be referenced below.
+<p>The values from these tables can also be obtained from most general purpose statistical software programs. Most introductory statistics textbooks (e.g., Snedecor and Cochran) contain more extensive tables than are included here. These tables are included for convenience.</p><p/><list rend="ol"><item>Cumulative distribution function for the standard normal distribution</item><item>Upper critical values of Student's t-distribution with degrees of freedom</item><item>Upper critical values of the
+       F-distribution with ν<hi rend="#sub">1</hi> and
+       ν<hi rend="#sub">2</hi> degrees of freedom
+   </item><item>Upper critical values of the chi-square distribution with ν degrees of freedom</item><item>Critical values of t<hi rend="#sup">*</hi>
+       distribution for testing the output of a linear calibration
+       line at 3 points
+   </item><item>Upper critical values of the normal PPCC distribution</item></list>
+
+</cell>
+</row>
+  </table>
+  <table>
+    <row><cell>
+<head rend="h2">1.3.6.7.</head></cell>
+<cell>
+<head rend="h2">Tables for Probability Distributions</head></cell>
+</row>
+  </table>
+</body>

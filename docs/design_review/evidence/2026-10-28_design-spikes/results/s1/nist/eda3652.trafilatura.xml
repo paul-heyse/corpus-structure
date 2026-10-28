@@ -1,0 +1,111 @@
+<body>
+  <table>
+    <row><cell>
+
+1.
+Exploratory Data Analysis
+<p>1.3. EDA Techniques</p><p>1.3.6. Probability Distributions</p><p>1.3.6.5. Estimating the Parameters of a Distribution</p></cell>
+<cell/></row>
+    <row><cell>
+
+<hi rend="#i">
+
+Maximum Likelihood
+
+</hi>
+</cell>
+<cell>
+
+Maximum likelihood estimation begins with the mathematical
+expression known as a likelihood function of the sample data.
+Loosely speaking, the likelihood of a set of data is the probability
+of obtaining that particular set of data given the chosen probability
+model.  This expression contains the unknown parameters.  Those
+values of the parameter that maximize the sample likelihood are known
+as the maximum likelihood estimates.
+<p>The reliability chapter contains some examples of the likelihood functions for a few of the commonly used distributions in reliability analysis.</p></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Advantages
+</hi>
+</cell>
+<cell>
+
+The advantages of this method are:
+<list rend="ul"><item>Maximum likelihood provides a consistent approach to
+       parameter estimation problems.  This means that maximum
+       likelihood estimates can be developed for a large variety
+       of estimation situations.  For example, they can be applied
+       in reliability analysis to censored data under various
+       censoring models.
+       </item><item>Maximum likelihood methods have desirable mathematical
+       and optimality properties.  Specifically,
+       <list rend="ol"><item>They become minimum variance unbiased estimators as the sample size increases. By unbiased, we mean that if we take (a very large number of) random samples with replacement from a population, the average value of the parameter estimates will be theoretically exactly equal to the population value. By minimum variance, we mean that the estimator has the smallest variance, and thus the narrowest confidence interval, of all estimators of that type.</item><item>They have approximate normal distributions and approximate sample variances that can be used to generate confidence bounds and hypothesis tests for the parameters.</item></list>
+       </item><item>Several popular statistical software packages provide excellent algorithms for maximum likelihood estimates for many of the commonly used distributions. This helps mitigate the computational complexity of maximum likelihood estimation.</item></list>
+
+</cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Disadvantages
+</hi>
+</cell>
+<cell>
+
+The disadvantages of this method are:
+<list rend="ul"><item>The likelihood equations need to be specifically worked
+       out for a given distribution and estimation problem.  The
+       mathematics is often non-trivial, particularly if confidence
+       intervals for the parameters are desired.
+       </item><item>The numerical estimation is usually non-trivial.  Except for
+       a few cases where the maximum likelihood formulas are
+       in fact simple, it is generally best to rely on
+       high quality statistical software to obtain maximum likelihood
+       estimates.  Fortunately, high quality maximum likelihood
+       software is becoming increasingly common.
+       </item><item>Maximum likelihood estimates can be heavily biased for small
+       samples.  The optimality properties may not apply for small
+       samples.
+       </item><item>Maximum likelihood can be sensitive to the choice of starting values.</item></list>
+
+</cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Software
+</hi>
+</cell>
+<cell>
+
+Most general purpose statistical software programs support
+maximum likelihood estimation (MLE) in some form.  MLE
+estimation can be supported in two ways.
+<list rend="ol"><item>A software program may provide a generic function
+       minimization (or equivalently, maximization) capability.
+       This is also referred to as function optimization.
+       Maximum likelihood estimation is essentially a function
+       optimization problem.
+       <p>This type of capability is particularly common in mathematical software programs.</p></item><item>A software program may provide MLE computations for a
+       specific problem.  For example, it may generate ML estimates
+       for the parameters of a Weibull distribution.
+       <p>Statistical software programs will often provide ML estimates for many specific problems even when they do not support general function optimization.</p></item></list>
+The advantage of function minimization software is that it can be
+applied to many different MLE problems.  The drawback is that
+you have to specify the maximum likelihood equations to the
+software.  As the functions can be non-trivial, there is potential
+for error in entering the equations.
+<p>The advantage of the specific MLE procedures is that greater efficiency and better numerical stability can often be obtained by taking advantage of the properties of the specific estimation problem. The specific methods often return explicit confidence intervals. In addition, you do not have to know or specify the likelihood equations to the software. The disadvantage is that each MLE problem must be specifically coded.</p></cell>
+</row>
+  </table>
+  <table>
+    <row><cell>
+<head rend="h2">1.3.6.5.2.</head></cell>
+<cell>
+<head rend="h2">Maximum Likelihood</head></cell>
+</row>
+  </table>
+</body>

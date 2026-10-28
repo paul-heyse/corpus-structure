@@ -201,9 +201,23 @@ def trees_equivalent(
     ref_eq: Callable[[str, str], bool],
     span_eq: Callable[[dict, dict], bool],
 ) -> bool:
-    """D7 §5.3: both trees canonicalized; leaves matched one-to-one."""
+    """D7 §5.3: both trees canonicalized; leaves matched one-to-one.
+
+    A first pass compares values by canonical form only; the tiered ``value_eq`` (SymPy,
+    numeric) runs only when that pass finds no perfect leaf matching, so cross pairs such as
+    ``member(a, …)`` against ``member(b, …)`` are not sent through the numeric tier when the
+    trees already match canonically."""
     a, b = normalize_tree(ta), normalize_tree(tb)
 
+    def canon_eq(x, y) -> bool:
+        return canonical_json(canonical_value(x)) == canonical_json(canonical_value(y))
+
+    if _tree_eq(a, b, canon_eq, claim_eq, ref_eq, span_eq):
+        return True
+    return _tree_eq(a, b, value_eq, claim_eq, ref_eq, span_eq)
+
+
+def _tree_eq(a, b, value_eq, claim_eq, ref_eq, span_eq) -> bool:
     def eq(x, y) -> bool:
         if x is None or y is None:
             return x is None and y is None

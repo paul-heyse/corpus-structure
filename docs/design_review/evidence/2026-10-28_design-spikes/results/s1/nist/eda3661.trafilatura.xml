@@ -1,0 +1,225 @@
+<body>
+  <table>
+    <row><cell>
+
+1.
+Exploratory Data Analysis
+<p>1.3. EDA Techniques</p><p>1.3.6. Probability Distributions</p><p>1.3.6.6. Gallery of Distributions</p></cell>
+<cell/></row>
+    <row><cell>
+
+<hi rend="#i">
+
+Probability Density Function
+
+</hi>
+</cell>
+<cell>
+
+The general formula for the probability
+density function of the normal distribution is
+<p>\( f(x) = \frac{e^{-(x - \mu)^{2}/(2\sigma^{2}) }} {\sigma\sqrt{2\pi}} \)</p><p>
+where <hi rend="#i">μ</hi> is the location parameter and
+<hi rend="#i">σ</hi> is the scale parameter.  The case
+where <hi rend="#i">μ</hi> = 0 and <hi rend="#i">σ</hi> = 1 is called the <hi rend="#b">standard
+normal distribution</hi>.  The equation for the standard normal
+distribution is
+</p><p>\( f(x) = \frac{e^{-x^{2}/2}} {\sqrt{2\pi}} \)</p><p>Since the general form of probability functions can be expressed in terms of the standard distribution, all subsequent formulas in this section are given for the standard form of the function.</p><p>The following is the plot of the standard normal probability density function.</p><p/><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Cumulative Distribution Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the cumulative distribution function of the standard
+normal distribution is
+<p>\( F(x) = \int_{-\infty}^{x} \frac{e^{-x^{2}/2}} {\sqrt{2\pi}} \)</p><p>Note that this integral does not exist in a simple closed formula. It is computed numerically.</p><p>The following is the plot of the normal cumulative distribution function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Percent Point Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the percent point
+function of the normal distribution does not exist in
+a simple closed formula.  It is computed numerically.
+<p>The following is the plot of the normal percent point function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Hazard Function
+
+</hi>
+</cell>
+<cell>
+
+The formula for the hazard
+function of the normal distribution is
+<p>\( h(x) = \frac{\phi(x)} {\Phi(-x)} \)</p><p>where \(\Phi\) is the cumulative distribution function of the standard normal distribution and \(\phi\) is the probability density function of the standard normal distribution.</p><p>The following is the plot of the normal hazard function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Cumulative Hazard Function
+
+</hi>
+</cell>
+<cell>
+
+The normal cumulative hazard function
+can be computed from the normal cumulative distribution function.
+<p>The following is the plot of the normal cumulative hazard function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Survival Function
+
+</hi>
+</cell>
+<cell>
+
+The normal survival function
+can be computed from the normal cumulative distribution function.
+<p>The following is the plot of the normal survival function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+
+Inverse Survival Function
+
+</hi>
+</cell>
+<cell>
+
+The normal inverse survival
+function can be computed from the normal percent point function.
+<p>The following is the plot of the normal inverse survival function.</p><p/></cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Common Statistics
+</hi>
+</cell>
+<cell>
+
+</cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Parameter Estimation
+</hi>
+</cell>
+<cell>The location and scale parameters of the normal distribution can be estimated with the sample mean and sample standard deviation, respectively.</cell></row>
+    <row><cell>
+
+<hi rend="#i">
+Comments
+</hi>
+</cell>
+<cell>
+
+For both theoretical and practical reasons, the normal distribution is
+probably the most important distribution in statistics.  For example,
+<list rend="ul"><item>Many classical statistical tests are based on the assumption
+       that the data follow a normal distribution.  This assumption
+       should be tested before applying these tests.
+       </item><item>In modeling applications, such as linear and non-linear
+       regression, the error term is often assumed to follow a normal
+       distribution with fixed location and scale.
+       </item><item>The normal distribution is used to find significance levels in many hypothesis tests and confidence intervals.</item></list>
+
+</cell>
+</row>
+    <row><cell>
+
+
+<hi rend="#i">
+Theroretical Justification - Central Limit Theorem
+</hi>
+
+</cell>
+<cell>
+
+The normal distribution is widely used.  Part of the appeal is
+that it is well behaved and mathematically tractable.  However,
+the central limit theorem provides a theoretical basis for why it
+has wide applicability.
+<p>
+The central limit theorem basically states that as the sample
+size (<hi rend="#i">N</hi>) becomes large, the following occur:
+</p><list rend="ol"><item>The sampling distribution of the mean becomes approximately
+       normal regardless of the distribution of the original
+       variable.
+       </item><item>The sampling distribution of the mean is centered at the population mean, μ, of the original variable. In addition, the standard deviation of the sampling distribution of the mean approaches \( \sigma / \sqrt{N} \).</item></list>
+
+</cell>
+</row>
+    <row><cell>
+
+<hi rend="#i">
+Software
+</hi>
+</cell>
+<cell>Most general purpose statistical software programs support at least some of the probability functions for the normal distribution.</cell></row>
+  </table>
+  <table>
+    <row><cell>
+<head rend="h2">1.3.6.6.1.</head></cell>
+<cell>
+<head rend="h2">Normal Distribution</head></cell>
+</row>
+  </table>
+  <table>
+    <row><cell>Mean</cell><cell>
+         The location parameter <hi rend="#i">μ</hi>.
+      </cell>
+    </row>
+    <row><cell>Median</cell><cell>
+         The location parameter <hi rend="#i">μ</hi>.
+      </cell>
+    </row>
+    <row><cell>Mode</cell><cell>
+         The location parameter <hi rend="#i">μ</hi>.
+      </cell>
+    </row>
+    <row>
+      <cell>Range</cell>
+      <cell>\(-\infty\) to \(\infty\).</cell>
+    </row>
+    <row><cell>Standard Deviation</cell><cell>
+         The scale parameter <hi rend="#i">σ</hi>.
+      </cell>
+    </row>
+    <row><cell>Coefficient of Variation</cell><cell>
+         
+         <hi rend="#i">σ</hi>/<hi rend="#i">μ</hi>
+      </cell>
+    </row>
+    <row>
+      <cell>Skewness</cell>
+      <cell>0</cell>
+    </row>
+    <row>
+      <cell>Kurtosis</cell>
+      <cell>3</cell>
+    </row>
+  </table>
+</body>

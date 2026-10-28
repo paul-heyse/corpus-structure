@@ -452,7 +452,10 @@ class _V:
                     self.check_sentence(ev.sentence, (*loc, "evidence", k), r)
                 else:
                     self.check_span(ev.start, ev.end, (*loc, "evidence", k), r)
-        # INV-06
+        # INV-06 (references harvested from the raw items too, so a malformed tree elsewhere in
+        # a claim does not make its premises look unreferenced)
+        for raw in self.claim_raw.values():
+            referenced.update(_raw_claim_refs(raw.get("qualifiers")))
         for i, c in self.parsed["claims"]:
             if c.qualifiers.get("modality") == "supposed" and c.local_ref not in referenced and "scope" not in c.qualifiers:
                 self.add("invariant", "INV-06", ("claims", i), "supposed claim neither referenced by a condition nor scoped", c.local_ref)
@@ -495,6 +498,19 @@ class _V:
             self.claims()
             self.rest()
         return self.rep
+
+
+def _raw_claim_refs(o) -> set[str]:
+    out: set[str] = set()
+    if isinstance(o, dict):
+        if o.get("op") == "claim" and isinstance(o.get("ref"), str):
+            out.add(o["ref"])
+        for v in o.values():
+            out |= _raw_claim_refs(v)
+    elif isinstance(o, list):
+        for v in o:
+            out |= _raw_claim_refs(v)
+    return out
 
 
 def validate_batch(
