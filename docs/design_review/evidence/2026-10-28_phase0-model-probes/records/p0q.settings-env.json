@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "p0q.settings-env",
+  "title": "Validating a pydantic-settings BaseSettings reads the environment",
+  "group": "Phase 0 model probes",
+  "package": "P0-F-5",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Under pydantic-settings 2.16.1, does validating a BaseSettings subclass from stored data (model_validate({}), model_validate({\"b\": 2}), model_validate_json(\"{}\")) read the current environment, so that a stored run option or method params re-read through such a class would silently mix in the environment?",
+  "answers": [
+    "coordinator decision 26",
+    "foundations §3.5 operations models",
+    "foundations §3.9"
+  ],
+  "method": "A BaseSettings subclass with env_prefix P0Q_SETTINGS_ENV_ and two int fields (a, b, default 0) and a plain BaseModel of the same shape, validated three ways with P0Q_SETTINGS_ENV_A=1 set in the process environment; each result is compared with a hand-written expectation (BaseSettings a=1 from the environment, BaseModel a=0; a stored b=2 kept by both). Probe environment build/probe-venv (Python 3.14.10, pydantic 2.14.1, pydantic-settings 2.16.1).",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/settings_env.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (infrastructure worker, P0-F-5)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/settings_env.py, results/settings-env/, records/p0q.settings-env.json and a README section"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/settings_env.py",
+      "role": "probe script",
+      "sha256": "dda117635e0d7bd4630d530e002c27c00b0a8cfc8422a48f688011edbb9f44d8"
+    },
+    {
+      "path": "uv.lock",
+      "role": "probe environment lock",
+      "sha256": "3cb789726c5efef357d7109aea0cf0aa1d238e15f11ce352f0a189efc182ddc0"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/settings-env/result.json",
+      "role": "per-call results with versions",
+      "sha256": "322b14fbd29d21a52f8f9d39f2a1776cff86d58b2ed9de0c3e3f9f1f24a65889"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "calls_reading_environment",
+      "value": 3,
+      "of": 3,
+      "unit": null,
+      "note": "model_validate({}), model_validate({\"b\": 2}) and model_validate_json(\"{}\") on the BaseSettings all returned a=1 from P0Q_SETTINGS_ENV_A"
+    },
+    {
+      "name": "base_model_reading_environment",
+      "value": 0,
+      "of": 3,
+      "unit": null,
+      "note": "the plain BaseModel kept the default a=0 in every call"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Under pydantic-settings 2.16.1 every validation entry point of a BaseSettings (model_validate with an empty or partial dict, model_validate_json) runs the settings sources and fills unset fields from the environment, while explicitly supplied values are kept; a plain BaseModel does not. Re-reading a stored payload through a BaseSettings therefore mixes in the current environment, which supports coordinator decision 26: only Settings is a BaseSettings, and operations models, run options and method params stay frozen BaseModels.",
+  "consumed_by": [
+    "coordinator decision 26",
+    "P0-F-5"
+  ]
+}

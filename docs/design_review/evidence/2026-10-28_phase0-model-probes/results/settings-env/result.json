@@ -1,0 +1,60 @@
+{
+  "probe": "p0q.settings-env",
+  "versions": {
+    "python": "3.14.10",
+    "pydantic": "2.14.1",
+    "pydantic-settings": "2.16.1"
+  },
+  "cases": [
+    {
+      "call": "model_validate({})",
+      "environment": {
+        "P0Q_SETTINGS_ENV_A": "1"
+      },
+      "base_settings": {
+        "a": 1,
+        "b": 0
+      },
+      "base_model": {
+        "a": 0,
+        "b": 0
+      },
+      "base_settings_reads_environment": true,
+      "as_expected": true
+    },
+    {
+      "call": "model_validate({\"b\": 2})",
+      "environment": {
+        "P0Q_SETTINGS_ENV_A": "1"
+      },
+      "base_settings": {
+        "a": 1,
+        "b": 2
+      },
+      "base_model": {
+        "a": 0,
+        "b": 2
+      },
+      "base_settings_reads_environment": true,
+      "as_expected": true
+    },
+    {
+      "call": "model_validate_json(\"{}\")",
+      "environment": {
+        "P0Q_SETTINGS_ENV_A": "1"
+      },
+      "base_settings": {
+        "a": 1,
+        "b": 0
+      },
+      "base_model": {
+        "a": 0,
+        "b": 0
+      },
+      "base_settings_reads_environment": true,
+      "as_expected": true
+    }
+  ],
+  "all_read_environment": true,
+  "all_as_expected": true
+}

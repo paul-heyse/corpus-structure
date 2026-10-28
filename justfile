@@ -119,7 +119,7 @@ doctor-check:
     [ "$status" -eq 0 ] && ! grep -qE 'MISSING|FAILED|below the declared floor' <<<"$out"
 
 # The dedicated PostgreSQL 18 cluster 18/corpus (D3 §13): create or reconcile it from
-# ops/postgresql/ (sudo, idempotent): config, roles, the `corpus` database and cs_template
+# ops/postgresql/ (sudo, idempotent): config, roles, extension versions, `corpus` and cs_template
 db-provision:
     @bash scripts/pg_provision.sh
 
@@ -131,7 +131,7 @@ db-up:
 db-down:
     @sudo pg_ctlcluster 18 corpus stop
 
-# The cluster's state, version, preload, checksums and cs_template extensions
+# Cluster state, version, preload, checksums; expected vs installed extensions (corpus, cs_template)
 db-status:
     @bash scripts/pg_provision.sh status
 

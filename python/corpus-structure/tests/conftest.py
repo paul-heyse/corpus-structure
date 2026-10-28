@@ -4,24 +4,35 @@
 - Markers `db`, `gpu` and `corpus`. `corpus` tests skip when `docs/statistics_corpus/` is absent;
   nothing else skips. Tests using the database fixtures are marked `db` automatically.
 - `cli`: Typer's runner with stdout and stderr apart and a fixed width.
-- Database fixtures (store note §1) against the project-local cluster (`just db-up`, D3 §3) unless
-  `CORPUS_DATABASE__URL` names another server: a migrated template `cs_tpl_<hash>` cloned from
-  `cs_template` once per state of the Alembic versions directory, the session database
-  `ci_test_<pid>` cloned from it, `db` (an outer transaction rolled back after each test) and
-  `committing_db` (an engine on its own clone). A server that is down or lacks `cs_template` fails
-  the test with the instruction; it never skips.
+- Database fixtures (store note §1; foundations §3.9) against the server `Settings()` names: the
+  dedicated cluster 18/corpus (`just db-provision`, D3 §13) by default, or the one
+  `CORPUS_DATABASE__URL` names. The admin URL is the settings URL with database `postgres`, so the
+  fixtures and the application read one coordinate source (DA-020).
+  - `cs_template`'s extensions must be at the versions of `ops/postgresql/extensions.txt`; a
+    missing or different version fails the test with the instruction, as does a server that is
+    down or lacks `cs_template`. Nothing skips (DA-018).
+  - The migrated template `cs_tpl_<hash>` is cloned from `cs_template` once per state of the
+    Alembic versions directory and of `cs_template`'s installed extension versions; the session
+    database `ci_test_<pid>` is cloned from it. `db` is an outer transaction rolled back after each
+    test, `committing_db` an engine on a clone of its own.
+  - A session holds a lease, a shared session advisory lock on its template and its `ci_test_<pid>`
+    name, on a connection kept open for the session. The sweep takes each other name's lock
+    exclusively with `pg_try_advisory_lock` and skips what it cannot take, so a live session's
+    databases survive it, on any host or checkout. An unheld `ci_test_*` is dropped; an unheld
+    template is dropped once unused for `TEMPLATE_RETENTION` (DA-019).
 """
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import itertools
 import os
 import re
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterator, Mapping
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from alembic import command
@@ -42,17 +53,17 @@ REPO = PACKAGE.parents[1]
 ALEMBIC_DIR = PACKAGE / "alembic"
 VERSIONS_DIR = ALEMBIC_DIR / "versions"
 CORPUS_DIR = REPO / "docs" / "statistics_corpus"
-LOCK_FILE = REPO / "build" / "test-templates.lock"
-LOCAL_CLUSTER_URL = (
-    "postgresql:///postgres?host=/var/run/postgresql&port=5434"  # 18/corpus (D3 §13)
-)
+EXTENSION_RECORD = REPO / "ops" / "postgresql" / "extensions.txt"
 PROVISION = (
-    "run `just db-up` (the project-local cluster with cs_template, D3 §3), "
+    "run `just db-provision` (the dedicated cluster 18/corpus with cs_template, D3 §13), "
     "or point CORPUS_DATABASE__URL at a server that has it"
 )
-TEST_DB = re.compile(r"ci_test_(\d+)(?:_\d+)?")
+TEST_DB = re.compile(r"(ci_test_\d+)(?:_\d+)?")
+TEMPLATE_PREFIX = "cs_tpl_"
+TEMPLATE_RETENTION = timedelta(days=1)
+LEASE_SPACE = 0x63735450  # first key of the two-key advisory locks the fixtures take ("csTP")
+STAMP = re.compile(r"corpus-structure test template, last used (\S+)")
 CLI_WIDTH = 100
-EXTENSIONS = ("pg_textsearch", "vector")
 
 hypothesis_settings.register_profile(
     "ci", deadline=None, derandomize=True, database=None, print_blob=True, max_examples=300
@@ -111,22 +122,42 @@ def cli() -> Cli:
 # --- Database --------------------------------------------------------------------------------
 
 
-def server_url() -> str:
-    """The admin URL (database `postgres`) of the server the tests use, in SQLAlchemy's form."""
-    libpq = os.environ.get("CORPUS_DATABASE__URL") or LOCAL_CLUSTER_URL
-    url = make_url(Settings(database={"url": libpq}).database.sqlalchemy_url)
-    return url.set(database="postgres").render_as_string(hide_password=False)
+def server_url(settings: Settings | None = None) -> str:
+    """The admin URL (database `postgres`) of the server `Settings()` names, as SQLAlchemy's."""
+    settings = Settings() if settings is None else settings
+    url = make_url(settings.database.sqlalchemy_url).set(database="postgres")
+    return url.render_as_string(hide_password=False)
 
 
-def versions_hash() -> str:
-    """Hash of the Alembic versions directory: one migrated template per migration state."""
+def expected_extensions(path: Path = EXTENSION_RECORD) -> dict[str, str]:
+    """The record of expected extension versions: `<extension> <version>` per line (DA-018)."""
+    expected: dict[str, str] = {}
+    for number, line in enumerate(path.read_text().splitlines(), 1):
+        fields = line.split("#", 1)[0].split()
+        if not fields:
+            continue
+        if len(fields) != 2 or fields[0] in expected:
+            raise ValueError(f"{path}:{number}: expected one '<extension> <version>', got {line!r}")
+        expected[fields[0]] = fields[1]
+    return expected
+
+
+def versions_hash(extensions: Mapping[str, str]) -> str:
+    """Hash of the Alembic versions directory and the template's installed extension versions."""
     sha = hashlib.sha256()
     for path in sorted(VERSIONS_DIR.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue
         sha.update(path.relative_to(VERSIONS_DIR).as_posix().encode() + b"\0")
         sha.update(path.read_bytes() + b"\0")
+    for name, version in sorted(extensions.items()):
+        sha.update(f"extension {name} {version}".encode() + b"\0")
     return sha.hexdigest()[:16]
+
+
+def template_name(extensions: Mapping[str, str]) -> str:
+    """The migrated template for this migration state and these extension versions."""
+    return f"{TEMPLATE_PREFIX}{versions_hash(extensions)}"
 
 
 def quote(name: str) -> str:
@@ -135,35 +166,19 @@ def quote(name: str) -> str:
     return f'"{name}"'
 
 
-def alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
-@contextmanager
-def template_lock() -> Generator[None]:
-    """Serialize template building and sweeping across processes (xdist workers, other sessions)."""
-    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with LOCK_FILE.open("a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
+def lock_sql(function: str) -> str:
+    """One advisory-lock call on the key of the name bound to `:name`."""
+    return f"SELECT {function}({LEASE_SPACE}, hashtext(:name))"
 
 
 class PgAdmin:
     """Database-level operations on the test server, each on its own autocommit connection."""
 
-    def __init__(self, url: str, template: str) -> None:
+    def __init__(self, url: str, template: str, expected: Mapping[str, str] | None = None) -> None:
         self.url = url
         self.template = template
-        self.current = f"cs_tpl_{versions_hash()}"
+        self.expected = dict(expected_extensions() if expected is None else expected)
+        self.current = ""  # the migrated template's name, set by `check`
 
     def url_of(self, name: str) -> str:
         return make_url(self.url).set(database=name).render_as_string(hide_password=False)
@@ -197,41 +212,105 @@ class PgAdmin:
         with self.connect() as conn:
             conn.execute(text(f"DROP DATABASE IF EXISTS {quote(name)} WITH (FORCE)"))
 
-    def check(self) -> None:
-        """Fail, never skip, when the server is down or `cs_template` lacks an extension."""
+    def installed(self) -> dict[str, str]:
+        """Every extension installed in `cs_template`, with its `extversion`."""
+        with self.connect(self.template) as conn:
+            rows = conn.execute(text("SELECT extname, extversion FROM pg_extension"))
+            return {name: version for name, version in rows}
+
+    def check(self) -> dict[str, str]:
+        """Fail, never skip, when the server is down, `cs_template` is missing, or one of its
+        extensions is absent or at another version than the record; then name the template."""
         try:
             if not self.exists(self.template):
                 pytest.fail(f"database {self.template!r} is missing: {PROVISION}", pytrace=False)
-            with self.connect(self.template) as conn:
-                rows = conn.execute(
-                    text("SELECT extname FROM pg_extension WHERE extname = ANY(:e)"),
-                    {"e": list(EXTENSIONS)},
-                )
-                missing = sorted(set(EXTENSIONS) - {row[0] for row in rows})
+            installed = self.installed()
         except OperationalError as exc:
             reason = str(exc.orig or exc).strip().splitlines()[0]
             pytest.fail(f"cannot reach PostgreSQL ({reason}): {PROVISION}", pytrace=False)
-        if missing:
-            pytest.fail(f"{self.template} lacks {', '.join(missing)}: {PROVISION}", pytrace=False)
+        wrong = [
+            f"{name} {installed.get(name, 'absent')} (expected {version})"
+            for name, version in sorted(self.expected.items())
+            if installed.get(name) != version
+        ]
+        if wrong:
+            pytest.fail(
+                f"{self.template} extensions differ from {EXTENSION_RECORD.relative_to(REPO)}: "
+                f"{', '.join(wrong)}: {PROVISION}",
+                pytrace=False,
+            )
+        self.current = template_name(installed)
+        return installed
 
-    def sweep(self) -> list[str]:
-        """Drop `ci_test_*` databases whose process is gone and `cs_tpl_*` of other hashes.
+    @contextmanager
+    def lease(self, *names: str) -> Generator[Connection]:
+        """Hold a shared session advisory lock on each name while the block runs (DA-019)."""
+        with self.connect() as conn:
+            for name in names:
+                conn.execute(text(lock_sql("pg_advisory_lock_shared")), {"name": name})
+            yield conn
 
-        Only these two prefixes are touched; the server may hold other projects' databases.
+    def stamp(self, name: str, at: datetime | None = None) -> None:
+        """Record when a template was last used, in its database comment."""
+        when = (at or datetime.now(UTC)).isoformat()
+        comment = f"corpus-structure test template, last used {when}"
+        with self.connect() as conn:
+            conn.execute(text(f"COMMENT ON DATABASE {quote(name)} IS '{comment}'"))
+
+    def sweep(self, now: datetime | None = None) -> list[str]:
+        """Drop each `ci_test_*` no session holds, and each other `cs_tpl_*` no session holds that
+        has gone unused for `TEMPLATE_RETENTION` (or carries no stamp).
+
+        Each candidate's lock is taken exclusively with `pg_try_advisory_lock` around its drop, and
+        a name whose lock is held is skipped. Only these two prefixes are touched; the server may
+        hold other projects' databases.
         """
+        cutoff = (now or datetime.now(UTC)) - TEMPLATE_RETENTION
         dropped = []
-        for name in self.names("ci_test_"):
-            match = TEST_DB.fullmatch(name)
-            if match and not alive(int(match.group(1))):
-                dropped.append(name)
-        dropped += [name for name in self.names("cs_tpl_") if name != self.current]
-        for name in dropped:
-            self.drop(name)
+        with self.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT datname, shobj_description(oid, 'pg_database') FROM pg_database"
+                    " WHERE starts_with(datname, 'ci_test_') OR starts_with(datname, :tpl)"
+                    " ORDER BY datname"
+                ),
+                {"tpl": TEMPLATE_PREFIX},
+            ).all()
+            for name, comment in rows:
+                if name.startswith(TEMPLATE_PREFIX):
+                    if name == self.current:
+                        continue
+                    key = name
+                    stamp = STAMP.fullmatch(comment or "")
+                    if stamp and datetime.fromisoformat(stamp.group(1)) > cutoff:
+                        continue
+                else:
+                    match = TEST_DB.fullmatch(name)
+                    if match is None:
+                        continue
+                    key = match.group(1)
+                if not conn.execute(text(lock_sql("pg_try_advisory_lock")), {"name": key}).scalar():
+                    continue
+                try:
+                    conn.execute(text(f"DROP DATABASE IF EXISTS {quote(name)} WITH (FORCE)"))
+                    dropped.append(name)
+                finally:
+                    conn.execute(text(lock_sql("pg_advisory_unlock")), {"name": key})
         return dropped
 
-    def build_template(self) -> None:
-        """Clone `cs_template` to a scratch name, migrate it to head, then rename it."""
+    def ensure_template(self, lease: Connection) -> None:
+        """Build the migrated template unless it exists, one builder at a time on the server."""
         scratch = f"{self.current}_build"
+        lease.execute(text(lock_sql("pg_advisory_lock")), {"name": scratch})
+        try:
+            if not self.exists(self.current):
+                self.build_template(scratch)
+        finally:
+            lease.execute(text(lock_sql("pg_advisory_unlock")), {"name": scratch})
+        self.stamp(self.current)
+
+    def build_template(self, scratch: str) -> None:
+        """Clone `cs_template` to a scratch name, migrate it to head, then rename it."""
         self.create(scratch, self.template)
         engine = create_engine(self.url_of(scratch), poolclass=NullPool)
         try:
@@ -258,16 +337,30 @@ class PgAdmin:
 
 
 @pytest.fixture(scope="session")
-def db_server() -> PgAdmin:
-    """The test server, checked and swept, with the migrated template for this migration state."""
-    server = PgAdmin(server_url(), Settings().database.template)
+def db_support() -> SimpleNamespace:
+    """The helpers above, for tests (importlib import mode leaves this module unimportable)."""
+    return SimpleNamespace(
+        PgAdmin=PgAdmin,
+        server_url=server_url,
+        expected_extensions=expected_extensions,
+        template_name=template_name,
+        TEMPLATE_RETENTION=TEMPLATE_RETENTION,
+    )
+
+
+@pytest.fixture(scope="session")
+def db_server() -> Iterator[PgAdmin]:
+    """The test server, checked and swept, with the migrated template for this state, leased for
+    the session: clones and the build happen under the lease, which the sweep honours."""
+    settings = Settings()
+    server = PgAdmin(server_url(settings), settings.database.template)
     server.check()
-    with template_lock():
-        server.drop(f"ci_test_{os.getpid()}")
+    session_db = f"ci_test_{os.getpid()}"
+    with server.lease(server.current, session_db) as lease:
+        server.drop(session_db)
         server.sweep()
-        if not server.exists(server.current):
-            server.build_template()
-    return server
+        server.ensure_template(lease)
+        yield server
 
 
 _clones = itertools.count(1)

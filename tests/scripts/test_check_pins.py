@@ -111,3 +111,111 @@ def test_a_family_member_must_be_pinned_exactly(root: Path) -> None:
 def test_missing_lockfile_is_not_run_not_failure(root: Path) -> None:
     (root / "Cargo.lock").unlink()
     assert check_pins.main([], root) == 0
+
+
+# --- Python manifests (DA-022) ----------------------------------------------------------------
+
+ROOT_PYPROJECT = """[project]
+name = "root"
+version = "0"
+dependencies = ["member-a", "local-tool"]
+
+[dependency-groups]
+dev = ["pytest==9.2.0", {include-group = "lint"}]
+lint = ["ruff==0.17.3"]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+exclude = ["packages/skipped"]
+
+[tool.uv.sources]
+member-a = { workspace = true }
+local-tool = { path = "tools/local" }
+"""
+
+MEMBER = """[project]
+name = "member-a"
+version = "0"
+dependencies = ["psycopg[binary]==3.3.6", "regex==2026.9.29 ; python_version >= '3.14'"]
+
+[project.optional-dependencies]
+gpu = ["torch==2.9.1"]
+
+[build-system]
+requires = ["uv_build==0.13.6"]
+"""
+
+
+@pytest.fixture
+def workspace(root: Path) -> Path:
+    (root / "pyproject.toml").write_text(ROOT_PYPROJECT)
+    for name, text in (("a", MEMBER), ("skipped", MEMBER.replace("==2.9.1", ">=2"))):
+        (root / "packages" / name).mkdir(parents=True)
+        (root / "packages" / name / "pyproject.toml").write_text(text)
+    (root / "packages" / "no-manifest").mkdir()
+    return root
+
+
+def test_exact_python_pins_and_workspace_or_path_sources_pass(workspace: Path) -> None:
+    assert check_pins.manifests(workspace) == [
+        workspace / "pyproject.toml",
+        workspace / "packages" / "a" / "pyproject.toml",
+    ]
+    for path in check_pins.manifests(workspace):
+        assert check_pins.python_unpinned(path) == []
+    assert check_pins.main([], workspace) == 0
+
+
+def test_a_python_range_fails_the_pin_check(workspace: Path) -> None:
+    member = workspace / "packages" / "a" / "pyproject.toml"
+    member.write_text(MEMBER.replace("psycopg[binary]==3.3.6", "psycopg[binary]>=3.3"))
+    assert check_pins.python_unpinned(member) == [
+        "[project] dependencies: psycopg[binary]>=3.3: not pinned exactly ('>=3.3'; use ==x.y.z)",
+    ]
+    assert check_pins.main([], workspace) == 1
+
+
+def test_every_python_table_is_read(workspace: Path) -> None:
+    loose = (
+        ROOT_PYPROJECT.replace('"pytest==9.2.0"', '"pytest~=9.2"')
+        .replace('"ruff==0.17.3"', '"ruff"')
+        .replace('"member-a", "local-tool"', '"member-a", "local-tool", "rich==15.*"')
+    )
+    (workspace / "pyproject.toml").write_text(
+        loose + '\n[build-system]\nrequires = ["uv_build<1"]\n'
+    )
+    member = workspace / "packages" / "a" / "pyproject.toml"
+    member.write_text(MEMBER.replace("torch==2.9.1", "torch==2.9.1,<3"))
+    assert check_pins.python_unpinned(workspace / "pyproject.toml") == [
+        "[project] dependencies: rich==15.*: not pinned exactly ('==15.*'; use ==x.y.z)",
+        "[dependency-groups] dev: pytest~=9.2: not pinned exactly ('~=9.2'; use ==x.y.z)",
+        "[dependency-groups] lint: ruff: not pinned exactly ('no version'; use ==x.y.z)",
+        "[build-system] requires: uv_build<1: not pinned exactly ('<1'; use ==x.y.z)",
+    ]
+    assert check_pins.python_unpinned(member) == [
+        "[project.optional-dependencies] gpu: torch==2.9.1,<3: "
+        "not pinned exactly ('==2.9.1,<3'; use ==x.y.z)",
+    ]
+
+
+def test_a_member_inherits_the_root_sources(workspace: Path) -> None:
+    member = workspace / "packages" / "a" / "pyproject.toml"
+    member.write_text(MEMBER.replace('"torch==2.9.1"', '"local-tool"'))
+    inherited = check_pins.sources(check_pins.tomllib.loads(ROOT_PYPROJECT))
+    assert check_pins.python_unpinned(member, inherited) == []
+    assert check_pins.python_unpinned(member) == [
+        "[project.optional-dependencies] gpu: local-tool: not pinned exactly ('no version'; "
+        "use ==x.y.z)",
+    ]
+    assert check_pins.main([], workspace) == 0
+
+
+def test_a_python_git_source_needs_a_rev(workspace: Path) -> None:
+    text = ROOT_PYPROJECT.replace(
+        'local-tool = { path = "tools/local" }',
+        'local-tool = { git = "https://example.invalid/t", branch = "main" }',
+    )
+    (workspace / "pyproject.toml").write_text(text)
+    assert check_pins.python_unpinned(workspace / "pyproject.toml") == [
+        "[project] dependencies: local-tool: git source without a rev",
+    ]

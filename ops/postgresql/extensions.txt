@@ -1,0 +1,8 @@
+# corpus-structure: the expected `extversion` of each server extension (DA-018; docs/pins.md hold).
+# One `<extension> <version>` per line. Read by scripts/pg_provision.sh (CREATE/ALTER EXTENSION …
+# UPDATE TO, then verified), by the test fixtures (python/corpus-structure/tests/conftest.py) and,
+# from P0-F-4, by migration 0001's assertion and the store's startup check. Change a version here,
+# then `just db-provision`.
+pg_textsearch 1.5.1
+vector 0.8.7
+pg_stat_statements 1.12
