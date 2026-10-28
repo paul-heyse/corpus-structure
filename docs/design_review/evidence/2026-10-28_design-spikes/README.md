@@ -33,7 +33,9 @@ follows S2. Each spike stops at its question's answer (ground rule 7).
 S0 and S1 are executed under the spike lane's
 [S0/S1 execution plan](../../../plans/design-spikes-s0-s1_2026-10-28.md), which extends these
 briefs; by operator direction the time-box does not apply to them. Both have run: [S1 report](S1-report.md), [S0 report](S0-report.md), its revisit with annotator
-inputs v1 ([S0-R2 report](S0-R2-report.md)), and a [summary for the design owner](summary-for-design-owner.md). The core units' locators are
+inputs v1 ([S0-R2 report](S0-R2-report.md)), and a [summary for the design owner](summary-for-design-owner.md).
+The design owner's [review of S0 and S1](design-owner-review-S0-S1.md) lists the follow-ups and
+corrections they call for in the design documents and in the S2–S7 briefs. The core units' locators are
 drafted in [D2 §12.2](../../../design/D2-schema-and-guidelines.md#122-slicesyaml); S1 confirms
 that they resolve.
 
