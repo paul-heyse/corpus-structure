@@ -686,7 +686,7 @@ coercion.
 > parsed ones differ at sizing commands
 
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
-> Status: **Tested** in the spike instruments (2026-10-28): 86 of 86 S0 values read, canonical forms decided all but a handful of value comparisons ([s0.instruments](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments.json)); production code not written
+> Status: **Tested** in the spike instruments (2026-10-28): 86 of 86 S0 values read, canonical forms decided all but a handful of value comparisons ([s0.instruments-ir2](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments-ir2.json)); production code not written
 
 ## 7. Conditions
 
@@ -900,7 +900,7 @@ linking reuses the reference run's keys but not its canonical labels
 
 > Status: **Measured** on the S0 passes (2026-10-28): with the earliest rules (sorted anchor keys;
 > label always in the key) 21 of 70 aligned claim pairs had equal claim keys; with the covering-
-> segment statement key and the label rule 48 did, and the rest are real differences (../design_review/evidence/2026-10-28_design-spikes/results/s0/key_variants/, record s0.agreement).
+> segment statement key and the label rule 48 did, and the rest are real differences (../design_review/evidence/2026-10-28_design-spikes/results/s0/key_variants/, record s0.agreement-ir2).
 > Under the ADR-0019 statement key (anchor locator plus first-sentence ordinal) 51 of the 70 pairs
 > have equal claim keys with the label rule; 3 of the rest differ only by one statement-segmentation
 > disagreement (U6), the others by the fact itself (record `s6.keys`, 2026-10-28).

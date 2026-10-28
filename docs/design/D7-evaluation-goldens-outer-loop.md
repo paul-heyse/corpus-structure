@@ -16,7 +16,7 @@ mechanisms, none sufficient alone:
 > Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md)
 > Status: **Measured** (S0-R2, 2026-10-28): Sonnet from unit packets with the §3.2 inputs reached full-tier
 > F1 0.77 against the reference, against 0.68 for the Opus passes on the earlier inputs
-> ([S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md); record s0r2.scores)
+> ([S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md); record s0r2.scores-ir2)
 
 | Risk | Mechanism | Section |
 |---|---|---|
@@ -156,7 +156,7 @@ The model is recorded on each `eval.golden_pass`; another model is a revisit of 
 > Sonnet 0.77 and Haiku 0.68 full-tier F1 against the reference from these inputs, against 0.37 and
 > 0.35 from the guideline, schema and positional context alone. Sonnet and Haiku agreed with each
 > other at 0.76 on the held-out units. Whether page text still helps with these inputs was not run
-> (records s0r2.inputs, s0r2.scores).
+> (records s0r2.inputs, s0r2.scores-ir2).
 
 They do not see each other's output, earlier golden versions, run claims or metrics. Each pass
 is submitted through `write_golden` (D8) with `pass: a` or `pass: b` and stored as an
@@ -398,7 +398,7 @@ version, schema version or guideline version.
    before any phase 0 result is seen (P0CL-10; operator, 2026-10-28):
    - micro full-tier F1 on the dev golden units, strict and lenient (§5.1), each with its interval
      (§5.4), beside the S0-R2 comparison figures, which the pack's `eval/baselines.yaml` holds with
-     their record ids (record s0r2.scores);
+     their record ids (record s0r2.scores-ir2);
    - identity quality: B-cubed precision and recall of the run's global entities against the
      golden canonical labels (§5.4), new code rather than a spike port;
    - the unlocated-quote rate: evidence items left `evidence_unlocated` (D4 §4.3) over all evidence

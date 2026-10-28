@@ -262,7 +262,7 @@ A2: …
   name what no packet holds (D6 §1). A positional rule ("the previous binding sentences in the
   section") is not used: it handed one exercise another exercise's setup and missed a premise stated
   before the unit.
-  > Status: **Tested** (S0-R2, 2026-10-28; records s0r2.inputs, s0r2.scores; `code/s0r2_sample.py`)
+  > Status: **Tested** (S0-R2, 2026-10-28; records s0r2.inputs, s0r2.scores-ir2; `code/s0r2_sample.py`)
   > Status: the six-latest cut and `uncovered` blocks are **Proposed** (2026-10-28); phase 0 M13
   > omits the paragraph rule, and its acceptance is the S0-R2 standing contexts (M13)
 - **Known entities** are the canonical labels of the global entities of the run's recorded
@@ -902,7 +902,7 @@ Lark's `regex=True` is not needed.
   any `%ignore` terminal of the assembled grammar is not on the list. The tree printer is checked
   against the token form by the property test of D1 §6.2.
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
-> Status: **Measured** in the spike instruments (2026-10-28): 976 of 1,532 spans parse on a 78-page sample, the rest ambiguous or failed by recorded category ([s0.instruments](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments.json)); coverage is S5's question
+> Status: **Measured** in the spike instruments (2026-10-28): 976 of 1,532 spans parse on a 78-page sample, the rest ambiguous or failed by recorded category ([s0.instruments-ir2](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments-ir2.json)); coverage is S5's question
 > Status: **Tested** and **Measured** (2026-10-28, [text-math note L-06](../design_review/evidence/2026-10-28_library-text-math/README.md)): with the `edit_terminals` rule, `\leftarrow`, `\leftrightarrow` and `\quadrant` fail honestly as unknown commands, `x \rightarrow 0` parses `ok` with the right tree, and none of the 918 spike-page spans changes status or printed form (checked on 7 cases and those 918 spans, not yet on the 28,956 corpus spans; S5's full run includes it); `\left( a \right)` stays `ambiguous`, a grammar ambiguity for S5. `Lark.save()` raises `NotImplementedError` for Earley and pickling fails; a parser builds in 0.05 s, with 38 distinct parser keys over 78 pages; `ordered_sets=True` gives 1 distinct tree over 3 rebuilds of an ambiguous value; spike-page spans emit `SymPyDeprecationWarning` (non-`Expr` arguments in `Mul`); median 41 ms, max 826 ms per span on the 1,532-span sample
 
 **Measured by.** Parse rate by math kind and page; failure categories (S5); the property test of

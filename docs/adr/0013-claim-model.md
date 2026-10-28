@@ -62,3 +62,7 @@ Option 1, as D1 states it:
   foundations).
 - **Revisit** if a domain's facts repeatedly need several co-equal subjects that the reification
   rule turns into entities, or if the condition tree cannot carry a construct a second domain needs.
+
+## Amendments
+
+- 2026-10-28: the S0-R2 evidence cited above is now record `s0r2.scores-ir2`, which supersedes `s0r2.scores` (instrument revision I-R2; figures unchanged). No decision changed.

@@ -175,7 +175,7 @@ it. Changing one needs an ADR and a design/target review.
 
 ### §B1 Every fact is one claim form
 
-**Tested** on the S0 and S0-R2 units (records `s0.gaps`, `s0r2.scores`); not yet built. A claim is
+**Tested** on the S0 and S0-R2 units (records `s0.gaps`, `s0r2.scores-ir2`); not yet built. A claim is
 subject, predicate, object or typed value, qualifiers, evidence, supports and status, with
 conditions as a typed tree with escape leaves and symbol bindings as a value-level map; reification
 only for co-equal participants, things referred to, or recurring identities; keys from canonical

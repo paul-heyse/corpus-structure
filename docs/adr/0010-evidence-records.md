@@ -87,3 +87,7 @@ operator with no concurrent writers.
     ADR-0001's evidence clause;
   - a second operator or concurrent writers;
   - catalog builds becoming slow enough to need incremental loading.
+
+## Amendments
+
+- 2026-10-28 (P0-P-4): `just evidence check` also resolves record ids cited in `docs/design/` and `docs/adr/` and warns on superseded or unknown ids; the DuckDB catalog's tables are derived from the `Record` model rather than hand-written. No decision changed.
