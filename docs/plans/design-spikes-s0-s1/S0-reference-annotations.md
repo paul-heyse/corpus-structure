@@ -181,11 +181,14 @@ reported as evidence for D7 §3.4.
 
 A small implementation of D4 M13's rules over the twelve units and their pages:
 
-- **Symbols** from S1's math segments via pylatexenc `LatexWalker` nodes: letter characters,
-  Greek-letter macros (`\mu`, `\sigma`), with subscripts kept (`X_1`) and powers recorded
-  (`\sigma^2` → base `\sigma`).
+- **Symbols** from S1's math segments via pylatexenc 2.11 `LatexWalker` nodes: letters from
+  `LatexCharsNode`, Greek letters from `LatexMacroNode` (`\mu`, `\sigma`), with subscripts kept
+  (`X_1`) and powers recorded (`\sigma^2` → base `\sigma`). 2.x keeps `_` and `^` inside
+  character nodes, so they are split in post-processing; pylatexenc 3's embellishment parsing
+  (`e{_^}`) is noted for S5 as the M09 candidate.
 - **Binding sites:** a symbol mention in a sentence whose first lemma is in the binder lexicon
-  (`suppose`, `let`, `assume`, `fix`, `define`, with `if` tested as an extension), in a `where`
+  of D2 §12.1 (`binders.sentence_initial`: suppose, let, assume, fix, define, consider, recall;
+  `if` tested as an extension; `reopen` and `section_wide` phrases as written there), in a `where`
   or `for` clause, on the left of `\in` in such a sentence, or on the left of a definitional
   `=`; spaCy (S1's adopted pipeline) supplies lemmas and sentences.
 - **Extents:** the smallest enclosing unit; outside units, to the end of the section or the next

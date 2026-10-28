@@ -54,8 +54,9 @@ Per-predicate rules (subject and object classes, allowed schema qualifiers, enum
 from the schema, not from code. This is the `entity_types` side table D2 §7.3 describes, which
 JSON Schema cannot express:
 
-- D2 §9's statistics schema v0 is copied verbatim into `code/schema/statistics.yaml`, with a
-  minimal `code/schema/core.yaml` holding what D2 §6 lists.
+- D2 §9's statistics schema v0 and D2 §6's core schema v0 (`core.yaml`, written out in full in
+  D2 since 2026-10-28) are copied verbatim into `code/schema/statistics.yaml` and
+  `code/schema/core.yaml`; any edit needed to make them load is recorded as an S4 observation.
 - `linkml_runtime.utils.schemaview.SchemaView` loads it; the lookup uses `all_classes()`,
   `class_ancestors()` (so a mixin domain such as `Distributed` admits its classes),
   `induced_slot()`, enum permissible values and the `ci:` annotations (`ci:role`, `ci:object`,
@@ -116,7 +117,7 @@ Two values are compared in tiers, and the deciding tier is recorded per comparis
 is evidence for OPEN-D7-2, which S5 decides):
 
 1. **Canonical form, D1 §6.2.** Formulas and sets by normalized LaTeX: source macros expanded
-   from the page's macro table (S1 `renditions.json`); spacing commands, `\left`, `\right` and
+   from the page's macro table (S1 `renditions.json`), then D2 §12.1's fallback macro map; spacing commands, `\left`, `\right` and
    whitespace removed; braces around single tokens dropped (`b^{2}` → `b^2`). Numbers as
    normalized decimals with pint base units; text NFC-casefolded with collapsed whitespace. The
    same function produces the keys of §6, so key agreement and canonical-form equality cannot

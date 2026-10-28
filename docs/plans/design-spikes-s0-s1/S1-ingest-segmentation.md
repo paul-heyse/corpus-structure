@@ -48,7 +48,8 @@ a `p.dfm` definition (`pdf1`), LogNormal an unclosed `p.math` (unit without id),
 
 ## 3. HTML extraction mechanisms
 
-Five libraries were assessed against the responsibilities above, from the
+Six libraries were assessed against the responsibilities above, from the
+[pylatexenc overview](../../libraries/pylatexenc.md), the
 [lxml overview](../../libraries/lxml.md) and the
 [parsel, cssselect, cssselect2, trafilatura and extruct overview](../../libraries/parsel_cssselect_cssselect2_trafilatura_extruct.md),
 checked against Context7, the lxml 6.1.3 changelog and the libxml2 2.14 release notes.
@@ -63,8 +64,9 @@ checked against Context7, the lxml 6.1.3 changelog and the libxml2 2.14 release 
 | Source-profile rules | CSS selectors paired with role payloads, compiled with `cssselect2.compile_selector_list` into a `cssselect2.Matcher`, matched in one traversal over `cssselect2.ElementWrapper.from_html_root(root)`; each match returns `(specificity, order, pseudo, payload)` | The same selectors through `cssselect.HTMLTranslator().css_to_xpath` (`lxml.cssselect.CSSSelector(...).path` recorded) evaluated by lxml's XPath — variant V5 | Hand-written XPath lists: harder to read as a profile, and overlapping rules go undetected |
 | Coverage audit | Every body element matched by no role rule is listed (tag, classes, page, `sourceline`) | — | — |
 | Independent text path | `lxml.etree.XPath("string(.)", smart_strings=False)` per segment element (and `itertext()`), normalized by the same function, compared with `canonical_text[start:end]`; on mismatch, XPath `//text()` smart strings (`getparent()`, `is_tail`) locate the text node responsible | — | — |
-| Math delimiting | Brace-aware scanner over decoded block text for `\(…\)`, `\[…\]` and bare `\begin{align|align*}…\end{…}` | pylatexenc `LatexWalker(text).get_latex_nodes()` → `LatexMathNode` (`pos`, `len`, `delimiters`, `displaytype`) — variant V6 | `latex2text`: rewrites math, which D1 forbids |
-| Macro definitions | `div.latex` excluded from canonical text; its `\newcommand`s parsed with pylatexenc into a per-page macro table on the rendition | — | — |
+| Math delimiting | Brace-aware scanner over decoded block text for `\(…\)`, `\[…\]` and bare `\begin{align|align*}…\end{…}` | pylatexenc over whole block text — variant V6 (§5): 3.0b2 with a configured `ParsingState`, and 2.11 with its default context as a contrast | `latex2text` for canonical text: rewrites math, which D1 forbids |
+| Math span validation | pylatexenc 2.11 `LatexWalker(span, tolerant_parsing=False)` on each delimited span; a `LatexWalkerParseError` gives the position and message recorded as the `partial` reason in `parse_status` | — | — |
+| Macro definitions | `div.latex` excluded from canonical text; its `\newcommand`s parsed with pylatexenc 2.11 (each a `LatexMacroNode`: name, optional argument count and body from `nodeargd.argnlist`, body text from `latex_verbatim()`) into the rendition's `parse_detail.macros` (D4 M01); the table also becomes `MacroSpec`s in a context derived with `get_default_latex_context_db().add_context_category(..., prepend=True)` (2.x contexts are derived, never mutated) for the span validation above | D2 §12.1's fallback macro map | — |
 | Profile-free baseline | `trafilatura.bare_extraction(html, output_format="xml", include_tables=True, include_formatting=True, favor_recall=True, include_comments=False)`, with and without `prune_xpath` set to the profile's exclusion XPaths — §7.1 | Our profiled adapter | — |
 | Document metadata | XPath for `title`, `meta[@name='author']`, `meta[@name='keywords']` into document attrs | — | extruct: the pages carry no syntax it reads; deferred with a trigger (coordinator §8) |
 | Spike-script querying | lxml XPath and `CSSSelector` | — | Parsel: a thin layer over the same lxml and cssselect whose `::text`/`string(.)` add nothing here, and whose `huge_tree=True` default relaxes libxml2's limits |
@@ -79,6 +81,16 @@ claiming one element are reported, not silently ordered. cssselect's translation
 selectors into XPath is an independent evaluation on lxml's native engine: the two must select
 identical node sets. Whether M01 keeps both, or only the XPath route (fewer dependencies), is
 decided by this agreement and by whether conflict detection found anything; it is not assumed.
+
+**Why pylatexenc is not the canonical math delimiter.** Its walker tokenizes LaTeX, and the
+block text is HTML prose with LaTeX islands. Across the 78 pages, prose outside math contains 8
+`%` and 9 `$` (currency): under the stable 2.11 default context a `%` opens a comment that
+swallows the rest of its line and a `$` opens inline math. The 3.0 beta can switch these off
+through its configurable `ParsingState`, but it is a prerelease. M01 therefore keeps its own
+scanner for delimiting, uses stable 2.11 inside already-delimited spans (where `%` and `$` are
+math), and S1 measures both pylatexenc routes against the scanner (V6). In both versions an
+`align` environment is a `LatexEnvironmentNode`, not a `LatexMathNode`, so any pylatexenc-based
+detector must collect both node types.
 
 **Why both parsers.** libxml2 2.14 made its HTML tokenizer HTML5-conformant but does not
 implement HTML5 tree construction; html5lib does. Where Siegrist's markup is malformed (HTML-05)
@@ -100,6 +112,16 @@ intersecting node sets.
 canonical text, segments, author-markup records, excluded-content records and rendition
 attributes. Its configuration is a single JSON document whose canonical hash is the adapter
 config hash in the rendition key (D1 §10.1).
+
+**Starting point.** The adapter's source profile is the Siegrist profile drafted in
+[D2 §12.1](../../design/D2-schema-and-guidelines.md#121-methodsyaml) (`source_profiles.siegrist`:
+exclusions, title, `h3`/`h4` sections, `div.unit`, `block_hints`, `section_hints`,
+`details_kinds`, math delimiters, page macros), read from a copy in `code/profile/` and compiled
+into the cssselect2 `Matcher` and the cssselect XPath route of §3.1. S1 reports every rule that
+profile lacks or gets wrong (the brief's requirement); the rules this document adds (§4.2–§4.3,
+V7) are written as additions to that profile, so the report's M01 specification is a revised
+`methods.yaml` profile, not a parallel one. D2 §12.1's `math.macros` is the fallback when a page
+does not define a macro.
 
 ### 4.1 Pipeline
 
@@ -156,9 +178,12 @@ adopted choice becomes an M01 rule.
 
 For each core unit: page, document key, rendition key, segment keys (D1 §10.1, with the adapter
 config hash), `start`, `end`, a SHA-256 of the unit's canonical text, the sentence ids of the
-adopted sentence variant, and the first 80 characters. Units are found by a locator that uses
-the page, the unit's opening text and, where needed, its position (T2's "again"; `rel2` on two
-pages), and records how each was found. Keys use `canonical_json` exactly as D1 §10.1 specifies
+adopted sentence variant, and the first 80 characters. Units are found by the locators drafted
+in [D2 §12.2](../../design/D2-schema-and-guidelines.md#122-slicesyaml) (`page#unit-id`,
+`page@u:<prefix>` for a unit, `page@p:<prefix>` for a paragraph outside units; prefixes match the
+start of the segment's canonical text with whitespace collapsed); S1 checks that every locator in
+the `trace`, `core12` and `spike-pages` slices resolves to exactly one segment (the brief's
+requirement) and records how each was found. T1 is the union of its two locators. Keys use `canonical_json` exactly as D1 §10.1 specifies
 (sorted keys, no insignificant whitespace, UTF-8, NFC strings).
 
 ## 5. Variants of the adapter
@@ -171,9 +196,9 @@ corpus-wide structure (S1-D).
 | V1 | Parser: libxml2 versus html5lib | Tree diff by element path, kind and text on all 78 pages; each difference placed against the repair inventory (§3.1) and classified: same content, different parent / text moved between segments / content lost | Which tree M01 specifies; how orphaned text after a repaired `<p>` is assigned (own `paragraph` or reattached) |
 | V2 | Unicode: NFC versus NFKC (the old adapter's choice) | Inventory of code points that differ, inside and outside math, with examples | D1 §3.1's NFC rule confirmed or amended |
 | V3 | Whitespace inside math: kept versus collapsed | Number of math spans whose text changes; effect on quote location for quotes copied from rendered math | D1 §3.1's "nothing inside math is rewritten" against "whitespace collapses within a block" |
-| V4 | Section synthesis: `h3` only versus nested `h3`/`h4` | Section segment counts and sizes; for each core unit, which section contains it and its standing assumptions | The `section` extent used by OPEN-D1-2/4 and M13; S0 analyses scopes under both |
+| V4 | Section synthesis: nested `h3`/`h4` (D1 §3.2 and D2 §12.1 as revised 2026-10-28; the adopted default) versus `h3` only | Section segment counts and sizes; for each core unit, which section contains it and its standing assumptions | The `section` extent used by OPEN-D1-2/4 and M13; S0 analyses scopes under both |
 | V5 | Profile evaluation: cssselect2 `Matcher` versus cssselect → XPath | Node-set equality per rule and page; rule conflicts; unmatched elements | The profile language and engine for M01 (HTML-07) |
-| V6 | Math detection: brace-aware scanner versus pylatexenc `LatexWalker` | Span-level agreement; categorized disagreements; behaviour at each of the 11 unbalanced delimiters (where each resynchronizes, what text is mis-typed as math or prose) | The M01 math rule and `parse_status` for math segments (HTML-02) |
+| V6 | Math detection over whole block text: the brace-aware scanner; pylatexenc 3.0b2 with a configured `ParsingState` (math only from `\(…\)` and `\[…\]`, `$` not math, comments disabled) through `LatexWalker.parse_content(LatexGeneralNodesParser())`, collecting `LatexMathNode` and `LatexEnvironmentNode`; pylatexenc 2.11 default context `get_latex_nodes()` as a contrast. The 3.0b2 run uses an isolated overlay (`uv run --no-project --with pylatexenc==3.0b2`) over block texts the adapter exports as JSONL | Span-level agreement among the three; categorized disagreements; the comment swallowing and false math the prose `%`/`$` cause under 2.11 defaults; behaviour at each of the 11 unbalanced delimiters (where each resynchronizes, what text is mis-typed as math or prose) | The M01 math rule and `parse_status` for math segments (HTML-02); whether a configured pylatexenc 3 could replace the bespoke scanner once 3.0 is stable |
 | V7 | App units (`p.app`, 422 units): kept and flagged versus excluded | Unit counts against the index; characters affected | Whether apps are content (with a statement-kind hint) or excluded |
 | R1–R5 | Rendering conventions | §4.3 | M01 rendering rules (HTML-03) |
 
@@ -197,6 +222,7 @@ Two dimensions: the spaCy component that sets boundaries, and how math is presen
 | (b2) | Inline math replaced by a word-like placeholder (`MATHTOKEN12`), offsets mapped back; tests whether the placeholder's shape changes the parser's behaviour |
 | (b′) | D4 M03's candidate: a component before the parser merges each inline math span into one token with `doc.retokenize()` (`POS=PROPN`) and sets `is_sent_start = False` inside display math; offsets stay in canonical text |
 | (c) | (b1), (b2) or (b′) plus: never split inside display math, never let a sentence cross its block |
+| (d) | Inline math rendered to Unicode text with pylatexenc 2.11 `LatexNodes2Text(math_mode="text")`, with the page's macro table registered as `MacroTextSpec`s, so spaCy reads "a ∈ ℝ" rather than LaTeX; offsets mapped back per span. Also handed to S2 as a third input option for GLiNER2 (OPEN-D2-2) |
 
 A tokenizer special-case set for abbreviations ("i.e.", "e.g.", "cf.") is applied on and off
 to the best two combinations. Every combination runs on every paragraph and list item of the

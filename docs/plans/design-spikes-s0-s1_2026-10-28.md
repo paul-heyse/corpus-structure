@@ -1,4 +1,4 @@
-# Design spikes S0 and S1: execution plan
+# Design spikes: execution plan series (S0 and S1 first)
 
 **Status:** Active, alongside [design-phase_2026-10-28](design-phase_2026-10-28.md) by operator
 decision (2026-10-28); this plan executes that plan's queue items Q1 (S1) and Q2 (S0) and governs
@@ -6,8 +6,9 @@ their procedure. **Revised:** 2026-10-28.
 **Label:** Proposed (nothing in this plan has been executed).
 
 This coordinator owns the combined scope, shared decisions, cross-document contracts, the
-execution queue, finding disposition and completion conditions for spikes S0 and S1. Three
-supporting documents develop the work:
+execution queue, finding disposition and completion conditions for the design spikes. It
+starts with S0 and S1 and is meant to grow (§11): later spikes and revisits of earlier ones join
+the same series. Three supporting documents develop the current work:
 
 | Document | Owns |
 |---|---|
@@ -113,13 +114,16 @@ Unit identity in all results is `(page, rendition key, start, end, content hash)
 
 One uv project in the evidence folder (`pyproject.toml`, `uv.lock`), with its environment at
 `$REPO/build/spike-venv` (`UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run …`), Python
-3.14.8. Every dependency pinned exactly; the lock diff is inspected when a dependency is added.
+3.14.10 (the repository's interpreter since 2026-10-28). Every dependency is pinned exactly at
+the latest release when E0 resolves it (operator direction, 2026-10-28); the versions below were
+the latest on 2026-10-28 and are replaced by E0's resolved set. The lock diff is inspected when a
+dependency is added.
 
 | Purpose | Pins |
 |---|---|
 | HTML | `lxml==6.1.3`, `html5lib==1.1`, `cssselect==1.6.0`, `cssselect2==0.10.1` (`tinycss2==1.5.1`), `trafilatura==2.3.1` |
-| LaTeX | `pylatexenc==2.11`, `sympy==1.14.0` |
-| Sentences | `spacy==3.8.16`, `en_core_web_sm` 3.8.0 and `en_core_web_trf` 3.8.0 wheels by URL, `spacy-curated-transformers==0.3.1`, `torch==2.14.1` (CPU) |
+| LaTeX | `pylatexenc==2.11` (stable; span validation, macro tables, M13-probe symbols, sentence variant (d)), `sympy==1.14.0`; `pylatexenc==3.0b2` only in an isolated overlay for S1 variant V6 (`uv run --no-project --with pylatexenc==3.0b2 …`) |
+| Sentences | `spacy==3.8.18`, `en_core_web_sm` 3.8.0 and `en_core_web_trf` 3.8.0 wheels by URL, `spacy-curated-transformers==0.3.1`, `torch==2.14.1` (CPU) |
 | Sizing | `tokenizers==0.23.3` with the locally cached `Qwen/Qwen3.5-9B` and `fastino/gliner2.5-base-v1` tokenizers (revision hashes recorded) |
 | Instruments | `pydantic==2.14.1`, `linkml==1.12.1`, `rapidfuzz==3.14.6`, `scipy==1.18.1`, `statsmodels==0.15.0`, `numpy==2.5.4` |
 
@@ -311,3 +315,25 @@ inventory (2026-10-28) and are scheduled into S1.
 - No product code: nothing under `crates/`, `python/` or `domains/`.
 - The root runs `just turn-end` at the end of a turn that changed files.
 - Commits are small, name the package (`S1-A`, `S0-B`, …) and state the outcome of what was run.
+
+## 11. How the series grows
+
+The series is the long-lived plan for all design spikes (operator direction, 2026-10-28), so
+that later spikes and revisits share one set of contracts, environment and finding rows instead
+of each starting a new plan.
+
+- **A new spike** joins as a supporting document in `design-spikes-s0-s1/` (the folder and file
+  names stay, because other plans link to them), with packages named after it (`S2-A`, …), rows
+  in §5's queue and §8's findings table, and its own contracts added to §4.
+- **A revisit** of a finished spike (a new question, a design change, a corrected premise) is a
+  package with a revisit id (`S1-R1`, …) in the original spike's document, stating its trigger and
+  which earlier results it supersedes. Earlier results stay in the evidence folder; the report
+  gains a dated section rather than being rewritten.
+- **Comparability across revisions** rests on what every result already records: rendition keys
+  and adapter configuration hashes (S1), batch envelopes with rendition keys (S0 and the
+  instruments), and `results/environment.json` per environment change. A result is compared with
+  an earlier one only when these identify what changed.
+- **Environment changes** (a library or interpreter upgrade) are a package of their own: the new
+  `environment.json` is written, and the results it could affect are listed for re-running or
+  marked as produced under the earlier environment.
+
