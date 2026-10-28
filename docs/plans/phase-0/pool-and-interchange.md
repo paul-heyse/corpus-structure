@@ -142,7 +142,8 @@ Merges are phase 2, so phase 0 builds only the probe and the fixture.
 
 ### 3.4 Writes and exports (P3)
 
-**The bulk writer** builds rows from the generated schemas.
+**The bulk writer** builds on foundations' bulk-write primitives (F4), which own `Copy.set_types` and
+any bulk-writer enforcement of INV-03/INV-08; this package adds the Arrow-native route and the export.
 - psycopg `Copy.set_types` is the default. S6 measured it on the interim cluster: 100,000 observations
   in 1.1 s and 20,000 claims in 229 ms (Measured, 2026-10-28).
 - pgpq 0.12 (`ArrowToPostgresBinaryEncoder` → `psycopg.Copy.write`) is adopted only if probe Q-5 shows

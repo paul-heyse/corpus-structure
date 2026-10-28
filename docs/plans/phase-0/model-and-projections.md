@@ -97,13 +97,16 @@ What this document does not build:
   - the source-profile class (RC12), typed against core vocabulary;
   - the `EmbeddingSpec`: model, dimension, metric, family id;
   - the unit-feature vocabulary that `by_unit`'s section → unit mapping ranges over (coordinator
-    decision 15).
+    decision 15). The per-section mapping itself is declared beside the guideline's sections, under the
+    guideline's own version (D7 §2), and is validated against this vocabulary; P0-D-2 writes the text.
 
 **The model revision** (TM §2) is the LinkML `version`, the SHA-256 of the canonical JSON of the parsed
 `core` and `system` files (D2 §2's hashing rule), the compiler versions and the key-scheme version.
 - **The checked-in log**, `model/revisions.yaml`, is the authority. Each entry holds a revision and its
   change record (§3.7).
-- **`meta.model_revision`** is its projection, written by S1b's `ensure`.
+- **`meta.model_revision`** is its projection, written by S1b's `ensure`. It stores the content hash and
+  the change record, not the model source, which stays in Git at the revision; a run whose recorded
+  revision differs from the installed one is refused by S1b's `compiled_for`.
 
 **The declaration check** refuses three things:
 - an annotation outside TM §4's vocabulary;
@@ -139,7 +142,8 @@ The annotation bar is AGENTS.md's: each declaration has a named consumer.
 - `ParseStatus` (the formula outcome) is renamed `ParseOutcome`;
 - the new sets `Stage`, `SkipReason`, `MarkupKind`, `InterventionTargetKind`, `JudgmentTargetKind`,
   `JudgmentDecision`, `JudgmentConfidence`, `VerificationVerdict`, `DropReason`,
-  `FrameFailureReason` and `ConfidenceSource` are added, together with `GpuMode` and `AgentMode`, which
+  `FrameFailureReason` (introduced by F2c as hand enums and taken over by M1 with the same members) and
+  `ConfidenceSource` are added, together with `GpuMode` and `AgentMode`, which
   `settings.py` and the run-options class import instead of restating (coordinator decision 26);
 - `PolicyChain` gains `gaps`.
 
@@ -154,7 +158,9 @@ The IR regression tests stay unchanged and must pass.
 
 **The interim mirror guard** (TM §12) extends the contract test to every shape fact Stage A does not
 generate: tags, bind kinds and binding fields, the item fields per form, `ci:form` / `ci:required_in`.
-It fails on a seeded difference on either side, and it lasts until M5.
+It also keeps the hand source-profile model in `ingest/profile.py` equal to the `system` source-profile
+class until that model is generated (M5 covers it). It fails on a seeded difference on either side, and
+it lasts until M5.
 
 **Drift tests.** Regenerating into a temporary directory must reproduce every committed file byte for
 byte. A hand edit fails.
@@ -203,6 +209,10 @@ TM §6:
   - `kb.entity.resolved_to_id` for `ExternalReference`;
   - `ops.run.cut_at` and the run's revision, schema and scheme columns;
   - `meta.model_revision` and `meta.payload_schema` (TM §9);
+  - citation-frame versions: a frame-version relation for golden passes (and any authored frame), each
+    version with a parent link, written by the consumer of a re-location (E1), never rewritten
+    (coordinator decision 2; RC09); `eval.golden_item`'s unique key gains the cascade version and the
+    schema version;
   - `payload_schema_id` on `kb.observation`, `eval.golden_pass`, `meta.compiled_artifact`,
     `kb.rendition_build` and `ops.intervention`.
 
@@ -211,7 +221,7 @@ generates ids.
 
 **INV-03 and INV-08** (same-run FKs) are declared, and their enforcement placement follows probe Q-4:
 - FK, if the COPY cost at run scale is acceptable;
-- otherwise the bulk writer, with a test per invariant.
+- otherwise foundations' bulk-write primitives (F4), with a test per invariant.
 
 **Generator choice.** `RelationalModelTransformer` may be used as an intermediate model, but not
 `gen-sqltables`. That generator emits native PostgreSQL enums, no CHECKs and no JSONB, and Alembic's
@@ -223,7 +233,8 @@ PostgreSQL implementation does not compare enum values (Interface-checked, lib n
 - the BM25 partial index, with `'english'::regconfig` and the kind predicate read from
   `_model.sql.SEARCH_BLOCK`;
 - views, through SQLAlchemy 2.1's `CreateView`, or `DDL` where needed, carrying the run-cut predicate;
-- the extension assertion.
+- the extension assertion, by version: it reads F5's record of expected extension versions (DA-018),
+  never mere presence.
 
 It binds to generated tables by name and fails at import on a missing table or column. The model
 declares no index or physical setting (TM §4: declarations judge representations, they do not prescribe
