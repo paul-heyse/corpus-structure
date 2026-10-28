@@ -56,9 +56,8 @@ operator confirmed the installed package; [store note](../design_review/evidence
 
 **Instance.** The project runs on one dedicated PostgreSQL 18 cluster on this machine, apart
 from the `main` cluster that other projects use (§13). Its provisioning creates the extensions
-as `postgres` in the template database; the project's roles never need superuser. Until it
-exists, a project-local interim cluster (`build/pg/`, P0-F-1) stands in; moving between
-them changes only `CORPUS_DATABASE__URL`.
+as `postgres` in the template database; the project's roles never need superuser. Another
+server is used by setting `CORPUS_DATABASE__URL`.
 
 ```sql
 DO $$ BEGIN
@@ -1136,4 +1135,4 @@ WAL archiving, and a logical `pg_dump` for version-independent copies.
 
 **Operation.** `just db-up`, `just db-down`, `just db-status` (`pg_ctlcluster`, `pg_lsclusters`);
 `pg_activity -p 5434` for live sessions; pgBadger over the cluster log for a period's slow
-statements. The interim project-local cluster (`build/pg/`, P0-F-1) is retired once nothing uses it.
+statements. The interim project-local cluster that preceded it was retired on 2026-10-28, after S6.

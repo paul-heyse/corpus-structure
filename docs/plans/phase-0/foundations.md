@@ -68,7 +68,7 @@ no decision that needs the pack, a parse or the pipeline's state.
 | Label rules (articles, head words, rewrites) | D1 §10.1, D5 §3.3 point 5; the `aliases:` section of the pack's `methods.yaml` (D2 §12.1) · data loaded by the method registry (orchestration O1) | F2b label normalization |
 | Fates as of `ops.run.finished_at`; the run's resolved scope; policy actions by `<method>/<name>` | D3 §4, §6.3, §8, D6 §7.1, §8 · [orchestration](orchestration.md) | F4 views and JSON models |
 | Spike evidence | S6 records `s6.ddl`, `s6.constraints`, `s6.queries`, `s6.bm25`, `s6.dry-run`, `s6.volume`, `s6.sizes`, `s6.keys`, `s6.restated`; S5 records `s5.keys-property`, `s5.macros`; S4 record `s4.batch-validation` | F4; F2a's freeze; F2b |
-| A PostgreSQL 18 instance with `pg_textsearch` preloaded and `cs_template`: in the interim the project-local cluster that P0-F-1's `just db-up` provides (D3 §3); later the system instance | D3 §3 · coordinator §2 | F1's database fixtures, F4 |
+| The dedicated PostgreSQL 18 cluster `18/corpus` (`just db-provision`; pg_textsearch preloaded; `cs_template`) | D3 §3 · coordinator §2 | F1's database fixtures, F4 |
 
 ### 2.2 Produced
 
