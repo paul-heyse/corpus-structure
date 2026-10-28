@@ -56,9 +56,8 @@ and the [interfaces note](../../design_review/evidence/2026-10-28_library-interf
 This document does not define a batch shape, a key part, a locator form or a task status. It
 builds no exports: those are phase 1 (D8 §6). The MCP `query` and `explain` tools move to phase 1
 with the other inspection tools of D8 §2.4, and they will wrap the functions built here.
-`extref` (OPEN-D1-5) is deferred to the phase 0 boundary together with OPEN-D2-7…20 (design-phase
-plan), so phase 0 consolidation treats outside references as `unsupported` items, as authors
-write them.
+Phase 0 consolidation does not resolve `extref` (OPEN-D1-5): it treats outside references as
+`unsupported` items, as authors write them.
 
 **Change scenarios** (from [DESIGN §1.3](../../design/DESIGN.md#section-1-3) and phase 1). They
 explain the boundaries; none of them widens phase 0 scope.
@@ -68,7 +67,7 @@ explain the boundaries; none of them widens phase 0 scope.
 | A second domain pack (ownership: ORG-101 owns P-17) | the pack's schema, `rules.yaml` `views:`, `methods.yaml` `aliases:`, `queries.py`; a source profile | the pass reads class scopes, identity slots and identity qualifiers from the compiled schema and containment claims from the profile; `serve` loads the pack's plug-in | every module under `consolidate/` and `serve/` (P0-C-4 is this scenario run in phase 0) |
 | A claim with `valid_time` and a cited source | identity qualifiers in F2b's key parts (D1 §10.1) | fusion by key, with the disagreeing-qualifier rule (D5 §5.3) | no code here names `valid_time` |
 | A table segment with quantities and units | `number` values with `unit` and `basis` (D1 §6), keyed by F2b | values are stored and rendered generically | pass and queries |
-| `extref` at the phase 0 boundary | D1 §6 and §7 decided there | a resolution step after statements are keyed; queries render the value | the entry, the writer, coverage |
+| `extref` (OPEN-D1-5) | D1 §6 and §7, once decided | a resolution step after statements are keyed; queries render the value | the entry, the writer, coverage |
 | Email threads | new segment kinds, and a decision on which kinds anchor statements (D1 §10.1 names `unit`, `details` and paragraphs outside units) | the anchor rule reads that list | a design change to D1 comes first; supports from quoted text are phase 5 |
 | Phase 1 tiers: encoders, M10, M13 scopes, M14 linking, slots, cold-start confidence | new pool contributions and steps between assembly and statuses | the pass entry, the pool loader, the writer, the query layer | coverage then counts several proposing tasks per unit and must state which fate it reports (D3 §9 note) |
 
@@ -85,11 +84,11 @@ explain the boundaries; none of them widens phase 0 scope.
 | The grammar: parse status, slot kind, symbols; raises off a process's main thread | D4 M11; D1 §6.2 | ingest and math P0-I-2a | C1 at finalize |
 | `parse`: authored batch plus frame → stored form on a rendition, re-location by recorded text, the D5 §5.6 fallback | D4 §4.3 | agent interface P0-A-0 | C1, for proposals stored on another rendition |
 | Compiled schema lookup for a schema version; pack location | D2 §3, §7; D3 §3 | schema and rules P0-S-1, P0-S-1b | C1, C2, C4 |
-| Batch checks; view builder over the keyed candidate set with `views:`; M19 runner with `at:` | D2 §7.4; D5 §8.2 | schema and rules P0-S-2 | C1 |
+| Batch checks; view builder over the keyed candidate set with `views:`, and its finalize-readings input type; M19 runner with `at:` | D2 §7.4; D5 §8.2 | schema and rules P0-S-2 | C1 |
 | Method-contract types and the registry interface (configuration models, `methods.yaml` data) | D4 §1 | orchestration P0-O-0 | C1 |
 | Runs and `reference_run_id`; the assemble and finalize stages calling the pass; the M19 task of unit `run`; the fate reader (tasks as of `ops.run.finished_at`); `kb.run_observation` with that cut-off | D3 §4, §8; D6 §1, §2 | orchestration P0-O-1 | C1, C2 |
 | Slices and scope, the `complete`-run protocol, an in-process run driver for tests | D6 §2, §8 | orchestration P0-O-2 | C3, C4 |
-| `Client(mcp)` app factory; `queue_next`, `read_unit`, `propose_claims`; `read_unit` structured content holding the packet's sentence map (id → locator, text) | D8 §2.1 | agent interface P0-A-1 | C3, C4 |
+| `Client(mcp)` app factory; `queue_next`, `read_unit`, `propose_claims`; `read_unit` structured content holding the packet's sentence map (id → locator, text); the submission harness `intervene.testing` | D8 §2.1; D9 §4 | agent interface P0-A-1 | C3, C4 |
 | `fixtures/s0` authored batches with frames (13); `fixtures/trace` targets authored by hand from `trace.md` | coordinator §3 decision 6 | foundations P0-F-3 | C1, C3 |
 | Typer app and registration; settings; the shared conftest and database fixtures | D8 §4; D9 §3 | foundations P0-F-1 | C2, C3 |
 
@@ -99,13 +98,14 @@ explain the boundaries; none of them widens phase 0 scope.
 |---|---|---|---|
 | `consolidate.run_pass(conn, run, pass, m19_task) -> PassReport` | D5 §1, §11 row 0; D6 §2; ADR-0014 | the entry, the pool, assembly, finalize, the writer (§3.1–§3.8) | orchestration's assemble and finalize stages (P0-O-1) |
 | A run's knowledge rows: entities, aliases, anchors, mentions, claims, evidence, supports, links | D3 §5; D1 §11 | §3.3–§3.6 | queries (C2); evaluation's predicted set and readings (P0-E-2b); the next run's known entities, read from its reference run (P0-A-1) |
+| Finalize readings, supplied to S2's view builder: per distinct value, parse status, kind and symbols, of the input type P0-S-2 defines | D5 §8.2 | §3.5 | schema and rules P0-S-2 (the finalize-site view) |
 | M19 `verification` observations at finalize (failing outcomes only), plus per-rule counts for the M19 task | D4 M19; D5 §8.1 | §3.5 | orchestration (writes the counts onto the task); evaluation (rule-warning rate) |
 | `PassReport`: counts by drop reason, statuses, alternative groups, propose tasks consumed | D5 (every "counted") | §3.7 | orchestration (records it; the measure stage) |
 | The query protocol (`DomainQuery`, `QueryContext`, `Scope`), registry, run selector, journeys, page tokens, coverage, `QueryResult` | D8 §5, §5.2; D3 §9 | §3.9–§3.10 | the statistics and toy plug-ins; C3; P0-E-2b (live-run answers); the phase 1 MCP tools |
 | Generic queries (D8 §5.1) and `explain` (D8 §2.4, bounds of §3) | D8 §5.1, §2.4 | §3.11 | operator, Opus through read-only `ci`, C3, P0-E-2b |
 | `domains/statistics/queries.py` | D8 §5.2 | §3.12 | C3; P0-E-2b; the operator |
 | `ci query`, `ci explain` | D8 §4; coordinator §3 decision 10 | §3.13 | operator, scripts, Opus |
-| The acceptance test and its submission harness | D9 §4; coordinator §3 decision 8 | §3.14 | the phase 0 gate (coordinator §1); C4; P0-E-2b's golden-expectation run |
+| The acceptance test | D9 §4; coordinator §3 decision 8 | §3.14 | the phase 0 gate (coordinator §1); C4 (the same journey on the toy pack) |
 | The toy pack | DESIGN §1.3; D2 §2 | §3.15 | P0CL-07 closure (design-phase plan) |
 
 ## 3. Design of the parts
@@ -325,8 +325,9 @@ the main thread. The result has three parts: parse status (`ok`, `partial`, `fai
 slot kind, and symbols.
 
 - The status is stored as the value's `parse` field. `sympy` stays absent until phase 1.
-- The whole result is handed to P0-S-2's view builder as data, so `validate` never imports the
-  grammar (D5 §8.2, readers per call site, as amended).
+- The whole result is handed to P0-S-2's view builder as data, as values of the readings type
+  P0-S-2 defines, so `validate` never imports the grammar (D5 §8.2, readers per call site, as
+  amended).
 - A parse that times out is `failed` with reason `timeout`. It is a value outcome, never a pass
   failure.
 - A value that does not parse under its slot's range is a rule outcome (D1 §6.2), visible to rules
@@ -599,15 +600,16 @@ commands read-only through its shell (D8 §4).
 
 `tests/acceptance/test_trace.py` follows coordinator §3 decision 8 and D9 §4:
 
-1. **Project and run 1.** Initialize the statistics project over a corpus that holds the three
-   trace pages (P0-O-1), with the compiled schema (P0-S-1b). Run the `trace` slice with
+1. **Project and run 1.** Initialize the statistics project (P0-O-1), with the compiled schema
+   (P0-S-1b), over P0-F-3's vendored pages (`fixtures/trace/corpus/`, the four spike pages, which
+   hold the trace units). Run the `trace` slice with
    `agent_mode: complete` through orchestration's in-process driver. Run 1 finishes with the five
    trace units' M24 tasks `awaiting_agent`; its knowledge holds markup statements only.
 2. **Coverage of run 1.** `statement` and `family_profile` over run 1 report the five units
    unresolved.
-3. **Submit.** Through one session-scoped `Client(mcp)` from P0-A-1's app factory, for each task:
-   `queue_next(run=run 1)` → `read_unit` → `propose_claims` with the `fixtures/s0` batch for that
-   unit.
+3. **Submit.** Through P0-A-1's submission harness (`intervene.testing`), which drives one
+   session-scoped `Client(mcp)` from P0-A-1's app factory, for each task: `queue_next(run=run 1)`
+   → `read_unit` → `propose_claims` with the `fixtures/s0` batch for that unit.
    - Before submission the harness maps each `sN` and `cN` of the fixture to the served packet's id,
      by equal (locator, text) between the fixture's frame and the packet's sentence map. A fixture
      sentence missing from the packet fails the test with its name; that reveals a segmentation or
@@ -634,13 +636,12 @@ commands read-only through its shell (D8 §4).
    rows, apart from ids and supporting observation ids (§3.8), and in packet hashes (P0-A-1's half
    of P0CL-05).
 
-**The harness.** The submission steps (pull, map, submit) are one helper, `tests/support/submit.py`.
-C4 uses it, and so does P0-E-2b's golden-expectation run, which submits pass-C batches as the
-proposals of a run (evaluation and goldens document).
+**The harness.** The submission steps (pull, map, submit) are P0-A-1's `intervene.testing`
+(agent interface §3.6), which this test consumes. C4 uses it too, and so does P0-E-2b's
+golden-expectation run, which submits pass-C batches as the proposals of a run.
 
-**Skipping.** The test needs the three trace pages' original bytes. The corpus is gitignored, so
-the test skips with the reason "trace pages absent" when they are missing. Qualification must cite
-a run of the test that did not skip (§8).
+**No skip.** The test reads the original bytes of the four spike pages that P0-F-3 vendors under
+`fixtures/trace/corpus/` (foundations §3.7), not the gitignored corpus, so it never skips.
 
 **Assurance.** The test needs no live agent and no GPU. Its expectations come from targets authored
 by hand from `trace.md`, so a defect in consolidation or in a query cannot reproduce itself in the
@@ -661,8 +662,8 @@ does:
 | `sources/toy.yaml` | a minimal profile: paragraphs and sections, no units, no `details` synthesis, language `english` |
 | `fixtures/toy/` | two short HTML pages and their corpus index; authored batches with citation frames: one ownership over two validity intervals, one fact reported by two cited sources, the two same-named organizations |
 
-The test runs the C3 harness on the toy project: init, a `complete` slice run, submission, a rerun,
-then queries. It checks:
+The test runs C3's journey on the toy project with P0-A-1's submission harness: init, a
+`complete` slice run, submission, a rerun, then queries. It checks:
 
 - the generic `claims(predicate=toy:owns)` answers with coverage;
 - `ownership_at` returns two rows with different applicability for the two intervals;
@@ -687,10 +688,10 @@ No spike module is ported into this document's packages. Read-only references fo
 
 | Package | Scope | Prerequisites | Acceptance | Revealing failure case |
 |---|---|---|---|---|
-| P0-C-1 | `consolidate/`: `run_pass`, the pool, entities and statements, claims, keys, fusion, alternatives, evidence, values once per pass, M19 at finalize, statuses, the writer, invariants, the pass report (§3.1–§3.8) | F4, S2, I1a, I2a, A0, O0, F3 (coordinator §7) | On renditions built by P0-I-1a and `fixtures/s0` batches located by P0-A-0, the trace units' entities, statements, claims and bindings match `fixtures/trace` by locator and structure, with D1 §11's invariants. Repeating a pass gives identical rows. Each §3.4–§3.5 case holds: author and synthesized `proves` fuse; a hedge disagreement gives two `ambiguous` members; two validity intervals give two claims; a cycle is dropped and counted; a rule error rejects; a warning writes one `refuted` observation; a reference-run alias match keeps its key | T3's batch with `c_proves` and the profile's synthesized `proves` give two claims (the structural statement rule is missing); or T2's "location parameter of the normal distribution" and another unit's "location parameter" with one identity give two rows and a `UNIQUE (run_id, key)` violation (identity keyed by label) |
-| P0-C-2 | `serve/`: protocol, registry, run selector, journeys and page tokens, coverage, generic queries, `explain`, result models; `domains/statistics/queries.py`; `cli/query.py`, `cli/explain.py` (§3.9–§3.13) | C1; O1 for coverage integration | The trace questions answer over a C1-built run. A run with `skipped(scope)` units reports partial coverage. A promotion between two pages leaves the token's run unchanged. A bumped query version refuses the token. An unfinished run is refused. `ci query --json` equals the API's model. `find` uses the partial BM25 index (`EXPLAIN`) | `family_profile(normal)` over a run whose other units were skipped reports complete coverage; or the second page after a promotion returns the new run's rows |
-| P0-C-3 | `tests/acceptance/test_trace.py` and the submission harness (§3.14) | A1, C2, F3, O2 | Passes on two consecutive invocations with identical results; run 1's coverage is unchanged after submission; the reverse-order project gives equal knowledge and packet hashes | A fixture sentence that does not map into the served packet fails, naming it; a rerun that creates new M24 tasks instead of reusing them fails the reuse assertion |
-| P0-C-4 | the toy pack (§3.15) | C1, C2, S1, S2, I1b, A1, O2 | The toy run answers through the generic and plug-in queries with coverage; two intervals, two cited sources and two same-named organizations stay apart; the change touches nothing under `python/corpus-structure/src/` | A generic module that names a statistics class or predicate, or expects `unit` segments, fails on the toy run |
+| P0-C-1 | `consolidate/`: `run_pass`, the pool, entities and statements, claims, keys, fusion, alternatives, evidence, values once per pass, M19 at finalize, statuses, the writer, invariants, the pass report (§3.1–§3.8) | P0-F-4, P0-S-2, P0-I-1a, P0-I-2a, P0-A-0, P0-O-0, P0-O-1, P0-F-3 (coordinator §7) | On renditions built by P0-I-1a and `fixtures/s0` batches located by P0-A-0, the trace units' entities, statements, claims and bindings match `fixtures/trace` by locator and structure, with D1 §11's invariants. Repeating a pass gives identical rows. Each §3.4–§3.5 case holds: author and synthesized `proves` fuse; a hedge disagreement gives two `ambiguous` members; two validity intervals give two claims; a cycle is dropped and counted; a rule error rejects; a warning writes one `refuted` observation; a reference-run alias match keeps its key | T3's batch with `c_proves` and the profile's synthesized `proves` give two claims (the structural statement rule is missing); or T2's "location parameter of the normal distribution" and another unit's "location parameter" with one identity give two rows and a `UNIQUE (run_id, key)` violation (identity keyed by label) |
+| P0-C-2 | `serve/`: protocol, registry, run selector, journeys and page tokens, coverage, generic queries, `explain`, result models; `domains/statistics/queries.py`; `cli/query.py`, `cli/explain.py` (§3.9–§3.13) | P0-C-1; P0-O-1 for coverage integration | The trace questions answer over a C1-built run. A run with `skipped(scope)` units reports partial coverage. A promotion between two pages leaves the token's run unchanged. A bumped query version refuses the token. An unfinished run is refused. `ci query --json` equals the API's model. `find` uses the partial BM25 index (`EXPLAIN`) | `family_profile(normal)` over a run whose other units were skipped reports complete coverage; or the second page after a promotion returns the new run's rows |
+| P0-C-3 | `tests/acceptance/test_trace.py` (§3.14), submitting through P0-A-1's harness | P0-A-1, P0-C-2, P0-F-3, P0-O-2 | Passes on two consecutive invocations with identical results; run 1's coverage is unchanged after submission; the reverse-order project gives equal knowledge and packet hashes | A fixture sentence that does not map into the served packet fails, naming it; a rerun that creates new M24 tasks instead of reusing them fails the reuse assertion |
+| P0-C-4 | the toy pack (§3.15) | P0-C-1, P0-C-2, P0-S-1, P0-S-2, P0-I-1b, P0-A-1, P0-O-2 | The toy run answers through the generic and plug-in queries with coverage; two intervals, two cited sources and two same-named organizations stay apart; the change touches nothing under `python/corpus-structure/src/` | A generic module that names a statistics class or predicate, or expects `unit` segments, fails on the toy run |
 
 **P0-C-1: mechanisms and records.**
 
@@ -738,7 +739,7 @@ No spike module is ported into this document's packages. Read-only references fo
 |---|---|---|---|
 | P0-C-1 | The trace through D5 row 0: targets by locator and structure; invariants. Rebuild idempotence. Order independence over shuffled observation order. Each fusion, alternative, cycle, orphaned-premise, coarse-evidence, M19 and linking case of §3.3–§3.5, on small hand-made pools. An invariant violation injected below the checks rolls back with its keys. A proposal stored on one rendition and consolidated on a content-different rendition (an edit elsewhere on the page) is located on the run's rendition, and statements away from the edit keep their keys | F1's per-session test database and compiled schema; F3's `fixtures/s0` and `fixtures/trace` | `pool_run`: a run with renditions written from P0-I-1a's output through P0-F-4's repository, ingest tasks so that `kb.run_rendition` resolves, and proposal observations from P0-A-0's stored forms under synthetic M24 tasks |
 | P0-C-2 | The registry refuses malformed plug-ins. Selector, journey, token and stale-token behaviour. Coverage counts as of `finished_at` over task rows written directly. Each generic query and each statistics query over a C1-built trace run against `fixtures/trace` expectations. `find` with `EXPLAIN` showing the partial index. CLI output equal to the API's model, with refusals as non-zero exits | as C1 | `finished_runs`: two finished runs built by `pool_run`, with the promoted pointer set and moved by the test |
-| P0-C-3 | The decision 8 journey (§3.14) | F1's conftest; F3; A1's app factory | `trace_project`; a session-scoped `mcp_client` |
+| P0-C-3 | The decision 8 journey (§3.14) | F1's conftest; F3; A1's app factory and submission harness | `trace_project`; a session-scoped `mcp_client` |
 | P0-C-4 | The toy journey (§3.15) | as C3 | `toy_project` |
 
 Expected values come from `fixtures/trace` and the hand-made pools, never from a C1 run. Validators
@@ -753,9 +754,9 @@ is absent (D9 §4). The tests run under `--strict-markers --strict-config`.
 | P0-C-2 `serve/` and `cli/` | about 620 (protocol and registry 80, selector and tokens 100, coverage 50, generic queries 220, `explain` 90, CLI 80) |
 | P0-C-2 `domains/statistics/queries.py` | about 300 |
 | P0-C-4 `domains/toy/queries.py` | about 60 (the rest of the pack is data) |
-| **Total** | about 1,760, against the coordinator's 1,900 (§8); `extref` resolution is not built here (§1) |
+| **Total** | about 1,760, against the coordinator's 1,800 (§8); `extref` resolution is not built here (§1) |
 
-The acceptance harness is test code and is not counted.
+The acceptance test is test code and is not counted; the submission harness is agent interface's.
 
 ## 8. Choices left to implementation
 
@@ -775,10 +776,5 @@ The acceptance harness is test code and is not counted.
 
 - **Canonical labels of identity-keyed classes.** D5 §3.3 point 1 has no derivation template.
   Phase 0 uses point 4 (§3.3). Design owner: confirm, or declare a template in the pack.
-- **The three trace pages for C3.** The corpus is gitignored. Proposed: P0-F-3 vendors their
-  original bytes under `fixtures/trace/` with a corpus index, credited under CC BY 2.0, so the gate
-  test never skips. Until then it skips with its reason, and qualification needs a non-skipped run.
-- **The submission harness.** If P0-E-2b runs live-run answers outside pytest, the harness becomes
-  an application function in `intervene`, owned by agent interface.
 - **`kb.entity_mention` for proposal-derived entities.** D3 §5 says "mention observations". Phase 0
   records the proposal observations instead. Design owner: confirm the column's wording.

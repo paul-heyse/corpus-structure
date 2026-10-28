@@ -44,8 +44,8 @@ Orchestration turns a domain pack and a corpus into recorded runs. It builds:
   digest covers belongs to the method: A1 for M24, A2 for `golden.pass`, ingest and math for M01–M13.
 - **Rows it never writes.** Observation and evidence rows are the repository's (P0-F-4), written
   inside orchestration's transactions. Knowledge rows are consolidation's (P0-C-1). Interventions
-  and golden passes are the agent interface's submission tools'. Golden sets and units are
-  evaluation's.
+  are the agent interface's submission tools'. Golden passes are tasks it leases; the golden store
+  (sets, units, passes and items) is evaluation's (P0-E-1).
 - **Fates versus coverage.** Orchestration records fates and provides their reader. Consolidation
   and queries presents coverage (P0-C-2), and evaluation's `ci promote` checks the same reader.
 - **Tools.** It holds no MCP tool. The agent interface's `queue_next`, `release`, `propose_claims`,
@@ -85,7 +85,7 @@ Orchestration turns a domain pack and a corpus into recorded runs. It builds:
 | Contract | Design owner | What this document implements | Consumers |
 |---|---|---|---|
 | Method-contract types and the registry interface (`core/method.py`) | D4 §1 | §3.1 (P0-O-0) | ingest and math P0-I-1b, P0-I-2b; agent interface P0-A-1, P0-A-2; schema and rules P0-S-2; consolidation P0-C-1 |
-| The registry: named configurations, reference resolution, the run's recorded configuration map | D4 §1, D3 §3, D6 §7.1 | §3.2 (P0-O-1) | every method; policies; P0-A-2 (pass-C configuration) |
+| The registry: named configurations, reference resolution, the run's recorded configuration map; the top-level `methods.yaml` sections it loads as data (`aliases:`, `math:`, `binders:`) | D4 §1, D3 §3, D6 §7.1, D2 §12.1 | §3.2 (P0-O-1) | every method; policies; P0-A-2 (pass-C configuration); foundations' label rules (P0-F-2b's `LabelRules`, from `aliases:`), M09 and M13 (`math:`, `binders:`), consolidation and evaluation (`aliases:`, `math:`) |
 | Pack-version upsert (schema through S1b, guideline, policy, slices) and project initialization | D8 §4 | §3.3 (P0-O-1) | P0-I-1b (`ci ingest`), P0-C-3, P0-E-1 |
 | Runs: creation with `reference_run_id` and `corpus_hash` at insert, kinds, options, transitions, finishing, cancelling, liveness | D3 §4, D6 §2 | §3.4 (P0-O-1) | P0-I-1b (kind `ingest`), P0-E-1 (kind `golden`), P0-A-1 and P0-C-1 (read the reference run), P0-E-2b |
 | Task creation with reuse, `packet_hash`, terminal-at-creation fates, `prerequisite_failed` | D6 §2, §4 | §3.5 (P0-O-1) | P0-E-1 (pass A and B tasks), P0-A-2 (pass-C task) |
@@ -586,7 +586,7 @@ A slice run (kind `slice`) ingests the slice's documents. Its units outside the 
 
 **`domains/statistics/slices.yaml`** is D2 §12.2's file: `trace`, `core12`, `spike-pages`,
 `phase0-golden` (`{pages: [core12]}` and `{golden_set: p0}`: the four spike pages whole plus every
-unit of dev set `p0`, about 245 packets) and `first-pass`.
+unit of dev set `p0`, about 234 packets) and `first-pass`.
 
 **Guard.** In phase 0, `ci run` refuses a `full` run with no scope. The phase 0 policy routes every
 claim-bearing unit to the agent, so an unscoped run would be the workload P0CL-09 ruled out.
@@ -658,14 +658,14 @@ emits (D8 §4):
 ### 3.14 Execution fit and task counts
 
 The workload premise is a phase 0 run over the 78 first-pass pages (about 2,500 annotation units,
-D3 §11), with a scope of about 245 agent packets, one operator and one machine.
+D3 §11), with a scope of about 234 agent packets, one operator and one machine.
 
 **Task rows per run** (P0CL-13's closure check, stated qualitatively):
 
 - **Ingest:** two per page (M01 with M03; M02).
 - **Normalize:** two per rendition (M09, M11).
 - **Scope:** one per rendition (M13).
-- **Propose:** one fate per eligible unit. That is a few thousand rows, about 245 of them agent
+- **Propose:** one fate per eligible unit. That is a few thousand rows, about 234 of them agent
   tasks and the rest `skipped(scope)`, which are never digested.
 - **Passes:** one task at `assemble`; at `finalize`, the pass, M19 and `evaluate.score`.
 
@@ -717,7 +717,7 @@ propose entry needs none of it, so mining it waits for phase 1's escalation chai
 
 | Package | Scope | Prerequisites | Acceptance | Revealing failure case |
 |---|---|---|---|---|
-| P0-O-0 | `core/method.py`: protocol, views, `Reader` protocol, drafts, results, resources, context, `Digest`, configuration references, `payload_hash`, registry interface (§3.1) | P0-F-2b (with F2a) | Stub methods of each unit type check against the protocol under pyrefly. A `Config`'s references are found by introspection. `payload_hash` is equal across key order and NFC variants and refuses a float. A non-packet method's `Digest` has no packet hash | A payload read back from JSONB, keys reordered by PostgreSQL, must hash as it did when written; a hash over `jsonb::text` would move every downstream digest |
+| P0-O-0 | `core/method.py`: protocol, views, `Reader` protocol, drafts, results, resources, context, `Digest`, configuration references, `payload_hash`, registry interface (§3.1) | P0-F-2b (with P0-F-2a) | Stub methods of each unit type check against the protocol under pyrefly. A `Config`'s references are found by introspection. `payload_hash` is equal across key order and NFC variants and refuses a float. A non-packet method's `Digest` has no packet hash | A payload read back from JSONB, keys reordered by PostgreSQL, must hash as it did when written; a hash over `jsonb::text` would move every downstream digest |
 | P0-O-1 | Registry and `methods.yaml` loader; pack-version upsert; `ci project init`; runs, options, liveness and `ci run cancel`; tasks and reuse; worker claiming, leases, fencing and retries; agent leases, the completion primitive and twins; the stage runner with the phase 0 graph, the passes, M19 counts, measure and the evaluate call; fates and their reader; `ci run` over an explicit corpus, `ci status`, `ci tasks`; the stateful test (§3.2–§3.9, §3.13) | P0-F-4, P0-S-1b, P0-O-0, P0-I-1a (`load_profile` for `ci project init`); `s6.queue` before the claiming statement is final | See "P0-O-1 acceptance" below | `--fresh` on the M09 stub with identical output must leave the M13 stub's and the agent stub's tasks `reused`; a digest carrying upstream task ids re-creates every downstream task, the agent's included (P0CL-02) |
 | P0-O-2 | Policies; slices, corpus and scope with the recorded resolution; `ci run --slice/--scope/--corpus/--agent-mode`; the agent barrier; the `complete`-run protocol and its convergence test; the in-process run driver; `domains/statistics/policies.yaml` and `slices.yaml` (§3.10–§3.12) | P0-O-1, P0-S-2 (`rulelang`), P0-E-1 (golden set by label), P0-I-0, P0-I-1a (`annotation_units`) | See "P0-O-2 acceptance" below | A unit that the propose chain matches outside the scope must get `skipped(scope)`. A chain evaluated only over in-scope units leaves it without a fate, and coverage of its page reads as complete (P0CL-11) |
 

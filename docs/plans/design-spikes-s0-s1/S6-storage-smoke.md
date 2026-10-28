@@ -58,24 +58,26 @@ and the trace rows agree on class and predicate names.
 
 | Output | Feeds |
 |---|---|
-| DDL fixes | D3 (X2), then phase 0 foundations (metadata and migration 0001) |
-| Constraint and run-deletion results | phase 0 foundations (repository checks for what the database cannot express) |
-| Query and search results | phase 0 consolidation and queries (typed queries, `find`); D8 §5.3 corrections for the design-phase plan |
-| Queue results | phase 0 orchestration (claiming, fencing, the agent barrier) |
+| DDL fixes | D3 (X2), then P0-F-4 (metadata and migration 0001) |
+| Constraint and run-deletion results | P0-F-4 (repository checks for what the database cannot express) |
+| Query and search results | P0-F-4 (the BM25 index and query syntax) and P0-C-2 (typed queries, `find`); D8 §5.3 corrections for the design-phase plan |
+| Dry run (S6-D) | P0-F-4 (compiled schema rows against the tables) |
+| Queue results | P0-O-1 (claiming, fencing, `LISTEN`/`NOTIFY` wake-up) |
+| Volume and sizes | P0-F-4 (COPY and size readings) |
 | Vector results | phase 1 (`kb.embedding` migration; S7 picks the dimension) |
-| Key agreement, restated facts | OPEN-D3-4 and STMT-01 in the design-phase plan |
+| Key agreement, restated facts | P0-F-4 and P0-C-1 (statement keys); OPEN-D3-4 and STMT-01 in the design-phase plan |
 
 ## 5. Packages
 
-| Package | Scope | Outputs | Done when |
-|---|---|---|---|
-| S6-A | Steps 1–2 | `results/s6/ddl_fixes.md`, the applied copy | The DDL applies; every fix has a reason |
-| S6-B | Step 3 | `constraints.tsv`, the run-deletion check | Every constraint fires on its bad row; the golden-run rows fit; deletion behaves as D3 §8 says |
-| S6-C | Steps 4–5 | `queries.md`, `bm25.md` | Every query returns its rows with plans recorded; D8 §5.3 differences listed |
-| S6-D | §3, after S4-B | `dry_run.md` | Trace rows insert against the compiled schema version, or each mismatch is listed |
-| S6-E | Steps 6, 7, 7b, 8 | `vectors.tsv`, `volume.tsv`, `queue.md`, `sizes.tsv` | Each measured, or `blocked` naming the missing extension or disk space |
-| S6-F | Steps 9–10, after I-R2 | `keys.tsv`, `restated.tsv` | The revised-key rows beside the four S0 rows; differing pairs explained |
-| S6-G | Report | `S6-report.md`, records `s6.*` | The template is satisfied; the corrected DDL as a diff against D3 |
+| Package | Scope | Outputs | Done when | Consumer |
+|---|---|---|---|---|
+| S6-A | Steps 1–2 | `results/s6/ddl_fixes.md`, the applied copy | The DDL applies; every fix has a reason | P0-F-4 |
+| S6-B | Step 3 | `constraints.tsv`, the run-deletion check | Every constraint fires on its bad row; the golden-run rows fit; deletion behaves as D3 §8 says | P0-F-4 |
+| S6-C | Steps 4–5 | `queries.md`, `bm25.md` | Every query returns its rows with plans recorded; D8 §5.3 differences listed | P0-F-4, P0-C-2 (OPEN-D3-1) |
+| S6-D | §3, after S4-B | `dry_run.md` | Trace rows insert against the compiled schema version, or each mismatch is listed | P0-F-4 |
+| S6-E | Steps 6, 7, 7b, 8 | `vectors.tsv`, `volume.tsv`, `queue.md`, `sizes.tsv` | Each measured, or `blocked` naming the missing extension or disk space | P0-O-1, P0-F-4, phase 1 |
+| S6-F | Steps 9–10, after I-R2 | `keys.tsv`, `restated.tsv` | The revised-key rows beside the four S0 rows; differing pairs explained | P0-F-4, P0-C-1 (OPEN-D3-4) |
+| S6-G | Report | `S6-report.md`, records `s6.*` | The template is satisfied; the corrected DDL as a diff against D3 | X2, ADR-0016 |
 
 Records: `s6.ddl`, `s6.constraints`, `s6.queries`, `s6.bm25`, `s6.dry-run`, `s6.queue`, `s6.volume`,
 `s6.vectors`, `s6.sizes`, `s6.keys`, `s6.restated`; `consumed_by` names the phase 0 package (or

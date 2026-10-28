@@ -58,23 +58,23 @@ the rule syntax) are accepted.
 
 | Output | Feeds |
 |---|---|
-| Pack files, lint configuration | phase 0 schema-and-rules (the pack files phase 0 loads); D2 §6 and §9 drafts replaced |
-| Batch models in both forms, the mirror contract test | phase 0 foundations (`core` shapes) and schema-and-rules (compilers); agent interface (`read_instructions` serves the schema) |
-| Schema-table rows | S6-D (loaded before the trace rows); phase 0 foundations' migration tests |
-| Rules, view builder, guideline group | phase 0 schema-and-rules (M19 runner) and orchestration (`Chain` contexts, ADR-0018) |
-| Generated reference, sizes | phase 0 agent interface (prompts, packet caps) |
+| Pack files, lint configuration | P0-S-1 (the pack files phase 0 loads); D2 §6 and §9 drafts replaced |
+| Batch models in both forms, the mirror contract test | P0-F-2b (`core` shapes) and P0-S-1 (compilers); P0-A-1 (`read_instructions` serves the schema) |
+| Schema-table rows | S6-D (loaded before the trace rows), and through it P0-F-4's migration tests |
+| Rules, view builder, guideline group | P0-S-2 (M19 runner) and P0-O-2 (`Chain` contexts, ADR-0018) |
+| Generated reference, sizes | P0-S-1 (the reference compiler's information list) and P0-A-1 (prompt parts and their pages) |
 | GLiNER2 dicts | S2 |
-| Decoding form, compile result | S3; D2 §7.3's local-tier form |
+| Decoding form, compile result | P0-S-1 (the decoding form's assertions); S3; D2 §7.3's local-tier form |
 
 ## 5. Packages
 
-| Package | Scope | Outputs | Done when |
-|---|---|---|---|
-| S4-A | Steps 1–2 in the CPU spike environment | `results/s4/schema/`, `.linkmllint.yaml`, `roundtrip.md` | All three files lint clean, or each remaining finding is listed with its reason |
-| S4-B | Steps 3 and 5, variants V1 and V2 | `results/s4/compiled/` (tables JSON, both JSON Schemas, the mirror contract test), `validation.tsv` | Every listed batch validates in both forms or each failure is a recorded schema or batch defect; the hash is stable |
-| S4-C | Steps 6–7 | `rules.tsv`, the view builder | The 11 guideline checks and the pack rules compile, give 0 warnings on the v1 reference and examples, and catch every seeded violation |
-| S4-D | Step 8; step 4 and the decoding check where their environments exist (E4) | `reference_diff.md`, `sizes.tsv`, GLiNER2 dicts, the decoding-form result | Every information difference is listed; the GLiNER2 and xgrammar parts pass or are `not_run` with the missing environment named |
-| S4-E | Report | `S4-report.md`, records `s4.*` | The template is satisfied; corrected schema text proposed for D2 §3, §6, §7 and §9 |
+| Package | Scope | Outputs | Done when | Consumer |
+|---|---|---|---|---|
+| S4-A | Steps 1–2 in the CPU spike environment | `results/s4/schema/`, `.linkmllint.yaml`, `roundtrip.md` | All three files lint clean, or each remaining finding is listed with its reason | P0-S-1 (OPEN-D2-6) |
+| S4-B | Steps 3 and 5, variants V1 and V2 | `results/s4/compiled/` (tables JSON, both JSON Schemas, the mirror contract test), `validation.tsv` | Every listed batch validates in both forms or each failure is a recorded schema or batch defect; the hash is stable | P0-S-1, P0-F-2b |
+| S4-C | Steps 6–7 | `rules.tsv`, the view builder | The 11 guideline checks and the pack rules compile, give 0 warnings on the v1 reference and examples, and catch every seeded violation | P0-S-2, P0-O-2 (OPEN-D2-3) |
+| S4-D | Step 8; step 4 and the decoding check where their environments exist (E4) | `reference_diff.md`, `sizes.tsv`, GLiNER2 dicts, the decoding-form result | Every information difference is listed; the GLiNER2 and xgrammar parts pass or are `not_run` with the missing environment named | P0-S-1, P0-A-1, S2, S3 |
+| S4-E | Report | `S4-report.md`, records `s4.*` | The template is satisfied; corrected schema text proposed for D2 §3, §6, §7 and §9 | X2 |
 
 Records (`consumed_by` names the phase 0 package and the OPEN item): `s4.pack-lint`,
 `s4.batch-validation`, `s4.schema-hash`, `s4.rules`, `s4.reference-diff`, `s4.sizes`, and where run,

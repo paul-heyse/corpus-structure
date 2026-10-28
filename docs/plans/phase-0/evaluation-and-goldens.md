@@ -19,17 +19,18 @@ its tables in [D3 §7](../../design/D3-database.md) and its commands in
 **Responsibilities.**
 
 - **Split, sets and the golden store (E1).** The page split; golden sets sampled with the trace
-  and core units forced into dev; each set's golden run and its pass A and B tasks; the one writer
-  of `eval.golden_*` rows; golden items derived per rendition; staleness and re-location; when a
-  golden run finishes; the golden-unit list behind the `phase0-golden` scope and its exact packet
-  count.
+  and core units forced into dev; each set's golden run and its pass A and B tasks; the one owner
+  of `eval.golden_*` writes, through the repository's primitives (P0-F-4); golden items derived
+  per rendition; staleness and re-location; when a golden run finishes; the golden-unit list
+  behind the `phase0-golden` scope.
 - **Alignment (E2a).** Two claim sets of one unit on one rendition, aligned at the D7 §5.3 tiers
   with tiered value equivalence; the A/B agreement record and the diff pass C reads.
 - **Scores and the operator's readings (E2b).** Run scoring with intervals, the `evaluate` stage's
   method, `ci eval`; the pre-registered promotion readings and `ci promote`; live-run answers for
   the gate; digest v0.
 - **Dev goldens (E3).** Authoring the dev set by the Sonnet protocol through the golden tools; the
-  ceiling; the v1 reference as witness; the OPEN-D7-5 comparison.
+  exact `phase0-golden` packet count; the ceiling; the v1 reference as witness; the OPEN-D7-5
+  comparison.
 
 **Where they end.** The golden server, its tools, the `golden.pass` method, the golden-mode
 packet, the alignment process inside the golden server and the work-queue skill are the agent
@@ -50,7 +51,7 @@ not do:
 
 | Scope | Pages | Packets: median (5–95 %) over 500 seeds |
 |---|---|---|
-| Full first pass, test and reserved pages excluded | about 66 | 3,826 (3,709–3,945); D6 §7.4 says about 3,600 |
+| Full first pass, test and reserved pages excluded | about 66 | 3,826 (3,709–3,945); D6 §7.4 says about 3,800 |
 | Whole pages: the dev golden units' pages, the forced-dev pages and the spike pages | 26 (22–29) | 1,655 (1,405–1,914) |
 | **Chosen:** the spike pages whole plus the dev golden units by locator | 4 pages + 22–27 units | **234 (231–235)** |
 
@@ -66,7 +67,7 @@ not do:
 The script is to be filed with the phase 0 evidence (`2026-10-28_phase0-golden-size/`). The
 `spike-pages` run already works the 208 spike-page packets, and `phase0-golden` runs reuse them
 by content digest, so the agent's added work for the first pass is the 22–27 golden units off
-the spike pages. E1 computes the exact count (§3.4).
+the spike pages. E3 computes the exact count (§3.4).
 
 **Change scenarios.**
 
@@ -105,12 +106,12 @@ the spike pages. E1 computes the exact count (§3.4).
 | The grammar's reading of a value under a declared kind, its SymPy value, the time limit and the main-thread guard | ingest and math · I2a (D4 M11; ADR-0012) | E2a |
 | The quote cascade: authored batch and citation frame to stored form on a rendition | agent interface · A0 (D4 §4.3) | E1, E2a, E2b, E3 |
 | Compiled schema lookup: class scope, `ci:identity_keys`, per-predicate identity qualifiers, qualifier and map-value kinds. Also the pack's worked examples `reference/E*`, whose pages are reserved | schema and rules · S1 (D2 §3, §7, §7.5) | E1, E2a |
-| Projects and documents (`kb.document.meta` chapter and `first_pass`); declared slices (`trace`, `core12`); runs and task creation; the method-contract types and registry; pack configuration (`aliases`, `math`); fates as of `ops.run.finished_at` | orchestration · O0, O1 (D4 §1; D6 §1–§4; D3 §4, §8) | E1, E2b |
-| Slice resolution with the `{golden_set: <label>}` include; the run's recorded `scope` | orchestration · O2 (D2 §12.2, D6 §8) | E1 (packet count), E2b |
+| Projects and documents (`kb.document.meta` chapter and `first_pass`); runs and task creation; the method-contract types and registry; pack configuration (`aliases`, `math`); fates as of `ops.run.finished_at` | orchestration · O0, O1 (D4 §1; D6 §1–§4; D3 §4, §8) | E1, E2b |
+| Declared slices (`trace`, `core12`, stored as `ops.debug_slice` rows); slice resolution with the `{golden_set: <label>}` include; the run's recorded `scope` | orchestration: P0-O-1 stores the declared slices (pack-version upsert); P0-O-2 resolves slices and scope (D2 §12.2, D6 §8) | E1 (the forced units, read from the stored rows; its tests write their own rows, so the package needs no O2 code), E2b, E3 (packet count) |
 | Materialized claims, entities, statements and evidence; statuses; `completeness.evidence_coarse`; M19 warning outcomes | consolidation and queries · C1 (D5 §5.6, §8, §11) | E2b |
 | Typed queries with the run selector | consolidation and queries · C2 (D8 §5) | E2b |
 | The submission harness `intervene.testing`, which C3 uses and which runs outside pytest | agent interface · A1 (D8 §2.1; D9 §4) | E2b (live-run answers) |
-| `golden.pass`, the golden server and tools, its alignment process, the golden agent file and work-queue skill. `write_golden` stores passes and E2a's agreement result, and under a lock on the `eval.golden_unit` row creates exactly one pass-C task. The profile `--variant page-text` serves the page text, leases nothing and stores no pass | agent interface · A2 (D8 §2.2, §3; D3 §8) | E3 |
+| `golden.pass`, the golden server and tools, its alignment process, the golden agent file and work-queue skill. `write_golden` stores passes and E2a's agreement result through the golden store (§3.3), and under a lock on the `eval.golden_unit` row creates exactly one pass-C task. The profile `--variant page-text` serves the page text, leases nothing and stores no pass | agent interface · A2 (D8 §2.2, §3; D3 §8) | E3 |
 | `fixtures/s0`: the v1 reference for the 13 annotation units of `core12` | foundations · F3 (D9 §1) | E3 |
 | Evidence: `s0.agreement`, `s0.instruments`, `s0r2.scores`, `s0r2.reference-v1`; the [interfaces note](../../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) §5 and its probe P3 | spike series; library research | tests, baselines |
 
@@ -121,7 +122,7 @@ the spike pages. E1 computes the exact count (§3.4).
 | Page split | D7 §3.1, §4; D3 §7 | `ci golden split`; `eval.document_split`; a split lookup | E1; agent interface's example exclusion (phase 1); digest |
 | Golden sets and units; each set's golden run with its A/B tasks; golden-run settlement | D7 §3.1; D3 §7, §8 | `ci golden create --label`, `ci golden status` | A2 (`golden_next`), O2, E2b, E3 |
 | The golden store: passes, agreement record, adjudication, items per rendition, staleness and re-location | D7 §3.2–§3.5; D3 §7 | `evaluate/goldens.py` | A2 (`write_golden`, `read_golden_unit`), E2b, E3 |
-| The unit list of a golden set, with its hash | D2 §12.2; D7 §3.1 | `golden_units(label)` | O2 (slice resolution) |
+| The unit list of a golden set, with its hash | D2 §12.2; D7 §3.1 | `golden_units(project, label)` | O2 (slice resolution), E3 (packet count) |
 | Alignment and value equivalence | D7 §5.2, §5.3 | `evaluate/align.py`, `evaluate/equivalence.py` | A2's alignment process, E2b, E3, A3 |
 | Agreement and the pass-C diff: one result model, stored whole as the unit's agreement | D7 §3.3, §3.4; D3 §7 | `unit_agreement` and its result model | A2 (computes and stores it), E1, E2b (digest) |
 | Run scores with intervals; the `evaluate` stage's method | D7 §5.1, §5.4; D6 §2 | `evaluate.score`, `ci eval`, `eval.alignment`, `eval.result` | operator, orchestration, readings, digest |
@@ -209,8 +210,9 @@ D7 §3.1 gives the protocol; the realization below fixes what D7 leaves open. **
 
 ### 3.3 The golden store: passes, items, staleness (E1)
 
-`evaluate/goldens.py` is the only module that writes `eval.golden_*` rows. A2 calls it inside its
-own transactions. The functions:
+`evaluate/goldens.py` is the only module that writes `eval.golden_*` rows, and it writes them
+through the repository's primitives (P0-F-4: `store_golden_pass`, `set_golden_unit` and the bulk
+helpers). A2 calls it inside its own transactions. The functions:
 
 - `record_pass` writes the authored batch, citation frame, decisions, session reference, model and
   inputs (D3 §7), unique per (unit, pass, guideline version). The session check between passes A
@@ -247,7 +249,7 @@ A unit whose own key is refused on a run's rendition is handled the same way, th
 unit sentences (§8, open point 3). A content-preserving ingest change triggers nothing: it keeps
 the rendition row (D1 §3.1), so the existing items serve. **Proposed** (2026-10-28; P0CL-03).
 
-### 3.4 The `phase0-golden` unit list and its packet count (E1)
+### 3.4 The `phase0-golden` unit list (E1) and its packet count (E3)
 
 `golden_units(project, label)` returns the set's unit keys (status not `retired`), sorted, and the
 sha256 of their newline-joined list. Orchestration resolves the slice's `{golden_set: <label>}`
@@ -256,13 +258,14 @@ D6 §8). Every key in it lies on a dev page, which the function asserts. A key t
 rendition refuses fails that run's start under D6 §8's locator rule, naming the unit; re-location
 (§3.3) or retirement is the remedy.
 
-**The exact packet count.** `ci golden status --label L` resolves `phase0-golden` exactly as
-orchestration does: through O2's resolver, on the source run's renditions. It prints the number
+**The exact packet count (E3).** E3 adds the count to `ci golden status --label L`, which then
+resolves `phase0-golden` exactly as orchestration does: through O2's resolver, on the source run's
+renditions. It prints the number
 of distinct claim-bearing annotation units selected: the spike pages' units together with the
 golden units. That is the number of `propose` tasks (M24, `awaiting_agent` or `reused`) a
 `phase0-golden` run over those renditions creates. The closure check for P0CL-09 is that the
 first `phase0-golden` run's `propose` task count equals the printed figure, recorded with the run
-id at qualification. The expected value is §1's, about 235. **Proposed** (2026-10-28).
+id at qualification. The expected value is §1's, about 234 (231–235). **Proposed** (2026-10-28).
 
 ### 3.5 Alignment (E2a)
 
@@ -629,10 +632,10 @@ the variant passes cannot enter the golden tables. The design:
 
 | Package | Scope | Prerequisites | Acceptance | Revealing failure case |
 |---|---|---|---|---|
-| P0-E-1 | The split, sampler, sets and units, the golden run with its A/B tasks and its settlement, the golden store, items per rendition, staleness and re-location, `golden_units`, the packet count; `ci golden split`, `create`, `status` | F4, I1a, O1, A0 (I0 and S1 through them) | Same seed, same split and sample. The 13 forced units are in dev and counted towards their strata, with exactly N units. A set opens a golden run with 2N tasks, which finishes only when every unit is adjudicated. Items are derived per rendition with `context` flags. `golden_units` holds no test unit. `ci golden status` prints the packet count | A new paragraph before a golden unit: its frame resolves and items are re-derived at shifted offsets. An edit to a cited sentence marks the unit stale; re-location by recorded text fails, and re-authoring is required |
-| P0-E-2a | Alignment, value equivalence, agreement and the pass-C diff | F2b, S1, I2a | The ported suite passes. S0 parity: aligning the spike's stored passes A and B (`results/s0/stored/pass_a`, `pass_b`) per S0 unit gives `s0.agreement`'s 0.933, 0.627 and 0.600, with S0's 13 recorded equivalence decisions supplied through a test-only decision input; the figures under the product rule and the pairs that differ are reported beside them. The identity-key pass aligns a toy class with no statistics names | Masking before assignment keeps the 0.98 pair in `[[0.5, 0], [0.98, 0.49]]`. A comparison called off the main thread raises |
-| P0-E-2b | Scoring and intervals, `eval.alignment` and `eval.result`, `evaluate.score`, `ci eval`, the readings and `ci promote`, `baselines.yaml`, live-run answers, digest v0 | C1, C2, E2a; A1's `intervene.testing` for the answers | Intervals reproduce the P3 figures in S0's recorded unit order (core 0.827064…–1.0, full 0.428544…–0.752607, evidence 0.367967…–0.746849) and differ in unit-key order. Every result carries `golden_snapshot`. `ci promote` refuses a slice run and a run with unresolved tasks, and writes one `promotion` intervention when confirmed. `baselines.yaml` values equal their records | A run whose evaluate stage sees no adjudicated unit records `empty`, not NaN. The expectation run's submissions leave the live run's awaiting tasks untouched |
-| P0-E-3 | Authoring the dev set, the ceiling, the v1 witness, OPEN-D7-5 | A2, F3 | 40 dev units `adjudicated` and the golden run `finished`. Every pass records Sonnet and its inputs, A and B come from different server instances, and every transcript is audited. The ceiling is reported, the witness record written, and the OPEN-D7-5 record written with its decision | A subagent whose transcript shows it read another pass: that pass is discarded and re-run |
+| P0-E-1 | The split, sampler, sets and units, the golden run with its A/B tasks and its settlement, the golden store, items per rendition, staleness and re-location, `golden_units`; `ci golden split`, `create`, `status` | P0-F-4, P0-I-1a, P0-O-1, P0-A-0 (P0-I-0 and P0-S-1 through them) | Same seed, same split and sample. The 13 forced units are in dev and counted towards their strata, with exactly N units. A set opens a golden run with 2N tasks, which finishes only when every unit is adjudicated. Items are derived per rendition with `context` flags. `golden_units` holds no test unit | A new paragraph before a golden unit: its frame resolves and items are re-derived at shifted offsets. An edit to a cited sentence marks the unit stale; re-location by recorded text fails, and re-authoring is required |
+| P0-E-2a | Alignment, value equivalence, agreement and the pass-C diff | P0-F-2b, P0-S-1, P0-I-2a, P0-A-0 | The ported suite passes. S0 parity: aligning the spike's stored passes A and B (`results/s0/stored/pass_a`, `pass_b`) per S0 unit gives `s0.agreement`'s 0.933, 0.627 and 0.600, with S0's 13 recorded equivalence decisions supplied through a test-only decision input; the figures under the product rule and the pairs that differ are reported beside them. The identity-key pass aligns a toy class with no statistics names | Masking before assignment keeps the 0.98 pair in `[[0.5, 0], [0.98, 0.49]]`. A comparison called off the main thread raises |
+| P0-E-2b | Scoring and intervals, `eval.alignment` and `eval.result`, `evaluate.score`, `ci eval`, the readings and `ci promote`, `baselines.yaml`, live-run answers, digest v0 | P0-C-1, P0-C-2, P0-E-2a, P0-A-1 (`intervene.testing`, for the answers) | Intervals reproduce the P3 figures in S0's recorded unit order (core 0.827064…–1.0, full 0.428544…–0.752607, evidence 0.367967…–0.746849) and differ in unit-key order. Every result carries `golden_snapshot`. `ci promote` refuses a slice run and a run with unresolved tasks, and writes one `promotion` intervention when confirmed. `baselines.yaml` values equal their records | A run whose evaluate stage sees no adjudicated unit records `empty`, not NaN. The expectation run's submissions leave the live run's awaiting tasks untouched |
+| P0-E-3 | Authoring the dev set, the exact `phase0-golden` packet count in `ci golden status`, the ceiling, the v1 witness, OPEN-D7-5 | P0-A-2, P0-F-3, P0-O-2 | 40 dev units `adjudicated` and the golden run `finished`. `ci golden status` prints the packet count, and the first `phase0-golden` run's `propose` task count equals it. Every pass records Sonnet and its inputs, A and B come from different server instances, and every transcript is audited. The ceiling is reported, the witness record written, and the OPEN-D7-5 record written with its decision | A subagent whose transcript shows it read another pass: that pass is discarded and re-run |
 
 **Mechanisms and evidence per package.**
 
@@ -647,8 +650,8 @@ the variant passes cannot enter the golden tables. The design:
   `s5.keys-property` (through I2a and F2a).
 - **P0-E-2b.** `scipy.stats.bootstrap` as in §3.7 (interfaces note §5.2, IE-5). It consumes
   `s0.agreement`, P3's recorded output and `s0r2.scores`.
-- **P0-E-3.** ADR-0011's protocol. It consumes `s0r2.reference-v1`, `s0r2.inputs` and
-  `s0r2.adjudication` as the comparison context.
+- **P0-E-3.** ADR-0011's protocol; O2's resolver for the packet count. It consumes
+  `s0r2.reference-v1`, `s0r2.inputs` and `s0r2.adjudication` as the comparison context.
 
 ## 6. Tests
 
@@ -667,8 +670,6 @@ parity tests read the tracked spike results as data and never import spike code 
     flag on a T2-like unit with a context premise.
   - Frame resolution and re-location across three renditions: content-identical, an edit
     elsewhere, a changed cited sentence.
-  - The packet count equals the propose task count of a `phase0-golden` run on fixture pages
-    (with O2).
 - **P0-E-2a.**
   - The ported perturbation and value suites, with expected outcomes written from D7 §5.3, not
     from the aligner.
@@ -685,8 +686,9 @@ parity tests read the tracked spike results as data and never import spike code 
     stdout and stderr apart.
   - A digest over a test set prints no test item.
   - The expectation-run isolation test.
-- **P0-E-3.** Authoring is operational. Its checks are the acceptance queries above, the
-  transcript audit and the two evidence records. A probe at A2 checks golden-server separation
+- **P0-E-3.** The packet count equals the `propose` task count of a `phase0-golden` run on
+  fixture pages (with O2). Authoring is operational: its checks are the acceptance queries above,
+  the transcript audit and the two evidence records. A probe at A2 checks golden-server separation
   (the review's Observation 9) before the first pass.
 
 ## 7. Indicative size

@@ -110,12 +110,12 @@ form and every threshold.
 
 ## 5. Packages
 
-| Package | Scope | Outputs | Done when |
-|---|---|---|---|
-| S2-A | Inputs: schema dicts (S4-D's or hand-written, round-trip check), mask and Unicode texts with offset maps, spaCy candidates and heads (CPU environment); I-R3's T1–T4 occurrence check | `results/s2/schema.json`, `joint_schema.py`, `variants/`, `candidates/`, `occurrence_check.md` | Every word boundary of each variant text maps back to its canonical offset on the scored units; derived occurrences agree with the hand-marked ones or each difference is explained |
-| S2-B | Steps 2–5, 9 and 11 (runs), exclusive on the GPU | `mentions_{raw,mask,unicode}.jsonl` per threshold and policy, `long_units.jsonl`, `relations_*.jsonl`, `records_*.jsonl`, `classification.jsonl`, `explicit_scores.jsonl`, `throughput.tsv` | Every call recorded with its configuration; infeasible joint calls counted; the explicit-path reproduction check passes or its difference is recorded |
-| S2-C | Steps 6–8 and 10, with I-R3 | `scores.tsv`, `classification.tsv`, `descriptions.tsv`, `overlap.tsv`, `errors.md`, `labels/` with transcripts | Every figure has its denominator, with and without contested items; unmatched mentions labelled by two independent labellers, disagreements by a third, agreement reported |
-| S2-D | Step 12 and the report | `results/s2/mentions/<page>.jsonl`, `S2-report.md`, records `s2.*` | Page mentions exist at the adopted configuration; the template is satisfied; OPEN-D2-2 and OPEN-D5-4 answered or left open with the evidence still needed; M05–M07 configurations recommended |
+| Package | Scope | Outputs | Done when | Consumer |
+|---|---|---|---|---|
+| S2-A | Inputs: schema dicts (S4-D's or hand-written, round-trip check), mask and Unicode texts with offset maps, spaCy candidates and heads (CPU environment); I-R3's T1–T4 occurrence check | `results/s2/schema.json`, `joint_schema.py`, `variants/`, `candidates/`, `occurrence_check.md` | Every word boundary of each variant text maps back to its canonical offset on the scored units; derived occurrences agree with the hand-marked ones or each difference is explained | phase 1 GLiNER2 compiler (D2 §7.2; OPEN-D2-1 confirmation) |
+| S2-B | Steps 2–5, 9 and 11 (runs), exclusive on the GPU | `mentions_{raw,mask,unicode}.jsonl` per threshold and policy, `long_units.jsonl`, `relations_*.jsonl`, `records_*.jsonl`, `classification.jsonl`, `explicit_scores.jsonl`, `throughput.tsv` | Every call recorded with its configuration; infeasible joint calls counted; the explicit-path reproduction check passes or its difference is recorded | phase 1 M05–M07; G1 (OPEN-D6-2) |
+| S2-C | Steps 6–8 and 10, with I-R3 | `scores.tsv`, `classification.tsv`, `descriptions.tsv`, `overlap.tsv`, `errors.md`, `labels/` with transcripts | Every figure has its denominator, with and without contested items; unmatched mentions labelled by two independent labellers, disagreements by a third, agreement reported | phase 1 M05–M07 configurations; OPEN-D2-2, OPEN-D5-4 |
+| S2-D | Step 12 and the report | `results/s2/mentions/<page>.jsonl`, `S2-report.md`, records `s2.*` | Page mentions exist at the adopted configuration; the template is satisfied; OPEN-D2-2 and OPEN-D5-4 answered or left open with the evidence still needed; M05–M07 configurations recommended | S7 (page mentions); phase 1 M05–M07; X2 |
 
 Records (`consumed_by` names the phase 1 method, the OPEN item, G1 or S7): `s2.schema`,
 `s2.mentions`, `s2.long-units`, `s2.relations`, `s2.classification`, `s2.candidates`,

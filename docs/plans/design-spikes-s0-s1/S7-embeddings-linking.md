@@ -88,12 +88,12 @@ is G1's (§3.5).
 
 ## 5. Packages
 
-| Package | Scope | Outputs | Done when |
-|---|---|---|---|
-| S7-A | Steps 0, 1 (segments and aliases) and 6, with V1–V3 and V5; V2 where the vLLM environment exists | `results/s7/segments/`, `embeddings/` (one array per model, prompt and text form, with its row index), `perf.tsv` | The seven stored pages reproduce their keys; every configuration embedded and measured, or `not_run` with the reason |
-| S7-B | Steps 2–3, after S2-D's page mentions | `link_gold.tsv`, `labels/` with transcripts, `b2_differences.tsv` | Every case has gold with `labeled_by`; labeller agreement reported; cross-unit parameter cases flagged with their source |
-| S7-C | Step 1 for the cases (V4), steps 4, 5 and 7 | `linking.tsv`, `hazards.tsv`, `retrieval.tsv`, `index_check.md` | Every variant, configuration, threshold and case set scored with n; retrieval labelled blind; the index check run or `not_run` naming the missing extension |
-| S7-D | Report | `S7-report.md`, records `s7.*` | The template is satisfied; the embedding choice, the M14 configuration and thresholds and the cross-unit parameter result stated |
+| Package | Scope | Outputs | Done when | Consumer |
+|---|---|---|---|---|
+| S7-A | Steps 0, 1 (segments and aliases) and 6, with V1–V3 and V5; V2 where the vLLM environment exists | `results/s7/segments/`, `embeddings/` (one array per model, prompt and text form, with its row index), `perf.tsv` | The seven stored pages reproduce their keys; every configuration embedded and measured, or `not_run` with the reason | phase 1 M04 (OPEN-D3-2); G1 (OPEN-D6-2) |
+| S7-B | Steps 2–3, after S2-D's page mentions | `link_gold.tsv`, `labels/` with transcripts, `b2_differences.tsv` | Every case has gold with `labeled_by`; labeller agreement reported; cross-unit parameter cases flagged with their source | phase 1 M14; PARAM-01, OPEN-D2-18 |
+| S7-C | Step 1 for the cases (V4), steps 4, 5 and 7 | `linking.tsv`, `hazards.tsv`, `retrieval.tsv`, `index_check.md` | Every variant, configuration, threshold and case set scored with n; retrieval labelled blind; the index check run or `not_run` naming the missing extension | phase 1 M14 and M04; phase 1 M10 examples (D4 §4.2) |
+| S7-D | Report | `S7-report.md`, records `s7.*` | The template is satisfied; the embedding choice, the M14 configuration and thresholds and the cross-unit parameter result stated | X2 |
 
 Records (`consumed_by` names the phase 1 method, the OPEN item, G1 or S5): `s7.segments`,
 `s7.embeddings` (with the float16 rank changes), `s7.perf`, `s7.link-gold`, `s7.linking`,

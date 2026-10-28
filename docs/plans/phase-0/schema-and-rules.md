@@ -1,10 +1,11 @@
 # Phase 0 · Schema and rules
 
 **Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md), which
-owns shared decisions, contracts, the dependency graph and build findings. Packages P0-S-1 and
-P0-S-2 are drafted against the [schema-rules note](../../design_review/evidence/2026-10-28_library-schema-rules/README.md)
+owns shared decisions, contracts, the dependency graph and build findings. Its packages are
+P0-S-1, P0-S-1b and P0-S-2. P0-S-1 and P0-S-2 are drafted against the [schema-rules note](../../design_review/evidence/2026-10-28_library-schema-rules/README.md)
 and finalized when S4 reports (records `s4.*`, [S4 plan](../design-spikes-s0-s1/S4-linkml-compilation.md));
-ADR-0017 and ADR-0018 stay proposed until then.
+P0-S-1b, the registration in `meta`, follows P0-S-1 and foundations' store (P0-F-4). ADR-0017 and
+ADR-0018 stay proposed until S4 reports.
 
 ## 1. What this document builds
 
@@ -73,7 +74,6 @@ the phase 1 additions; none is built here beyond what phase 0 needs):
 | Method-contract types and the registry interface (`core/method.py`, [D4 §1](../../design/D4-method-catalog.md#1-the-method-contract)); method configurations declare artifact references by (compiler, kind), and the registry resolves them against the run's schema version | orchestration, O0 and O1 | S2 (M19's method definition) |
 | `meta.schema_version`, `meta.compiled_artifact` and the `meta.schema_*` tables, with `meta.schema_rule` carrying `at`, `grp` and `applies_to text[]` and `meta.schema_slot` carrying `subsets` and `annotations` (D3 §3 as amended), and the repository | foundations, F4 | S1b |
 | `fixtures/s0` authored batches with their frames: the files, not F3's acceptance | foundations, F3 | S1, S2 tests |
-| Grammar readings at finalize: per value, status, kind and symbols, computed once per pass on the main thread (D5 §8.2 as amended) | consolidation, C1 (from ingest and math's grammar) | S2 (finalize-site view) |
 | Shared conftest, test database and the thin-fixture convention (coordinator §3 decision 10) | foundations, F1 | every package's tests |
 
 ### 2.2 Produced
@@ -87,6 +87,7 @@ the phase 1 additions; none is built here beyond what phase 0 needs):
 | The annotator reference | [D2 §7.5](../../design/D2-schema-and-guidelines.md#75-to-the-annotator-reference), §10.10 | Generator over the lookup, `tables:`, subsets and worked examples (§3.3) | A1 (prompt part), A2 (`read_golden_unit`); evaluation E1 reads the examples' pages as reserved ([D7 §3.1](../../design/D7-evaluation-goldens-outer-loop.md#31-units-and-sets)) |
 | Batch conformance checks | [D4 §4.3](../../design/D4-method-catalog.md#43-output-form-and-post-processing) steps 1 and 3; [D1 §11](../../design/D1-knowledge-representation.md#11-invariants) | `validate.check_batch` for both forms (§3.7) | A1, A2, C1 |
 | Compiled rules, the view builder, the batch→candidate adapter, M19 | D2 §7.4, D5 §8.1, §8.2, D4 M19 | Rules compiler, views at both sites, runner, `validate.rules` method (§3.5–§3.8) | A1 and A2 (batch site), C1 (finalize site), E2b (rule-warning reading, D7 §7) |
+| The finalize-readings input type: per value, parse status, kind and symbols (D5 §8.2 as amended) | D5 §8.2 | The `readings` argument of `build_views` (§3.6) | C1, which supplies its values, computed once per pass on the main thread with ingest and math's grammar |
 | The rule-language helper | D2 §7.4, [D6 §7.1](../../design/D6-orchestration-metrics-policies.md#71-language); ADR-0018 | Typed contexts with UTC, a context per rule, banned builtins (§3.5) | orchestration O2 (policy `Chain`s) |
 | `ci schema compile` | [D8 §4](../../design/D8-agent-and-query-interfaces.md#4-cli) | Compile from disk; print or write artifacts and hashes | the operator |
 
@@ -201,8 +202,7 @@ records. It is immutable and built once per process per schema version.
   schema text is byte-stable across processes. That stability was Tested by probe on the
   model-facing form (schema-rules note P5, P7, 2026-10-28).
 - Admissible value variants per position are read from the core value union, not listed in the
-  compiler. A core value variant therefore needs no compiler change; `extref` (OPEN-D1-5) is
-  deferred to the phase 0 boundary.
+  compiler. A core value variant, such as `extref` (OPEN-D1-5), therefore needs no compiler change.
 - One canonical entity-reference shape and one formula shape per position, and `Statement` only
   in `statements[]`, as S4's variants V1 and V2 settle them (record `s4.batch-validation`). The
   spike's three entity-reference forms and bare-LaTeX coercion are not admitted.
@@ -354,9 +354,9 @@ and every view reads its group. No view scans the pool, so the finalize cost is 
 - **Batch.** The candidates are the batch's own items: `family_params` holds only the batch's
   `has_parameter` claims (D5 §8.2), and symbols are read with `core/tex.py`, which is total and
   fast.
-- **Finalize.** The candidates come from consolidation's in-memory pool, and `readings` maps
-  (claim id, value path) to the grammar's (status, kind, symbols), computed by consolidation on
-  the main thread. The finalize view is one evaluation over the pool as assembled, with no
+- **Finalize.** The candidates come from consolidation's in-memory pool, and `readings`, of the
+  type this document defines, maps (claim id, value path) to the grammar's (status, kind,
+  symbols), computed by consolidation on the main thread. The finalize view is one evaluation over the pool as assembled, with no
   fixpoint. A claim that an `error` rule rejects in the same pass still contributes to other
   claims' views, which keeps the step deterministic and single-pass. D5 §8.2's "any status except
   `rejected`" then refers to statuses set before the pass, which phase 0 does not have (Proposed;
@@ -457,9 +457,9 @@ the rebuild, and a tighter loop per (predicate, site) is the route if it becomes
 
 | Package | Scope | Prerequisites | Acceptance | Revealing failure case |
 |---|---|---|---|---|
-| P0-S-1 | Pack files, `.linkmllint.yaml`, `guideline.md`, `reference/E1`–`E3`, `fixtures/packs/minimal/`; loader and schema version; lookup; compilers for tables, the three batch forms and the reference; artifact identity and `CompiledSchema`; `ci schema compile`; the `core.yaml` mirror contract test | F1, F2b (F2a); finalized after S4; `fixtures/s0` files | Artifact hashes equal in two processes with different `PYTHONHASHSEED` and load paths. Each file lints clean, or every remaining finding is recorded. The twelve v1 reference batches and three examples validate in the model-facing form, and the spike's stored v1 batches in the stored form. `check_schema` passes on every exported schema, and jsonschema agrees with Pydantic on those batches and on Hypothesis draws. The mirror test fails on a seeded difference on either side. The reference carries every information item that `s4.reference-diff` lists. The decoding form passes its assertions. The minimal pack compiles | T1's `{"t": "entity", "ref": …}` object and U6's `Statement` in `entities[]` are each refused at their path, per S4's V1 and V2 outcome; a comment-only edit keeps the version hash while a description edit changes it |
-| P0-S-1b | `schema.registry.ensure()`, `compiled_for()`, the schema-table projection | S1, F4 | `ensure` twice is idempotent. A bumped compiler version adds rows and leaves the old rows byte-identical. The projection is replaced in the inserting transaction. `compiled_for` from stored source reproduces every stored hash. Two concurrent `ensure` calls leave one row per identity (P0CL-15 closure) | Compiler output changed without a version bump: `ensure` fails naming compiler and kind, instead of keeping a stale body or adding a second one |
-| P0-S-2 | Rule-language helper; rules compiler (`rules:`, `guideline:`, `tables:`, `views:`, `at:`, `applies_to`, core rules); view builder at both sites; batch→candidate adapter; batch conformance checks; M19 runner, `validate.rules`, `check_authored` | S1, F2b (F2a's `core/tex.py`), O0 | Every pack rule and the eleven guideline checks compile. Each compile-time error class fails construction. An `at: [batch]` rule reading a reading attribute fails compilation. The v1 reference and examples give 0 issues and 0 warnings, and every seeded violation is caught by its expected rule. The 36 batch-site validator cases give their expected category and code. A rule declared at both sites gives the same outcome on a batch and on the candidate set built from it, except `stat.param_keys_known`, which runs only at finalize. A pathological formula completes the batch site within its bound with `methods.math` never imported (P0CL-14, this document's half) | `stat.param_keys_known` evaluated at the batch site would warn on every batch whose family parameters are stated elsewhere on the page; the `at:` sites and the batch-site type map prevent it |
+| P0-S-1 | Pack files, `.linkmllint.yaml`, `guideline.md`, `reference/E1`–`E3`, `fixtures/packs/minimal/`; loader and schema version; lookup; compilers for tables, the three batch forms and the reference; artifact identity and `CompiledSchema`; `ci schema compile`; the `core.yaml` mirror contract test | P0-F-2b (on P0-F-1 and P0-F-2a); P0-F-3's `fixtures/s0` files (tests); finalized after S4 | Artifact hashes equal in two processes with different `PYTHONHASHSEED` and load paths. Each file lints clean, or every remaining finding is recorded. The twelve v1 reference batches and three examples validate in the model-facing form, and the spike's stored v1 batches in the stored form. `check_schema` passes on every exported schema, and jsonschema agrees with Pydantic on those batches and on Hypothesis draws. The mirror test fails on a seeded difference on either side. The reference carries every information item that `s4.reference-diff` lists. The decoding form passes its assertions. The minimal pack compiles | T1's `{"t": "entity", "ref": …}` object and U6's `Statement` in `entities[]` are each refused at their path, per S4's V1 and V2 outcome; a comment-only edit keeps the version hash while a description edit changes it |
+| P0-S-1b | `schema.registry.ensure()`, `compiled_for()`, the schema-table projection | P0-S-1, P0-F-4 | `ensure` twice is idempotent. A bumped compiler version adds rows and leaves the old rows byte-identical. The projection is replaced in the inserting transaction. `compiled_for` from stored source reproduces every stored hash. Two concurrent `ensure` calls leave one row per identity (P0CL-15 closure) | Compiler output changed without a version bump: `ensure` fails naming compiler and kind, instead of keeping a stale body or adding a second one |
+| P0-S-2 | Rule-language helper; rules compiler (`rules:`, `guideline:`, `tables:`, `views:`, `at:`, `applies_to`, core rules); view builder at both sites; batch→candidate adapter; batch conformance checks; M19 runner, `validate.rules`, `check_authored` | P0-S-1, P0-F-2b (with P0-F-2a's `core/tex.py`), P0-O-0 | Every pack rule and the eleven guideline checks compile. Each compile-time error class fails construction. An `at: [batch]` rule reading a reading attribute fails compilation. The v1 reference and examples give 0 issues and 0 warnings, and every seeded violation is caught by its expected rule. The 36 batch-site validator cases give their expected category and code. A rule declared at both sites gives the same outcome on a batch and on the candidate set built from it, except `stat.param_keys_known`, which runs only at finalize. A pathological formula completes the batch site within its bound with `methods.math` never imported (P0CL-14, this document's half) | `stat.param_keys_known` evaluated at the batch site would warn on every batch whose family parameters are stated elsewhere on the page; the `at:` sites and the batch-site type map prevent it |
 
 **P0-S-1.** Mechanisms:
 - LinkML 1.12.1 `SchemaView` (`class_ancestors`, `induced_slot`, `get_uri(…, expand=False)`,

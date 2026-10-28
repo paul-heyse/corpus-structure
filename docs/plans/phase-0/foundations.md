@@ -512,10 +512,10 @@ Session state is set only with `SET LOCAL`. A COPY inside an SQLAlchemy transact
   type says so), dumped with defaults omitted. The method-contract `ObservationDraft` is O0's; O1
   turns drafts into rows, so F4 does not depend on O0.
 - `record_intervention(conn, …)`, `store_golden_pass(conn, …)` and `set_golden_unit(conn, unit,
-  status, agreement)`: typed primitives over D3's columns, called by the agent interface's
-  submission tools and CLI commands, by `write_golden`, and with the agreement and status that
-  evaluation computes. Their callers own when and why; the rows' shape and the single write path
-  are F4's.
+  status, agreement)`: typed primitives over D3's columns. The first is called by the agent
+  interface's submission tools and CLI commands; the golden ones by evaluation's golden store
+  (P0-E-1), which `write_golden` calls. Their callers own when and why; the rows' shape and the
+  single write path are F4's.
 - `copy_rows(conn, table, columns, rows)`, `allocate_ids(conn, table, n)` (`nextval` over the
   identity sequence) and `insert_returning(conn, table, rows)` (`insertmanyvalues` where ids come
   back) for the bulk writers of other documents, C1's materialization first.

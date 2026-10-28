@@ -406,12 +406,12 @@ inventory (2026-10-28) and are scheduled into S1.
 | OPEN-D2-4 | D2 §9 | Property predicates versus `has_property` | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Count of distinct properties used and of `unsupported` property items |
 | OPEN-D2-5 | D2 §9, §10.4 | Representation of standardized families | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | A/B treatment of "standard normal"/"standard gamma"; adjudication reason |
 | OPEN-D4-4 | D4 §4.1, M10 | Unit of LLM work | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Size distributions in tokens; packet-pass loss |
-| OPEN-D4-5 | D4 M13 | Rule scoping versus annotator scopes | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | `m13_probe.tsv` agreement by binding kind |
+| OPEN-D4-5 | D4 M13 | Rule scoping versus annotator scopes | see design-phase plan | `m13_probe.tsv` agreement by binding kind |
 | OPEN-D5-1 | D5 §5.4 | Slots for non-functional formula predicates | not exercised by S0 (no unit states one formula predicate twice for a subject); open · phase 1 (design-phase plan governs) | Reference cases with two formula claims of one predicate in one statement |
 | OPEN-D3-4 | D3, D5 §5.5 | Whether a stored meaning key is needed | S0 evidence recorded (meaning keys more stable); open · S6 decides (design-phase plan governs) | Key and meaning-key agreement figures |
 | OPEN-D8-3 | D8 §2.2 | Blind passes must be verifiably separate | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | S0 report describes the setup, the opened-file records and any rerun |
-| OPEN-D7-2 | D7 §5.3 | Formula equivalence procedure | answered · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Tier counts in the S0 report |
-| OPEN-D9-1 | D9 §2 | Python 3.14 wheels | evidence · E0 | Resolution recorded in both reports (all spike pins resolved on 3.14, 2026-10-28) |
+| OPEN-D7-2 | D7 §5.3 | Formula equivalence procedure | see design-phase plan | Tier counts in the S0 report |
+| OPEN-D9-1 | D9 §2 | Python 3.14 wheels | see design-phase plan | Resolution recorded in both reports (all spike pins resolved on 3.14, 2026-10-28) |
 | HTML-01 | D1 §3.1, M01 | 106 bare `\begin{align}` blocks without `\[` are display math the rules do not name | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Rule stated; counts over 78 pages |
 | HTML-02 | D1 §3.1, M01, M09 | 11 unbalanced math delimiters; no rule for resynchronization or `parse_status` | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Behaviour per occurrence under both math detectors |
 | HTML-03 | D1 §3.1, M01 | Rendered-text conventions absent from the source (1,200 empty JS-filled `a.ref` links, `<q>`, list markers, `details` summaries) | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Convention chosen per case with sentence and quote-location evidence |
@@ -420,13 +420,13 @@ inventory (2026-10-28) and are scheduled into S1.
 | HTML-06 | M01, M09, M11 | `div.latex` macro definitions: per-source map or per-rendition attribute | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Macro tables compared across 78 pages |
 | HTML-07 | D4 M01 | Source-profile language (CSS rules with roles) and a fallback for unprofiled HTML | answered · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) (2026-10-28); disposed in X1 (2026-10-28): see the design-phase findings table | Rule-engine agreement, coverage inventory, trafilatura and NIST evidence |
 | PARSE-01 | D1 §6.2, D4 §4.3, M01, M09, M11, M13 | Math read four ways by string code (scanner, pylatexenc walker, SymPy rewrite shim, regex expression test); review findings F2/F3/F5a; fixed-width fuzzy quote windows cut words; source facts in adapter code | implemented in the spike instruments · ADR-0009; I-R1, S1-R1, S0-R1 done 2026-10-28 (records s0.instruments, s1.profile-delimiting, s0.m13-probe-2); production realization with D4's methods | `code/mathgrammar/` coverage record; F2/F3/F5a regression tests on the grammar; locator cascade reproduces `regex_probe` figures; S1-D checks unchanged under the profile-generated delimiter pattern |
-| OPEN-D2-1 | D2 §7.2 | `Schema.from_dict` keys in gliner2 | deferred · S4 | — |
+| OPEN-D2-1 | D2 §7.2 | `Schema.from_dict` keys in gliner2 | see design-phase plan | — |
 | OPEN-D2-2 | D2 §7.2, M06/M07 | Raw or masked math for GLiNER2 | deferred · S2 (S1 supplies math token cost) | — |
-| OPEN-D2-3 | D2 §7.4 | rule-engine syntax | deferred · S4 | — |
-| OPEN-D2-6 | D2 §3 | List annotation round-trip in `SchemaView` | deferred · S4 (S0's schema load is a byproduct observation) | — |
+| OPEN-D2-3 | D2 §7.4 | rule-engine syntax | see design-phase plan | — |
+| OPEN-D2-6 | D2 §3 | List annotation round-trip in `SchemaView` | see design-phase plan | — |
 | OPEN-D3-1 | D3 | pg_textsearch BM25 on the corpus | deferred · S6 | — |
 | OPEN-D3-2 | D3, M04 | Embedding model and dimension | deferred · S7 | — |
-| OPEN-D3-3 | D3 | Storing `kb.segment.text` | deferred · S6 | — |
+| OPEN-D3-3 | D3 | Storing `kb.segment.text` | see design-phase plan | — |
 | OPEN-D4-1 | D4 M10 | Local model choice | deferred · S3 | — |
 | OPEN-D4-2 | D4 M10 | Reasoning on or off | deferred · S3 | — |
 | OPEN-D4-3 | D4 M11 | SymPy LaTeX backend and macro map | deferred · S5 (S1 supplies macro tables) | — |
@@ -436,7 +436,7 @@ inventory (2026-10-28) and are scheduled into S1.
 | OPEN-D6-1, OPEN-D6-3 | D6 | Barriers versus dataflow; budget defaults | deferred · phase 2 / phase 0 practice | — |
 | OPEN-D6-2 | D6 §5 | GPU mode default | deferred · S3, S7 | — |
 | OPEN-D7-1, OPEN-D7-3, OPEN-D7-4 | D7 | Golden set sizes; split granularity; PPI implementation | deferred · phases 1–2 | — |
-| OPEN-D8-1, OPEN-D8-2, OPEN-D9-2 | D8, D9 | Process layout; packet grouping | deferred · phase 0 build | — |
+| OPEN-D8-1, OPEN-D8-2, OPEN-D9-2 | D8, D9 | Process layout; packet grouping | see design-phase plan | — |
 
 ### Deferred, each with a trigger
 

@@ -61,22 +61,22 @@ is used, because keys never depend on parse success (D1 §6.2).
 
 | Output | Feeds |
 |---|---|
-| Coverage, extensions, failure categories (S5-A) | phase 0 ingest-and-math (the grammar port and M11's grammar part); D4 M11 |
-| Token form and the property result (S5-A) | phase 0 foundations (`core/tex.py`, key tests); KEYS-01 in the design-phase plan |
-| Macro tables (S5-A) | phase 0 ingest-and-math (M01's macro reader) |
-| Symbols and scoping (S5-B) | phase 0 ingest-and-math (M09, M13, the standing-context function); OPEN-D4-5, OPEN-D1-2 |
-| Sets and equivalence (S5-C) | phase 0 evaluation and goldens (value equivalence in alignment); OPEN-D7-2 |
+| Coverage, extensions, failure categories (S5-A) | P0-I-2a (the grammar port and M11's grammar part); D4 M11 |
+| Token form and the property result (S5-A) | P0-F-2a (`core/tex.py`'s freeze, key tests) and P0-I-2a (the property test); KEYS-01 in the design-phase plan |
+| Macro tables (S5-A) | P0-I-1a (M01's macro reader) |
+| Symbols and scoping (S5-B) | P0-I-2a (M09, M13, the standing-context function); OPEN-D4-5, OPEN-D1-2 |
+| Sets and equivalence (S5-C) | P0-E-2a (value equivalence in alignment); OPEN-D7-2 |
 | z3 and verifiers (S5-D) | phase 2 (M20), phase 4 (M21); D7 §6 witnesses |
 
 ## 5. Packages
 
-| Package | Scope | Outputs | Done when |
-|---|---|---|---|
-| S5-A | Steps 1, 2, 3, 5 (step 5 on the I-R2 revision); records `s5.macros`, `s5.coverage` and `s5.keys-property` are finalized at its end, because the phase 0 `core/tex.py` freezes on them | `macros.tsv`, `parse.tsv`, `coverage.md`, `canonical.tsv`, the extended `extension.lark` | Coverage reported for V1 and V2; every kept extension listed with its gains; every token/tree disagreement has a cause and a fix on the tree side |
-| S5-B | Steps 7, 8 | `symbols.tsv`, `scope.tsv` | Agreement figures for V3 on the core, held-out and math-heavy units, each disagreement classified |
-| S5-C | Steps 6, 9 | `sets.tsv`, `equivalence.tsv` | Every pair decided by a named tier with its time; the expected answers met or each miss explained |
-| S5-D | Steps 4, 10, 11 | `antlr.tsv`, `z3.tsv`, `verify.tsv` | Each step run or `not_run` with the reason; lowest priority, may follow S2/S3 |
-| S5-E | Report | `S5-report.md`, records `s5.*` | The template is satisfied; D4 M09/M11/M13 and D7 §5.3 corrections proposed |
+| Package | Scope | Outputs | Done when | Consumer |
+|---|---|---|---|---|
+| S5-A | Steps 1, 2, 3, 5 (step 5 on the I-R2 revision); records `s5.macros`, `s5.coverage` and `s5.keys-property` are finalized at its end, because the phase 0 `core/tex.py` freezes on them | `macros.tsv`, `parse.tsv`, `coverage.md`, `canonical.tsv`, the extended `extension.lark` | Coverage reported for V1 and V2; every kept extension listed with its gains; every token/tree disagreement has a cause and a fix on the tree side | P0-F-2a, P0-I-1a, P0-I-2a (KEYS-01) |
+| S5-B | Steps 7, 8 | `symbols.tsv`, `scope.tsv` | Agreement figures for V3 on the core, held-out and math-heavy units, each disagreement classified | P0-I-2a (OPEN-D4-5) |
+| S5-C | Steps 6, 9 | `sets.tsv`, `equivalence.tsv` | Every pair decided by a named tier with its time; the expected answers met or each miss explained | P0-E-2a (OPEN-D7-2) |
+| S5-D | Steps 4, 10, 11 | `antlr.tsv`, `z3.tsv`, `verify.tsv` | Each step run or `not_run` with the reason; lowest priority, may follow S2/S3 | phases 2 and 4 |
+| S5-E | Report | `S5-report.md`, records `s5.*` | The template is satisfied; D4 M09/M11/M13 and D7 §5.3 corrections proposed | X2 |
 
 Records (`consumed_by` names the phase 0 package or later phase and the OPEN item):
 `s5.macros`, `s5.coverage`, `s5.keys-property`, `s5.symbols`, `s5.scope`, `s5.equivalence`, and where

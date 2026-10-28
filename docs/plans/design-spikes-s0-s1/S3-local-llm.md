@@ -96,11 +96,11 @@ dangling references are counted as merge losses.
 | Output | Feeds |
 |---|---|
 | Launch arguments, request form, backend | phase 1 local LLM tier (M10, M16 Library realization: "exact request field checked in S3"); D2 §12.1 configurations; D6 §5's launch record |
-| Decoding form, compile and acceptance results | D2 §7.3's local-tier form (with `s4.decoding-form`); phase 0 schema-and-rules if the form changes |
+| Decoding form, compile and acceptance results | D2 §7.3's local-tier form (with `s4.decoding-form`); phase 1 M10, the decoding form's consumer |
 | Grid and held-out scores | OPEN-D4-1, OPEN-D4-2, OPEN-D4-4 (M10) in the design-phase plan; D2 §12.1 `llm.propose_claims`; D6 §7.5 phase 1 policy; D0 tiers |
-| Sizes, caps, split rule | D4 §4.1 and D8 §3 output caps (M10, M16); phase 0 agent interface (M24's cap replaces 8,000); OPEN-D4-4 for long units |
+| Sizes, caps, split rule | D4 §4.1 and D8 §3 output caps (M10, M16) in phase 1; a later revision of M24's cap (18,000 characters in phase 0); OPEN-D4-4 for long units |
 | Determinism results, replay fixtures | phase 1 M10/M16 tests (served from recordings); D4 §1 rule 3's wording for LLM methods; D6 §4 reuse |
-| Quote-location steps on local-LLM quotes | D4 §4.3's fuzzy order; phase 0 agent interface (quote cascade) |
+| Quote-location steps on local-LLM quotes | D4 §4.3's fuzzy order; phase 1 M10's quotes through the cascade |
 | Malformed rate, repair effect | D4 §4.3 (retry with warnings); D2 §7.3 (flat form if above 5%) |
 | Judge agreement, calibration, confidence format | phase 1 M16 (pre-adjudication before M24 or not; D6 §7.5 `adjudicate`); D4 §4.3 judge output; D5 §6 |
 | Offsets | D2 §7.3 (quote citation stays or not) |
@@ -108,14 +108,14 @@ dangling references are counted as merge losses.
 
 ## 5. Packages
 
-| Package | Scope | Outputs | Done when |
-|---|---|---|---|
-| S3-A | Steps 1, 1a, 1b, 1c in the vLLM environment | `results/s3/server.md`, `decoding_form/` (schema, sha256, `grammar.tsv`), `determinism.tsv`, `replay/` | The decoding form (or V5's) compiles and accepts every listed batch, or each rejection is a listed form defect; reasoning accounting confirmed on both settings; resident memory recorded for G1 |
-| S3-B | Steps 2, 3, 5, 6 and the grid (V1–V4; V5, V6 if triggered; V8 if built) | `code/s3_packet.py`, `runs/<config>/<unit>.json`, `scores.tsv`, `grid.md` | Every cell run on the core units or dropped by the rule with its numbers; the best two on H1–H6; scores with and without contested items |
-| S3-C | Steps 4 and 9; V9 | `sizes.tsv`, `caps.md`, `perf.tsv` | p99 from uncensored runs with the margin stated; caps for M10 and M16 and the M24 proposal; the split share; each measurement taken or `blocked` naming what is missing |
-| S3-D | Step 7 | `offsets.tsv` | Equal, overlap and miss shares on T1–T4 |
-| S3-E | Step 8; V7 | `judge.tsv`, `calibration.tsv` | Agreement and calibration per difference set and confidence form, with and without contested items, position bias stated |
-| S3-F | Report | `S3-report.md`, records `s3.*` | The template is satisfied; recommended M10 and M16 configurations, request form, caps and OPEN answers |
+| Package | Scope | Outputs | Done when | Consumer |
+|---|---|---|---|---|
+| S3-A | Steps 1, 1a, 1b, 1c in the vLLM environment | `results/s3/server.md`, `decoding_form/` (schema, sha256, `grammar.tsv`), `determinism.tsv`, `replay/` | The decoding form (or V5's) compiles and accepts every listed batch, or each rejection is a listed form defect; reasoning accounting confirmed on both settings; resident memory recorded for G1 | phase 1 M10, M16 (launch, request and decoding form, replay); G1 |
+| S3-B | Steps 2, 3, 5, 6 and the grid (V1–V4; V5, V6 if triggered; V8 if built) | `code/s3_packet.py`, `runs/<config>/<unit>.json`, `scores.tsv`, `grid.md` | Every cell run on the core units or dropped by the rule with its numbers; the best two on H1–H6; scores with and without contested items | phase 1 M10; OPEN-D4-1, OPEN-D4-2, OPEN-D4-4 |
+| S3-C | Steps 4 and 9; V9 | `sizes.tsv`, `caps.md`, `perf.tsv` | p99 from uncensored runs with the margin stated; caps for M10 and M16 and the M24 proposal; the split share; each measurement taken or `blocked` naming what is missing | phase 1 M10, M16 caps; a later M24 cap revision; G1 (OPEN-D6-2) |
+| S3-D | Step 7 | `offsets.tsv` | Equal, overlap and miss shares on T1–T4 | phase 1 M10 (D2 §7.3's citation form) |
+| S3-E | Step 8; V7 | `judge.tsv`, `calibration.tsv` | Agreement and calibration per difference set and confidence form, with and without contested items, position bias stated | phase 1 M16 |
+| S3-F | Report | `S3-report.md`, records `s3.*` | The template is satisfied; recommended M10 and M16 configurations, request form, caps and OPEN answers | X2 |
 
 Records (`consumed_by` names the phase 1 item, M10 or M16 card, or G1, and the OPEN item, until phase 1
 has package ids): `s3.server`, `s3.determinism`, `s3.replay`, `s3.grid`, `s3.scores`, `s3.held-out`,
