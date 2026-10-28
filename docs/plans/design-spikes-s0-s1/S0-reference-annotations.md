@@ -102,6 +102,16 @@ context (a symbol or premise defined outside the unit and outside the standing c
 ordinary disagreement. This measures what the packet design loses and bears on OPEN-D1-2 and
 OPEN-D4-4. ("Pass P" avoids D7's name "pass C", which there means adjudication.)
 
+### 3.4 Golden-mode pass H on Haiku (S0-E, added 2026-10-28)
+
+Golden generation moved to Haiku 5.5 by operator direction after A and B had run on Opus 5.5
+(coordinator §3.3), so pass P differs from A/B in both input (packet only) and model. Pass H
+annotates the twelve units from a copy of A's golden-mode inputs (`inputs/golden_h/`, same
+packets and pages, including U8's "theorem" label that A and B saw) on Haiku 5.5. H against the
+reference measures the model change at fixed inputs; P against H measures what the packet alone
+loses (OPEN-D4-4, OPEN-D1-2) on one model; H against A/B is the evidence for D7's golden-author
+choice.
+
 ## 4. Comparisons and adjudication
 
 ### 4.1 Pass versus trace (S0-C), before adjudication
@@ -222,7 +232,7 @@ produce batches too large for one local-LLM response.
 | S0-B | Passes A and B; stored-form conversion; offset probe | `pass_a/`, `pass_b/`, `stored/`, `offset_probe/` | Twelve batches per pass validate; unlocated quotes reported; opened-file lists clean |
 | S0-C | Trace and witness comparison | `trace_diff.md`, `witness_diff.md` | Every T1–T4 difference classified |
 | S0-D | Agreement, root adjudication, D7 adjudicator session | `agreement.tsv`, `reference/`, `adjudication.md`, `adjudication_d7/` | Reference validates; every decision has a reason and kind; the two adjudications compared |
-| S0-E | Pass P; M13 probe | `inputs/p/`, `pass_p/`, `pass_p_scores.tsv`, `m13_probe.tsv` | Pass P scored and its losses attributed; probe compared under both section syntheses |
+| S0-E | Pass P; pass H (Haiku, golden inputs); M13 probe | `inputs/packet_only/`, `inputs/golden_h/`, `pass_p/`, `pass_h/`, `compare/ref_vs_{p,h}`, `compare/h_vs_p`, `m13_probe.*.tsv` | Passes P and H scored; P's losses attributed to packet or model; probe compared under both section syntheses |
 | S0-F | Gaps, OPEN answers, sizes, report | `gaps.md`, `size.tsv`, `S0-report.md` | §9 satisfied |
 
 The brief's data files (`pass_a/`, `pass_b/`, `stored/`, `reference/`, `agreement.tsv`,
