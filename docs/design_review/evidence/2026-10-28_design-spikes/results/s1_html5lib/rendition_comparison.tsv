@@ -1,0 +1,8 @@
+page	libxml2_rendition_key	html5lib_rendition_key	text_identical	segments_kind_start_end_identical	segments_identical	segments_identical_except_sourceline	differing_attrs	segments	sentences_identical	sentences	stored_reproduced_by_fresh_lxml
+special/LocationScale.html	ren:fd598f8c45ca1a3e905b5888a11c4cff	ren:1eb4d8af31f25f99d11156902a1adc9d	True	True	False	True	sourceline:152	352	True	110	True
+special/Normal.html	ren:00eba99a1563ca56a25ab35fc9c51546	ren:f6d60424d35fc6eaab4fb49f7be3cae9	True	True	False	True	sourceline:260	518	True	213	True
+special/LogNormal.html	ren:7f6eac9d027fefc8e40fa91f25e310a4	ren:c0799b1171c85d09bc46519f27dba258	True	True	False	True	sourceline:129	321	True	103	True
+special/Gamma.html	ren:7b46012bf6e9cfa7a732d6386bb946c7	ren:de2cb799391a27a790411ac70a551707	True	True	False	True	sourceline:255	528	True	190	True
+special/Pareto.html	ren:8034dc268d49d3451517c72014bb3f26	ren:3d3aab0eac4067f1ca2740531541dc6b	True	True	False	True	sourceline:236	510	True	176	True
+special/ChiSquare.html	ren:77c3a8c88f74974f3c555e3ed06fcbc4	ren:f2b9e948fbbe23cb839879edeef3632b	True	True	False	True	sourceline:238	615	True	210	True
+special/Weibull.html	ren:23c561a51cc7f27328f422b829b1d52a	ren:4a66c43290d895fba289e607dd59f270	True	True	False	True	sourceline:266	601	True	195	True

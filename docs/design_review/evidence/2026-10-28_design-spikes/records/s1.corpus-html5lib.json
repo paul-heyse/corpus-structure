@@ -1,0 +1,243 @@
+{
+  "schema_version": 1,
+  "id": "s1.corpus-html5lib",
+  "title": "78-page corpus run and reference renditions under html5lib",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "D4 M01 names html5lib as the parser, but the S1 corpus run and every S0/S0-R2 rendition used libxml2. What changes when the adapter parses with html5lib: the corpus counts, invariants and locators, and the stored renditions (canonical text, segments, provisional sentences) of the seven pages S0/S0-R2 units use, so S2 and S3 can score against the existing references?",
+  "answers": [
+    "D4 M01 parser",
+    "OPEN-D4-4"
+  ],
+  "method": "Reran s1d_corpus.py over the 78 first-pass pages with --parser html5lib (the V1 comparison then runs against libxml2) and compared every output with the libxml2 run, byte for byte and again with rendition-scoped keys removed. s1g_html5lib_identity.py adapted the seven reference pages under html5lib and under libxml2 (to check the stored files reproduce), split sentences with P1 + bp+c as s1b_sample.py does, and compared them with the stored libxml2 files: canonical text bytes; segments per position as canonical JSON of (kind, start, end, attrs, parse_status, reason, parent position); sentences as (kind, start, end, parent position). It also checked every S0/S0-R2 unit (text sha256, segment span, sentence offsets, context sentences) and the 13 S1-B locators. Keys hash the rendition key, which hashes the configuration and so the parser, so they cannot match and are compared through positions.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1d_corpus.py --parser html5lib --out results/s1_html5lib",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1g_html5lib_identity.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/environment.json",
+      "role": "environment",
+      "sha256": "a40cb1b143ea3ebd59fd34f7b5679d3b6a19b4293967c82124d69353dc7a528c"
+    },
+    {
+      "path": "code/profile/siegrist.yaml",
+      "role": "source profile",
+      "sha256": "ef9ecb449443d642f8cbbf7f58a8de0a04d497a18c45e0ae685316fe77139026"
+    },
+    {
+      "path": "code/s1_adapter.py",
+      "role": "adapter (DEFAULT_CONFIG parser lxml, unchanged)",
+      "sha256": "f0e067aa123a5d0b11f7cb21dfe0ebc3546cf0e554fde899688e5f57f70a0480"
+    },
+    {
+      "path": "results/s1/corpus_summary.json",
+      "role": "libxml2 corpus run",
+      "sha256": "c47a66cf673b6c23b35be48c734ae861de2bdbe4a3d716f5a1aaf267381e4415"
+    },
+    {
+      "path": "results/s1/locators.json",
+      "role": "libxml2 locators",
+      "sha256": "5b2b88bba2f493199f081581bd58aa029d266d9036e512190e62add9962b9514"
+    },
+    {
+      "path": "results/s0r2/sample.json",
+      "role": "S0/S0-R2 units",
+      "sha256": "6a2553d01250b755d225eda8b4007d691c45c30006d364a56881060cde0cb4b2"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s1_html5lib/counts.tsv",
+      "role": "table",
+      "sha256": "411b6ac4d62f791068c639fca07da473e0eebccd556c5bfe001a2fa13885e089"
+    },
+    {
+      "path": "results/s1_html5lib/parser_diff.tsv",
+      "role": "table",
+      "sha256": "b75ed3089a323a08d21178a8ccb07a51b8a73b1872d28c163738e2a2bbcbaa5e"
+    },
+    {
+      "path": "results/s1_html5lib/coverage.tsv",
+      "role": "table",
+      "sha256": "ad0b2461d0de327f497af4cabb6214bb3e8c5a021b8389ff7a70569cf74591aa"
+    },
+    {
+      "path": "results/s1_html5lib/links.tsv",
+      "role": "table",
+      "sha256": "82f8ecbda5be7563185a151aedd5a33e53a41d97ba2d46e012bcda3b2740c4eb"
+    },
+    {
+      "path": "results/s1_html5lib/sizes.tsv",
+      "role": "table",
+      "sha256": "3686d489ff19c072d68b5a05da5bdc46d909ea44fb5a36d8026184d24509c68b"
+    },
+    {
+      "path": "results/s1_html5lib/repairs.tsv",
+      "role": "table",
+      "sha256": "fb0697ea258138e535b5262698d13483ed18c47bec8bdf24c67e4e19821925ed"
+    },
+    {
+      "path": "results/s1_html5lib/macros.tsv",
+      "role": "table",
+      "sha256": "824b987d91bc481ba5aa8c8a311a8ed87ff7a11378aeaa408b84df884261346c"
+    },
+    {
+      "path": "results/s1_html5lib/corpus_summary.json",
+      "role": "summary",
+      "sha256": "1695d5f0a0ed86f53dd74f2c880d324576486d5f388e495fc85532d686e18d16"
+    },
+    {
+      "path": "results/s1_html5lib/s1d_run.log",
+      "role": "run log",
+      "sha256": "20fd0b11892b2291b81e15fa5086d77e34db6bc08e491ea43581865e246feaca"
+    },
+    {
+      "path": "results/s1_html5lib/rendition_comparison.tsv",
+      "role": "reference-page comparison",
+      "sha256": "82670b89c6136a14cee866cc715b6820be74a41baa9c15fa090d77c8850bed13"
+    },
+    {
+      "path": "results/s1_html5lib/rendition_comparison.json",
+      "role": "reference-page comparison detail, unit and locator checks, old/new key pairs",
+      "sha256": "99e7006e97ebc6b0156b52815c2b42fab1fbad9c9182f888bdbefae51e197de1"
+    },
+    {
+      "path": "code/s1d_corpus.py",
+      "role": "corpus script with --parser/--out",
+      "sha256": "506f2cac003a3aec38a1a018bbec282b6a2a109fc557fbe219d0382bc6fc9c8b"
+    },
+    {
+      "path": "code/s1g_html5lib_identity.py",
+      "role": "comparison script",
+      "sha256": "b4168a3e4d431c3a0e8226962eeacc512155316c764c972427bab525c3cc453e"
+    }
+  ],
+  "depends_on": [
+    "s1.corpus",
+    "s1.adapter",
+    "s0r2.inputs"
+  ],
+  "results": [
+    {
+      "name": "structural_violations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "libxml2 run: 0"
+    },
+    {
+      "name": "element_texts_matched",
+      "value": 19432,
+      "of": 19432,
+      "unit": null,
+      "note": "libxml2 run: 19432 of 19432"
+    },
+    {
+      "name": "math_spans_ok",
+      "value": 28948,
+      "of": 28956,
+      "unit": null,
+      "note": "libxml2 run: 28948 of 28956 (8 partial); the 11 math anomalies are the same"
+    },
+    {
+      "name": "pages_matching_index_counts",
+      "value": 77,
+      "of": 78,
+      "unit": null,
+      "note": "counts.tsv is byte-identical to the libxml2 run"
+    },
+    {
+      "name": "units_over_3000_qwen_tokens",
+      "value": 0,
+      "of": 2479,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "units_over_512_gliner_tokens",
+      "value": 153,
+      "of": 2479,
+      "unit": null,
+      "note": "sizes.tsv identical to the libxml2 run apart from segment keys"
+    },
+    {
+      "name": "corpus_tables_byte_identical_to_libxml2_run",
+      "value": 5,
+      "of": 8,
+      "unit": null,
+      "note": "counts, coverage, links, macros, parser_diff; sizes, corpus_summary differ only in rendition-scoped segment keys (and the new summary field parser); repairs differ only in row order"
+    },
+    {
+      "name": "pages_where_parsers_differ_in_segments",
+      "value": 4,
+      "of": 78,
+      "unit": null,
+      "note": "expect/Uniform, special/MultiNormal, special/Cauchy, poisson/Exponential: libxml2 has 5 extra wrapping paragraph segments, html5lib none; canonical text identical on those 4; none is a reference page"
+    },
+    {
+      "name": "s1b_locators_resolving_to_same_span",
+      "value": 13,
+      "of": 13,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "reference_pages_text_identical",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "reference_pages_segments_identical",
+      "value": 0,
+      "of": 7,
+      "unit": null,
+      "note": "attrs.sourceline is absent under html5lib on every segment that has it under libxml2 (129 to 266 per page); html5lib's tree sets no sourceline on the elements segments come from"
+    },
+    {
+      "name": "reference_pages_segments_identical_except_sourceline",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": "kind, start, end, tag, sid, roles, hints, parse_status, reason and tree shape all identical"
+    },
+    {
+      "name": "reference_pages_sentences_identical",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "s0_s0r2_units_offsets_and_sentences_identical",
+      "value": 21,
+      "of": 21,
+      "unit": null,
+      "note": "unit text sha256, segment span, sentence offsets and context sentences"
+    },
+    {
+      "name": "stored_libxml2_renditions_reproduced",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": "fresh libxml2 adaptation equals the stored files, keys included"
+    },
+    {
+      "name": "rendition_keys_changed",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": "the configuration hash includes the parser, so every segment and sentence key changes too"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Under html5lib the 78-page run is unchanged: the same invariants, math status, counts, sizes, macros and links, and all 13 locators resolve to the same spans. On the seven reference pages, the canonical text, segment spans and tree, and provisional sentences are identical, and all 21 S0/S0-R2 units keep their offsets and sentences. Byte identity fails on two points. Segments lose attrs.sourceline under html5lib. Every rendition, segment and sentence key changes, because the rendition key hashes the parser, so stored batches anchored by seg: keys need a key map (old/new pairs are in rendition_comparison.json) or the libxml2 renditions must stay the scoring reference. The adapter default stays lxml, and no batch was re-stored. s1.corpus is not superseded, because the default parser is still undecided.",
+  "consumed_by": []
+}

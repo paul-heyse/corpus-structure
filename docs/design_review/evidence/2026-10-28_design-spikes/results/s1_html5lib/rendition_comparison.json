@@ -1,0 +1,1719 @@
+{
+ "summary": {
+  "pages": 7,
+  "text_identical": 7,
+  "segments_kind_start_end_identical": 7,
+  "segments_identical": 0,
+  "segments_identical_except_sourceline": 7,
+  "sentences_identical": 7,
+  "stored_reproduced_by_fresh_lxml": 7,
+  "units": 21,
+  "units_ok": 21,
+  "locators": 13,
+  "locators_ok_html5lib": 13,
+  "locators_same_span": 13,
+  "identity": false
+ },
+ "pages": {
+  "special/LocationScale.html": {
+   "libxml2_rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+   "html5lib_rendition_key": "ren:1eb4d8af31f25f99d11156902a1adc9d",
+   "stored_dir": "results/s1",
+   "html5lib_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "6db36a75ef6f58d55bb41923e67b00db5b464c0b7a424bbc56788b23089cf4e2",
+     "6db36a75ef6f58d55bb41923e67b00db5b464c0b7a424bbc56788b23089cf4e2"
+    ],
+    "segments": [
+     352,
+     352
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": false,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [
+     {
+      "index": 0,
+      "libxml2": "[\"document\",0,12169,{\"sid\":\"11\",\"sourceline\":16,\"tag\":\"body\"},\"ok\",null,null]",
+      "html5lib": "[\"document\",0,12169,{\"sid\":\"11\",\"tag\":\"body\"},\"ok\",null,null]"
+     },
+     {
+      "index": 1,
+      "libxml2": "[\"heading\",0,23,{\"roles\":[\"title\"],\"sid\":\"26\",\"sourceline\":38,\"tag\":\"h2\"},\"ok\",null,0]",
+      "html5lib": "[\"heading\",0,23,{\"roles\":[\"title\"],\"sid\":\"26\",\"tag\":\"h2\"},\"ok\",null,0]"
+     },
+     {
+      "index": 2,
+      "libxml2": "[\"section\",25,10442,{\"heading_tag\":\"h3\",\"level\":3,\"sourceline\":41,\"title\":\"General Theory\"},\"ok\",null,0]",
+      "html5lib": "[\"section\",25,10442,{\"heading_tag\":\"h3\",\"level\":3,\"title\":\"General Theory\"},\"ok\",null,0]"
+     },
+     {
+      "index": 3,
+      "libxml2": "[\"heading\",25,39,{\"sid\":\"27\",\"sourceline\":41,\"tag\":\"h3\"},\"ok\",null,2]",
+      "html5lib": "[\"heading\",25,39,{\"sid\":\"27\",\"tag\":\"h3\"},\"ok\",null,2]"
+     },
+     {
+      "index": 4,
+      "libxml2": "[\"paragraph\",41,436,{\"sid\":\"28\",\"sourceline\":43,\"tag\":\"p\"},\"ok\",null,2]",
+      "html5lib": "[\"paragraph\",41,436,{\"sid\":\"28\",\"tag\":\"p\"},\"ok\",null,2]"
+     }
+    ],
+    "attr_diffs": {
+     "sourceline": {
+      "positions": 152,
+      "examples": [
+       {
+        "index": 0,
+        "kind": "document",
+        "start": 0,
+        "end": 12169,
+        "libxml2": 16,
+        "html5lib": null
+       },
+       {
+        "index": 1,
+        "kind": "heading",
+        "start": 0,
+        "end": 23,
+        "libxml2": 38,
+        "html5lib": null
+       },
+       {
+        "index": 2,
+        "kind": "section",
+        "start": 25,
+        "end": 10442,
+        "libxml2": 41,
+        "html5lib": null
+       }
+      ]
+     }
+    },
+    "sentences": [
+     110,
+     110
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": []
+   },
+   "fresh_lxml_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "6db36a75ef6f58d55bb41923e67b00db5b464c0b7a424bbc56788b23089cf4e2",
+     "6db36a75ef6f58d55bb41923e67b00db5b464c0b7a424bbc56788b23089cf4e2"
+    ],
+    "segments": [
+     352,
+     352
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": true,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [],
+    "attr_diffs": {},
+    "sentences": [
+     110,
+     110
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": [],
+    "rendition_key_identical": true,
+    "segment_keys_identical": true,
+    "sentence_keys_identical": true
+   },
+   "orphans": [
+    5,
+    5
+   ]
+  },
+  "special/Normal.html": {
+   "libxml2_rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "html5lib_rendition_key": "ren:f6d60424d35fc6eaab4fb49f7be3cae9",
+   "stored_dir": "results/s1",
+   "html5lib_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "0a83641e16cfe02ef72761205446c9e671cbf6af1c2dc935a34c95396dfc23b3",
+     "0a83641e16cfe02ef72761205446c9e671cbf6af1c2dc935a34c95396dfc23b3"
+    ],
+    "segments": [
+     518,
+     518
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": false,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [
+     {
+      "index": 0,
+      "libxml2": "[\"document\",0,21680,{\"sid\":\"11\",\"sourceline\":16,\"tag\":\"body\"},\"ok\",null,null]",
+      "html5lib": "[\"document\",0,21680,{\"sid\":\"11\",\"tag\":\"body\"},\"ok\",null,null]"
+     },
+     {
+      "index": 1,
+      "libxml2": "[\"heading\",0,23,{\"roles\":[\"title\"],\"sid\":\"26\",\"sourceline\":37,\"tag\":\"h2\"},\"ok\",null,0]",
+      "html5lib": "[\"heading\",0,23,{\"roles\":[\"title\"],\"sid\":\"26\",\"tag\":\"h2\"},\"ok\",null,0]"
+     },
+     {
+      "index": 2,
+      "libxml2": "[\"paragraph\",25,465,{\"sid\":\"27\",\"sourceline\":40,\"tag\":\"p\"},\"ok\",null,0]",
+      "html5lib": "[\"paragraph\",25,465,{\"sid\":\"27\",\"tag\":\"p\"},\"ok\",null,0]"
+     },
+     {
+      "index": 3,
+      "libxml2": "[\"section\",467,9027,{\"heading_tag\":\"h3\",\"level\":3,\"sourceline\":42,\"title\":\"The Standard Normal Distribution\"},\"ok\",null,0]",
+      "html5lib": "[\"section\",467,9027,{\"heading_tag\":\"h3\",\"level\":3,\"title\":\"The Standard Normal Distribution\"},\"ok\",null,0]"
+     },
+     {
+      "index": 4,
+      "libxml2": "[\"heading\",467,499,{\"sid\":\"31\",\"sourceline\":42,\"tag\":\"h3\"},\"ok\",null,3]",
+      "html5lib": "[\"heading\",467,499,{\"sid\":\"31\",\"tag\":\"h3\"},\"ok\",null,3]"
+     }
+    ],
+    "attr_diffs": {
+     "sourceline": {
+      "positions": 260,
+      "examples": [
+       {
+        "index": 0,
+        "kind": "document",
+        "start": 0,
+        "end": 21680,
+        "libxml2": 16,
+        "html5lib": null
+       },
+       {
+        "index": 1,
+        "kind": "heading",
+        "start": 0,
+        "end": 23,
+        "libxml2": 37,
+        "html5lib": null
+       },
+       {
+        "index": 2,
+        "kind": "paragraph",
+        "start": 25,
+        "end": 465,
+        "libxml2": 40,
+        "html5lib": null
+       }
+      ]
+     }
+    },
+    "sentences": [
+     213,
+     213
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": []
+   },
+   "fresh_lxml_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "0a83641e16cfe02ef72761205446c9e671cbf6af1c2dc935a34c95396dfc23b3",
+     "0a83641e16cfe02ef72761205446c9e671cbf6af1c2dc935a34c95396dfc23b3"
+    ],
+    "segments": [
+     518,
+     518
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": true,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [],
+    "attr_diffs": {},
+    "sentences": [
+     213,
+     213
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": [],
+    "rendition_key_identical": true,
+    "segment_keys_identical": true,
+    "sentence_keys_identical": true
+   },
+   "orphans": [
+    0,
+    0
+   ]
+  },
+  "special/LogNormal.html": {
+   "libxml2_rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+   "html5lib_rendition_key": "ren:c0799b1171c85d09bc46519f27dba258",
+   "stored_dir": "results/s1",
+   "html5lib_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "4b92a9247b93302358024e5df9ca50d2cdcd6d51e5a79070b23ee1c9cd03bfc1",
+     "4b92a9247b93302358024e5df9ca50d2cdcd6d51e5a79070b23ee1c9cd03bfc1"
+    ],
+    "segments": [
+     321,
+     321
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": false,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [
+     {
+      "index": 0,
+      "libxml2": "[\"document\",0,12319,{\"sid\":\"11\",\"sourceline\":16,\"tag\":\"body\"},\"ok\",null,null]",
+      "html5lib": "[\"document\",0,12319,{\"sid\":\"11\",\"tag\":\"body\"},\"ok\",null,null]"
+     },
+     {
+      "index": 1,
+      "libxml2": "[\"heading\",0,26,{\"roles\":[\"title\"],\"sid\":\"26\",\"sourceline\":39,\"tag\":\"h2\"},\"ok\",null,0]",
+      "html5lib": "[\"heading\",0,26,{\"roles\":[\"title\"],\"sid\":\"26\",\"tag\":\"h2\"},\"ok\",null,0]"
+     },
+     {
+      "index": 2,
+      "libxml2": "[\"section\",28,11716,{\"heading_tag\":\"h3\",\"level\":3,\"sourceline\":42,\"title\":\"Basic Theory\"},\"ok\",null,0]",
+      "html5lib": "[\"section\",28,11716,{\"heading_tag\":\"h3\",\"level\":3,\"title\":\"Basic Theory\"},\"ok\",null,0]"
+     },
+     {
+      "index": 3,
+      "libxml2": "[\"heading\",28,40,{\"sid\":\"27\",\"sourceline\":42,\"tag\":\"h3\"},\"ok\",null,2]",
+      "html5lib": "[\"heading\",28,40,{\"sid\":\"27\",\"tag\":\"h3\"},\"ok\",null,2]"
+     },
+     {
+      "index": 4,
+      "libxml2": "[\"section\",42,841,{\"heading_tag\":\"h4\",\"level\":4,\"sourceline\":44,\"title\":\"Definition\"},\"ok\",null,2]",
+      "html5lib": "[\"section\",42,841,{\"heading_tag\":\"h4\",\"level\":4,\"title\":\"Definition\"},\"ok\",null,2]"
+     }
+    ],
+    "attr_diffs": {
+     "sourceline": {
+      "positions": 129,
+      "examples": [
+       {
+        "index": 0,
+        "kind": "document",
+        "start": 0,
+        "end": 12319,
+        "libxml2": 16,
+        "html5lib": null
+       },
+       {
+        "index": 1,
+        "kind": "heading",
+        "start": 0,
+        "end": 26,
+        "libxml2": 39,
+        "html5lib": null
+       },
+       {
+        "index": 2,
+        "kind": "section",
+        "start": 28,
+        "end": 11716,
+        "libxml2": 42,
+        "html5lib": null
+       }
+      ]
+     }
+    },
+    "sentences": [
+     103,
+     103
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": []
+   },
+   "fresh_lxml_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "4b92a9247b93302358024e5df9ca50d2cdcd6d51e5a79070b23ee1c9cd03bfc1",
+     "4b92a9247b93302358024e5df9ca50d2cdcd6d51e5a79070b23ee1c9cd03bfc1"
+    ],
+    "segments": [
+     321,
+     321
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": true,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [],
+    "attr_diffs": {},
+    "sentences": [
+     103,
+     103
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": [],
+    "rendition_key_identical": true,
+    "segment_keys_identical": true,
+    "sentence_keys_identical": true
+   },
+   "orphans": [
+    0,
+    0
+   ]
+  },
+  "special/Gamma.html": {
+   "libxml2_rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+   "html5lib_rendition_key": "ren:de2cb799391a27a790411ac70a551707",
+   "stored_dir": "results/s1",
+   "html5lib_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "072fd22a372b40dffd6720c21a7f9a68b9f7d0fafe0ffe2db248eda28ac34a01",
+     "072fd22a372b40dffd6720c21a7f9a68b9f7d0fafe0ffe2db248eda28ac34a01"
+    ],
+    "segments": [
+     528,
+     528
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": false,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [
+     {
+      "index": 0,
+      "libxml2": "[\"document\",0,20465,{\"sid\":\"11\",\"sourceline\":16,\"tag\":\"body\"},\"ok\",null,null]",
+      "html5lib": "[\"document\",0,20465,{\"sid\":\"11\",\"tag\":\"body\"},\"ok\",null,null]"
+     },
+     {
+      "index": 1,
+      "libxml2": "[\"heading\",0,22,{\"roles\":[\"title\"],\"sid\":\"26\",\"sourceline\":37,\"tag\":\"h2\"},\"ok\",null,0]",
+      "html5lib": "[\"heading\",0,22,{\"roles\":[\"title\"],\"sid\":\"26\",\"tag\":\"h2\"},\"ok\",null,0]"
+     },
+     {
+      "index": 2,
+      "libxml2": "[\"paragraph\",24,411,{\"sid\":\"27\",\"sourceline\":40,\"tag\":\"p\"},\"ok\",null,0]",
+      "html5lib": "[\"paragraph\",24,411,{\"sid\":\"27\",\"tag\":\"p\"},\"ok\",null,0]"
+     },
+     {
+      "index": 3,
+      "libxml2": "[\"section\",413,4082,{\"heading_tag\":\"h3\",\"level\":3,\"sourceline\":42,\"title\":\"The Gamma Function\"},\"ok\",null,0]",
+      "html5lib": "[\"section\",413,4082,{\"heading_tag\":\"h3\",\"level\":3,\"title\":\"The Gamma Function\"},\"ok\",null,0]"
+     },
+     {
+      "index": 4,
+      "libxml2": "[\"heading\",413,431,{\"id\":\"gam\",\"sid\":\"31\",\"sourceline\":42,\"tag\":\"h3\"},\"ok\",null,3]",
+      "html5lib": "[\"heading\",413,431,{\"id\":\"gam\",\"sid\":\"31\",\"tag\":\"h3\"},\"ok\",null,3]"
+     }
+    ],
+    "attr_diffs": {
+     "sourceline": {
+      "positions": 255,
+      "examples": [
+       {
+        "index": 0,
+        "kind": "document",
+        "start": 0,
+        "end": 20465,
+        "libxml2": 16,
+        "html5lib": null
+       },
+       {
+        "index": 1,
+        "kind": "heading",
+        "start": 0,
+        "end": 22,
+        "libxml2": 37,
+        "html5lib": null
+       },
+       {
+        "index": 2,
+        "kind": "paragraph",
+        "start": 24,
+        "end": 411,
+        "libxml2": 40,
+        "html5lib": null
+       }
+      ]
+     }
+    },
+    "sentences": [
+     190,
+     190
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": []
+   },
+   "fresh_lxml_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "072fd22a372b40dffd6720c21a7f9a68b9f7d0fafe0ffe2db248eda28ac34a01",
+     "072fd22a372b40dffd6720c21a7f9a68b9f7d0fafe0ffe2db248eda28ac34a01"
+    ],
+    "segments": [
+     528,
+     528
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": true,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [],
+    "attr_diffs": {},
+    "sentences": [
+     190,
+     190
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": [],
+    "rendition_key_identical": true,
+    "segment_keys_identical": true,
+    "sentence_keys_identical": true
+   },
+   "orphans": [
+    0,
+    0
+   ]
+  },
+  "special/Pareto.html": {
+   "libxml2_rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+   "html5lib_rendition_key": "ren:3d3aab0eac4067f1ca2740531541dc6b",
+   "stored_dir": "results/s0r2/s1",
+   "html5lib_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "7c4157e15a38718a9a899fcdd0b0425010c23dc54db884436ea5f5da3e6550d1",
+     "7c4157e15a38718a9a899fcdd0b0425010c23dc54db884436ea5f5da3e6550d1"
+    ],
+    "segments": [
+     510,
+     510
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": false,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [
+     {
+      "index": 0,
+      "libxml2": "[\"document\",0,17827,{\"sid\":\"11\",\"sourceline\":16,\"tag\":\"body\"},\"ok\",null,null]",
+      "html5lib": "[\"document\",0,17827,{\"sid\":\"11\",\"tag\":\"body\"},\"ok\",null,null]"
+     },
+     {
+      "index": 1,
+      "libxml2": "[\"heading\",0,23,{\"roles\":[\"title\"],\"sid\":\"26\",\"sourceline\":36,\"tag\":\"h2\"},\"ok\",null,0]",
+      "html5lib": "[\"heading\",0,23,{\"roles\":[\"title\"],\"sid\":\"26\",\"tag\":\"h2\"},\"ok\",null,0]"
+     },
+     {
+      "index": 2,
+      "libxml2": "[\"paragraph\",25,178,{\"sid\":\"27\",\"sourceline\":39,\"tag\":\"p\"},\"ok\",null,0]",
+      "html5lib": "[\"paragraph\",25,178,{\"sid\":\"27\",\"tag\":\"p\"},\"ok\",null,0]"
+     },
+     {
+      "index": 3,
+      "libxml2": "[\"section\",180,8823,{\"heading_tag\":\"h3\",\"level\":3,\"sourceline\":41,\"title\":\"The Basic Pareto Distribution\"},\"ok\",null,0]",
+      "html5lib": "[\"section\",180,8823,{\"heading_tag\":\"h3\",\"level\":3,\"title\":\"The Basic Pareto Distribution\"},\"ok\",null,0]"
+     },
+     {
+      "index": 4,
+      "libxml2": "[\"heading\",180,209,{\"sid\":\"28\",\"sourceline\":41,\"tag\":\"h3\"},\"ok\",null,3]",
+      "html5lib": "[\"heading\",180,209,{\"sid\":\"28\",\"tag\":\"h3\"},\"ok\",null,3]"
+     }
+    ],
+    "attr_diffs": {
+     "sourceline": {
+      "positions": 236,
+      "examples": [
+       {
+        "index": 0,
+        "kind": "document",
+        "start": 0,
+        "end": 17827,
+        "libxml2": 16,
+        "html5lib": null
+       },
+       {
+        "index": 1,
+        "kind": "heading",
+        "start": 0,
+        "end": 23,
+        "libxml2": 36,
+        "html5lib": null
+       },
+       {
+        "index": 2,
+        "kind": "paragraph",
+        "start": 25,
+        "end": 178,
+        "libxml2": 39,
+        "html5lib": null
+       }
+      ]
+     }
+    },
+    "sentences": [
+     176,
+     176
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": []
+   },
+   "fresh_lxml_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "7c4157e15a38718a9a899fcdd0b0425010c23dc54db884436ea5f5da3e6550d1",
+     "7c4157e15a38718a9a899fcdd0b0425010c23dc54db884436ea5f5da3e6550d1"
+    ],
+    "segments": [
+     510,
+     510
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": true,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [],
+    "attr_diffs": {},
+    "sentences": [
+     176,
+     176
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": [],
+    "rendition_key_identical": true,
+    "segment_keys_identical": true,
+    "sentence_keys_identical": true
+   },
+   "orphans": [
+    0,
+    0
+   ]
+  },
+  "special/ChiSquare.html": {
+   "libxml2_rendition_key": "ren:77c3a8c88f74974f3c555e3ed06fcbc4",
+   "html5lib_rendition_key": "ren:f2b9e948fbbe23cb839879edeef3632b",
+   "stored_dir": "results/s0r2/s1",
+   "html5lib_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "161574d9a02ccfed33b5d49980a2fa8c197947c398f23c6de2a02ae11654cca1",
+     "161574d9a02ccfed33b5d49980a2fa8c197947c398f23c6de2a02ae11654cca1"
+    ],
+    "segments": [
+     615,
+     615
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": false,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [
+     {
+      "index": 0,
+      "libxml2": "[\"document\",0,27986,{\"sid\":\"11\",\"sourceline\":16,\"tag\":\"body\"},\"ok\",null,null]",
+      "html5lib": "[\"document\",0,27986,{\"sid\":\"11\",\"tag\":\"body\"},\"ok\",null,null]"
+     },
+     {
+      "index": 1,
+      "libxml2": "[\"heading\",0,36,{\"roles\":[\"title\"],\"sid\":\"26\",\"sourceline\":38,\"tag\":\"h2\"},\"ok\",null,0]",
+      "html5lib": "[\"heading\",0,36,{\"roles\":[\"title\"],\"sid\":\"26\",\"tag\":\"h2\"},\"ok\",null,0]"
+     },
+     {
+      "index": 2,
+      "libxml2": "[\"paragraph\",38,310,{\"sid\":\"27\",\"sourceline\":41,\"tag\":\"p\"},\"ok\",null,0]",
+      "html5lib": "[\"paragraph\",38,310,{\"sid\":\"27\",\"tag\":\"p\"},\"ok\",null,0]"
+     },
+     {
+      "index": 3,
+      "libxml2": "[\"section\",312,410,{\"heading_tag\":\"h4\",\"level\":4,\"sourceline\":43,\"title\":\"Contents\"},\"ok\",null,0]",
+      "html5lib": "[\"section\",312,410,{\"heading_tag\":\"h4\",\"level\":4,\"title\":\"Contents\"},\"ok\",null,0]"
+     },
+     {
+      "index": 4,
+      "libxml2": "[\"heading\",312,320,{\"sid\":\"31\",\"sourceline\":43,\"tag\":\"h4\"},\"ok\",null,3]",
+      "html5lib": "[\"heading\",312,320,{\"sid\":\"31\",\"tag\":\"h4\"},\"ok\",null,3]"
+     }
+    ],
+    "attr_diffs": {
+     "sourceline": {
+      "positions": 238,
+      "examples": [
+       {
+        "index": 0,
+        "kind": "document",
+        "start": 0,
+        "end": 27986,
+        "libxml2": 16,
+        "html5lib": null
+       },
+       {
+        "index": 1,
+        "kind": "heading",
+        "start": 0,
+        "end": 36,
+        "libxml2": 38,
+        "html5lib": null
+       },
+       {
+        "index": 2,
+        "kind": "paragraph",
+        "start": 38,
+        "end": 310,
+        "libxml2": 41,
+        "html5lib": null
+       }
+      ]
+     }
+    },
+    "sentences": [
+     210,
+     210
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": []
+   },
+   "fresh_lxml_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "161574d9a02ccfed33b5d49980a2fa8c197947c398f23c6de2a02ae11654cca1",
+     "161574d9a02ccfed33b5d49980a2fa8c197947c398f23c6de2a02ae11654cca1"
+    ],
+    "segments": [
+     615,
+     615
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": true,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [],
+    "attr_diffs": {},
+    "sentences": [
+     210,
+     210
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": [],
+    "rendition_key_identical": true,
+    "segment_keys_identical": true,
+    "sentence_keys_identical": true
+   },
+   "orphans": [
+    0,
+    0
+   ]
+  },
+  "special/Weibull.html": {
+   "libxml2_rendition_key": "ren:23c561a51cc7f27328f422b829b1d52a",
+   "html5lib_rendition_key": "ren:4a66c43290d895fba289e607dd59f270",
+   "stored_dir": "results/s0r2/s1",
+   "html5lib_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "9b4c5f6aefd4ebf9f7dc7efeb11d01401673fe23f980821c02e83b63bdb8ca5a",
+     "9b4c5f6aefd4ebf9f7dc7efeb11d01401673fe23f980821c02e83b63bdb8ca5a"
+    ],
+    "segments": [
+     601,
+     601
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": false,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [
+     {
+      "index": 0,
+      "libxml2": "[\"document\",0,22773,{\"sid\":\"11\",\"sourceline\":16,\"tag\":\"body\"},\"ok\",null,null]",
+      "html5lib": "[\"document\",0,22773,{\"sid\":\"11\",\"tag\":\"body\"},\"ok\",null,null]"
+     },
+     {
+      "index": 1,
+      "libxml2": "[\"heading\",0,24,{\"roles\":[\"title\"],\"sid\":\"26\",\"sourceline\":39,\"tag\":\"h2\"},\"ok\",null,0]",
+      "html5lib": "[\"heading\",0,24,{\"roles\":[\"title\"],\"sid\":\"26\",\"tag\":\"h2\"},\"ok\",null,0]"
+     },
+     {
+      "index": 2,
+      "libxml2": "[\"paragraph\",26,140,{\"sid\":\"27\",\"sourceline\":42,\"tag\":\"p\"},\"ok\",null,0]",
+      "html5lib": "[\"paragraph\",26,140,{\"sid\":\"27\",\"tag\":\"p\"},\"ok\",null,0]"
+     },
+     {
+      "index": 3,
+      "libxml2": "[\"section\",142,9816,{\"heading_tag\":\"h3\",\"level\":3,\"sourceline\":44,\"title\":\"The Basic Weibull Distribution\"},\"ok\",null,0]",
+      "html5lib": "[\"section\",142,9816,{\"heading_tag\":\"h3\",\"level\":3,\"title\":\"The Basic Weibull Distribution\"},\"ok\",null,0]"
+     },
+     {
+      "index": 4,
+      "libxml2": "[\"heading\",142,172,{\"sid\":\"28\",\"sourceline\":44,\"tag\":\"h3\"},\"ok\",null,3]",
+      "html5lib": "[\"heading\",142,172,{\"sid\":\"28\",\"tag\":\"h3\"},\"ok\",null,3]"
+     }
+    ],
+    "attr_diffs": {
+     "sourceline": {
+      "positions": 266,
+      "examples": [
+       {
+        "index": 0,
+        "kind": "document",
+        "start": 0,
+        "end": 22773,
+        "libxml2": 16,
+        "html5lib": null
+       },
+       {
+        "index": 1,
+        "kind": "heading",
+        "start": 0,
+        "end": 24,
+        "libxml2": 39,
+        "html5lib": null
+       },
+       {
+        "index": 2,
+        "kind": "paragraph",
+        "start": 26,
+        "end": 140,
+        "libxml2": 42,
+        "html5lib": null
+       }
+      ]
+     }
+    },
+    "sentences": [
+     195,
+     195
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": []
+   },
+   "fresh_lxml_vs_stored": {
+    "text_identical": true,
+    "text_sha256": [
+     "9b4c5f6aefd4ebf9f7dc7efeb11d01401673fe23f980821c02e83b63bdb8ca5a",
+     "9b4c5f6aefd4ebf9f7dc7efeb11d01401673fe23f980821c02e83b63bdb8ca5a"
+    ],
+    "segments": [
+     601,
+     601
+    ],
+    "segments_kind_start_end_identical": true,
+    "segments_identical": true,
+    "segments_identical_except_sourceline": true,
+    "segment_diffs": [],
+    "attr_diffs": {},
+    "sentences": [
+     195,
+     195
+    ],
+    "sentences_identical": true,
+    "sentence_diffs": [],
+    "rendition_key_identical": true,
+    "segment_keys_identical": true,
+    "sentence_keys_identical": true
+   },
+   "orphans": [
+    1,
+    1
+   ]
+  }
+ },
+ "units": {
+  "T1": {
+   "unit": "T1",
+   "page": "special/LocationScale.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/LocationScale.html@p:As usual, our starting point",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:461ade98bfb3c5eab5a9dda35ee81c12",
+     "new_segment_key": "seg:eb90d38d4c198f5435f10aa44dfde326",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:7f5bfd7ae1551fb8a61e4be44b09ea78",
+       "seg:a1b8f8234c7ac28d86f95d0940c3bfb8"
+      ],
+      [
+       "seg:fc39a3c1625a0ca3eb930e388d369827",
+       "seg:0092a145af14500584579f6ee0db47fb"
+      ],
+      [
+       "seg:e1a33c047bb86880316815686144c6cd",
+       "seg:66f3d0c2058e9067a1228f2d06c6bba6"
+      ]
+     ]
+    },
+    {
+     "locator": "special/LocationScale.html#dfn1",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:175c96a27cc62630afd30222ac6b06cd",
+     "new_segment_key": "seg:0b404c51b36bc246bda4c706c4696c9d",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:f862503906430becb5c3e114fbbd5af5",
+       "seg:eda10812fe2d8b82e511d862af4918f5"
+      ],
+      [
+       "seg:ebe0e73fe08976c567af5859a2b77bbd",
+       "seg:6623e1f7a48e240de866a3b0c523877a"
+      ],
+      [
+       "seg:af77a6ba98384db9ded612eff96d3984",
+       "seg:77192a19f93d03436c0acefaa6f67017"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "T2": {
+   "unit": "T2",
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Normal.html@p:Suppose again that \\( X \\) has the normal distribution with location parameter",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:a3c88aa2d5cdbd70f8a179347967faa2",
+     "new_segment_key": "seg:33910f88988c262c287c5bc6c24eb80c",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:f0640da77bd7c8b14e91e1681babddc7",
+       "seg:82cffa29b518ad23cc5b305d499ce80e"
+      ],
+      [
+       "seg:0f7a63ff92a79c2f2572c034a1dbfbc5",
+       "seg:dd583d8cdbd9731caa6b66bc11d9704f"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "T3": {
+   "unit": "T3",
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Normal.html#rel1",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:284382a0386cf655a9e8cf94ac12980a",
+     "new_segment_key": "seg:e6b66bf096c27177d6234bfeaf4c65c1",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:00e021f9f31ec4b64dcd0865bcfeb8b1",
+       "seg:d6192701a218fd0a417fe882d0c636f7"
+      ],
+      [
+       "seg:ecb3cd5053f5a67593c76acdc749caff",
+       "seg:cc08efdc2340102f292a09a846fdfc05"
+      ],
+      [
+       "seg:5a2f009d4c96aa7a005f3f3d5efa512a",
+       "seg:9e5ebfea95126988ed1eef60b8406ce0"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "T4": {
+   "unit": "T4",
+   "page": "special/LogNormal.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/LogNormal.html#dfn",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:3fd093d02f8f19cfc6e08e97885fed09",
+     "new_segment_key": "seg:2f586503a12fbbb171ec4b4320ed0b32",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:976de78285608bb4b079721b2bf6c4de",
+       "seg:93789a5401b739605a2f8d7e26c725e5"
+      ],
+      [
+       "seg:5818940b2a2bd086e7f8ed6bfa2d6bec",
+       "seg:b54680db4d46623748c33b0bd7193e7a"
+      ],
+      [
+       "seg:2353eb7bc99d057cf0cbff85edaa628f",
+       "seg:764b28a48049903ee532dd5fda95330d"
+      ],
+      [
+       "seg:24c1e8d853c094e30146919e8e3241ab",
+       "seg:eca2e69c5d00a52c53497c00ce74cc79"
+      ],
+      [
+       "seg:af52796cbd07aeede7e42ecf22ef7f46",
+       "seg:9f3f76777925f808fc435f0e1699cde9"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "U5": {
+   "unit": "U5",
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Normal.html#rel2",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:24a8a9e0116b7804e4e8a88cc7a70c39",
+     "new_segment_key": "seg:3554c1cbab3746c739f64de774888502",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:1f176d498ace05b6e46c77bd6ba20004",
+       "seg:cf2789bb66aa4871c45b4eec97ba6721"
+      ],
+      [
+       "seg:0c0de42de7ca0d1fb80723719b2a0704",
+       "seg:01a6c55e61e31b66ab6ef9fe2d373f2e"
+      ],
+      [
+       "seg:193ed5f44ae395e1a493b9c83c04da36",
+       "seg:b892c4daeb20257c7505d7451af5912d"
+      ],
+      [
+       "seg:2b97cdfddbfea3582d7a291c9026eb3f",
+       "seg:aea2c6c27bab032bcdfc49265b91f420"
+      ],
+      [
+       "seg:f5e79a0886514c2a2231a752576be53c",
+       "seg:148e7337422981811217f3d79b835f9d"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "U6": {
+   "unit": "U6",
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Normal.html@p:Recall that in general, if \\(X\\) is a random variable with mean",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:57bebab2809e83fa2c27612c682ef9bf",
+     "new_segment_key": "seg:f689e3718b2c9c36dcea8b0bd66844c7",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:c4911a7f4faa75ff5bf326ba9647d648",
+       "seg:f44c758d545ffa99b5094ec5dc938b43"
+      ],
+      [
+       "seg:28cfa3f4055ede760eb40320bc762a96",
+       "seg:765517767b4776d1b8e0d9f5390cad9c"
+      ],
+      [
+       "seg:72ebc16e02cb1e80ee804bbd71f8cb84",
+       "seg:f0be3da7872a787e4f098a47c3f62b98"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "U7": {
+   "unit": "U7",
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Normal.html@p:In some settings, it's convenient to consider a constant",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:56cd22bafd1c152d7f14817bf7521324",
+     "new_segment_key": "seg:15c0b16c082aa514c2ee2b6c9fd83ab4",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1",
+       "seg:7c77f22cf3f318afe709f2629c72ba5b"
+      ],
+      [
+       "seg:a92e794aa544c8922ed156fee2a14236",
+       "seg:f580103a159b804bb8d1a406b56e9659"
+      ],
+      [
+       "seg:c4c8c220064b7baae0c9dd5163d76845",
+       "seg:ac341ca550bd901f514210a1b2dda308"
+      ],
+      [
+       "seg:40928ef040f210259852048694d4901f",
+       "seg:8054bbd28f16219c583a696f2a1ec7e2"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "U8": {
+   "unit": "U8",
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Normal.html@u:A metal rod is designed",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:9aa15b25543793d52a4f180a6feb350f",
+     "new_segment_key": "seg:07e70ee24a4cd614e5b489f296eabc0b",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:d7f5c560d0d153559e24ae58937b434a",
+       "seg:77122dd98788d75a3e074d5fac402a5b"
+      ],
+      [
+       "seg:2d62bec8ef4a94814838147187f9d1d4",
+       "seg:a71eec41cedb468898e97504c6321f71"
+      ],
+      [
+       "seg:327c806dbcfb87aa63c4cca2502ddab9",
+       "seg:b3f8c08e8d3dfd2892a62a680cf7c2e6"
+      ],
+      [
+       "seg:c06b44e7a1bd2f44fffbab96fb3905fd",
+       "seg:7ca13c1371dc9d6213b00dad0e4ffd73"
+      ],
+      [
+       "seg:6c2c1fc5b53a20e305e21ddfeef3eca4",
+       "seg:f0de03389a75bdc8fe8455e45ec5442e"
+      ],
+      [
+       "seg:13319312f522a9ddd2cf2e75e4e97b5b",
+       "seg:085f16875194a57d5082c4b563c7b8c3"
+      ],
+      [
+       "seg:17abf3faaf5997aa5a5f035ebdc4ba48",
+       "seg:dabb238e2bafb205bc91f7a3ca3ab9b5"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "U9": {
+   "unit": "U9",
+   "page": "special/LogNormal.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/LogNormal.html@u:Suppose that \\(n \\in \\N_+\\) and that",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:bf89d85bb1bd8d84eab6e3dafa1064ce",
+     "new_segment_key": "seg:108e1e6cbc267f6ba9cd8838af34226c",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:c8858445283cc4b3aeebf62b43bc2380",
+       "seg:daf2b0c3acb1b4ae1c8340a9b3b2f342"
+      ],
+      [
+       "seg:d4d15a5c15b937f230d666afa222625c",
+       "seg:631d0928429fec2d63d5314bf43448db"
+      ],
+      [
+       "seg:ae936ca6dd75a6556c16350058871c9a",
+       "seg:6ad4c71ecf1c090ba3bfca40c0bc74e1"
+      ],
+      [
+       "seg:f5bda7a82a6394d9651a5a2520b503bb",
+       "seg:ee444db5358ef15e0030f513a253506f"
+      ],
+      [
+       "seg:cc5662bf909023b827077c3ccad88c2a",
+       "seg:778b4d4bdb2b46a0dad381ae6dcef056"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "U10": {
+   "unit": "U10",
+   "page": "special/Gamma.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Gamma.html#dfn4",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:6a12d5c892b53e0caf55405219674c69",
+     "new_segment_key": "seg:67346d373e077491a1249b49bfc58b95",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:f866c716530e7e0d81a76b88d387d242",
+       "seg:a365d11ac91f2aaeb9ae7662b18b33f1"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "U11": {
+   "unit": "U11",
+   "page": "special/Gamma.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Gamma.html#rel2",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:7d33a74d20d3f223e0806f7823a80949",
+     "new_segment_key": "seg:2bef6a460f539ab49b284c6e6663653f",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:3a0fdd2baeab629e1d8efe4065a86e9b",
+       "seg:6bb6a02b765164071fdefe3b9210fa09"
+      ],
+      [
+       "seg:ef641d35c7067a79e9a255ee53e5de15",
+       "seg:5ec961141affe4300610d03362833368"
+      ],
+      [
+       "seg:761456882896712fbe868b5815b43840",
+       "seg:687387b9c995c3bed584ca2817642a84"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "U12": {
+   "unit": "U12",
+   "page": "special/Gamma.html",
+   "set": "core",
+   "parts": [
+    {
+     "locator": "special/Gamma.html#mom1",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:617e22d84559cfeea7e53551b4a4aee4",
+     "new_segment_key": "seg:6495a3e52661851389cf0c1970b49dbf",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:7edc0b114a37b999625e6f5b6393f3f1",
+       "seg:33b1bdff886400ccdc4f83cfebed459b"
+      ],
+      [
+       "seg:fffdc9c9a07875ea4f25614d1db1cc51",
+       "seg:a111372ee41d73cca9807aea50b4e8d5"
+      ],
+      [
+       "seg:798141f60bd67c856fd7779c40e80b78",
+       "seg:627a0c5a2d0ebf17caa8ebc63b2596eb"
+      ],
+      [
+       "seg:b32398b5dd210b09054a83c2b028e06c",
+       "seg:909d09d7882eac95d181a6410fcfa1d8"
+      ],
+      [
+       "seg:1f928b3871064106c0e965a530dfa590",
+       "seg:22dc5336894967fa9d0b93a21f563198"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "H1": {
+   "unit": "H1",
+   "page": "special/Pareto.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "locator": "special/Pareto.html@u:The basic Pareto distribution with shape paramet",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:e22abb26c437ee670b93b4822adec9c3",
+     "new_segment_key": "seg:7af18386a1fd68916088a7efe309cd7d",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:3c1fc5ab8b03cca1fae5ea74902a1f4e",
+       "seg:da9b7c6dcc08e6738c977da8ee0ff059"
+      ],
+      [
+       "seg:88be3c3e2c879981545502af43c4da90",
+       "seg:b3a7b09c9de951f4e725b2383abf1b18"
+      ],
+      [
+       "seg:6237c0b9d685922f45c02e5f64e46ca8",
+       "seg:fe4660d34e68e600759aecb14aa6400a"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "H2": {
+   "unit": "H2",
+   "page": "special/Pareto.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "locator": "special/Pareto.html@u:Suppose that \\(Z\\) has the basic Pareto distribu",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:cadb37f4fed82392f49343180a280826",
+     "new_segment_key": "seg:1699c6e92b6f543e6164aa8f2ac43767",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:1f9af4c2c70fe57c4bc412022beb961a",
+       "seg:8b37eb00e1b04122f6d564f0ba353ae3"
+      ],
+      [
+       "seg:e01a4537ba484c5d48adc883bb90ce76",
+       "seg:4ca4b8c7031d4166a2c23ead36fcab37"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "H3": {
+   "unit": "H3",
+   "page": "special/Pareto.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "locator": "special/Pareto.html@u:The mean and variance of \\( X \\) are (a) \\(\\E(X)",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:788db1e3c765a15b7a8cfe995bb4901f",
+     "new_segment_key": "seg:431f9b361e890c641f63cf9f48c3171a",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:4f6678b4fb4aa26b8cccb1490bd035ec",
+       "seg:2aaf6577f986937ff7d6d7db549fe30b"
+      ],
+      [
+       "seg:ad67954ed078c791c41c4eb872547060",
+       "seg:fc03176928a69cf16e086f1c8c507584"
+      ],
+      [
+       "seg:1341c0e711da39ec41d8e4c8df1f4fbb",
+       "seg:0c731614196b934735fe39056828ea36"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "H4": {
+   "unit": "H4",
+   "page": "special/ChiSquare.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "locator": "special/ChiSquare.html@u:If \\(Z\\) has the standard normal distribution th",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:3328c0eeb39571f76a839ad38053ade8",
+     "new_segment_key": "seg:91e00b1f9e8f06b10525ba27a272b657",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:a3cf1caaee4cf355f74eb5bce979e62f",
+       "seg:7b1f46b403a0701720f795c7a9960c9c"
+      ],
+      [
+       "seg:8d2ed07cb9f8fcbe62d555d4a6c5d1a8",
+       "seg:ca1bb66a1baccc058ba9bf26a9800a80"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "H5": {
+   "unit": "H5",
+   "page": "special/ChiSquare.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "locator": "special/ChiSquare.html@u:Suppose that \\( n \\in \\N_+ \\) and that \\((Z_1, Z",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:f007733d85ad718d92979b54e2154a55",
+     "new_segment_key": "seg:a99263067dac72acffe8bc171c07cb50",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:b04fd34866a730f67d6f75ae9003dea3",
+       "seg:53317a7d8f819ff50c7e56853451f117"
+      ],
+      [
+       "seg:5e8fabd0f48e3a817e4c4cada9018c59",
+       "seg:58ecfa8e068c3ffed865bbc11fa59100"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "H6": {
+   "unit": "H6",
+   "page": "special/Pareto.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "locator": "special/Pareto.html@u:Suppose that the income of a certain population ",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:9eb7d026ed22f34284e8e9ba8aea2655",
+     "new_segment_key": "seg:6ab7c3e10e458629ab90f855ea8fb17b",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:fcee07fd89f3070b141d38ea33791e76",
+       "seg:c4f6e28a8e927675891ee6930b2f7edf"
+      ],
+      [
+       "seg:714d81d64341e2c28f4237d13b755939",
+       "seg:60a014fdc7386e18e2e2465a19679a02"
+      ],
+      [
+       "seg:449285a39a45c98f021d9a97de45fb03",
+       "seg:ebb7d550b4f8716ef6771c05810c9b42"
+      ],
+      [
+       "seg:aa9eba035eb75c5ae710b55160844b2d",
+       "seg:4009feb6c9f17635871d150fe107b949"
+      ],
+      [
+       "seg:98d245b3eef99655679faf1e699ee62d",
+       "seg:1c4755968122248c332055b2e95ffb09"
+      ],
+      [
+       "seg:0f238435b68a1c6c520736dc3c7cff24",
+       "seg:51b6794f70589b44a64ea9f3656c0e80"
+      ],
+      [
+       "seg:58d4c849e3d5a6d446812a71cf429748",
+       "seg:a6cc02f9a9ecc1998945dce4d5bfafe4"
+      ],
+      [
+       "seg:33531ae49ec2d9fb3303a9a34ac2a605",
+       "seg:b13dfd425261941a31bbe9cdb90d0131"
+      ],
+      [
+       "seg:36d31f9cd0945767ae13199cdf0f5e10",
+       "seg:9c21cd604c90521ee01be99812349ef9"
+      ],
+      [
+       "seg:394c7b381e025f78bee710cf6bdd8f7e",
+       "seg:9dda808b006dc2e2ed44c8b1323e6f99"
+      ],
+      [
+       "seg:565ee294e22463f956505cb2a8d522a8",
+       "seg:745b6659199ecdefafc87a1dd5b05467"
+      ],
+      [
+       "seg:4ae2c8c60b3e3a965567926517c1980f",
+       "seg:20901cbca54baa0706941d554ac03f78"
+      ],
+      [
+       "seg:fc0a7ca48f49ea213d264d5ee7c4086c",
+       "seg:2daee87d121fb5a245eb9300ffcef228"
+      ],
+      [
+       "seg:95322c4d5147c58899c480d025f8366d",
+       "seg:20b4b1ae3e32f6dcb26fd303be00e1b5"
+      ],
+      [
+       "seg:590e30dfa00de5c07cc334a0be94cde7",
+       "seg:42d8833e2a168c556835a18361484c32"
+      ],
+      [
+       "seg:8bde42e49ab4a956e80cb1103ba4aa71",
+       "seg:126b1015136fc8964d5bf7d3aa8357b2"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "E1": {
+   "unit": "E1",
+   "page": "special/Weibull.html",
+   "set": "example",
+   "parts": [
+    {
+     "locator": "special/Weibull.html@u:Suppose that \\(Z\\) has the basic Weibull distrib",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:a2538940a13dd9ee9c006b64137933ca",
+     "new_segment_key": "seg:87da80fd760d9aa873105fe914db2f82",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:b993ae058ec620788123cf9a97f317bf",
+       "seg:17a8465e2d12977cc76f7adf0a180077"
+      ],
+      [
+       "seg:5797316bd78c74ee181f28d2e9315d73",
+       "seg:588bec57a38c767ab3dd763c4cd988d3"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "E2": {
+   "unit": "E2",
+   "page": "special/Weibull.html",
+   "set": "example",
+   "parts": [
+    {
+     "locator": "special/Weibull.html@u:Suppose that \\(X\\) has the Weibull distribution ",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:28087421af227a1afb6ccda19ca547ae",
+     "new_segment_key": "seg:c9d89a803fa80c8b3b0df2b2d383836b",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:38fef439ebca598c5176b36f4bc69c43",
+       "seg:29431ac6f5406e79858cec4ffe4487cc"
+      ],
+      [
+       "seg:916c4cfd044f09a9bc2d6531dd70171b",
+       "seg:b136b426d24e032b587e3571f0b3937f"
+      ],
+      [
+       "seg:3af6e72e67f6a300a3e667d8dab49475",
+       "seg:8516770409dd5d1f6d2fef211280669a"
+      ],
+      [
+       "seg:a48c2b2326f23d8326497d46a6f28813",
+       "seg:4ff410c15e98dac599de40806cd19b9e"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  },
+  "E3": {
+   "unit": "E3",
+   "page": "special/Weibull.html",
+   "set": "example",
+   "parts": [
+    {
+     "locator": "special/Weibull.html@u:The lifetime \\(T\\) of a device (in hours) has th",
+     "sha256_identical": true,
+     "segment_present": true,
+     "old_segment_key": "seg:6d3094502a5b52609ee2e3e338daf737",
+     "new_segment_key": "seg:f3e21bbcbcc618f7eadc1675fc54494f",
+     "sentence_offsets_identical": true,
+     "sentence_keys": [
+      [
+       "seg:74606e929e4e27d897f2ecd9d910b3c8",
+       "seg:547387de7911986a1dea3d368289ba35"
+      ],
+      [
+       "seg:d80ba5b9449400a68ccb5edf8595d693",
+       "seg:4d8e3d492e38f1e09e70ca3b8a9dc941"
+      ],
+      [
+       "seg:514ff9ca372591e65af5202b96b65046",
+       "seg:f76de491035a09c7e040f1a4f9384c18"
+      ],
+      [
+       "seg:ef97fb6af715acf844016fba4d12a944",
+       "seg:37110b2367bff2c8e231819b6bca1618"
+      ],
+      [
+       "seg:ca6678d4bd6eb92b8944eda75b16725f",
+       "seg:6d3b17fdea5026e1b026b3eacc5c8c31"
+      ],
+      [
+       "seg:971485cd8612d6cebed6f519596bd1d7",
+       "seg:53e6d12a30e7314697b855893c278cf0"
+      ],
+      [
+       "seg:287585c4796235cdb6499c34fd8531db",
+       "seg:382ec77cff13ae85b80ed77ebfea606c"
+      ]
+     ]
+    }
+   ],
+   "context_sentences_present": true,
+   "ok": true
+  }
+ },
+ "locators": {
+  "special/LocationScale.html@p:As usual, our starting point": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/LocationScale.html#dfn1": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Normal.html@p:Suppose again that \\( X \\) has the normal distribution with location parameter": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Normal.html#rel1": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/LogNormal.html#dfn": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Normal.html#rel2": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Normal.html@p:Recall that in general, if \\(X\\) is a random variable with mean": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Normal.html@p:In some settings, it's convenient to consider a constant": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Normal.html@u:A metal rod is designed": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/LogNormal.html@u:Suppose that \\(n \\in \\N_+\\) and that": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Gamma.html#dfn4": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Gamma.html#rel2": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  },
+  "special/Gamma.html#mom1": {
+   "libxml2": {
+    "matches": 1,
+    "ok": true
+   },
+   "html5lib": {
+    "matches": 1,
+    "ok": true
+   },
+   "same_segment_span": true
+  }
+ }
+}

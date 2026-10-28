@@ -1,13 +1,20 @@
 """S1-D: the 78 first-pass pages under the adopted configuration, plus corpus-wide V1, V2, V5, V6.
 
-    UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1d_corpus.py
+    UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1d_corpus.py [--parser P] [--out DIR]
 
 Writes results/s1/{counts,parser_diff,coverage,dfn_terms,macros,links,sizes,repairs,v6_corpus}.tsv|json
 and results/s1/corpus_summary.json. Plan: S1 document §8 and §5.
+
+--parser lxml|html5lib overrides the adapter's DEFAULT_CONFIG parser for the main renditions (the V1
+comparison then runs against the other parser; parser_diff.tsv keeps its lxml/html5lib columns).
+--out DIR (relative to the evidence folder) writes there instead of results/s1. Without flags the run
+is the original S1-D run. The html5lib rerun (2026-10-28):
+    ... code/s1d_corpus.py --parser html5lib --out results/s1_html5lib
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import re
@@ -16,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from s1_adapter import CORPUS, EVIDENCE, REPO, adapt  # noqa: E402
+from s1_adapter import CORPUS, DEFAULT_CONFIG, EVIDENCE, REPO, adapt  # noqa: E402
 from s1a_variants import blocks, structure, v6_walker  # noqa: E402
 from s1b_sample import independent_text, structural  # noqa: E402
 from tokenizers import Tokenizer  # noqa: E402
@@ -48,7 +55,18 @@ def math_share(text: str, segs: list[dict], start: int, end: int) -> float:
     return inside / max(1, end - start)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    global OUT
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--parser", choices=("lxml", "html5lib"), default=None)
+    ap.add_argument("--out", default=None, help="output folder relative to the evidence folder")
+    args = ap.parse_args(argv)
+    base = args.parser or DEFAULT_CONFIG["parser"]
+    other = "html5lib" if base == "lxml" else "lxml"
+    cfg = {"parser": args.parser} if args.parser else {}
+    if args.out:
+        OUT = EVIDENCE / args.out
+    OUT.mkdir(parents=True, exist_ok=True)
     index = first_pass()
     terms_index: dict[str, list[str]] = defaultdict(list)
     with (INDEX / "siegrist_defined_terms.tsv").open() as f:
@@ -66,7 +84,7 @@ def main() -> int:
     engines_all_identical = True
     for row in index:
         page = row["path"]
-        r = adapt(page)
+        r = adapt(page, cfg)
         segs, text = r["segments"], r["text"]
         kinds = Counter(s["kind"] for s in segs)
         units = [s for s in segs if s["kind"] == "unit"]
@@ -107,7 +125,7 @@ def main() -> int:
         for a in r["rendition"]["parse_detail"]["math_anomalies"]:
             anomalies.append({"page": page, "anomaly": a})
         for o in r["rendition"]["parse_detail"]["orphans"]:
-            repairs.append({"page": page, "parser": "lxml", "container": o["container"],
+            repairs.append({"page": page, "parser": base, "container": o["container"],
                             "sourceline": o["sourceline"], "text": o["text"]})
         # profile engines and coverage
         eng = r["rendition"]["profile_engines"]
@@ -118,20 +136,21 @@ def main() -> int:
                          **{f"excl_{k}": v for k, v in Counter(e["rule"] for e in r["exclusions"]).items()},
                          "division_segments": kinds["division"], "figure_segments": kinds["figure"]})
         # V1 parser, V2 normalization
-        h5 = adapt(page, {"parser": "html5lib"})
-        a, b = structure(r), structure(h5)
+        alt = adapt(page, {"parser": other})
+        lx, h5 = (r, alt) if base == "lxml" else (alt, r)
+        a, b = structure(lx), structure(h5)
         sa, sb = set(a), set(b)
         pdiff.append({"page": page, "only_lxml": sum(1 for x in a if x not in sb),
                       "only_html5lib": sum(1 for x in b if x not in sa),
-                      "chars_lxml": len(text), "chars_html5lib": len(h5["text"]),
-                      "orphans_lxml": len(r["rendition"]["parse_detail"]["orphans"]),
+                      "chars_lxml": len(lx["text"]), "chars_html5lib": len(h5["text"]),
+                      "orphans_lxml": len(lx["rendition"]["parse_detail"]["orphans"]),
                       "orphans_html5lib": len(h5["rendition"]["parse_detail"]["orphans"]),
                       "example_lxml": next((t[:100] for k, t in a if (k, t) not in sb and k != "document"), ""),
                       "example_html5lib": next((t[:100] for k, t in b if (k, t) not in sa and k != "document"), "")})
-        for o in h5["rendition"]["parse_detail"]["orphans"]:
-            repairs.append({"page": page, "parser": "html5lib", "container": o["container"],
+        for o in alt["rendition"]["parse_detail"]["orphans"]:
+            repairs.append({"page": page, "parser": other, "container": o["container"],
                             "sourceline": o["sourceline"], "text": o["text"]})
-        nk = adapt(page, {"unicode": "NFKC"})
+        nk = adapt(page, {**cfg, "unicode": "NFKC"})
         for u in nk["rendition"]["parse_detail"]["unicode_changed"]:
             nfkc_changed.append({"page": page, **u})
         # V6
@@ -175,7 +194,7 @@ def main() -> int:
                   sorted(macro_sets.items(), key=lambda kv: -len(kv[1]))]
     write_tsv("macros.tsv", macro_rows)
     summary = {
-        "pages": len(index), "invariants": dict(invariant_totals), "math_parse_status": dict(statuses),
+        "parser": base, "pages": len(index), "invariants": dict(invariant_totals), "math_parse_status": dict(statuses),
         "math_anomalies": anomalies, "nfkc_changed": nfkc_changed[:50], "nfkc_changed_count": len(nfkc_changed),
         "profile_engines_identical_all_pages": engines_all_identical,
         "v6": {"default_state": dict(v6_default), "prose_safe": dict(v6_safe), "examples": v6_examples[:40]},

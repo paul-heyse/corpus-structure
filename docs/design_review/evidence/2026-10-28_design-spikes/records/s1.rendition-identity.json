@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "id": "s1.rendition-identity",
+  "title": "html5lib and libxml2 renditions of the S0/S0-R2 pages are content-identical",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can later spikes, and phase 0 under html5lib (D4 M01), use the references built on the libxml2 renditions?",
+  "answers": [],
+  "method": "code/s1g_html5lib_identity.py compared, for the seven pages the S0/S0-R2 units use, the html5lib rendition with the stored libxml2 one: canonical text, segments (kind, start, end, attributes, tree) and provisional sentences; and checked a fresh libxml2 run reproduces the stored files. Decision by the design authority (2026-10-28): `attrs.sourceline` is a parser-dependent diagnostic outside the rendition contract (D1 §3.2), so content identity excludes it.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1g_html5lib_identity.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "code/s1g_html5lib_identity.py",
+      "role": "script",
+      "sha256": "b4168a3e4d431c3a0e8226962eeacc512155316c764c972427bab525c3cc453e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s1_html5lib/rendition_comparison.json",
+      "role": "per page, unit and locator comparison",
+      "sha256": "99e7006e97ebc6b0156b52815c2b42fab1fbad9c9182f888bdbefae51e197de1"
+    },
+    {
+      "path": "results/s1_html5lib/rendition_comparison.tsv",
+      "role": "per page table",
+      "sha256": "82670b89c6136a14cee866cc715b6820be74a41baa9c15fa090d77c8850bed13"
+    }
+  ],
+  "depends_on": [
+    "s1.corpus",
+    "s1.corpus-html5lib"
+  ],
+  "results": [
+    {
+      "name": "pages_text_identical",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pages_segments_identical_except_sourceline",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pages_sentences_identical",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "units_ok",
+      "value": 21,
+      "of": 21,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "locators_same_span",
+      "value": 13,
+      "of": 13,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "stored_reproduced_by_fresh_lxml",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Content-identical on all seven pages; only keys differ, as the rendition key hashes the parser. Spikes keep scoring against the reproducible libxml2 renditions; phase 0 html5lib renditions take the references by re-storing the quote-citing model-facing batches.",
+  "consumed_by": [
+    "D1 §3.2",
+    "D9 P0.5",
+    "S2",
+    "S3",
+    "design-phase RENDITION-01"
+  ]
+}

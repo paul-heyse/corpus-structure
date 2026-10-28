@@ -1,0 +1,108 @@
+dist/Introduction.html ok
+/home/paul/corpus-structure/build/spike-venv/lib/python3.14/site-packages/html5lib/_ihatexml.py:258: DataLossWarning: Coercing non-XML name: ,
+  warnings.warn("Coercing non-XML name: %s" % name, DataLossWarning)
+dist/Discrete.html ok
+dist/Continuous.html ok
+dist/Mixed.html ok
+dist/Joint.html ok
+dist/Conditional.html ok
+dist/CDF.html ok
+dist/Transformations.html ok
+dist/Convergence.html ok
+expect/Properties.html ok
+expect/Properties2.html ok
+expect/Variance.html ok
+expect/Skew.html ok
+expect/Covariance.html ok
+expect/Generating.html ok
+expect/Conditional.html ok
+expect/Matrices.html ok
+expect/Integral.html ok
+expect/Conditional2.html ok
+expect/Spaces.html ok
+expect/Uniform.html ok
+expect/Kernels.html ok
+special/LocationScale.html ok
+special/GeneralExponential.html ok
+special/Stable.html ok
+special/Divisible.html ok
+special/PowerSeries.html ok
+special/Normal.html ok
+special/MultiNormal.html ok
+special/Gamma.html ok
+special/ChiSquare.html ok
+special/Student.html ok
+special/Fisher.html ok
+special/LogNormal.html ok
+special/FoldedNormal.html ok
+special/Rayleigh.html ok
+special/Maxwell.html ok
+special/Levy.html ok
+special/Beta.html ok
+special/BetaPrime.html ok
+special/Arcsine.html ok
+special/Uniform.html ok
+special/UniformContinuous.html ok
+special/UniformDiscrete.html ok
+special/Semicircle.html ok
+special/Triangle.html ok
+special/IrwinHall.html ok
+special/UPower.html ok
+special/Sine.html ok
+special/Laplace.html ok
+special/Logistic.html ok
+special/ExtremeValue.html ok
+special/HyperbolicSecant.html ok
+special/Cauchy.html ok
+special/ExponentialLogarithmic.html ok
+special/Gompertz.html ok
+special/LogLogistic.html ok
+special/Pareto.html ok
+special/Wald.html ok
+special/Weibull.html ok
+special/Benford.html ok
+special/Zeta.html ok
+special/Logarithmic.html ok
+bernoulli/Introduction.html ok
+bernoulli/Binomial.html ok
+bernoulli/Geometric.html ok
+bernoulli/NegativeBinomial.html ok
+bernoulli/Multinomial.html ok
+bernoulli/Walk.html ok
+bernoulli/BetaBernoulli.html ok
+poisson/Introduction.html ok
+poisson/Exponential.html ok
+poisson/Gamma.html ok
+poisson/Poisson.html ok
+poisson/Splitting.html ok
+poisson/Nonhomogeneous.html ok
+poisson/Compound.html ok
+poisson/General.html ok
+{
+ "invariants": {
+  "start_le_end": 0,
+  "inside_parent": 0,
+  "siblings_ordered": 0,
+  "keys_unique": 0,
+  "independent_checked": 19432,
+  "independent_mismatched": 0
+ },
+ "math_parse_status": {
+  "ok": 28948,
+  "partial": 8
+ },
+ "profile_engines_identical_all_pages": true,
+ "pages_with_count_delta": {
+  "units": 1,
+  "definition_units": 0,
+  "dfn_terms": 0,
+  "details_blocks": 0,
+  "display_math": 1
+ },
+ "nfkc_changed_count": 0
+}
+{"spans_agree": 28932, "scanner_only": 24, "walker_only": 12, "comment_nodes": 3, "parse_errors": 0} {"spans_agree": 28943, "scanner_only": 13, "walker_only": 5, "comment_nodes": 0, "parse_errors": 0}
+
+real	0m33.553s
+user	0m34.912s
+sys	0m0.200s

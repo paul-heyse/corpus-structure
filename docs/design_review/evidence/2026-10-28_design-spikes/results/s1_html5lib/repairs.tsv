@@ -1,0 +1,97 @@
+page	parser	container	sourceline	text
+dist/Continuous.html	html5lib	details		\[ \P(X \in A \mid X \in R) = \frac{\P(X \in A \cap R)}{\P(X \in R)} = \frac{\P(
+dist/Continuous.html	lxml	details	817	\[ \P(X \in A \mid X \in R) = \frac{\P(X \in A \cap R)}{\P(X \in R)} = \frac{\P(
+dist/Joint.html	html5lib	unit		\[f(x, y) = \frac{1}{\sqrt{3} \pi} \exp\left[-\frac{2}{3}\left(x^2 - x y + y^2\r
+dist/Joint.html	lxml	unit	1076	\[f(x, y) = \frac{1}{\sqrt{3} \pi} \exp\left[-\frac{2}{3}\left(x^2 - x y + y^2\r
+dist/Conditional.html	html5lib	unit		\[ g(x, y \mid z) = \binom{n - z}{x, \, y} \left(\frac{p}{1 - r}\right)^x \left(
+dist/Conditional.html	html5lib	unit		\[ h(x \mid y, z) = \binom{n - y - z}{x} \left(\frac{p}{1 - q - r}\right)^x \lef
+dist/Conditional.html	lxml	unit	1166	\[ g(x, y \mid z) = \binom{n - z}{x, \, y} \left(\frac{p}{1 - r}\right)^x \left(
+dist/Conditional.html	lxml	unit	1175	\[ h(x \mid y, z) = \binom{n - y - z}{x} \left(\frac{p}{1 - q - r}\right)^x \lef
+dist/Transformations.html	html5lib	unit		\[ G(y) = \int_{r^{-1}(-\infty, y]} f(x) \, d\mu(x), \quad y \in \R \]
+dist/Transformations.html	lxml	unit	118	\[ G(y) = \int_{r^{-1}(-\infty, y]} f(x) \, d\mu(x), \quad y \in \R \]
+expect/Properties.html	html5lib	details		\[ \E(N) = \sum_{n=0}^\infty n e^{-a} \frac{a^n}{n!}  = e^{-a} \sum_{n=1}^\infty
+expect/Properties.html	html5lib	details		\[ \E(T) = \int_0^\infty t r e^{-r t} \, dt = -t e^{-r t} \bigg|_0^\infty + \int
+expect/Properties.html	lxml	details	596	\[ \E(N) = \sum_{n=0}^\infty n e^{-a} \frac{a^n}{n!}  = e^{-a} \sum_{n=1}^\infty
+expect/Properties.html	lxml	details	615	\[ \E(T) = \int_0^\infty t r e^{-r t} \, dt = -t e^{-r t} \bigg|_0^\infty + \int
+expect/Properties2.html	html5lib	details		\[ a + b \, \E(X) = g\left[\E(X)\right] \le \E\left[g(X)\right] \]
+expect/Properties2.html	lxml	details	196	\[ a + b \, \E(X) = g\left[\E(X)\right] \le \E\left[g(X)\right] \]
+expect/Conditional.html	html5lib	details		"\begin{align}
+			\var(Y \mid X) & = \E\left(Y^2 - 2 Y \E(Y \mid X) + \left[\E(Y "
+expect/Conditional.html	html5lib	details		"\begin{align}
+			\cov(Y, Z \mid X) & = \E\left(Y Z - Y \E(Z \mid X) - Z E(Y \mid"
+expect/Conditional.html	lxml	details	357	"\begin{align}
+			\var(Y \mid X) & = \E\left(Y^2 - 2 Y \E(Y \mid X) + \left[\E(Y "
+expect/Conditional.html	lxml	details	415	"\begin{align}
+			\cov(Y, Z \mid X) & = \E\left(Y Z - Y \E(Z \mid X) - Z E(Y \mid"
+expect/Matrices.html	html5lib	section		The next part of the linearity properties is the scaling property—a nonrandom ma
+expect/Matrices.html	html5lib	section		Recall that the variance an ordinary real-valued random variable \( X \) can be 
+expect/Matrices.html	lxml	section	71	The next part of the linearity properties is the scaling property—a nonrandom ma
+expect/Matrices.html	lxml	section	206	Recall that the variance an ordinary real-valued random variable \( X \) can be 
+expect/Conditional2.html	html5lib	details		"\begin{align}
+			\var(X \mid \mathscr G) & = \E(X^2 - 2 X \E(X \mid \mathscr G) "
+expect/Conditional2.html	html5lib	details		"\begin{align}
+			\cov(X, Y \mid \mathscr G) & = \E\left(X Y - X \E(Y \mid \maths"
+expect/Conditional2.html	lxml	details	419	"\begin{align}
+			\var(X \mid \mathscr G) & = \E(X^2 - 2 X \E(X \mid \mathscr G) "
+expect/Conditional2.html	lxml	details	492	"\begin{align}
+			\cov(X, Y \mid \mathscr G) & = \E\left(X Y - X \E(Y \mid \maths"
+expect/Spaces.html	html5lib	unit		\[ \|X\|_k  = \left[\E\left(\left|X\right|^k\right)\right]^{1 / k} \]
+expect/Spaces.html	html5lib	details		\[ \| c X \|_k = [\E\left(\left|c X\right|^k\right]^{1 / k} = \left[\E\left(\lef
+expect/Spaces.html	lxml	unit	60	\[ \|X\|_k  = \left[\E\left(\left|X\right|^k\right)\right]^{1 / k} \]
+expect/Spaces.html	lxml	details	83	\[ \| c X \|_k = [\E\left(\left|c X\right|^k\right]^{1 / k} = \left[\E\left(\lef
+special/LocationScale.html	html5lib	unit		\[ f(x) = \frac{1}{b} \, g \left( \frac{x - a}{b} \right), \quad x \in \R\]
+special/LocationScale.html	html5lib	unit		\[ \frac{X - \E(X)}{\sd(X)} = \frac{Z - \E(Z)}{\sd(Z)} \]
+special/LocationScale.html	html5lib	details		\[ \frac{X - \E(X)}{\sd(X)} = \frac{a + b Z - [a + b \E(Z)]}{b \sd(Z)} = \frac{Z
+special/LocationScale.html	html5lib	unit		\[ M(t) = e^{a t} m(b t) \]
+special/LocationScale.html	html5lib	details		\[ M(t) = \E\left(e^{tX}\right) = \E\left[e^{t(a + bZ)}\right] = e^{ta} \E\left(
+special/LocationScale.html	lxml	unit	79	\[ f(x) = \frac{1}{b} \, g \left( \frac{x - a}{b} \right), \quad x \in \R\]
+special/LocationScale.html	lxml	unit	159	\[ \frac{X - \E(X)}{\sd(X)} = \frac{Z - \E(Z)}{\sd(Z)} \]
+special/LocationScale.html	lxml	details	162	\[ \frac{X - \E(X)}{\sd(X)} = \frac{a + b Z - [a + b \E(Z)]}{b \sd(Z)} = \frac{Z
+special/LocationScale.html	lxml	unit	175	\[ M(t) = e^{a t} m(b t) \]
+special/LocationScale.html	lxml	details	178	\[ M(t) = \E\left(e^{tX}\right) = \E\left[e^{t(a + bZ)}\right] = e^{ta} \E\left(
+special/Stable.html	html5lib	section		We can now give another characterization of stability that just involves two ind
+special/Stable.html	lxml	section	68	We can now give another characterization of stability that just involves two ind
+special/MultiNormal.html	html5lib	unit		\[ f(\bs x) = \frac{1}{(2 \pi)^{n/2} \sqrt{\det(\bs V)}} \exp \left[ -\frac{1}{2
+special/MultiNormal.html	lxml	unit	399	\[ f(\bs x) = \frac{1}{(2 \pi)^{n/2} \sqrt{\det(\bs V)}} \exp \left[ -\frac{1}{2
+special/Maxwell.html	html5lib	section		The mean and variance of \( R \) can be found from the moment generating functio
+special/Maxwell.html	lxml	section	98	The mean and variance of \( R \) can be found from the moment generating functio
+special/Beta.html	html5lib	unit		\[ f(x) = \frac{1}{B(a, b) d^{a + b - 1}} (x - c)^{a - 1} (c + d - x)^{b - 1}, \
+special/Beta.html	lxml	unit	452	\[ f(x) = \frac{1}{B(a, b) d^{a + b - 1}} (x - c)^{a - 1} (c + d - x)^{b - 1}, \
+special/Uniform.html	html5lib	details		\[ H(X) = \E\{-\ln[f(X)]\} = \int_S -\ln\left(\frac{1}{\lambda(S)}\right) \frac{
+special/Uniform.html	lxml	details	107	\[ H(X) = \E\{-\ln[f(X)]\} = \int_S -\ln\left(\frac{1}{\lambda(S)}\right) \frac{
+special/UniformContinuous.html	html5lib	details		\[ H(X) = \E\{-\ln[f(X)]\} = \int_a^b -\ln\left(\frac{1}{b - a}\right) \frac{1}{
+special/UniformContinuous.html	lxml	details	331	\[ H(X) = \E\{-\ln[f(X)]\} = \int_a^b -\ln\left(\frac{1}{b - a}\right) \frac{1}{
+special/UniformDiscrete.html	html5lib	details		\[ P(t) = \E\left(t^Z\right) = \frac{1}{n} \sum_{k=0}^{n-1} t^k = \frac{1}{n} \f
+special/UniformDiscrete.html	lxml	details	229	\[ P(t) = \E\left(t^Z\right) = \frac{1}{n} \sum_{k=0}^{n-1} t^k = \frac{1}{n} \f
+special/Logistic.html	html5lib	unit		\[ m(t) = B(1 + t, 1 - t) = \Gamma(1 + t) \, \Gamma(1 - t), \quad t \in (-1, 1) 
+special/Logistic.html	lxml	unit	109	\[ m(t) = B(1 + t, 1 - t) = \Gamma(1 + t) \, \Gamma(1 - t), \quad t \in (-1, 1) 
+special/Gompertz.html	html5lib	section		For the remainder of this discussion, we assume that \( X \) has the basic Gompe
+special/Gompertz.html	lxml	section	121	For the remainder of this discussion, we assume that \( X \) has the basic Gompe
+special/Weibull.html	html5lib	section		Recall that the minimum of independent, exponentially distributed variables also
+special/Weibull.html	lxml	section	351	Recall that the minimum of independent, exponentially distributed variables also
+special/Benford.html	html5lib	unit		\[ h_k\left(n_1, n_2, \ldots, n_k\right) = \log_b \left( 1 + \frac{1}{[n_1 \, n_
+special/Benford.html	lxml	unit	268	\[ h_k\left(n_1, n_2, \ldots, n_k\right) = \log_b \left( 1 + \frac{1}{[n_1 \, n_
+special/Logarithmic.html	html5lib	details		\[ P(t) = \sum_{n=1}^\infty t^n \frac{1}{-\ln(1 - p)} \frac{p^n}{n} = \frac{1}{-
+special/Logarithmic.html	lxml	details	112	\[ P(t) = \sum_{n=1}^\infty t^n \frac{1}{-\ln(1 - p)} \frac{p^n}{n} = \frac{1}{-
+bernoulli/Binomial.html	html5lib	details		\[ \P(Y_m = j \mid Y_n = k) = \frac{\binom{m}{j} p^j (1 - p)^{m - j} \binom{n - 
+bernoulli/Binomial.html	html5lib	section		In statistical terms, \(M_n\) is the sample mean of the random sample \((X_1, X_
+bernoulli/Binomial.html	html5lib	details		\[ \P(Y_{20} = y \mid Y_{100} = 30) = \frac{\binom{20}{y} \binom{80}{30 - y}}{\b
+bernoulli/Binomial.html	lxml	details	370	\[ \P(Y_m = j \mid Y_n = k) = \frac{\binom{m}{j} p^j (1 - p)^{m - j} \binom{n - 
+bernoulli/Binomial.html	lxml	section	451	In statistical terms, \(M_n\) is the sample mean of the random sample \((X_1, X_
+bernoulli/Binomial.html	lxml	details	631	\[ \P(Y_{20} = y \mid Y_{100} = 30) = \frac{\binom{20}{y} \binom{80}{30 - y}}{\b
+bernoulli/NegativeBinomial.html	html5lib	unit		\[ W_k = \sum_{i=1}^k N_i \]
+bernoulli/NegativeBinomial.html	html5lib	unit		\[ \P(W_k = n) = \binom{n + k - 1}{k - 1} p^k (1 - p)^n = \binom{n + k - 1}{n} p
+bernoulli/NegativeBinomial.html	html5lib	unit		\[ f(n) = \binom{n + k - 1}{n} p^k (1 - p)^n, \quad n \in \N \]
+bernoulli/NegativeBinomial.html	html5lib	details		\[ \sum_{n=0}^\infty f(n) = p^k \sum_{n=0}^\infty \binom{-k}{n} (-1)^n (1 - p)^n
+bernoulli/NegativeBinomial.html	html5lib	unit		\[ P(t) = \E\left(t^W\right) = \left( \frac{p}{1 - (1 - p) \, t} \right)^k, \qua
+bernoulli/NegativeBinomial.html	lxml	unit	529	\[ W_k = \sum_{i=1}^k N_i \]
+bernoulli/NegativeBinomial.html	lxml	unit	538	\[ \P(W_k = n) = \binom{n + k - 1}{k - 1} p^k (1 - p)^n = \binom{n + k - 1}{n} p
+bernoulli/NegativeBinomial.html	lxml	unit	552	\[ f(n) = \binom{n + k - 1}{n} p^k (1 - p)^n, \quad n \in \N \]
+bernoulli/NegativeBinomial.html	lxml	details	555	\[ \sum_{n=0}^\infty f(n) = p^k \sum_{n=0}^\infty \binom{-k}{n} (-1)^n (1 - p)^n
+bernoulli/NegativeBinomial.html	lxml	unit	577	\[ P(t) = \E\left(t^W\right) = \left( \frac{p}{1 - (1 - p) \, t} \right)^k, \qua
+poisson/Poisson.html	html5lib	unit		\[ \P(N_t = n) = e^{-r t} \frac{(r t)^n}{n!}, \quad n \in \N \]
+poisson/Poisson.html	lxml	unit	83	\[ \P(N_t = n) = e^{-r t} \frac{(r t)^n}{n!}, \quad n \in \N \]
+poisson/Splitting.html	html5lib	section		Recall that \(V_k\), the trial number of the \(k\)th success has the negative bi
+poisson/Splitting.html	html5lib	section		The next result follows from the previous results, but a direct proof is interes
+poisson/Splitting.html	lxml	section	61	Recall that \(V_k\), the trial number of the \(k\)th success has the negative bi
+poisson/Splitting.html	lxml	section	61	The next result follows from the previous results, but a direct proof is interes

@@ -1,6 +1,6 @@
 # Design spikes, 2026-10-28
 
-**Status: all briefs written 2026-10-28; S1, S0, S4 and S6 can run now; S2, S3, S5 and S7 need S0 and S1 outputs (see the table).**
+**Status, 2026-10-28: S1, S0 and the S0-R2 revisit have run. S2, S3 and S5 are ready; S4 and S6 are ready and independent; S7 waits on S2 (see the table). Later spikes score against the v1 reference, `results/s0r2/reference_v1/`.**
 Throwaway investigations that test the proposed design ([docs/design](../../../design/README.md))
 against the real statistics corpus before code is built. A spike answers named design questions
 (`OPEN-Dn-k`) with evidence. It writes no product code.
@@ -17,18 +17,18 @@ GLiNER2 and the LLM need, and whether LaTeX parses.
 
 | Spike | Question | Informs | Needs | Ready |
 |---|---|---|---|---|
-| [S1 Ingest and segmentation](S1-ingest-and-segmentation.md) | Does the D1 evidence model (canonical text, segments, spans, author markup) fit Siegrist HTML? Does sentence splitting survive LaTeX? | D1 §3, OPEN-D1-1, D4 M01–M03 | CPU | **Yes** |
-| [S0 Reference annotations](S0-reference-annotations.md) | Can the D1 claim model and guideline v0 express what the core units state, and how determinate is it across two blind passes? | D1 §4–§8, OPEN-D1-2/3/4, D2 §9–§10, OPEN-D2-4/5 | Opus (this agent), S1 output or raw page text | **Yes** |
-| [S4 LinkML compilation](S4-linkml-compilation.md) | Does the statistics schema compile to GLiNER2, JSON Schema and rule-engine as D2 §7 specifies? | D2 §7, OPEN-D2-1/3/6 | CPU | **Yes** (S0 batches improve the validation step) |
-| [S6 Storage smoke](S6-storage-smoke.md) | Does the D3 DDL apply on PostgreSQL 18 with pgvector and pg_textsearch; do trace rows and typed queries work? | D3, OPEN-D3-1/3/4 | Local PostgreSQL | **Yes** (S1 offsets improve the rows) |
-| [S2 GLiNER2.5 on statistics text](S2-gliner-on-statistics-text.md) | What do compiled schemas, `JointIE`, span attributes and classification find; raw versus masked math | D4 M05–M07, OPEN-D2-2, OPEN-D5-4 | GPU; S0, S1 | After S0, S1 |
-| [S3 Local LLM on the RTX 5090](S3-local-llm.md) | Which model and settings; structured output from the compiled JSON Schema; quality against S0; pre-adjudication | D4 M10, M16, OPEN-D4-1/2/4, OPEN-D6-2 | GPU; S0, S1 | After S0, S1 |
-| [S5 Math parsing and verification](S5-math-parsing-and-verification.md) | LaTeX parse rates with the source macros; symbol scoping; formula equivalence; z3; verifiers | D4 M09, M11, M13, M20, M21, OPEN-D4-3/5, OPEN-D7-2 | CPU; S1 (parsing), S0 (the rest) | Parsing after S1; rest after S0 |
-| [S7 Embeddings and linking](S7-embeddings-and-linking.md) | Embedding model and dimension; concept linking; example retrieval | D3 embeddings, D4 M14, OPEN-D3-2 | GPU; S0, S1, S2 | After S2 |
+| [S1 Ingest and segmentation](S1-ingest-and-segmentation.md) | Does the D1 evidence model (canonical text, segments, spans, author markup) fit Siegrist HTML? Does sentence splitting survive LaTeX? | D1 §3, OPEN-D1-1, D4 M01–M03 | CPU | **Run** ([report](S1-report.md)) |
+| [S0 Reference annotations](S0-reference-annotations.md) | Can the D1 claim model and guideline v0 express what the core units state, and how determinate is it across two blind passes? | D1 §4–§8, OPEN-D1-2/3/4, D2 §9–§10, OPEN-D2-4/5 | Opus (this agent), S1 output or raw page text | **Run** ([report](S0-report.md); revisit [S0-R2](S0-R2-report.md)) |
+| [S4 LinkML compilation](S4-linkml-compilation.md) | Does the statistics schema compile to GLiNER2, JSON Schema, rule-engine rules (with the guideline warnings) and the annotator reference as D2 §7 specifies? | D2 §7, OPEN-D2-1/3/6 | CPU; the v1 batches | **Yes**, independent |
+| [S6 Storage smoke](S6-storage-smoke.md) | Does the D3 DDL apply on PostgreSQL 18 with pgvector and pg_textsearch; do the v1 trace rows and typed queries work; does the revised statement key settle the meaning key? | D3, OPEN-D3-1/3/4 | Local PostgreSQL; S1 offsets, the v1 reference | **Yes**, independent |
+| [S2 GLiNER2.5 on statistics text](S2-gliner-on-statistics-text.md) | What do compiled schemas, `JointIE`, span attributes and classification find; raw, masked or Unicode-rendered math | D4 M05–M07, OPEN-D2-2, OPEN-D5-4 | GPU; S1, the v1 and v0 references | **Yes** |
+| [S3 Local LLM on the RTX 5090](S3-local-llm.md) | Which model and settings on annotator inputs v1; structured output from the compiled JSON Schema; quality against the v1 reference and pass SV; output caps; pre-adjudication | D4 M10, M16, OPEN-D4-1/2/4, OPEN-D6-2 | GPU; S1, S0-R2 inputs and passes | **Yes** |
+| [S5 Math parsing and verification](S5-math-parsing-and-verification.md) | Math grammar coverage on all spans with the rendition macro tables; token canonical form for keys; symbol scoping; formula equivalence; z3; verifiers | D4 M09, M11, M13, M20, M21, D1 §6.2, OPEN-D4-3/5, OPEN-D7-2 | CPU; S1, the v1 reference | **Yes** |
+| [S7 Embeddings and linking](S7-embeddings-and-linking.md) | Embedding model and dimension; concept linking, including parameter names across units; example retrieval | D3 embeddings, D4 M14, OPEN-D3-2 | GPU; S1, S2, the v1 reference | After S2 |
 
-Order: S1 first, then S0 (it can start on raw page text while S1 finishes). S4 and S6 are
-independent and can run alongside. S2, S3 and S5 run in parallel once S0 and S1 have landed; S7
-follows S2. Each spike stops at its question's answer (ground rule 7).
+Order: S1 and S0 have run, with S0's revisit S0-R2. S2, S3 and S5 can run in parallel now; S4
+and S6 are independent and can run alongside them; S7 follows S2. Each spike stops at its
+question's answer (ground rule 7).
 
 S0 and S1 are executed under the spike lane's
 [S0/S1 execution plan](../../../plans/design-spikes-s0-s1_2026-10-28.md), which extends these
@@ -69,8 +69,22 @@ All spikes use the same material, so results can be compared and followed across
 | U11 | Gamma | unit `rel2` (sum of independent gammas) | Conditions with a common scale parameter |
 | U12 | Gamma | unit `mom1` (mean and variance) | Property predicates |
 
-The S1 agent records each core unit's exact segment keys and offsets in `sample.json` once the
-canonical text exists, so later spikes address the same spans.
+`sample.json` records each core unit's exact segment keys and offsets (written in S1), so later
+spikes address the same spans. `results/s0r2/sample.json` adds, with their standing context
+assembled by query over M13 binding sites, six held-out units (H1–H6, from the Pareto and
+ChiSquare pages) and the three worked-example units (E1–E3, from the Weibull page, which is
+reserved for examples: no spike annotates or scores it).
+
+**Renditions.** M01 produces renditions with html5lib (D4 M01), while S0 and S1 used libxml2. On
+the seven pages S0 and S0-R2 use they are content-identical, differing only in keys
+([s1.rendition-identity](records/s1.rendition-identity.json)). Spikes take renditions and offsets
+from `sample.json` and `results/s0r2/sample.json`, the libxml2 renditions the references are stored
+on.
+
+**Reference.** Later spikes score against the v1 reference, `results/s0r2/reference_v1/` (stored
+form; model-facing form in `results/s0r2/reference_model_v1/`): the S0 reference conformed to
+guideline v1 (record [s0r2.reference-v1](records/s0r2.reference-v1.json)). The v0 reference,
+`results/s0/reference/`, stays as a second reference where a brief asks for it.
 
 ## Ground rules for the executing agent
 
@@ -114,7 +128,7 @@ canonical text exists, so later spikes address the same spans.
 ## Records
 
 <!-- evidence-index:start -->
-Generated by `just evidence index` from `records/`; do not edit by hand. 42 current, 2 superseded.
+Generated by `just evidence index` from `records/`; do not edit by hand. 44 current, 2 superseded.
 
 
 **Environment**
@@ -176,8 +190,10 @@ Generated by `just evidence index` from `records/`; do not edit by hand. 42 curr
 | [78-page corpus run](records/s1.corpus.json) | S1-D | passed | HTML-01, HTML-02, HTML-05, HTML-06, OPEN-D4-4, OPEN-D2-2 | 2026-10-28 |
 | [trafilatura baseline](records/s1.trafilatura.json) | S1-E | passed | HTML-07 | 2026-10-28 |
 | [NIST generality probe](records/s1.nist.json) | S1-F | partial | HTML-07, D4 M01 | 2026-10-28 |
+| [78-page corpus run and reference renditions under html5lib](records/s1.corpus-html5lib.json) | S1-G | partial | D4 M01 parser, OPEN-D4-4 | 2026-10-28 |
 | [S1 report](records/s1.report.json) | S1-G | passed | OPEN-D1-1, HTML-01, HTML-02, HTML-03, HTML-04, HTML-05, HTML-06, HTML-07 | 2026-10-28 |
 | [Profile-driven math delimiting (S1-R1)](records/s1.profile-delimiting.json) | S1-R1 | passed | ADR-0009, HTML-07 | 2026-10-28 |
+| [html5lib and libxml2 renditions of the S0/S0-R2 pages are content-identical](records/s1.rendition-identity.json) | S1-R2 | passed | — | 2026-10-28 |
 
 **Superseded**
 
