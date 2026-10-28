@@ -139,7 +139,12 @@ and B, the packet-only pass P, the offset-form probe, and the D7 §3.4-style adj
 (whose result is compared with the root's adjudication); the independent second marking of the
 sentence-boundary gold sample. Each receives a self-contained input folder and is told what it
 must not read; this blindness is instructed, not sandboxed, and the reports say so (the method
-is S0's answer to OPEN-D8-3). No other delegation is planned;
+is S0's answer to OPEN-D8-3). **Model (operator direction, 2026-10-28):** golden generation and
+annotation subagents run on Haiku 5.5 from now on (pass P, the D7 adjudicator session and any
+later golden passes); S0 passes A and B, the offset probe and the sentence-gold markers already
+ran on Opus 5.5 and stay as they are. Every pass records its model, and reports keep the two
+distinct. D0/D7 name Opus as the golden author, so the change is listed as a design implication
+for the design owner. No other delegation is planned;
 a bounded library question that arises during execution can go to a `library-research` worker
 under its [contract](../../.agents/roles/library-research.md).
 

@@ -201,7 +201,7 @@ def macro_table(root) -> dict:
             n = stack.pop(0)
             if isinstance(n, LatexMacroNode) and n.macroname == "newcommand" and n.nodeargd:
                 args = n.nodeargd.argnlist  # spec "*{[[{": star, name, nargs, default, body
-                name = args[1].latex_verbatim().strip("{}") if args[1] is not None else None
+                name = args[1].latex_verbatim().strip("{} \t\n") if args[1] is not None else None
                 nargs = int(args[2].latex_verbatim().strip("[]")) if args[2] is not None else 0
                 body = args[4].latex_verbatim() if args[4] is not None else ""
                 if body.startswith("{") and body.endswith("}"):
