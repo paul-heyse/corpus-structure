@@ -2,7 +2,7 @@
 
 One string enum per list, so the Pydantic types and the CHECKs (built from these in P0-F-4) cannot
 disagree. A list several columns share is one enum; each class names the columns it serves. The
-outcome codes at the end (`DropReason`, `FrameFailureReason`) are closed sets no CHECK names yet.
+outcome codes and `ConfidenceSource` at the end are closed sets no CHECK names yet.
 """
 
 from __future__ import annotations
@@ -137,11 +137,12 @@ class EmbeddingTarget(StrEnum):
 
 
 class TaskUnitType(StrEnum):
-    """`ops.task.unit_type`."""
+    """`ops.task.unit_type`, `ops.policy_rule.unit_type`, and `Method.unit_type` (D4 §1)."""
 
     DOCUMENT = "document"
     RENDITION = "rendition"
     SEGMENT = "segment"
+    SPAN = "span"  # M12's unit: a `kb.span` row (D4 §1)
     OBSERVATION = "observation"
     ENTITY = "entity"
     CLAIM = "claim"
@@ -389,3 +390,20 @@ class FrameFailureReason(StrEnum):
     TEXT_DIFFERS = "text_differs"  # the sentence's text is not the recorded text
     NOT_IN_FRAME = "not_in_frame"  # a batch cites a sentence id its own frame lacks
     NOT_IN_PACKET = "not_in_packet"  # the served packet has no entry with that locator and text
+
+
+class ConfidenceSource(StrEnum):
+    """The D5 §6.2 source a method's observations contribute to confidence: each registered
+    method declares one (or none), and the policy's confidence blocks are keyed by it (D6 §7.1).
+    Hand-declared by P0-O-0 (members provisional; M1 takes it over with the same members). A
+    source's states (`supports`, `silent`, `not_run`, …; `local_llm`'s `supports_full` and
+    `supports_core`) are not members."""
+
+    ENCODERS = "encoders"  # M06, M07 (one shared encoder)
+    PATTERNS = "patterns"  # M08
+    LOCAL_LLM = "local_llm"  # M10
+    AGENT = "agent"  # M24 (extract)
+    LOCAL_LLM_JUDGE = "local_llm_judge"  # M16
+    RULES = "rules"  # M19
+    VERIFIERS = "verifiers"  # M20, M21
+    AUTHOR_MARKUP = "author_markup"  # M01

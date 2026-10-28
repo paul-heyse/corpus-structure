@@ -100,8 +100,11 @@ VALUES["authored"] = [
 ]
 VALUES["stored"] = [
     *_SHARED,
-    ({"t": "phrase", "text": "Roughly", "start": 0, "end": 7},
-     {"t": "phrase", "text": "roughly"}, 0),
+    (
+        {"t": "phrase", "text": "Roughly", "start": 0, "end": 7},
+        {"t": "phrase", "text": "roughly"},
+        0,
+    ),
 ]
 
 MEMBER = {"op": "member", "x": {"t": "formula", "latex": "a"}, "set": SET}
