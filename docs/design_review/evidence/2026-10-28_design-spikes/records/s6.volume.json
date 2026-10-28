@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "id": "s6.volume",
+  "title": "Binary COPY at run scale and index-backed queries",
+  "group": "S6 Storage smoke",
+  "package": "S6-E",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How fast do binary COPY writes of 100,000 observations and 20,000 claims go, and do the D3 queries stay index-backed at run scale (D3 §11)?",
+  "answers": [
+    "D3 §11",
+    "D6 §3",
+    "P0-F-4"
+  ],
+  "method": "A finished full run of 2,500 synthetic units: 12,500 tasks, 100,000 observations in the D3 §6.2 shapes (16 mention, 8 relation, 8 scope, 7 value, 1 claim_proposal per unit; proposals are the v1 reference batches cycled), 5,000 entities, 20,000 claims with v1 qualifiers, supports and evidence; all by binary COPY with Copy.set_types; queries at that volume; run deletion at volume. No S2 or S3 outputs exist yet, so payloads are synthetic. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6e_volume.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6e_volume.py",
+      "role": "script",
+      "sha256": "41d27b7769ef872f00db3cceb2a213cc55d9f83999d86bb5fa63abe6315730ac"
+    },
+    {
+      "path": "results/s0r2/reference_v1",
+      "role": "proposal batches and claim qualifiers",
+      "sha256": "43860b19cd349555c731dadf188ab36c0e57c452cb4723a03a471974bd5b3bab"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/volume.tsv",
+      "role": "timings",
+      "sha256": "4f1febdfdf4c3dcae07406c9288b810b8e9610b75cc202b50e0cd58bcbb592bc"
+    },
+    {
+      "path": "results/s6/volume.md",
+      "role": "plans",
+      "sha256": "cf6ab4ae19792526563affb3a7234692b47b54c91a94d2be043d061a8cca0616"
+    },
+    {
+      "path": "results/s6/volume.json",
+      "role": "figures",
+      "sha256": "7cebc1c1ef57c14e10f1a873e5525d3777dbb495cfa1f2d91b031ee058dd7d61"
+    },
+    {
+      "path": "results/s6/run_deletion_volume.md",
+      "role": "deletion at volume",
+      "sha256": "8d4253c98ac502e06f59a80d9993702c63efadf6fe0f7ca8248ec80c239ae031"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s6.constraints"
+  ],
+  "results": [
+    {
+      "name": "copy_observations_ms",
+      "value": 1109.7,
+      "of": 100000,
+      "unit": "ms",
+      "note": "90116 rows/s; mean payload 297 B (mention mean 138 B; relation mean 205 B; scope mean 238 B; value mean 262 B; claim_proposal mean 4295 B)"
+    },
+    {
+      "name": "copy_claims_ms",
+      "value": 228.6,
+      "of": 20000,
+      "unit": "ms",
+      "note": null
+    },
+    {
+      "name": "copy_tasks_ms",
+      "value": 103.4,
+      "of": 12500,
+      "unit": "ms",
+      "note": null
+    },
+    {
+      "name": "float8_into_real_binary_copy",
+      "value": "22P03: incorrect binary data format",
+      "of": null,
+      "unit": null,
+      "note": "D6 §3's note confirmed: a real column needs float4"
+    },
+    {
+      "name": "str_into_declared_jsonb",
+      "value": "accepted",
+      "of": null,
+      "unit": null,
+      "note": "dumped as a JSON string, not parsed: pass dicts"
+    },
+    {
+      "name": "qualifier_query_ms",
+      "value": 1.001,
+      "of": null,
+      "unit": "ms",
+      "note": "claim_pred bitmap scan, 1,410 rows"
+    },
+    {
+      "name": "why_a_method_ran_ms",
+      "value": 0.559,
+      "of": null,
+      "unit": "ms",
+      "note": "seq scan of ops.task on unit_key (no index); fine at 10^4 tasks per run"
+    },
+    {
+      "name": "run_observation_by_kind_ms",
+      "value": 17.931,
+      "of": null,
+      "unit": "ms",
+      "note": null
+    },
+    {
+      "name": "run_deletion_ms",
+      "value": 260.8,
+      "of": null,
+      "unit": "ms",
+      "note": "5,000 entities and 20,000 claims with cascades; RI checks on claim subject/object/statement by skip scan; run and tasks kept"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Binary COPY writes 100,000 observations in about 1.1 s and 20,000 claims in about 0.2 s on the interim cluster; D6 §3's float4 requirement holds. At run scale the qualifier query is carried by claim_pred without a GIN index and stays near 1 ms; 'why a method ran' scans the run's tasks for lack of a unit_key index, under 1 ms at 12,500 tasks; deleting a run's 25,000 materialized rows takes about 0.27 s and keeps its run and tasks.",
+  "consumed_by": [
+    "P0-F-4",
+    "P0-O-1",
+    "S6-G"
+  ]
+}

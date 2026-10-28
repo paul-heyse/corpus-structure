@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "id": "s6.sizes",
+  "title": "Table, index and segment-text sizes",
+  "group": "S6 Storage smoke",
+  "package": "S6-E",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How large are D3's tables and indexes at run scale, and what share does kb.segment.text take? (OPEN-D3-3)",
+  "answers": [
+    "OPEN-D3-3",
+    "D3 §11"
+  ],
+  "method": "pg_table_size, pg_indexes_size and pg_total_relation_size of every table and index after the volume load and before its deletion; pg_column_size and octet_length of kb.segment.text and kb.rendition.canonical_text. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6e_volume.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6e_volume.py",
+      "role": "script",
+      "sha256": "41d27b7769ef872f00db3cceb2a213cc55d9f83999d86bb5fa63abe6315730ac"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/sizes.tsv",
+      "role": "sizes",
+      "sha256": "e2c111d876710fe057d66bd2149ec7326034d0ac96dde0a4b390582ab4f05a6a"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s6.volume"
+  ],
+  "results": [
+    {
+      "name": "four_schemas_total_bytes",
+      "value": 77283328,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "observation_total_bytes",
+      "value": 49102848,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "claim_total_bytes",
+      "value": 11968512,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "segment_text_bytes",
+      "value": 316429,
+      "of": null,
+      "unit": "bytes",
+      "note": "stored bytes (raw 421588); 13.2% of kb.segment with its indexes; 0.41% of the four schemas at volume"
+    },
+    {
+      "name": "segment_text_bm25_kinds_bytes",
+      "value": 74599,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "canonical_text_bytes_stored",
+      "value": 24527,
+      "of": null,
+      "unit": "bytes",
+      "note": "stored bytes, TOAST-compressed (raw 66645); raw segment text is 6.3x the raw canonical text (every level of the tree, sentences included, repeats it)"
+    },
+    {
+      "name": "bm25_index_bytes",
+      "value": 237568,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "segment_text_per_unit_bytes",
+      "value": 2552,
+      "of": null,
+      "unit": "bytes",
+      "note": "segment text bytes per author unit on the four pages (124 units) vs observation payload bytes per volume unit (11608 at 40 observations per unit)"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Segment text is small beside what a run writes: about 2.6 kB per author unit against about 11.6 kB of observation payload per unit, 0.4% of the database at run scale. It is 6.3 times the raw canonical text, because every tree level and every sentence repeats it; the BM25 kinds alone are 74 kB on the four pages. OPEN-D3-3 stays closed by mechanism, with the sizes to support keeping the column.",
+  "consumed_by": [
+    "P0-F-4",
+    "OPEN-D3-3",
+    "S6-G"
+  ]
+}

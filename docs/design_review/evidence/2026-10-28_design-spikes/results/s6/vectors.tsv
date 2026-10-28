@@ -1,0 +1,27 @@
+dim	index	iterative_scan	query	median_ms	p95_ms	recall_at_10	build_ms	index_bytes	plan_uses
+1024	(copy)		10000 rows	144.5				29073408	
+1024	global hnsw (D3) (planner's choice)	off	top-10 paragraph segments, one config	0.684	0.787	1.0	3670.2	27320320	no hnsw index scan
+1024	global hnsw (D3) (planner's choice)	relaxed_order	top-10 paragraph segments, one config	0.679	0.735	1.0	3670.2	27320320	no hnsw index scan
+1024	global hnsw (D3) (planner's choice)	strict_order	top-10 paragraph segments, one config	0.693	0.754	1.0	3670.2	27320320	no hnsw index scan
+1024	global hnsw (D3) (forced)	off	top-10 paragraph segments, one config	0.5	0.764	0.15	3670.2	27320320	->  Index Scan using embedding_hnsw on embedding e
+1024	global hnsw (D3) (forced)	relaxed_order	top-10 paragraph segments, one config	2.496	3.252	0.868	3670.2	27320320	->  Index Scan using embedding_hnsw on embedding e
+1024	global hnsw (D3) (forced)	strict_order	top-10 paragraph segments, one config	3.198	3.843	0.464	3670.2	27320320	->  Index Scan using embedding_hnsw on embedding e
+1024	partial hnsw per target_type (planner's choice)	off	top-10 paragraph segments, one config	0.674	0.843	1.0	3090.7	27344896	no hnsw index scan
+1024	partial hnsw per target_type (planner's choice)	relaxed_order	top-10 paragraph segments, one config	0.676	0.768	1.0	3090.7	27344896	no hnsw index scan
+1024	partial hnsw per target_type (planner's choice)	strict_order	top-10 paragraph segments, one config	0.674	0.809	1.0	3090.7	27344896	no hnsw index scan
+1024	partial hnsw per target_type (forced)	off	top-10 paragraph segments, one config	0.448	0.693	0.162	3090.7	27344896	->  Index Scan using embedding_hnsw_segment on embedding e
+1024	partial hnsw per target_type (forced)	relaxed_order	top-10 paragraph segments, one config	1.6	2.134	0.84	3090.7	27344896	->  Index Scan using embedding_hnsw_segment on embedding e
+1024	partial hnsw per target_type (forced)	strict_order	top-10 paragraph segments, one config	1.878	2.439	0.466	3090.7	27344896	->  Index Scan using embedding_hnsw_segment on embedding e
+2048	(copy)		10000 rows	194.1				56606720	
+2048	global hnsw (D3) (planner's choice)	off	top-10 paragraph segments, one config	0.789	1.213	1.0	7190.5	81928192	no hnsw index scan
+2048	global hnsw (D3) (planner's choice)	relaxed_order	top-10 paragraph segments, one config	0.765	0.876	1.0	7190.5	81928192	no hnsw index scan
+2048	global hnsw (D3) (planner's choice)	strict_order	top-10 paragraph segments, one config	0.754	0.879	1.0	7190.5	81928192	no hnsw index scan
+2048	global hnsw (D3) (forced)	off	top-10 paragraph segments, one config	0.753	1.026	0.146	7190.5	81928192	->  Index Scan using embedding_2048_hnsw on embedding_2048 e
+2048	global hnsw (D3) (forced)	relaxed_order	top-10 paragraph segments, one config	3.428	4.731	0.842	7190.5	81928192	->  Index Scan using embedding_2048_hnsw on embedding_2048 e
+2048	global hnsw (D3) (forced)	strict_order	top-10 paragraph segments, one config	4.488	5.371	0.406	7190.5	81928192	->  Index Scan using embedding_2048_hnsw on embedding_2048 e
+2048	partial hnsw per target_type (planner's choice)	off	top-10 paragraph segments, one config	0.745	0.828	1.0	6143.7	81944576	no hnsw index scan
+2048	partial hnsw per target_type (planner's choice)	relaxed_order	top-10 paragraph segments, one config	0.749	0.816	1.0	6143.7	81944576	no hnsw index scan
+2048	partial hnsw per target_type (planner's choice)	strict_order	top-10 paragraph segments, one config	0.76	0.808	1.0	6143.7	81944576	no hnsw index scan
+2048	partial hnsw per target_type (forced)	off	top-10 paragraph segments, one config	0.771	0.978	0.224	6143.7	81944576	->  Index Scan using embedding_2048_hnsw_segment on embedding_2048 e
+2048	partial hnsw per target_type (forced)	relaxed_order	top-10 paragraph segments, one config	2.619	3.521	0.802	6143.7	81944576	->  Index Scan using embedding_2048_hnsw_segment on embedding_2048 e
+2048	partial hnsw per target_type (forced)	strict_order	top-10 paragraph segments, one config	3.188	4.025	0.448	6143.7	81944576	->  Index Scan using embedding_2048_hnsw_segment on embedding_2048 e

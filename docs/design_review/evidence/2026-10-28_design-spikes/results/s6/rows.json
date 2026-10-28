@@ -1,0 +1,331 @@
+{
+ "load_ms": 374.8,
+ "units": {
+  "T1": {
+   "task": 5,
+   "observation": 1,
+   "merged_globals": 0,
+   "evidence_rows": 12,
+   "misfits": []
+  },
+  "T2": {
+   "task": 6,
+   "observation": 2,
+   "merged_globals": 0,
+   "evidence_rows": 5,
+   "misfits": []
+  },
+  "T3": {
+   "task": 7,
+   "observation": 3,
+   "merged_globals": 1,
+   "evidence_rows": 5,
+   "misfits": []
+  },
+  "T4": {
+   "task": 8,
+   "observation": 4,
+   "merged_globals": 1,
+   "evidence_rows": 21,
+   "misfits": []
+  },
+  "U5": {
+   "task": 9,
+   "observation": 5,
+   "merged_globals": 1,
+   "evidence_rows": 12,
+   "misfits": []
+  },
+  "U6": {
+   "task": 10,
+   "observation": 6,
+   "merged_globals": 2,
+   "evidence_rows": 11,
+   "misfits": [
+    {
+     "unit": "U6",
+     "item": "e_last_result",
+     "kind": "entity",
+     "why": "Statement-typed entity without a kind (kb.entity CHECK (type = 'Statement') = (kind IS NOT NULL)); OPEN-D1-5 extref"
+    },
+    {
+     "unit": "U6",
+     "item": "c_follows",
+     "kind": "claim",
+     "why": "uses a misfit entity"
+    }
+   ]
+  },
+  "U7": {
+   "task": 11,
+   "observation": 7,
+   "merged_globals": 1,
+   "evidence_rows": 2,
+   "misfits": []
+  },
+  "U8": {
+   "task": 12,
+   "observation": 8,
+   "merged_globals": 1,
+   "evidence_rows": 3,
+   "misfits": []
+  },
+  "U9": {
+   "task": 13,
+   "observation": 9,
+   "merged_globals": 1,
+   "evidence_rows": 10,
+   "misfits": []
+  },
+  "U10": {
+   "task": 14,
+   "observation": 10,
+   "merged_globals": 0,
+   "evidence_rows": 11,
+   "misfits": []
+  },
+  "U11": {
+   "task": 15,
+   "observation": 11,
+   "merged_globals": 1,
+   "evidence_rows": 8,
+   "misfits": []
+  },
+  "U12": {
+   "task": 16,
+   "observation": 12,
+   "merged_globals": 1,
+   "evidence_rows": 6,
+   "misfits": []
+  }
+ },
+ "d1": 71,
+ "golden": {
+  "golden_set": 1,
+  "golden_run": 2,
+  "items": 163,
+  "context_items": 2
+ },
+ "run2": 3,
+ "reused_task": 58,
+ "late_task": 59,
+ "t3_run1_task": 7,
+ "late_observation": 14,
+ "checks": {
+  "counts": {
+   "eval.alignment": 1,
+   "eval.document_split": 5,
+   "eval.golden_item": 163,
+   "eval.golden_pass": 36,
+   "eval.golden_set": 1,
+   "eval.golden_unit": 12,
+   "eval.result": 1,
+   "kb.claim": 79,
+   "kb.claim_evidence": 116,
+   "kb.claim_link": 2,
+   "kb.claim_support": 77,
+   "kb.document": 5,
+   "kb.embedding": 0,
+   "kb.entity": 78,
+   "kb.entity_alias": 109,
+   "kb.entity_anchor": 81,
+   "kb.entity_mention": 65,
+   "kb.observation": 14,
+   "kb.rendition": 4,
+   "kb.rendition_build": 4,
+   "kb.segment": 2335,
+   "kb.span": 87,
+   "meta.compiled_artifact": 0,
+   "meta.guideline_version": 1,
+   "meta.project": 1,
+   "meta.schema_class": 0,
+   "meta.schema_enum": 0,
+   "meta.schema_rule": 0,
+   "meta.schema_slot": 0,
+   "meta.schema_version": 1,
+   "ops.debug_slice": 1,
+   "ops.experiment": 0,
+   "ops.intervention": 36,
+   "ops.measurement": 1,
+   "ops.method": 6,
+   "ops.method_config": 8,
+   "ops.policy_rule": 1,
+   "ops.policy_version": 1,
+   "ops.run": 3,
+   "ops.task": 59
+  },
+  "T3_C2": {
+   "predicate": "stat:defined_as",
+   "role": "definiens",
+   "condition_op": "and",
+   "members": [
+    [
+     "a",
+     "\\R"
+    ],
+    [
+     "b",
+     "\\R \\setminus \\{0\\}"
+    ]
+   ],
+   "ok": true
+  },
+  "T4": {
+   "claims": 17,
+   "ok": true,
+   "families": [
+    "lognormal distribution",
+    "normal distribution",
+    "standard lognormal distribution",
+    "standard normal distribution"
+   ]
+  },
+  "context_evidence": {
+   "claim": "U12 c_X_stdgamma",
+   "rows": [
+    [
+     "primary",
+     "\\( X \\) has the standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\)",
+     7103,
+     7191,
+     "sentence",
+     null
+    ]
+   ],
+   "unit_start": 7253,
+   "ok": true
+  },
+  "golden": {
+   "passes": {
+    "a": 12,
+    "b": 12,
+    "c": 12
+   },
+   "models": {
+    "a": "claude-sonnet-5.5",
+    "b": "claude-haiku-5.5",
+    "c": "claude-opus-5.5"
+   },
+   "tasks": 36,
+   "items": 163,
+   "context_items": 2,
+   "context_item_refs": [
+    [
+     "special/Gamma.html#mom1",
+     "claim",
+     "c_X_stdgamma"
+    ],
+    [
+     "special/Gamma.html#mom1",
+     "statement",
+     "st0"
+    ]
+   ],
+   "pass_c_after_a_and_b": true,
+   "units_out_of_order": [],
+   "splits": [
+    [
+     "siegrist_random/random/special/Gamma.html",
+     "dev",
+     "forced to dev: spike page"
+    ],
+    [
+     "siegrist_random/random/special/LocationScale.html",
+     "dev",
+     "forced to dev: spike page"
+    ],
+    [
+     "siegrist_random/random/special/LogNormal.html",
+     "dev",
+     "forced to dev: spike page"
+    ],
+    [
+     "siegrist_random/random/special/Normal.html",
+     "dev",
+     "forced to dev: spike page"
+    ],
+    [
+     "siegrist_random/random/special/Weibull.html",
+     "reserved",
+     "reserved: worked-example page (D7 §3.1)"
+    ]
+   ]
+  },
+  "run_observation": {
+   "run2_observations": [
+    3
+   ],
+   "t3_observation_via_reuse": true,
+   "late_observation_excluded": true,
+   "run1_observations": 13,
+   "run2_renditions": 4,
+   "ok": true
+  }
+ },
+ "constraints": {
+  "cases": 420,
+  "by_outcome": {
+   "passed": 420
+  },
+  "constraints_in_catalog": {
+   "c": 47,
+   "f": 83,
+   "u": 24,
+   "n": 275,
+   "p": 40
+  },
+  "failed": []
+ },
+ "run_deletion": {
+  "before": {
+   "kb.entity": 11,
+   "kb.claim": 8,
+   "kb.claim_link": 1,
+   "eval.alignment": 1,
+   "eval.result": 1,
+   "ops.task": 6,
+   "ops.measurement": 1,
+   "ops.run": 1,
+   "kb.claim_evidence": 10,
+   "kb.entity_alias": 18
+  },
+  "after": {
+   "kb.entity": 0,
+   "kb.claim": 0,
+   "kb.claim_link": 0,
+   "eval.alignment": 0,
+   "eval.result": 0,
+   "ops.task": 6,
+   "ops.measurement": 1,
+   "ops.run": 1,
+   "kb.claim_evidence": 0,
+   "kb.entity_alias": 0
+  },
+  "kept_run_before": {
+   "kb.entity": 67,
+   "kb.claim": 71,
+   "kb.claim_link": 1,
+   "eval.alignment": 0,
+   "eval.result": 0,
+   "ops.task": 17,
+   "ops.measurement": 0,
+   "ops.run": 1,
+   "kb.claim_evidence": 106,
+   "kb.entity_alias": 91
+  },
+  "kept_run_after": {
+   "kb.entity": 67,
+   "kb.claim": 71,
+   "kb.claim_link": 1,
+   "eval.alignment": 0,
+   "eval.result": 0,
+   "ops.task": 17,
+   "ops.measurement": 0,
+   "ops.run": 1,
+   "kb.claim_evidence": 106,
+   "kb.entity_alias": 91
+  },
+  "ms": 1.8,
+  "ok": true
+ }
+}

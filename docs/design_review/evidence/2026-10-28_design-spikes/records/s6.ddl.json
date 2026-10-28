@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "id": "s6.ddl",
+  "title": "D3 DDL applied as extracted, and the fixed copy",
+  "group": "S6 Storage smoke",
+  "package": "S6-A",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does D3's DDL (every sql block of §3–§8, extracted by script) apply on PostgreSQL 18.6 with pg_textsearch and vector, as a non-superuser in a database cloned from the template?",
+  "answers": [
+    "D3 §3",
+    "D3 §5",
+    "OPEN-D3-1",
+    "X2"
+  ],
+  "method": "Blocks extracted from D3 by code/s6_extract_ddl.py (SQL blocks identical in the baseline 35ea59a D3 and the working tree); applied statement by statement under savepoints as cs_s6_app; fixes applied in a copy from code/s6_ddl_fixes.py. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6_extract_ddl.py",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6a_ddl.py --sql s6_ddl.sql",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6a_ddl.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6_extract_ddl.py",
+      "role": "extractor",
+      "sha256": "99692853269ea2b2bc1809b63f540a80093b5e4ca35fee8e369a07a062733d9d"
+    },
+    {
+      "path": "code/s6_ddl_fixes.py",
+      "role": "fixes",
+      "sha256": "b7423f88e94b5adc1ddf73cca9042e911b75562e3a82250892d58cbffeab3205"
+    },
+    {
+      "path": "code/s6a_ddl.py",
+      "role": "apply script",
+      "sha256": "5f5d4df5ac8cbe9e7d042fd67785e01dee41bb33108fc54ee25621db1facbe0a"
+    },
+    {
+      "path": "code/s6_db.py",
+      "role": "database helpers",
+      "sha256": "2793ef417c3dfa03bc583521f105e4ec7d7aaa5897991dd50a06aea62ee8efb7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "code/s6_ddl.sql",
+      "role": "D3 DDL as extracted",
+      "sha256": "f9424e3075711ea60d5f41ec72979ea6c7feb85e07327226d9c35226cb844046"
+    },
+    {
+      "path": "code/s6_ddl_applied.sql",
+      "role": "applied copy",
+      "sha256": "8eaf80ea08f93e760cc139314ca4f16f30a3722e3e3a923e5f8777cd1506eda3"
+    },
+    {
+      "path": "code/s6_queries_d3.sql",
+      "role": "D3 query blocks",
+      "sha256": "ab0e1518be74036f6d9c406e6b7308cc47f0b38866f3927c9772fbf7b2f18885"
+    },
+    {
+      "path": "results/s6/ddl_fixes.md",
+      "role": "fixes with reasons",
+      "sha256": "7d8d76e724504f563387c1f324769492bd6ea1ac34426c7bc9a18d1f83590954"
+    },
+    {
+      "path": "results/s6/ddl_apply.json",
+      "role": "applied copy: server facts, catalog",
+      "sha256": "02968a20c6984d0b63370124442480ce2dea0d671a7ba6822e4f581905a8622e"
+    },
+    {
+      "path": "results/s6/ddl_apply_s6_ddl.json",
+      "role": "D3 as written: errors",
+      "sha256": "7dce00b7bc115d2363ea1d9c31ff985eed8d02c94b9cfc1dfd3d84c1906664f0"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu"
+  ],
+  "results": [
+    {
+      "name": "statements",
+      "value": 73,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "errors_as_written",
+      "value": 1,
+      "of": 73,
+      "unit": null,
+      "note": "CREATE INDEX segment_bm25: 22P02 invalid input syntax for type oid \"english\" (regconfig = unknown resolves to oid = oid)"
+    },
+    {
+      "name": "errors_fixed_copy",
+      "value": 0,
+      "of": 73,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "fixes",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "F1 (error) ts_config = 'english'::regconfig in the BM25 predicate, also needed in the repeated query predicate; F2 (gap) CHECK on kb.segment.kind with the D1 §3.2 kinds, which the column comment promises"
+    },
+    {
+      "name": "b7_columns_needed_fixes",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "golden_pass.model and inputs, split 'reserved', golden_item.context already in D3"
+    },
+    {
+      "name": "create_extension_as_app",
+      "value": "42501 permission denied (both)",
+      "of": null,
+      "unit": null,
+      "note": "D3 §3 premise holds: neither extension is trusted"
+    },
+    {
+      "name": "assertion_without_extension",
+      "value": "P0001 with the provisioning instruction",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "catalog",
+      "value": "40 tables, 3 views, 88 indexes",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "D3's DDL applies with one error fix and one gap fix: the regconfig literal in the BM25 partial index predicate needs ::regconfig (and so does every query repeating it), and kb.segment.kind gets the CHECK its comment promises. Everything else, the B7 columns included, applies as written by a non-superuser; the extension premises and the migration's assertion behave as D3 §3 says.",
+  "consumed_by": [
+    "P0-F-4",
+    "X2",
+    "S6-G",
+    "ADR-0016"
+  ]
+}

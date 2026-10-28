@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "id": "s6.queue",
+  "title": "The work queue under concurrency: claiming, fencing, expiry, LISTEN/NOTIFY",
+  "group": "S6 Storage smoke",
+  "package": "S6-E",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the D6 §3 claim statement with attempt fencing hold under concurrent worker processes, an abrupt kill and a stalled worker, and does LISTEN/NOTIFY with a timeout wake workers without lost wake-ups?",
+  "answers": [
+    "D3 §8",
+    "D6 §3",
+    "P0-O-1",
+    "OPEN-D8-1"
+  ],
+  "method": "10,000 pending tasks; worker processes with their own connections claiming batches of 50 with the D6 §3 / store note §4 statement (lease 2 s), completing in one transaction (fencing UPDATE on id and attempt, binary COPY of observations with Copy.set_types, outcome); W1 SIGKILLed holding its third batch; Z stalls 2.5 leases without renewing then tries to complete; W2 throughout, waiting on LISTEN cs_task_ready with a 1 s timeout; then 100 tasks with NOTIFY in the inserting transaction and 100 without. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6e_queue.py --log-dir <scratch>"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6e_queue.py",
+      "role": "script",
+      "sha256": "7768153ad28d4862cab2f7fa4297ccb7acd82a132e1974de7f4808cb4abec557"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/queue.md",
+      "role": "statements, plan, checks",
+      "sha256": "f522e826494e7676799815e2a135d1c77e1bc4df1a5186e517f581217960dd70"
+    },
+    {
+      "path": "results/s6/queue.json",
+      "role": "figures",
+      "sha256": "a61ff7c84d867e2a40d4f5b9edb1cbe1606d5c940a9d83bbae9a9b5cfdea772a"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s6.constraints"
+  ],
+  "results": [
+    {
+      "name": "tasks_done_once_with_one_observation",
+      "value": 10200,
+      "of": 10200,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "claims_while_previous_lease_live",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "reclaimed_tasks",
+      "value": 100,
+      "of": null,
+      "unit": null,
+      "note": "exactly W1's in-flight batch (50) and Z's batch (50), by the ordinary claim (no reaper), attempt 2"
+    },
+    {
+      "name": "stalled_worker_fenced_in",
+      "value": 0,
+      "of": 50,
+      "unit": null,
+      "note": "its late write committed no observation"
+    },
+    {
+      "name": "observation_attempt_mismatches",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "notify_commit_to_claim",
+      "value": 0.0,
+      "of": null,
+      "unit": "s",
+      "note": "below the client timer's resolution here; the notified batch done in 0.045 s"
+    },
+    {
+      "name": "silent_insert_to_claim",
+      "value": 0.686,
+      "of": null,
+      "unit": "s",
+      "note": "found by the timeout re-query (timeout 1 s)"
+    },
+    {
+      "name": "claim_plan",
+      "value": "BitmapOr of task_pending and task_lease, then a sort of every qualifying row before LIMIT",
+      "of": null,
+      "unit": null,
+      "note": "the OR keeps the claim off task_pending's (priority DESC, id) order"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The claim statement with attempt fencing holds: 10,200 tasks done exactly once, no claim while a lease was live, the killed worker's and the stalled worker's batches re-claimed only after expiry by the ordinary claim, and the stalled worker's late write fenced out with nothing committed. LISTEN before the re-check plus a timed wait wakes at once on NOTIFY and finds un-notified work at the timeout. The claim's OR across pending and expired rows plans as a BitmapOr plus a full sort of qualifying rows, cheap at 10⁴ pending tasks per stage but a candidate for two branches at larger queues.",
+  "consumed_by": [
+    "P0-O-1",
+    "S6-G"
+  ]
+}

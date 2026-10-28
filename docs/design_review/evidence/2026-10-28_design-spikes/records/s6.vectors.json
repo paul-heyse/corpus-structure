@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "id": "s6.vectors",
+  "title": "halfvec HNSW at 1024 and 2048 dimensions with a filtered join",
+  "group": "S6 Storage smoke",
+  "package": "S6-E",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do halfvec(1024) and halfvec(2048) with HNSW (global and one partial index per target_type) and hnsw.iterative_scan serve filtered top-10 queries joined on kb.segment.kind?",
+  "answers": [
+    "D3 §5 (phase 1)",
+    "OPEN-D3-2"
+  ],
+  "method": "10,000 random unit vectors per dimension (7,000 segment, 2,000 entity, 1,000 alias) by binary COPY with pgvector's halfvec; D3's global HNSW, then partial HNSW per target_type; 50 queries filtered to one configuration and paragraph segments; recall@10 against exact; iterative_scan off, relaxed_order, strict_order; the planner's choice and HNSW forced. Random vectors are a worst case for HNSW recall; S7 picks the model and dimension. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6e_vectors.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6e_vectors.py",
+      "role": "script",
+      "sha256": "7d0109ddf9a5614de8df8401038c315665eec90d11f8306d6e84a52f65b4c628"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/vectors.tsv",
+      "role": "timings, recall, sizes",
+      "sha256": "d449d147471591fd47a19bdc311aaaab559f5ccaf447a70d34d7b4912b9c372f"
+    },
+    {
+      "path": "results/s6/vectors.md",
+      "role": "plans",
+      "sha256": "e707176a29a973d40188f760bbefad33349b1fecd20f5d10836b1f63c215cba9"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s6.constraints"
+  ],
+  "results": [
+    {
+      "name": "planner_choice_at_10k",
+      "value": "exact scan (no HNSW), recall 1.0, about 0.7 ms",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "hnsw_build_ms_1024_global",
+      "value": 3670.2,
+      "of": null,
+      "unit": "ms",
+      "note": null
+    },
+    {
+      "name": "hnsw_build_ms_2048_global",
+      "value": 7190.5,
+      "of": null,
+      "unit": "ms",
+      "note": null
+    },
+    {
+      "name": "index_bytes_1024",
+      "value": 27320320,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "index_bytes_2048",
+      "value": 81928192,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "recall_forced_off_1024_partial",
+      "value": 0.162,
+      "of": null,
+      "unit": null,
+      "note": "post-filtering leaves most queries short of 10 results"
+    },
+    {
+      "name": "recall_forced_relaxed_1024_partial",
+      "value": 0.84,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "recall_forced_relaxed_2048_partial",
+      "value": 0.802,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "strict_order_recall_below_relaxed",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "strict_order about 0.4–0.5 against relaxed about 0.8–0.85 on random vectors"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Both dimensions load by binary COPY and index with halfvec HNSW (2048 builds about twice as long and three times larger). At 10,000 rows the planner prefers an exact scan for the selective filtered join, which is correct and sub-millisecond; forced through HNSW, the filtered query needs iterative_scan (relaxed_order raises recall@10 from about 0.15–0.2 to about 0.8–0.85), as D3 §5 plans. Partial per-type indexes build faster than the global one and answer the same way here; real embeddings, not random vectors, decide recall (S7).",
+  "consumed_by": [
+    "phase 1 (kb.embedding migration)",
+    "S7",
+    "OPEN-D3-2",
+    "S6-G"
+  ]
+}

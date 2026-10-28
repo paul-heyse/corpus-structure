@@ -1,0 +1,62 @@
+{
+ "version": "PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+ "settings": {
+  "data_directory": "/home/paul/corpus-structure/build/pg/data",
+  "default_text_search_config": "pg_catalog.english",
+  "io_method": "worker",
+  "jit": "on",
+  "maintenance_work_mem": "65536kB",
+  "max_parallel_maintenance_workers": "2",
+  "max_wal_size": "1024MB",
+  "port": "5440",
+  "shared_buffers": "163848kB",
+  "shared_preload_libraries": "pg_textsearch",
+  "work_mem": "4096kB"
+ },
+ "available_extensions": {
+  "vector": "0.8.7",
+  "pg_textsearch": "1.5.1"
+ },
+ "cluster": "project-local PG18 cluster (just db-up, scripts/local_pg.sh; socket build/pg/run, port 5440; pg_textsearch preloaded; developer superuser); system cluster on 5432 untouched",
+ "df_root": "/dev/nvme0n1p2  1.8T  1.7T  106G  95% /",
+ "at": "2026-10-28T15:58:38-0400",
+ "extensions": {
+  "pg_textsearch": "1.5.1",
+  "plpgsql": "1.0",
+  "vector": "0.8.7"
+ },
+ "premises": {
+  "create_extension_vector_as_app": "42501: permission denied to create extension \"vector\"",
+  "create_extension_pg_textsearch_as_app": "42501: permission denied to create extension \"pg_textsearch\"",
+  "assertion_without_extension": "P0001: pg_textsearch is missing: add it to shared_preload_libraries, restart, then as postgres run CREATE EXTENSION pg_textsearch in cs_template and clone the database from it"
+ },
+ "apply": {
+  "sql": "code/s6_ddl.sql",
+  "statements": 73,
+  "errors": [
+   {
+    "index": 25,
+    "statement": "CREATE INDEX segment_bm25 ON kb.segment USING bm25 (text) WITH (text_config = 'english')",
+    "sqlstate": "22P02",
+    "message": "invalid input syntax for type oid: \"english\"",
+    "detail": null,
+    "hint": null
+   }
+  ],
+  "ms": 96.4,
+  "catalog": {
+   "tables": 40,
+   "views": 3,
+   "indexes": 87,
+   "constraints_by_type": {
+    "c": 46,
+    "f": 83,
+    "n": 275,
+    "p": 40,
+    "u": 24
+   },
+   "bm25_index": null,
+   "owner_is_superuser": false
+  }
+ }
+}

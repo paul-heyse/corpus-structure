@@ -1,0 +1,420 @@
+{
+ "input": "results/s4/compiled/tables.json",
+ "schema_version": {
+  "content_hash": "0af28efdb3ddc863280f41fbe09c3e2122584e79dc4303300e2a602f54d1c85c",
+  "domain": "statistics",
+  "label": "0.2.0",
+  "source_files": [
+   "core/schema/core.yaml",
+   "core/schema/rules.yaml",
+   "statistics/reference/E1/batch.json",
+   "statistics/reference/E1/packet.md",
+   "statistics/reference/E2/batch.json",
+   "statistics/reference/E2/packet.md",
+   "statistics/reference/E3/batch.json",
+   "statistics/reference/E3/packet.md",
+   "statistics/schema/rules.yaml",
+   "statistics/schema/statistics.yaml"
+  ]
+ },
+ "content_hash_recomputed": "0af28efdb3ddc863280f41fbe09c3e2122584e79dc4303300e2a602f54d1c85c",
+ "content_hash_matches": true,
+ "compiled_artifact": [
+  {
+   "compiler": "json_schema",
+   "compiler_version": "s4-0.1",
+   "hash": "88ca862c41c3b9148a11af61fe3a514faf07d5f6019903453af1e34d9a540075",
+   "kind": "batch.model_facing",
+   "body_hash_recomputed_matches": true
+  },
+  {
+   "compiler": "json_schema",
+   "compiler_version": "s4-0.1",
+   "hash": "df2c5f8b7655270b1822afb70a0a9e56f5f6b47dbc91d60a27ed50817a979353",
+   "kind": "batch.stored",
+   "body_hash_recomputed_matches": true
+  },
+  {
+   "compiler": "json_schema",
+   "compiler_version": "s4-0.1",
+   "hash": "87e7eaeab4c27f500b04fbdb43b58aa2d61791ca8a78a4ca6f5f4c6d72ab3ea6",
+   "kind": "batch.decoding",
+   "body_hash_recomputed_matches": true
+  },
+  {
+   "compiler": "schema_tables",
+   "compiler_version": "s4-0.1",
+   "hash": "6b4f862465a6e78a69484b275ffcb7f25483184691fd8c670e6b3589627cfee8",
+   "kind": "tables",
+   "body_hash_recomputed_matches": true
+  }
+ ],
+ "inserted": {
+  "schema_class": {
+   "rows": 25,
+   "inserted": 25
+  },
+  "schema_slot": {
+   "rows": 97,
+   "inserted": 97
+  },
+  "schema_enum": {
+   "rows": 10,
+   "inserted": 10
+  },
+  "schema_rule": {
+   "rows": 16,
+   "inserted": 16
+  }
+ },
+ "rejected": [],
+ "trace_rows": {
+  "run": 27,
+  "entities": 67,
+  "claims": 70,
+  "misfits": [
+   {
+    "unit": "U6",
+    "item": "e_last_result",
+    "kind": "entity",
+    "why": "Statement-typed entity without a kind (kb.entity CHECK (type = 'Statement') = (kind IS NOT NULL)); OPEN-D1-5 extref"
+   },
+   {
+    "unit": "U6",
+    "item": "c_follows",
+    "kind": "claim",
+    "why": "uses a misfit entity"
+   }
+  ],
+  "rendition_selection": 4
+ },
+ "checks": {
+  "predicate not a predicate slot": [],
+  "entity type not equal to a schema_class name": [
+   [
+    "Concept",
+    1
+   ],
+   [
+    "DistributionFamily",
+    6
+   ],
+   [
+    "FamilyConstruction",
+    1
+   ],
+   [
+    "FamilyParameter",
+    11
+   ],
+   [
+    "RandomVariable",
+    27
+   ],
+   [
+    "Statement",
+    21
+   ]
+  ],
+  "entity type matching a class only once prefixed": [
+   [
+    "Concept",
+    1,
+    [
+     "stat:Concept"
+    ]
+   ],
+   [
+    "DistributionFamily",
+    6,
+    [
+     "stat:DistributionFamily"
+    ]
+   ],
+   [
+    "FamilyConstruction",
+    1,
+    [
+     "stat:FamilyConstruction"
+    ]
+   ],
+   [
+    "FamilyParameter",
+    11,
+    [
+     "stat:FamilyParameter"
+    ]
+   ],
+   [
+    "RandomVariable",
+    27,
+    [
+     "stat:RandomVariable"
+    ]
+   ],
+   [
+    "Statement",
+    21,
+    [
+     "core:Statement"
+    ]
+   ]
+  ],
+  "entity type with no class at all": [],
+  "subject type outside domain_class (with parents and mixins)": [],
+  "object entity type outside range": [],
+  "object kind differs from object_kind": [],
+  "qualifier key matching the slot's qualifiers only once prefixed": [
+   [
+    "stat:construction_formula",
+    "base_variable",
+    1
+   ],
+   [
+    "stat:construction_formula",
+    "param_symbols",
+    1
+   ],
+   [
+    "stat:has_distribution",
+    "param_values",
+    17
+   ],
+   [
+    "stat:transformation_of",
+    "param_mapping",
+    2
+   ],
+   [
+    "stat:transformation_of",
+    "transform",
+    3
+   ]
+  ],
+  "qualifier key not allowed for the predicate": [],
+  "row values outside the compiled enum": [],
+  "DDL CHECK lists against the compiled enums": {
+   "kb.claim.statement_role": {
+    "ddl": [
+     "conclusion",
+     "definiens",
+     "example_value",
+     "premise",
+     "restriction"
+    ],
+    "enum": [
+     "conclusion",
+     "definiens",
+     "example_value",
+     "premise",
+     "restriction"
+    ],
+    "equal": true
+   },
+   "kb.claim_evidence.role": {
+    "ddl": [
+     "condition",
+     "definition",
+     "primary",
+     "supporting"
+    ],
+    "enum": [
+     "condition",
+     "definition",
+     "primary",
+     "supporting"
+    ],
+    "equal": true
+   },
+   "kb.segment.parse_status": {
+    "ddl": [
+     "failed",
+     "ok",
+     "partial"
+    ],
+    "enum": [
+     "ambiguous",
+     "failed",
+     "ok",
+     "partial"
+    ],
+    "equal": false
+   }
+  },
+  "slot domain_class or range naming a class or enum only by its bare name (within the compiled rows)": [
+   [
+    "domain_class",
+    "BoolValue"
+   ],
+   [
+    "domain_class",
+    "Concept"
+   ],
+   [
+    "domain_class",
+    "DateValue"
+   ],
+   [
+    "domain_class",
+    "Distributed"
+   ],
+   [
+    "domain_class",
+    "DistributionFamily"
+   ],
+   [
+    "domain_class",
+    "Entity"
+   ],
+   [
+    "domain_class",
+    "EntityRef"
+   ],
+   [
+    "domain_class",
+    "EnumValue"
+   ],
+   [
+    "domain_class",
+    "FamilyConstruction"
+   ],
+   [
+    "domain_class",
+    "FamilyParameter"
+   ],
+   [
+    "domain_class",
+    "Formula"
+   ],
+   [
+    "domain_class",
+    "IntervalValue"
+   ],
+   [
+    "domain_class",
+    "MapEntry"
+   ],
+   [
+    "domain_class",
+    "NumberValue"
+   ],
+   [
+    "domain_class",
+    "Parameterized"
+   ],
+   [
+    "domain_class",
+    "PhraseValue"
+   ],
+   [
+    "domain_class",
+    "RandomVariable"
+   ],
+   [
+    "domain_class",
+    "Statement"
+   ],
+   [
+    "domain_class",
+    "SymbolBinding"
+   ],
+   [
+    "domain_class",
+    "TextValue"
+   ],
+   [
+    "range",
+    "BindKind"
+   ],
+   [
+    "range",
+    "ClaimModality"
+   ],
+   [
+    "range",
+    "Condition"
+   ],
+   [
+    "range",
+    "DistributionFamily"
+   ],
+   [
+    "range",
+    "Entity"
+   ],
+   [
+    "range",
+    "FamilyConstruction"
+   ],
+   [
+    "range",
+    "FamilyParameter"
+   ],
+   [
+    "range",
+    "Formula"
+   ],
+   [
+    "range",
+    "IntervalValue"
+   ],
+   [
+    "range",
+    "ParamMapping"
+   ],
+   [
+    "range",
+    "ParamValue"
+   ],
+   [
+    "range",
+    "ParameterRole"
+   ],
+   [
+    "range",
+    "Parameterized"
+   ],
+   [
+    "range",
+    "ParseStatus"
+   ],
+   [
+    "range",
+    "PhraseValue"
+   ],
+   [
+    "range",
+    "Polarity"
+   ],
+   [
+    "range",
+    "RandomVariable"
+   ],
+   [
+    "range",
+    "ScopeExtent"
+   ],
+   [
+    "range",
+    "SetExpr"
+   ],
+   [
+    "range",
+    "Statement"
+   ],
+   [
+    "range",
+    "StatementKind"
+   ],
+   [
+    "range",
+    "SymbolBinding"
+   ],
+   [
+    "range",
+    "Value"
+   ]
+  ],
+  "value-class attribute rows (named <prefix>:<Class>.<attr>)": 29
+ }
+}

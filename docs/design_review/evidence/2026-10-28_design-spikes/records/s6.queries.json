@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "id": "s6.queries",
+  "title": "D3 §9 patterns and the D8 §5.3 trace questions on the v1 rows",
+  "group": "S6 Storage smoke",
+  "package": "S6-C",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do D3 §9's query patterns and the D8 §5.3 trace questions return what they should on the v1 rows, and with which plans?",
+  "answers": [
+    "D3 §9",
+    "D8 §5.3",
+    "P0-C-2"
+  ],
+  "method": "D3 §9 texts read from code/s6_queries_d3.sql; D8 §5.3 as SQL sketches over them; rows mapped back to v1 local refs and trace C-refs; median of 7 client timings and EXPLAIN ANALYZE plans on run 1. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6c_queries.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6c_queries.py",
+      "role": "script",
+      "sha256": "91bf506222b89a5968a58ad7d49578960ab96ca5e3dac067ffc64cd60e18a4c2"
+    },
+    {
+      "path": "code/s6_queries_d3.sql",
+      "role": "D3 query blocks",
+      "sha256": "ab0e1518be74036f6d9c406e6b7308cc47f0b38866f3927c9772fbf7b2f18885"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/queries.md",
+      "role": "rows, times, plans, differences",
+      "sha256": "8ba0ce7e0adc37a0a1b9ebcbe2a0355884d0b5ef58715ee21c8c4e8e73687456"
+    },
+    {
+      "path": "results/s6/queries.json",
+      "role": "figures",
+      "sha256": "9b181c4dd4e3d61b31b27e0dd4df1e6fba6bd083c1e26971c58ffef041fc9c18"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s6.constraints"
+  ],
+  "results": [
+    {
+      "name": "d3_patterns_run",
+      "value": 9,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "d8_questions_missing_expected_rows",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "all six questions return every expected trace claim"
+    },
+    {
+      "name": "family_profile_normal_d3_pattern_rows",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "T2's answer lives on FamilyParameter entities whose identity names the family; D3 §9 needs that branch"
+    },
+    {
+      "name": "qualifier_query_carried_by_claim_pred",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "evidence_unit_id_null",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "seg.attrs->>'id' reads the span's smallest segment (sentence); needs an ancestor lookup"
+    },
+    {
+      "name": "statement_by_unit_locator_reaches_lead_in",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "T1's C1 sits in the lead-in paragraph outside #dfn1"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Every D3 §9 pattern returns its rows in under 2 ms on the trace data, and every D8 §5.3 question returns all its expected trace claims (extra rows come from other core units and the derived D1). Corrections for the design owner: family_profile needs the FamilyParameter branch, the evidence query's unit_id needs an ancestor lookup, and statement(page#unit) cannot reach a lead-in assumption.",
+  "consumed_by": [
+    "P0-F-4",
+    "P0-C-2",
+    "S6-G",
+    "design-phase plan (D8 §5.3)"
+  ]
+}

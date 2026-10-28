@@ -1,0 +1,1405 @@
+{
+ "d3": {
+  "family_profile(normal)": {
+   "rows": 1,
+   "ms": 0.111,
+   "plan": [
+    "Nested Loop Left Join (actual rows=1.00 loops=1)",
+    "  Buffers: shared hit=9",
+    "  ->  Hash Join (actual rows=1.00 loops=1)",
+    "        Hash Cond: (c.subject_id = s.id)",
+    "        Buffers: shared hit=7",
+    "        ->  Seq Scan on claim c (actual rows=71.00 loops=1)",
+    "              Filter: ((status = ANY ('{accepted,candidate}'::text[])) AND (run_id = '1'::smallint))",
+    "              Buffers: shared hit=5",
+    "        ->  Hash (actual rows=1.00 loops=1)",
+    "              Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "              Buffers: shared hit=2",
+    "              ->  Seq Scan on entity s (actual rows=1.00 loops=1)",
+    "                    Filter: ((type = 'DistributionFamily'::text) AND (key = 'ent:b82780ee4a41fab164fb1d171450d35a'::text))",
+    "                    Rows Removed by Filter: 66",
+    "                    Buffers: shared hit=2",
+    "  ->  Index Scan using entity_pkey on entity o (actual rows=1.00 loops=1)",
+    "        Index Cond: (id = c.object_entity_id)",
+    "        Index Searches: 1",
+    "        Buffers: shared hit=2",
+    "Planning:",
+    "  Buffers: shared hit=4",
+    "Planning Time: 0.051 ms",
+    "Execution Time: 0.021 ms"
+   ]
+  },
+  "family_profile(lognormal)": {
+   "rows": 4,
+   "ms": 0.135,
+   "plan": [
+    "Nested Loop Left Join (actual rows=4.00 loops=1)",
+    "  Buffers: shared hit=15",
+    "  ->  Hash Join (actual rows=4.00 loops=1)",
+    "        Hash Cond: (c.subject_id = s.id)",
+    "        Buffers: shared hit=7",
+    "        ->  Seq Scan on claim c (actual rows=71.00 loops=1)",
+    "              Filter: ((status = ANY ('{accepted,candidate}'::text[])) AND (run_id = '1'::smallint))",
+    "              Buffers: shared hit=5",
+    "        ->  Hash (actual rows=1.00 loops=1)",
+    "              Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "              Buffers: shared hit=2",
+    "              ->  Seq Scan on entity s (actual rows=1.00 loops=1)",
+    "                    Filter: ((type = 'DistributionFamily'::text) AND (key = 'ent:3eebf26bd56404b7adb59446e36f6045'::text))",
+    "                    Rows Removed by Filter: 66",
+    "                    Buffers: shared hit=2",
+    "  ->  Index Scan using entity_pkey on entity o (actual rows=1.00 loops=4)",
+    "        Index Cond: (id = c.object_entity_id)",
+    "        Index Searches: 4",
+    "        Buffers: shared hit=8",
+    "Planning:",
+    "  Buffers: shared hit=4",
+    "Planning Time: 0.058 ms",
+    "Execution Time: 0.021 ms"
+   ]
+  },
+  "statement reconstruction (T3 theorem)": {
+   "rows": 4,
+   "ms": 0.072,
+   "plan": [
+    "Sort (actual rows=4.00 loops=1)",
+    "  Sort Key: (CASE statement_role WHEN 'premise'::text THEN 0 WHEN 'definiens'::text THEN 1 WHEN 'restriction'::text THEN 2 ELSE 3 END)",
+    "  Sort Method: quicksort  Memory: 29kB",
+    "  Buffers: shared hit=5",
+    "  ->  Seq Scan on claim c (actual rows=4.00 loops=1)",
+    "        Filter: ((run_id = '1'::smallint) AND (statement_id = '15'::smallint))",
+    "        Rows Removed by Filter: 67",
+    "        Buffers: shared hit=5",
+    "Planning Time: 0.012 ms",
+    "Execution Time: 0.008 ms"
+   ]
+  },
+  "statement reconstruction (T4 definition)": {
+   "rows": 17,
+   "ms": 0.076,
+   "plan": [
+    "Sort (actual rows=17.00 loops=1)",
+    "  Sort Key: (CASE statement_role WHEN 'premise'::text THEN 0 WHEN 'definiens'::text THEN 1 WHEN 'restriction'::text THEN 2 ELSE 3 END)",
+    "  Sort Method: quicksort  Memory: 29kB",
+    "  Buffers: shared hit=5",
+    "  ->  Seq Scan on claim c (actual rows=17.00 loops=1)",
+    "        Filter: ((run_id = '1'::smallint) AND (statement_id = '20'::smallint))",
+    "        Rows Removed by Filter: 54",
+    "        Buffers: shared hit=5",
+    "Planning Time: 0.012 ms",
+    "Execution Time: 0.009 ms"
+   ]
+  },
+  "claims with qualifier param_values.variance": {
+   "rows": 5,
+   "ms": 0.034,
+   "plan": [
+    "Seq Scan on claim (actual rows=5.00 loops=1)",
+    "  Filter: ((qualifiers @? '$.\"param_values\".\"variance\"'::jsonpath) AND (run_id = '1'::smallint) AND (predicate = 'stat:has_distribution'::text))",
+    "  Rows Removed by Filter: 66",
+    "  Buffers: shared hit=5",
+    "Planning Time: 0.011 ms",
+    "Execution Time: 0.007 ms"
+   ]
+  },
+  "evidence for T3 C3": {
+   "rows": 2,
+   "ms": 0.083,
+   "plan": [
+    "Nested Loop (actual rows=2.00 loops=1)",
+    "  Buffers: shared hit=9",
+    "  ->  Hash Join (actual rows=2.00 loops=1)",
+    "        Hash Cond: (sp.id = ce.span_id)",
+    "        Buffers: shared hit=3",
+    "        ->  Seq Scan on span sp (actual rows=87.00 loops=1)",
+    "              Buffers: shared hit=2",
+    "        ->  Hash (actual rows=2.00 loops=1)",
+    "              Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "              Buffers: shared hit=1",
+    "              ->  Seq Scan on claim_evidence ce (actual rows=2.00 loops=1)",
+    "                    Filter: (claim_id = '14'::smallint)",
+    "                    Rows Removed by Filter: 104",
+    "                    Buffers: shared hit=1",
+    "  ->  Index Scan using segment_pkey on segment seg (actual rows=1.00 loops=2)",
+    "        Index Cond: (id = sp.segment_id)",
+    "        Index Searches: 2",
+    "        Buffers: shared hit=6",
+    "Planning:",
+    "  Buffers: shared hit=10",
+    "Planning Time: 0.042 ms",
+    "Execution Time: 0.013 ms"
+   ]
+  },
+  "evidence for U12 c_X_stdgamma (context premise, c1)": {
+   "rows": 1,
+   "ms": 0.076,
+   "plan": [
+    "Nested Loop (actual rows=1.00 loops=1)",
+    "  Buffers: shared hit=6",
+    "  ->  Hash Join (actual rows=1.00 loops=1)",
+    "        Hash Cond: (sp.id = ce.span_id)",
+    "        Buffers: shared hit=3",
+    "        ->  Seq Scan on span sp (actual rows=87.00 loops=1)",
+    "              Buffers: shared hit=2",
+    "        ->  Hash (actual rows=1.00 loops=1)",
+    "              Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "              Buffers: shared hit=1",
+    "              ->  Seq Scan on claim_evidence ce (actual rows=1.00 loops=1)",
+    "                    Filter: (claim_id = '67'::smallint)",
+    "                    Rows Removed by Filter: 105",
+    "                    Buffers: shared hit=1",
+    "  ->  Index Scan using segment_pkey on segment seg (actual rows=1.00 loops=1)",
+    "        Index Cond: (id = sp.segment_id)",
+    "        Index Searches: 1",
+    "        Buffers: shared hit=3",
+    "Planning:",
+    "  Buffers: shared hit=10",
+    "Planning Time: 0.041 ms",
+    "Execution Time: 0.011 ms"
+   ]
+  },
+  "coverage of the four pages": {
+   "rows": 1,
+   "ms": 0.36,
+   "plan": [
+    "GroupAggregate (actual rows=1.00 loops=1)",
+    "  Group Key: (CASE WHEN (t.finished_at <= r.finished_at) THEN t.status ELSE 'unresolved'::text END), (CASE WHEN (t.finished_at <= r.finished_at) THEN t.reason ELSE NULL::text END)",
+    "  Buffers: shared hit=192",
+    "  ->  Sort (actual rows=12.00 loops=1)",
+    "        Sort Key: (CASE WHEN (t.finished_at <= r.finished_at) THEN t.status ELSE 'unresolved'::text END), (CASE WHEN (t.finished_at <= r.finished_at) THEN t.reason ELSE NULL::text END), t.unit_key",
+    "        Sort Method: quicksort  Memory: 25kB",
+    "        Buffers: shared hit=192",
+    "        ->  Nested Loop (actual rows=12.00 loops=1)",
+    "              Join Filter: ((b.document_id = t_1.unit_id) AND (b.method_config_id = t_1.method_config_id))",
+    "              Rows Removed by Join Filter: 36",
+    "              Buffers: shared hit=192",
+    "              ->  Nested Loop (actual rows=48.00 loops=1)",
+    "                    Buffers: shared hit=96",
+    "                    ->  Nested Loop (actual rows=12.00 loops=1)",
+    "                          Buffers: shared hit=60",
+    "                          ->  Nested Loop (actual rows=12.00 loops=1)",
+    "                                Buffers: shared hit=4",
+    "                                ->  Seq Scan on run r (actual rows=1.00 loops=1)",
+    "                                      Filter: (id = '1'::smallint)",
+    "                                      Rows Removed by Filter: 2",
+    "                                      Buffers: shared hit=1",
+    "                                ->  Seq Scan on task t (actual rows=12.00 loops=1)",
+    "                                      Filter: ((run_id = '1'::smallint) AND (stage = 'propose'::text) AND (unit_type = 'segment'::text))",
+    "                                      Rows Removed by Filter: 47",
+    "                                      Buffers: shared hit=3",
+    "                          ->  Index Scan using segment_pkey on segment s (actual rows=1.00 loops=12)",
+    "                                Index Cond: (id = t.unit_id)",
+    "                                Index Searches: 12",
+    "                                Buffers: shared hit=46",
+    "                    ->  Seq Scan on task t_1 (actual rows=4.00 loops=12)",
+    "                          Filter: ((status = ANY ('{done,reused}'::text[])) AND (run_id = '1'::smallint) AND (stage = 'ingest'::text) AND (unit_type = 'document'::text))",
+    "                          Rows Removed by Filter: 55",
+    "                          Buffers: shared hit=36",
+    "              ->  Index Scan using rendition_build_rendition on rendition_build b (actual rows=1.00 loops=48)",
+    "                    Index Cond: (rendition_id = s.rendition_id)",
+    "                    Filter: (document_id = ANY ('{1,2,3,4}'::smallint[]))",
+    "                    Index Searches: 48",
+    "                    Buffers: shared hit=96",
+    "Planning:",
+    "  Buffers: shared hit=17",
+    "Planning Time: 0.170 ms",
+    "Execution Time: 0.111 ms"
+   ]
+  },
+  "why a method ran (T3's unit)": {
+   "rows": 2,
+   "ms": 0.127,
+   "plan": [
+    "Sort (actual rows=2.00 loops=1)",
+    "  Sort Key: t.id",
+    "  Sort Method: quicksort  Memory: 25kB",
+    "  Buffers: shared hit=6",
+    "  ->  Nested Loop Left Join (actual rows=2.00 loops=1)",
+    "        Join Filter: (pr.id = t.trigger_rule_id)",
+    "        Rows Removed by Join Filter: 1",
+    "        Buffers: shared hit=6",
+    "        ->  Hash Join (actual rows=2.00 loops=1)",
+    "              Hash Cond: (mc.method_id = m.id)",
+    "              Buffers: shared hit=5",
+    "              ->  Hash Join (actual rows=2.00 loops=1)",
+    "                    Hash Cond: (t.method_config_id = mc.id)",
+    "                    Buffers: shared hit=4",
+    "                    ->  Seq Scan on task t (actual rows=2.00 loops=1)",
+    "                          Filter: ((run_id = '1'::smallint) AND (unit_key = 'unit:5b96a7b488ae9dd5e0f664a95657c10c'::text))",
+    "                          Rows Removed by Filter: 57",
+    "                          Buffers: shared hit=3",
+    "                    ->  Hash (actual rows=8.00 loops=1)",
+    "                          Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "                          Buffers: shared hit=1",
+    "                          ->  Seq Scan on method_config mc (actual rows=8.00 loops=1)",
+    "                                Buffers: shared hit=1",
+    "              ->  Hash (actual rows=6.00 loops=1)",
+    "                    Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "                    Buffers: shared hit=1",
+    "                    ->  Seq Scan on method m (actual rows=6.00 loops=1)",
+    "                          Buffers: shared hit=1",
+    "        ->  Materialize (actual rows=1.00 loops=2)",
+    "              Storage: Memory  Maximum Storage: 17kB",
+    "              Buffers: shared hit=1",
+    "              ->  Seq Scan on policy_rule pr (actual rows=1.00 loops=1)",
+    "                    Buffers: shared hit=1",
+    "Planning:",
+    "  Buffers: shared hit=9",
+    "Planning Time: 0.053 ms",
+    "Execution Time: 0.016 ms"
+   ]
+  },
+  "qualifier_query_index": {
+   "chosen": [
+    "Seq Scan on claim (actual rows=5.00 loops=1)",
+    "  Filter: ((qualifiers @? '$.\"param_values\".\"variance\"'::jsonpath) AND (run_id = '1'::smallint) AND (predicate = 'stat:has_distribution'::text))",
+    "  Rows Removed by Filter: 66",
+    "  Buffers: shared hit=5",
+    "Planning Time: 0.011 ms",
+    "Execution Time: 0.007 ms"
+   ],
+   "seqscan_off": [
+    "Bitmap Heap Scan on claim (actual rows=5.00 loops=1)",
+    "  Recheck Cond: ((run_id = '1'::smallint) AND (predicate = 'stat:has_distribution'::text))",
+    "  Filter: (qualifiers @? '$.\"param_values\".\"variance\"'::jsonpath)",
+    "  Rows Removed by Filter: 17",
+    "  Heap Blocks: exact=5",
+    "  Buffers: shared hit=9",
+    "  ->  Bitmap Index Scan on claim_pred (actual rows=22.00 loops=1)",
+    "        Index Cond: ((run_id = '1'::smallint) AND (predicate = 'stat:has_distribution'::text))",
+    "        Index Searches: 1",
+    "        Buffers: shared hit=4",
+    "Planning Time: 0.048 ms",
+    "Execution Time: 0.031 ms"
+   ],
+   "claim_pred_used": true
+  }
+ },
+ "d8": {
+  "T1 statement(LocationScale#dfn1)": {
+   "rows": 7,
+   "ms": 1.184,
+   "expected": [
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+   ],
+   "missing": [],
+   "extra": [],
+   "plan": [
+    "Sort (actual rows=7.00 loops=1)",
+    "  Sort Key: st.kind, (CASE c.statement_role WHEN 'premise'::text THEN 0 WHEN 'definiens'::text THEN 1 WHEN 'restriction'::text THEN 2 ELSE 3 END), c.id",
+    "  Sort Method: quicksort  Memory: 25kB",
+    "  Buffers: shared hit=489",
+    "  ->  Hash Join (actual rows=7.00 loops=1)",
+    "        Hash Cond: (c.statement_id = st.id)",
+    "        Buffers: shared hit=489",
+    "        ->  Seq Scan on claim c (actual rows=71.00 loops=1)",
+    "              Filter: ((run_id = '1'::smallint) AND (status = 'accepted'::text))",
+    "              Buffers: shared hit=5",
+    "        ->  Hash (actual rows=1.00 loops=1)",
+    "              Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "              Buffers: shared hit=477",
+    "              ->  Subquery Scan on st (actual rows=1.00 loops=1)",
+    "                    Buffers: shared hit=477",
+    "                    ->  Unique (actual rows=1.00 loops=1)",
+    "                          Buffers: shared hit=477",
+    "                          ->  Sort (actual rows=3.00 loops=1)",
+    "                                Sort Key: e.id, e.kind",
+    "                                Sort Method: quicksort  Memory: 25kB",
+    "                                Buffers: shared hit=477",
+    "                                ->  Nested Loop (actual rows=3.00 loops=1)",
+    "                                      Join Filter: (b.rendition_id = seg.rendition_id)",
+    "                                      Buffers: shared hit=477",
+    "                                      ->  Nested Loop (actual rows=6.00 loops=1)",
+    "                                            Join Filter: ((b.document_id = t.unit_id) AND (b.method_config_id = t.method_config_id))",
+    "                                            Rows Removed by Join Filter: 40",
+    "                                            Buffers: shared hit=315",
+    "                                            ->  Nested Loop (actual rows=46.00 loops=1)",
+    "                                                  Buffers: shared hit=223",
+    "                                                  ->  Nested Loop (actual rows=46.00 loops=1)",
+    "                                                        Buffers: shared hit=51",
+    "                                                        ->  Nested Loop (actual rows=21.00 loops=1)",
+    "                                                              Buffers: shared hit=9",
+    "                                                              ->  Nested Loop (actual rows=1.00 loops=1)",
+    "                                                                    Join Filter: (d.id = t.unit_id)",
+    "                                                                    Rows Removed by Join Filter: 3",
+    "                                                                    Buffers: shared hit=7",
+    "                                                                    ->  Seq Scan on task t (actual rows=4.00 loops=1)",
+    "                                                                          Filter: ((status = ANY ('{done,reused}'::text[])) AND (stage = 'ingest'::text) AND (unit_type = 'document'::text) AND (run_id = '1'::smallint))",
+    "                                                                          Rows Removed by Filter: 55",
+    "                                                                          Buffers: shared hit=3",
+    "                                                                    ->  Seq Scan on document d (actual rows=1.00 loops=4)",
+    "                                                                          Filter: (source_uri = 'siegrist_random/random/special/LocationScale.html'::text)",
+    "                                                                          Rows Removed by Filter: 3",
+    "                                                                          Buffers: shared hit=4",
+    "                                                              ->  Seq Scan on entity e (actual rows=21.00 loops=1)",
+    "                                                                    Filter: ((run_id = '1'::smallint) AND (type = 'Statement'::text))",
+    "                                                                    Rows Removed by Filter: 46",
+    "                                                                    Buffers: shared hit=2",
+    "                                                        ->  Index Only Scan using entity_anchor_pkey on entity_anchor a (actual rows=2.19 loops=21)",
+    "                                                              Index Cond: (entity_id = e.id)",
+    "                                                              Heap Fetches: 46",
+    "                                                              Index Searches: 21",
+    "                                                              Buffers: shared hit=42",
+    "                                                  ->  Index Scan using segment_pkey on segment s (actual rows=1.00 loops=46)",
+    "                                                        Index Cond: (id = a.segment_id)",
+    "                                                        Index Searches: 46",
+    "                                                        Buffers: shared hit=155",
+    "                                            ->  Index Scan using rendition_build_rendition on rendition_build b (actual rows=1.00 loops=46)",
+    "                                                  Index Cond: (rendition_id = s.rendition_id)",
+    "                                                  Index Searches: 46",
+    "                                                  Buffers: shared hit=92",
+    "                                      ->  Index Scan using segment_kind on segment seg (actual rows=0.50 loops=6)",
+    "                                            Index Cond: ((rendition_id = s.rendition_id) AND (kind = 'unit'::text))",
+    "                                            Filter: ((s.start_offset >= start_offset) AND (s.end_offset <= end_offset) AND ((attrs ->> 'id'::text) = 'dfn1'::text))",
+    "                                            Rows Removed by Filter: 34",
+    "                                            Index Searches: 6",
+    "                                            Buffers: shared hit=162",
+    "        SubPlan 1",
+    "          ->  Aggregate (actual rows=1.00 loops=7)",
+    "                Buffers: shared hit=7",
+    "                ->  Seq Scan on claim_evidence ce (actual rows=1.43 loops=7)",
+    "                      Filter: (claim_id = c.id)",
+    "                      Rows Removed by Filter: 105",
+    "                      Buffers: shared hit=7",
+    "Planning:",
+    "  Buffers: shared hit=41",
+    "Planning Time: 0.848 ms",
+    "Execution Time: 0.189 ms"
+   ]
+  },
+  "T1 construction_profile(location-scale family)": {
+   "rows": 5,
+   "ms": 0.301,
+   "expected": [
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+   ],
+   "missing": [],
+   "extra": [],
+   "plan": [
+    "Sort (actual rows=5.00 loops=1)",
+    "  Sort Key: ('family'::text), c.id",
+    "  Sort Method: quicksort  Memory: 25kB",
+    "  Buffers: shared hit=18",
+    "  ->  Append (actual rows=5.00 loops=1)",
+    "        Buffers: shared hit=18",
+    "        ->  Nested Loop Left Join (actual rows=3.00 loops=1)",
+    "              Buffers: shared hit=11",
+    "              ->  Hash Join (actual rows=3.00 loops=1)",
+    "                    Hash Cond: (c.subject_id = s.id)",
+    "                    Buffers: shared hit=7",
+    "                    ->  Seq Scan on claim c (actual rows=71.00 loops=1)",
+    "                          Filter: ((status = ANY ('{accepted,candidate}'::text[])) AND (run_id = '1'::smallint))",
+    "                          Buffers: shared hit=5",
+    "                    ->  Hash (actual rows=1.00 loops=1)",
+    "                          Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "                          Buffers: shared hit=2",
+    "                          ->  Seq Scan on entity s (actual rows=1.00 loops=1)",
+    "                                Filter: (key = 'ent:e4348a6c8f312a5c5fe4069456a6a2d3'::text)",
+    "                                Rows Removed by Filter: 66",
+    "                                Buffers: shared hit=2",
+    "              ->  Index Scan using entity_pkey on entity o (actual rows=0.67 loops=3)",
+    "                    Index Cond: (id = c.object_entity_id)",
+    "                    Index Searches: 2",
+    "                    Buffers: shared hit=4",
+    "        ->  Nested Loop Left Join (actual rows=2.00 loops=1)",
+    "              Buffers: shared hit=7",
+    "              ->  Hash Join (actual rows=2.00 loops=1)",
+    "                    Hash Cond: (c_1.subject_id = p.id)",
+    "                    Buffers: shared hit=7",
+    "                    ->  Seq Scan on claim c_1 (actual rows=71.00 loops=1)",
+    "                          Filter: ((status = ANY ('{accepted,candidate}'::text[])) AND (run_id = '1'::smallint))",
+    "                          Buffers: shared hit=5",
+    "                    ->  Hash (actual rows=2.00 loops=1)",
+    "                          Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "                          Buffers: shared hit=2",
+    "                          ->  Seq Scan on entity p (actual rows=2.00 loops=1)",
+    "                                Filter: ((run_id = '1'::smallint) AND (type = 'FamilyParameter'::text) AND ((attrs ->> 'family'::text) = 'ent:e4348a6c8f312a5c5fe4069456a6a2d3'::text))",
+    "                                Rows Removed by Filter: 65",
+    "                                Buffers: shared hit=2",
+    "              ->  Index Scan using entity_pkey on entity o_1 (actual rows=0.00 loops=2)",
+    "                    Index Cond: (id = c_1.object_entity_id)",
+    "                    Index Searches: 0",
+    "Planning:",
+    "  Buffers: shared hit=8",
+    "Planning Time: 0.155 ms",
+    "Execution Time: 0.058 ms"
+   ]
+  },
+  "T2 family_profile(normal)": {
+   "rows": 3,
+   "ms": 0.285,
+   "expected": [
+    "C4",
+    "C5"
+   ],
+   "missing": [],
+   "extra": [
+    "U6/c_normal_from_std"
+   ],
+   "plan": [
+    "Sort (actual rows=3.00 loops=1)",
+    "  Sort Key: ('family'::text), c.id",
+    "  Sort Method: quicksort  Memory: 25kB",
+    "  Buffers: shared hit=20",
+    "  ->  Append (actual rows=3.00 loops=1)",
+    "        Buffers: shared hit=20",
+    "        ->  Nested Loop Left Join (actual rows=1.00 loops=1)",
+    "              Buffers: shared hit=9",
+    "              ->  Hash Join (actual rows=1.00 loops=1)",
+    "                    Hash Cond: (c.subject_id = s.id)",
+    "                    Buffers: shared hit=7",
+    "                    ->  Seq Scan on claim c (actual rows=71.00 loops=1)",
+    "                          Filter: ((status = ANY ('{accepted,candidate}'::text[])) AND (run_id = '1'::smallint))",
+    "                          Buffers: shared hit=5",
+    "                    ->  Hash (actual rows=1.00 loops=1)",
+    "                          Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "                          Buffers: shared hit=2",
+    "                          ->  Seq Scan on entity s (actual rows=1.00 loops=1)",
+    "                                Filter: (key = 'ent:b82780ee4a41fab164fb1d171450d35a'::text)",
+    "                                Rows Removed by Filter: 66",
+    "                                Buffers: shared hit=2",
+    "              ->  Index Scan using entity_pkey on entity o (actual rows=1.00 loops=1)",
+    "                    Index Cond: (id = c.object_entity_id)",
+    "                    Index Searches: 1",
+    "                    Buffers: shared hit=2",
+    "        ->  Nested Loop Left Join (actual rows=2.00 loops=1)",
+    "              Buffers: shared hit=11",
+    "              ->  Hash Join (actual rows=2.00 loops=1)",
+    "                    Hash Cond: (c_1.subject_id = p.id)",
+    "                    Buffers: shared hit=7",
+    "                    ->  Seq Scan on claim c_1 (actual rows=71.00 loops=1)",
+    "                          Filter: ((status = ANY ('{accepted,candidate}'::text[])) AND (run_id = '1'::smallint))",
+    "                          Buffers: shared hit=5",
+    "                    ->  Hash (actual rows=4.00 loops=1)",
+    "                          Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "                          Buffers: shared hit=2",
+    "                          ->  Seq Scan on entity p (actual rows=4.00 loops=1)",
+    "                                Filter: ((run_id = '1'::smallint) AND (type = 'FamilyParameter'::text) AND ((attrs ->> 'family'::text) = 'ent:b82780ee4a41fab164fb1d171450d35a'::text))",
+    "                                Rows Removed by Filter: 63",
+    "                                Buffers: shared hit=2",
+    "              ->  Index Scan using entity_pkey on entity o_1 (actual rows=1.00 loops=2)",
+    "                    Index Cond: (id = c_1.object_entity_id)",
+    "                    Index Searches: 2",
+    "                    Buffers: shared hit=4",
+    "Planning:",
+    "  Buffers: shared hit=8",
+    "Planning Time: 0.155 ms",
+    "Execution Time: 0.045 ms"
+   ]
+  },
+  "T3 transformations_of(normal)": {
+   "rows": 9,
+   "ms": 0.431,
+   "expected": [
+    "C1",
+    "C2",
+    "C3"
+   ],
+   "missing": [],
+   "extra": [
+    "U5/c_Xi_normal",
+    "U5/c_S_def",
+    "U5/c_S_normal",
+    "U5/c_S_mean",
+    "U5/c_S_var",
+    "T3/D1 (derived, D3 §10)"
+   ],
+   "plan": [
+    "Sort (actual rows=9.00 loops=1)",
+    "  Sort Key: (CASE c.statement_role WHEN 'premise'::text THEN 0 WHEN 'definiens'::text THEN 1 ELSE 2 END), c.id",
+    "  Sort Method: quicksort  Memory: 25kB",
+    "  Buffers: shared hit=27",
+    "  CTE concl",
+    "    ->  Nested Loop (actual rows=3.00 loops=1)",
+    "          Join Filter: (c_1.statement_id = c_2.statement_id)",
+    "          Buffers: shared hit=22",
+    "          ->  Nested Loop (actual rows=4.00 loops=1)",
+    "                Join Filter: (d.statement_id = c_2.statement_id)",
+    "                Rows Removed by Join Filter: 41",
+    "                Buffers: shared hit=12",
+    "                ->  Unique (actual rows=5.00 loops=1)",
+    "                      Buffers: shared hit=7",
+    "                      ->  Sort (actual rows=5.00 loops=1)",
+    "                            Sort Key: c_2.statement_id",
+    "                            Sort Method: quicksort  Memory: 25kB",
+    "                            Buffers: shared hit=7",
+    "                            ->  Nested Loop (actual rows=5.00 loops=1)",
+    "                                  Join Filter: (c_2.object_entity_id = o.id)",
+    "                                  Rows Removed by Join Filter: 5",
+    "                                  Buffers: shared hit=7",
+    "                                  ->  Seq Scan on entity o (actual rows=1.00 loops=1)",
+    "                                        Filter: (key = 'ent:b82780ee4a41fab164fb1d171450d35a'::text)",
+    "                                        Rows Removed by Filter: 66",
+    "                                        Buffers: shared hit=2",
+    "                                  ->  Seq Scan on claim c_2 (actual rows=10.00 loops=1)",
+    "                                        Filter: ((run_id = '1'::smallint) AND (predicate = 'stat:has_distribution'::text) AND (statement_role = 'premise'::text))",
+    "                                        Rows Removed by Filter: 61",
+    "                                        Buffers: shared hit=5",
+    "                ->  HashAggregate (actual rows=9.00 loops=5)",
+    "                      Group Key: d.statement_id, d.subject_id",
+    "                      Batches: 1  Memory Usage: 32kB",
+    "                      Buffers: shared hit=5",
+    "                      ->  Seq Scan on claim d (actual rows=9.00 loops=1)",
+    "                            Filter: ((run_id = '1'::smallint) AND (predicate = 'stat:defined_as'::text))",
+    "                            Rows Removed by Filter: 62",
+    "                            Buffers: shared hit=5",
+    "          ->  Index Scan using claim_subject on claim c_1 (actual rows=0.75 loops=4)",
+    "                Index Cond: ((run_id = '1'::smallint) AND (subject_id = d.subject_id))",
+    "                Filter: ((statement_role = 'conclusion'::text) AND (predicate = 'stat:has_distribution'::text) AND (statement_id = d.statement_id))",
+    "                Rows Removed by Filter: 2",
+    "                Index Searches: 4",
+    "                Buffers: shared hit=10",
+    "  ->  Hash Semi Join (actual rows=9.00 loops=1)",
+    "        Hash Cond: (c.statement_id = concl.statement_id)",
+    "        Buffers: shared hit=27",
+    "        ->  Seq Scan on claim c (actual rows=19.00 loops=1)",
+    "              Filter: ((run_id = '1'::smallint) AND ((ANY (subject_id = (hashed SubPlan 2).col1)) OR (statement_role = 'premise'::text)))",
+    "              Rows Removed by Filter: 52",
+    "              Buffers: shared hit=5",
+    "              SubPlan 2",
+    "                ->  CTE Scan on concl concl_1 (actual rows=3.00 loops=1)",
+    "                      Storage: Memory  Maximum Storage: 17kB",
+    "        ->  Hash (actual rows=3.00 loops=1)",
+    "              Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "              Buffers: shared hit=22",
+    "              ->  CTE Scan on concl (actual rows=3.00 loops=1)",
+    "                    Storage: Memory  Maximum Storage: 17kB",
+    "                    Buffers: shared hit=22",
+    "Planning Time: 0.211 ms",
+    "Execution Time: 0.075 ms"
+   ]
+  },
+  "T4 statement(LogNormal#dfn)": {
+   "rows": 17,
+   "ms": 1.192,
+   "expected": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8",
+    "C9",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17"
+   ],
+   "missing": [],
+   "extra": [],
+   "plan": [
+    "Sort (actual rows=17.00 loops=1)",
+    "  Sort Key: st.kind, (CASE c.statement_role WHEN 'premise'::text THEN 0 WHEN 'definiens'::text THEN 1 WHEN 'restriction'::text THEN 2 ELSE 3 END), c.id",
+    "  Sort Method: quicksort  Memory: 26kB",
+    "  Buffers: shared hit=499",
+    "  ->  Hash Join (actual rows=17.00 loops=1)",
+    "        Hash Cond: (c.statement_id = st.id)",
+    "        Buffers: shared hit=499",
+    "        ->  Seq Scan on claim c (actual rows=71.00 loops=1)",
+    "              Filter: ((run_id = '1'::smallint) AND (status = 'accepted'::text))",
+    "              Buffers: shared hit=5",
+    "        ->  Hash (actual rows=1.00 loops=1)",
+    "              Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "              Buffers: shared hit=477",
+    "              ->  Subquery Scan on st (actual rows=1.00 loops=1)",
+    "                    Buffers: shared hit=477",
+    "                    ->  Unique (actual rows=1.00 loops=1)",
+    "                          Buffers: shared hit=477",
+    "                          ->  Sort (actual rows=1.00 loops=1)",
+    "                                Sort Key: e.id, e.kind",
+    "                                Sort Method: quicksort  Memory: 25kB",
+    "                                Buffers: shared hit=477",
+    "                                ->  Nested Loop (actual rows=1.00 loops=1)",
+    "                                      Join Filter: (b.rendition_id = seg.rendition_id)",
+    "                                      Buffers: shared hit=477",
+    "                                      ->  Nested Loop (actual rows=6.00 loops=1)",
+    "                                            Join Filter: ((b.document_id = t.unit_id) AND (b.method_config_id = t.method_config_id))",
+    "                                            Rows Removed by Join Filter: 40",
+    "                                            Buffers: shared hit=315",
+    "                                            ->  Nested Loop (actual rows=46.00 loops=1)",
+    "                                                  Buffers: shared hit=223",
+    "                                                  ->  Nested Loop (actual rows=46.00 loops=1)",
+    "                                                        Buffers: shared hit=51",
+    "                                                        ->  Nested Loop (actual rows=21.00 loops=1)",
+    "                                                              Buffers: shared hit=9",
+    "                                                              ->  Nested Loop (actual rows=1.00 loops=1)",
+    "                                                                    Join Filter: (d.id = t.unit_id)",
+    "                                                                    Rows Removed by Join Filter: 3",
+    "                                                                    Buffers: shared hit=7",
+    "                                                                    ->  Seq Scan on task t (actual rows=4.00 loops=1)",
+    "                                                                          Filter: ((status = ANY ('{done,reused}'::text[])) AND (stage = 'ingest'::text) AND (unit_type = 'document'::text) AND (run_id = '1'::smallint))",
+    "                                                                          Rows Removed by Filter: 55",
+    "                                                                          Buffers: shared hit=3",
+    "                                                                    ->  Seq Scan on document d (actual rows=1.00 loops=4)",
+    "                                                                          Filter: (source_uri = 'siegrist_random/random/special/LogNormal.html'::text)",
+    "                                                                          Rows Removed by Filter: 4",
+    "                                                                          Buffers: shared hit=4",
+    "                                                              ->  Seq Scan on entity e (actual rows=21.00 loops=1)",
+    "                                                                    Filter: ((run_id = '1'::smallint) AND (type = 'Statement'::text))",
+    "                                                                    Rows Removed by Filter: 46",
+    "                                                                    Buffers: shared hit=2",
+    "                                                        ->  Index Only Scan using entity_anchor_pkey on entity_anchor a (actual rows=2.19 loops=21)",
+    "                                                              Index Cond: (entity_id = e.id)",
+    "                                                              Heap Fetches: 46",
+    "                                                              Index Searches: 21",
+    "                                                              Buffers: shared hit=42",
+    "                                                  ->  Index Scan using segment_pkey on segment s (actual rows=1.00 loops=46)",
+    "                                                        Index Cond: (id = a.segment_id)",
+    "                                                        Index Searches: 46",
+    "                                                        Buffers: shared hit=155",
+    "                                            ->  Index Scan using rendition_build_rendition on rendition_build b (actual rows=1.00 loops=46)",
+    "                                                  Index Cond: (rendition_id = s.rendition_id)",
+    "                                                  Index Searches: 46",
+    "                                                  Buffers: shared hit=92",
+    "                                      ->  Index Scan using segment_kind on segment seg (actual rows=0.17 loops=6)",
+    "                                            Index Cond: ((rendition_id = s.rendition_id) AND (kind = 'unit'::text))",
+    "                                            Filter: ((s.start_offset >= start_offset) AND (s.end_offset <= end_offset) AND ((attrs ->> 'id'::text) = 'dfn'::text))",
+    "                                            Rows Removed by Filter: 19",
+    "                                            Index Searches: 6",
+    "                                            Buffers: shared hit=162",
+    "        SubPlan 1",
+    "          ->  Aggregate (actual rows=1.00 loops=17)",
+    "                Buffers: shared hit=17",
+    "                ->  Seq Scan on claim_evidence ce (actual rows=1.24 loops=17)",
+    "                      Filter: (claim_id = c.id)",
+    "                      Rows Removed by Filter: 105",
+    "                      Buffers: shared hit=17",
+    "Planning:",
+    "  Buffers: shared hit=41",
+    "Planning Time: 0.846 ms",
+    "Execution Time: 0.199 ms"
+   ]
+  },
+  "T4 family_profile(lognormal)": {
+   "rows": 8,
+   "ms": 0.309,
+   "expected": [
+    "C5",
+    "C6",
+    "C7",
+    "C8",
+    "C9",
+    "C10",
+    "C11",
+    "C12"
+   ],
+   "missing": [],
+   "extra": [],
+   "plan": [
+    "Sort (actual rows=8.00 loops=1)",
+    "  Sort Key: ('family'::text), c.id",
+    "  Sort Method: quicksort  Memory: 25kB",
+    "  Buffers: shared hit=22",
+    "  ->  Append (actual rows=8.00 loops=1)",
+    "        Buffers: shared hit=22",
+    "        ->  Nested Loop Left Join (actual rows=4.00 loops=1)",
+    "              Buffers: shared hit=15",
+    "              ->  Hash Join (actual rows=4.00 loops=1)",
+    "                    Hash Cond: (c.subject_id = s.id)",
+    "                    Buffers: shared hit=7",
+    "                    ->  Seq Scan on claim c (actual rows=71.00 loops=1)",
+    "                          Filter: ((status = ANY ('{accepted,candidate}'::text[])) AND (run_id = '1'::smallint))",
+    "                          Buffers: shared hit=5",
+    "                    ->  Hash (actual rows=1.00 loops=1)",
+    "                          Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "                          Buffers: shared hit=2",
+    "                          ->  Seq Scan on entity s (actual rows=1.00 loops=1)",
+    "                                Filter: (key = 'ent:3eebf26bd56404b7adb59446e36f6045'::text)",
+    "                                Rows Removed by Filter: 66",
+    "                                Buffers: shared hit=2",
+    "              ->  Index Scan using entity_pkey on entity o (actual rows=1.00 loops=4)",
+    "                    Index Cond: (id = c.object_entity_id)",
+    "                    Index Searches: 4",
+    "                    Buffers: shared hit=8",
+    "        ->  Nested Loop Left Join (actual rows=4.00 loops=1)",
+    "              Buffers: shared hit=7",
+    "              ->  Hash Join (actual rows=4.00 loops=1)",
+    "                    Hash Cond: (c_1.subject_id = p.id)",
+    "                    Buffers: shared hit=7",
+    "                    ->  Seq Scan on claim c_1 (actual rows=71.00 loops=1)",
+    "                          Filter: ((status = ANY ('{accepted,candidate}'::text[])) AND (run_id = '1'::smallint))",
+    "                          Buffers: shared hit=5",
+    "                    ->  Hash (actual rows=3.00 loops=1)",
+    "                          Buckets: 1024  Batches: 1  Memory Usage: 9kB",
+    "                          Buffers: shared hit=2",
+    "                          ->  Seq Scan on entity p (actual rows=3.00 loops=1)",
+    "                                Filter: ((run_id = '1'::smallint) AND (type = 'FamilyParameter'::text) AND ((attrs ->> 'family'::text) = 'ent:3eebf26bd56404b7adb59446e36f6045'::text))",
+    "                                Rows Removed by Filter: 64",
+    "                                Buffers: shared hit=2",
+    "              ->  Index Scan using entity_pkey on entity o_1 (actual rows=0.00 loops=4)",
+    "                    Index Cond: (id = c_1.object_entity_id)",
+    "                    Index Searches: 0",
+    "Planning:",
+    "  Buffers: shared hit=8",
+    "Planning Time: 0.147 ms",
+    "Execution Time: 0.046 ms"
+   ]
+  }
+ },
+ "bm25": {
+  "build_ms": 7.5,
+  "indexed_rows": 587,
+  "segments": 2335,
+  "index_bytes": 73728,
+  "overlap": [
+   [
+    "ren:00eba99a1563ca56a25ab35fc9c51546",
+    "list_item",
+    "math_display",
+    5
+   ],
+   [
+    "ren:00eba99a1563ca56a25ab35fc9c51546",
+    "paragraph",
+    "math_display",
+    11
+   ],
+   [
+    "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+    "list_item",
+    "math_display",
+    3
+   ],
+   [
+    "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+    "paragraph",
+    "math_display",
+    26
+   ],
+   [
+    "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+    "paragraph",
+    "math_display",
+    13
+   ],
+   [
+    "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+    "paragraph",
+    "math_display",
+    13
+   ]
+  ],
+  "coverage": {
+   "ren:fd598f8c45ca1a3e905b5888a11c4cff": {
+    "non_space_chars": 9938,
+    "uncovered": 0,
+    "covered_twice": 859,
+    "uncovered_examples": []
+   },
+   "ren:00eba99a1563ca56a25ab35fc9c51546": {
+    "non_space_chars": 17877,
+    "uncovered": 0,
+    "covered_twice": 1930,
+    "uncovered_examples": []
+   },
+   "ren:7f6eac9d027fefc8e40fa91f25e310a4": {
+    "non_space_chars": 10282,
+    "uncovered": 0,
+    "covered_twice": 1304,
+    "uncovered_examples": []
+   },
+   "ren:7b46012bf6e9cfa7a732d6386bb946c7": {
+    "non_space_chars": 16729,
+    "uncovered": 48,
+    "covered_twice": 2459,
+    "uncovered_examples": [
+     "function",
+     "interval",
+     "graph",
+     "gamma"
+    ]
+   }
+  },
+  "kind_lists": {
+   "D3: paragraph, heading, list_item, math_display": {
+    "overlapping_chars": 6552,
+    "unindexed_chars": 48,
+    "non_space_chars": 54826,
+    "overlapping_pairs": 71
+   },
+   "paragraph, heading, list_item": {
+    "overlapping_chars": 0,
+    "unindexed_chars": 48,
+    "non_space_chars": 54826,
+    "overlapping_pairs": 0
+   },
+   "paragraph, heading, list_item, caption": {
+    "overlapping_chars": 0,
+    "unindexed_chars": 0,
+    "non_space_chars": 54826,
+    "overlapping_pairs": 0
+   }
+  },
+  "variants": {
+   "V1 D3 §5 form with F1's cast (index named, predicate repeated, rendition filter)": {
+    "error": null,
+    "index_scan": true,
+    "rows": 5,
+    "kinds": [
+     "heading",
+     "paragraph"
+    ],
+    "plan": [
+     "Limit (actual rows=5.00 loops=1)",
+     "  Buffers: shared hit=109",
+     "  ->  Index Scan using segment_bm25 on segment s (actual rows=5.00 loops=1)",
+     "        Order By: (text <@> 'segment_bm25:location-scale family'::bm25query)",
+     "        Filter: (rendition_id = ANY ('{1,2,3,4}'::smallint[]))",
+     "        Index Searches: 1",
+     "        Buffers: shared hit=109",
+     "Planning:",
+     "  Buffers: shared hit=12",
+     "Planning Time: 0.068 ms",
+     "Execution Time: 0.100 ms"
+    ]
+   },
+   "V2 D3 §5 form verbatim (no cast)": {
+    "error": "22P02: invalid input syntax for type oid: \"english\"",
+    "index_scan": false,
+    "rows": 0,
+    "plan": []
+   },
+   "V3 V1 without the rendition filter": {
+    "error": null,
+    "index_scan": true,
+    "rows": 5,
+    "kinds": [
+     "heading",
+     "paragraph"
+    ],
+    "plan": [
+     "Limit (actual rows=5.00 loops=1)",
+     "  Buffers: shared hit=251",
+     "  ->  Index Scan using segment_bm25 on segment s (actual rows=5.00 loops=1)",
+     "        Order By: (text <@> 'segment_bm25:location-scale family'::bm25query)",
+     "        Index Searches: 1",
+     "        Buffers: shared hit=251",
+     "Planning:",
+     "  Buffers: shared hit=24",
+     "Planning Time: 0.081 ms",
+     "Execution Time: 0.101 ms"
+    ]
+   },
+   "V4 index named, predicate omitted": {
+    "error": null,
+    "index_scan": false,
+    "rows": 5,
+    "kinds": [
+     "heading",
+     "paragraph",
+     "section",
+     "unit"
+    ],
+    "plan": [
+     "Limit (actual rows=5.00 loops=1)",
+     "  Buffers: shared hit=256",
+     "  ->  Sort (actual rows=5.00 loops=1)",
+     "        Sort Key: ((text <@> 'segment_bm25:location-scale family'::bm25query))",
+     "        Sort Method: top-N heapsort  Memory: 25kB",
+     "        Buffers: shared hit=256",
+     "        ->  Seq Scan on segment s (actual rows=2335.00 loops=1)",
+     "              Buffers: shared hit=256",
+     "Planning Time: 0.013 ms",
+     "Execution Time: 31.198 ms"
+    ]
+   },
+   "V5 implicit string form with the predicate": {
+    "error": "42704: no BM25 index found for text <@> text expression",
+    "index_scan": false,
+    "rows": 0,
+    "plan": []
+   },
+   "V6 implicit string form, literal query text": {
+    "error": "42704: no non-partial BM25 index found for this column (1 partial index(es) skipped)",
+    "index_scan": false,
+    "rows": 0,
+    "plan": []
+   },
+   "V7 predicate written as ts_config::text = 'english'": {
+    "error": null,
+    "index_scan": false,
+    "rows": 5,
+    "kinds": [
+     "heading",
+     "paragraph"
+    ],
+    "plan": [
+     "Limit (actual rows=5.00 loops=1)",
+     "  Buffers: shared hit=179",
+     "  ->  Sort (actual rows=5.00 loops=1)",
+     "        Sort Key: ((text <@> 'segment_bm25:location-scale family'::bm25query))",
+     "        Sort Method: top-N heapsort  Memory: 25kB",
+     "        Buffers: shared hit=179",
+     "        ->  Bitmap Heap Scan on segment s (actual rows=587.00 loops=1)",
+     "              Recheck Cond: ((rendition_id = ANY ('{1,2,3,4}'::smallint[])) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])))",
+     "              Filter: ((ts_config)::text = 'english'::text)",
+     "              Heap Blocks: exact=136",
+     "              Buffers: shared hit=179",
+     "              ->  Bitmap Index Scan on segment_kind (actual rows=1174.00 loops=1)",
+     "                    Index Cond: ((rendition_id = ANY ('{1,2,3,4}'::smallint[])) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])))",
+     "                    Index Searches: 2",
+     "                    Buffers: shared hit=7",
+     "Planning:",
+     "  Buffers: shared hit=6",
+     "Planning Time: 0.056 ms",
+     "Execution Time: 5.984 ms"
+    ]
+   },
+   "V8 unqualified index name 'segment_bm25'": {
+    "error": "42704: index \"segment_bm25\" does not exist",
+    "index_scan": false,
+    "rows": 0,
+    "plan": []
+   },
+   "V9 narrower kind predicate (paragraph only), index named": {
+    "error": null,
+    "index_scan": true,
+    "rows": 5,
+    "kinds": [
+     "paragraph"
+    ],
+    "plan": [
+     "Limit (actual rows=5.00 loops=1)",
+     "  Buffers: shared hit=170",
+     "  ->  Index Scan using segment_bm25 on segment s (actual rows=5.00 loops=1)",
+     "        Order By: (text <@> 'segment_bm25:location-scale family'::bm25query)",
+     "        Filter: ((kind = 'paragraph'::text) AND (rendition_id = ANY ('{1,2,3,4}'::smallint[])))",
+     "        Rows Removed by Filter: 1",
+     "        Index Searches: 1",
+     "        Buffers: shared hit=170",
+     "Planning:",
+     "  Buffers: shared hit=1",
+     "Planning Time: 0.041 ms",
+     "Execution Time: 0.105 ms"
+    ]
+   }
+  },
+  "prepared": {
+   "custom_index": true,
+   "generic_index": true,
+   "generic_rows": 5
+  },
+  "top5": {
+   "affine transformation normal": {
+    "rows": [
+     [
+      "Normal.html",
+      "paragraph",
+      "",
+      "seg:7396bd22cdd211fd7526e15b261ff99c",
+      -5.563,
+      "The normal family of distributions satisfies two very important properties: invariance und"
+     ],
+     [
+      "Normal.html",
+      "paragraph",
+      "",
+      "seg:961bd2f195a522959949a1bc0e280447",
+      -5.478,
+      "Theorem [26] generalizes to a sum of \\(n\\) independent, normal variables. The important pa"
+     ],
+     [
+      "Normal.html",
+      "paragraph",
+      "pdf3",
+      "seg:3ded189bda70aae341a58acddfe7fdd5",
+      -4.8872,
+      "This follows from the change of variables formula corresponding to the transformation \\( x"
+     ],
+     [
+      "Normal.html",
+      "paragraph",
+      "",
+      "seg:56cd22bafd1c152d7f14817bf7521324",
+      -4.7455,
+      "In some settings, it's convenient to consider a constant as having a normal distribution ("
+     ],
+     [
+      "LocationScale.html",
+      "paragraph",
+      "",
+      "seg:35df087a1c3c216c66af0f6fd481cddf",
+      -4.6592,
+      "Thus a linear transformation, with positive slope, of the underlying random variable \\(Z\\)"
+     ]
+    ],
+    "ms": 0.288,
+    "index_scan": true,
+    "scores_ascending": true
+   },
+   "location-scale family": {
+    "rows": [
+     [
+      "LocationScale.html",
+      "heading",
+      "",
+      "seg:ff81dd07031af81c35837569c43722b5",
+      -15.8779,
+      "Location-Scale Families"
+     ],
+     [
+      "LocationScale.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:bbb007fe6db5a7bbe8762a4f34872ef4",
+      -14.7769,
+      "The logistic distribution is a location-scale family."
+     ],
+     [
+      "LocationScale.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:734244a9c4d0654488084cd70c63db6e",
+      -14.7769,
+      "The normal distribution is a location-scale family."
+     ],
+     [
+      "LocationScale.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:7231030e8541195fccdd1d4f132a7881",
+      -14.7769,
+      "The semicircle distribution is a location-scale family."
+     ],
+     [
+      "LocationScale.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:1ca53c66c33f55ca4f36f098564a5499",
+      -14.7769,
+      "The arcsine distribution is a location-scale family."
+     ]
+    ],
+    "ms": 0.174,
+    "index_scan": true,
+    "scores_ascending": true
+   },
+   "lognormal shape parameter": {
+    "rows": [
+     [
+      "LogNormal.html",
+      "list_item",
+      "dfn",
+      "seg:c55d11e7becfb2511bbf468ba578be8a",
+      -6.8653,
+      "(a) The parameter \\( \\sigma \\) is the shape parameter of the distribution."
+     ],
+     [
+      "LogNormal.html",
+      "paragraph",
+      "rel2",
+      "seg:62ee937f5caee12b3b28383d1ec497cc",
+      -6.8214,
+      "If \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\in (0"
+     ],
+     [
+      "LogNormal.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:5721fb64394059c63f8017052cb3699f",
+      -6.7934,
+      "Suppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\si"
+     ],
+     [
+      "LogNormal.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:6ffd618d3c6efb3702cddb16600ff0c4",
+      -6.2829,
+      "In the special distribution simulator, select the lognormal distribution. Vary the paramet"
+     ],
+     [
+      "LogNormal.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:cd84aa2685d2f91590d3791a362cfdc7",
+      -6.2829,
+      "In the simulation of the special distribution simulator, select the lognormal distribution"
+     ]
+    ],
+    "ms": 0.214,
+    "index_scan": true,
+    "scores_ascending": true
+   },
+   "sum of independent gamma": {
+    "rows": [
+     [
+      "Gamma.html",
+      "paragraph",
+      "",
+      "seg:e473d454620193e240f5ca5bfb4cc27d",
+      -11.049,
+      "More importantly, if the scale parameter is fixed, the gamma family is closed with respect"
+     ],
+     [
+      "LogNormal.html",
+      "paragraph",
+      "",
+      "seg:f8f30c25e8cf6e018371671f595963ae",
+      -9.6378,
+      "Since the normal distribution is closed under sums of independent variables, it's not surp"
+     ],
+     [
+      "Normal.html",
+      "paragraph",
+      "",
+      "seg:961bd2f195a522959949a1bc0e280447",
+      -9.1557,
+      "Theorem [26] generalizes to a sum of \\(n\\) independent, normal variables. The important pa"
+     ],
+     [
+      "LogNormal.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:602ca4c1b831d5adcded6291a03c0f13",
+      -6.6192,
+      "Again from definition [1], we can write \\( X_i = e^{Y_i} \\) where \\(Y_i\\) has the normal d"
+     ],
+     [
+      "Gamma.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:9547a73194d65cc5fb7a6b68f0371892",
+      -6.3928,
+      "Suppose that \\(X\\) has the gamma distribution with shape parameter \\(k \\in (0, \\infty)\\) a"
+     ]
+    ],
+    "ms": 0.243,
+    "index_scan": true,
+    "scores_ascending": true
+   },
+   "standard score": {
+    "rows": [
+     [
+      "Normal.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:4c849fe2b30a806d67a18578bb868884",
+      -9.9014,
+      "Standard score."
+     ],
+     [
+      "LocationScale.html",
+      "paragraph",
+      "std",
+      "seg:aa279b2de8a54ef5b0926a677dbacda8",
+      -9.1637,
+      "The standard scores of \\(X\\) and \\(Z\\) are the same:"
+     ],
+     [
+      "LocationScale.html",
+      "paragraph",
+      "",
+      "seg:f9ce3558f9634e35094a18fff26ace0d",
+      -8.0937,
+      "Recall that the standard score of a random variable is obtained by subtracting the mean an"
+     ],
+     [
+      "Normal.html",
+      "paragraph",
+      "",
+      "seg:57bebab2809e83fa2c27612c682ef9bf",
+      -7.2208,
+      "Recall that in general, if \\(X\\) is a random variable with mean \\(\\mu\\) and standard devia"
+     ],
+     [
+      "Normal.html",
+      "paragraph",
+      "(unit without id)",
+      "seg:039ff7e94c2ef96086ecbe37e9ac9992",
+      -6.8628,
+      "The skewness and kurtosis of a variable are defined in terms of the standard score, so the"
+     ]
+    ],
+    "ms": 0.214,
+    "index_scan": true,
+    "scores_ascending": true
+   }
+  },
+  "filters": {
+   "Boolean: independent & gamma": {
+    "rows": [
+     [
+      "paragraph",
+      "seg:e473d454620193e240f5ca5bfb4cc27d",
+      -11.049,
+      "More importantly, if the scale parameter is fixed, the gamma family is closed with respect"
+     ],
+     [
+      "paragraph",
+      "seg:9547a73194d65cc5fb7a6b68f0371892",
+      -6.3928,
+      "Suppose that \\(X\\) has the gamma distribution with shape parameter \\(k \\in (0, \\infty)\\) a"
+     ],
+     [
+      "paragraph",
+      "seg:cef3622cb20961761f3ca9c1f2a94aec",
+      -4.2149,
+      "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_i\\) has th"
+     ]
+    ],
+    "ms": 5.66,
+    "plan": [
+     "Limit (actual rows=3.00 loops=1)",
+     "  Buffers: shared hit=173",
+     "  ->  Sort (actual rows=3.00 loops=1)",
+     "        Sort Key: ((text <@> 'segment_bm25:sum of independent gamma'::bm25query))",
+     "        Sort Method: quicksort  Memory: 25kB",
+     "        Buffers: shared hit=173",
+     "        ->  Bitmap Heap Scan on segment s (actual rows=3.00 loops=1)",
+     "              Recheck Cond: ((rendition_id = ANY ('{1,2,3,4}'::smallint[])) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])))",
+     "              Filter: (((ts_config)::oid = '13264'::oid) AND (text @@ '''independ'' & ''gamma'''::tsquery))",
+     "              Rows Removed by Filter: 584",
+     "              Heap Blocks: exact=136",
+     "              Buffers: shared hit=173",
+     "              ->  Bitmap Index Scan on segment_kind (actual rows=1174.00 loops=1)",
+     "                    Index Cond: ((rendition_id = ANY ('{1,2,3,4}'::smallint[])) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])))",
+     "                    Index Searches: 2",
+     "                    Buffers: shared hit=7",
+     "Planning Time: 0.976 ms",
+     "Execution Time: 4.600 ms"
+    ],
+    "index_scan": false,
+    "plan_scans_off": [
+     "Limit (actual rows=3.00 loops=1)",
+     "  Buffers: shared hit=467",
+     "  ->  Sort (actual rows=3.00 loops=1)",
+     "        Sort Key: ((text <@> 'segment_bm25:sum of independent gamma'::bm25query))",
+     "        Sort Method: quicksort  Memory: 25kB",
+     "        Buffers: shared hit=467",
+     "        ->  Index Scan using segment_kind on segment s (actual rows=3.00 loops=1)",
+     "              Index Cond: ((rendition_id = ANY ('{1,2,3,4}'::smallint[])) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])))",
+     "              Filter: (((ts_config)::oid = '13264'::oid) AND (text @@ '''independ'' & ''gamma'''::tsquery))",
+     "              Rows Removed by Filter: 584",
+     "              Index Searches: 2",
+     "              Buffers: shared hit=467",
+     "Planning Time: 0.973 ms",
+     "Execution Time: 4.595 ms"
+    ],
+    "index_scan_scans_off": false
+   },
+   "Phrase: standard <-> score": {
+    "rows": [
+     [
+      "paragraph",
+      "seg:4c849fe2b30a806d67a18578bb868884",
+      -9.9014,
+      "Standard score."
+     ],
+     [
+      "paragraph",
+      "seg:aa279b2de8a54ef5b0926a677dbacda8",
+      -9.1637,
+      "The standard scores of \\(X\\) and \\(Z\\) are the same:"
+     ],
+     [
+      "paragraph",
+      "seg:f9ce3558f9634e35094a18fff26ace0d",
+      -8.0937,
+      "Recall that the standard score of a random variable is obtained by subtracting the mean an"
+     ],
+     [
+      "paragraph",
+      "seg:57bebab2809e83fa2c27612c682ef9bf",
+      -7.2208,
+      "Recall that in general, if \\(X\\) is a random variable with mean \\(\\mu\\) and standard devia"
+     ],
+     [
+      "paragraph",
+      "seg:039ff7e94c2ef96086ecbe37e9ac9992",
+      -6.8628,
+      "The skewness and kurtosis of a variable are defined in terms of the standard score, so the"
+     ]
+    ],
+    "ms": 5.805,
+    "plan": [
+     "Limit (actual rows=5.00 loops=1)",
+     "  Buffers: shared hit=182",
+     "  ->  Sort (actual rows=5.00 loops=1)",
+     "        Sort Key: ((text <@> 'segment_bm25:standard score'::bm25query))",
+     "        Sort Method: quicksort  Memory: 26kB",
+     "        Buffers: shared hit=182",
+     "        ->  Bitmap Heap Scan on segment s (actual rows=8.00 loops=1)",
+     "              Recheck Cond: ((rendition_id = ANY ('{1,2,3,4}'::smallint[])) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])))",
+     "              Filter: (((ts_config)::oid = '13264'::oid) AND (text @@ '''standard'' <-> ''score'''::tsquery))",
+     "              Rows Removed by Filter: 579",
+     "              Heap Blocks: exact=136",
+     "              Buffers: shared hit=182",
+     "              ->  Bitmap Index Scan on segment_kind (actual rows=1174.00 loops=1)",
+     "                    Index Cond: ((rendition_id = ANY ('{1,2,3,4}'::smallint[])) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])))",
+     "                    Index Searches: 2",
+     "                    Buffers: shared hit=7",
+     "Planning Time: 0.962 ms",
+     "Execution Time: 4.682 ms"
+    ],
+    "index_scan": false,
+    "plan_scans_off": [
+     "Limit (actual rows=5.00 loops=1)",
+     "  Buffers: shared hit=476",
+     "  ->  Sort (actual rows=5.00 loops=1)",
+     "        Sort Key: ((text <@> 'segment_bm25:standard score'::bm25query))",
+     "        Sort Method: quicksort  Memory: 26kB",
+     "        Buffers: shared hit=476",
+     "        ->  Index Scan using segment_kind on segment s (actual rows=8.00 loops=1)",
+     "              Index Cond: ((rendition_id = ANY ('{1,2,3,4}'::smallint[])) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])))",
+     "              Filter: (((ts_config)::oid = '13264'::oid) AND (text @@ '''standard'' <-> ''score'''::tsquery))",
+     "              Rows Removed by Filter: 579",
+     "              Index Searches: 2",
+     "              Buffers: shared hit=476",
+     "Planning Time: 0.969 ms",
+     "Execution Time: 4.784 ms"
+    ],
+    "index_scan_scans_off": false
+   }
+  },
+  "filter_probe": {
+   "@@ alone": {
+    "plan": [
+     "Index Scan using segment_bm25 on segment s (actual rows=3.00 loops=1)",
+     "  Index Cond: (text @@ '''independ'' & ''gamma'''::tsquery)",
+     "  Index Searches: 1",
+     "  Buffers: shared hit=29, temp read=1 written=1",
+     "Planning:",
+     "  Buffers: shared hit=5",
+     "Planning Time: 0.989 ms",
+     "Execution Time: 0.097 ms"
+    ],
+    "index_scan": true
+   },
+   "@@ with BM25 ranking": {
+    "plan": [
+     "Limit (actual rows=3.00 loops=1)",
+     "  Buffers: shared hit=197",
+     "  ->  Sort (actual rows=3.00 loops=1)",
+     "        Sort Key: ((text <@> 'segment_bm25:sum of independent gamma'::bm25query))",
+     "        Sort Method: quicksort  Memory: 25kB",
+     "        Buffers: shared hit=197",
+     "        ->  Seq Scan on segment s (actual rows=3.00 loops=1)",
+     "              Disabled: true",
+     "              Filter: (((ts_config)::oid = '13264'::oid) AND (kind = ANY ('{paragraph,heading,list_item,math_display}'::text[])) AND (text @@ '''independ'' & ''gamma'''::tsquery))",
+     "              Rows Removed by Filter: 2332",
+     "              Buffers: shared hit=197",
+     "Planning Time: 0.941 ms",
+     "Execution Time: 4.725 ms"
+    ],
+    "index_scan": false
+   }
+  }
+ }
+}

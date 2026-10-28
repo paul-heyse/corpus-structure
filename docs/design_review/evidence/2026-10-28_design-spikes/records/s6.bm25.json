@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "id": "s6.bm25",
+  "title": "BM25 through pg_textsearch 1.5.1 on the spike pages",
+  "group": "S6 Storage smoke",
+  "package": "S6-C",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which BM25 index and query syntax works with D3's partial index, does the planner use it, and does the kind list avoid overlap? (OPEN-D3-1)",
+  "answers": [
+    "OPEN-D3-1",
+    "D3 §5"
+  ],
+  "method": "kb.segment_bm25 as created by the applied DDL, rebuilt on the loaded rows; nine syntax variants and a prepared statement with EXPLAIN; the brief's five queries' top five; Boolean and phrase filters; overlap and coverage of candidate kind lists over the four pages. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6c_queries.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6c_queries.py",
+      "role": "script",
+      "sha256": "91bf506222b89a5968a58ad7d49578960ab96ca5e3dac067ffc64cd60e18a4c2"
+    },
+    {
+      "path": "code/s6_queries_d3.sql",
+      "role": "D3 query blocks",
+      "sha256": "ab0e1518be74036f6d9c406e6b7308cc47f0b38866f3927c9772fbf7b2f18885"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/bm25.md",
+      "role": "syntax, plans, top five, observations",
+      "sha256": "55e6059f5d1d94d2b9cce60f7c4ebdf598b2951773260f380e59d7fe994c45e1"
+    },
+    {
+      "path": "results/s6/queries.json",
+      "role": "figures",
+      "sha256": "9b181c4dd4e3d61b31b27e0dd4df1e6fba6bd083c1e26971c58ffef041fc9c18"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s6.constraints"
+  ],
+  "results": [
+    {
+      "name": "working_form",
+      "value": "ORDER BY s.text <@> to_bm25query(:q, 'kb.segment_bm25') LIMIT :k with s.kind IN (…) AND s.ts_config = 'english'::regconfig repeated",
+      "of": null,
+      "unit": null,
+      "note": "ordered Index Scan using segment_bm25; rendition condition a post-filter"
+    },
+    {
+      "name": "d3_query_as_written",
+      "value": "22P02: invalid input syntax for type oid: \"english\"",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "implicit_string_form",
+      "value": "42704: no BM25 index found for text <@> text expression",
+      "of": null,
+      "unit": null,
+      "note": "an error, not a silent scan"
+    },
+    {
+      "name": "unqualified_index_name",
+      "value": "42704: index \"segment_bm25\" does not exist",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "predicate_omitted_index_scan",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "standalone scoring over every row, returning rows outside the index"
+    },
+    {
+      "name": "prepared_generic_plan_uses_index",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "queries_with_index_scan",
+      "value": 5,
+      "of": 5,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "tsquery_filter_served_with_ranking",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "@@ alone can be an Index Cond on segment_bm25; with BM25 ordering it is a filter and the matches are sorted"
+    },
+    {
+      "name": "d3_kind_list_chars_indexed_twice",
+      "value": 6552,
+      "of": 54826,
+      "unit": null,
+      "note": "71 math_display segments nested in indexed paragraphs and list items"
+    },
+    {
+      "name": "paragraph_heading_list_item_caption_overlap",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "and 0 characters unindexed"
+    },
+    {
+      "name": "index_rows",
+      "value": 587,
+      "of": 2335,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "index_bytes",
+      "value": 73728,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "D3 §5's syntax works once the repeated predicate carries ::regconfig: the named, schema-qualified index with its predicate repeated gives an ordered BM25 index scan, also as a prepared generic plan; the implicit string form and an unqualified name fail with errors, and an omitted or unprovable predicate silently falls back to standalone scoring over rows the index does not hold. D3's kind list is not non-overlapping: math_display is nested in paragraphs and list items (6,552 of 54,826 characters counted twice); ('paragraph','heading','list_item','caption') covers every character once on the four pages.",
+  "consumed_by": [
+    "P0-F-4",
+    "P0-C-2",
+    "OPEN-D3-1",
+    "S6-G"
+  ]
+}

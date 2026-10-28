@@ -1,0 +1,421 @@
+table	constraint	bad_row	expected	observed	outcome
+kb.claim	brief: object both entity and value	object_entity_id and object_value both set	23514 claim_check	23514 claim_check	passed
+kb.entity	brief: local entity without scope segment	scope = 'local', scope_segment_id = NULL	23514 entity_check	23514 entity_check	passed
+eval.golden_pass	brief: golden pass without a model	model = NULL	23502 model	23502 model	passed
+kb.span	INV-10 (repository): span outside its rendition's text	offsets 12179-12189 beyond length 12169	no error (repository check)	no error	passed
+kb.span	repository: span text equals canonical_text[start:end]	text differs from the rendition substring	no error (repository check)	no error	passed
+kb.claim_evidence	repository: evidence span on the claim's run rendition	span of another page's rendition	no error (repository check)	no error	passed
+eval.golden_pass	repository: passes a and b of a unit have different sessions	pass b session_ref = pass a's	no error (repository check)	no error	passed
+eval.golden_item	repository: items project a pass c only	item on a pass a row	no error (repository check)	no error	passed
+kb.segment	repository: segment text equals canonical_text[start:end]	text differs from the rendition substring	no error (repository check)	no error	passed
+eval.alignment	alignment_detail_not_null	detail = NULL	23502 detail	23502 detail	passed
+eval.alignment	alignment_golden_item_id_fkey	golden_item_id = 2000000000 (no such row)	23503 alignment_golden_item_id_fkey	23503 alignment_golden_item_id_fkey	passed
+eval.alignment	alignment_golden_item_id_not_null	golden_item_id = NULL	23502 golden_item_id	23502 golden_item_id	passed
+eval.alignment	alignment_run_id_fkey	run_id = 2000000000 (no such row)	23503 alignment_run_id_fkey	23503 alignment_run_id_fkey	passed
+eval.alignment	alignment_run_id_not_null	run_id = NULL	23502 run_id	23502 run_id	passed
+eval.alignment	alignment_target_type_check	target_type = '__bad__'	23514 alignment_target_type_check	23514 alignment_target_type_check	passed
+eval.alignment	alignment_target_type_not_null	target_type = NULL	23502 target_type	23502 target_type	passed
+eval.alignment	alignment_tier_check	tier = '__bad__'	23514 alignment_tier_check	23514 alignment_tier_check	passed
+eval.alignment	alignment_tier_not_null	tier = NULL	23502 tier	23502 tier	passed
+eval.document_split	document_split_assigned_at_not_null	assigned_at = NULL	23502 assigned_at	23502 assigned_at	passed
+eval.document_split	document_split_document_id_fkey	document_id = 2000000000 (no such row)	23503 document_split_document_id_fkey	23503 document_split_document_id_fkey	passed
+eval.document_split	document_split_document_id_not_null	document_id = NULL	23502 document_id	23502 document_id	passed
+eval.document_split	document_split_pkey	duplicate of an existing (project_id, document_id)	23505 document_split_pkey	23505 document_split_pkey	passed
+eval.document_split	document_split_project_id_fkey	project_id = 2000000000 (no such row)	23503 document_split_project_id_fkey	23503 document_split_project_id_fkey	passed
+eval.document_split	document_split_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+eval.document_split	document_split_reason_not_null	reason = NULL	23502 reason	23502 reason	passed
+eval.document_split	document_split_split_check	split = '__bad__'	23514 document_split_split_check	23514 document_split_split_check	passed
+eval.document_split	document_split_split_not_null	split = NULL	23502 split	23502 split	passed
+eval.golden_item	golden_item_context_not_null	context = NULL	23502 context	23502 context	passed
+eval.golden_item	golden_item_golden_pass_id_fkey	golden_pass_id = 2000000000 (no such row)	23503 golden_item_golden_pass_id_fkey	23503 golden_item_golden_pass_id_fkey	passed
+eval.golden_item	golden_item_golden_pass_id_not_null	golden_pass_id = NULL	23502 golden_pass_id	23502 golden_pass_id	passed
+eval.golden_item	golden_item_golden_pass_id_rendition_id_item_type_local_ref_key	duplicate of an existing (golden_pass_id, rendition_id, item_type, local_ref)	23505 golden_item_golden_pass_id_rendition_id_item_type_local_ref_key	23505 golden_item_golden_pass_id_rendition_id_item_type_local_ref_key	passed
+eval.golden_item	golden_item_item_type_check	item_type = '__bad__'	23514 golden_item_item_type_check	23514 golden_item_item_type_check	passed
+eval.golden_item	golden_item_item_type_not_null	item_type = NULL	23502 item_type	23502 item_type	passed
+eval.golden_item	golden_item_local_ref_not_null	local_ref = NULL	23502 local_ref	23502 local_ref	passed
+eval.golden_item	golden_item_payload_not_null	payload = NULL	23502 payload	23502 payload	passed
+eval.golden_item	golden_item_rendition_id_fkey	rendition_id = 2000000000 (no such row)	23503 golden_item_rendition_id_fkey	23503 golden_item_rendition_id_fkey	passed
+eval.golden_item	golden_item_rendition_id_not_null	rendition_id = NULL	23502 rendition_id	23502 rendition_id	passed
+eval.golden_pass	golden_pass_batch_not_null	batch = NULL	23502 batch	23502 batch	passed
+eval.golden_pass	golden_pass_citation_frame_not_null	citation_frame = NULL	23502 citation_frame	23502 citation_frame	passed
+eval.golden_pass	golden_pass_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+eval.golden_pass	golden_pass_golden_unit_id_fkey	golden_unit_id = 2000000000 (no such row)	23503 golden_pass_golden_unit_id_fkey	23503 golden_pass_golden_unit_id_fkey	passed
+eval.golden_pass	golden_pass_golden_unit_id_not_null	golden_unit_id = NULL	23502 golden_unit_id	23502 golden_unit_id	passed
+eval.golden_pass	golden_pass_golden_unit_id_pass_guideline_version_id_key	duplicate of an existing (golden_unit_id, pass, guideline_version_id)	23505 golden_pass_golden_unit_id_pass_guideline_version_id_key	23505 golden_pass_golden_unit_id_pass_guideline_version_id_key	passed
+eval.golden_pass	golden_pass_guideline_version_id_fkey	guideline_version_id = 2000000000 (no such row)	23503 golden_pass_guideline_version_id_fkey	23503 golden_pass_guideline_version_id_fkey	passed
+eval.golden_pass	golden_pass_guideline_version_id_not_null	guideline_version_id = NULL	23502 guideline_version_id	23502 guideline_version_id	passed
+eval.golden_pass	golden_pass_inputs_not_null	inputs = NULL	23502 inputs	23502 inputs	passed
+eval.golden_pass	golden_pass_model_not_null	model = NULL	23502 model	23502 model	passed
+eval.golden_pass	golden_pass_pass_check	pass = '__bad__'	23514 golden_pass_pass_check	23514 golden_pass_pass_check	passed
+eval.golden_pass	golden_pass_pass_not_null	pass = NULL	23502 pass	23502 pass	passed
+eval.golden_pass	golden_pass_session_ref_not_null	session_ref = NULL	23502 session_ref	23502 session_ref	passed
+eval.golden_set	golden_set_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+eval.golden_set	golden_set_guideline_version_id_fkey	guideline_version_id = 2000000000 (no such row)	23503 golden_set_guideline_version_id_fkey	23503 golden_set_guideline_version_id_fkey	passed
+eval.golden_set	golden_set_guideline_version_id_not_null	guideline_version_id = NULL	23502 guideline_version_id	23502 guideline_version_id	passed
+eval.golden_set	golden_set_label_not_null	label = NULL	23502 label	23502 label	passed
+eval.golden_set	golden_set_project_id_fkey	project_id = 2000000000 (no such row)	23503 golden_set_project_id_fkey	23503 golden_set_project_id_fkey	passed
+eval.golden_set	golden_set_project_id_label_split_key	duplicate of an existing (project_id, label, split)	23505 golden_set_project_id_label_split_key	23505 golden_set_project_id_label_split_key	passed
+eval.golden_set	golden_set_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+eval.golden_set	golden_set_sampling_not_null	sampling = NULL	23502 sampling	23502 sampling	passed
+eval.golden_set	golden_set_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 golden_set_schema_version_id_fkey	23503 golden_set_schema_version_id_fkey	passed
+eval.golden_set	golden_set_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+eval.golden_set	golden_set_split_check	split = '__bad__'	23514 golden_set_split_check	23514 golden_set_split_check	passed
+eval.golden_set	golden_set_split_not_null	split = NULL	23502 split	23502 split	passed
+eval.golden_unit	golden_unit_agreement_not_null	agreement = NULL	23502 agreement	23502 agreement	passed
+eval.golden_unit	golden_unit_authored_rendition_id_fkey	authored_rendition_id = 2000000000 (no such row)	23503 golden_unit_authored_rendition_id_fkey	23503 golden_unit_authored_rendition_id_fkey	passed
+eval.golden_unit	golden_unit_authored_rendition_id_not_null	authored_rendition_id = NULL	23502 authored_rendition_id	23502 authored_rendition_id	passed
+eval.golden_unit	golden_unit_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+eval.golden_unit	golden_unit_current_locator_not_null	current_locator = NULL	23502 current_locator	23502 current_locator	passed
+eval.golden_unit	golden_unit_golden_set_id_fkey	golden_set_id = 2000000000 (no such row)	23503 golden_unit_golden_set_id_fkey	23503 golden_unit_golden_set_id_fkey	passed
+eval.golden_unit	golden_unit_golden_set_id_not_null	golden_set_id = NULL	23502 golden_set_id	23502 golden_set_id	passed
+eval.golden_unit	golden_unit_golden_set_id_unit_key_key	duplicate of an existing (golden_set_id, unit_key)	23505 golden_unit_golden_set_id_unit_key_key	23505 golden_unit_golden_set_id_unit_key_key	passed
+eval.golden_unit	golden_unit_status_check	status = '__bad__'	23514 golden_unit_status_check	23514 golden_unit_status_check	passed
+eval.golden_unit	golden_unit_status_not_null	status = NULL	23502 status	23502 status	passed
+eval.golden_unit	golden_unit_unit_key_not_null	unit_key = NULL	23502 unit_key	23502 unit_key	passed
+eval.result	result_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+eval.result	result_detail_not_null	detail = NULL	23502 detail	23502 detail	passed
+eval.result	result_golden_set_id_fkey	golden_set_id = 2000000000 (no such row)	23503 result_golden_set_id_fkey	23503 result_golden_set_id_fkey	passed
+eval.result	result_golden_set_id_not_null	golden_set_id = NULL	23502 golden_set_id	23502 golden_set_id	passed
+eval.result	result_golden_snapshot_not_null	golden_snapshot = NULL	23502 golden_snapshot	23502 golden_snapshot	passed
+eval.result	result_metric_not_null	metric = NULL	23502 metric	23502 metric	passed
+eval.result	result_n_not_null	n = NULL	23502 n	23502 n	passed
+eval.result	result_run_id_fkey	run_id = 2000000000 (no such row)	23503 result_run_id_fkey	23503 result_run_id_fkey	passed
+eval.result	result_run_id_not_null	run_id = NULL	23502 run_id	23502 run_id	passed
+eval.result	result_scope_type_not_null	scope_type = NULL	23502 scope_type	23502 scope_type	passed
+eval.result	result_tier_check	tier = '__bad__'	23514 result_tier_check	23514 result_tier_check	passed
+eval.result	result_tier_not_null	tier = NULL	23502 tier	23502 tier	passed
+kb.claim	claim_check	object_value = {"t": "formula", "latex": "x", "symbols": {}}	23514 claim_check	23514 claim_check	passed
+kb.claim	claim_completeness_not_null	completeness = NULL	23502 completeness	23502 completeness	passed
+kb.claim	claim_establishment_check	establishment = '__bad__'	23514 claim_establishment_check	23514 claim_establishment_check	passed
+kb.claim	claim_establishment_not_null	establishment = NULL	23502 establishment	23502 establishment	passed
+kb.claim	claim_key_not_null	key = NULL	23502 key	23502 key	passed
+kb.claim	claim_object_entity_id_fkey	object_entity_id = 2000000000 (no such row)	23503 claim_object_entity_id_fkey	23503 claim_object_entity_id_fkey	passed
+kb.claim	claim_predicate_not_null	predicate = NULL	23502 predicate	23502 predicate	passed
+kb.claim	claim_qualifiers_not_null	qualifiers = NULL	23502 qualifiers	23502 qualifiers	passed
+kb.claim	claim_run_id_fkey	run_id = 2000000000 (no such row)	23503 claim_run_id_fkey	23503 claim_run_id_fkey	passed
+kb.claim	claim_run_id_key_key	duplicate of an existing (run_id, key)	23505 claim_run_id_key_key	23505 claim_run_id_key_key	passed
+kb.claim	claim_run_id_not_null	run_id = NULL	23502 run_id	23502 run_id	passed
+kb.claim	claim_statement_id_fkey	statement_id = 2000000000 (no such row)	23503 claim_statement_id_fkey	23503 claim_statement_id_fkey	passed
+kb.claim	claim_statement_role_check	statement_role = '__bad__'	23514 claim_statement_role_check	23514 claim_statement_role_check	passed
+kb.claim	claim_status_check	status = '__bad__'	23514 claim_status_check	23514 claim_status_check	passed
+kb.claim	claim_status_not_null	status = NULL	23502 status	23502 status	passed
+kb.claim	claim_subject_id_fkey	subject_id = 2000000000 (no such row)	23503 claim_subject_id_fkey	23503 claim_subject_id_fkey	passed
+kb.claim	claim_subject_id_not_null	subject_id = NULL	23502 subject_id	23502 subject_id	passed
+kb.claim_evidence	claim_evidence_claim_id_fkey	claim_id = 2000000000 (no such row)	23503 claim_evidence_claim_id_fkey	23503 claim_evidence_claim_id_fkey	passed
+kb.claim_evidence	claim_evidence_claim_id_not_null	claim_id = NULL	23502 claim_id	23502 claim_id	passed
+kb.claim_evidence	claim_evidence_pkey	duplicate of an existing (claim_id, span_id, role)	23505 claim_evidence_pkey	23505 claim_evidence_pkey	passed
+kb.claim_evidence	claim_evidence_role_check	role = '__bad__'	23514 claim_evidence_role_check	23514 claim_evidence_role_check	passed
+kb.claim_evidence	claim_evidence_role_not_null	role = NULL	23502 role	23502 role	passed
+kb.claim_evidence	claim_evidence_span_id_fkey	span_id = 2000000000 (no such row)	23503 claim_evidence_span_id_fkey	23503 claim_evidence_span_id_fkey	passed
+kb.claim_evidence	claim_evidence_span_id_not_null	span_id = NULL	23502 span_id	23502 span_id	passed
+kb.claim_link	claim_link_detail_not_null	detail = NULL	23502 detail	23502 detail	passed
+kb.claim_link	claim_link_from_claim_id_fkey	from_claim_id = 2000000000 (no such row)	23503 claim_link_from_claim_id_fkey	23503 claim_link_from_claim_id_fkey	passed
+kb.claim_link	claim_link_from_claim_id_link_type_to_claim_id_key	duplicate of an existing (from_claim_id, link_type, to_claim_id)	23505 claim_link_from_claim_id_link_type_to_claim_id_key	23505 claim_link_from_claim_id_link_type_to_claim_id_key	passed
+kb.claim_link	claim_link_from_claim_id_not_null	from_claim_id = NULL	23502 from_claim_id	23502 from_claim_id	passed
+kb.claim_link	claim_link_link_type_check	link_type = '__bad__'	23514 claim_link_link_type_check	23514 claim_link_link_type_check	passed
+kb.claim_link	claim_link_link_type_not_null	link_type = NULL	23502 link_type	23502 link_type	passed
+kb.claim_link	claim_link_run_id_fkey	run_id = 2000000000 (no such row)	23503 claim_link_run_id_fkey	23503 claim_link_run_id_fkey	passed
+kb.claim_link	claim_link_run_id_not_null	run_id = NULL	23502 run_id	23502 run_id	passed
+kb.claim_link	claim_link_to_claim_id_fkey	to_claim_id = 2000000000 (no such row)	23503 claim_link_to_claim_id_fkey	23503 claim_link_to_claim_id_fkey	passed
+kb.claim_link	claim_link_to_claim_id_not_null	to_claim_id = NULL	23502 to_claim_id	23502 to_claim_id	passed
+kb.claim_support	claim_support_claim_id_fkey	claim_id = 2000000000 (no such row)	23503 claim_support_claim_id_fkey	23503 claim_support_claim_id_fkey	passed
+kb.claim_support	claim_support_claim_id_not_null	claim_id = NULL	23502 claim_id	23502 claim_id	passed
+kb.claim_support	claim_support_observation_id_fkey	observation_id = 2000000000 (no such row)	23503 claim_support_observation_id_fkey	23503 claim_support_observation_id_fkey	passed
+kb.claim_support	claim_support_observation_id_not_null	observation_id = NULL	23502 observation_id	23502 observation_id	passed
+kb.claim_support	claim_support_pkey	duplicate of an existing (claim_id, observation_id)	23505 claim_support_pkey	23505 claim_support_pkey	passed
+kb.document	document_content_hash_not_null	content_hash = NULL	23502 content_hash	23502 content_hash	passed
+kb.document	document_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+kb.document	document_key_key	duplicate of an existing (key)	23505 document_key_key	23505 document_key_key	passed
+kb.document	document_key_not_null	key = NULL	23502 key	23502 key	passed
+kb.document	document_meta_not_null	meta = NULL	23502 meta	23502 meta	passed
+kb.document	document_mime_not_null	mime = NULL	23502 mime	23502 mime	passed
+kb.document	document_original_path_not_null	original_path = NULL	23502 original_path	23502 original_path	passed
+kb.document	document_project_id_fkey	project_id = 2000000000 (no such row)	23503 document_project_id_fkey	23503 document_project_id_fkey	passed
+kb.document	document_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+kb.document	document_project_id_source_uri_content_hash_key	duplicate of an existing (project_id, source_uri, content_hash)	23505 document_project_id_source_uri_content_hash_key	23505 document_project_id_source_uri_content_hash_key	passed
+kb.document	document_source_uri_not_null	source_uri = NULL	23502 source_uri	23502 source_uri	passed
+kb.embedding	embedding_model_config_id_fkey	model_config_id = 2000000000 (no such row)	23503 embedding_model_config_id_fkey	23503 embedding_model_config_id_fkey	passed
+kb.embedding	embedding_model_config_id_not_null	model_config_id = NULL	23502 model_config_id	23502 model_config_id	passed
+kb.embedding	embedding_target_id_not_null	target_id = NULL	23502 target_id	23502 target_id	passed
+kb.embedding	embedding_target_type_check	target_type = '__bad__'	23514 embedding_target_type_check	23514 embedding_target_type_check	passed
+kb.embedding	embedding_target_type_not_null	target_type = NULL	23502 target_type	23502 target_type	passed
+kb.embedding	embedding_target_type_target_id_model_config_id_key	duplicate of an existing (target_type, target_id, model_config_id)	23505 embedding_target_type_target_id_model_config_id_key	23505 embedding_target_type_target_id_model_config_id_key	passed
+kb.embedding	embedding_vec_not_null	vec = NULL	23502 vec	23502 vec	passed
+kb.entity	entity_attrs_not_null	attrs = NULL	23502 attrs	23502 attrs	passed
+kb.entity	entity_check	scope_segment_id = null	23514 entity_check	23514 entity_check	passed
+kb.entity	entity_check1	kind = null	23514 entity_check1	23514 entity_check1	passed
+kb.entity	entity_key_not_null	key = NULL	23502 key	23502 key	passed
+kb.entity	entity_label_not_null	label = NULL	23502 label	23502 label	passed
+kb.entity	entity_run_id_fkey	run_id = 2000000000 (no such row)	23503 entity_run_id_fkey	23503 entity_run_id_fkey	passed
+kb.entity	entity_run_id_key_key	duplicate of an existing (run_id, key)	23505 entity_run_id_key_key	23505 entity_run_id_key_key	passed
+kb.entity	entity_run_id_not_null	run_id = NULL	23502 run_id	23502 run_id	passed
+kb.entity	entity_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 entity_schema_version_id_fkey	23503 entity_schema_version_id_fkey	passed
+kb.entity	entity_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+kb.entity	entity_scope_check	scope = '__bad__'	23514 entity_scope_check	23514 entity_scope_check	passed
+kb.entity	entity_scope_not_null	scope = NULL	23502 scope	23502 scope	passed
+kb.entity	entity_scope_segment_id_fkey	scope_segment_id = 2000000000 (no such row)	23503 entity_scope_segment_id_fkey	23503 entity_scope_segment_id_fkey	passed
+kb.entity	entity_type_not_null	type = NULL	23502 type	23502 type	passed
+kb.entity_alias	entity_alias_alias_kind_check	alias_kind = '__bad__'	23514 entity_alias_alias_kind_check	23514 entity_alias_alias_kind_check	passed
+kb.entity_alias	entity_alias_alias_kind_not_null	alias_kind = NULL	23502 alias_kind	23502 alias_kind	passed
+kb.entity_alias	entity_alias_alias_not_null	alias = NULL	23502 alias	23502 alias	passed
+kb.entity_alias	entity_alias_entity_id_fkey	entity_id = 2000000000 (no such row)	23503 entity_alias_entity_id_fkey	23503 entity_alias_entity_id_fkey	passed
+kb.entity_alias	entity_alias_entity_id_not_null	entity_id = NULL	23502 entity_id	23502 entity_id	passed
+kb.entity_alias	entity_alias_normalized_not_null	normalized = NULL	23502 normalized	23502 normalized	passed
+kb.entity_alias	entity_alias_pkey	duplicate of an existing (entity_id, normalized, alias_kind)	23505 entity_alias_pkey	23505 entity_alias_pkey	passed
+kb.entity_anchor	entity_anchor_entity_id_fkey	entity_id = 2000000000 (no such row)	23503 entity_anchor_entity_id_fkey	23503 entity_anchor_entity_id_fkey	passed
+kb.entity_anchor	entity_anchor_entity_id_not_null	entity_id = NULL	23502 entity_id	23502 entity_id	passed
+kb.entity_anchor	entity_anchor_pkey	duplicate of an existing (entity_id, segment_id)	23505 entity_anchor_pkey	23505 entity_anchor_pkey	passed
+kb.entity_anchor	entity_anchor_segment_id_fkey	segment_id = 2000000000 (no such row)	23503 entity_anchor_segment_id_fkey	23503 entity_anchor_segment_id_fkey	passed
+kb.entity_anchor	entity_anchor_segment_id_not_null	segment_id = NULL	23502 segment_id	23502 segment_id	passed
+kb.entity_mention	entity_mention_entity_id_fkey	entity_id = 2000000000 (no such row)	23503 entity_mention_entity_id_fkey	23503 entity_mention_entity_id_fkey	passed
+kb.entity_mention	entity_mention_entity_id_not_null	entity_id = NULL	23502 entity_id	23502 entity_id	passed
+kb.entity_mention	entity_mention_observation_id_fkey	observation_id = 2000000000 (no such row)	23503 entity_mention_observation_id_fkey	23503 entity_mention_observation_id_fkey	passed
+kb.entity_mention	entity_mention_observation_id_not_null	observation_id = NULL	23502 observation_id	23502 observation_id	passed
+kb.entity_mention	entity_mention_pkey	duplicate of an existing (entity_id, observation_id)	23505 entity_mention_pkey	23505 entity_mention_pkey	passed
+kb.observation	observation_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+kb.observation	observation_kind_check	kind = '__bad__'	23514 observation_kind_check	23514 observation_kind_check	passed
+kb.observation	observation_kind_not_null	kind = NULL	23502 kind	23502 kind	passed
+kb.observation	observation_ordinal_not_null	ordinal = NULL	23502 ordinal	23502 ordinal	passed
+kb.observation	observation_outcome_check	outcome = '__bad__'	23514 observation_outcome_check	23514 observation_outcome_check	passed
+kb.observation	observation_outcome_not_null	outcome = NULL	23502 outcome	23502 outcome	passed
+kb.observation	observation_payload_not_null	payload = NULL	23502 payload	23502 payload	passed
+kb.observation	observation_rendition_id_fkey	rendition_id = 2000000000 (no such row)	23503 observation_rendition_id_fkey	23503 observation_rendition_id_fkey	passed
+kb.observation	observation_segment_id_fkey	segment_id = 2000000000 (no such row)	23503 observation_segment_id_fkey	23503 observation_segment_id_fkey	passed
+kb.observation	observation_span_id_fkey	span_id = 2000000000 (no such row)	23503 observation_span_id_fkey	23503 observation_span_id_fkey	passed
+kb.observation	observation_task_id_fkey	task_id = 2000000000 (no such row)	23503 observation_task_id_fkey	23503 observation_task_id_fkey	passed
+kb.observation	observation_task_id_not_null	task_id = NULL	23502 task_id	23502 task_id	passed
+kb.observation	observation_task_id_ordinal_key	duplicate of an existing (task_id, ordinal)	23505 observation_task_id_ordinal_key	23505 observation_task_id_ordinal_key	passed
+kb.rendition	rendition_canonical_text_not_null	canonical_text = NULL	23502 canonical_text	23502 canonical_text	passed
+kb.rendition	rendition_content_digest_not_null	content_digest = NULL	23502 content_digest	23502 content_digest	passed
+kb.rendition	rendition_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+kb.rendition	rendition_document_id_content_digest_key	duplicate of an existing (document_id, content_digest)	23505 rendition_document_id_content_digest_key	23505 rendition_document_id_content_digest_key	passed
+kb.rendition	rendition_document_id_fkey	document_id = 2000000000 (no such row)	23503 rendition_document_id_fkey	23503 rendition_document_id_fkey	passed
+kb.rendition	rendition_document_id_not_null	document_id = NULL	23502 document_id	23502 document_id	passed
+kb.rendition	rendition_key_key	duplicate of an existing (key)	23505 rendition_key_key	23505 rendition_key_key	passed
+kb.rendition	rendition_key_not_null	key = NULL	23502 key	23502 key	passed
+kb.rendition	rendition_macros_not_null	macros = NULL	23502 macros	23502 macros	passed
+kb.rendition	rendition_parse_status_check	parse_status = '__bad__'	23514 rendition_parse_status_check	23514 rendition_parse_status_check	passed
+kb.rendition	rendition_parse_status_not_null	parse_status = NULL	23502 parse_status	23502 parse_status	passed
+kb.rendition_build	rendition_build_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+kb.rendition_build	rendition_build_document_id_fkey	document_id = 2000000000 (no such row)	23503 rendition_build_document_id_fkey	23503 rendition_build_document_id_fkey	passed
+kb.rendition_build	rendition_build_document_id_not_null	document_id = NULL	23502 document_id	23502 document_id	passed
+kb.rendition_build	rendition_build_method_config_id_fkey	method_config_id = 2000000000 (no such row)	23503 rendition_build_method_config_id_fkey	23503 rendition_build_method_config_id_fkey	passed
+kb.rendition_build	rendition_build_method_config_id_not_null	method_config_id = NULL	23502 method_config_id	23502 method_config_id	passed
+kb.rendition_build	rendition_build_parse_detail_not_null	parse_detail = NULL	23502 parse_detail	23502 parse_detail	passed
+kb.rendition_build	rendition_build_pkey	duplicate of an existing (document_id, method_config_id)	23505 rendition_build_pkey	23505 rendition_build_pkey	passed
+kb.rendition_build	rendition_build_rendition_id_fkey	rendition_id = 2000000000 (no such row)	23503 rendition_build_rendition_id_fkey	23503 rendition_build_rendition_id_fkey	passed
+kb.rendition_build	rendition_build_rendition_id_not_null	rendition_id = NULL	23502 rendition_id	23502 rendition_id	passed
+kb.rendition_build	rendition_build_task_id_fkey	task_id = 2000000000 (no such row)	23503 rendition_build_task_id_fkey	23503 rendition_build_task_id_fkey	passed
+kb.rendition_build	rendition_build_task_id_not_null	task_id = NULL	23502 task_id	23502 task_id	passed
+kb.segment	segment_attrs_not_null	attrs = NULL	23502 attrs	23502 attrs	passed
+kb.segment	segment_check	parse_reason = "x"	23514 segment_check	23514 segment_check	passed
+kb.segment	segment_check1	start_offset = end_offset + 1	23514 segment_check1	23514 segment_check1	passed
+kb.segment	segment_depth_not_null	depth = NULL	23502 depth	23502 depth	passed
+kb.segment	segment_end_offset_not_null	end_offset = NULL	23502 end_offset	23502 end_offset	passed
+kb.segment	segment_key_key	duplicate of an existing (key)	23505 segment_key_key	23505 segment_key_key	passed
+kb.segment	segment_key_not_null	key = NULL	23502 key	23502 key	passed
+kb.segment	segment_kind_check	kind = '__bad__'	23514 segment_kind_check	23514 segment_kind_check	passed
+kb.segment	segment_kind_not_null	kind = NULL	23502 kind	23502 kind	passed
+kb.segment	segment_ordinal_not_null	ordinal = NULL	23502 ordinal	23502 ordinal	passed
+kb.segment	segment_parent_id_fkey	parent_id = 2000000000 (no such row)	23503 segment_parent_id_fkey	23503 segment_parent_id_fkey	passed
+kb.segment	segment_parse_status_check	parse_status = '__bad__'	23514 segment_parse_status_check	23514 segment_parse_status_check	passed
+kb.segment	segment_parse_status_not_null	parse_status = NULL	23502 parse_status	23502 parse_status	passed
+kb.segment	segment_rendition_id_fkey	rendition_id = 2000000000 (no such row)	23503 segment_rendition_id_fkey	23503 segment_rendition_id_fkey	passed
+kb.segment	segment_rendition_id_not_null	rendition_id = NULL	23502 rendition_id	23502 rendition_id	passed
+kb.segment	segment_start_offset_not_null	start_offset = NULL	23502 start_offset	23502 start_offset	passed
+kb.segment	segment_text_not_null	text = NULL	23502 text	23502 text	passed
+kb.segment	segment_ts_config_not_null	ts_config = NULL	23502 ts_config	23502 ts_config	passed
+kb.span	span_check	start_offset = end_offset	23514 span_check	23514 span_check	passed
+kb.span	span_end_offset_not_null	end_offset = NULL	23502 end_offset	23502 end_offset	passed
+kb.span	span_rendition_id_fkey	rendition_id = 2000000000 (no such row)	23503 span_rendition_id_fkey	23503 span_rendition_id_fkey	passed
+kb.span	span_rendition_id_not_null	rendition_id = NULL	23502 rendition_id	23502 rendition_id	passed
+kb.span	span_rendition_id_start_offset_end_offset_key	duplicate of an existing (rendition_id, start_offset, end_offset)	23505 span_rendition_id_start_offset_end_offset_key	23505 span_rendition_id_start_offset_end_offset_key	passed
+kb.span	span_segment_id_fkey	segment_id = 2000000000 (no such row)	23503 span_segment_id_fkey	23503 span_segment_id_fkey	passed
+kb.span	span_segment_id_not_null	segment_id = NULL	23502 segment_id	23502 segment_id	passed
+kb.span	span_start_offset_not_null	start_offset = NULL	23502 start_offset	23502 start_offset	passed
+kb.span	span_text_not_null	text = NULL	23502 text	23502 text	passed
+meta.compiled_artifact	compiled_artifact_body_not_null	body = NULL	23502 body	23502 body	passed
+meta.compiled_artifact	compiled_artifact_compiler_not_null	compiler = NULL	23502 compiler	23502 compiler	passed
+meta.compiled_artifact	compiled_artifact_compiler_version_not_null	compiler_version = NULL	23502 compiler_version	23502 compiler_version	passed
+meta.compiled_artifact	compiled_artifact_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+meta.compiled_artifact	compiled_artifact_hash_not_null	hash = NULL	23502 hash	23502 hash	passed
+meta.compiled_artifact	compiled_artifact_kind_not_null	kind = NULL	23502 kind	23502 kind	passed
+meta.compiled_artifact	compiled_artifact_schema_version_id_compiler_compiler_versi_key	duplicate of an existing (schema_version_id, compiler, compiler_version, kind)	23505 compiled_artifact_schema_version_id_compiler_compiler_versi_key	23505 compiled_artifact_schema_version_id_compiler_compiler_versi_key	passed
+meta.compiled_artifact	compiled_artifact_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 compiled_artifact_schema_version_id_fkey	23503 compiled_artifact_schema_version_id_fkey	passed
+meta.compiled_artifact	compiled_artifact_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+meta.guideline_version	guideline_version_body_not_null	body = NULL	23502 body	23502 body	passed
+meta.guideline_version	guideline_version_content_hash_not_null	content_hash = NULL	23502 content_hash	23502 content_hash	passed
+meta.guideline_version	guideline_version_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+meta.guideline_version	guideline_version_created_by_not_null	created_by = NULL	23502 created_by	23502 created_by	passed
+meta.guideline_version	guideline_version_domain_not_null	domain = NULL	23502 domain	23502 domain	passed
+meta.guideline_version	guideline_version_label_not_null	label = NULL	23502 label	23502 label	passed
+meta.guideline_version	guideline_version_parent_id_fkey	parent_id = 2000000000 (no such row)	23503 guideline_version_parent_id_fkey	23503 guideline_version_parent_id_fkey	passed
+meta.guideline_version	guideline_version_project_id_content_hash_key	duplicate of an existing (project_id, content_hash)	23505 guideline_version_project_id_content_hash_key	23505 guideline_version_project_id_content_hash_key	passed
+meta.guideline_version	guideline_version_project_id_fkey	project_id = 2000000000 (no such row)	23503 guideline_version_project_id_fkey	23503 guideline_version_project_id_fkey	passed
+meta.guideline_version	guideline_version_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+meta.guideline_version	guideline_version_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 guideline_version_schema_version_id_fkey	23503 guideline_version_schema_version_id_fkey	passed
+meta.guideline_version	guideline_version_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+meta.guideline_version	guideline_version_state_check	state = '__bad__'	23514 guideline_version_state_check	23514 guideline_version_state_check	passed
+meta.guideline_version	guideline_version_state_not_null	state = NULL	23502 state	23502 state	passed
+meta.project	project_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+meta.project	project_domain_not_null	domain = NULL	23502 domain	23502 domain	passed
+meta.project	project_name_key	duplicate of an existing (name)	23505 project_name_key	23505 project_name_key	passed
+meta.project	project_name_not_null	name = NULL	23502 name	23502 name	passed
+meta.project	project_promoted_run_id_fkey	promoted_run_id = 2000000000 (no such row)	23503 project_promoted_run_id_fkey	23503 project_promoted_run_id_fkey	passed
+meta.schema_class	schema_class_annotations_not_null	annotations = NULL	23502 annotations	23502 annotations	passed
+meta.schema_class	schema_class_identity_keys_not_null	identity_keys = NULL	23502 identity_keys	23502 identity_keys	passed
+meta.schema_class	schema_class_kind_check	kind = '__bad__'	23514 schema_class_kind_check	23514 schema_class_kind_check	passed
+meta.schema_class	schema_class_kind_not_null	kind = NULL	23502 kind	23502 kind	passed
+meta.schema_class	schema_class_name_not_null	name = NULL	23502 name	23502 name	passed
+meta.schema_class	schema_class_pkey	duplicate of an existing (schema_version_id, name)	23505 schema_class_pkey	23505 schema_class_pkey	passed
+meta.schema_class	schema_class_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 schema_class_schema_version_id_fkey	23503 schema_class_schema_version_id_fkey	passed
+meta.schema_class	schema_class_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+meta.schema_class	schema_class_scope_check	scope = '__bad__'	23514 schema_class_scope_check	23514 schema_class_scope_check	passed
+meta.schema_enum	schema_enum_annotations_not_null	annotations = NULL	23502 annotations	23502 annotations	passed
+meta.schema_enum	schema_enum_name_not_null	name = NULL	23502 name	23502 name	passed
+meta.schema_enum	schema_enum_pkey	duplicate of an existing (schema_version_id, name)	23505 schema_enum_pkey	23505 schema_enum_pkey	passed
+meta.schema_enum	schema_enum_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 schema_enum_schema_version_id_fkey	23503 schema_enum_schema_version_id_fkey	passed
+meta.schema_enum	schema_enum_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+meta.schema_enum	schema_enum_values_not_null	values = NULL	23502 values	23502 values	passed
+meta.schema_rule	schema_rule_applies_to_not_null	applies_to = NULL	23502 applies_to	23502 applies_to	passed
+meta.schema_rule	schema_rule_at_not_null	at = NULL	23502 at	23502 at	passed
+meta.schema_rule	schema_rule_check	severity = null	23514 schema_rule_check	23514 schema_rule_check	passed
+meta.schema_rule	schema_rule_check1	check_expr = null	23514 schema_rule_check1	23514 schema_rule_check1	passed
+meta.schema_rule	schema_rule_grp_check	grp = '__bad__'	23514 schema_rule_grp_check	23514 schema_rule_grp_check	passed
+meta.schema_rule	schema_rule_grp_not_null	grp = NULL	23502 grp	23502 grp	passed
+meta.schema_rule	schema_rule_pkey	duplicate of an existing (schema_version_id, rule_id)	23505 schema_rule_pkey	23505 schema_rule_pkey	passed
+meta.schema_rule	schema_rule_rule_id_not_null	rule_id = NULL	23502 rule_id	23502 rule_id	passed
+meta.schema_rule	schema_rule_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 schema_rule_schema_version_id_fkey	23503 schema_rule_schema_version_id_fkey	passed
+meta.schema_rule	schema_rule_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+meta.schema_rule	schema_rule_severity_check	severity = '__bad__'	23514 schema_rule_severity_check	23514 schema_rule_severity_check	passed
+meta.schema_rule	schema_rule_when_expr_not_null	when_expr = NULL	23502 when_expr	23502 when_expr	passed
+meta.schema_slot	schema_slot_annotations_not_null	annotations = NULL	23502 annotations	23502 annotations	passed
+meta.schema_slot	schema_slot_identity_qualifiers_not_null	identity_qualifiers = NULL	23502 identity_qualifiers	23502 identity_qualifiers	passed
+meta.schema_slot	schema_slot_multivalued_not_null	multivalued = NULL	23502 multivalued	23502 multivalued	passed
+meta.schema_slot	schema_slot_name_not_null	name = NULL	23502 name	23502 name	passed
+meta.schema_slot	schema_slot_pkey	duplicate of an existing (schema_version_id, name)	23505 schema_slot_pkey	23505 schema_slot_pkey	passed
+meta.schema_slot	schema_slot_qualifiers_not_null	qualifiers = NULL	23502 qualifiers	23502 qualifiers	passed
+meta.schema_slot	schema_slot_role_check	role = '__bad__'	23514 schema_slot_role_check	23514 schema_slot_role_check	passed
+meta.schema_slot	schema_slot_role_not_null	role = NULL	23502 role	23502 role	passed
+meta.schema_slot	schema_slot_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 schema_slot_schema_version_id_fkey	23503 schema_slot_schema_version_id_fkey	passed
+meta.schema_slot	schema_slot_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+meta.schema_slot	schema_slot_subsets_not_null	subsets = NULL	23502 subsets	23502 subsets	passed
+meta.schema_version	schema_version_content_hash_not_null	content_hash = NULL	23502 content_hash	23502 content_hash	passed
+meta.schema_version	schema_version_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+meta.schema_version	schema_version_created_by_not_null	created_by = NULL	23502 created_by	23502 created_by	passed
+meta.schema_version	schema_version_domain_not_null	domain = NULL	23502 domain	23502 domain	passed
+meta.schema_version	schema_version_label_not_null	label = NULL	23502 label	23502 label	passed
+meta.schema_version	schema_version_parent_id_fkey	parent_id = 2000000000 (no such row)	23503 schema_version_parent_id_fkey	23503 schema_version_parent_id_fkey	passed
+meta.schema_version	schema_version_project_id_content_hash_key	duplicate of an existing (project_id, content_hash)	23505 schema_version_project_id_content_hash_key	23505 schema_version_project_id_content_hash_key	passed
+meta.schema_version	schema_version_project_id_fkey	project_id = 2000000000 (no such row)	23503 schema_version_project_id_fkey	23503 schema_version_project_id_fkey	passed
+meta.schema_version	schema_version_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+meta.schema_version	schema_version_source_not_null	source = NULL	23502 source	23502 source	passed
+meta.schema_version	schema_version_state_check	state = '__bad__'	23514 schema_version_state_check	23514 schema_version_state_check	passed
+meta.schema_version	schema_version_state_not_null	state = NULL	23502 state	23502 state	passed
+ops.debug_slice	debug_slice_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+ops.debug_slice	debug_slice_name_not_null	name = NULL	23502 name	23502 name	passed
+ops.debug_slice	debug_slice_project_id_fkey	project_id = 2000000000 (no such row)	23503 debug_slice_project_id_fkey	23503 debug_slice_project_id_fkey	passed
+ops.debug_slice	debug_slice_project_id_name_key	duplicate of an existing (project_id, name)	23505 debug_slice_project_id_name_key	23505 debug_slice_project_id_name_key	passed
+ops.debug_slice	debug_slice_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+ops.debug_slice	debug_slice_selector_not_null	selector = NULL	23502 selector	23502 selector	passed
+ops.experiment	experiment_baseline_run_id_fkey	baseline_run_id = 2000000000 (no such row)	23503 experiment_baseline_run_id_fkey	23503 experiment_baseline_run_id_fkey	passed
+ops.experiment	experiment_candidate_change_not_null	candidate_change = NULL	23502 candidate_change	23502 candidate_change	passed
+ops.experiment	experiment_candidate_run_id_fkey	candidate_run_id = 2000000000 (no such row)	23503 experiment_candidate_run_id_fkey	23503 experiment_candidate_run_id_fkey	passed
+ops.experiment	experiment_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+ops.experiment	experiment_decision_check	decision = '__bad__'	23514 experiment_decision_check	23514 experiment_decision_check	passed
+ops.experiment	experiment_guard_metrics_not_null	guard_metrics = NULL	23502 guard_metrics	23502 guard_metrics	passed
+ops.experiment	experiment_hypothesis_not_null	hypothesis = NULL	23502 hypothesis	23502 hypothesis	passed
+ops.experiment	experiment_project_id_fkey	project_id = 2000000000 (no such row)	23503 experiment_project_id_fkey	23503 experiment_project_id_fkey	passed
+ops.experiment	experiment_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+ops.experiment	experiment_target_metric_not_null	target_metric = NULL	23502 target_metric	23502 target_metric	passed
+ops.intervention	intervention_actor_not_null	actor = NULL	23502 actor	23502 actor	passed
+ops.intervention	intervention_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+ops.intervention	intervention_kind_check	kind = '__bad__'	23514 intervention_kind_check	23514 intervention_kind_check	passed
+ops.intervention	intervention_kind_not_null	kind = NULL	23502 kind	23502 kind	passed
+ops.intervention	intervention_project_id_fkey	project_id = 2000000000 (no such row)	23503 intervention_project_id_fkey	23503 intervention_project_id_fkey	passed
+ops.intervention	intervention_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+ops.intervention	intervention_refs_not_null	refs = NULL	23502 refs	23502 refs	passed
+ops.intervention	intervention_run_id_fkey	run_id = 2000000000 (no such row)	23503 intervention_run_id_fkey	23503 intervention_run_id_fkey	passed
+ops.intervention	intervention_target_not_null	target = NULL	23502 target	23502 target	passed
+ops.intervention	intervention_task_id_fkey	task_id = 2000000000 (no such row)	23503 intervention_task_id_fkey	23503 intervention_task_id_fkey	passed
+ops.measurement	measurement_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+ops.measurement	measurement_detail_not_null	detail = NULL	23502 detail	23502 detail	passed
+ops.measurement	measurement_iteration_not_null	iteration = NULL	23502 iteration	23502 iteration	passed
+ops.measurement	measurement_metric_not_null	metric = NULL	23502 metric	23502 metric	passed
+ops.measurement	measurement_run_id_fkey	run_id = 2000000000 (no such row)	23503 measurement_run_id_fkey	23503 measurement_run_id_fkey	passed
+ops.measurement	measurement_run_id_not_null	run_id = NULL	23502 run_id	23502 run_id	passed
+ops.measurement	measurement_scope_type_check	scope_type = '__bad__'	23514 measurement_scope_type_check	23514 measurement_scope_type_check	passed
+ops.measurement	measurement_scope_type_not_null	scope_type = NULL	23502 scope_type	23502 scope_type	passed
+ops.measurement	measurement_task_id_fkey	task_id = 2000000000 (no such row)	23503 measurement_task_id_fkey	23503 measurement_task_id_fkey	passed
+ops.method	method_family_check	family = '__bad__'	23514 method_family_check	23514 method_family_check	passed
+ops.method	method_family_not_null	family = NULL	23502 family	23502 family	passed
+ops.method	method_name_not_null	name = NULL	23502 name	23502 name	passed
+ops.method	method_name_version_key	duplicate of an existing (name, version)	23505 method_name_version_key	23505 method_name_version_key	passed
+ops.method	method_version_not_null	version = NULL	23502 version	23502 version	passed
+ops.method_config	method_config_config_hash_key	duplicate of an existing (config_hash)	23505 method_config_config_hash_key	23505 method_config_config_hash_key	passed
+ops.method_config	method_config_config_hash_not_null	config_hash = NULL	23502 config_hash	23502 config_hash	passed
+ops.method_config	method_config_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+ops.method_config	method_config_method_id_fkey	method_id = 2000000000 (no such row)	23503 method_config_method_id_fkey	23503 method_config_method_id_fkey	passed
+ops.method_config	method_config_method_id_not_null	method_id = NULL	23502 method_id	23502 method_id	passed
+ops.method_config	method_config_name_not_null	name = NULL	23502 name	23502 name	passed
+ops.method_config	method_config_params_not_null	params = NULL	23502 params	23502 params	passed
+ops.method_config	method_config_tier_check	tier = '__bad__'	23514 method_config_tier_check	23514 method_config_tier_check	passed
+ops.policy_rule	policy_rule_action_not_null	action = NULL	23502 action	23502 action	passed
+ops.policy_rule	policy_rule_chain_check	chain = '__bad__'	23514 policy_rule_chain_check	23514 policy_rule_chain_check	passed
+ops.policy_rule	policy_rule_chain_not_null	chain = NULL	23502 chain	23502 chain	passed
+ops.policy_rule	policy_rule_condition_not_null	condition = NULL	23502 condition	23502 condition	passed
+ops.policy_rule	policy_rule_enabled_not_null	enabled = NULL	23502 enabled	23502 enabled	passed
+ops.policy_rule	policy_rule_policy_version_id_fkey	policy_version_id = 2000000000 (no such row)	23503 policy_rule_policy_version_id_fkey	23503 policy_rule_policy_version_id_fkey	passed
+ops.policy_rule	policy_rule_policy_version_id_not_null	policy_version_id = NULL	23502 policy_version_id	23502 policy_version_id	passed
+ops.policy_rule	policy_rule_policy_version_id_rule_key_key	duplicate of an existing (policy_version_id, rule_key)	23505 policy_rule_policy_version_id_rule_key_key	23505 policy_rule_policy_version_id_rule_key_key	passed
+ops.policy_rule	policy_rule_priority_not_null	priority = NULL	23502 priority	23502 priority	passed
+ops.policy_rule	policy_rule_rule_key_not_null	rule_key = NULL	23502 rule_key	23502 rule_key	passed
+ops.policy_rule	policy_rule_unit_type_not_null	unit_type = NULL	23502 unit_type	23502 unit_type	passed
+ops.policy_version	policy_version_content_hash_not_null	content_hash = NULL	23502 content_hash	23502 content_hash	passed
+ops.policy_version	policy_version_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+ops.policy_version	policy_version_created_by_not_null	created_by = NULL	23502 created_by	23502 created_by	passed
+ops.policy_version	policy_version_label_not_null	label = NULL	23502 label	23502 label	passed
+ops.policy_version	policy_version_project_id_content_hash_key	duplicate of an existing (project_id, content_hash)	23505 policy_version_project_id_content_hash_key	23505 policy_version_project_id_content_hash_key	passed
+ops.policy_version	policy_version_project_id_fkey	project_id = 2000000000 (no such row)	23503 policy_version_project_id_fkey	23503 policy_version_project_id_fkey	passed
+ops.policy_version	policy_version_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+ops.policy_version	policy_version_source_not_null	source = NULL	23502 source	23502 source	passed
+ops.policy_version	policy_version_state_check	state = '__bad__'	23514 policy_version_state_check	23514 policy_version_state_check	passed
+ops.policy_version	policy_version_state_not_null	state = NULL	23502 state	23502 state	passed
+ops.run	run_code_commit_not_null	code_commit = NULL	23502 code_commit	23502 code_commit	passed
+ops.run	run_corpus_hash_not_null	corpus_hash = NULL	23502 corpus_hash	23502 corpus_hash	passed
+ops.run	run_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+ops.run	run_debug_slice_id_fkey	debug_slice_id = 2000000000 (no such row)	23503 run_debug_slice_id_fkey	23503 run_debug_slice_id_fkey	passed
+ops.run	run_guideline_version_id_fkey	guideline_version_id = 2000000000 (no such row)	23503 run_guideline_version_id_fkey	23503 run_guideline_version_id_fkey	passed
+ops.run	run_iteration_limit_not_null	iteration_limit = NULL	23502 iteration_limit	23502 iteration_limit	passed
+ops.run	run_iteration_not_null	iteration = NULL	23502 iteration	23502 iteration	passed
+ops.run	run_kind_check	kind = '__bad__'	23514 run_kind_check	23514 run_kind_check	passed
+ops.run	run_kind_not_null	kind = NULL	23502 kind	23502 kind	passed
+ops.run	run_options_not_null	options = NULL	23502 options	23502 options	passed
+ops.run	run_parent_run_id_fkey	parent_run_id = 2000000000 (no such row)	23503 run_parent_run_id_fkey	23503 run_parent_run_id_fkey	passed
+ops.run	run_phase_not_null	phase = NULL	23502 phase	23502 phase	passed
+ops.run	run_policy_version_id_fkey	policy_version_id = 2000000000 (no such row)	23503 run_policy_version_id_fkey	23503 run_policy_version_id_fkey	passed
+ops.run	run_policy_version_id_not_null	policy_version_id = NULL	23502 policy_version_id	23502 policy_version_id	passed
+ops.run	run_project_id_fkey	project_id = 2000000000 (no such row)	23503 run_project_id_fkey	23503 run_project_id_fkey	passed
+ops.run	run_project_id_not_null	project_id = NULL	23502 project_id	23502 project_id	passed
+ops.run	run_reference_run_id_fkey	reference_run_id = 2000000000 (no such row)	23503 run_reference_run_id_fkey	23503 run_reference_run_id_fkey	passed
+ops.run	run_schema_version_id_fkey	schema_version_id = 2000000000 (no such row)	23503 run_schema_version_id_fkey	23503 run_schema_version_id_fkey	passed
+ops.run	run_schema_version_id_not_null	schema_version_id = NULL	23502 schema_version_id	23502 schema_version_id	passed
+ops.run	run_status_check	status = '__bad__'	23514 run_status_check	23514 run_status_check	passed
+ops.run	run_status_not_null	status = NULL	23502 status	23502 status	passed
+ops.task	task_attempt_not_null	attempt = NULL	23502 attempt	23502 attempt	passed
+ops.task	task_cost_not_null	cost = NULL	23502 cost	23502 cost	passed
+ops.task	task_created_at_not_null	created_at = NULL	23502 created_at	23502 created_at	passed
+ops.task	task_input_hash_not_null	input_hash = NULL	23502 input_hash	23502 input_hash	passed
+ops.task	task_method_config_id_fkey	method_config_id = 2000000000 (no such row)	23503 task_method_config_id_fkey	23503 task_method_config_id_fkey	passed
+ops.task	task_method_config_id_not_null	method_config_id = NULL	23502 method_config_id	23502 method_config_id	passed
+ops.task	task_priority_not_null	priority = NULL	23502 priority	23502 priority	passed
+ops.task	task_reused_task_id_fkey	reused_task_id = 2000000000 (no such row)	23503 task_reused_task_id_fkey	23503 task_reused_task_id_fkey	passed
+ops.task	task_run_id_fkey	run_id = 2000000000 (no such row)	23503 task_run_id_fkey	23503 task_run_id_fkey	passed
+ops.task	task_run_id_not_null	run_id = NULL	23502 run_id	23502 run_id	passed
+ops.task	task_stage_not_null	stage = NULL	23502 stage	23502 stage	passed
+ops.task	task_status_check	status = '__bad__'	23514 task_status_check	23514 task_status_check	passed
+ops.task	task_status_not_null	status = NULL	23502 status	23502 status	passed
+ops.task	task_trigger_metrics_not_null	trigger_metrics = NULL	23502 trigger_metrics	23502 trigger_metrics	passed
+ops.task	task_trigger_rule_id_fkey	trigger_rule_id = 2000000000 (no such row)	23503 task_trigger_rule_id_fkey	23503 task_trigger_rule_id_fkey	passed
+ops.task	task_unit_type_check	unit_type = '__bad__'	23514 task_unit_type_check	23514 task_unit_type_check	passed
+ops.task	task_unit_type_not_null	unit_type = NULL	23502 unit_type	23502 unit_type	passed

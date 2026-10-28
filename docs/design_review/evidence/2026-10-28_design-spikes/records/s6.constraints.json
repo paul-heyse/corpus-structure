@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "id": "s6.constraints",
+  "title": "Trace and golden rows, the constraint sweep and run deletion",
+  "group": "S6 Storage smoke",
+  "package": "S6-B",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the v1 trace rows and the golden-run rows fit D3's tables, does every constraint fire on its bad row, and does run deletion behave as D3 §8 says?",
+  "answers": [
+    "D3 §5",
+    "D3 §7",
+    "D3 §8",
+    "B7",
+    "INV-10",
+    "OPEN-D1-5"
+  ],
+  "method": "Four pages' renditions and segments, the twelve core units of the v1 reference (stored form) as entities, claims, evidence, supports and one derived link; a golden run with passes a = SV, b = HV, c = v1 reference and items; a second run with reuse and a late task. Constraint sweep: the brief's three bad rows, a mutated copy of an existing row for every CHECK, NOT NULL, FK, UNIQUE and composite PK, and six invariants the database does not express, in one rolled-back transaction. Run 2's materialized rows deleted by run_id with plans. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6b_rows.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6_ddl_applied.sql",
+      "role": "applied copy",
+      "sha256": "8eaf80ea08f93e760cc139314ca4f16f30a3722e3e3a923e5f8777cd1506eda3"
+    },
+    {
+      "path": "code/s6_db.py",
+      "role": "database helpers",
+      "sha256": "2793ef417c3dfa03bc583521f105e4ec7d7aaa5897991dd50a06aea62ee8efb7"
+    },
+    {
+      "path": "code/s6_load.py",
+      "role": "row loader",
+      "sha256": "43a34297df9a746a0d868f685d960ba72d45707b6b14399d17c75138812f736c"
+    },
+    {
+      "path": "results/s1/segments",
+      "role": "S1 segments",
+      "sha256": "15347e8f907cebd26891ac425248429ed1006c42a0bfc03ba5cd31e8f5d43ffb"
+    },
+    {
+      "path": "results/s1/sentences",
+      "role": "S1 provisional sentences",
+      "sha256": "87ffec6f0a378346ef0a0d473f7cb4a1c2902ba11bce740ba13b2b1e4f60eaec"
+    },
+    {
+      "path": "results/s1/canonical",
+      "role": "canonical texts",
+      "sha256": "8c5d52ad0ecdfc3eed2ada6ceda308f4ac8469741781476c1bc8c2070ebd8ed5"
+    },
+    {
+      "path": "sample.json",
+      "role": "core-unit locators",
+      "sha256": "55463a0aca5c03c6412cf721692fa8a6eac3c6f5e9ffa4749509e7c123a30bd8"
+    },
+    {
+      "path": "results/s0r2/sample.json",
+      "role": "context sentences",
+      "sha256": "6a2553d01250b755d225eda8b4007d691c45c30006d364a56881060cde0cb4b2"
+    },
+    {
+      "path": "results/s0r2/reference_v1",
+      "role": "v1 reference (stored)",
+      "sha256": "43860b19cd349555c731dadf188ab36c0e57c452cb4723a03a471974bd5b3bab"
+    },
+    {
+      "path": "results/s0r2/reference_model_v1",
+      "role": "v1 reference (model-facing, pass c)",
+      "sha256": "34f49dd67a804a94ee6caa2eefd0dda4a96bd30382b3f716c850dba2ff8683dc"
+    },
+    {
+      "path": "results/s0r2/pass_sv",
+      "role": "pass SV (golden pass a)",
+      "sha256": "b94e47757ee9e8a504ffbcf25bf6d78b2bfbdf4e45d18068f2b482f158c200a3"
+    },
+    {
+      "path": "results/s0r2/pass_hv",
+      "role": "pass HV (golden pass b)",
+      "sha256": "12c85b86692dc8c6995ffef511e03277d5d33b117d399413f665f7d44cb478a3"
+    },
+    {
+      "path": "code/s6b_rows.py",
+      "role": "script",
+      "sha256": "b3c5d3a9baa9e4815a10be3c4938c984f0b7679d2e69f00e6678a11cd4354a59"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/constraints.tsv",
+      "role": "bad row, expected, observed",
+      "sha256": "ed907bb2db29f823b9ce958d880db68d8490e43ec0bc46d36c07288034fb137f"
+    },
+    {
+      "path": "results/s6/rows.json",
+      "role": "row checks",
+      "sha256": "30491ca5d7da2e01dfe9c08c240256897526dca0f1ea03641c4987f2b9479778"
+    },
+    {
+      "path": "results/s6/run_deletion.md",
+      "role": "run deletion with plans",
+      "sha256": "896afdd841a64711c84ff26b8fdd336884c9457b60bd23709f409e721e96f7e4"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu"
+  ],
+  "results": [
+    {
+      "name": "constraint_cases_passed",
+      "value": 420,
+      "of": 420,
+      "unit": null,
+      "note": "includes the brief's three (claim_check, entity_check, golden_pass.model NOT NULL) and six repository-only invariants that insert without error"
+    },
+    {
+      "name": "t3_c2_conditions",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "a ∈ \\R and b ∈ \\R \\setminus \\{0\\}"
+    },
+    {
+      "name": "t4_claims",
+      "value": 17,
+      "of": 17,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "context_premise_evidence_returned",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "U12 c_X_stdgamma cites c1 (7103–7191) before the unit (7253); evidence query unit_id null (smallest segment a sentence)"
+    },
+    {
+      "name": "golden_items",
+      "value": 163,
+      "of": null,
+      "unit": null,
+      "note": "2 with context set (U12 st0 and its premise)"
+    },
+    {
+      "name": "pass_c_after_a_and_b",
+      "value": true,
+      "of": 12,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "run_observation_reuse_and_fate_cut",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "run_deletion",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "run row and tasks kept; kb.claim_link has no run_id index (seq scan; the claim cascade removes links anyway); claim subject/object/statement RI checks reach claim_subject/claim_object/claim_statement only by skip scan; eval.alignment.golden_item_id unindexed"
+    },
+    {
+      "name": "v1_misfits",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "U6 e_last_result: a Statement-typed entity without a kind fails entity_check; its claim c_follows not loaded (OPEN-D1-5)"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The v1 trace rows and the golden-run rows fit D3 with one reference misfit (a Statement-typed entity without a kind, an OPEN-D1-5 external reference). All 420 constraint cases behave as expected, including the brief's three bad rows; span bounds, span and segment text, cross-rendition evidence, distinct pass sessions and items only on pass c are repository checks, as expected. Run deletion keeps the run and its tasks and uses run_id indexes except on kb.claim_link, which the claim cascade covers.",
+  "consumed_by": [
+    "P0-F-4",
+    "S6-G",
+    "OPEN-D1-5"
+  ]
+}
