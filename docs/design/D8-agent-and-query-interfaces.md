@@ -244,7 +244,7 @@ written (D3 §8).
   how many were extracted, how many were skipped and for which reason (D6 §1), how many
   failed, and how many are still unresolved at the agent. Every eligible unit has a recorded fate
   (D6 §7.4), so a short or empty answer over a partial run reads as partial, not as absence. A
-  finished run's fates are its tasks as of its `finished_at`: a task that finishes later, a reused
+  finished run's fates are its tasks as of its cut (`finished_at <= cut_at`, D6 §3.1): a task that finishes after the cut, a reused
   agent result among them, counts as unresolved for that run. In phase 0 every run is partial by
   construction (the `phase0-golden` slice, D7 §9).
 > Status: **Proposed** (2026-10-28)

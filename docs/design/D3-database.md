@@ -363,7 +363,7 @@ CREATE TABLE ops.policy_rule (
   rule_key          text NOT NULL,               -- 'escalate.low_confidence.local_llm'
   chain             text NOT NULL CHECK (chain IN ('propose','escalate','adjudicate','identity','gaps')),
   priority          integer NOT NULL,            -- position in the chain (D6 §7.1)
-  unit_type         text NOT NULL,               -- the chain's default or the entry's own (D6 §7.1)
+  unit_type         text NOT NULL CHECK (unit_type IN (/* generated from TaskUnitType, as ops.task.unit_type */)),   -- the chain's default or the entry's own (D6 §7.1)
   condition         text NOT NULL,               -- rule-engine expression over the unit context
   action            jsonb NOT NULL,              -- {"method": "<method>/<name>", "limit": 50, "then": "stop|continue"} (§6.3)
   enabled           boolean NOT NULL DEFAULT true,
@@ -384,7 +384,7 @@ CREATE TABLE ops.run (
   project_id           bigint NOT NULL REFERENCES meta.project,
   kind                 text NOT NULL CHECK (kind IN ('ingest','full','slice','experiment','rescore','golden')),
   phase                smallint NOT NULL,        -- 0–5 (D0); policies read it
-  options              jsonb NOT NULL DEFAULT '{}',  -- agent_mode, agent_reuse, fresh methods, gpu mode, corpus (a slice, default 'first-pass'), scope (a slice naming the units routed, with its resolved unit list and that list's hash; the kind stays, so the run can be promoted) (D6 §2, §4, §5, §8)
+  options              jsonb NOT NULL DEFAULT '{}',  -- the resolved run options (an explicit option, else a result-neutral setting's default, else the model default): agent_mode, agent_reuse, fresh methods, gpu_mode (a GpuMode member), corpus (a slice, default 'first-pass'), scope (a slice naming the units routed, with its resolved unit list and that list's hash; the kind stays, so the run can be promoted) (D6 §2, §4, §5, §8)
   debug_slice_id       bigint REFERENCES ops.debug_slice,
   corpus_hash          text NOT NULL,            -- over the corpus's (document key, content hash) set and the ingest config hash (below)
   model_revision_id    bigint NOT NULL REFERENCES meta.model_revision,   -- the revision the run ran under; a run under another installed revision is refused (D2 §8)
@@ -401,8 +401,8 @@ CREATE TABLE ops.run (
                             'consolidating','finished','failed','cancelled')),
   notes                text,
   started_at           timestamptz,
-  cut_at               timestamptz,              -- the run's knowledge cut, sealed in a short transaction (D6 §3.1)
-  cut_m19_task_id      bigint,                   -- the run's final M19 task, recorded by the seal; FK added after ops.task (§5)
+  cut_at               timestamptz,              -- the run's knowledge cut: stamped once by the seal (D6 §3.1, §8); fates are read against it
+  cut_m19_task_id      bigint,                   -- the final M19 task, recorded once by the seal; its outputs are read by this id (§8); FK added after ops.task (§5)
   finished_at          timestamptz,
   created_at           timestamptz NOT NULL DEFAULT now()
 );
@@ -425,8 +425,14 @@ configuration.
 > Status: **Proposed** (2026-10-28)
 
 **A run records the revisions it ran under**: its model revision, schema version and key scheme,
-beside its reference run, all written at insert. Its materialized rows inherit them. The cut
-columns are written by the seal that ends the run's knowledge (D6 §3.1 owns their semantics).
+beside its reference run and its resolved options, all written at insert. Its materialized rows
+inherit them. The cut columns are written once by the seal that cuts the run's knowledge (D6 §3.1,
+§8).
+
+**Closed sets are generated.** `stage` takes the modelled `Stage`, `reason` the modelled
+`SkipReason`, and `ops.task.unit_type` and `ops.policy_rule.unit_type` the one `TaskUnitType`
+(which `Method.unit_type` shares, D4 §1); each is a static set with a digest-named CHECK (§1), so a
+misspelt stage, reason or unit type fails the write instead of forming its own coverage group.
 > Decision: [ADR-0022](../adr/0022-schema-change-modelled.md)
 > Status: **Proposed** (2026-10-28)
 
@@ -627,10 +633,10 @@ migration 0001.
 CREATE TABLE ops.task (
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   run_id           bigint NOT NULL REFERENCES ops.run,
-  stage            text NOT NULL,                -- D6 §2 stage names
-  unit_type        text NOT NULL CHECK (unit_type IN ('document','rendition','segment','observation','entity','claim',
-                        'alternative_group','identity_group','run','golden_unit')),
-  unit_id          bigint,                       -- id in the table named by unit_type (eval.golden_unit for 'golden_unit'); null for groups and 'run'
+  stage            text NOT NULL CHECK (stage IN (/* generated from Stage: the stage names of D6 §2 */)),
+  unit_type        text NOT NULL CHECK (unit_type IN ('document','rendition','segment','span','observation','entity','claim',
+                        'alternative_group','identity_group','run','golden_unit')),   -- TaskUnitType (D4 §1)
+  unit_id          bigint,                       -- id in the table named by unit_type (kb.span for 'span', eval.golden_unit for 'golden_unit'); null for groups and 'run'
   unit_key         text,                         -- stable key of the unit across renditions (D1 §3.4 unit key for annotation units; the group key for groups)
   method_config_id bigint NOT NULL REFERENCES ops.method_config,   -- the configuration the run resolved for the stage or for the rule's '<method>/<name>' (§6.3)
   trigger_rule_id  bigint REFERENCES ops.policy_rule,  -- null for base-stage tasks
@@ -646,10 +652,10 @@ CREATE TABLE ops.task (
   lease_until      timestamptz,                  -- 5 min for workers, 30 min for agent leases (D6 §3.2, D8 §2.1)
   cost             jsonb NOT NULL DEFAULT '{}',  -- {"wall_ms":…, "gpu_ms":…, "tokens_in":…, "tokens_out":…}
   error            jsonb,                        -- failure detail; an agent task also keeps its first rejected submission result here while it stays awaiting_agent for its one resubmission (D8)
-  reason           text,                         -- why skipped or cancelled: 'scope', 'limit', 'budget', 'prerequisite_failed', ...
+  reason           text CHECK (reason IN ('scope','limit','budget','prerequisite_failed','run_cancelled')),   -- SkipReason: why skipped, or 'run_cancelled' for a task cancelled with its run
   created_at       timestamptz NOT NULL DEFAULT now(),
   started_at       timestamptz,
-  finished_at      timestamptz                   -- set by every terminal write, including creation as 'reused' or 'skipped'; fates are read against ops.run.finished_at (§8)
+  finished_at      timestamptz                   -- set by every terminal write, including creation as 'reused' or 'skipped', with clock_timestamp() after the run-row lock (D6 §3.1); fates are read against ops.run.cut_at (§8)
 );
 -- the queue (store note L-S1): what workers claim, what expires, what the agent leases
 CREATE INDEX task_pending ON ops.task (run_id, stage, method_config_id, priority DESC, id) WHERE status = 'pending';
@@ -1236,17 +1242,32 @@ the seeded order, the seed.
   task with its `reason` (`scope` for a unit outside the run's declared scope, `limit`, `budget`,
   …), so coverage is a count over `ops.task`, never an absence (§9; P0CL-11; **Proposed**,
   2026-10-28).
-- **A finished run's fates are its tasks as of `ops.run.finished_at`.** A task the run still held
-  open when it finished (an agent task completed later, a twin settled later, a task cancelled
-  afterwards) counts as **unresolved** for that run, whatever its status now; nothing that
-  finishes later changes what the run reports. Every terminal write sets `ops.task.finished_at`,
-  including creation as `reused` or `skipped`, so the rule is one comparison. The orchestrator's
-  fate reader (D6), the coverage query (§9), `kb.run_observation` and `ops.run_measurement`
-  (below) and `ci promote`'s check (D7 §7) apply it; a per-run fate snapshot was considered and
-  not adopted (**Proposed**, design authority, 2026-10-28).
+- **The seal cuts a run's knowledge** (D6 §3.1; RC10, operator, 2026-10-28). Finalize opens with
+  one short transaction that locks the run row `FOR NO KEY UPDATE`, creates the finalize tasks
+  (the pass, the run-level M19 task, `evaluate`), stamps `ops.run.cut_at = clock_timestamp()`,
+  records `cut_m19_task_id` and sets the status `consolidating`, then commits. Agent completions
+  and twin settlements share-lock the run row and stamp `ops.task.finished_at` with
+  `clock_timestamp()` after the lock, so each falls on one side of the cut. The final pass then
+  reads as of the cut in its own transaction, and measure, evaluate and the `finished` update with
+  `finished_at` follow, each in its own transaction, `finished_at` last. No lock on the run row is
+  held across them (**Proposed**, 2026-10-28).
+- **A sealed run's fates are its tasks as of `ops.run.cut_at`.** A task whose `finished_at` is
+  later than the cut, or null (an agent task completed after the seal, a twin settled later, a task
+  cancelled afterwards) counts as **unresolved** for that run, whatever its status now; nothing
+  that finishes later changes what the run reports. Every terminal write sets
+  `ops.task.finished_at`, including creation as `reused` or `skipped`, so the rule is one
+  comparison, `t.finished_at <= r.cut_at`. The orchestrator's fate reader (D6), the coverage query
+  (§9), `kb.run_observation` and `ops.run_measurement` (below), the pool loader (D5 §2) and
+  `ci promote`'s check (D7 §7) apply it; a per-run fate snapshot was considered and not adopted.
+  A run not yet sealed reads its current statuses (**Proposed**, design authority, 2026-10-28).
+- **The run's own finalize-stage outputs are read by task.** The pass, M19 and `evaluate` tasks
+  finish after the cut by construction, so the cut views exclude their outputs. M19's
+  `verification` observations and its `rules.evaluated` measurements (§5) are read through
+  `ops.run.cut_m19_task_id`, never by guessing the current pass and never through the cut views;
+  the pool never reads M19 observations (D5 §8.1) (**Proposed**, 2026-10-28).
 - **Observations are never deleted** while a task that produced them is referenced by any kept
   run (directly or through `reused_task_id`).
-- **Effective observations of a run.** A view resolves reuse and, for a finished run, the fate
+- **Effective observations of a run.** A view resolves reuse and, for a sealed run, the fate
   rule above:
 
 ```sql
@@ -1256,7 +1277,7 @@ FROM ops.task t
 JOIN ops.run r ON r.id = t.run_id
 JOIN kb.observation o ON o.task_id = COALESCE(t.reused_task_id, t.id)
 WHERE t.status IN ('done','empty','reused')
-  AND (r.finished_at IS NULL OR t.finished_at <= r.finished_at);
+  AND (r.cut_at IS NULL OR t.finished_at <= r.cut_at);
 ```
 
 - **Effective measurements of a run.** Method-written measurements carry their `task_id` and are
@@ -1272,7 +1293,7 @@ FROM ops.task t
 JOIN ops.run r ON r.id = t.run_id
 JOIN ops.measurement m ON m.task_id = COALESCE(t.reused_task_id, t.id)
 WHERE t.status IN ('done','empty','reused')
-  AND (r.finished_at IS NULL OR t.finished_at <= r.finished_at)
+  AND (r.cut_at IS NULL OR t.finished_at <= r.cut_at)
 UNION ALL
 SELECT m.run_id, m.id, m.task_id, m.iteration, m.scope_type, m.scope_id, m.scope_key,
        m.metric, m.value, m.detail
@@ -1381,7 +1402,7 @@ WHERE ce.claim_id = :claim_id;
 > walk would serve equally
 
 **Coverage of a scope** (units extracted, skipped by reason, failed, unresolved), from the fates
-of §8 as of the run's `finished_at`, over the documents a query's scope names:
+of §8 as of the run's `cut_at`, over the documents a query's scope names:
 
 ```sql
 SELECT fate.status, fate.reason, count(DISTINCT t.unit_key) AS units
@@ -1390,8 +1411,8 @@ JOIN ops.task t ON t.run_id = r.id
 JOIN kb.segment s ON s.id = t.unit_id
 JOIN kb.run_rendition rr ON rr.run_id = t.run_id AND rr.rendition_id = s.rendition_id
 CROSS JOIN LATERAL (
-  SELECT CASE WHEN t.finished_at <= r.finished_at THEN t.status ELSE 'unresolved' END AS status,
-         CASE WHEN t.finished_at <= r.finished_at THEN t.reason END AS reason
+  SELECT CASE WHEN t.finished_at <= r.cut_at THEN t.status ELSE 'unresolved' END AS status,
+         CASE WHEN t.finished_at <= r.cut_at THEN t.reason END AS reason
 ) fate
 WHERE r.id = :run AND t.stage = 'propose' AND t.unit_type = 'segment'
   AND rr.document_id = ANY(:documents)

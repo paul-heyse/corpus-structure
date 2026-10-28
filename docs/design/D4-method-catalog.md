@@ -21,7 +21,8 @@ class Method(Protocol):
     name: str                      # 'extract.gliner_schema'
     version: str                   # bump on any behaviour change
     family: str                    # D3 ops.method.family
-    unit_type: str                 # 'rendition' | 'segment' | 'span' | 'entity' | 'claim' | 'alternative_group' | 'run'
+    unit_type: TaskUnitType        # the one unit vocabulary of ops.task and ops.policy_rule (below)
+    confidence_source: ConfidenceSource | None   # the D5 §6.2 source its observations attach to; None for a method that is no source
     Config: type[BaseModel]        # pydantic model of params; canonical JSON → config hash; declares its artifact references
     resources: Resources           # cpu | gpu(encoder) | gpu(llm) | agent; batch size; max concurrency
 
@@ -49,6 +50,17 @@ the run's schema version (`meta.compiled_artifact`,
 method configurations, and the resolved hashes enter the input digest (rule 4), so one named
 configuration in `methods.yaml` serves every schema version and a schema change invalidates reuse
 without editing the pack.
+> Status: **Proposed** (2026-10-28)
+
+**Unit types and confidence sources are modelled vocabularies** (RC14; operator, 2026-10-28).
+`TaskUnitType` is one static set shared by `Method.unit_type`, `ops.task.unit_type` and
+`ops.policy_rule.unit_type` ([D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks)):
+`document`, `rendition`, `segment` (a sentence is a segment), `span`, `observation`, `entity` (a
+statement is an entity), `claim`, `alternative_group`, `identity_group`, `run` and `golden_unit`.
+`span` is a member because M12's unit is a span (numbers in text and table cells, a `kb.span` row);
+the catalog's other units map onto the remaining members. `ConfidenceSource` is D5 §6.2's source
+vocabulary; the registry records each method's source, and the policy's confidence block is keyed
+by it (D6 §7.1).
 > Status: **Proposed** (2026-10-28)
 
 The objects in this block (the protocol, `RunView`, `UnitView`, `UnitRef`, `UnitResult`,
@@ -444,6 +456,18 @@ layout), section rules with a heading source (NIST's subsections are layout-tabl
 rendering of reference links and `img[alt]`. Generic defaults: `pre` keeps whitespace, an
 `img` with `alt` text is never silently dropped, and a list without items is a block.
 
+**The profile is model-governed data** (RC12; ADR-0022; operator, 2026-10-28). A profile is
+loaded into the source-profile class of the model's `system` module, whose domain-bearing slots
+range over core vocabulary: the statement kinds and `claim_bearing` of `block_hints`,
+`section_hints` and `details_kinds`, the segment kinds it produces, and the predicates and object
+classes of `details_kinds.synthesize` (such as `core:proves`). When a run starts, its profile is
+validated against the run's schema version, pack-scoped statement kinds included, and a hint naming
+a kind or predicate that version lacks refuses the run, naming the hint (D6 §7.2). Change records
+list the profiles a schema change affects (D2 §8). The hints stay in the profile and are not moved
+into packs: they are facts about one source and the core vocabulary, and a pack-side copy would
+split one source convention across every pack that reads the source.
+> Status: **Proposed** (2026-10-28)
+
 **Profile vocabulary.** Every key a source profile may set, with the default when it is absent;
 the adapter reads no source fact from anywhere else (ADR-0012):
 
@@ -789,7 +813,19 @@ the prompt-part hashes and the model id and revision (§1 rule 4), so a guidelin
 example change, or a change to anything the packet shows, requests new proposals, and an upstream
 re-run with identical output does not (D6 §4). The method definition and the packet assembler
 belong to the agent interface (§4.1). In phase 0 M24 is the only extractor; later it receives what
-policies escalate. Golden authoring is not M24: it is a D7 protocol with its own tools and its
+policies escalate.
+
+**Under the run option `agent_reuse: by_unit`** (D6 §4; operator, 2026-10-28, defining the option
+rather than removing it; DA-017) the digest's guideline input is not the guideline part's hash but
+the hash of the canonical JSON of the ids and texts of the guideline sections that **apply to the
+unit**, together with the hash of the section → unit-feature mapping (D2 §10). A section applies
+when the unit's recorded features (segment kind, statement-kind and claim-bearing hints, and the
+rest of the unit-feature vocabulary in `system`) include one of its declared features, or cannot
+exclude it; a section without a declaration applies to every unit. Every other input is as above,
+and the packet and the served guideline are the same under both forms. A `by_unit` digest never
+equals a full-mode digest, so switching the option on asks again once for every unit; afterwards a
+section edit asks again only for the units it applies to, and a mapping change for every unit.
+> Status: **Proposed** (2026-10-28) Golden authoring is not M24: it is a D7 protocol with its own tools and its
 own tables.
 
 ## 8. Normalization and resolution

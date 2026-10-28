@@ -15,8 +15,13 @@ run when it is created, as the project's promoted run at that moment (`ops.run.r
 [D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks)), and never changes; it is null at
 bootstrap, before any run is promoted. Consolidation reads only it, never the live promoted
 pointer, which may move while a run waits (P0CL-05; operator, 2026-10-28). Given the same inputs
-it produces the same rows with the same keys, whatever order the queue was worked in.
-> Status: **Proposed** (2026-10-28)
+it produces the same rows with the same keys, whatever order the queue was worked in and whatever
+order the pool's observations are read in. That holds because no step's result depends on
+processing order: set-based steps produce sets, ordered outputs carry an explicit order by key,
+and the one step whose procedure is order-sensitive, merging under cannot-links (§3.6), runs in a
+**declared order** (match score, then key) rather than the order its input arrives in. Order
+independence is therefore a property of the declared orders, not of the union-find itself.
+> Status: **Proposed** (2026-10-28; the §3.6 order is RC15, operator)
 
 It runs in passes inside the stage graph ([D6 §2](D6-orchestration-metrics-policies.md#2-the-stage-graph-and-run-lifecycle)):
 
@@ -61,7 +66,11 @@ What each observation kind contributes:
 | `verification` | validation outcomes and confidence sources | §8 |
 
 Every pool element keeps its observation id, so every row written can list its supports
-(`kb.claim_support`, `kb.entity_mention`).
+(`kb.claim_support`, `kb.entity_mention`). The final pass loads the pool **as of the run's cut**
+(`t.finished_at <= r.cut_at`, D3 §8; D6 §3.1), as model-typed Arrow relations whose set-based
+steps run in the in-process engine beside the Python reference implementation (ADR-0021); a
+completion committed after the seal is not in it.
+> Status: **Proposed** (2026-10-28)
 
 ## 3. Entity resolution
 
@@ -184,6 +193,16 @@ After §3.3–§3.5, pairwise evidence can merge entities of the same class:
 Merging is union-find over must-links that refuses any union joining a cannot-linked pair; a
 refused union is recorded as an identity conflict (counted, and routed by policy). Splits
 override earlier merges because judgments are applied before merges are computed.
+
+**The must-links are processed in a declared order**: descending match score, then ascending
+pair key (the two entity keys in canonical order; agent and human `merge` judgments rank above
+every scored pair). Without it the refusal makes the result depend on arrival order: with
+must-links A–B and B–C and a cannot-link A–C, whichever must-link comes first succeeds and the
+other is refused. Under the declared order the partition is a function of the pairs and their
+scores, so repeated passes and shuffled inputs give equal partitions, and a set-based
+implementation (connected components with a cannot-link anti-join) can be compared with the
+procedural one on the same order (probe Q-7).
+> Status: **Proposed** (2026-10-28; RC15, operator; F03 of the domain-model alignment review)
 
 ### 3.7 Identity alternatives
 
@@ -390,18 +409,23 @@ predicate's group is fixed for a run.
 
 ### 6.2 Sources
 
-Each claim has one discrete observation per **source** that could have produced or checked it:
+Each claim has one discrete observation per **source** that could have produced or checked it.
+The sources and their states are a modelled vocabulary, `ConfidenceSource` (a static set in the
+model's `system` module, each member with its declared states). Each registered method declares
+the source its observations attach to (D4 §1; none for a method that is not a source), and the
+policy's confidence block is keyed by these members (D6 §7.1), so a new tier's prior has a declared
+key to attach to:
 
-| Source | States |
-|---|---|
-| Encoders (M06 and M07 together, one source, because they share an encoder) | `supports`, `silent`, `not_run` |
-| Patterns (M08) | as above |
-| Local LLM proposal (M10) | `supports_full`, `supports_core` (same core, different qualifiers), `silent`, `not_run` |
-| Agent proposal (M24 extract) | as M10 |
-| Local LLM judge (M16) | `accept`, `reject`, `unsure`, `not_run` |
-| Rule validation (M19) | `warning`, `none` (no failing warning: passed or not applicable; M19 records failing outcomes only, §8.1) |
-| Verifiers (M20, M21) | `consistent`, `refuted`, `not_checkable` |
-| Author markup agreement | `agrees`, `disagrees`, `none` (for statement kinds and `dfn` terms) |
+| `ConfidenceSource` | Methods | States |
+|---|---|---|
+| `encoders` (one source, because M06 and M07 share an encoder) | M06, M07 | `supports`, `silent`, `not_run` |
+| `patterns` | M08 | as above |
+| `local_llm` | M10 | `supports_full`, `supports_core` (same core, different qualifiers), `silent`, `not_run` |
+| `agent` | M24 (extract) | as `local_llm` |
+| `local_llm_judge` | M16 | `accept`, `reject`, `unsure`, `not_run` |
+| `rules` | M19 | `warning`, `none` (no failing warning: passed or not applicable; M19 records failing outcomes only, §8.1) |
+| `verifiers` | M20, M21 | `consistent`, `refuted`, `not_checkable` |
+| `author_markup` | M01 | `agrees`, `disagrees`, `none` (for statement kinds and `dfn` terms) |
 
 `silent` (the method ran on the claim's unit and did not produce it) is different from
 `not_run` (no task of that source on the unit), and `not_run` is treated as unobserved. This is
@@ -411,11 +435,15 @@ the reason D4 rule 2 records `empty` outcomes.
 
 Phase 0 estimates no confidence: claim `confidence` is null, and status comes from the agent
 proposals and M19's rules alone (§11). From phase 1, before enough goldens exist (fewer than 30 aligned claims per predicate group), confidence is a
-fixed-weight noisy-OR over supporting sources with per-source priors from the policy's `priors:` block (D6 §7.1; defaults agent 0.9,
-local LLM full 0.6, core 0.4, encoders 0.4, patterns 0.5), multiplied by 0.7 per rule warning,
-by 0.2 for a `refuted` verification, and capped at 0.5 for claims with
-`completeness.evidence_coarse` or more than one unresolved symbol. These numbers are policy
-data, not code.
+fixed-weight noisy-OR over supporting sources with per-source priors (defaults `agent` 0.9,
+`local_llm` 0.6 for `supports_full` and 0.4 for `supports_core`, `encoders` 0.4, `patterns` 0.5),
+multiplied by 0.7 per `rules` warning and by 0.2 for a `verifiers` `refuted`, and capped at 0.5
+for claims with `completeness.evidence_coarse` or more than one unresolved symbol. These numbers
+are policy data, not code: the policy's `confidence` block holds the priors and multipliers keyed
+by `ConfidenceSource` member and state, and the caps keyed by completeness field (D6 §7.1); loading
+refuses an unknown key. The noisy-OR's product is an ordered aggregate (by claim key, then source)
+so its floating-point value does not depend on row order.
+> Status: **Proposed** (2026-10-28; RC14, operator; DA-016)
 
 ### 6.4 Latent-truth model (phase 2 onward)
 
@@ -470,12 +498,16 @@ count them twice.
 ### 7.3 Carrying judgments across runs
 
 Judgments target observation ids, claim keys, entity keys or alternative-group keys, and record
-the guideline version they were made under. In every later run they apply when the target
-exists. A target that no longer exists makes the judgment **orphaned**: reported in the run
+the guideline version they were made under and, for a key target, the **key scheme** of the key
+they name (D1 §10.1). In every later run they apply when the target exists. When the run's key
+scheme differs from the judgment's, the target is translated through the scheme change's
+carry-over map (D1 §10.1, T8) before it is looked up; a key the map cannot carry over orphans the
+judgment, with that reason, rather than being guessed. A target that no longer exists makes the judgment **orphaned**: reported in the run
 summary with its target and never silently dropped. An alternative group whose membership
 changed (a new reading appeared) makes its judgment **stale**: the chosen member keeps its
 status if still present, and the group is routed again. When the guideline changes, judgments
 stay in force until the outer loop marks them for re-adjudication (D7 §8).
+> Status: **Proposed** (2026-10-28; the key-scheme record and carry-over are RC08, operator)
 
 ## 8. Validation
 

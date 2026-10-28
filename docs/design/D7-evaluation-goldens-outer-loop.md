@@ -32,7 +32,9 @@ meaningful beyond the annotators' own agreement on that predicate.
 ## 2. Guidelines
 
 - **Location and versions.** `domains/<name>/guideline.md`; each content change is a
-  `meta.guideline_version` (content hash, label, parent, change note, author). The generated
+  `meta.guideline_version` (content hash, label, parent, change note, author). The sections'
+  unit-feature declarations (D2 §10), which `agent_reuse: by_unit` reads, are part of that content,
+  so a change of what a section applies to is a new guideline version like any other. The generated
   annotator reference (D2 §7.5, §10.10) is regenerated per schema version, so the guideline and the
   reference always name the current schema.
 - **Conventions are written, not inferred.** Every choice an annotator would otherwise have to guess
@@ -210,9 +212,12 @@ visible (items added, removed, changed).
 **A rendition the unit's citation frame no longer resolves on** is the third trigger (P0CL-03;
 operator, 2026-10-28). When a run's rendition of the page refuses a frame locator, or the
 located sentence's text differs from the frame's (D1 §10.3), the unit is stale. It is first
-**re-located**: each cited sentence is found on the new rendition by its recorded text, the
-frame's locators and the unit's current locator are regenerated, and the golden items are derived
-again; the unit's key stays the one fixed at creation. Only if a cited sentence is no longer there
+**re-located**: each cited sentence is found on the new rendition by its recorded text, a **new
+citation-frame version** is written with the new locators and a parent link to the frame it
+re-locates (`eval.citation_frame`, D3 §7), the unit's current locator is updated, and the golden
+items are derived again through the new version; the unit's key stays the one fixed at creation.
+No frame is rewritten, so the frame an earlier result scored through stays as it was, and items
+record the frame version they were located through (ADR-0022). Only if a cited sentence is no longer there
 is the unit re-authored by the full protocol, in a new authoring round and so a new golden run
 (§3.1). A content-preserving
 ingest change triggers nothing, because it keeps the rendition (D1 §3.1), and an edit elsewhere
@@ -448,6 +453,17 @@ guideline changes (rule class, citing the direction), schema or policy proposals
 re-authoring of affected units; the next digest shows what changed and the effect on metrics.
 The operator's other actions are `ack` (rule-class guideline changes) and `veto` (an experiment
 decision); neither is required for clarifications or for ordinary runs.
+
+**What a guideline change costs in agent work.** A guideline change is a prompt-part change, so by
+default every agent proposal is requested again (D6 §4). Under the run option
+`agent_reuse: by_unit` only the units a changed section applies to are asked again, through the
+section → unit-feature mapping declared with the guideline (D2 §10): a clarification or rule change
+confined to definitions asks again for definition units only. The mapping over-approximates, so a
+unit is never left unasked by a change that could reach it; the first run with the option asks
+again once for every unit, and a change to the mapping itself asks again everywhere. The digest
+reports the agent packets a change caused (`cost.agent_packets`, D6 §6).
+> Status: **Proposed** (2026-10-28; RC13 as decided by the operator, who kept and defined the
+> option)
 
 ### 8.3 What the operator is protected from
 

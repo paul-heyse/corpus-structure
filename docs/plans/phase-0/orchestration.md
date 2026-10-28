@@ -724,7 +724,7 @@ P0-S-2 reports the choice.
   - `kind`;
   - `statement_kind`: the hint M01 records on the unit's segment from the profile's block and
     section hints;
-  - `claim_bearing`: the hint when the profile states it, otherwise the schema's `ci:claim_bearing`
+  - `claim_bearing`: the hint when the profile states it, otherwise the statement kind's `claim_bearing` member property
     for the statement kind;
   - the unit- and segment-scope metric names of D6 §6, as nullable floats read through
     `ops.run_measurement`;

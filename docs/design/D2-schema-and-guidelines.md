@@ -457,8 +457,10 @@ ClaimProposalBatch                   model-facing form; "stored:" notes where th
                         extent?: statement | section        local entities only (D1 §4.2)
                         symbol?, aliases?, identity?{ slot: value } }
                                      stored: adds scope_segment (segment key) for local entities
-  statements[]        { local_ref, kind ∈ enum(StatementKind), anchor: "unit" | [sentence ids] | "outside" }
-                                     stored: anchor = [segment keys] | "outside"
+  statements[]        { local_ref, kind ∈ enum(StatementKind), anchor: "unit" | [sentence ids] }
+                      | { local_ref, anchor: "outside", descriptor: { sentence, quote, target? } }
+                                     an ExternalReference (D1 §4.4); sentence: the citing sN or cN
+                                     stored: anchor = [segment keys] | "outside", descriptor = { start, end, coarse?, target? }
   claims[]            oneOf per predicate:
                         { local_ref, predicate: const <p>, subject: local_ref,
                           object: <entity ref {ref}> | <value of p>,
@@ -486,10 +488,18 @@ ClaimProposalBatch                   model-facing form; "stored:" notes where th
   arguments) decodes as `anyOf` without loss. Fields that only ever hold a reference (`subject`,
   `statement`, identity slots, binding targets) stay local-ref strings.
 - **Statements only in `statements[]`** (S4 variant V2). A statement outside the unit that a claim
-  names ("the last result", a cited "[14]") is a `statements[]` item with `anchor: "outside"`;
-  consolidation resolves it through the link targets of the citing claim's evidence or leaves it
-  unresolved. An `entities[]` row of type `Statement` would give statements a second identity path,
-  since D1 §10.1 keys statements by anchor.
+  names ("the last result", a cited "[14]") is a `statements[]` item with `anchor: "outside"`. It
+  is not a statement of the batch but a typed **`ExternalReference`** node (D1 §4.4; RC11, operator,
+  2026-10-28): it carries no `kind` and a **descriptor**, the citing sentence (an `sN` or `cN` the
+  frame lists), the quote that makes the reference (non-empty, located by the quote cascade like an
+  evidence quote) and the author's link target when the text gives one (a locator or author link
+  target of the D1 §3.4 forms). It is keyed `xrf` (D1 §10.1), and consolidation resolves it through
+  its link target or a locator to a statement of the run, recording the resolution, or keeps it as
+  an unresolved node; a claim that cites it is never dropped and is served as conditional while it
+  is unresolved (INV-09). Claims name it through their typed reference. An `entities[]` row of type
+  `Statement` would give statements a second identity path, since D1 §10.1 keys statements by
+  anchor.
+  > Status: **Proposed** (2026-10-28); the `outside` anchor itself is **Tested** in S4's V2 variant
 - **Absent, never null.** An optional field is omitted when it has no value; the batch models
   reject `null`, and defaults (`modality`, `polarity`, §3.2 `ifabsent`) are filled in for rules and
   omitted in storage.
@@ -970,6 +980,19 @@ steers it ([D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-lo
 > and the S0 gap analysis found contested (../design_review/evidence/2026-10-28_design-spikes/results/s0/gaps.md, GG-1…17). Its open points are
 > OPEN-D2-7 … OPEN-D2-20 (§11).
 
+**Which units a section applies to** (the section → unit-feature mapping of `agent_reuse:
+by_unit`, D6 §4; operator, 2026-10-28). A section of `guideline.md` may declare the unit features
+it applies to beside its heading, as the `<!-- core -->` tag is declared, with values of the
+unit-feature vocabulary in the model's `system` module (a segment kind, a statement kind, the
+`claim_bearing` hint and the others the vocabulary declares). The declarations are part of the
+guideline's text and so of its version (D7 §2), and loading validates every value against the
+vocabulary. A section without a declaration applies to every unit, and a section applies wherever a
+unit's recorded features cannot exclude it, so the mapping over-approximates. Only M24's digest
+reads it, and only under `by_unit`; the guideline served to an author is unchanged. Guideline v1,
+frozen for phase 0, declares none, so every section applies to every unit.
+> Status: **Proposed** (2026-10-28); the declaration's exact marker syntax is left to the agent
+> interface package that reads it
+
 ### 10.1 Purpose
 
 Produce, for one annotation unit, the complete set of entities, statements and claims that the
@@ -1343,7 +1366,8 @@ configs:                                               # named configurations, r
     default: {model: en_core_web_sm, variant: math_as_word, exclude: [ner, lemmatizer]}
                                                        # b′ (D4 M03): each inline math span and reference marker is one
                                                        # word of a words-and-spaces Doc, no retokenizer (S1, OPEN-D1-1)
-  agent.opus:                                          # caps in characters: the one cap authority for agent packets (D8 §3)
+  agent.opus:                                          # caps in characters: the one cap authority for agent packets (D8 §3);
+                                                       # agent_reuse (full | by_unit) is a run option, not configuration (D6 §4)
     extract: {mode: extract, examples: reference, hints: none, packet_cap_chars: 18000}  # phase 0: the reference's worked examples; dev-golden retrieval needs M04 (phase 1)
     adjudicate: {mode: adjudicate, packet_cap_chars: 9000, max_alternatives: 6}
     expectation: {mode: extract, role: expectation, examples: reference, hints: none, packet_cap_chars: 18000}

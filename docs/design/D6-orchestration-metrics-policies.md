@@ -26,19 +26,22 @@ policy language that decides which methods run where. Tables are in
 - **Every eligible unit's fate is recorded, per run.** A unit is eligible for a stage when its
   method's `select` or an entry of the stage's chain would route it. Each eligible unit gets a
   task: ran and produced, ran and found nothing, failed, reused from cache, waiting for the agent,
-  or `skipped` with a reason (`scope`, `limit`, `budget`, `prerequisite_failed`). Nothing is
+  or `skipped` with a reason (`scope`, `limit`, `budget`, `prerequisite_failed`; a cancelled task
+  carries `run_cancelled`), each a member of the modelled `SkipReason`. Nothing is
   silently absent, and the coverage a typed query reports for its scope (units extracted, skipped
   by reason, failed; D8 §5) is counted from these tasks (P0CL-11; operator, 2026-10-28).
   > Status: **Proposed** (2026-10-28)
-- **A finished run's fates are fixed at its `finished_at`.** Its fates are its tasks as of
-  `ops.run.finished_at`: a task that reaches a terminal status later (an agent task left
-  `awaiting_agent` that a later submission settles as a twin, §4) counts as unresolved for that
-  run. Every reader applies the same cut: the fate reader, the coverage query (D3 §9),
-  `kb.run_observation` (D3 §8) and `ci promote`'s check (D7 §7). So a finished run stays the
-  snapshot it was when it finished, and twin settlement can still write to its tasks. A per-run
-  fate snapshot table was considered and not adopted: the timestamp cut gives the same answer
-  without a second record of the tasks.
-  > Status: **Proposed** (2026-10-28)
+- **A run's fates are fixed at its cut.** A run's knowledge is cut by `ops.run.cut_at`, sealed in
+  a short transaction when finalize opens (§3.1). Its fates are its tasks as of the cut: a task
+  whose `finished_at` is later than `cut_at`, or null, counts as unresolved for that run (an agent
+  task completed after the seal, a twin settled later, §4), whatever happens to it afterwards.
+  Every reader applies the one comparison `t.finished_at <= r.cut_at`: the fate reader, the
+  coverage query (D3 §9), `kb.run_observation` and `ops.run_measurement` (D3 §8), the pool loader
+  (D5 §2) and `ci promote`'s check (D7 §7). So a sealed run stays the snapshot it was at its cut,
+  and twin settlement can still write to its tasks. A per-run fate snapshot table was considered
+  and not adopted: the timestamp cut gives the same answer without a second record of the tasks.
+  A run that has not been sealed reports its current statuses, as progress.
+  > Status: **Proposed** (2026-10-28; RC10 of the [domain-model alignment review](../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r08), operator)
 
 ## 2. The stage graph and run lifecycle
 
@@ -105,7 +108,7 @@ what happens:
 
 **Long runs are sequences of `complete` runs** (P0CL-12; operator, 2026-10-28). Each run of the
 sequence reuses every finished task, cheap under content digests (§4), and is a coherent finished
-snapshot; the operator promotes the first with no agent task unresolved as of its `finished_at` (§1, §7.4). A later run
+snapshot; the operator promotes the first with no agent task unresolved as of its cut (§1, §7.4). A later run
 recreates the unfinished agent tasks of an earlier one with the same input hash; the submission
 that completes either settles its twins (§3.1, §4), so the agent works each packet once, whichever
 run's task it pulls. A `wait` run is short by construction, and one whose orchestrator stops (a
@@ -118,12 +121,13 @@ session-level advisory lock keyed by the run id for as long as it drives the run
 releases the lock when that session ends, however the process stopped. `ci status` reports a run
 in progress (`running`, `awaiting_agent` or `consolidating`) whose lock is free as **orphaned**,
 and `ci run cancel RUN` sets it `cancelled` with its open tasks (`pending`, `running`,
-`awaiting_agent`). A heartbeat column would need a writer and a staleness
+`awaiting_agent`), each with reason `run_cancelled`. A heartbeat column would need a writer and a staleness
 threshold; the lock needs neither.
 > Status: **Proposed** (2026-10-28)
 
 **Run statuses** (D3 `ops.run.status`): `created` → `running` → (`awaiting_agent` ↔ `running`)*
-→ `consolidating` (during `derive` and the final finalize) → `finished`; `failed` when a stage
+→ `consolidating` (from the seal that opens the final finalize, §3.1, through the final pass,
+measure and evaluate; in phase 1 also during `derive`) → `finished`; `failed` when a stage
 cannot complete (any failed task in `ingest`, or a consolidation invariant violation);
 `cancelled` by the operator (`ci run cancel`, above).
 
@@ -154,14 +158,46 @@ other path completes an agent task (`ci run cancel` cancels one, §2). In that t
 3. sends `NOTIFY cs_agent_task_done`, whose payload is ignored: a waiting orchestrator re-queries
    (§2).
 
-Completion takes a share lock on its run's `ops.run` row (`FOR SHARE`); a run's final consolidation
-pass takes the row's update lock and sets `finished_at` in the same transaction. A completion
-therefore either commits before the final pass reads the pool, and is consolidated, or finishes
-after the run and counts as unresolved for it (§1), never in between. Twin settlement share-locks
-the run of every twin it writes as well, in id order, and both stamp `finished_at` with
-`clock_timestamp()` after taking their locks, so a twin settled during another run's final pass
-cannot escape that run's cut.
-> Status: **Proposed** (2026-10-28)
+Completion takes a share lock on its run's `ops.run` row (`FOR SHARE`) before it writes, and stamps
+the task's `finished_at` with `clock_timestamp()` after holding the lock. Twin settlement
+share-locks the run of every twin it writes as well, in id order, and stamps the same way.
+
+**The seal** cuts a run's knowledge. It opens finalize, and it is one short transaction:
+1. lock the run row with `SELECT … FOR NO KEY UPDATE`, which conflicts with the completions'
+   `FOR SHARE` but not with the `FOR KEY SHARE` that foreign-key inserts referencing the run take;
+2. create the finalize tasks: the pass task, the run-level M19 task and the `evaluate` task;
+3. in one conditional update (`WHERE status = 'running'`), stamp `cut_at = clock_timestamp()`,
+   taken after the lock is held, record the M19 task as `cut_m19_task_id`, and set the status to
+   `consolidating`;
+4. commit.
+
+The seal is the only writer of `cut_at` and `cut_m19_task_id`, and neither changes afterwards. Every
+completion falls on one side of the cut: one that holds its share lock first commits before the
+seal stamps, so it is in the cut and is consolidated; one that waits for the seal is stamped after
+`cut_at` and counts as unresolved for the run (§1). A twin settled in a run is ordered against that
+run's seal the same way. Locks are taken in id order and a seal locks only its own run, so no
+cycle forms; a submission to the run waits only while the seal updates one row.
+
+**After the seal**, each step in its own transaction and none holding the run row:
+- **the final pass** reads the pool as of the cut (`t.finished_at <= r.cut_at`, D5 §2), runs M19
+  inside it as the sealed M19 task, writes the run's knowledge rows and the M19 per-rule counts, and
+  commits; a completion committing meanwhile is excluded by the predicate;
+- **measure** (§6) reads fates as of the cut;
+- **evaluate** (D7 §5) scores as of the cut; a failure writes its task `failed` and the run still
+  finishes, scored later by `ci eval`;
+- **finish** sets `finished` and `finished_at = clock_timestamp()`, last.
+
+Typed queries refuse a run until it is `finished` (D8 §5). **The run's own finalize-stage outputs
+are read by task, not through the cut:** the pass, M19 and evaluate tasks finish after the cut by
+construction, so the cut views exclude them; M19's `verification` observations and its
+`rules.evaluated` measurements are read through `cut_m19_task_id`, which in phase 1, where route
+iterations add passes, is still the final pass's, because the seal precedes it. A failure in the
+final pass or in measure rolls that transaction back and fails the run with no knowledge rows
+from the final pass; the cut stays recorded. This replaces holding the run row's update lock
+through the final pass, which stalled every agent submission while the run consolidated, measured
+and evaluated.
+> Status: **Proposed** (2026-10-28; RC10 of the [domain-model alignment review](../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#r08), operator). The lock modes' conflicts are **Interface-checked**
+> (PostgreSQL 18 documentation §13.3.2, Table 13.3, 2026-10-28)
 
 Twins are also settled where a submission and a task creation could pass each other: task creation
 resolves reuse against `done` and `empty` tasks as for every method (§4), and leasing (`queue_next`)
@@ -252,13 +288,36 @@ and looks for a task with the same `(method_config_id, input_hash)` and status `
   method.
 - **Agent tasks are reused** like any other: an Opus proposal for an unchanged packet is not
   requested again. Changing the guideline changes the prompt parts and so requests new proposals
-  for every unit unless the run option `agent_reuse: by_unit` is set, in which case the agent is
-  asked only where the operator's change applies (D7 §8).
+  for every unit, unless the run option `agent_reuse: by_unit` is set.
+- **`agent_reuse: by_unit`** narrows what M24's digest covers of the guideline, and nothing else
+  (operator, 2026-10-28, keeping the option and defining it; DA-017). Under it, the digest's
+  guideline input is the hash of the canonical JSON of the **applicable sections**' ids and texts
+  together with the hash of the section → unit-feature mapping, instead of the whole guideline's
+  hash (D4 M24):
+  - **the mapping** is declared beside the guideline's sections and versioned with the guideline
+    (D2 §10, D7 §2); each section names the unit features it applies to, as values of the
+    unit-feature vocabulary declared in the model's `system` module, and loading validates them
+    against it;
+  - **a unit's features** come from its recorded inputs only (its segment kind, statement-kind and
+    claim-bearing hints, and the other features the vocabulary declares), so they are as fixed as
+    the packet;
+  - **a section applies** to a unit when the unit has one of its features, or when the unit's
+    recorded features cannot exclude it; a section with no declaration applies to every unit. The
+    mapping over-approximates on purpose: a section left out wrongly would hide a change from the
+    digest, while one included needlessly only asks again.
+
+  Every other digest input is unchanged, so a schema, rule, prompt-part or packet change asks again
+  for every affected unit, and so does a change of the mapping, through its hash. The served
+  guideline is the same under both forms; only what the digest covers differs. A `by_unit` digest
+  never matches a full-mode digest, so the first run with the option asks again once for every unit,
+  and later section edits then ask again only where they apply (D7 §8). The option is recorded in
+  `ops.run.options`.
+  > Status: **Proposed** (2026-10-28)
 - **Twins resolve from a finished twin.** The agent completion primitive (§3.1) sets every other
   `awaiting_agent` task with the same `(method_config_id, input_hash)` to `reused` when a
   submission completes one as `done` or `empty`, in the same transaction (D8 §2.1); task creation
   and leasing settle the rest. Successive `complete` runs (§2) therefore never ask for one packet
-  twice. A twin settled after its run finished stays unresolved for that run (§1).
+  twice. A twin settled after its run's cut stays unresolved for that run (§1, §3.1).
   > Status: **Proposed** (2026-10-28)
 - **Tasks of unit type `run` are never reused** (D4 §1 rule 4): they read the whole run, so no
   digest would be cheaper than the work. **Consolidation is not cached**; it is rebuilt each pass
@@ -286,7 +345,11 @@ Two modes, chosen per run from the budgets:
 - **Exclusive**: the orchestrator stops the vLLM server for `embed` and `extract` and starts it
   for `propose` and `escalate` (start-up is about a minute, once per run).
 
-The orchestrator records the mode and the vLLM launch arguments in the run notes.
+The mode is a `GpuMode` member. A run records the **resolved** mode in `ops.run.options.gpu_mode`
+at insert (an explicit run option, else the deployment setting's default, else the model's
+default; D3 §4), so the run states the mode it ran under whatever the settings say later; the vLLM
+launch arguments go in the run notes.
+> Status: **Proposed** (2026-10-28)
 
 ## 6. Metrics
 
@@ -335,12 +398,18 @@ budgets:
 thresholds:
   accept: {default: 0.8, distribution: 0.85}   # by predicate group: a predicate subset or predicate (D5 §6.1)
   identity: {accept: 0.85, margin: 0.1, new_entity: 0.4}
-priors:                                        # cold-start source priors (D5 §6.3)
-  agent: 0.9
-  local_llm_full: 0.6
-  local_llm_core: 0.4
-  encoders: 0.4
-  patterns: 0.5
+confidence:                                    # cold start (D5 §6.3), keyed by ConfidenceSource members; phase 1
+  priors:                                      # a source's prior, or one per supporting state
+    agent: 0.9
+    local_llm: {supports_full: 0.6, supports_core: 0.4}
+    encoders: 0.4
+    patterns: 0.5
+  multipliers:                                 # per (source, state) observed on the claim
+    rules: {warning: 0.7}
+    verifiers: {refuted: 0.2}
+  caps:                                        # keyed by kb.claim.completeness fields (D3 §5), not by source
+    evidence_coarse: 0.5                       # the flag is set
+    unresolved_symbols: {above: 1, cap: 0.5}   # the count exceeds `above`
 chains:
   propose:
     - key: propose.phase0.agent_all              # the run's scope bounds it (§7.4), not a split
@@ -361,7 +430,7 @@ chains:
       when: "target.kind == 'alternative_group' and not judged_by('llm.judge')"
       do: {method: llm.judge/default, then: stop}
     - key: adjudicate.alternatives.agent
-      when: "target.kind == 'alternative_group' and judgment('llm.judge') in ['unsure', 'low']"
+      when: "target.kind == 'alternative_group' and (decision('llm.judge') == 'unsure' or confidence('llm.judge') == 'low')"
       do: {method: agent.opus/adjudicate, limit: 20, then: stop}
   identity:
     - key: identity.grey_zone.local
@@ -392,6 +461,21 @@ chains:
   gets a `skipped` task for the entry's method with reason `scope`, so the unit's fate is recorded
   (§1) and the run's coverage is explicit.
 - `then: stop` ends the chain for the unit; `then: continue` evaluates the rest of the chain.
+- **Typed vocabularies.** A chain's name is a `PolicyChain` member (`propose`, `escalate`,
+  `adjudicate`, `identity`, `gaps`) and an entry's `unit_type` a `TaskUnitType` member, the
+  vocabulary `ops.policy_rule.unit_type` is CHECKed by (D3 §4). The `confidence` block's `priors` and
+  `multipliers` are keyed by `ConfidenceSource` members and their states (D5 §6.2), its `caps` by
+  the claim's modelled completeness fields; loading refuses any other key, and each
+  registered method declares the source its observations attach to (D4 §1).
+  > Status: **Proposed** (2026-10-28)
+- **Literal checks at compile.** The unit context (§7.2) declares which symbols a vocabulary types.
+  After compiling a chain, the loader walks the parsed expression and checks every string literal
+  compared with, or tested for membership against, such a symbol against its vocabulary, so a typo
+  (`target.kind == 'alternative_grup'`) fails loading naming the entry instead of compiling and
+  never matching. M19's rules share the check through the one rule-language helper (D2 §7.4). If
+  the walk over rule-engine's parsed expression proves infeasible, the fallback is `$enums`
+  membership symbols with a lint.
+  > Status: **Proposed** (2026-10-28; RC14, operator)
 - Chains compile to rule-engine 5.1 `Chain` objects under a typed context; a type error fails
   policy loading. Evaluation takes the first matching entry (`Chain.find`), and `continue`
   re-evaluates the slice after it.
@@ -406,12 +490,24 @@ chains:
 | Symbol | Content |
 |---|---|
 | `phase`, `iteration` | run settings |
-| `unit.kind`, `unit.statement_kind`, `unit.claim_bearing` | segment kind; statement kind from markup or M05; whether the kind is claim-bearing (the source profile's explicit hint first, else schema `ci:claim_bearing` on `StatementKind` values) |
+| `unit.kind`, `unit.statement_kind`, `unit.claim_bearing` | segment kind (`SegmentKind`); statement kind from markup or M05 (the run schema version's `StatementKind`, pack members included); whether the kind is claim-bearing (the source profile's explicit hint first, else the `claim_bearing` member property of the statement kind, D2 §3.4) |
 | `unit.<metric>` | the unit's latest measurements (§6) |
-| `target.kind` (`alternative_group`, `claim`, `identity_group`), `target.size`, `target.max_confidence`, `target.margin` | for adjudication and identity targets |
-| `ran(m)`, `outcome(m)` | whether method `m` ran on the unit in this run, and its outcome |
-| `judged_by(m)`, `judgment(m)` | whether a judgment from `m` exists for the target, and its decision or confidence |
+| `target.kind` (`JudgmentTargetKind`: `alternative_group`, `claim`, `identity_group`), `target.size`, `target.max_confidence`, `target.margin` | for adjudication and identity targets |
+| `ran(m)`, `outcome(m)` | whether method `m` ran on the unit in this run, and its outcome (`ObservationOutcome`) |
+| `judged_by(m)`, `decision(m)`, `confidence(m)` | whether a judgment from `m` exists for the target; its decision (`JudgmentDecision`: `accept`, `reject`, `choose`, `merge`, `split`, `unsure`); its confidence level (`JudgmentConfidence`: `low`, `medium`, `high`). Two symbols, because a judge's output has both (D4 §4.3) and one list mixing them cannot be checked |
 | `budget.agent_packets_left`, `budget.llm_tokens_left` | remaining budgets |
+
+**Profile hints are validated data.** The statement-kind and `claim_bearing` hints come from the
+source profile (D4 M01), whose model is a class of the model's `system` module typed against core
+vocabulary. When a run starts, its profile is checked against the run's schema version: every
+statement kind and segment kind a hint names must be a member there, pack members included, or the
+run is refused naming the hint. The hints stay in the profile, because they are facts about one
+source; the override order (the profile's hint, then the member property) is unchanged.
+> Status: **Proposed** (2026-10-28; RC12, operator)
+
+Every symbol typed by a vocabulary in this table has its literals checked at compile (§7.1). A
+metric with no value is null, so a condition discharges it with `??`. `target`, `judged_by(m)`,
+`decision(m)` and `confidence(m)` are typed but empty until phase 1.
 
 The context has no split symbol. Test units route to the agent like any unit, so test scores
 measure the system as deployed, agent tier included; what keeps evaluation honest is that test
