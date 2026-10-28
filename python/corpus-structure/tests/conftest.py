@@ -19,7 +19,7 @@ import hashlib
 import itertools
 import os
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -144,7 +144,7 @@ def alive(pid: int) -> bool:
 
 
 @contextmanager
-def template_lock() -> Iterator[None]:
+def template_lock() -> Generator[None]:
     """Serialize template building and sweeping across processes (xdist workers, other sessions)."""
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     with LOCK_FILE.open("a") as handle:
@@ -167,7 +167,7 @@ class PgAdmin:
         return make_url(self.url).set(database=name).render_as_string(hide_password=False)
 
     @contextmanager
-    def connect(self, name: str = "postgres") -> Iterator[Connection]:
+    def connect(self, name: str = "postgres") -> Generator[Connection]:
         engine = create_engine(self.url_of(name), poolclass=NullPool, isolation_level="AUTOCOMMIT")
         try:
             with engine.connect() as conn:
@@ -244,7 +244,7 @@ class PgAdmin:
             conn.execute(text(f"ALTER DATABASE {quote(scratch)} RENAME TO {quote(self.current)}"))
 
     @contextmanager
-    def clone(self, name: str) -> Iterator[Engine]:
+    def clone(self, name: str) -> Generator[Engine]:
         """A database cloned from the migrated template, dropped `WITH (FORCE)` afterwards."""
         self.create(name, self.current)
         engine = create_engine(self.url_of(name))

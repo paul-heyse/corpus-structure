@@ -218,8 +218,9 @@ collapsed, on canonical text (LaTeX verbatim, NFC).
   golden unit stale ([D7 §3.5](D7-evaluation-goldens-outer-loop.md#35-staleness-and-re-authoring)).
 - **In keys** a locator enters in structured form with the document key in place of the page:
   `{"doc": <document key>, "id": …}`, or `{"doc": …, "kind": <kind name>, "prefix": …}` with
-  `"n"` when the locator has an ordinal. Kind names are spelled in full there; the short forms
-  never reach a key.
+  `"n"` when the locator has an ordinal; the bare `page` form of the document segment is
+  `{"doc": …}`. Kind names are spelled in full there; the short forms never reach a key. An empty
+  author id, or one containing whitespace, is a syntax error and is never generated.
 - **Unit key.** An annotation unit (a `unit` segment, or a paragraph outside units) is named across
   renditions by its **unit key**, the string form of its generated locator, e.g.
   `special/Normal.html#rel1`. Packets (`unit_ref`, D2 §7.3), tasks (`ops.task.unit_key`), golden
@@ -505,10 +506,16 @@ maps itself, so they cannot expand one formula differently.
 The token form is fixed by these rules, settled before the first production keys are written,
 because any later change to them moves keys:
 
-- **One outer pair of math delimiters is removed** (`\(…\)`, `\[…\]`, an environment's
-  `\begin`/`\end`), so the same formula written inline or displayed keys alike; inner delimiters
-  stay. Macro expansion is bounded at depth 16; a deeper expansion stops and the value keeps its
-  unexpanded tokens, recorded in `parse_detail`.
+- **One outer pair of math delimiters is removed** (`\(…\)`, `\[…\]`, or the `\begin`/`\end` of
+  one of `equation`, `align`, `gather`, `multline`, `eqnarray`, `displaymath` and their starred
+  forms), so the same formula written inline or displayed keys alike; `$` is not a delimiter.
+  Inner delimiters cannot occur: M01's delimiting never leaves one inside a span, and the drop list
+  (which includes SymPy's `\(` literal) is applied as written. Macro expansion substitutes
+  arguments as TeX does, without added braces, and is bounded at depth 16 and at 100,000 tokens of output;
+  an expansion past either bound stops and the value keeps that macro and its arguments unexpanded,
+  their names recorded once each in `parse_detail`.
+  > Status: **Tested** for parity (2026-10-28): the spike instruments' revision I-R2 and the
+  > product's `core/tex.py` give the same token form on all 918 math spans of the four spike pages
 
 - **Tokens are TeX's**, read by a TeX-rules `regex` tokenizer, not by the grammar's lexer or
   terminals (which would couple keys to the grammar again): a control word is `\` followed by
