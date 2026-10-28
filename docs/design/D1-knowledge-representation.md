@@ -68,10 +68,11 @@ a canonical text. Rules for the canonical text:
   ([D4 M01](D4-method-catalog.md#m01-ingesthtml)). A delimiter the source leaves unbalanced
   makes its math segment `partial`, with the reason (unclosed at block end, unclosed before the
   next opener, closed by the other kind's closer); delimiting resumes at the next opener, so
-  one source error never swallows the text after it. A delimited span the math grammar cannot
-  read leaves the segment `ok`: the failure is the value's `parse` status (§6.2), kept with its
-  category (ADR-0012).
-  > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): 8 of 28,956 math spans are `partial`, each at an unbalanced delimiter in the source, with its reason recorded ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the profile-generated pattern reproduces the result unchanged ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json))
+  one source error never swallows the text after it. A block whose delimiter scan exceeds its
+  time bound is `partial` with reason `delimiter scan timeout`. A delimited span the math
+  grammar cannot read leaves the segment `ok`: the failure is the value's `parse` status (§6.2),
+  kept with its category (ADR-0012).
+  > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): 8 of 28,956 math spans are `partial`, each at an unbalanced delimiter in the source, with its reason recorded ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the profile-generated pattern reproduces the result unchanged ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json)); the scan timeout is **Proposed** (2026-10-28, [text-math note L-05](../design_review/evidence/2026-10-28_library-text-math/README.md))
 - HTML entities are decoded; whitespace inside a block, outside math, collapses to one space;
   the result is NFC-normalized.
   > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): NFKC would change no character, so NFC loses nothing ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
@@ -124,13 +125,17 @@ put bare in a `unit` or `details`), is a `paragraph` segment with `attrs.orphan:
 container's kind, so no content is lost for want of a block element.
 
 Attributes that record where an element sat in the source file (`attrs.sourceline`) are
-diagnostics: they depend on the parser, and they are never part of a key, of the rendition
-contract or of an identity comparison between renditions. Two renditions of one document are
-content-identical when their canonical text, their segments' kinds, offsets, other attributes
-and tree, and their sentences are identical. Their keys still differ when their adapter
-configurations do (§10.1).
+optional diagnostics, present only where the parser supplies them; html5lib supplies about one per
+page, and the rendition's `parse_detail` keeps the parser's error positions instead
+([D4 M01](D4-method-catalog.md#m01-ingesthtml)). They depend on the parser, and they are never
+part of a key, of the rendition contract or of an identity comparison between renditions. Two
+renditions of one document are content-identical when their canonical text, their segments'
+kinds, offsets, other attributes and tree, and their sentences are identical. Their keys still
+differ when their adapter configurations do (§10.1).
 > Status: **Tested** (2026-10-28): libxml2 and html5lib renditions of the seven pages S0 and S0-R2
 > use are content-identical in this sense ([s1.rendition-identity](../design_review/evidence/2026-10-28_design-spikes/records/s1.rendition-identity.json))
+
+> Status: **Measured** (2026-10-28, [text-math note L-01](../design_review/evidence/2026-10-28_library-text-math/README.md)): html5lib trees of the 78 Siegrist pages carry `sourceline` on 78 of about 29,000 elements, and record 17 parse errors with positions
 
 > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): 44 orphan runs (18 in `details`, 17 in units, 9 at section level), the same under both HTML parsers; no block is left unclassified ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
 
@@ -347,9 +352,9 @@ bindings never block a claim; they lower its completeness and are measured.
 For keys and comparisons, a value has a canonical form: formulas and sets by **normalized
 LaTeX** (source macros expanded by the rendition's own macro table, recorded by M01, with the
 pack's map only for names the page does not define; spacing commands `\,`, `\;`, `\!`,
-`\left`, `\right` and whitespace removed; braces around single tokens dropped, so `b^{2}` is
-`b^2`). The SymPy form is never part of a key, so adding or upgrading the parser never changes
-keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)); numbers as normalized decimal strings with pint base units; text NFC-casefolded with
+`\left`, `\right` and whitespace removed, except inside a text-mode argument, where whitespace
+collapses to one space; braces around single tokens dropped, so `b^{2}` is `b^2`). The SymPy
+form is never part of a key, so adding or upgrading the parser never changes keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)); numbers as normalized decimal strings with pint base units; text NFC-casefolded with
 collapsed whitespace. Formula equivalence for evaluation uses SymPy simplification
 ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)), not canonical form.
 
@@ -358,16 +363,50 @@ rendition's macro table, by whole command name (`\P` never matches inside `\Phi`
 and sizing commands removed (`\big`, `\Big`, `\bigg`, `\Bigg` and their `l`/`r`/`m` forms, beside
 those above). It is total and does not depend on whether the value parses, so extending the
 grammar never changes a key. The parse tree of the one math grammar (D4 M11) serves validation,
-slot typing, SymPy conversion and equivalence fusion. A property test holds the two together:
-for every parsed value the tree printer and the token form agree, and where they cannot, the
-token form is the key and the case is reported. A value that does not parse keeps its verbatim
-LaTeX with `parse: partial` or `failed`. A value must parse under its slot's declared range
-(formula, set, relation, membership); a mismatch is a validation issue, not a silent coercion.
+slot typing, SymPy conversion and equivalence fusion.
+
+The token form is fixed by three rules, settled before the first production keys are written,
+because any later change to them moves keys:
+
+- **Tokens are TeX's**, read by a TeX-rules `regex` tokenizer, not by the grammar's lexer or
+  terminals (which would couple keys to the grammar again): a control word is `\` followed by
+  letters, a control symbol is `\` followed by one other character, and anything else is one
+  character. A `*` is never part of a control word: `\cmd*` is two tokens. The same tokenizer
+  reads M01's macro definitions and locates the token at a grammar error (D4 M01, M11).
+- **One declared drop list** holds the removed commands, spacing and sizing alike. The grammar
+  extension's added `%ignore` lines are generated from it, and building the grammar fails if an
+  `%ignore` terminal of the assembled grammar is not on it, so the grammar and the normalizer
+  never drop different sets.
+- **Text-mode arguments** (`\text`, `\mathrm`, `\textrm`, `\mbox`, `\operatorname`): each
+  whitespace run inside them collapses to one space instead of being removed, so
+  `\text{ for all }` never becomes `\text{forall}`.
+
+The spike's token form (`mathgrammar/printer.py`) breaks all three: its drop set is read from the
+shipped grammar's string `%ignore` lines and so misses the sizing commands, its control words
+take a trailing `*`, and it deletes text-mode whitespace. The production normalizer follows these
+rules, not the spike.
+
+A property test holds the token form and the tree together: for every parsed value the tree
+printer and the token form agree, and where they cannot, the token form is the key and the case is
+reported. It has two layers. The corpus layer runs over every span of the gold pages, and each
+listed disagreement carries its cause. The metamorphic layer tests the token form alone, with no
+grammar: the form is unchanged by inserting `\,`, `\;`, `\!`, sizing commands, braces around a
+single token, or whitespace between tokens outside text-mode arguments, and it never merges `\P`
+with `\Phi` or `\mu x` with `\mux`. A value that does not parse keeps its verbatim LaTeX with
+`parse: partial` or `failed`. A value must parse under its slot's declared range (formula, set,
+relation, membership); a mismatch is a validation issue, not a silent coercion.
 
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Measured** on the spike pages (2026-10-28): 881 of 918 math spans parse; the tree and
-> token forms differ on 4, all at `\big/`, which the sizing rule removes. The property test is
-> Proposed (S5, phase 0)
+> token forms differ on 4, all at `\big/`, which the sizing rule removes. The property test's two
+> layers are Proposed (S5, phase 0)
+
+> Status: **Measured** on the 78 Siegrist pages (2026-10-28, [text-math note L-07](../design_review/evidence/2026-10-28_library-text-math/README.md)):
+> 248 of 28,956 math spans contain sizing commands, all kept by the spike's token form; 32
+> text-mode groups hold several words; no control word is directly followed by `*`. The corpus
+> layer exposed the spike grammar's `\left` prefix defect (`xarrowy` against `x\leftarrow y`,
+> D4 M11); with the whole-name terminals, 877 of 918 spike-page spans agree, and the remaining
+> parsed ones differ at sizing commands
 
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Tested** in the spike instruments (2026-10-28): 86 of 86 S0 values read, canonical forms decided all but a handful of value comparisons ([s0.instruments](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments.json)); production code not written

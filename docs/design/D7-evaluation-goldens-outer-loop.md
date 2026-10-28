@@ -75,7 +75,13 @@ A golden unit is one annotation unit (a `unit` segment, or a paragraph outside u
 rendition. Sets (`eval.golden_set`) are per split and guideline version. Initial sizes, kept
 small while debugging: **dev 40 units, test 40 units** from the first-pass chapters, stratified
 by statement kind, chapter and math share; growing to about 150 each by phase 2 (`OPEN-D7-1`).
-The trace units T1–T4 are in dev; the spike core units are in dev.
+The trace units T1–T4 are in dev; the spike core units are in dev. They become goldens only by
+this protocol: phase 0 **re-authors** them with Sonnet passes (§3.2–§3.4). The S0/S0-R2 v1
+reference is not imported as goldens. Opus passes and the root authored it, and the phase 0
+extractor is also Opus, so importing it would reward a pipeline for Opus's habits, the bias ADR-0011
+removed. It serves as fixture proposals for the deterministic acceptance test (D9 §4) and as a
+witness (§6).
+> Status: **Proposed** (2026-10-28, design authority; independence per ADR-0011)
 
 **Split assignment** (`ci golden split`). Within each chapter, pages are ordered by
 `sha256(source_uri + seed)` and every fifth goes to test (about 20%). Two kinds of page are
@@ -197,7 +203,11 @@ curve over confidence.
 Golden entities align to run entities per unit by type plus: normalized symbol and same scope
 segment for local entities; canonical label or alias for global ones; overlapping evidence as
 tie-breaker. Matching is one-to-one, maximizing summed similarity with
-`scipy.optimize.linear_sum_assignment`.
+`scipy.optimize.linear_sum_assignment(…, maximize=True)`. Pairs below a tier's similarity threshold
+are removed from the cost matrix **before** assignment, not discarded after it, so a weak pair cannot
+displace a strong one ([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-6). Tier preferences combined into one
+matrix use weights derived from the candidate counts, not fixed powers of ten, which stay exact only
+below 1,000 candidates per unit.
 
 ### 5.3 Claim alignment tiers
 
@@ -209,7 +219,8 @@ tie-breaker. Matching is one-to-one, maximizing summed similarity with
 
 - **Value equivalence.** Formulas: SymPy `simplify(a - b) == 0` with macros expanded, falling
   back to numeric comparison at random points satisfying the claims' conditions when
-  simplification times out (`OPEN-D7-2`); sets: SymPy set equality; numbers: equal after unit
+  simplification times out (`OPEN-D7-2`), the points drawn from a generator seeded by the two
+  claims' keys so a comparison repeats exactly; sets: SymPy set equality; numbers: equal after unit
   conversion within 1e-9 relative; text: canonical form (D1 §6.2).
 - **Condition equivalence.** Both trees canonicalized; leaves matched one-to-one (values by
   equivalence, `claim` leaves by the alignment of the referenced claims, `phrase` leaves by
@@ -232,7 +243,15 @@ tie-breaker. Matching is one-to-one, maximizing summed similarity with
 | Calibration | Expected calibration error of confidence on dev (D5 §6.4) |
 
 **Uncertainty.** Every score has a 95% interval from 1,000 bootstrap resamples over units;
-comparisons between runs use the paired bootstrap on the same units.
+comparisons between runs use the paired bootstrap on the same units. The realization is
+`scipy.stats.bootstrap` behind a thin wrapper, which reproduced the S0 intervals to within one ulp
+(interfaces note IE-5, probe 2026-10-28), with four rules: the **percentile** method is named
+(SciPy's default BCa gives different intervals); the **unit order** is fixed and recorded with the
+seed, because it is part of the result; resamples where a score is undefined (no golden items of a
+predicate) are **skipped and counted** from `bootstrap_distribution` rather than turning the
+interval into NaN; run-to-run comparisons use the **paired-difference** form. Page-cluster intervals
+are available for reports where units of one page are not independent.
+> Status: **Tested** for parity with the spike's intervals (2026-10-28)
 
 **Reading agreement with a reference.** A reference adjudicated from one model's passes favours that
 model where the guideline is silent, so a comparison of annotators or authors reports pass against
@@ -256,6 +275,7 @@ registry in `evaluate/witnesses.py` declares, per witness, which method inputs d
 | **Computation** | Correctness (not guideline compliance) of distribution, moment and support claims: M21 verifier outcomes over accepted claims | Reported separately from runs where verifiers were confidence sources (the experiment harness can mask verifier sources) |
 | **Reference facts** | A small reference pack in the domain (`domains/statistics/reference/`): supports, standard parameterizations, means and variances of common families, written from `sympy.stats` and `scipy.stats` definitions | Not readable by any method; consulted only by evaluation |
 | **Cross-pass agreement** | Annotator agreement (§3.3) | Independent of the pipeline, not of the golden author |
+| **Spike reference (v1)** | Agreement between the re-authored dev goldens and the S0/S0-R2 v1 reference on the units both cover; disagreements are read as guideline gaps or golden errors | Independent of the golden author's passes; not of the guideline, which was written from it |
 
 **Random audit with prediction-powered inference.** At each phase gate a uniform random sample
 of accepted claims from the whole corpus (default 100, excluding golden units) is judged by a
@@ -280,6 +300,11 @@ version, schema version or guideline version.
    decision through `decide_experiment` (D8); the operator can veto in the digest.
 4. **Promotion**: the candidate configuration becomes the baseline; the next full run of it
    becomes the promoted run (`meta.project.promoted_run_id`).
+5. **Bootstrap (phase 0).** No baseline exists before the first full run. The first `first-pass`
+   run of the phase 0 configuration that passes the phase 0 gate is promoted with `ci promote`, an
+   operator act recorded as an intervention. It becomes the baseline for the first experiments and
+   the reference run for known entities (D4 §4.1). Slice runs are never promoted (D6 §8).
+> Status: **Proposed** (2026-10-28, design authority)
 
 Gap proposals from policies (D6 §7.3), schema proposals and guideline rule changes all reach the
 promoted configuration only through this path.
@@ -327,11 +352,16 @@ system proceeds under the current guideline.
 
 | Phase | Gate (D0) | Measured as |
 |---|---|---|
-| 0 | Trace units and spike pages answer their typed questions from the database; evaluation runs | Trace acceptance tests pass (D9 §4); `ci eval` produces scores for dev |
+| 0 | Trace units and spike pages answer their typed questions from the database; evaluation runs | Trace acceptance tests pass on fixture proposals (D9 §4); the live trace run scores against the re-authored dev goldens; `ci eval` produces scores for dev |
 | 1 | F1 and intervention share measured per type and stage | Dev and test scores per predicate; `intervention.share` per predicate group and stage |
 | 2 | Identity errors measured; confidence calibrated on goldens | B-cubed and merge/split counts; ECE ≤ 0.05 on dev |
 | 3 | Intervention share falls at equal or better F1 | Test full-tier F1 not worse (paired bootstrap) and `intervention.share` lower than at the phase 2 gate |
 | 4 | Coverage rises; new types reach target F1 | Unsupported-item rate falls; new predicates reach their target F1 on dev and test |
+| 5 | A new pack built with bounded interventions | The new pack's dev goldens are authored and scored; F1 and `intervention.share` per type and stage are reported against the statistics pack at its phase 1 gate |
+
+**Phase 0 freeze.** Phase 0 holds schema v0 (with S4's corrections) and guideline v1 fixed. The
+guideline v2 and schema v0.2 rows (D2 §11, OPEN-D2-7…20) land at the phase 0 boundary through the
+§2 rule-change check, because claim keys and goldens move with them.
 
 ## 10. Open questions
 

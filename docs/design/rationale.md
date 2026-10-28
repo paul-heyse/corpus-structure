@@ -241,7 +241,7 @@ These are the load-bearing ideas. A change that violates one should come with an
   | DuckDB as the authority | Single writer, no row-level queue semantics. Excellent for read-only analytics over PostgreSQL or Parquet, which is its role (D3 §1, ADR-0010 catalog) |
   | Per-type tables | The old repository's path (277 classes); variation belongs in data |
   | A separate vector database | Vectors must filter and join with segments and entities; pgvector does both |
-  | Tantivy or a separate search engine | pg_textsearch (BM25) in the same database; S6 confirms its syntax |
+  | Tantivy or a separate search engine | Full-text search in the same database (built-in `tsvector`; pg_textsearch could not be installed, design authority 2026-10-28, D3 §5) |
 
 - **Revisit:** many corpora or tenants; path-dominated queries; write volume beyond one database.
 
@@ -506,6 +506,8 @@ plans, records and reports growing faster than working journeys.
 
   LLM tokens per 1,000 source words sit beside them as the cost normalizer. **D6 §6 has raw token
   counts but not this normalized figure**; add it.
+  > Rejected by the operator (2026-10-28): tokens per 1,000 source words is not a sound benchmark,
+  > and D6 does not add it. Cost stays as the raw `ops.task.cost` figures D6 §6 reports.
 - **Gate targets come from the phase 0 baseline, not from guesses made now** (D7 §9 states gates
   qualitatively for this reason).
 

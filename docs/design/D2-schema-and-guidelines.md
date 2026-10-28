@@ -28,7 +28,7 @@ domains/<name>/
     <name>.yaml          LinkML schema; imports ../../core/schema/core.yaml
     rules.yaml           validation rules (rule-engine expressions), §7.4
     migrations/          schema migration mappings for breaking changes, §8
-  guideline.md           the annotation guideline (§10 is v0 for statistics)
+  guideline.md           the annotation guideline (§10 is v1 for statistics)
   policies.yaml          routing policies for this domain (D6 §7)
   methods.yaml           domain parameters of methods and named configurations (`configs:`):
                          source profiles, math macro map, binder lexicon, alias head words and
@@ -40,10 +40,25 @@ domains/core/schema/core.yaml   core classes, predicates, value classes and enum
 ```
 
 A **schema version** is the content hash over `<name>.yaml`, `rules.yaml` and the imported
-`core.yaml`. The guideline is versioned separately ([D7 §2](D7-evaluation-goldens-outer-loop.md#2-guidelines)),
+`core.yaml`: SHA-256 of the canonical JSON (D1 §10.1) of the parsed files, not of their bytes or
+of a SchemaView dump, which carries file paths and varies with the LinkML release
+([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-07; stable across hash seeds and load paths, probe 2026-10-28). The guideline is versioned separately ([D7 §2](D7-evaluation-goldens-outer-loop.md#2-guidelines)),
 because guideline wording changes far more often than the schema.
 
 ## 3. The `ci:` annotation vocabulary
+
+**Native LinkML first; annotation values are scalars** (closes OPEN-D2-6, schema-rules note
+L-06, probed 2026-10-28). List-valued annotations load in `SchemaView` but fail metamodel
+validation in `linkml-lint`, and object-valued ones do not load. So:
+`ci:examples` becomes native `examples`; `ci:identity_keys` becomes native `unique_keys`; predicate
+groups (`ci:group` and the guideline's predicate groups) become `subsets` with `in_subset`;
+`ci:symmetric` becomes native `symmetric` (and `transitive` where it holds); `ci:gliner_label`
+defaults from native `title`. `ci:kind` and `ci:object` are derived by the compiler (class
+`abstract`/value-class base; slot `range`) and written only to override. The list annotations that
+remain (`ci:qualifiers`, `ci:identity_qualifiers`, `ci:target`) are space-separated strings. The
+tables below give the meaning; the v0 drafts in §6 and §9 still show the earlier list form and are
+replaced by the pack files that S4 and the phase 0 schema package write.
+> Status: **Tested** by probe (schema-rules note, 2026-10-28); pack files not yet rewritten
 
 LinkML carries our extraction and identity semantics in annotations with prefix
 `ci: https://corpus-structure.dev/ci/` (declared in `core.yaml`). LinkML structure (classes,
@@ -129,6 +144,19 @@ domain schema, each with `ci:arity`, the class of its arguments (`ci:args`) and 
 | `proves`, `follows_from` | predicates | `Statement` → `Statement` |
 | `refers_to` | predicate | `Statement` → `Entity` |
 | `unschematized` | predicate | `Entity` → `PhraseValue`; D1 §8.1 status `unsupported` |
+
+**Who owns the value shapes** (schema-rules note L-01; design authority, 2026-10-28). The D1 shapes
+that every domain shares, the value union discriminated on `t`, condition nodes discriminated on
+`op` (one named recursive `Condition` via `TypeAliasType`), symbol bindings and the batch items,
+are hand-written Pydantic models in `core` (frozen, `extra="forbid"`, tuples for lists). They are
+domain-independent, so no domain meaning moves into code. The value classes in `core.yaml` are their
+**mirror**, restructured with an abstract `Value` base, `t` declared through `equals_string`, and
+`conditions` and `param_constraints` ranged on a `Condition` class rather than `string`; a
+contract test fails when the two disagree. LinkML owns the domain vocabulary: classes,
+predicates, qualifiers, enums and identity. `gen-pydantic` cannot be the source: on LinkML 1.12.1
+it rejects the binding shape every batch uses, emits no discriminated unions, defaults missing
+tags silently and does not freeze models, and it disagrees with `gen-json-schema` on the same input.
+> Status: **Tested** by probe on the 15 v1 model-facing batches (schema-rules note, 2026-10-28)
 
 Draft of `domains/core/schema/core.yaml` v0:
 
@@ -309,10 +337,16 @@ schemas produce byte-equal artifacts.
 
 Writes `meta.schema_class`, `meta.schema_slot`, `meta.schema_enum` and `meta.schema_rule` rows
 ([D3 §3](D3-database.md#3-meta-schema-guidelines-and-domain-declarations)) with induced slots
-(inheritance and mixins resolved through `SchemaView.class_induced_slots`). These rows let SQL
+(inheritance and mixins resolved through `SchemaView.class_induced_slots`). Predicates are free slots
+with a `domain`, which `class_induced_slots` omits, so applicability per class is
+`domain ∈ class_ancestors(cls)` followed by `induced_slot(p, cls)`; prefixed names come from
+`get_uri(…, expand=False)` (schema-rules note L-08). These rows let SQL
 join claims to their schema definitions and let metrics group by class and predicate.
 
 ### 7.2 To GLiNER2 schemas
+
+Compiled from phase 1, when M05–M07 run; phase 0 compiles nothing for GLiNER2, so the product
+environment carries no gliner2 or torch until then.
 
 Two artifacts, because GLiNER2's ordinary and joint decoders have different semantics
 ([library overview](../libraries/gliner2.md) §4.3):
@@ -413,8 +447,8 @@ ClaimProposalBatch                   model-facing form; "stored:" notes where th
 Per-predicate branches restrict the subject and object types (via an `entity_types` side table
 resolved at validation, because JSON Schema cannot follow local references), the value type, and
 the allowed schema qualifiers. Enum values are inlined. Descriptions are carried into the schema
-so the model sees them. The same compiler emits a compact **prompt inventory**: one line per
-class and predicate with its description and examples, ordered by class.
+so the model sees them. Prompts carry the annotator reference (§7.5), filtered per statement kind
+for the local tier (D4 §4.2); there is no separate prompt inventory.
 
 **Model-facing and stored forms.** The compiler emits the batch schema twice. The *model-facing*
 form, given to LLMs and Opus, cites evidence by sentence id and quote and anchors statements by
@@ -423,8 +457,24 @@ sentence ids, because models do not count characters reliably. The *stored* form
 keys.
 Quote location is shared post-processing ([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing)).
 
-LinkML's own `gen-json-schema` is used for the value classes (`Formula`, `SetExpr`, …) and the
-compiler assembles the batch schema around them.
+**How the schema is built** (schema-rules note L-02, L-03). The compiler builds one claim model per
+predicate with `pydantic.create_model` from `SchemaView` (subject and object types, value type,
+allowed qualifiers), unions them discriminated on `predicate`, and wraps them in the batch envelope
+over the `core` shapes. One `TypeAdapter` per form both validates submissions (exact error paths,
+about 0.02 ms per batch) and exports the draft 2020-12 JSON Schema in validation mode, through a
+custom `GenerateJsonSchema` (no titles, `$schema` set, deterministic output; byte-identical across
+processes in the probe). `gen-json-schema` is not used: it emits draft 2019-09, has no `t`, and
+drops predicate and qualifier slots.
+
+The **decoding form** given to structured output follows rules the backends need: `oneOf`/`anyOf`
+only where branches are disjoint by a `const` (the predicate); never `if`/`then`/`not`, which
+xgrammar ignores; the `discriminator` keyword stripped; nesting at most 64 levels (ours nest 9–11);
+one canonical shape per position (one entity-reference shape, one formula shape). Descriptions are
+optional in the decoding schema: constrained decoding does not show them to the model, and the
+annotator reference in the prompt is what it reads. Which xgrammar the vLLM in use bundles, and its
+grammar compile cost for a 49–73 KB schema, are measured in S3.
+> Status: **Tested** by probe for the model-facing form (25 branches, 15 batches, seeded errors;
+> schema-rules note, 2026-10-28); the stored form and the decoding form against vLLM not yet built
 
 ### 7.4 To rule-engine rules
 
@@ -436,16 +486,38 @@ rules:
     applies_to: stat:has_distribution
     severity: warning          # warning | error
     description: Every param_values key is a parameter the family has.
+    at: [finalize]             # call sites (D5 §8.2): a family's parameters are complete only at finalize
     when: "claim.predicate == 'stat:has_distribution'"
-    check: "all([k in family_params(claim.object.key) for k in claim.qualifiers.param_values.keys])"
+    check: "$all([k in claim.family_params for k in (claim.qualifiers.param_values ?? {}).keys])"
+tables:                        # lookup tables compiled to typed builtins
+  roles_by_kind: {theorem: [conclusion, premise], definition: [definition]}
 ```
 
 The compiler parses each `when` and `check` with `rule_engine.Rule` under a typed `Context`
 whose type resolver declares the claim context symbols ([D5 §8.2](D5-consolidation-identity-confidence.md#82-rule-context))
-and registered functions such as `family_params`. A rule that fails to type-check fails
-compilation, so a broken rule never reaches a run. Severity `error` makes a failing claim
-`rejected`; `warning` records a validation observation and lowers confidence (D5 §6). The exact
-expression syntax is checked in spike S4 (`OPEN-D2-3`).
+generated from the schema version. A rule that fails to type-check fails compilation, so a broken
+rule never reaches a run. Severity `error` makes a failing claim `rejected`; `warning` records a
+validation observation and lowers confidence (D5 §6).
+
+**Rule-engine use** (closes OPEN-D2-3; schema-rules note L-04, L-05, probed with rule-engine 5.1.0):
+- Structured symbols are typed `OBJECT`s read through a `getattr` resolver; mapping dot-access is
+  off (`mapping_attribute_lookup=False`, deprecated in 5.x and removed in 6.0) and the timezone is
+  UTC. A typo, a nullable misuse, a wrong argument type or an unknown symbol fails at compile time.
+- Nullable access uses `&.` and `??`; quantifiers are `$all(...)`/`$any(...)`; calls take positional
+  arguments only.
+- Facts about the claim pool (`family_params`) are cached attributes on the claim view, computed
+  once per claim; functions are kept for parameterized lookups. Recursive and cross-claim facts
+  (flattened condition nodes, statement premises, "given as a parameter value elsewhere") are
+  precomputed by one generic, schema-driven view builder, because the language has no recursion
+  or joins.
+- Every rule declares `at:`, the call sites it runs at: `batch` (submission, local refs) and/or
+  `finalize` (keys). One compiled rule serves both because the view exposes `claim.id` (local ref,
+  later key) and a nullable `claim.key` (D5 §8.2).
+- Each rule is compiled in its own context, and the nondeterministic builtins `$now`, `$today` and
+  `$random` are rejected, so a rule's outcome depends only on its inputs (D6 §4 reuse). Compiled
+  rules are rebuilt from the schema version, never pickled.
+> Status: **Tested** by probe (all 11 guideline checks of `code/s0r2_rules.py` compiled as rules: 0
+> warnings on the 15 v1 batches, 11 of 11 seeded violations caught; schema-rules note, 2026-10-28)
 
 **Guideline rules as batch warnings.** The guideline rules that code can check are compiled as a
 `guideline:` group of `warning` rules applied to model-facing batches when they are written (golden
@@ -1026,7 +1098,11 @@ kinds, the value shapes, and complete worked examples.
 ### 10.11 Direction log
 
 *(One entry per operator direction: date, the direction in the operator's words, the guideline
-change it produced, the golden units re-authored.)*
+change it produced, the golden units re-authored.)* The log is kept in
+`domains/<name>/directions.md` and in the `ops.intervention` rows of kind `direction`, outside the
+guideline's content hash: recording a direction must not create a guideline version, or every
+direction would invalidate reuse (D6 §4). Only the guideline changes a direction causes do. The
+generated reference (§10.10) is hashed with the schema version's compiled artifacts.
 
 | Date | Direction | Guideline change | Units re-authored |
 |---|---|---|---|
@@ -1038,10 +1114,10 @@ change it produced, the golden units re-authored.)*
 |---|---|---|
 | OPEN-D2-1 | Exact `Schema.from_dict` keys for structures, attributes and per-type thresholds in gliner2 2.1.0 | Spike S4 |
 | OPEN-D2-2 | Raw LaTeX or masked math placeholders in GLiNER2 input | Spike S2 |
-| OPEN-D2-3 | rule-engine syntax for the `rules.yaml` checks, and whether custom functions such as `family_params` are better as resolver-backed symbols | Spike S4 |
+| OPEN-D2-3 | rule-engine syntax for the `rules.yaml` checks, and whether custom functions such as `family_params` are better as resolver-backed symbols | **Answered** (2026-10-28, [schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-04, L-05): cached view attributes, `at:` per rule, §7.4; S4 confirms on the pack's own rules |
 | OPEN-D2-4 | Whether property predicates (`mean_value`, `pdf`, …) should be one `has_property` predicate with a `property` qualifier instead | Spike S0 annotations: count how many distinct properties appear; **answered by S0** (2026-10-28): keep separate property predicates (only `mean_value` and `variance_value` were needed); add a standard-deviation property, now OPEN-D2-17 |
 | OPEN-D2-5 | Whether "standard normal" is better a family with `special_case_of` or a parameterization of the normal family | Spike S0 and outer-loop direction; **answered by S0** (2026-10-28): standardized families as families of their own worked in every pass; `special_case_of` only when the source states the constraint; guideline v1 §10.4 |
-| OPEN-D2-6 | Whether LinkML annotation values that are lists (`ci:examples`, `ci:qualifiers`) round-trip through `SchemaView` unchanged | Spike S4 |
+| OPEN-D2-6 | Whether LinkML annotation values that are lists (`ci:examples`, `ci:qualifiers`) round-trip through `SchemaView` unchanged | **Answered** (2026-10-28, schema-rules note L-06): they load but fail `linkml-lint`; native slots and scalar strings, §3 |
 | OPEN-D2-7 | Members of an indexed family as condition arguments: v1 makes `X_i` one entity but lists independence over `X_1, X_2, X_n`; needs an indexed-set argument (base, index, range) and a `forall` over claims (S0 gap RG-2) | Schema change with D1 §7; then a guideline rule |
 | OPEN-D2-8 | Which premises a claim depends on: "every premise of its statement" over-references when a statement holds independent results; candidate rule "the premises whose entities or symbols the claim uses" | Next guideline revision, checked on held-out units |
 | OPEN-D2-9 | Scope of a section-level supposition that no condition references: `scope: statement` or `section` when the source says "In this section" | Guideline v2 |
@@ -1176,9 +1252,9 @@ configs:                                               # named configurations, r
   ingest.html:
     default: {source_profile: siegrist}
   segment.sentences:
-    default: {model: en_core_web_sm, variant: masked}  # S1 chooses the variant
+    default: {model: en_core_web_sm, variant: merged}  # b′: inline math merged into one token (S1, OPEN-D1-1)
   agent.opus:
-    extract: {mode: extract, examples: 2, hints: none, packet_cap_tokens: 6000}
+    extract: {mode: extract, examples: reference, hints: none, packet_cap_tokens: 6000}  # phase 0: the reference's worked examples; dev-golden retrieval needs M04 (phase 1)
     adjudicate: {mode: adjudicate, packet_cap_tokens: 3000, max_alternatives: 6}
   llm.propose_claims:
     default: {model: Qwen3.5-9B, temperature: 0, seed: 0, reasoning: false, examples: 2,

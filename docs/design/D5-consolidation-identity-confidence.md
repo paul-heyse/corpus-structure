@@ -395,11 +395,18 @@ candidate claims and write `verification` observations. Finalize reads them:
 ### 8.2 Rule context
 
 Rules are rule-engine expressions compiled under a typed context whose resolver is generated
-from the schema version. Symbols available to `when` and `check`:
+from the schema version (D2 §7.4). **Two call sites, one rule** (design authority, 2026-10-28,
+from the [schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-04, L-05): rules run at batch submission (M24, golden
+passes, M10) over the batch's own items, and at finalize over the run's candidate claims. A view
+builder presents both as the same claim view, so one compiled rule serves both; each rule's `at:`
+names where it runs (`family_params` is incomplete at submission, for example). Symbols available
+to `when` and `check`:
 
 | Symbol | Type | Content |
 |---|---|---|
-| `claim.key`, `claim.predicate` | string | |
+| `claim.id` | string | the local ref at submission, the claim key at finalize |
+| `claim.key` | string or null | null at submission |
+| `claim.predicate` | string | |
 | `claim.subject`, `claim.object` | mapping | `key`, `type`, `label`; `object` is null for value objects |
 | `claim.value` | mapping | the D1 value for value objects (`t`, and `latex`/`v`) |
 | `claim.qualifiers` | mapping | qualifiers with defaults filled in |
@@ -407,11 +414,13 @@ from the schema version. Symbols available to `when` and `check`:
 | `claim.statement_role`, `claim.establishment` | string | |
 | `claim.evidence_count`, `claim.unresolved_symbols` | integer | |
 
-Registered functions (implemented in `validate/`, typed in the resolver): `family_params(key)`
-(canonical names from `has_parameter` claims of the family in the run, any status except
-`rejected`), `claims_of(key, predicate)`, `is_a(type, class)` (schema inheritance),
-`value_type(v)`. Functions read the finalize-time pool, not the database. Whether functions
-should instead be resolver-backed attributes is `OPEN-D2-3`.
+Facts about the claim pool are **cached attributes of the view**, computed once per claim by the
+view builder (OPEN-D2-3, answered 2026-10-28): `claim.family_params` (canonical names from
+`has_parameter` claims of the family, any status except `rejected`; at submission only those in the batch, which is why
+rules reading it run `at: [finalize]`), flattened condition nodes, statement premises and the
+"given as a parameter value elsewhere" map. Registered functions remain for parameterized lookups:
+`claims_of(id, predicate)`, `is_a(type, class)` (schema inheritance), `value_type(v)`. Neither
+reads the database during evaluation; the view builder reads the pool once.
 
 ### 8.3 Invariants
 
@@ -452,7 +461,7 @@ Finalize assigns each claim the first status that applies:
 
 | Phase | Realization |
 |---|---|
-| 0 | Proposals from M24 only. Entities: identity by type and normalized label (§3.3 point 5); local scopes from the proposals' `extent`, not M13. Bindings as the proposals state them (local refs resolved to keys; §4 does not run). Claims: §5.1–§5.3, §5.6. Status: M19 rules (stage `check`) and agent judgments; agent proposals `accepted` unless a rule error. No derived claims (trace T3 D1 is phase 2) |
+| 0 | Proposals from M24 only. Entities: identity by type and normalized label (§3.3 point 5); local scopes from the proposals' `extent`, not M13. Bindings as the proposals state them (local refs resolved to keys; §4 does not run). Statements: kind from author markup, else the proposal's `kind` (M05 is phase 1). Claims: §5.1–§5.2 and §5.6; fusion by canonical form only (§5.3's SymPy equivalence is phase 1). A batch's `alternatives[]` keep every member claim with status `ambiguous` and `alternative_of` links; nothing resolves them until adjudication (phase 1). Status: M19 rules (stage `check`); agent proposals `accepted` unless a rule error; no agent judgments. No derived claims (trace T3 D1 is phase 2) |
 | 1 | Encoder and local LLM candidates; slots and alternatives (§5.4); M13 scopes; M14 linking; cold-start confidence (§6.3) |
 | 2 | Latent-truth confidence and calibration (§6.4); M15 merges; M20 conflicts; derived claims (§9) |
 | 4 | Verifiers as confidence sources |

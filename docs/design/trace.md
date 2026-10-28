@@ -2,9 +2,10 @@
 
 **Proposed (2026-10-28).** Four Siegrist units carried through the design as exact data. Each
 D-document refers to these units when it specifies behaviour, and phase 0 uses them as acceptance
-tests ([D9 §5](D9-repository-and-phase0.md#5-phase-0-build-plan)). They are the first
-development-split goldens; they are **not** a test split, because the design was written against
-them.
+tests ([D9 §5](D9-repository-and-phase0.md#5-phase-0-build-plan)). They are dev-split
+units; their goldens are authored in phase 0 by the D7 protocol, while the targets below are the
+fixtures the acceptance test checks. They are **not** a test split, because the design was written
+against them.
 
 The claims follow guideline v1 (D2 §10). The model-facing batches that spike S0-R2 checked for the
 same units are `../design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T1.json`…`T4.json`; where a detail here is

@@ -21,7 +21,7 @@ about it.
    disagreement, constraint violation, identity grey zone, parse failure) trigger escalation
    through rule-engine policies stored as data, up a ladder from a local LLM on the RTX 5090 to
    Opus in the Claude Code session ([D6](D6-orchestration-metrics-policies.md)).
-4. **Store.** One PostgreSQL 18 database with JSONB, pgvector and pg_textsearch. The operations
+4. **Store.** One PostgreSQL 18 database with JSONB, built-in full-text search and (from phase 1) pgvector. The operations
    are data too: methods, configurations, policy rules, tasks with the metrics that triggered
    them, measurements, interventions, goldens and experiments ([D3](D3-database.md)).
 5. **Scaling.** A walking skeleton first, in which Opus does most of the work through recorded
@@ -83,7 +83,7 @@ with those items explicitly unresolved.
 
 | Phase | Adds | Opus mainly | Gate |
 |---|---|---|---|
-| 0 · Skeleton | Meta-model in PostgreSQL, HTML ingest, Opus intervention tools, query API, evaluation harness | Extracts all claims; drafts schema and guideline; dispatches Sonnet golden passes | The trace units and the spike pages answer their typed questions from the database; evaluation runs |
+| 0 · Skeleton | Meta-model in PostgreSQL, HTML ingest, Opus intervention tools, query API, evaluation harness | Extracts the claims of the first-pass dev pages (D6 §7.4); drafts schema and guideline; dispatches Sonnet golden passes | The trace units and the spike pages answer their typed questions from the database; evaluation runs |
 | 1 · Baseline | Compiled GLiNER2 schemas, spaCy, math and table readers, the local LLM tier | Adjudicates what the local LLM could not settle | F1 and intervention share measured per type and stage |
 | 2 · Consolidation | Linking, claim fusion, pgmpy confidence, rule validation | Grey-zone identities and conflicts | Identity errors measured; confidence calibrated on goldens |
 | 3 · Distillation | Escalation ladders across tiers, GLiNER2 LoRA adapters, gepa prompt tuning | Golden units (Sonnet passes) for the errors metrics surface | Intervention share falls at equal or better F1 |
@@ -99,6 +99,14 @@ with those items explicitly unresolved.
 | Golden verification | No per-item human verification; the operator steers through guidelines from an outer loop | Blind two-pass Sonnet authoring from a generated annotator reference, versioned guidelines, re-scoring on change, independent witnesses ([D7](D7-evaluation-goldens-outer-loop.md), ADR-0011) |
 | Opus cost | Opus from the Claude Code session; the constraint is output size during debugging | Bounded work packets, pagination, debug slices |
 | Repository | New repository `corpus-structure`; the old one read-only | Port list in [D9](D9-repository-and-phase0.md) |
+
+## Later uses already intended
+
+**pgmpy as an output, not only the confidence model.** Dependency and causal claims extracted from
+business documents form a directed graph whose implied independencies can be checked and, where
+business data exists, fitted. A business's stated dependencies become a checkable model. This is a
+phase 5 capability for the commercial target; statistics does not exercise it
+([roadmap](../plans/roadmap-phases-1-5_2026-10-28.md)).
 
 ## Deliberately left out until a gap asks for it
 

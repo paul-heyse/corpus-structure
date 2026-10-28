@@ -9,13 +9,23 @@ intervention or a versioned artifact; nothing writes knowledge rows directly (D1
 
 | Surface | User | Realization | Writes |
 |---|---|---|---|
-| MCP server `corpus-structure` | Opus in the Claude Code session | FastMCP 4.1, stdio transport, registered in the repository's `.mcp.json` | Observations (`claim_proposal`, `judgment`), golden passes, proposals, interventions |
+| MCP server `corpus-structure` | Opus in the Claude Code session | FastMCP 4.1, stdio transport, registered in the repository's `.mcp.json`; a process of its own, separate from the orchestrator (D6 §1) | Observations (`claim_proposal`, `judgment`), proposals, interventions |
+| MCP server `corpus-structure-golden` | each golden-pass subagent | the same package with only the golden tools, declared inline in the golden agent file, so every subagent gets its own server process (§2.2) | Golden passes |
 | CLI `ci` | The operator; scripts; Opus for read-only inspection | Typer with Rich output | Runs, directions, acks, vetoes, exports |
 | Query API | CLI, MCP, later services | `serve/queries.py`: named, typed functions over SQL | Nothing |
 | Exports | Downstream tools | JSON Lines and Parquet | Files |
 
 The MCP server and the CLI call the same application functions; the MCP layer only adds
 validation messages shaped for an agent and size caps.
+
+**Realization** ([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) §1, IE-1, IE-3; FastMCP 4.1.3, probed 2026-10-28):
+- The lifespan runs once per stdio process and holds the connection pool; tools are synchronous and
+  run on worker threads. Nothing is printed to stdout at import or lifespan time (the SDK protects
+  stdout only while serving).
+- Tools return Pydantic models, which give an output schema and a JSON text block; packets return
+  `ToolResult(content=text, structured_content=…)`, because whether Claude Code shows
+  `structuredContent` to the model is undocumented and the text is what it reads.
+- Tool descriptions stay under 4,096 characters (Claude Code's limit).
 
 ## 2. MCP tools
 
@@ -31,9 +41,17 @@ validation messages shaped for an agent and size caps.
 | `adjudicate` | `task_id`, `judgment` (D4 §4.3 judge form) | confirmation | Completes the task (`judgment` observation; an intervention row referencing it). Used from phase 1 |
 | `release` | `task_id`, `reason` | — | Returns the task to `awaiting_agent` |
 
-Validation on submission: the compiled JSON Schema; quote location (D4 §4.3); reference and type
-checks. Messages name the item and field (`claims[3].qualifiers.param_values.mean: not a key of
-the normal family's parameters`), so a correction is a small edit.
+Validation on submission: the compiled batch models (D2 §7.3); quote location (D4 §4.3);
+reference and type checks; the `guideline:` rules (D2 §7.4). Messages name the item and field
+(`claims[3].qualifiers.param_values.mean: not a key of the normal family's parameters`), so a
+correction is a small edit. The `batch` parameter is typed as a plain object, and the tool body
+validates it item by item and returns a typed result (accepted count, rejected items with paths,
+unlocated quotes, warnings, whether the task stays open) as a successful call. Typing the parameter
+as the strict model would fail the whole call on one bad item before the tool body runs, return
+pydantic's text in another path form, and so bypass the one-resubmission rule; error text over
+about 11,000 characters is also trimmed by Claude Code. The batch schema is served by
+`read_instructions` with its hash, not as the tool's input schema (embedding the compiled schema
+there failed at registration).
 
 ### 2.2 Goldens (D7 §3)
 
@@ -47,6 +65,13 @@ Golden passes A, B and C are fresh **Sonnet 5.5** subagent sessions dispatched b
 session (D7 §3, ADR-0011); the session itself (Opus) does not author goldens. Passes A and B must
 come from separate subagent sessions; the tool records the session reference and model and refuses
 a pass `b` from the session that wrote pass `a` for the same unit.
+
+**The session reference is the golden server's instance id.** On stdio, MCP's `ctx.session_id`
+is a fresh value on every call, and subagents share the parent's connection, so the main server
+cannot tell pass A from pass B. The golden agent file declares its own inline server
+(`corpus-structure-golden`), so each subagent invocation starts one server process, which mints an
+instance id at startup and records it as `session_ref` on every pass and lease
+([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-2). Golden leases are tasks of a `golden` run (D3 §8).
 
 > Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md)
 
@@ -67,7 +92,7 @@ Test-split units are served only to golden passes, never to `read_unit` or `quer
 
 | Tool | Returns |
 |---|---|
-| `query` | a typed query's result (§5), paginated |
+| `query` | a typed query's result (§5) for a named run or the promoted run, paginated |
 | `explain` | for a claim: supports by source, confidence by source state, verifications, judgments, alternatives and links; for a unit: tasks with outcomes and the policy rules that created them |
 | `run_summary` | the run's metric summary (D6 §6), worst units by a chosen metric |
 | `digest` | the operator digest (D7 §8.1) |
@@ -75,7 +100,13 @@ Test-split units are served only to golden passes, never to `read_unit` or `quer
 ## 3. Work packets and size caps
 
 Output size is the binding constraint while debugging, so every tool has a cap and paginates
-beyond it:
+beyond it. Caps are enforced inside the tools, which count characters (the server has no Claude
+token counter) at a conservative 3 characters per token, and return a page token beyond them.
+FastMCP's response-limiting middleware stays only as a backstop: it counts bytes and drops the
+structured result. Claude Code warns at 10,000 tokens, stops at 25,000 and writes a result over
+50,000 characters to a file, so every cap below sits well under those (interfaces note IE-3).
+The LLM-tier packet caps (D4 §4.1) are counted with the served model's tokenizer instead. The
+caps for the session:
 
 | Item | Cap |
 |---|---|
@@ -107,7 +138,7 @@ sentences.
 | `ci run [--slice NAME] [--phase N] [--agent-mode wait|complete] [--fresh METHOD]…` | Start a run (D6 §2) |
 | `ci status [RUN]`, `ci tasks [RUN] [--status S] [--method M]` | Run progress; task listing |
 | `ci explain claim KEY`, `ci explain unit KEY` | As the MCP `explain` |
-| `ci query NAME [--param VALUE]…` | Typed queries (§5) |
+| `ci query NAME [--run RUN] [--param VALUE]…` | Typed queries (§5); the run defaults to the promoted run |
 | `ci eval [RUN] [--split dev|test]` | Scores |
 | `ci golden split`, `ci golden create --split S --size N [--seed K]`, `ci golden status` | Page split assignment and unit sampling (D7 §3.1); authoring progress |
 | `ci experiment new|show|list` | Experiments (D7 §7) |
@@ -123,10 +154,17 @@ run of kind `ingest`.
 Opus may run read-only `ci` commands through its shell; writes go through MCP tools so they are
 validated and recorded as interventions.
 
+**Realization** (Typer 0.27, Rich 15; [interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) §3):
+command groups through `add_typer`, all in the `cli` package (D9 §1); a root callback builds
+settings once; `--json` writes the same result models the query API returns, so scripts and the
+MCP tools see one shape; shell completion reads pack files, never the database.
+
 ## 5. Typed queries
 
 Each query is a function with a Pydantic parameter model and result model, implemented over the
-D3 §9 SQL patterns. Defaults: the promoted run; status `accepted` (option `include_candidates`);
+D3 §9 SQL patterns. Every query takes a `run`: a run key, or `promoted` (the default). Without a
+promoted run, a query that names none fails with that reason instead of reading an arbitrary run;
+the trace acceptance test names its slice run. Other defaults: status `accepted` (option `include_candidates`);
 modality not `supposed` unless `include_suppositions` (D1 §5.2), except that premises referenced
 by a returned claim's conditions are always returned with it; every result row carries its
 claim keys and evidence locators so a consumer can cite.
@@ -139,7 +177,7 @@ claim keys and evidence locators so a consumer can cite.
 | `claims` | subject?, predicate?, object?, status?, modality? | claims with values and conditions rendered |
 | `statement` | statement key or a locator (D6 §8: `page#unit-id`, `page@u:…`, `page@p:…`) | the statement's kind, premises, conditions, conclusions, definientia, proof link, each with evidence |
 | `evidence` | claim key | evidence spans with sentence context and segment locators |
-| `find` | text | BM25 hits over segments and alias hits over entities |
+| `find` | text | full-text hits over segments (D3 §5) and alias hits over entities |
 | `unsupported` | cluster? | `unsupported` items and their clusters |
 
 ### 5.2 Statistics
@@ -180,6 +218,6 @@ Expected answers are the trace's target claims; D9 §4 turns them into tests.
 
 | ID | Question | Resolved by |
 |---|---|---|
-| OPEN-D8-1 | FastMCP 4.1 stdio server alongside the orchestrator's `LISTEN`/`NOTIFY`: one process or two | Phase 0 |
+| OPEN-D8-1 | FastMCP 4.1 stdio server alongside the orchestrator's `LISTEN`/`NOTIFY`: one process or two | **Decided** (2026-10-28): two processes, the database the only shared state; the server only `NOTIFY`s (D6 §1) |
 | OPEN-D8-2 | Whether grouping several small units in one packet lowers agent quality (context interference) | Phase 0 comparison on `core12` |
-| OPEN-D8-3 | How the Claude Code session best launches blind golden passes (subagents with restricted tools) so that passes A and B are verifiably separate | Answered in practice by S0 and S0-R2 (2026-10-28): a fresh subagent per pass, given one input folder and one output folder, told what it may not read, and audited from its transcript (every tool call) rather than its own report; phase 0 makes the input and output folders the only paths the tools serve |
+| OPEN-D8-3 | How the Claude Code session best launches blind golden passes (subagents with restricted tools) so that passes A and B are verifiably separate | Answered in practice by S0 and S0-R2 (2026-10-28): a fresh subagent per pass, given one input folder and one output folder, told what it may not read, and audited from its transcript (every tool call) rather than its own report; in phase 0 each golden subagent gets its own server process whose instance id is the session reference (§2.2) |

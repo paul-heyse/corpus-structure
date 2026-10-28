@@ -148,3 +148,11 @@ The key rule is option 2. Every other clause is ADR-0009's, restated.
 - **Keys:** D1 §6.2 states the token form for keys; the grammar extension and the S5 coverage work
   no longer touch claim keys. The property test belongs to M11's acceptance in phase 0 and to S5.
 - **ADR-0009** is superseded, not removed: it records the earlier rule and its evidence.
+
+## Amendments
+
+- 2026-10-28: refinements from the text-and-math library research, no decision changed (D1 §6.2,
+  D4 M01, M11, §4.3): whitespace inside `\text{}` is collapsed rather than removed; the token form
+  is built by a TeX-rules `regex` tokenizer in `core` with one drop list shared with the grammar;
+  parsers are cached per macro classification in each worker process; the quote cascade gains a
+  token-sequence fuzzy step before the character-level refine.

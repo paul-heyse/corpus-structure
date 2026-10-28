@@ -10,6 +10,14 @@ policy language that decides which methods run where. Tables are in
 - **One orchestrator, a database queue.** A Python process drives runs; workers claim tasks
   from `ops.task`. No workflow engine: the graph is small and fixed, and the database already
   records everything a workflow engine would.
+- **The MCP server is a separate process; the database is the only shared state** (decides
+  OPEN-D8-1 and OPEN-D9-2, design authority 2026-10-28, from the [store note](../design_review/evidence/2026-10-28_library-store/README.md) L-S7 and the
+  [interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-4). Claude Code starts one stdio server per session (and one per
+  golden subagent, D8 §2.2), which dies with that session, while a waiting run spans sessions
+  (§7.4, ADR-0015). So `ci run` owns the orchestrator; the server only reads and writes tables and
+  sends `NOTIFY` inside its submission transaction. FastMCP background tasks are not used: they
+  would duplicate `ops.task`, and Claude Code accepts MCP tasks only from the main conversation.
+  > Status: **Proposed** (source-read and reasoned; not probed end to end against PostgreSQL)
 - **Stages are barriers.** All tasks of a stage reach a terminal status before the next stage
   starts. At this corpus size the simplicity is worth more than overlap (`OPEN-D6-1`).
 - **Policies decide escalation; methods never do.** Every task that is not part of a base stage
@@ -68,7 +76,7 @@ what happens:
 
 | `agent_mode` | Behaviour |
 |---|---|
-| `wait` (default while debugging) | The orchestrator waits (`LISTEN` on a channel the MCP submission tools `NOTIFY`) until every agent task is terminal, then continues |
+| `wait` (default while debugging) | The orchestrator waits until every agent task is terminal, then continues. It `LISTEN`s on a dedicated autocommit connection, re-queries task status on every wake-up and waits with a timeout, because a notification is only a hint: it is delivered at commit, carries under 8,000 bytes, can be missed while not listening, and lease expiry sends none (store note §4) |
 | `complete` | The run finishes with agent tasks left `awaiting_agent`; their units are reported as unresolved. A later run reuses the agent's results once submitted (§4) |
 
 **Run statuses** (D3 `ops.run.status`): `created` → `running` → (`awaiting_agent` ↔ `running`)*
@@ -98,15 +106,23 @@ awaiting_agent ──submission──► done | empty | failed
 | `llm` | M10, M16 | one async process; up to 16 requests in flight to vLLM, which batches |
 | `agent` | none: M24 tasks are pulled by the Claude Code session through MCP (D8) | — |
 
-A worker claims up to its batch size of `pending` tasks of one stage and method configuration
-with `SELECT … FOR UPDATE SKIP LOCKED`, sets them `running` with `claimed_by`, runs the method,
-and in one transaction writes observations (COPY), the outcome, `cost` and `finished_at`.
+A worker claims up to its batch size of `pending` tasks of one stage and method configuration in
+one `UPDATE … FROM (SELECT … FOR UPDATE SKIP LOCKED LIMIT n)` that also takes `running` tasks whose
+lease has expired, sets them `running` with `claimed_by` and an incremented `attempt`, runs the
+method, and in one transaction (store note §3, §4):
+1. runs a fencing `UPDATE` conditioned on `id` and `attempt`, so a worker that lost its lease
+   commits nothing;
+2. writes observations by binary COPY with `Copy.set_types` (mandatory: a `real` column needs
+   `float4`; JSONB as plain dicts once `jsonb` is declared);
+3. writes the outcome, `cost` and `finished_at`.
+Pipeline mode is not used: it is experimental in psycopg 3.3 and cannot carry COPY. D3 §8 gives
+the indexes and the reuse insert.
 
 **Retries.** Transient failures (CUDA out of memory, a vLLM timeout or 5xx, a dropped database
 connection) retry up to twice; an out-of-memory retry halves the batch. Deterministic failures
 (a parse error, a schema violation after the repair attempt) are not retried. A worker that dies
-leaves `running` tasks whose lease (`lease_until`, 5 minutes, renewed while working) expires; they
-return to `pending`.
+leaves `running` tasks whose lease (`lease_until`, 5 minutes, renewed while working) expires; the
+next claim takes them, so no reaper runs.
 
 ## 4. Caching and reuse
 
@@ -249,6 +265,11 @@ chains:
 - Chains compile to rule-engine 5.1 `Chain` objects under a typed context; a type error fails
   policy loading. Evaluation takes the first matching entry (`Chain.find`), and `continue`
   re-evaluates the slice after it.
+  The entry's rule key travels as the `Chain` entry's value, so the task records which rule fired;
+  calls take positional arguments; contexts are typed as in D2 §7.4 (OBJECT symbols, no mapping
+  dot-access, UTC, nondeterministic builtins rejected), so a run's routing depends only on its
+  inputs ([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-04).
+  > Status: **Tested** by probe for `Chain` construction and type errors (2026-10-28)
 
 ### 7.2 Unit context
 
@@ -271,12 +292,23 @@ level over metrics and evaluation results names candidate interventions:
 ```yaml
 gaps:
   - key: gap.pattern_candidate
-    when: "eval.recall(predicate) < 0.6 and eval.recall_trend(predicate, runs=2) <= 0.02"
+    when: "eval.recall(predicate) < 0.6 and eval.recall_trend(predicate, 2) <= 0.02"
     propose: {method: extract.patterns, scope: predicate}
   - key: gap.record_link
     when: "eval.identity_error_rate(cls) > 0.05"
     propose: {method: resolve.record_link, scope: cls}
+  - key: gap.coverage.fact_bearing
+    when: "doc.fact_bearing_share > 0 and doc.fact_bearing_without_claims / doc.fact_bearing_share > 0.15"
+    propose: {method: llm.open_extraction, scope: document}   # facts with no schema home become schema proposals
 ```
+
+The coverage gap reads a per-segment *fact-bearing* classification (an LLM classifier, phase 4 with
+schema depth): the share of fact-bearing segments that hold no claim. It matters most for business
+text, where much prose carries no claims, and it is the trigger for schema growth. The regression
+guard (golden-set F1 falling more than a point below the promoted run blocks promotion) is the
+experiment rule's guard tolerance (D7 §7).
+> Status: **Proposed** (2026-10-28, from the design rationale §4.10); `llm.open_extraction` and the
+> classifier are phase 4 methods, not yet in D4
 
 A gap rule's output is a **proposal** in the run report. It becomes active only through an
 experiment (D7 §7): a candidate policy version enabling the method, run against the baseline on
@@ -287,7 +319,17 @@ the dev goldens, promoted if the target metric improves without guard regression
 Budgets bound cost per run and per iteration. When an agent budget is exhausted, further agent
 tasks are created as `skipped` with reason `budget`, so the report shows exactly what was not
 asked. During heavy debugging the operator keeps `agent_packets_per_iteration` small (default
-20).
+20). It bounds escalation iterations (`escalate`, `adjudicate`; phase 1 on). The `propose` stage's
+agent tasks are bounded by the run's scope instead.
+
+**Phase 0 coverage.** A first-pass run in phase 0 proposes for the units of the dev-split pages:
+about a fifth of the first-pass corpus is test and stays unextracted (D7 §4), and the dev pages give
+the baseline the gate and the first experiments need. The remaining non-test units are created
+`skipped` with reason `budget`, so their absence is explicit. The queue persists, so the agent
+works a run's tasks across as many sessions as it takes while the run waits at its barrier
+(`--agent-mode wait`); each session pulls bounded packets (D8 §3).
+> Status: **Proposed** (2026-10-28, design authority): about 3,600 non-test packets exceed what
+> sessions should carry before encoders and the local tier exist (S1 counts, record s1.corpus)
 
 ### 7.5 Initial statistics policies, by phase
 

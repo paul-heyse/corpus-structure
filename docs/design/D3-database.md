@@ -11,11 +11,13 @@ the first Alembic migration; column comments that would repeat D1 are omitted.
 | Authority for knowledge and operations | PostgreSQL 18.6 (installed) | One transaction links a task, its observations and the claims they change. A graph or triple store would add a second authority to keep in sync; claims with qualifiers fit relational rows plus JSONB |
 | Variable payloads: qualifiers, values, conditions, observation payloads, configs | `jsonb` with GIN indexes where queried | Variation lives in data, not in per-type tables (the old repository's 277 contract classes) |
 | Similarity search | pgvector 0.8.7 (installed), `halfvec`, HNSW | Joins and filters in one query. HNSW on `halfvec` supports up to 4,000 dimensions; the embedding dimension is fixed by spike S7 (`OPEN-D3-2`) |
-| Lexical search | pg_textsearch 1.5.1 (installed; BM25) | Replaces the old Tantivy crate. Index syntax is checked in spike S6 (`OPEN-D3-1`) |
+| Lexical search | PostgreSQL full-text search (`tsvector`, GIN, `ts_rank_cd`) | Replaces the old Tantivy crate; no extension (§5). BM25 only on a measured retrieval gap (`OPEN-D3-1`) |
 | Graph traversal | Recursive CTEs; NetworkX and pgmpy projections in memory | The knowledge graph is small per project; path-heavy workloads would revisit this |
 | Analytics and evaluation reports | DuckDB reading PostgreSQL (`postgres` extension) or Parquet exports | Read-only; never a second authority |
 | Originals | Content-addressed files under `data/originals/<sha256>`; the corpus stays where it is and is referenced by path and hash | Keeps large binaries out of the database |
 | Access from Python | SQLAlchemy Core 2.1 table metadata + psycopg 3 (COPY for bulk observation writes) | Same stack as before, without ORM |
+| Migrations | Alembic; 0001 generated once from the Core metadata, then frozen (it never imports `core/db`) | `alembic check` compares an index's uniqueness and columns only (no `USING`, `WITH`, operator classes or partial `WHERE`, CHECKs by name), so a test compares the catalog after `upgrade head` with `create_all` ([store note](../design_review/evidence/2026-10-28_library-store/README.md) §1) |
+| Connections | one psycopg-pool `ConnectionPool` per process; SQLAlchemy borrows through `creator=pool.getconn` with `NullPool` | One owner of connections; `SET LOCAL`, never session `SET`; the JSON serializer set in the pool's `configure` callback, which `create_engine(json_serializer=)` does not reach (store note §3, §5) |
 
 Identifiers are `bigint GENERATED ALWAYS AS IDENTITY`. Deterministic keys from D1 §10 are
 `text` columns with unique constraints where identity must hold. Closed value sets are `text`
@@ -40,9 +42,14 @@ then the rest.
 
 ## 3. `meta`: schema, guidelines and domain declarations
 
+**No extensions in phase 0.** Lexical search uses PostgreSQL's built-in full-text search, so
+migration 0001 needs no extension (design authority, 2026-10-28: pg_textsearch could not be
+installed on the operator's machine, and it needs `shared_preload_libraries` and a superuser even
+where it installs). `vector` arrives with `kb.embedding` in phase 1; it is not a trusted extension,
+so the operator creates it once (as `postgres`) in a template database that `ci db init` and the
+test databases clone, and that migration asserts it is present ([store note](../design_review/evidence/2026-10-28_library-store/README.md) L-S5).
+
 ```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE EXTENSION IF NOT EXISTS pg_textsearch;
 CREATE SCHEMA meta;  CREATE SCHEMA kb;  CREATE SCHEMA ops;  CREATE SCHEMA eval;
 
 CREATE TABLE meta.project (
@@ -122,7 +129,7 @@ CREATE TABLE meta.guideline_version (
   domain            text NOT NULL,
   label             text NOT NULL,
   content_hash      text NOT NULL,
-  body              text NOT NULL,               -- the guideline markdown, inventory included
+  body              text NOT NULL,               -- the guideline rules (D2 §10.1–§10.9); the generated reference and direction log are hashed elsewhere (D2 §10.10–§10.11)
   schema_version_id bigint NOT NULL REFERENCES meta.schema_version,
   parent_id         bigint REFERENCES meta.guideline_version,
   change_note       text,
@@ -193,7 +200,7 @@ CREATE TABLE ops.debug_slice (
 CREATE TABLE ops.run (
   id                   bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   project_id           bigint NOT NULL REFERENCES meta.project,
-  kind                 text NOT NULL CHECK (kind IN ('ingest','full','slice','experiment','rescore')),
+  kind                 text NOT NULL CHECK (kind IN ('ingest','full','slice','experiment','rescore','golden')),
   phase                smallint NOT NULL,        -- 0–5 (D0); policies read it
   options              jsonb NOT NULL DEFAULT '{}',  -- agent_mode, agent_reuse, fresh methods, gpu mode (D6 §2, §4, §5)
   debug_slice_id       bigint REFERENCES ops.debug_slice,
@@ -222,7 +229,7 @@ CREATE TABLE kb.document (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   project_id    bigint NOT NULL REFERENCES meta.project,
   key           text NOT NULL UNIQUE,            -- 'doc:…'
-  source_uri    text NOT NULL,                   -- e.g. 'siegrist_random/special/Normal.html'
+  source_uri    text NOT NULL,                   -- e.g. 'siegrist_random/random/special/Normal.html'
   content_hash  text NOT NULL,                   -- sha256 of original bytes
   original_path text NOT NULL,                   -- where the bytes are
   mime          text NOT NULL,
@@ -255,14 +262,17 @@ CREATE TABLE kb.segment (
   start_offset integer NOT NULL,
   end_offset   integer NOT NULL,
   text         text NOT NULL,                    -- canonical_text[start:end], stored for search
+  text_tsv     tsvector GENERATED ALWAYS AS (to_tsvector('english', text)) STORED,
   attrs        jsonb NOT NULL DEFAULT '{}',      -- author markup (D1 §3.2)
   parse_status text NOT NULL DEFAULT 'ok' CHECK (parse_status IN ('ok','partial','failed')),
   CHECK (start_offset <= end_offset)
 );
 CREATE INDEX segment_range ON kb.segment (rendition_id, start_offset, end_offset);
 CREATE INDEX segment_kind  ON kb.segment (rendition_id, kind);
--- BM25 over segment text; exact syntax confirmed in S6 (OPEN-D3-1)
-CREATE INDEX segment_bm25 ON kb.segment USING bm25 (text) WITH (text_config = 'english');
+-- full-text search over one non-overlapping block level, so a token is counted once and hits do
+-- not nest (store note L-S3); the kind list is confirmed on the corpus by S6
+CREATE INDEX segment_fts ON kb.segment USING gin (text_tsv)
+  WHERE kind IN ('paragraph','heading','list_item','math_display');
 
 CREATE TABLE kb.span (
   id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -286,6 +296,24 @@ CREATE TABLE kb.embedding (
 CREATE INDEX embedding_hnsw ON kb.embedding USING hnsw (vec halfvec_cosine_ops);
 ```
 
+**Lexical search** (OPEN-D3-1). Queries match `text_tsv @@ websearch_to_tsquery('english', $1)`
+and rank with `ts_rank_cd(text_tsv, query)`, with the block-kind predicate repeated so the planner
+uses the partial index. Ranking is not BM25: there is no corpus-level term weighting, which matters
+little for the uses in view (the `find` query, D8 §5.1; candidate lookup for linking), since entity
+lookup goes through aliases. A BM25 extension enters only if a measured retrieval gap names it
+(P4). The stored generated column reads the text on the same row, which is why `kb.segment.text`
+stays (OPEN-D3-3); a generated column cannot read `kb.rendition`.
+> Status: **Proposed** (built-in PostgreSQL features; S6 runs the index and query on the corpus)
+
+For phase 1 (store note L-S6): `halfvec` HNSW indexes up to 4,000 dimensions (1024 and 2048 fit;
+the 8B model's native 4096 does not); pgvector filters after the index scan, so `kb.embedding`
+gets one partial HNSW index per `target_type` plus `hnsw.iterative_scan`, and rows are keyed by the
+target's stable key so a re-ingest does not orphan them.
+
+`kb.embedding` is created by the phase 1 migration that adds M04, not by 0001: nothing reads it in
+phase 0, and its dimension waits on S7 (P11 in the design rationale). The rest of this section is
+migration 0001.
+
 `ops.task` sits here in creation order because observations reference it:
 
 ```sql
@@ -294,8 +322,8 @@ CREATE TABLE ops.task (
   run_id           bigint NOT NULL REFERENCES ops.run,
   stage            text NOT NULL,                -- D6 §2 stage names
   unit_type        text NOT NULL CHECK (unit_type IN ('document','rendition','segment','observation','entity','claim',
-                        'alternative_group','identity_group','run')),
-  unit_id          bigint,                       -- id in the table named by unit_type; null for groups and 'run'
+                        'alternative_group','identity_group','run','golden_unit')),
+  unit_id          bigint,                       -- id in the table named by unit_type (eval.golden_unit for 'golden_unit'); null for groups and 'run'
   unit_key         text,                         -- stable key of the unit (the group key for groups), for cross-run reuse
   method_config_id bigint NOT NULL REFERENCES ops.method_config,
   trigger_rule_id  bigint REFERENCES ops.policy_rule,  -- null for base-stage tasks
@@ -304,7 +332,7 @@ CREATE TABLE ops.task (
   reused_task_id   bigint REFERENCES ops.task,   -- set when status = 'reused'
   status           text NOT NULL CHECK (status IN ('pending','running','awaiting_agent','done',
                         'empty','failed','skipped','reused','cancelled')),
-  attempt          integer NOT NULL DEFAULT 0,
+  attempt          integer NOT NULL DEFAULT 0,   -- fencing token: incremented at claim; renewals and terminal writes require it (§8)
   priority         integer NOT NULL DEFAULT 0,
   claimed_by       text,                         -- worker id or agent session while running
   lease_until      timestamptz,                  -- 5 min for workers, 30 min for agent leases (D6 §3.2, D8 §2.1)
@@ -315,7 +343,10 @@ CREATE TABLE ops.task (
   started_at       timestamptz,
   finished_at      timestamptz
 );
-CREATE INDEX task_queue ON ops.task (status, priority DESC, id) WHERE status IN ('pending','awaiting_agent');
+-- the queue (store note L-S1): what workers claim, what expires, what the agent leases
+CREATE INDEX task_pending ON ops.task (run_id, stage, method_config_id, priority DESC, id) WHERE status = 'pending';
+CREATE INDEX task_lease   ON ops.task (lease_until) WHERE status = 'running';
+CREATE INDEX task_agent   ON ops.task (run_id, priority DESC, id) WHERE status = 'awaiting_agent';
 CREATE INDEX task_cache ON ops.task (method_config_id, input_hash) WHERE status IN ('done','empty');
 CREATE INDEX task_run   ON ops.task (run_id, stage);
 
@@ -336,7 +367,6 @@ CREATE TABLE kb.observation (
 );
 CREATE INDEX observation_span    ON kb.observation (span_id);
 CREATE INDEX observation_segment ON kb.observation (segment_id, kind);
-CREATE INDEX observation_payload ON kb.observation USING gin (payload jsonb_path_ops);
 
 CREATE TABLE kb.entity (
   id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -397,7 +427,6 @@ CREATE INDEX claim_pred      ON kb.claim (run_id, predicate, status);
 CREATE INDEX claim_subject   ON kb.claim (run_id, subject_id);
 CREATE INDEX claim_object    ON kb.claim (run_id, object_entity_id);
 CREATE INDEX claim_statement ON kb.claim (run_id, statement_id);
-CREATE INDEX claim_qual      ON kb.claim USING gin (qualifiers jsonb_path_ops);
 
 CREATE TABLE kb.claim_evidence (
   claim_id bigint NOT NULL REFERENCES kb.claim ON DELETE CASCADE,
@@ -421,7 +450,14 @@ CREATE TABLE kb.claim_link (
   detail        jsonb NOT NULL DEFAULT '{}',     -- rule id, reason, alternative group id
   UNIQUE (from_claim_id, link_type, to_claim_id)
 );
+CREATE INDEX claim_link_to ON kb.claim_link (to_claim_id);   -- cascading deletes (store note L-S4)
 ```
+
+**JSONB indexes only with a query that uses them** (store note L-S4). Earlier drafts had GIN
+`jsonb_path_ops` indexes on `kb.observation.payload` and `kb.claim.qualifiers`. Neither had a
+consumer: §9's `qualifiers @? '$.param_values.variance'` cannot use a `jsonb_path_ops` index, which
+serves only `== constant` path clauses, and is carried by `claim_pred`. Every GIN index also slows
+each COPY. A JSONB index is added in the migration that adds the query needing it.
 
 Remaining `ops` tables:
 
@@ -478,6 +514,8 @@ CREATE TABLE ops.experiment (
 ```
 
 ## 6. JSONB contracts
+
+Keys (D1 §10.1) are computed in Python from canonical JSON, never from `jsonb::text`, whose key order and number formatting are PostgreSQL's. JSONB is validated once at the Pydantic boundary with the compiled per-version models, and `core/schemas/*.json` are generated from the same adapters ([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-10); defaults are filled for rules and omitted in storage through `Field(exclude_if=…)` (L-11).
 
 Each JSONB column has a JSON Schema in `corpus_structure/core/schemas/` ([D9 §1](D9-repository-and-phase0.md#1-layout)),
 validated on write by the repository layer. Summaries:
@@ -605,6 +643,8 @@ CREATE TABLE eval.result (
   detail        jsonb NOT NULL DEFAULT '{}',
   created_at    timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX alignment_run ON eval.alignment (run_id);   -- deleting a run's materialized rows (§8)
+CREATE INDEX result_run    ON eval.result (run_id);
 ```
 
 ## 8. Runs, snapshots and reads
@@ -613,8 +653,21 @@ CREATE TABLE eval.result (
   `awaiting_agent` (only agent tasks remain) → `consolidating` → `finished`, or `failed` /
   `cancelled`. Details in [D6 §2](D6-orchestration-metrics-policies.md#2-the-stage-graph-and-run-lifecycle).
 - **Materialization.** Entities, claims, links and alignments are written per run and never
-  updated after `finished`, except that a run may be deleted whole (cascade) when it is not the
-  promoted run, not an experiment's baseline or candidate, and not referenced by a golden set.
+  updated after `finished`. A run that is not the promoted run, not an experiment's baseline or
+  candidate, and not referenced by a golden set may have its **materialized rows deleted** (entities,
+  claims, links, alignments, results, by `run_id`); the `ops.run` row and its tasks stay, because
+  later runs may reuse those tasks (D6 §4) and observations are kept while referenced (below)
+  (store note L-S2). `eval.alignment` and `eval.result` are indexed by `run_id` for that delete.
+- **Golden passes are tasks** of a run of kind `golden` (one per golden set and guideline
+  version), with `unit_type = 'golden_unit'` and method `golden.pass` (configs `golden.pass/a`,
+  `/b`, `/c`), so `golden_next` leases through the same queue and fencing as every other task
+  (D8 §2.2). A pass `c` task is created when passes `a` and `b` of its unit are both written.
+- **Claiming and fencing** (store note L-S1). Workers claim with one
+  `UPDATE … FROM (SELECT … FOR UPDATE SKIP LOCKED LIMIT n)` that also takes expired leases, so no
+  reaper process exists. The claim increments `attempt`; every lease renewal and every terminal
+  write is conditioned on that `attempt`, so a worker that lost its lease commits nothing. Agent
+  leases keep status `awaiting_agent`, so their expiry needs no action. Reuse (D6 §4) is resolved at
+  task creation in one `INSERT … SELECT … LEFT JOIN LATERAL` over `task_cache`.
 - **Promotion.** `meta.project.promoted_run_id` is set by the experiment decision
   ([D7 §7](D7-evaluation-goldens-outer-loop.md#7-experiments-and-promotion)). "Current
   knowledge" queries go through views on the promoted run.
@@ -740,7 +793,7 @@ partitioning is needed until a project holds many corpora.
 
 | ID | Question | Resolved by |
 |---|---|---|
-| OPEN-D3-1 | Exact pg_textsearch index and query syntax (`USING bm25`, `<@>`, `to_bm25query`), and whether it indexes `kb.segment.text` in place | Spike S6 |
+| OPEN-D3-1 | Lexical search: index and query form | **Changed** (2026-10-28): pg_textsearch could not be installed; built-in full-text search (§5); S6 runs it on the corpus |
 | OPEN-D3-2 | Embedding model and dimension (Qwen3-Embedding-0.6B at 1024, or 8B truncated by Matryoshka to 1024 or 2048) | Spike S7 |
-| OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | Spike S6 |
+| OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | **Answered by mechanism** (2026-10-28): the search column reads same-row text and generated columns cannot read `kb.rendition`; the column stays |
 | OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | Spikes S6 and S0; phase 1 goldens if S0 has too few units; S0 evidence (2026-10-28): on 70 aligned claim pairs, meaning keys agreed for 41 (54 after the D1 §10.1 key-rule changes) against 21 (48) for claim keys; S6 decides storage |

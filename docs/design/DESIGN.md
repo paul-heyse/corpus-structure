@@ -59,6 +59,24 @@ service; RDF publication; the methods D0 lists as deliberately left out until a 
 asks for them; per-item human verification of goldens (the operator steers through guidelines,
 [D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop)).
 
+<a id="section-1-3"></a>
+
+### §1.3 Generality check
+
+**Proposed.** The core holds nothing statistics-specific. Anything designed in `core`, `schema`,
+`consolidate`, `orchestrate`, `evaluate` or `serve` is checked against constructs statistics never
+exercises (from the old repository's transfer fixtures, kept in reserve, D9 §7):
+
+| Example | Construct |
+|---|---|
+| ORG-101 "Harbor Systems Ltd", distinct from ORG-202 despite a shared trading name | Multi-attribute identity (Splink), cannot-link |
+| "ORG-101 owns P-17, valid 2026-01-01 to 2026-06-30, per ownership.html" | `valid_time` qualifier, attribution, evidence |
+| A table cell "High flow · 300" with its header, unit, caption and Note P | Table segments, quantities with units and gauge qualifiers (kPa(g)), notes as conditions |
+| An inspection duty with a three-part exception | Conditions with `or` and `not`, evaluable against facts |
+| Email threads | `email_message`, `quoted_block` and `signature` segments; attribution to senders |
+
+The design/target reviews use these as change scenarios.
+
 <a id="section-2"></a>
 
 ## §2 Binding decisions
@@ -149,9 +167,73 @@ prove implementation. [Publishing operations](../publishing.md) owns the command
 > Decision: ADR-0001, ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0008, ADR-0010
 
 
-No product binding decisions yet. Add each as `### §B1 <decision stated as a sentence>` with a
-committed `<a id="section-b1"></a>` anchor, a label and its `> Decision:` line, in the same
-commit as the ADR that decides it.
+Product binding decisions follow. Each is `### §Bn <decision stated as a sentence>` with a
+committed anchor, a label and its `> Decision:` line, in the same commit as the ADR that decides
+it. Changing one needs an ADR and a design/target review.
+
+<a id="section-b1"></a>
+
+### §B1 Every fact is one claim form
+
+**Tested** on the S0 and S0-R2 units (records `s0.gaps`, `s0r2.scores`); not yet built. A claim is
+subject, predicate, object or typed value, qualifiers, evidence, supports and status, with
+conditions as a typed tree with escape leaves and symbol bindings as a value-level map; reification
+only for co-equal participants, things referred to, or recurring identities; keys from canonical
+JSON of meaning-bearing parts ([D1](D1-knowledge-representation.md)).
+
+> Decision: ADR-0013
+
+<a id="section-b2"></a>
+
+### §B2 Methods write observations; only consolidation writes knowledge, per run
+
+**Proposed** (accepted, not yet built). Every method, the agent included, writes append-only
+observations; consolidation alone writes entities, claims and links, rebuilt per pass and
+materialized per run, immutable once the run finishes; promotion picks the run queries read
+([D5](D5-consolidation-identity-confidence.md), [D1 §10.2](D1-knowledge-representation.md)).
+
+> Decision: ADR-0014
+
+<a id="section-b3"></a>
+
+### §B3 The agent tier works a recorded queue; the pipeline never calls it
+
+**Proposed** (accepted, not yet built). Policies create `awaiting_agent` tasks; the session pulls
+bounded packets and submits through MCP tools; runs wait at a barrier or finish with those items
+unresolved; golden passes go through the same tools by Sonnet subagents
+([D6](D6-orchestration-metrics-policies.md), [D8](D8-agent-and-query-interfaces.md)).
+
+> Decision: ADR-0015
+
+<a id="section-b4"></a>
+
+### §B4 PostgreSQL 18 is the single authority
+
+**Proposed**; ADR-0016 is proposed until S6 reports. One database holds knowledge, operations and
+evaluation, with JSONB payloads, pgvector and full-text search; DuckDB serves analytics and exports
+only ([D3](D3-database.md)).
+
+> Decision: ADR-0016
+
+<a id="section-b5"></a>
+
+### §B5 A domain is a LinkML pack compiled into every consumer
+
+**Proposed**; ADR-0017 is proposed until S4 reports. Schema tables, GLiNER2 schemas, batch JSON
+Schemas, rules and the annotator reference are compiled from one pack per domain
+([D2](D2-schema-and-guidelines.md)).
+
+> Decision: ADR-0017
+
+<a id="section-b6"></a>
+
+### §B6 Escalation is routed by versioned policies over measurements
+
+**Proposed**; ADR-0018 is proposed until S4 reports (OPEN-D2-3). Ordered policy chains compiled to
+rule-engine `Chain`s decide routing; every task records the rule and trigger values; conditional
+methods enter only through gap proposals and experiments ([D6 §7](D6-orchestration-metrics-policies.md)).
+
+> Decision: ADR-0018
 
 <a id="section-13"></a>
 

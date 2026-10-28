@@ -104,6 +104,14 @@ when a named measured gap calls for them (D6 §7, D0 "deliberately left out").
 Not methods: metric computation (D6 §6), alignment and scoring (D7 §5), confidence estimation
 (a consolidation step, D5 §6).
 
+**Candidate, not in the catalog: spaCy candidates scored by GLiNER2.** spaCy proposes deterministic
+candidate spans (gazetteer hits, identifiers, noun chunks) and GLiNER2 scores them under the
+compiled schema with `score_explicit_spans`. Separating candidate generation from scoring shows
+which component a recall gap belongs to. It is measured as a variant in S2 and enters the
+catalogue as a conditional method only if S2 shows M06's recall gap is a span-proposal problem
+(design rationale §4.8, P4).
+> Status: **Proposed** (2026-10-28)
+
 ## 4. The shared LLM packet and prompt
 
 M10, M16 and M24 (and hosted configurations later) use one packet format and one compiled
@@ -139,6 +147,19 @@ A2: …
   share the standing context; the split is recorded in the task. The **output** budget is sized from
   batch size, not unit size: a batch runs two to nineteen times its unit's tokens (S0 core units:
   units at most 345 tokens, batches up to about 2,500; record s0.sizes, Measured).
+- **Counting tokens.** Agent packets (M24, golden passes) have no served tokenizer and are capped in
+  characters by the MCP tools (D8 §3). LLM-tier caps are counted with the served model's own `tokenizer.json` (tokenizers
+  0.23.3), loaded from the vLLM model snapshot or by `Tokenizer.from_pretrained(repo,
+  revision=<sha>)`; the revision and the file's sha256 are recorded in the packet's and M02's
+  configuration, because counts depend on them. Counting is `encode_batch_fast(texts,
+  add_special_tokens=False)` and the length of each id list (`encode_batch` only where offsets are
+  needed; `TOKENIZERS_PARALLELISM=false` in forked workers). Counts are **not additive**: byte-level
+  merges change where texts are joined, so M02's per-sentence counts serve only to plan the
+  sentence-boundary split, and the assembler counts the assembled packet text once and records that
+  count in the task. Characters ÷ 4 is not used as an estimate. The caps cover packet text and
+  context only; the chat template is not in `tokenizer.json` (it lives in `tokenizer_config.json`
+  and `chat_template.jinja`), so a whole-prompt budget would render the template or ask the server.
+  > Status: **Measured** with the Qwen3.5-9B `tokenizer.json` at revision `c2022362…` (2026-10-28, [text-math note L-11](../design_review/evidence/2026-10-28_library-text-math/README.md)): `encode` adds 0 special tokens; on 433 paragraphs (20,095 tokens) `encode_batch_fast` gives ids identical to `encode_batch` in 2.2 ms against 3.9 ms; in 5 of 83 multi-sentence blocks the sentence counts sum to a different total than the joined text (worst 2.0%); 3.27 characters per token, so characters ÷ 4 underestimates. A vLLM `/tokenize` cross-check is not verified
 - **Standing context** is at most six sentences, chosen by M13: for each symbol the unit uses,
   the sentence holding the binding site M13 assigns it when that sentence lies outside the unit,
   plus the site a "Suppose again" reopens; a sentence identical to one of the unit's is left out.
@@ -160,7 +181,7 @@ A2: …
 | System instructions | `methods/llm/prompts/<task>.md` | Method version |
 | Guideline core rules | Guideline §10 sections tagged `core` (D2 §10) | Guideline version |
 | Schema inventory | The generated annotator reference (D2 §10.10): per predicate its subject and object, statement role, modality and condition rule, with value and node shapes; filtered to the classes and predicates relevant to the segment's statement kind when it exceeds 1,500 tokens (local LLM); whole for the agent and golden passes | Schema version |
-| Examples | k (default 2) adjudicated **dev-split** golden units nearest to the unit by M04 embedding, rendered as packet + expected batch; never the test split (D7 §4). Golden passes instead get the reference's fixed worked examples, from pages outside every split | Golden set version |
+| Examples | k (default 2) adjudicated **dev-split** golden units nearest to the unit by M04 embedding, rendered as packet + expected batch; never the test split (D7 §4). Golden passes instead get the reference's fixed worked examples, from pages outside every split | Golden set version. In phase 0, before M04 and dev goldens exist, prompts carry the annotator reference's fixed worked examples (`examples: reference`) |
 | Packet | §4.1 | Unit |
 | Output instruction | "Return one ClaimProposalBatch" plus the JSON Schema for tiers that do not enforce it | Schema version |
 
@@ -175,13 +196,35 @@ Models cite evidence **by quote, not offset**: each evidence item is `{sentence:
    then in the unit; exact up to spacing (a `regex` pattern of the quote's non-space characters
    joined by optional whitespace and spacing commands, matched in the original text, so no
    offset map is needed); the same after expanding the rendition's macros on both sides; then
-   `rapidfuzz.fuzz.partial_ratio_alignment` (cutoff 85, trailing punctuation stripped), refined
-   inside its window by `regex` `BESTMATCH` with a bounded error count and a timeout. Every span
-   is snapped outward to word boundaries; each result records its step and edit counts. The
-   result is a span (rendition offsets). An unlocated quote leaves the item in the batch with
-   `evidence_unlocated: true`; consolidation treats such items as unsupported by evidence (D5).
+   two fuzzy steps:
+   - **Token sequence first.** The quote and the cited sentence are split into TeX/word tokens
+     (control word, control symbol, word, other non-space character) and each distinct token is
+     mapped to one private-use character, so whitespace never enters the comparison.
+     `rapidfuzz.fuzz.partial_ratio_alignment` picks the window (cutoff 80 in the measured run),
+     widened by three tokens, and `rapidfuzz.distance.Levenshtein.opcodes` aligns the quote inside
+     it; the span runs from the window token aligned to the quote's first token to the one aligned
+     to its last. The alignment alone returns a window of the needle's own length, one token short
+     on a dropped-word quote; the opcodes step recovers it.
+   - **Character level** when the token step finds nothing or scores below its cutoff:
+     `partial_ratio_alignment` (cutoff 85, trailing punctuation stripped), refined inside its
+     window by `regex` `BESTMATCH` with a bounded error count. `partial_ratio_alignment` is optimal
+     only when the shorter input has at most 64 elements; beyond that its alignment is not
+     necessarily the best one. No S0 quote exceeds 64 tokens, while many exceed 64 characters
+     (status below), so the token step comes first.
+   - When the cited sentence fails, the best unit sentence is chosen by `process.extractOne(quote,
+     unit_sentences, scorer=fuzz.partial_ratio, score_cutoff=…)`; `process.cdist(...,
+     workers=-1)` serves only bulk re-anchoring between renditions.
+
+   Every regex step runs with a `timeout`, and a `TimeoutError` is a recorded step outcome. Every
+   span is snapped outward to word boundaries; each result records its step and edit counts (for
+   `BESTMATCH`, `fuzzy_counts`: `BESTMATCH` and `ENHANCEMATCH` select a match, they do not bound
+   its errors). Several equal matches (a repeated phrase) are recorded as ambiguity, and a
+   typo-level score is never identity. The result is a span (rendition offsets). An unlocated
+   quote leaves the item in the batch with `evidence_unlocated: true`; consolidation treats such
+   items as unsupported by evidence (D5).
    > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
    > Status: **Tested** in the spike instruments (2026-10-28): 733 of 735 S0 quotes exact, 2 after spacing, none fuzzy ([s0.stored](../design_review/evidence/2026-10-28_design-spikes/records/s0.stored.json))
+   > Status: token-sequence step **Measured on synthetic perturbations only** (2026-10-28, [text-math note L-10](../design_review/evidence/2026-10-28_library-text-math/README.md)): on 527 seeded perturbations of 163 S0 quotes, after the same exact, spacing and macro steps, it finds 523 (spike cascade 504), 428 exact (392), 514 at IoU ≥ 0.9 (488), at most 9 ms per quote (214); dropped-word quotes 98 of 99 exact (spike 43); typos 111 of 132 exact (spike 130; 4 not found at cutoff 80, the cases the character-level fallback is for). 58 of the 163 quotes exceed 64 characters, none 64 tokens. The combined order (token step, then character fallback) is **Proposed**; real S0 quotes never reached a fuzzy step, so S3's local-LLM quotes are the real test
 3. **Check references and types**: local refs resolve; subject and object types match the
    predicate's domain and range (entity-type side table, D2 §7.3).
 4. **Normalize math**: `$…$` and `\(…\)` are equivalent; values of type `formula` keep the LaTeX
@@ -201,7 +244,7 @@ rationale (≤ 2 sentences), confidence ∈ {low, medium, high}}`.
 | document | original bytes; adapter config | `kb.rendition`, `kb.segment` (structural kinds), `author_markup` observations | deterministic · 0 · base |
 
 **Behaviour.** Parse HTML; drop excluded content by declared rules; record the page's
-`\newcommand` macros (Siegrist's `div.latex` block) in the rendition's `parse_detail.macros`; walk the body in reading
+macro definitions (Siegrist's `div.latex` block) in the rendition's `parse_detail.macros`; walk the body in reading
 order emitting canonical text by D1 §3.1 and a segment for each block element and each math
 delimiter pair; attach author markup to segment `attrs` and emit it as `author_markup`
 observations (`dfn` terms with offsets, unit ids and classes, `details`, links with targets).
@@ -209,12 +252,24 @@ Tables become `table`/`table_row`/`table_cell` segments with cell text in canoni
 Rendered-only text (reference markers, quotation marks, sub-list markers, `details` summaries)
 and orphan text follow D1 §3.1 and §3.2.
 
-**Page macros.** The rendition's macro table is the page's own `\newcommand` definitions
+**Page macros.** The rendition's macro table is the page's own macro definitions
 (`parse_detail.macros`); the domain pack's macro map supplies only names the page does not
 define. Consumers that expand or read macros (the math grammar, M09, M11, quote location) take
 the rendition's table, because the same name has different bodies on different pages: `\mse` is
 `\text{mse}` on some and `\text{MSE}` on others, `\kur` is `\text{kurt}` or `\text{kur}`.
+The definitions are read with the shared TeX tokenizer, the one the token form uses (D1 §6.2):
+`\newcommand`, `\renewcommand` and `\providecommand`, each with an optional `*`, then the name, an
+optional `[n]`, an optional default and the body, read as TeX reads arguments;
+`\DeclareMathOperator` is read as an operator when a source uses it. pylatexenc has no production
+use: this reader replaces its walk, and M01 runs no span balance check, because segment status
+comes from delimiting alone (D1 §3.1) and readability is the value's `parse` status (M11). The
+`docs/pins.md` hold on pylatexenc 3.0b2 can be released when the production M01 lands.
+**Spike defect, not to be ported:** the S1 adapter's reader (`s1_adapter.macro_table`) accepts
+`\newcommand` only, so it misses every `\renewcommand`; on Siegrist the 22 renditions with
+`\renewcommand{\P}{\mathbb{P}}` fall back to the pack map for `\P`, whose body happens to agree.
+On another source the fallback body would differ and keys would move.
 > Status: per-page macros **Tested** on 78 Siegrist pages (S1, 2026-10-28): 29 distinct definitions recorded per rendition; the common names (`\N`, `\R`, `\E`, `\var`, `\P`, `\sd`) agree across pages, several others do not ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the fallback to the pack map is **Proposed**
+> Status: tokenizer reader **Measured** on the 78 `div.latex` blocks (2026-10-28, [text-math note L-04](../design_review/evidence/2026-10-28_library-text-math/README.md)): 630 `\newcommand` and 22 `\renewcommand` definitions, no `\def`, `\DeclareMathOperator` or `%`; it gives the pylatexenc walk's table on the other 56 pages and adds `\P` on the 22. pylatexenc's non-tolerant span parse made 0 of 28,956 spans `partial`, and all 8 partials come from delimiting. `\DeclareMathOperator` is **Proposed** (no occurrence)
 
 **Configuration.** A *source profile* (one per source family; Siegrist's is drafted in
 [D2 §12.1](D2-schema-and-guidelines.md#121-methodsyaml)) is a set of CSS selectors, each with a
@@ -225,11 +280,20 @@ nested sections), the unit selector (`div.unit`), statement-kind hints from bloc
 claim-bearing) and from section titles ("Computational Exercises" → exercise), `details` kinds
 (proof or solution), math delimiters and display environments (`align`, `align*`), the macro
 source (`div.latex`), and the rendering conventions of D1 §3.1. The profile lives in the domain
-pack's `methods.yaml`; it is about the source's HTML, not the domain. Either selector engine,
-cssselect2's `Matcher` or the cssselect→XPath translation, evaluates the profile identically;
-the `Matcher` also reports an element claimed by two roles, and the XPath form is portable to
-other tools (trafilatura's `prune_xpath` accepted it unchanged).
+pack's `methods.yaml`; it is about the source's HTML, not the domain. cssselect2's `Matcher` is
+the one role engine: each profile selector is added once with its role payload, and one pass over
+`ElementWrapper.from_html_root(root).iter_subtree()` returns, for each element, every matching
+payload with its specificity and order, so precedence by specificity and the `role_conflicts`
+check (an element claimed by two roles) need no further code. The cssselect→XPath translation
+(`etree.XPath(CSSSelector(css, translator="html").path)`) is only an export for tools that take
+XPath (trafilatura's `prune_xpath` accepted it unchanged); production does not run both engines,
+and the identity of the two stays a profile test. Selectors compile when the profile loads, and
+one that does not compile (`cssselect2.SelectorError`; for the export, cssselect's
+`SelectorSyntaxError` or `ExpressionError`) rejects the profile. The profile uses cssselect 1.6
+syntax (`div.unit:has(> p.app)`); cssselect's custom translator subclasses are not used, their API
+being unstable.
 > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): both engines select identical node sets for every rule on every page, with no role conflicts and no unclassified block ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
+> Status: **Measured** on html5lib trees of the 78 pages (2026-10-28, [text-math note L-02](../design_review/evidence/2026-10-28_library-text-math/README.md)): identical payload sets on every page for the 19 rules; the `Matcher` takes 65 ms in total against 22 ms for precompiled XPath, so speed does not decide
 
 A second source needs more of the profile than Siegrist does: a `layout` role (tables used for
 layout), section rules with a heading source (NIST's subsections are layout-table rows), a
@@ -243,6 +307,7 @@ the adapter reads no source fact from anywhere else (ADR-0012):
 | Key | Value | Default |
 |---|---|---|
 | `applies_to` | glob of source paths | required |
+| `encoding` | `sniff`: WHATWG sniffing on the original bytes (BOM, then the 1,024-byte meta prescan, then the windows-1252 fallback; no chardet guessing); or an explicit encoding label, passed to html5lib as `override_encoding`. The detected encoding is recorded per rendition (`parse_detail`) | `sniff` |
 | `exclude` | named CSS selectors; excluded text recorded per rule | scripts and `noscript` only |
 | `title` | selector | the first `h1` |
 | `sections` | heading selectors, outermost first, each opening a nested section | `h1`…`h6` |
@@ -259,12 +324,13 @@ the adapter reads no source fact from anywhere else (ADR-0012):
 | `orphan_text` | how text outside any block is kept | a `paragraph` with `orphan: true` |
 > Status: **Proposed** (2026-10-28): the keys Siegrist uses are Tested on 78 pages (S1); `section_source`, `layout`, `verbatim` and `img_alt` come from the NIST probe
 > Status: **Proposed**, from the NIST probe on 8 pages (S1, 2026-10-28), where only the Siegrist `scripts` and `images` rules matched anything ([s1.nist](../design_review/evidence/2026-10-28_design-spikes/records/s1.nist.json))
+> Status: `encoding` **Tested** (2026-10-28, [text-math note L-03](../design_review/evidence/2026-10-28_library-text-math/README.md)): sniffing detects `utf-8` on all 78 Siegrist pages, with text equal to a UTF-8 decode; an explicit label is **Proposed** (no source needs one yet)
 
 **Parser.** html5lib through `lxml.html.html5parser`, whose HTML5 tree construction closes an
 open `<p>` before a block element. libxml2 (`lxml.html.document_fromstring`) keeps a `<details>`
 that follows an unclosed `<p>` inside the paragraph, with its summary and proof; it is
 acceptable only with a repair rule that closes `<p>` before block elements.
-> Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): the two parsers give canonical texts of equal length on every page and differ in segments on 4 pages, each at an unclosed `<p>` before `<details>`, where html5lib's tree is the correct one ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the corpus run used libxml2, and a rerun with html5lib as the default is open
+> Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): the two parsers give canonical texts of equal length on every page and differ in segments on 4 pages, each at an unclosed `<p>` before `<details>`, where html5lib's tree is the correct one ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the html5lib rerun gave the same counts, invariants and locators on all 78 pages, and content-identical renditions on the seven S0/S0-R2 pages, differing only in keys ([s1.corpus-html5lib](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus-html5lib.json), [s1.rendition-identity](../design_review/evidence/2026-10-28_design-spikes/records/s1.rendition-identity.json); RENDITION-01 closed)
 
 **No profile-free fallback.** trafilatura does not produce M01's canonical text for a profiled
 source: it drops headings next to units, every `details` summary, captions and short proofs
@@ -273,22 +339,60 @@ draft a provisional rendition (`profile: none`, `parse_status: partial`) to help
 profile of a new source.
 > Status: **Measured** on 78 Siegrist pages (S1, 2026-10-28): trafilatura 2.3.1 misses 5.3% of canonical content, 93% of `h2`–`h4` headings, all `details` summaries and 99% of captions; it keeps every math span it outputs verbatim ([s1.trafilatura](../design_review/evidence/2026-10-28_design-spikes/records/s1.trafilatura.json))
 
-**Library realization.** The parser above; CSS selectors through `lxml.cssselect` for exclusions
-and unit selection; math delimiting by one `regex` pattern generated from the profile's declared
-delimiters and display environments (an escaped backslash is skipped; a span stops at the next
-delimiter, so an unclosed one is `partial` and the scan resynchronizes); each span validated by
-the math grammar (M11); `html.unescape`, `unicodedata.normalize("NFC")`. Source-specific facts
-(unit, reference, section and layout selectors, delimiters, the macro source) are profile data,
-never adapter code.
+**Library realization.** Source-specific facts (unit, reference, section and layout selectors,
+delimiters, the macro source, the encoding) are profile data, never adapter code.
+
+- **Parse.** `parser = html5parser.HTMLParser(namespaceHTMLElements=False)`, then
+  `html5parser.document_fromstring(raw_bytes, guess_charset=False, parser=parser)`, with a new
+  parser for each document because the parser is stateful (never shared across threads). The
+  original bytes go in, not a decoded string, so html5lib's WHATWG sniffing applies (profile
+  `encoding`), and `guess_charset=False` keeps chardet out, so detection is deterministic. The flag
+  gives element names without a namespace. html5lib's default, which lxml's module-level parser
+  and `html5lib.parse(..., treebuilder="lxml")` keep, puts every element in the XHTML namespace,
+  where the profile's XPath export matches nothing; so no tag-rewriting or namespace-cleanup pass
+  follows the parse. Foreign content (inline SVG, MathML) keeps its namespace, and a profile that
+  selects inside it writes `ns|tag`.
+- **Parser diagnostics.** `parse_detail` records `parser.documentEncoding`, `parser.errors` as
+  position (line, column) and error code, and the number of `html5lib.constants.DataLossWarning`s
+  caught around the parse (`warnings.catch_warnings(record=True)`). The tree builder coerces
+  non-XML element and attribute names (`,` becomes `U0002C`), U+000C in text and `--` in comments;
+  a coerced attribute name can silently defeat an attribute selector. html5lib supplies
+  `sourceline` on about one element per page, so `attrs.sourceline` is present only where the
+  parser supplies it (D1 §3.2). The walk skips comment nodes and keeps their tails, so no removal
+  pass is needed.
+- **Roles.** cssselect2's `Matcher` (Configuration above).
+- **Math delimiting.** One `regex` pattern generated from the profile's declared delimiters and
+  display environments, with `(?V1)` written explicitly (the module default is V0). Named lists
+  (`\L<opens>`, `\L<closes>`, `\L<delims>`, `\L<envs>`) hold the declared values as literals, so
+  nothing is escaped by hand; compilation rejects a missing or unused list, `named_lists` exposes
+  the vocabulary to tests and to the rendition record, and of overlapping items (`$`, `$$`) the
+  longer matches. An escaped backslash `\\` is skipped by `(*SKIP)(*F)`, and every declared
+  delimiter that does not start with a backslash gets a generated `(*SKIP)(*F)` branch for its
+  escaped form (`\$`). The body is possessive (`*+`) and stops at the next delimiter, so an
+  unclosed span is `partial` and the scan resynchronizes; a stray closer is recorded. Each block
+  is scanned by `finditer(text, timeout=…)` with a small bound, and a `TimeoutError` makes the
+  block `partial` with reason `delimiter scan timeout` (D1 §3.1). The pattern checks no brace or
+  environment balance and has no recursive groups: segment status comes from delimiting alone.
+  Each delimited span is read by the math grammar (M11), whose result is the value's `parse`
+  status, not the segment's. `regex` is the one pattern engine in the adapter, declared directly
+  with an exact pin.
+- **Text.** `html.unescape`, `unicodedata.normalize("NFC")`.
+- **Processes and caveats.** The html5lib parse is pure Python and holds the GIL, so documents are
+  parallelized across processes, not threads. html5lib 1.1 (June 2020) installs from its wheel; its
+  sdist does not build on Python 3.14. Its tree construction is not guaranteed to match current
+  browsers on newer constructs, and it sets no resource limits.
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
-> Status: **Tested** in the S1 adapter (2026-10-28): the generated pattern delimits identically to the scanner on 517 blocks ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json))
+> Status: **Tested** in the S1 adapter (2026-10-28): the generated pattern delimits identically to the scanner on 517 blocks ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json)); so does the named-list form (2026-10-28, [text-math note L-05](../design_review/evidence/2026-10-28_library-text-math/README.md)), where `$` and `$$` match the longer; the per-block timeout is **Proposed**
+> Status: **Measured** on the 78 Siegrist pages (2026-10-28, [text-math note L-01](../design_review/evidence/2026-10-28_library-text-math/README.md)): with html5parser's default all 29,425 elements are namespaced and the XPath export matches 0 of 2,479 units; with `namespaceHTMLElements=False` none is and it matches 2,479; sniffing finds `utf-8` on every page; 17 parse errors (`unexpected-end-tag` 7, `expected-named-entity` 6, `unexpected-character-after-attribute-value` 3, `unexpected-start-tag-implies-end-tag` 1), 2 data-loss warnings (an attribute named `,`), 1 comment; median 4.2 ms per page (max 23.6 ms), about 20 times libxml2, negligible at this corpus size
 
 **Measured by.** `parse_status` per rendition and segment; excluded-character share; segment
 counts by kind; author-markup counts against the corpus index (`siegrist_sections.tsv`).
 > Status: **Measured** on 78 Siegrist pages (S1, 2026-10-28): units, definition units, `dfn` terms, `details` and `\[` display math equal the index on 77 of 78 pages (on the exception the index counts a commented-out unit); `dfn` terms item by item, no difference ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
 
 **Port.** The rules, not the code shape, of `corpus-intelligence` `html_adapter` (≈1,000 lines;
-D9 §7). Spike: S1.
+D9 §7). Spike: S1; its adapter (`s1_adapter.py`) is the tested reference, ported against this card
+rather than copied: without its namespace-rewriting pass, its mixed `re`/`regex` use and its
+`\newcommand`-only macro reader.
 
 ### M02 profile.segments
 
@@ -296,11 +400,16 @@ D9 §7). Spike: S1.
 |---|---|---|---|
 | rendition | segments, `author_markup` | `ops.measurement` rows per segment | deterministic · 0 · base |
 
-Computes the features policies route on: length in characters and approximate tokens; inline
-and display math counts; math character share; presence of `dfn`; the statement-kind hint from
-block class or section title; nesting depth; whether the segment sits in a `details` block. Pure
-function of the rendition. No observations: these are measurements (D6 §6), because nothing
+Computes the features policies route on: length in characters and in tokens; inline and display
+math counts; math character share; presence of `dfn`; the statement-kind hint from block class or
+section title; nesting depth; whether the segment sits in a `details` block. Token counts are real
+counts with the served model's `tokenizer.json` (§4.1), never characters ÷ 4, per segment and per
+sentence; the per-sentence counts serve to plan the sentence-boundary split of an oversized unit,
+and the packet assembler still counts the assembled packet once, because counts are not additive.
+Pure function of the rendition and of the tokenizer file whose revision and sha256 its
+configuration records. No observations: these are measurements (D6 §6), because nothing
 consolidates them.
+> Status: **Measured** (2026-10-28, [text-math note L-11](../design_review/evidence/2026-10-28_library-text-math/README.md)): 3.27 characters per token on Siegrist text; sentence counts summed differ from the joined count in 5 of 83 multi-sentence blocks (§4.1)
 
 ### M03 segment.sentences
 
@@ -314,15 +423,35 @@ of rendition construction: its configuration hash is part of the rendition's ada
 configuration, so sentence segments are as stable as the other segments.
 
 **Library realization (variant b′; `OPEN-D1-1` closed by S1).** spaCy 3.8 `en_core_web_sm` with
-the parser's sentence boundaries, after a step that, using the math segments and the reference
-markup, merges each inline math span and each rendered reference marker (`[n]`, D1 §3.1) into
-one token with `doc.retokenize()` (`POS=PROPN`, `TAG=NNP`) and sets `is_sent_start = False` on
-reference markers and on every token of a display formula after its first. The parser respects
-preset boundaries, and token offsets stay in canonical text, so no offset mapping is needed.
-Math is never presented to spaCy as text: on raw text the parser splits inside formulas, an
-opaque placeholder loses real boundaries, and math rendered to Unicode adds false splits after
-list markers and mid-clause.
+the parser's sentence boundaries, on a `Doc` built from words and spaces. Using the math segments
+and the reference markup, the prose between inline math spans and rendered reference markers
+(`[n]`, D1 §3.1) is tokenized with `nlp.tokenizer`, and each inline math span and each marker
+enters as one word: `Doc(nlp.vocab, words=..., spaces=...)` reproduces the block text exactly, so
+alignment holds by construction, token offsets stay in canonical text, and no retokenizer and no
+offset mapping are needed. Math tokens get `tag_ = "NNP"`; the tagger keeps preset tags and the
+attribute ruler maps them to `PROPN`. The tag does not reach sentence boundaries (the parser's
+features are `NORM`, `PREFIX`, `SUFFIX`, `SHAPE`, `SPACY`, `IS_SPACE`); it matters to pattern
+matchers and lemmas. `is_sent_start = False` is set on reference markers and on every token of a
+display formula after its first (located by `Doc.char_span(..., alignment_mode="expand")`, where
+over-reach is harmless); the parser respects preset boundaries (`None` leaves a start to the
+parser, `False` forbids one). Docs are processed by `nlp.pipe(docs, batch_size=64,
+as_tuples=True)`, which carries block keys, with the model loaded with `exclude=["ner",
+"lemmatizer"]`; `n_process` is not worth its start-up cost at this corpus size. Methods that need lemmas (M14's
+lemma match, M22) build their own Doc with the lemmatizer, and their configuration hashes that
+pipeline; M03's Doc is not shared across tasks. Consumers that map
+a character span onto tokens use `Doc.char_span` with `strict` to test alignment and `contract` to
+take the tokens inside a quote span; quote location itself stays character-based (§4.3). Math is
+never presented to spaCy as text: on raw text the parser splits inside formulas, an opaque
+placeholder loses real boundaries, and math rendered to Unicode adds false splits after list
+markers and mid-clause.
+> Status: **Tested** and **Measured** on the four spike pages, 412 blocks (2026-10-28, [text-math note L-08](../design_review/evidence/2026-10-28_library-text-math/README.md)): 3 of 847 inline math spans straddle tokenizer boundaries, where expanding the span and merging it with `retokenize` takes prose into the math token (`mean\( \pm \)standard`), so the token's text is no longer the span; the words-and-spaces Doc reproduces the text of all 412 blocks, with sentence starts identical to the merge route on all 412; the preset `NNP` maps to `PROPN` on 843 of 844 math tokens; `nlp.pipe` with `ner` and `lemmatizer` excluded takes 0.38 s against 1.13 s for a per-block loop over the pipeline, with identical sentences
 > Status: **Measured** on a sentence gold of 85 blocks with 49 internal boundaries, marked identically by two independent markers (S1, 2026-10-28): boundary F1 1.00 for b′ against 0.80 for raw text, 20 of whose 24 false splits fall inside math, and 0.70 for an opaque mask; under b′ the rule-based sentencizer reaches 0.99 and the `trf` parser 0.98 ([s1.sentence-gold](../design_review/evidence/2026-10-28_design-spikes/records/s1.sentence-gold.json))
+
+**Configuration.** The model, the variant and the exclusions; M03's configuration hash includes
+the spaCy version, the model package name and version, and the excluded components, so changing
+any of them makes a new rendition. `en_core_web_sm` 3.8.0 is installed as a wheel by URL in
+`[tool.uv.sources]` (its hash in `uv.lock`), never by `spacy download`; it requires spaCy
+`>=3.8.0,<3.9.0`.
 
 **Measured by.** Boundary F1 against S1's sentence gold whenever the pipeline, model or math
 presentation changes. Sentences per paragraph and the share of sentences beginning lower-case
@@ -414,14 +543,14 @@ introduces, "X has the F distribution with P p" frames.
 
 **Library realization.** spaCy `Matcher`, `PhraseMatcher` and `DependencyMatcher`, with
 patterns in the domain pack's `methods.yaml`, each pattern naming the schema class or
-predicate it emits. Math tokens are merged as in M03 so patterns can match a formula as one
-token.
+predicate it emits. Each inline formula is one token of M03's Doc, so patterns can match a
+formula as one token.
 
 ### M09 extract.math
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| `math_inline`, `math_display` | LaTeX source, macro map | `mention` (label `symbol`), `relation` (`in_set`, `equals`) | deterministic · 1 · base |
+| `math_inline`, `math_display` | LaTeX source, macro map | `mention` (label `symbol`), `relation` (`in_set`, `equals`) | deterministic · 0 · base |
 
 **Behaviour.** Tokenizes LaTeX into a node tree and emits a `symbol` mention for each identifier
 occurrence with its decoration (`X_1` keeps the subscript; `\sigma^2` records base `\sigma` and
@@ -433,6 +562,12 @@ the notation.
 **Library realization.** The math grammar of M11: symbol occurrences with offsets, sub- and
 superscripts as tree structure, relations and memberships as typed nodes; the page's macros
 recorded by M01, then the pack's fallback macro map (D2 §12.1). No SymPy conversion here.
+Occurrence offsets are the parse positions (`propagate_positions=True` gives `sub_symbol` and
+`styled` nodes theirs), shifted into the span by the opener's length plus the leading whitespace;
+they are never found by searching the span for the parsed text. M09's mentions depend on M11's
+whole-name command terminals: under the spike grammar's prefix-matching `\left` terminal, `x
+\leftarrow y` reads as the product `x·a·r·r·o·w·y` and would yield the symbols `a`, `r`, `o`, `w`
+(M11, spike defect).
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Implemented** in the spike instruments (2026-10-28), exercised by the M13 probe; production code not written
 
@@ -490,7 +625,7 @@ own tables.
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| math segment; also LaTeX strings inside claim proposals (called by consolidation) | LaTeX, macro map | `value` (`formula`, `set`, `interval`) | deterministic · 1 · base |
+| math segment; also LaTeX strings inside claim proposals (called by consolidation) | LaTeX, macro map | `value` (`formula`, `set`, `interval`) | deterministic · 0 (grammar: validation, slot typing, canonical form) · 1 (SymPy conversion) · base |
 
 **Behaviour.** Expands source macros, parses to SymPy, and returns a D1 §6 value with `latex`,
 `sympy` (`srepr`), `parse` (`ok`, `partial`, `failed`) and the free symbols. Set expressions
@@ -500,16 +635,61 @@ needs scope (M13) and claims, so consolidation binds (D5 §4).
 **Library realization.** One math grammar for every reader of math: SymPy 1.14's Lark LaTeX
 grammar, unedited, extended by a separate file through Lark `%extend`/`%override` (typed start
 symbols formula, relation, member, set; sub- and superscripts as rules; set constructs; operator
-and set macros generated from the rendition's macro table, never named in the grammar); Earley
-with explicit ambiguity resolved only from declared context, otherwise `ambiguous`; failures
-carry Lark's error class, position and a category; a subclass of SymPy's `TransformToSymPyExpr`
-for the extended rules; canonical form (D1 §6.2) written from the tree; one parser cached per
-macro table; SymPy pinned as a hold. The ANTLR backend remains the comparison for `OPEN-D4-3`;
-`sympy.srepr` for storage.
+and set macros generated from the rendition's macro table, never named in the grammar). The
+shipped grammar file is read directly rather than through SymPy's `LarkLaTeXParser`, whose options
+differ (`lexer="auto"`, no positions, start `latex_string`). Construction: `Lark(...,
+parser="earley", lexer="dynamic", ambiguity="explicit", propagate_positions=True,
+maybe_placeholders=False, keep_all_tokens=True, ordered_sets=True)` with the typed start symbols;
+Lark's `regex=True` is not needed.
+
+- **Whole-name command terminals.** An `edit_terminals` callback, applied at build to every
+  terminal, rewrites each control-word literal to end at `(?![A-Za-z])`. It also reaches the
+  anonymous terminals Lark builds from the shipped grammar's string `%ignore` lines (`"\\left" |
+  "\\right"` and others), which no `%override` can. The shipped file stays unedited. **Spike
+  defect, not to be ported:** the spike grammar (`mathgrammar/build.py`, `whole_name_overrides()`)
+  generates whole-name `%override` lines by a regex over the grammar text, which leaves those
+  `%ignore` terminals prefix-matching: `x \leftarrow y` parses `ok` as the product `xarrowy`, `A
+  \leftrightarrow B` prints `ArightarrowB`, `a \quadrant b` prints `arantb`, and `x \rightarrow 0`
+  is `ambiguous` between the arrow and `\right` plus `arrow`.
+- **Ambiguity.** Explicit, resolved only from declared context, otherwise `ambiguous`.
+  `ordered_sets=True` is stated although it is the default: the resolver keeps the first of the
+  readings with equal SymPy values, so the order of `_ambig` children reaches canonical printing
+  and occurrences. `ambiguity="forest"` with `TreeForestTransformer` and `@handles_ambiguity` (or
+  a custom prioritizer) is the escalation only if S5's full run shows `_ambig` blow-ups on long
+  display formulas; it changes tree shaping and drops position propagation, so it is not a
+  drop-in. `CollapseAmbiguities`, which enumerates exponentially, is not used.
+- **Failures.** The category is derived deterministically from the exception class
+  (`UnexpectedCharacters`, which the dynamic lexer mostly raises; `UnexpectedEOF`;
+  `UnexpectedToken`), the TeX token at the error position (read with the shared tokenizer of D1
+  §6.2) and the `allowed` terminal set. `UnexpectedInput.match_examples`, documented chiefly for
+  LALR, is a last resort only. Transformer failures are unwrapped from `VisitError.orig_exc`.
+  Lark has no deadline: a `signal.setitimer` timer gives category `timeout`, and because such a
+  timer works only in a process's main thread, grammar work runs in single-threaded worker
+  processes.
+- **Parser cache.** One parser per macro classification (which of the rendition's macros read as
+  sets, operators or style wrappers, not the whole table), built lazily in a per-process dict.
+  Earley parsers cannot be saved (`Lark.save` and `cache=True` are LALR only) or pickled, and
+  construction is cheap, so there is no disk cache and no sharing across processes.
+- **SymPy.** A subclass of SymPy's `TransformToSymPyExpr` (the documented customization point)
+  holds the extension rules' methods; the base class's method names are internal to a backend
+  SymPy marks experimental. The subclass guards products with a non-`Expr` operand (raising
+  `NotRepresentable`) rather than relying on SymPy's deprecated path, and tests run with `-W
+  error::sympy.utilities.exceptions.SymPyDeprecationWarning`, so a SymPy bump surfaces such cases.
+  The ambiguity resolver converts every reading to merge equal ones, so this conversion runs during
+  parsing, not only in M11's phase 1 conversion. SymPy is pinned as a hold; on a bump,
+  `grammar/latex.lark` (its `%ignore` lines included) and `transformer.py` are diffed against the
+  extension. `sympy.srepr` for storage. The ANTLR backend remains the comparison for `OPEN-D4-3`.
+- **Canonical form.** Keys come from the token form (D1 §6.2), written by a TeX-rules `regex`
+  tokenizer, never from the grammar's lexer or terminals. The grammar extension's added `%ignore`
+  lines are generated from the token form's declared drop list, and building the grammar fails if
+  any `%ignore` terminal of the assembled grammar is not on the list. The tree printer is checked
+  against the token form by the property test of D1 §6.2.
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Measured** in the spike instruments (2026-10-28): 976 of 1,532 spans parse on a 78-page sample, the rest ambiguous or failed by recorded category ([s0.instruments](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments.json)); coverage is S5's question
+> Status: **Tested** and **Measured** (2026-10-28, [text-math note L-06](../design_review/evidence/2026-10-28_library-text-math/README.md)): with the `edit_terminals` rule, `\leftarrow`, `\leftrightarrow` and `\quadrant` fail honestly as unknown commands, `x \rightarrow 0` parses `ok` with the right tree, and none of the 918 spike-page spans changes status or printed form (checked on 7 cases and those 918 spans, not yet on the 28,956 corpus spans; S5's full run includes it); `\left( a \right)` stays `ambiguous`, a grammar ambiguity for S5. `Lark.save()` raises `NotImplementedError` for Earley and pickling fails; a parser builds in 0.05 s, with 38 distinct parser keys over 78 pages; `ordered_sets=True` gives 1 distinct tree over 3 rebuilds of an ambiguous value; spike-page spans emit `SymPyDeprecationWarning` (non-`Expr` arguments in `Mul`); median 41 ms, max 826 ms per span on the 1,532-span sample
 
-**Measured by.** Parse rate by math kind and page; failure categories (S5).
+**Measured by.** Parse rate by math kind and page; failure categories (S5); the property test of
+D1 §6.2, both layers.
 
 ### M12 normalize.quantity
 
@@ -525,7 +705,7 @@ quantities (≈730 lines), with pint for units (D9 §7).
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| rendition | segment tree, sentences, `symbol` mentions (M09), math relations | `scope` | deterministic · 1 · base |
+| rendition | segment tree, sentences, `symbol` mentions (M09), math relations | `scope` | deterministic · 0 (packet standing context) · 1 (scope source for consolidation) · base |
 
 **Behaviour.** Finds binding sites and assigns every symbol mention to one:
 
@@ -543,15 +723,33 @@ The payload names the binding site's mention, the extent segment, and, when the 
 states it, the provisional binding kind (`variable`, `param_of`, `constant`); consolidation
 completes bindings with claims (D5 §4).
 
-**Library realization.** Plain Python over the segment tree; binding sites by spaCy `Matcher`
-patterns over tokens, generated from the binder lexicon in `methods.yaml` (sentence-initial
-binders including "if", clause binders, section-wide phrases, "again"), with each merged math
-token carrying its kind from the math grammar (symbol, relation, membership) and its symbol
-occurrences; `DependencyMatcher` only where clause attachment decides the binding. A standalone
-claim-bearing paragraph is a statement extent; a section-wide binder takes precedence. Spike
-evidence: S0 annotators' scopes (`m13_probe.*.tsv`), S5.
+**Library realization.** Plain Python over the segment tree; binding sites by spaCy patterns
+over M03's tokens, compiled at start-up from the binder lexicon in `methods.yaml`, not by regex
+over raw text, because a binding site depends on the sentence start, the math token and its kind,
+and clause attachment:
+
+- `Matcher(nlp.vocab, validate=True)` for single-word binders: sentence-initial binders including
+  "if" (`[{"IS_SENT_START": True, "LOWER": {"IN": sentence_initial}}]`), and clause binders
+  followed by a math token (`[{"LOWER": {"IN": clause}}, {"_": {"is_math": True}}]`);
+- `PhraseMatcher(nlp.vocab, attr="LOWER")` for multi-word section-wide phrases, with patterns
+  from `nlp.make_doc(phrase)`, so a phrase splits as the tokenizer splits rather than on
+  whitespace;
+- "again" reopens only within the binder's sentence: `[{"IS_SENT_START": True, "LOWER": {"IN":
+  sentence_initial}}, {"OP": "{0,3}"}, {"LOWER": {"IN": reopen}}]`;
+- each math token (one per inline formula, M03) carries its kind from the math grammar (symbol,
+  relation, membership) and its symbol occurrences as a token extension, registered once per
+  process (guarded by `has_extension`); the values live in `Doc.user_data` and are read in the
+  same process, so no `DocBin` is involved;
+- `DependencyMatcher` only where clause attachment decides the binding (for example `where`, the
+  clause head and a math dependent), behind the token patterns, because it inherits parser errors.
+
+A standalone claim-bearing paragraph is a statement extent; a section-wide binder takes
+precedence. Spike evidence: S0 annotators' scopes (`m13_probe.*.tsv`), S5. The spike's
+`m13_binders.py` builds phrase patterns by `phrase.split()` and accepts "again" anywhere in a
+sentence; the port follows the patterns above, not those two.
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Measured** on the S0 reference (2026-10-28): 20 of 20 annotated symbol scopes reproduced, 18 of 20 without the paragraph rule ([s0.m13-probe-2](../design_review/evidence/2026-10-28_design-spikes/records/s0.m13-probe-2.json))
+> Status: the `PhraseMatcher` phrases, the sentence-bound "again", the extension guard and the `DependencyMatcher` placement are **Proposed** (2026-10-28, [text-math note L-09](../design_review/evidence/2026-10-28_library-text-math/README.md)); not yet exercised
 
 ### M14 resolve.concept_link
 
