@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -23,8 +24,16 @@ from s0_locate import UnitContext, to_stored  # noqa: E402
 
 EVIDENCE = CODE.parent
 S1 = EVIDENCE / "results" / "s1"
-SAMPLE = json.loads((EVIDENCE / "sample.json").read_text())
+# S0_SAMPLE selects another sample (S0-R2: results/s0r2/sample.json); each unit may name its
+# rendition folder and carry standing-context sentences (`context`), which batches may cite.
+SAMPLE = json.loads((EVIDENCE / os.environ.get("S0_SAMPLE", "sample.json")).read_text())
 RENDITIONS = json.loads((S1 / "renditions.json").read_text())
+for _d in {u.get("rendition_dir") for u in SAMPLE["units"].values()} - {None, "results/s1"}:
+    RENDITIONS.update(json.loads((EVIDENCE / _d / "renditions.json").read_text()))
+
+
+def rendition_dir(unit: str) -> Path:
+    return EVIDENCE / SAMPLE["units"][unit].get("rendition_dir", "results/s1")
 
 
 def page_macros(unit: str) -> dict:
@@ -38,11 +47,13 @@ def _name(page: str) -> str:
 def context(unit: str) -> UnitContext:
     meta = SAMPLE["units"][unit]
     page = meta["page"]
-    text = (S1 / "canonical" / f"{_name(page)}.txt").read_text(encoding="utf-8")
-    segs = [json.loads(x) for x in (S1 / "segments" / f"{_name(page)}.jsonl").read_text().splitlines()]
+    rdir = rendition_dir(unit)
+    text = (rdir / "canonical" / f"{_name(page)}.txt").read_text(encoding="utf-8")
+    segs = [json.loads(x) for x in (rdir / "segments" / f"{_name(page)}.jsonl").read_text().splitlines()]
     sections = [s for s in segs if s["kind"] == "section"]
-    sentences = {s["id"]: (s["start"], s["end"]) for p in meta["parts"] for s in p["sentences"]}
-    sentence_keys = {s["id"]: s["key"] for p in meta["parts"] for s in p["sentences"]}
+    cited = [s for p in meta["parts"] for s in p["sentences"]] + meta.get("context", [])
+    sentences = {s["id"]: (s["start"], s["end"]) for s in cited}
+    sentence_keys = {s["id"]: s["key"] for s in cited}
     statement_kinds = {"unit", "paragraph", "details", "list_item"}
     by_key = {s["key"]: s for s in segs}
 
@@ -67,7 +78,7 @@ def context(unit: str) -> UnitContext:
                        document_key=meta["document_key"], macros=page_macros(unit))
 
 
-def check(folder: Path, out: Path | None) -> int:
+def check(folder: Path, out: Path | None, rules: bool = False) -> int:
     failures = 0
     report = {}
     for path in sorted(folder.glob("*.json")):
@@ -84,7 +95,8 @@ def check(folder: Path, out: Path | None) -> int:
             failures += 1
             report[unit] = {"conversion_error": repr(exc), "model_issues": model.lines()}
             continue
-        st = validate_batch(stored, form="stored", canonical_text=ctx.text, unit_ranges=ctx.unit_ranges,
+        ctx_ranges = [(c["start"], c["end"]) for c in SAMPLE["units"][unit].get("context", [])]
+        st = validate_batch(stored, form="stored", canonical_text=ctx.text, unit_ranges=ctx.unit_ranges + ctx_ranges,
                             macros=ctx.macros)
         tiers = loc.by_tier()
         bad = (not model.ok) or (not st.ok) or loc.unlocated() or loc.problems
@@ -93,6 +105,10 @@ def check(folder: Path, out: Path | None) -> int:
               f"\tambiguous {len(loc.ambiguous())}\tproblems {len(loc.problems)}")
         for line in [*model.lines(), *st.lines(), *loc.problems][:12]:
             print("   ", line)
+        if rules:  # guideline v1 rule warnings (S0-R2); reported, never counted as failures
+            from s0r2_rules import rule_warnings
+            for w in rule_warnings(raw):
+                print("    rule\t" + w)
         report[unit] = {"model_issues": model.lines(), "stored_issues": st.lines(), "locate": loc.as_json()}
         if out:
             out.mkdir(parents=True, exist_ok=True)
@@ -108,5 +124,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("folder", type=Path)
     ap.add_argument("--out", type=Path)
+    ap.add_argument("--rules", action="store_true", help="also print guideline v1 rule warnings")
     a = ap.parse_args()
-    sys.exit(check(a.folder, a.out))
+    sys.exit(check(a.folder, a.out, a.rules))

@@ -1,0 +1,286 @@
+Chi-Square and Related Distributions
+
+In this section we will study a distribution, and some relatives, that have special importance in statistics. In particular, the chi-square distribution will arise in the study of the sample variance when the underlying distribution is normal and in goodness of fit tests.
+
+Contents
+
+The chi-square Distribution
+The chi distribution
+The non-central chi-square distribution
+
+The Chi-Square Distribution
+
+Distribution Functions
+
+Recall that the gamma function \(\Gamma\) is the special function defined by \[ \Gamma(k) = \int_0^\infty x^{k-1} e^{-x} \, dx, \quad k \in (0, \infty) \]
+
+For \(n \in (0, \infty)\), the gamma distribution with shape parameter \(n / 2\) and scale parameter 2 is called the chi-square distribution with \(n\) degrees of freedom. The probability density function \( f \) is given by \[ f(x) = \frac{1}{2^{n/2} \Gamma(n/2)} x^{n/2 - 1} e^{-x/2}, \quad x \in (0, \infty) \]
+
+So the chi-square distribution is a continuous distribution on \( (0, \infty) \). For reasons that will be clear later, \(n\) is usually a positive integer, although technically this is not a mathematical requirement. When \( n \) is a positive integer, the gamma function in the normalizing constant can be be given explicitly.
+
+If \( n \in \N_+ \) then
+
+(a) \( \Gamma(n/2) = (n/2 - 1)! \) if \( n \) is even.
+(b) \(\Gamma(n/2) = \frac{(n - 1)!}{2^{n-1} (n/2 - 1/2)!} \sqrt{\pi} \) if \( n \) is odd.
+
+The chi-square distribution has a rich collection of shapes.
+
+The chi-square probability density function with \( n \in (0, \infty) \) degrees of freedom satisfies the following properties:
+
+(a) If \(0 \lt n \lt 2\), \(f\) is decreasing with \(f(x) \to \infty\) as \(x \downarrow 0\).
+(b) If \(n = 2\), \(f\) is decreasing with \(f(0) = \frac{1}{2}\).
+(c) If \( n \gt 2 \), \( f \) increases and then decreases with mode at \( n - 2 \).
+(d) If \( 0 \lt n \le 2 \), \( f \) is concave downward.
+(e) If \( 2 \lt n \le 4 \), \( f \) is concave downward and then upward, with inflection point at \( n - 2 + \sqrt{2 n - 4} \)
+(f) If \( n \gt 4 \) then \( f \) is concave upward then downward and then upward again, with inflection points at \( n - 2 \pm \sqrt{2 n - 4} \)
+
+Open the special distribution simulator and select the chi-square distribution. Keep the app open while you read this section. First, vary \(n\) with the scrollbar and note the shape of the probability density function. For selected values of \(n\), run the simulation 1000 times and compare the empirical density function to the true probability density function.
+
+The distribution function and the quantile function do not have simple, closed-form representations for most values of the parameter. However, the distribution function can be given in terms of the complete and incomplete gamma functions.
+
+Suppose that \( X \) has the chi-square distribution with \( n \in (0, \infty) \) degrees of freedom. The distribution function \( F \) of \( X \) is given by \[ F(x) = \frac{\Gamma(n/2, x/2)}{\Gamma(n/2)}, \quad x \in (0, \infty) \]
+
+Approximate values of the distribution and quantile functions can be obtained from most mathematical and statistical software packages.
+
+In the quantile app, select the chi-square distribution. Vary the parameter and note the shape of the probability density, distribution, and quantile functions. In each of the following cases, find the median, the first and third quartiles, and the interquartile range.
+
+(a) \(n = 1\)
+(b) \(n = 2\)
+(c) \(n = 5\)
+(d) \(n = 10\)
+
+Moments
+
+The mean, variance, moments, and moment generating function of the chi-square distribution can be obtained easily from general results for the gamma distribution.
+
+If \(X\) has the chi-square distribution with \(n \in (0, \infty)\) degrees of freedom then
+
+(a) \(\E(X) = n\)
+(b) \(\var(X) = 2 n\)
+
+In the special distribution simulator, select the chi-square distribution. Vary \(n\) with the scrollbar and note the size and location of the mean \( \pm \) standard deviation bar. For selected values of \(n\), run the simulation 1000 times and compare the empirical moments to the distribution moments.
+
+The skewness and kurtosis of the chi-square distribution are given next.
+
+If \( X \) has the chi-square distribution with \( n \in (0, \infty) \) degrees of freedom, then
+
+(a) \( \skw(X) = 2 \sqrt{2 / n} \)
+(b) \( \kur(X) = 3 + 12/n \)
+
+Note that \( \skw(X) \to 0 \) and \( \kur(X) \to 3 \) as \( n \to \infty \). In particular, the excess kurtosis \( \kur(X) - 3 \to 0 \) as \( n \to \infty \).
+
+In the special distribution simulator, select the chi-square distribution. Increase \(n\) with the scrollbar and note the shape of the probability density function in light of the results on skewness and kurtosis in [9]. For selected values of \(n\), run the simulation 1000 times and compare the empirical density function to the true probability density function.
+
+The next result gives the general moments of the chi-square distribution.
+
+If \(X\) has the chi-square distribution with \(n \in (0, \infty)\) degrees of freedom, then for \(k \gt -n/2\), \[ \E\left(X^k\right) = 2^k \frac{\Gamma(n/2 + k)}{\Gamma(n/2)} \]
+
+In particular, if \( k \in \N_+ \) then \[ \E\left(X^k\right) = 2^k \left(\frac{n}{2}\right)\left(\frac{n}{2} + 1\right) \cdots \left(\frac{n}{2} + k - 1\right) \] Note also \( \E\left(X^k\right) = \infty \) if \( k \le -n/2 \).
+
+If \(X\) has the chi-square distribution with \(n \in (0, \infty)\) degrees of freedom, then \(X\) has moment generating function \[ \E\left(e^{t X}\right) = \frac{1}{(1 - 2 t)^{n / 2}}, \quad t \lt \frac{1}{2} \]
+
+Related Distributions
+
+The chi-square distribution is connected to a number of other special distributions. Of course, the most important relationship is the definition—the chi-square distribution with \( n \) degrees of freedom is a special case of the gamma distribution, corresponding to shape parameter \( n/2 \) and scale parameter 2. On the other hand, any gamma distributed variable can be re-scaled into a variable with a chi-square distribution.
+
+If \(X\) has the gamma distribution with shape parameter \(k \in (0, \infty)\) and scale parameter \(b \in (0, \infty)\) then \(Y = \frac{2}{b}  X\) has the chi-square distribution with \(2 k\) degrees of freedom.
+
+Details:
+
+Since the gamma distribution is a scale family, \( Y \) has a gamma distribution with shape parameter \( k \) and scale parameter \( b \frac{2}{b} = 2 \). Hence \( Y \) has the chi-square distribution with \( 2 k \) degrees of freedom.
+
+The chi-square distribution with 2 degrees of freedom is the exponential distribution with scale parameter 2.
+
+Details:
+
+The chi-square distribution with 2 degrees of freedom is the gamma distribution with shape parameter 1 and scale parameter 2, which we already know is the exponential distribution with scale parameter 2.
+
+If \(Z\) has the standard normal distribution then \(X = Z^2\) has the chi-square distribution with 1 degree of freedom.
+
+Details:
+
+As usual, let \( \phi \) and \( \Phi \) denote the PDF and CDF of the standard normal distribution, respectivley Then for \( x \gt 0 \), \[ \P(X \le x) = \P(-\sqrt{x} \le Z \le \sqrt{x}) = 2 \Phi\left(\sqrt{x}\right) - 1 \] Differentiating with respect to \( x \) gives the density function \( f \) of \( X \): \[ f(x) =  \phi\left(\sqrt{x}\right) x^{-1/2} = \frac{1}{\sqrt{2 \pi}} x^{-1/2} e^{-x / 2}, \quad x \in (0, \infty)\] which we recognize as the chi-square PDF with 1 degree of freedom.
+
+Recall that if we add independent gamma variables with a common scale parameter, the resulting random variable also has a gamma distribution, with the common scale parameter and with shape parameter that is the sum of the shape parameters of the terms. Specializing to the chi-square distribution, we have the following important result:
+
+If \(X\) has the chi-square distribution with \(m \in (0, \infty)\) degrees of freedom, \(Y\) has the chi-square distribution with \(n \in (0, \infty)\) degrees of freedom, and \(X\) and \(Y\) are independent, then \(X + Y\) has the chi-square distribution with \(m + n\) degrees of freedom.
+
+Theorems [15] and [16] lead to the following theorem, which is fundamentally important in statistics.
+
+Suppose that \( n \in \N_+ \) and that \((Z_1, Z_2, \ldots, Z_n)\) is a sequence of independent standard normal variables. Then the sum of the squares \[ V = \sum_{i=1}^n Z_i^2 \] has the chi-square distribution with \(n\) degrees of freedom:
+
+Theorem [17] is the reason that the chi-square distribution deserves a name of its own, and the reason that the degrees of freedom parameter is usually a positive integer. Sums of squares of independent normal variables occur frequently in statistics.
+
+From the central limit theorem and previous results for the gamma distribution, it follows that if \(n\) is large, the chi-square distribution with \(n\) degrees of freedom can be approximated by the normal distribution with mean \(n\) and variance \(2 n\). Here is the precise statement:
+
+If \(X_n\) has the chi-square distribution with \(n \in (0, \infty)\) degrees of freedom, then the distribution of the standard score \[ Z_n = \frac{X_n - n}{\sqrt{2 n}} \] converges to the standard normal distribution as \(n \to \infty\).
+
+In the special distribution simulator, select the chi-square distribution. Start with \(n = 1\) and increase \(n\). Note the shape of the probability density function in light of the previous theorem. For selected values of \(n\), run the experiment 1000 times and compare the empirical density function to the true density function.
+
+Like the gamma distribution, the chi-square distribution is infinitely divisible:
+
+Suppose that \(X\) has the chi-square distribution with \(n \in (0, \infty)\) degrees of freedom. For \( k \in \N_+ \), \( X \) has the same distribution as \( \sum_{i=1}^k X_i \), where \((X_1, X_2, \ldots, X_k)\) is a sequence of independent random variables, each with the chi-square distribution with \( n / k \) degrees of freedom.
+
+Also like the gamma distribution, the chi-square distribution is a member of the general exponential family of distributions:
+
+Suppose that \(X\) has the chi-square distribution with with \(n \in (0, \infty)\) degrees of freedom. Then the distribution of \(X\) is a one-parameter exponential family with natural parameter \(n/2 - 1\), and natural statistic \(\ln X\).
+
+Details:
+
+This follows from the definition of the general exponential family. The PDF can be written as \[ f(x) = \frac{e^{-x/2}}{2^{n/2} \Gamma(n/2)} \exp\left[(n/2 - 1) \ln x\right], \quad x \in (0, \infty) \]
+
+The Chi Distribution
+
+The chi distribution, appropriately enough, is the distribution of the square root of a variable with the chi-square distribution
+
+Suppose that \( X \) has the chi-square distribution with \( n \in (0, \infty) \) degrees of freedom. Then \( U = \sqrt{X} \) has the chi distribution with \( n \) degrees of freedom.
+
+So like the chi-square distribution, the chi distribution is a continuous distribution on \( (0, \infty) \).
+
+Distribution Functions
+
+The distribution function \( G \) of the chi distribution with \( n \in (0, \infty) \) degrees of freedom is given by \[ G(u) = \frac{\Gamma(n/2, u^2/2)}{\Gamma(n/2)}, \quad u \in (0, \infty) \]
+
+Details:
+
+Suppose that \( U \) has the chi distribution with \( n \) degrees of freedom so that \( X = U^2 \) has the chi-square distribution with \( n \) degrees of freedom. For \( u \in (0, \infty) \), \[ G(u) = \P(U \le u) = \P(U^2 \le u^2) = \P(X \le u^2) = F(x^2) \] where \( F \) is the chi-square distribution function with \( n \) degrees of freedom in [5].
+
+The probability density function \( g \) of the chi distribution with \( n \in (0, \infty) \) degrees of freedom is given by \[ g(u) = \frac{1}{2^{n/2 - 1} \Gamma(n/2)} u^{n-1} e^{-u^2/2}, \quad u \in (0, \infty) \]
+
+Details:
+
+Suppose again that \( U \) has the chi distribution with \( n \) degrees of freedom so that \( X = U^2 \) has the chi-square distribution with \( n \) degrees of freedom. The transformation \( u = \sqrt{x} \) maps \( (0, \infty) \) one-to-one onto \( (0, \infty) \). The inverse transformation is \( x = u^2 \) with \( dx/du = 2 u \). Hence by the standard change of variables formula, \[ g(u) = f(x) \frac{dx}{du} = f(u^2) 2 u \] where \( f \) is the chi-square PDF with \(n\) degrees of freedom in [1].
+
+The chi probability density function also has a variety of shapes.
+
+The chi probability density function with \( n \in (0, \infty) \) degrees of freedom satisfies the following properties:
+
+(a) If \( 0 \lt n \lt 1 \), \( g \) is decreasing with \( g(u) \to \infty \) as \( u \downarrow 0 \).
+(b) If \( n = 1 \), \( g \) is decreasing with \( g(0) = \sqrt{2 / \pi} \) as \( u \downarrow 0 \).
+(c) If \( n \gt 1 \), \( g \) increases and then decreases with mode \(u = \sqrt{n - 1} \)
+(d) If \( 0 \lt n \lt 1 \), \( g \) is concave upward.
+(e) If \( 1 \le n \le 2 \), \( g \) is concave downward and then upward with inflection point at \( u = \sqrt{\frac{1}{2}[2 n - 1 + \sqrt{8 n - 7}]} \)
+(f) If \( n \gt 2 \), \( g \) is concave upward then downward then upward again with inflection points at \( u = \sqrt{\frac{1}{2}[2 n - 1 \pm \sqrt{8 n - 7}]} \)
+
+Moments
+
+The raw moments of the chi distribution are easy to comput in terms of the gamma function.
+
+Suppose that \( U \) has the chi distribution with \( n \in (0, \infty) \) degrees of freedom. Then \[ \E(U^k) = 2^{k/2} \frac{\Gamma[(n + k) / 2]}{\Gamma(n/2)}, \quad k \in (0, \infty) \]
+
+Details:
+
+By definition \[ E(U^k) = \int_0^\infty u^k g(u) \, du = \frac{1}{2^{n/2-1} \Gamma(n/2)} \int_0^\infty u^{n+k-1} e^{-u^2/2} du  \] The change of variables \( v = u^2/2 \), so that \( u = 2^{1/2} v^{1/2} \) and \( du = 2^{-1/2} v^{-1/2} \) gives (after simplification) \[  E(U^k) = \frac{2^{k/2}}{\Gamma(n/2)} \int_0^\infty v^{(n+k)/2 - 1} e^{-v} dv \] The last integral is \( \Gamma[(n + k) / 2] \).
+
+Curiously, the second moment is simply the degrees of freedom parameter.
+
+Suppose again that \( U \) has the chi distribution with \( n \in (0, \infty) \) degrees of freedom. Then
+
+(a) \( \E(U) = 2^{1/2} \frac{\Gamma[(n+1)/2]}{\Gamma(n/2)} \)
+(b) \( \E(U^2) = n \)
+(c) \( \var(U) = n - 2 \frac{\Gamma^2[(n+1)/2]}{\Gamma^2(n/2)} \)
+
+Details:
+
+For part (b), using the fundamental identity of the gamma function we have \[ \E(U^2) = 2 \frac{\Gamma(n/2 + 1)}{\Gamma(n/2)} = 2 \frac{(n/2) \Gamma(n/2)}{\Gamma(n/2)} = n \] The other parts follow from direct substitution.
+
+Related Distributions
+
+The fundamental relationship of course is the one between the chi distribution and the chi-square distribution given in definition [22]. In turn, this leads to a fundamental relationship between the chi distribution and the normal distribution.
+
+Suppose that \( n \in \N_+ \) and that \( (Z_1, Z_2, \ldots, Z_n) \) is a sequence of independent variables, each with the standard normal distribution. Then \[U = \sqrt{Z_1^2 + Z_2^2 + \cdots + Z_n^2}\] has the chi distribution with \( n \) degrees of freedom.
+
+Note that the random variable \( U \) in the last result is the standard Euclidean norm of \( (Z_1, Z_2, \ldots, Z_n) \), thought of as a random vector in \( \R^n \). Note also that the chi distribution with 1 degree of freedom is the distribution of \( \left|Z\right| \), the absolute value of a standard normal variable, which is known as the standard half-normal distribution. The chi distribution with 2 degrees of freedom is the Rayleigh distribution, and the chi-square distribution with 3 dgrees of freedom is the Maxwell distribution.
+
+The Non-Central Chi-Square Distribution
+
+Much of the importance of the chi-square distribution stems from the fact that it is the distribution that governs the sum of squares of independent, standard normal variables. A natural generalization, and one that is important in statistical applications, is to consider the distribution of a sum of squares of independent normal variables, each with variance 1 but with different means.
+
+Suppose that \( n \in \N_+ \) and that \( (X_1, X_2, \ldots, X_n) \) is a sequence of independent variables, where \( X_k \) has the normal distribution with mean \( \mu_k \in \R \) and variance 1 for \( k \in \{1, 2, \ldots, n\} \). The distribution of \( Y = \sum_{k=1}^n X_k^2 \) is the non-central chi-square distribution with \( n \) degrees of freedom and non-centrality parameter \( \lambda = \sum_{k=1}^n \mu_k^2 \).
+
+Note that the degrees of freedom is a positive integer while the non-centrality parameter \( \lambda \in [0, \infty) \), but we will soon generalize the degrees of freedom.
+
+Distribution Functions
+
+Like the chi-square and chi distributions, the non-central chi-square distribution is a continuous distribution on \( (0, \infty) \). The probability density function and distribution function do not have simple, closed expressions, but there is a fascinating connection to the Poisson distribution. To set up the notation, let \( f_k \) and \( F_k \) denote the probability density and distribution functions of the chi-square distribution with \( k \in (0, \infty) \) degrees of freedom. Suppose that \( Y \) has the non-central chi-square distribution with \( n \in \N_+ \) degrees of freedom and non-centrality parameter \( \lambda \in [0, \infty) \). The following fundamental theorem gives the probability density function of \( Y \) as an infinite series, and shows that the distribution does in fact depend only on \( n \) and \( \lambda \).
+
+The probability density function \( g \) of \( Y \) is given by \[ g(y) = \sum_{k=0}^\infty e^{-\lambda / 2} \frac{(\lambda / 2)^k}{k!} f_{n + 2 k}(y), \quad y \in (0, \infty) \]
+
+Details:
+
+Suppose that \( \bs{X} = (X_1, X_2, \ldots, X_n) \) is a sequence of independent random variables, where \( X_i \) has the normal distribution with mean \( \mu_i \) and variance 1, and where \( \lambda = \sum_{i=1}^n \mu_i^2 \). So by definition, \( Y = \sum_{i=1}^n X_i^2 \) has the non-central chi-square distribution with \( n \) degrees of freedom and non-centrality parameter \( \lambda \). The random vector \( \bs{X} \) has a multivariate normal distribution with mean vector \( \bs{\mu} = (\mu_1, \mu_2, \ldots, \mu_n) \) and variance-covariance matrix \( I \) (the \( n \times n \) identity matrix). The (joint) PDF \( h \) of \( \bs{X} \) is symmetric about \( \bs{\mu} \): \( h(\bs{\mu} - \bs{x}) = h(\bs{\mu} + \bs{x}) \) for \( \bs{x} \in \R^n \). Because of this symmetry, the distribution of \( Y \) depends on \( \bs{\mu} \) only through the parameter \( \lambda \). It follows that \( Y \) has the same distribution as \(\sum_{i=1}^n U_i^2 \) where \( (U_1, U_2, \ldots, U_n) \) are independent, \( U_1 \) has the normal distribution with mean \( \sqrt{\lambda} \) and variance 1, and \( (U_2, U_3, \ldots, U_n) \) are standard normal.
+
+The distribution of \( U_1^2 \) is found by the usual change of variables methods. Let \( \phi \) and \( \Phi \) denote the standard normal PDF and CDF, respectively, so that \( U_1 \) has CDF given by \( \P(U_1 \le x) = \Phi\left(x - \sqrt{\lambda}\right) \) for \( x \in \R \). Thus, \[ \P\left(U_1^2 \le x\right) = \P\left(-\sqrt{x} \le U_1 \le \sqrt{x}\right) = \Phi\left(\sqrt{x} - \sqrt{\lambda}\right) - \Phi\left(-\sqrt{x} - \sqrt{\lambda}\right), \quad x \in (0, \infty) \] Taking derivatives, the PDF \( g \) of \( U_1^2 \) is given by \[ g(x) = \frac{1}{2 \sqrt{x}}\left[\phi\left(\sqrt{x} - \sqrt{\lambda}\right) + \phi\left(-\sqrt{x} - \sqrt{\lambda}\right)\right] \frac{1}{2 \sqrt{x}}\left[\phi\left(\sqrt{x} - \sqrt{\lambda}\right) + \phi\left(\sqrt{x} + \sqrt{\lambda}\right)\right], \quad x \in (0, \infty)\] But \( \phi(z) = \frac{1}{\sqrt{2 \pi}} e^{-z^2/2} \) for \( z \in \R \), so substituting and simplifying gives \[ g(x) = \frac{1}{\sqrt{2 \pi x}} e^{-\frac{1}{2}(x + \lambda)} \frac{1}{2} \left(e^{\sqrt{\lambda x}} + e^{- \sqrt{\lambda x}} \right) = \frac{1}{\sqrt{2 \pi x}} e^{-\frac{1}{2}(x + \lambda)} \cosh\left(\sqrt{\lambda x}\right), \quad x \in (0, \infty)\] Next, recall that the Taylor series for the hyperbolic cosine function is \[ \cosh(x) = \sum_{k=0}^\infty \frac{x^{2 k}}{(2 k)!}, \quad x \in \R \] which leads to \[ g(x) = \sum_{k=0}^\infty \frac{1}{\sqrt{2 \pi}} e^{-\frac{1}{2}(x + \lambda)} \frac{\lambda^k x^{k - 1/2}}{(2 k)!}, \quad x \in (0, \infty)\] After a bit more algebra, we get the representation in the theorem, with \( n = 1 \). That is, \[ g(x) = \sum_{k=0}^\infty e^{-\lambda / 2} \frac{(\lambda / 2)^k}{k!} \frac{1}{2^{(2 k + 1) / 2} \Gamma[(2 k + 1) / 2]} x^{(2 k + 1)/2 - 1} e^{-x/2}, \quad x \in (0, \infty) \] Or in functional form, \( g = \sum_{k=0}^\infty e^{-\lambda / 2} \frac{(\lambda / 2)^k}{k!} f_{2 k + 1}\).
+
+To complete the proof, we know that \( \sum_{j=2}^n U_j^2 \) has the chi-square distribution with \( n - 1 \) degrees of freedom, and hence has PDF \( f_{n-1} \), and is independent of \( U_1 \). Therefore the distribution of \( \sum_{j=1}^n U_j^2 \) is \[ g * f_{n-1} = \left(\sum_{k=0}^\infty e^{-\lambda / 2} \frac{(\lambda / 2)^k}{k!} f_{2 k + 1}\right) * f_{n-1} = \sum_{k=0}^\infty e^{-\lambda / 2} \frac{(\lambda / 2)^k}{k!} f_{2 k + n} \] where \( * \) denotes convolution as usual, and where we have used the fundamental result on the sum of independent chi-square variables in [17].
+
+The function \( k \mapsto e^{-\lambda / 2} \frac{(\lambda / 2)^k}{k!} \) on \( \N \) is the probability density function of the Poisson distribution with parameter \( \lambda / 2 \). So it follows that if \( N \) has the Poisson distribution with parameter \( \lambda / 2 \) and the conditional distribution of \( Y \) given \( N \) is chi-square with parameter \( n + 2 N \), then \( Y \) has the distribution discussed here—non-central chi-square with \( n \) degrees of freedom and non-centrality parameter \( \lambda \). Moreover, it's clear that \( g \) is a valid probability density function for any \( n \in (0, \infty) \), so we can generalize our definition a bit.
+
+For \( n \in (0, \infty) \) and \( \lambda \in [0, \infty) \), the distribution with probability density function \( g \) in [30] is the non-central chi-square distribution with \( n \) degrees of freedom and non-centrality parameter \( \lambda \).
+
+The distribution function \( G \) is given by \[ G(y) = \sum_{k=0}^\infty e^{-\lambda/2} \frac{(\lambda / 2)^k}{k!} F_{n + 2 k}(y), \quad y \in (0, \infty) \]
+
+Details:
+
+This follows immediately from [30], since \( G(0) = 0 \) and \( G^\prime = g \).
+
+Moments
+
+In this discussion, we assume again that \( Y \) has the non-central chi-square distribution with \( n \in (0, \infty) \) degrees of freedom and non-centrality parameter \( \lambda \in [0, \infty) \).
+
+The moment generating function \( M \) of \( Y \) is given by \[ M(t) = \E\left(e^{t Y}\right) = \frac{1}{(1 - 2 t)^{n/2}} \exp\left(\frac{\lambda t}{1 - 2 t}\right), \quad t \in (-\infty, 1/2) \]
+
+Details:
+
+We will use the fundamental relationship in [30]. Thus, suppose that \( N \) has the Poisson distribution with parameter \( \lambda / 2 \), and that given \( N \), \( Y \) has the chi-square distribution with \( n + 2 N \) degrees of freedom. Conditioning and using [12] gives \[ E\left(e^{t Y}\right) = \E\left[\E\left(e^{t Y} \mid N\right)\right] = \E \left(\frac{1}{(1 - 2 t)^{(n + 2 N) / 2}}\right) = \frac{1}{(1 - 2 t)^{n/2}} \E\left[\left(\frac{1}{1 - 2 t}\right)^{N}\right] \] The last expected value is the probability generating function of \( N \), evaluated at \( \frac{1}{1 - 2 t} \). Hence \[ \E\left(e^{t Y}\right) = \frac{1}{1 - 2 t} \exp\left[\frac{\lambda}{2}\left(\frac{1}{1 - 2 t} - 1\right)\right] = \frac{1}{(1 - 2 t)^{n/2}} \exp\left(\frac{\lambda t}{1 - 2 t}\right) \]
+
+The mean and variance of \( Y \) are
+
+(a) \( \E(Y) = n + \lambda \)
+(b) \( \var(Y) = 2(n + 2 \lambda) \)
+
+Details:
+
+These results can be obtained by taking derivatives of the MGF, but the derivation using the connection with the Poisson distribution is more interesting. So suppose again that \( N \) has the Poisson distribution with parameter \( \lambda / 2 \) and that the conditional distribution of \( Y \) given \( N \) is chi-square with \( n + 2 N \) degrees of freedom. Conditioning and using the means and variances of the chi-square and Poisson distributions, we have
+
+(a) \( \E(Y) = \E[\E(Y \mid N)] = \E(n + 2 N) = n + 2 (\lambda / 2) = n + \lambda \)
+(b) \( \var(Y) = \E[\var(Y \mid N)] + \var[\E(Y \mid N)] = \E[2 (n + 2 N)] + \var(n + 2 N) = 2 n + 4 (\lambda / 2) + 4 \lambda / 2 = 2 n + 4 \lambda \)
+
+The skewness and kurtosis of \( Y \) are
+
+(a) \( \skw(Y) = 2^{3/2} \frac{n + 3 \lambda}{(n + 2 \lambda)^{3/2}} \)
+(b) \( \kur(Y) = 3 + 12 \frac{n + 4 \lambda}{(n + 2 \lambda)^2} \)
+
+Note that \( \skw(Y) \to 0 \) as \( n \to \infty \) or as \( \lambda \to \infty \). Note also that the excess kurtosis is \( \kur(Y) - 3 = 12 \frac{n + 4 \lambda}{(n + 2 \lambda)^2} \). So \( \kur(Y) \to 3 \) (the kurtosis of the normal distribution) as \( n \to \infty \) or as \( \lambda \to \infty \).
+
+Related Distributions
+
+Trivially of course, the ordinary chi-square distribution is a special case of the non-central chi-square distribution, with non-centrality parameter 0. The most important relation is the orignal definition [29]. The non-central chi-square distribution with \( n \in \N_+ \) degrees of freedom and non-centrality parameter \( \lambda \in [0, \infty) \) is the distribution of the sum of the squares of \( n \) independent normal variables with variance 1 and whose means satisfy \( \sum_{k=1}^n \mu_k^2 = \lambda \). The next most important relation is the one that arose in the probability density function and was so useful for computing moments. We state this one again for emphasis.
+
+Suppose that \( N \) has the Poisson distribution with parameter \( \lambda / 2 \), where \( \lambda \in (0, \infty) \), and that the conditional distribution of \( Y \) given \( N \) is chi-square with \( n + 2 N \) degrees of freedom, where \( n \in (0, \infty) \). Then the (unconditional) distribution of \( Y \) is non-central chi-square with \( n \) degree of freedom and non-centrality parameter \( \lambda \).
+
+Details:
+
+For \( j \in \N_+ \), let \( f_j \) denote the chi-square PDF with \( j \) degrees of freedom. Then from the assumptions, the PDF \( g \) of \( Y \) is given by \[ g(y) = \sum_{n=0}^\infty \P(N = k) f_{n + 2 k}(y) = \sum_{n=0}^\infty e^{-\lambda / 2} \frac{(\lambda / 2)^k}{k!} f_{n + 2 k}(y), \quad y \in (0, \infty) \] which is the PDF of the non-central chi-square distribution with \( n \) degrees of freedom and non-centrality parameter \( \lambda \), derived above.
+
+As the asymptotic results for the skewness and kurtosis suggest, there is also a central limit theorem.
+
+Suppose that \( Y \) has the non-central chi-square distribution with \( n \in (0, \infty) \) degrees of freedom and non-centrality parameter \( \lambda \in (0, \infty) \). Then the distribution of the standard score \[ \frac{Y - (n + \lambda)}{\sqrt{2(n + 2 \lambda)}} \] converges to the standard normal distribution as \( n \to \infty \) or as \( \lambda \to \infty \).
+
+Computational Exercises
+
+Suppose that a missile is fired at a target at the origin of a plane coordinate system, with units in meters. The missile lands at \((X, Y)\) where \(X\) and \(Y\) are independent and each has the normal distribution with mean 0 and variance 100. The missile will destroy the target if it lands within 20 meters of the target. Find the probability of this event.
+
+Details:
+
+Let \(Z\) denote the distance from the missile to the target. \(\P(Z \lt 20) = 1 - e^{-2} \approx 0.8647\)
+
+Suppose that \(X\) has the chi-square distribution with \(n = 18\) degrees of freedom. For each of the following, compute the true value using the quantile app and then compute the normal approximation. Compare the results.
+
+(a) \(\P(15 \lt X \lt 20)\)
+(b) The 75th percentile of \(X\).
+
+Details:
+
+(a) \(\P(15 \lt X \lt 20) = 0.3252\), \(\P(15 \lt X \lt 20) \approx 0.3221\)
+(b) \(x_{0.75} = 21.605\), \(x_{0.75} \approx 22.044\)

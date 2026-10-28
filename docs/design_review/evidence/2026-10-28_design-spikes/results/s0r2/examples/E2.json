@@ -1,0 +1,295 @@
+{
+ "unit_ref": "E2",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "s1",
+    "s2"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "s3",
+    "s4"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "Y",
+   "type": "RandomVariable",
+   "label": "Y",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Y",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "W",
+   "type": "DistributionFamily",
+   "label": "Weibull distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_weibull",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "W"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k",
+      "symbols": {
+       "k": {
+        "bind": "free"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "sentence": "s1",
+     "quote": "\\(X\\) has the Weibull distribution with shape parameter \\(k \\in (0, \\infty)\\) and scale parameter \\(b \\in (0, \\infty)\\)",
+     "role": "primary"
+    },
+    {
+     "sentence": "s1",
+     "quote": "Suppose that",
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_Y_def",
+   "predicate": "defined_as",
+   "subject": "Y",
+   "object": {
+    "t": "formula",
+    "latex": "c X",
+    "symbols": {
+     "c": {
+      "bind": "free"
+     },
+     "X": {
+      "bind": "variable",
+      "entity": "X"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "c",
+      "symbols": {
+       "c": {
+        "bind": "free"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "(0, \\infty)",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "sentence": "s2",
+     "quote": "\\(Y = c X\\)",
+     "role": "primary"
+    },
+    {
+     "sentence": "s2",
+     "quote": "If \\(c \\in (0, \\infty)\\)",
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_Y_weibull",
+   "predicate": "has_distribution",
+   "subject": "Y",
+   "object": {
+    "ref": "W"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k",
+      "symbols": {
+       "k": {
+        "bind": "param_of",
+        "claim": "c_X_weibull",
+        "param": "shape"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b c",
+      "symbols": {
+       "b": {
+        "bind": "param_of",
+        "claim": "c_X_weibull",
+        "param": "scale"
+       },
+       "c": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_weibull"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "k",
+        "symbols": {
+         "k": {
+          "bind": "param_of",
+          "claim": "c_X_weibull",
+          "param": "shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "param_of",
+          "claim": "c_X_weibull",
+          "param": "scale"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "c",
+        "symbols": {
+         "c": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "sentence": "s2",
+     "quote": "\\(Y = c X\\) has the Weibull distribution with shape parameter \\(k\\) and scale parameter \\(b c\\)",
+     "role": "primary"
+    },
+    {
+     "sentence": "s2",
+     "quote": "If \\(c \\in (0, \\infty)\\)",
+     "role": "condition"
+    },
+    {
+     "sentence": "s1",
+     "quote": "\\(k \\in (0, \\infty)\\)",
+     "role": "condition"
+    },
+    {
+     "sentence": "s1",
+     "quote": "\\(b \\in (0, \\infty)\\)",
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "sentence": "s4",
+     "quote": "But then \\( Y = c X = (b c) Z \\)",
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import math
 import sys
 from pathlib import Path
@@ -26,8 +27,12 @@ from instruments.values import ValueComparator  # noqa: E402
 
 EVIDENCE = CODE.parent
 S1 = EVIDENCE / "results" / "s1"
-SAMPLE = json.loads((EVIDENCE / "sample.json").read_text())
+# S0_SAMPLE selects another sample (S0-R2); S0_COMPARE writes elsewhere than results/s0/compare.
+SAMPLE = json.loads((EVIDENCE / os.environ.get("S0_SAMPLE", "sample.json")).read_text())
+COMPARE = EVIDENCE / os.environ.get("S0_COMPARE", "results/s0/compare")
 RENDITIONS = json.loads((S1 / "renditions.json").read_text())
+for _d in {u.get("rendition_dir") for u in SAMPLE["units"].values()} - {None, "results/s1"}:
+    RENDITIONS.update(json.loads((EVIDENCE / _d / "renditions.json").read_text()))
 MANUAL = EVIDENCE / "results" / "s0" / "manual_equivalence.tsv"
 
 
@@ -37,7 +42,8 @@ def _name(page: str) -> str:
 
 def side_for(unit: str, batch: dict) -> Side:
     meta = SAMPLE["units"][unit]
-    segs = [json.loads(x) for x in (S1 / "segments" / f"{_name(meta['page'])}.jsonl").read_text().splitlines()]
+    rdir = EVIDENCE / meta.get("rendition_dir", "results/s1")
+    segs = [json.loads(x) for x in (rdir / "segments" / f"{_name(meta['page'])}.jsonl").read_text().splitlines()]
     spans = {s["key"]: (s["start"], s["end"]) for s in segs}
     sents = []
     for p in meta["parts"]:
@@ -45,6 +51,9 @@ def side_for(unit: str, batch: dict) -> Side:
         for s in p["sentences"]:
             spans[s["key"]] = (s["start"], s["end"])
             sents.append((s["start"], s["end"]))
+    for c in meta.get("context", []):
+        spans[c["key"]] = (c["start"], c["end"])
+        sents.append((c["start"], c["end"]))
     return Side(batch, spans, sents, unit=unit)
 
 
@@ -90,7 +99,7 @@ def main() -> int:
     a = ap.parse_args()
     units = a.units.split(",") if a.units else [u for u in SAMPLE["units"]
                                                 if (a.ref / f"{u}.json").exists() and (a.pred / f"{u}.json").exists()]
-    out = EVIDENCE / "results" / "s0" / "compare" / a.name
+    out = COMPARE / a.name
     out.mkdir(parents=True, exist_ok=True)
     ab, kr, kp, pending, log = run(a.ref, a.pred, units)
     write_tsv(agreement_rows(ab), out / "agreement.tsv")

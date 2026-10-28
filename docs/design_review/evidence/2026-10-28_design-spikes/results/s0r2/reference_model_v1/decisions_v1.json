@@ -1,0 +1,42 @@
+[
+ {
+  "unit": "T2",
+  "item": "c_X_normal",
+  "decision": "§10.7 rule 1: a premise carries no restrictions; its conclusions are family-structure claims (rule 2), so the restrictions are not repeated"
+ },
+ {
+  "unit": "U6",
+  "item": "c_Z_def",
+  "decision": "§10.7 rule 2: a formula claim carries no claim nodes; its own restriction (σ > 0) stays"
+ },
+ {
+  "unit": "U6",
+  "item": "c_score_formula",
+  "decision": "§10.7 rule 2, as c_Z_def"
+ },
+ {
+  "unit": "U6",
+  "item": "c_X_mean",
+  "decision": "§10.7 rule 1: no condition references the premise any more, so it carries scope: statement"
+ },
+ {
+  "unit": "U10",
+  "item": "b in c_X_def, c_X_gamma",
+  "decision": "§10.7 bindings row 4: b first appears in the restriction 'if b ∈ (0, ∞)' and the definition names it the gamma's scale parameter, so family_param"
+ },
+ {
+  "unit": "T1",
+  "item": "c_role_loc, c_role_scale (removed)",
+  "decision": "§10.4: as T4 c_scale_role; the parameters are named location and scale"
+ },
+ {
+  "unit": "T4",
+  "item": "c_scale_role (removed)",
+  "decision": "§10.4: a parameter_role claim is added only when the role differs from the canonical name; p_scale is already named scale"
+ },
+ {
+  "unit": "U12",
+  "item": "c_X_stdgamma (new)",
+  "decision": "§10.2 context premise: the supposition in standing context c1 recorded once as an assumption statement; §10.7 rule 3: the conclusions reference it and repeat k ∈ (0, ∞); k binds param_of it"
+ }
+]

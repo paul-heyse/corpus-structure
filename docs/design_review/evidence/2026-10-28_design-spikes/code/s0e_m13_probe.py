@@ -247,12 +247,14 @@ def probe_page_patterns(page: str, sections_mode: str, paragraph_statements: boo
                     sec = section_of(pos)
                     extent = ("section", pos, sec["end"] if sec else len(text), sec["key"] if sec else None)
                 sites.append({"symbol": sym, "pos": pos, "extent": extent, "again": site["reopen"],
-                              "sentence": st[:100], "rules": site["rules"]})
+                              "sentence": st[:100], "rules": site["rules"],
+                              "sent_span": (b["start"] + a, b["start"] + e)})
     for s in sites:
         if s["again"]:
             prev = [p for p in sites if p["symbol"] == s["symbol"] and p["pos"] < s["pos"] and p["extent"][0] == "section"]
             if prev:
                 s["reopens"] = prev[-1]["sentence"][:60]
+                s["reopens_span"] = prev[-1]["sent_span"]
     return {"text": text, "mentions": mentions, "sites": sites, "units": units}
 
 

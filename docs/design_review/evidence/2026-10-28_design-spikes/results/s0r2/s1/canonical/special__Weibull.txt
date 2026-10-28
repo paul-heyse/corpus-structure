@@ -1,0 +1,317 @@
+The Weibull Distribution
+
+In this section, we will study a two-parameter family of distributions that has special importance in reliability.
+
+The Basic Weibull Distribution
+
+Distribution Functions
+
+The basic Weibull distribution with shape parameter \( k \in (0, \infty) \) is a continuous distribution on \( [0, \infty) \) with distribution function \( G \) given by \[ G(t) = 1 - \exp\left(-t^k\right), \quad t \in [0, \infty) \] The special case \( k = 1 \) gives the standard Weibull distribution.
+
+Details:
+
+Clearly \( G \) is continuous and increasing on \( [0, \infty) \) with \( G(0) = 0 \) and \( G(t) \to 1 \) as \( t \to \infty \).
+
+The Weibull distribution is named for Waloddi Weibull. Weibull was not the first person to use the distribution, but was the first to study it extensively and recognize its wide use in applications. The standard Weibull distribution is the same as the standard exponential distribution. But as we will see, every Weibull random variable can be obtained from a standard Weibull variable by a simple deterministic transformation, so the terminology is justified.
+
+The probability density function \( g \) is given by \[ g(t) = k t^{k - 1} \exp\left(-t^k\right), \quad t \in (0, \infty) \]
+
+(a) If \(0 \lt k \lt 1\), \(g\) is decreasing and concave upward with \( g(t) \to \infty \) as \( t \downarrow 0 \).
+(b) If \( k = 1 \), \( g \) is decreasing and concave upward with mode \( t = 0 \).
+(c) If \(k \gt 1\), \(g\) increases and then decreases, with mode \(t = \left( \frac{k - 1}{k} \right)^{1/k}\).
+(d) If \( 1 \lt k \le 2 \), \( g \) is concave downward and then upward, with inflection point at \( t = \left[\frac{3 (k - 1) + \sqrt{(5 k - 1)(k - 1)}}{2 k}\right]^{1/k} \)
+(e) If \( k \gt 2 \), \( g \) is concave upward, then downward, then upward again, with inflection points at \( t = \left[\frac{3 (k - 1) \pm \sqrt{(5 k - 1)(k - 1)}}{2 k}\right]^{1/k} \)
+
+Details:
+
+These results follow from basic calculus. The PDF is \( g = G^\prime \) where \( G \) is the CDF in [1]. The first order properties come from \[ g^\prime(t) = k t^{k-2} \exp\left(-t^k\right)\left[-k t^k + (k - 1)\right] \] The second order properties come from \[ g^{\prime\prime}(t) = k t^{k-3} \exp\left(-t^k\right)\left[k^2 t^{2 k} - 3 k (k - 1) t^k + (k - 1)(k - 2)\right] \]
+
+So the Weibull density function has a rich variety of shapes, depending on the shape parameter, and has the classic unimodal shape when \( k \gt 1 \). If \( k \ge 1 \), \( g \) is defined at 0 also.
+
+In the special distribution simulator, select the Weibull distribution. Vary the shape parameter and note the shape of the probability density function. For selected values of the shape parameter, run the simulation 1000 times and compare the empirical density function to the probability density function.
+
+The quantile function \( G^{-1} \) is given by \[ G^{-1}(p) = [-\ln(1 - p)]^{1 / k}, \quad p \in [0, 1) \]
+
+(a) The first quartile is \( q_1 = (\ln 4 - \ln 3)^{1 / k} \).
+(b) The median is \( q_2 = (\ln 2)^{1/k} \).
+(c) The third quartile is \( q_3 = (\ln 4)^{1 / k} \).
+
+Details:
+
+The formula follows from [1] by solving \( G(t) = p \) for \( t \) in terms of \( p \).
+
+Open the quantile app and select the Weibull distribution. Vary the shape parameter and note the shape of the distribution and probability density functions. For selected values of the parameter, compute the median and the first and third quartiles.
+
+The reliability function \( G^c \) is given by \[ G^c(t) = \exp(-t^k), \quad t \in [0, \infty) \]
+
+Details:
+
+This follows trivially from the CDF in [1], since \( G^c = 1 - G \).
+
+The failure rate function \( r \) is given by \[ r(t) = k t^{k-1}, \quad t \in (0, \infty) \]
+
+(a) If \( 0 \lt k \lt 1 \), \(r\) is decreasing with \( r(t) \to \infty \) as \( t \downarrow 0 \) and \( r(t) \to 0 \) as \( t \to \infty \).
+(b) If \( k = 1 \), \(r\) is constant 1.
+(c) If \( k \gt 1 \), \(r\) is increasing with \( r(0) = 0 \) and \( r(t) \to \infty \) as \( t \to \infty \).
+
+Details:
+
+The formula for \( r \) follows immediately from the PDF \( g \) in [2] and the reliability function \( G^c \) in [6], since \( r = g \big/ G^c \).
+
+Thus, the Weibull distribution can be used to model devices with decreasing failure rate, constant failure rate, or increasing failure rate. This versatility is one reason for the wide use of the Weibull distribution in reliability. If \( k \ge 1 \), \( r \) is defined at 0 also.
+
+Moments
+
+Suppose that \(Z\) has the basic Weibull distribution with shape parameter \(k \in (0, \infty)\). The moments of \(Z\), and hence the mean and variance of \(Z\) can be expressed in terms of the gamma function \( \Gamma \)
+
+\(\E(Z^n) = \Gamma\left(1 + \frac{n}{k}\right)\) for \(n \ge 0\).
+
+Details:
+
+For \( n \ge 0 \), \[ \E(Z^n) = \int_0^\infty t^n k t^{k-1} \exp(-t^k) \, dt \] Substituting \(u = t^k\) gives \[ \E(Z^n) = \int_0^\infty u^{n/k} e^{-u} du = \Gamma\left(1 + \frac{n}{k}\right) \]
+
+So the Weibull distribution has moments of all orders. The moment generating function, however, does not have a simple, closed expression in terms of the usual elementary functions.
+
+In particular, the mean and variance of \(Z\) are
+
+(a) \(\E(Z) = \Gamma\left(1 + \frac{1}{k}\right)\)
+(b) \(\var(Z) = \Gamma\left(1 + \frac{2}{k}\right) - \Gamma^2\left(1 + \frac{1}{k}\right)\)
+
+Note that \( \E(Z) \to 1 \) and \( \var(Z) \to 0 \) as \( k \to \infty \). We will learn more about the limiting distribution in [15].
+
+In the special distribution simulator, select the Weibull distribution. Vary the shape parameter and note the size and location of the mean \( \pm \) standard deviation bar. For selected values of the shape parameter, run the simulation 1000 times and compare the empirical mean and standard deviation to the distribution mean and standard deviation.
+
+The skewness and kurtosis also follow easily from the general moment result in [8], although the formulas are not particularly helpful.
+
+Skewness and kurtosis
+
+(a) The skewness of \( Z \) is \[ \skw(Z) = \frac{\Gamma(1 + 3 / k) - 3 \Gamma(1 + 1 / k) \Gamma(1 + 2 / k) + 2 \Gamma^3(1 + 1 / k)}{\left[\Gamma(1 + 2 / k) - \Gamma^2(1 + 1 / k)\right]^{3/2}} \]
+(b) The kurtosis of \( Z \) is \[ \kur(Z) = \frac{\Gamma(1 + 4 / k) - 4 \Gamma(1 + 1 / k) \Gamma(1 + 3 / k) + 6 \Gamma^2(1 + 1 / k) \Gamma(1 + 2 / k) - 3 \Gamma^4(1 + 1 / k)}{\left[\Gamma(1 + 2 / k) - \Gamma^2(1 + 1 / k)\right]^2} \]
+
+Details:
+
+The results follow directly from [8] and the computational formulas for skewness and kurtosis.
+
+Related Distributions
+
+As noted above, the standard Weibull distribution (shape parameter 1) is the same as the standard exponential distribution. More generally, any basic Weibull variable can be constructed from a standard exponential variable.
+
+Suppose that \( k \in (0, \infty) \).
+
+(a) If \( U \) has the standard exponential distribution then \( Z = U^{1 / k} \) has the basic Weibull distribution with shape parameter \( k \).
+(b) If \( Z \) has the basic Weibull distribution with shape parameter \( k \) then \( U = Z^k \) has the standard exponential distribution.
+
+Details:
+
+We use distribution functions. The basic Weibull CDF is given in [1]; the standard exponential CDF is \( u \mapsto 1 - e^{-u} \) on \( [0, \infty) \). Note that the inverse transformations \( z = u^k \) and \( u = z^{1/k} \) are strictly increasing and map \( [0, \infty) \) onto \( [0, \infty) \).
+
+(a) \( \P(Z \le z) = \P\left(U \le z^k\right) = 1 - \exp\left(-z^k\right)\) for \( z \in [0, \infty) \).
+(b) \( \P(U \le u) = \P\left(Z \le u^{1/k}\right) = 1 - \exp\left[-\left(u^{1/k}\right)^k\right] = 1 - e^{-u} \) for \( u \in [0, \infty) \).
+
+The basic Weibull distribution has the usual connections with the standard uniform distribution by means of the distribution function in [1] and the quantile function in [4] given above.
+
+Suppose that \( k \in (0, \infty) \).
+
+(a) If \( U \) has the standard uniform distribution then \( Z = (-\ln U)^{1 / k} \) has the basic Weibull distribution with shape parameter \( k \).
+(b) If \( Z \) has the basic Weibull distribution with shape parameter \( k \) then \( U = \exp\left(-Z^k\right) \) has the standard uniform distribution.
+
+Details:
+
+Let \( G \) denote the CDF of the basic Weibull distribution in [1] with shape parameter \( k \) and let \( G^{-1} \) denote the corresponding quantile function in [4].
+
+(a) If \( U \) has the standard uniform distribution then so does \( 1 - U \). Hence \(Z = G^{-1}(1 - U) = (-\ln U)^{1 / k}  \) has the basic Weibull distribution with shape parameter \( k \).
+(b) If \( Z \) has the basic Weibull distribution with shape parameter \( k \) then \( G(Z) \) has the standard uniform distribution. But then so does \( U = 1 - G(Z) = \exp\left(-Z^k\right) \).
+
+Since the quantile function has a simple, closed form, the basic Weibull distribution can be simulated using the random quantile method.
+
+Open the random quantile experiment and select the Weibull distribution. Vary the shape parameter and note again the shape of the distribution and density functions. For selected values of the parameter, run the simulation 1000 times and compare the empirical density, mean, and standard deviation to their distributional counterparts.
+
+The limiting distribution with respect to the shape parameter is concentrated at a single point.
+
+The basic Weibull distribution with shape parameter \( k \in (0, \infty) \) converges to point mass at 1 as \( k \to \infty \).
+
+Details:
+
+Once again, let \( G \) denote the basic Weibull CDF in [1] with shape parameter \( k \). Note that \( G(t) \to 0 \) as \( k \to \infty \) for \( 0 \le t \lt 1 \); \(G(1) = 1 - e^{-1}\) for all \( k \); and \( G(t) \to 1 \) as \( k \to \infty \) for \( t \gt 1 \). Except for the point of discontinuity \( t = 1 \), the limits are the CDF of point mass at 1.
+
+The General Weibull Distribution
+
+Like most special continuous distributions on \( [0, \infty) \), the basic Weibull distribution is generalized by the inclusion of a scale parameter. A scale transformation often corresponds in applications to a change of units, and for the Weibull distribution this usually means a change in time units.
+
+Suppose that \(Z\) has the basic Weibull distribution with shape parameter \(k \in (0, \infty)\). For \( b \in (0, \infty) \), random variable \(X = b Z\) has the Weibull distribution with shape parameter \(k\) and scale parameter \(b\).
+
+Generalizations of the results given above follow easily from basic properties of the scale transformation.
+
+Distribution Functions
+
+Suppose that \( X \) has the Weibull distribution with shape parameter \( k \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \).
+
+\( X \) distribution function \( F \) given by \[ F(t) = 1 - \exp\left[-\left(\frac{t}{b}\right)^k\right], \quad t \in [0, \infty) \]
+
+Details:
+
+Recall that \( F(t) = G\left(\frac{t}{b}\right) \) for \( t \in [0, \infty) \) where \( G \) is the CDF of the basic Weibull distribution in [1].
+
+\( X \) has probability density function \( f \) given by \[ f(t) = \frac{k}{b^k} \, t^{k-1} \, \exp \left[ -\left( \frac{t}{b} \right)^k \right], \quad t \in (0, \infty)\]
+
+(a) If \(0 \lt k \lt 1\), \(f\) is decreasing and concave upward with \( f(t) \to \infty \) as \( t \downarrow 0 \).
+(b) If \( k = 1 \), \( f \) is decreasing and concave upward with mode \( t = 0 \).
+(c) If \(k \gt 1\), \(f\) increases and then decreases, with mode \(t = b \left( \frac{k - 1}{k} \right)^{1 / k}\).
+(d) If \( 1 \lt k \le 2 \), \( f \) is concave downward and then upward, with inflection point at \( t = b \left[\frac{3 (k - 1) + \sqrt{(5 k - 1)(k - 1)}}{2 k}\right]^{1 / k} \)
+(e) If \( k \gt 2 \), \( f \) is concave upward, then downward, then upward again, with inflection points at \( t = b \left[\frac{3 (k - 1) \pm \sqrt{(5 k - 1)(k - 1)}}{2 k}\right]^{1 / k} \)
+
+Details:
+
+Recall that \( f(t) = \frac{1}{b} g\left(\frac{t}{b}\right) \) for \( t \in (0, \infty) \) where \( g \) is the PDF of the corresponding basic Weibull distribution in [2].
+
+Open the special distribution simulator and select the Weibull distribution. Vary the parameters and note the shape of the probability density function. For selected values of the parameters, run the simulation 1000 times and compare the empirical density function to the probability density function.
+
+\( X \) has quantile function \( F^{-1} \) given by \[ F^{-1}(p) = b [-\ln(1 - p)]^{1 / k}, \quad p \in [0, 1) \]
+
+(a) The first quartile is \( q_1 = b (\ln 4 - \ln 3)^{1 / k} \).
+(b) The median is \( q_2 = b (\ln 2)^{1 / k} \).
+(c) The third quartile is \( q_3 = b (\ln 4)^{1 / k} \).
+
+Details:
+
+Recall that \( F^{-1}(p) = b G^{-1}(p) \) for \( p \in [0, 1) \) where \( G^{-1} \) is the quantile function of the corresponding basic Weibull distribution in [4].
+
+Open the quantile app and select the Weibull distribution. Vary the parameters and note the shape of the distribution and probability density functions. For selected values of the parameters, compute the median and the first and third quartiles.
+
+\( X \) has reliability function \( F^c \) given by \[ F^c(t) = \exp\left[-\left(\frac{t}{b}\right)^k\right], \quad t \in [0, \infty) \]
+
+Details:
+
+This follows trivially from the CDF \( F \) in [17], since \( F^c = 1 - F \).
+
+As before, the Weibull distribution has decreasing, constant, or increasing failure rates, depending only on the shape parameter.
+
+\( X \) has failure rate function \( R \) given by \[ R(t) = \frac{k t^{k-1}}{b^k}, \quad t \in (0, \infty) \]
+
+(a) If \(0 \lt k \lt 1\), \( R \) is decreasing with \( R(t) \to \infty \) as \( t \downarrow 0 \) and \( R(t) \to 0 \) as \( t \to \infty \).
+(b) If \(k = 1\), \( R \) is constant \( \frac{1}{b} \).
+(c) If \( k \gt 1 \), \(R\) is increasing with \( R(0) = 0 \) and \( R(t) \to \infty \) as \( t \to \infty \).
+
+Moments
+
+Suppose again that \( X \) has the Weibull distribution with shape parameter \( k \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \). Recall that by definition [16], we can take \( X = b Z \) where \( Z \) has the basic Weibull distribution with shape parameter \( k \).
+
+\(\E(X^n) = b^n \Gamma\left(1 + \frac{n}{k}\right)\) for \(n \ge 0\).
+
+Details:
+
+The result then follows from , since \( \E(X^n) = b^n \E(Z^n) \).
+
+In particular, the mean and variance of \(X\) are
+
+(a) \(\E(X) = b \Gamma\left(1 + \frac{1}{k}\right)\)
+(b) \(\var(X) = b^2 \left[\Gamma\left(1 + \frac{2}{k}\right) - \Gamma^2\left(1 + \frac{1}{k}\right)\right]\)
+
+Note that \( \E(X) \to b \) and \( \var(X) \to 0 \) as \( k \to \infty \).
+
+Open the special distribution simulator and select the Weibull distribution. Vary the parameters and note the size and location of the mean \( \pm \) standard deviation bar. For selected values of the parameters, run the simulation 1000 times and compare the empirical mean and standard deviation to the distribution mean and standard deviation.
+
+Skewness and kurtosis
+
+(a) The skewness of \( X \) is \[ \skw(X) = \frac{\Gamma(1 + 3 / k) - 3 \Gamma(1 + 1 / k) \Gamma(1 + 2 / k) + 2 \Gamma^3(1 + 1 / k)}{\left[\Gamma(1 + 2 / k) - \Gamma^2(1 + 1 / k)\right]^{3/2}} \]
+(b) The kurtosis of \( X \) is \[ \kur(X) = \frac{\Gamma(1 + 4 / k) - 4 \Gamma(1 + 1 / k) \Gamma(1 + 3 / k) + 6 \Gamma^2(1 + 1 / k) \Gamma(1 + 2 / k) - 3 \Gamma^4(1 + 1 / k)}{\left[\Gamma(1 + 2 / k) - \Gamma^2(1 + 1 / k)\right]^2} \]
+
+Details:
+
+Skewness and kurtosis depend only on the standard score of the random variable, and hence are invariant under scale transformations. So the results are the same as the skewness and kurtosis of \( Z \) in [11].
+
+Related Distributions
+
+Since the Weibull distribution is a scale family for each value of the shape parameter, it is trivially closed under scale transformations.
+
+Suppose that \(X\) has the Weibull distribution with shape parameter \(k \in (0, \infty)\) and scale parameter \(b \in (0, \infty)\). If \(c \in (0, \infty)\) then \(Y = c X\) has the Weibull distribution with shape parameter \(k\) and scale parameter \(b c\).
+
+Details:
+
+By definition [16], we can take \( X = b Z \) where \( Z \) has the basic Weibull distribution with shape parameter \( k \). But then \( Y = c X = (b c) Z \).
+
+The exponential distribution is a special case of the Weibull distribution, the case corresponding to constant failure rate.
+
+The Weibull distribution with shape parameter 1 and scale parameter \( b \in (0, \infty) \) is the exponential distribution with scale parameter \( b \).
+
+Details:
+
+When \( k = 1 \), the Weibull CDF \( F \) in [17] is given by \( F(t) = 1 - e^{-t / b} \) for \( t \in [0, \infty) \). But this is also the CDF of the exponential distribution with scale parameter \( b \).
+
+More generally, any Weibull distributed variable can be constructed from the standard variable. The following result is a simple generalization of [12].
+
+Suppose that \(k, \, b \in (0, \infty)\).
+
+(a) If \(X\) has the standard exponential distribution (parameter 1), then \(Y = b \, X^{1 / k}\) has the Weibull distribution with shape parameter \(k\) and scale parameter \(b\).
+(b) If \(Y\) has the Weibull distribution with shape parameter \(k\) and scale parameter \(b\), then \(X = (Y / b)^k\) has the standard exponential distribution.
+
+Details:
+
+The results are a simple consequence of [12].
+
+(a) If \( X \) has the standard exponential distribution then \( X^{1 / k} \) has the basic Weibull distribution with shape parameter \( k \), and hence \( Y = b X^{1 / k} \) has the Weibull distribution with shape parameter \( k \) and scale parameter \( b \).
+(b) If \( Y \) has the Weibull distribution with shape parameter \( k \) and scale parameter \( b \) then \( Y / b \) has the basic Weibull distribution with shape parameter \( k \), and hence \( X = (Y / b)^k \) has the standard exponential distributioon.
+
+The Rayleigh distribution, named for William Strutt, Lord Rayleigh, is also a special case of the Weibull distribution.
+
+The Rayleigh distribution with scale parameter \( b \in (0, \infty) \) is the Weibull distribution with shape parameter \( 2 \) and scale parameter \( \sqrt{2} b \).
+
+Details:
+
+The Rayleigh distribution with scale parameter \( b \) has CDF \( F \) given by \[ F(x) = 1 - \exp\left(-\frac{x^2}{2 b^2}\right), \quad x \in [0, \infty) \] But this is also the Weibull CDF in [17] with shape parameter \( 2 \) and scale parameter \( \sqrt{2} b \).
+
+Recall that the minimum of independent, exponentially distributed variables also has an exponential distribution (and the rate parameter of the minimum is the sum of the rate parameters of the variables). The Weibull distribution has a similar, but more restricted property.
+
+Suppose that \( (X_1, X_2, \ldots, X_n) \) is an independent sequence of variables, each having the Weibull distribution with shape parameter \( k \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \). Then \( U = \min\{X_1, X_2, \ldots, X_n\} \) has the Weibull distribution with shape parameter \( k \) and scale parameter \( b / n^{1 / k} \).
+
+Details:
+
+Recall that the reliability function of the minimum of independent variables is the product of the reliability functions of the variables. It follows that \( U \) has reliability function given by \[ \P(U \gt t) = \left\{\exp\left[-\left(\frac{t}{b}\right)^k\right]\right\}^n = \exp\left[-n \left(\frac{t}{b}\right)^k\right] = \exp\left[-\left(\frac{t}{b / n^{1/k}}\right)^k\right], \quad t \in [0, \infty) \] and so the result follows.
+
+As before, Weibull distribution has the usual connections with the standard uniform distribution by means of the distribution function in [17] and the quantile function in [20].
+
+Suppose that \( k, \, b \in (0, \infty) \).
+
+(a) If \( U \) has the standard uniform distribution then \( X = b (-\ln U )^{1 / k} \) has the Weibull distribution with shape parameter \( k \) and scale parameter \( b \).
+(b) If \( X \) has the Weibull distribution with shape parameter \( k \) and scale parameter \(b\) then \( U = \exp\left[-(X / b)^k\right] \) has the standard uniform distribution.
+
+Details:
+
+Let \( F \) denote the Weibull CDF in [17] with shape parameter \( k \) and scale parameter \( b \) and so that \( F^{-1} \) is the corresponding quantile function in [20].
+
+(a) If \( U \) has the standard uniform distribution then so does \( 1 - U \). Hence \(X = F^{-1}(1 - U) = b (-\ln U )^{1/k}  \) has the Weibull distribution with shape parameter \( k \) and scale parameter \( b \).
+(b) If \( X \) has the Weibull distribution with shape parameter \( k \) and scale parameter \( b \) then \( F(X) \) has the standard uniform distribution. But then so does \( U = 1 - F(X) = \exp\left[-(X/b)^k\right] \).
+
+Again, since the quantile function has a simple, closed form, the Weibull distribution can be simulated using the random quantile method.
+
+Open the random quantile experiment and select the Weibull distribution. Vary the parameters and note again the shape of the distribution and density functions. For selected values of the parameters, run the simulation 1000 times and compare the empirical density, mean, and standard deviation to their distributional counterparts.
+
+The limiting distribution with respect to the shape parameter is concentrated at a single point.
+
+The Weibull distribution with shape parameter \( k \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \) converges to point mass at \( b \) as \( k \to \infty \).
+
+Details:
+
+If \( X \) has the Weibull distribution with shape parameter \( k \) and scale parameter \( b \), then we can write \(X = b Z  \) where \( Z \) has the basic Weibull distribution with shape parameter \( k \). From [15], the distribution of \( Z \) converges to point mass at 1, so by the continuity theorem for convergence in distribution, the distribution of \( X \) converges to point mass at \( b \).
+
+Finally, the Weibull distribution is a member of the family of general exponential distributions if the shape parameter is fixed.
+
+Suppose that \( X \) has the Weibull distribution with shape parameter \( k \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \). For fixed \( k \), \( X \) has a general exponential distribution with respect to \( b \), with natural parameter \( -1 / b^k \) and natural statistics \( X^k \).
+
+Details:
+
+This follows from the definition of the general exponential distribution, and the Weibull PDF in [18].
+
+Computational Exercises
+
+The lifetime \(T\) of a device (in hours) has the Weibull distribution with shape parameter \(k = 1.2\) and scale parameter \(b = 1000\).
+
+(a) Find the probability that the device will last at least 1500 hours.
+(b) Approximate the mean and standard deviation of \(T\).
+(c) Compute the failure rate function.
+
+Details:
+
+(a) \(\P(T \gt 1500) = 0.1966\)
+(b) \(\E(T) = 940.7\), \(\sd(T) = 787.2\)
+(c) \(h(t) = 0.000301 t^{0.2}\)

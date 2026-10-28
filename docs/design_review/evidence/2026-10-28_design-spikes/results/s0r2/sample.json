@@ -1,0 +1,1071 @@
+{
+ "created": "2026-10-28",
+ "sentence_variant": "provisional: P1 parser + b′ + rule c",
+ "adapter_config": {
+  "adapter": "s1_adapter",
+  "version": "0.1.0",
+  "profile": "siegrist",
+  "parser": "lxml",
+  "unicode": "NFC",
+  "math_whitespace": "keep",
+  "sections": "h3h4",
+  "apps": "keep",
+  "render": {
+   "aref": "browser",
+   "q": "quotes",
+   "list_markers": "parenthesized",
+   "summary": "heading",
+   "figure": "caption"
+  }
+ },
+ "context_rule": "M13 binding sites outside the unit (s0r2_sample.py)",
+ "units": {
+  "T1": {
+   "page": "special/LocationScale.html",
+   "document_key": "doc:01e7737ec9188c4149789ee8bd19d56b",
+   "rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+   "parts": [
+    {
+     "locator": "special/LocationScale.html@p:As usual, our starting point",
+     "found_by": "@p",
+     "segment_key": "seg:461ade98bfb3c5eab5a9dda35ee81c12",
+     "kind": "paragraph",
+     "start": 41,
+     "end": 436,
+     "sha256": "06c1f35a24410fe59a8422438f23ad060cac03fe34e1830de0cce86ec5c74d1c",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:7f5bfd7ae1551fb8a61e4be44b09ea78",
+       "start": 41,
+       "end": 149
+      },
+      {
+       "id": "s2",
+       "key": "seg:fc39a3c1625a0ca3eb930e388d369827",
+       "start": 150,
+       "end": 312
+      },
+      {
+       "id": "s3",
+       "key": "seg:e1a33c047bb86880316815686144c6cd",
+       "start": 313,
+       "end": 436
+      }
+     ],
+     "first_80": "As usual, our starting point is a random experiment, modeled by a probability sp"
+    },
+    {
+     "locator": "special/LocationScale.html#dfn1",
+     "found_by": "#d",
+     "segment_key": "seg:175c96a27cc62630afd30222ac6b06cd",
+     "kind": "unit",
+     "start": 450,
+     "end": 744,
+     "sha256": "7872209559110b45a6c779ebb438b79a97d010d8ad6fe22edf91f3d3ce13a0a4",
+     "sentences": [
+      {
+       "id": "s4",
+       "key": "seg:f862503906430becb5c3e114fbbd5af5",
+       "start": 450,
+       "end": 518
+      },
+      {
+       "id": "s5",
+       "key": "seg:ebe0e73fe08976c567af5859a2b77bbd",
+       "start": 519,
+       "end": 667
+      },
+      {
+       "id": "s6",
+       "key": "seg:af77a6ba98384db9ded612eff96d3984",
+       "start": 668,
+       "end": 744
+      }
+     ],
+     "first_80": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\), let \\(X = a + b \\, Z\\). The two-par"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "T2": {
+   "page": "special/Normal.html",
+   "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "parts": [
+    {
+     "locator": "special/Normal.html@p:Suppose again that \\( X \\) has the normal distribution with location parameter",
+     "found_by": "@p",
+     "segment_key": "seg:a3c88aa2d5cdbd70f8a179347967faa2",
+     "kind": "paragraph",
+     "start": 11565,
+     "end": 11826,
+     "sha256": "1b75e32e7af0c5c30397ad155ace2f39b02b7bc5112e0bba6b4319b85acd8b2f",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:f0640da77bd7c8b14e91e1681babddc7",
+       "start": 11565,
+       "end": 11710
+      },
+      {
+       "id": "s2",
+       "key": "seg:0f7a63ff92a79c2f2572c034a1dbfbc5",
+       "start": 11711,
+       "end": 11826
+      }
+     ],
+     "first_80": "Suppose again that \\( X \\) has the normal distribution with location parameter \\"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": [
+    {
+     "id": "c1",
+     "key": "seg:c23cfcc15d6ec561ee2ed07c8b13174a",
+     "start": 9433,
+     "end": 9572
+    },
+    {
+     "id": "c2",
+     "key": "seg:b1a3ae9d92e296a8f9b9b6060f9db612",
+     "start": 10864,
+     "end": 10995
+    }
+   ]
+  },
+  "T3": {
+   "page": "special/Normal.html",
+   "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "parts": [
+    {
+     "locator": "special/Normal.html#rel1",
+     "found_by": "#r",
+     "segment_key": "seg:284382a0386cf655a9e8cf94ac12980a",
+     "kind": "unit",
+     "start": 14382,
+     "end": 14925,
+     "sha256": "faf7117416d79752eec3053b004463d47bb5bdfb0800c773e4937d0ea94973a6",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:00e021f9f31ec4b64dcd0865bcfeb8b1",
+       "start": 14382,
+       "end": 14469
+      },
+      {
+       "id": "s2",
+       "key": "seg:ecb3cd5053f5a67593c76acdc749caff",
+       "start": 14470,
+       "end": 14615
+      },
+      {
+       "id": "s3",
+       "key": "seg:5a2f009d4c96aa7a005f3f3d5efa512a",
+       "start": 14627,
+       "end": 14925
+      }
+     ],
+     "first_80": "Suppose that \\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sig"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "T4": {
+   "page": "special/LogNormal.html",
+   "document_key": "doc:0dd78f24fc1bdaaf8caf3c23abd9ff33",
+   "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+   "parts": [
+    {
+     "locator": "special/LogNormal.html#dfn",
+     "found_by": "#d",
+     "segment_key": "seg:3fd093d02f8f19cfc6e08e97885fed09",
+     "kind": "unit",
+     "start": 54,
+     "end": 518,
+     "sha256": "9e2d4bd1725b54ac908c3f50559b42fcb48aefc19d6719c6f949b6a73bcafe23",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:976de78285608bb4b079721b2bf6c4de",
+       "start": 54,
+       "end": 176
+      },
+      {
+       "id": "s2",
+       "key": "seg:5818940b2a2bd086e7f8ed6bfa2d6bec",
+       "start": 177,
+       "end": 264
+      },
+      {
+       "id": "s3",
+       "key": "seg:2353eb7bc99d057cf0cbff85edaa628f",
+       "start": 266,
+       "end": 340
+      },
+      {
+       "id": "s4",
+       "key": "seg:24c1e8d853c094e30146919e8e3241ab",
+       "start": 341,
+       "end": 413
+      },
+      {
+       "id": "s5",
+       "key": "seg:af52796cbd07aeede7e42ecf22ef7f46",
+       "start": 415,
+       "end": 518
+      }
+     ],
+     "first_80": "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and stan"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "U5": {
+   "page": "special/Normal.html",
+   "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "parts": [
+    {
+     "locator": "special/Normal.html#rel2",
+     "found_by": "#r",
+     "segment_key": "seg:24a8a9e0116b7804e4e8a88cc7a70c39",
+     "kind": "unit",
+     "start": 15741,
+     "end": 16491,
+     "sha256": "cf473b4d7a2b790e2de80b197e90ce29b1eb8a7f461c7227f60c49187f63901b",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:1f176d498ace05b6e46c77bd6ba20004",
+       "start": 15741,
+       "end": 15920
+      },
+      {
+       "id": "s2",
+       "key": "seg:0c0de42de7ca0d1fb80723719b2a0704",
+       "start": 15921,
+       "end": 15968
+      },
+      {
+       "id": "s3",
+       "key": "seg:193ed5f44ae395e1a493b9c83c04da36",
+       "start": 15970,
+       "end": 16007
+      },
+      {
+       "id": "s4",
+       "key": "seg:2b97cdfddbfea3582d7a291c9026eb3f",
+       "start": 16008,
+       "end": 16057
+      },
+      {
+       "id": "s5",
+       "key": "seg:f5e79a0886514c2a2231a752576be53c",
+       "start": 16069,
+       "end": 16491
+      }
+     ],
+     "first_80": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "U6": {
+   "page": "special/Normal.html",
+   "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "parts": [
+    {
+     "locator": "special/Normal.html@p:Recall that in general, if \\(X\\) is a random variable with mean",
+     "found_by": "@p",
+     "segment_key": "seg:57bebab2809e83fa2c27612c682ef9bf",
+     "kind": "paragraph",
+     "start": 14927,
+     "end": 15341,
+     "sha256": "88a9ed6788a85468a5c08221efa523750a47dda30c84bfd3137a912ceb7fbb85",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:c4911a7f4faa75ff5bf326ba9647d648",
+       "start": 14927,
+       "end": 15103
+      },
+      {
+       "id": "s2",
+       "key": "seg:28cfa3f4055ede760eb40320bc762a96",
+       "start": 15104,
+       "end": 15243
+      },
+      {
+       "id": "s3",
+       "key": "seg:72ebc16e02cb1e80ee804bbd71f8cb84",
+       "start": 15244,
+       "end": 15341
+      }
+     ],
+     "first_80": "Recall that in general, if \\(X\\) is a random variable with mean \\(\\mu\\) and stan"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "U7": {
+   "page": "special/Normal.html",
+   "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "parts": [
+    {
+     "locator": "special/Normal.html@p:In some settings, it's convenient to consider a constant",
+     "found_by": "@p",
+     "segment_key": "seg:56cd22bafd1c152d7f14817bf7521324",
+     "kind": "paragraph",
+     "start": 21098,
+     "end": 21680,
+     "sha256": "1ec751445d2cd7ceaeb859b05c03bb07b05d8e015ad55ae11824be440b666290",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1",
+       "start": 21098,
+       "end": 21244
+      },
+      {
+       "id": "s2",
+       "key": "seg:a92e794aa544c8922ed156fee2a14236",
+       "start": 21245,
+       "end": 21333
+      },
+      {
+       "id": "s3",
+       "key": "seg:c4c8c220064b7baae0c9dd5163d76845",
+       "start": 21334,
+       "end": 21591
+      },
+      {
+       "id": "s4",
+       "key": "seg:40928ef040f210259852048694d4901f",
+       "start": 21592,
+       "end": 21680
+      }
+     ],
+     "first_80": "In some settings, it's convenient to consider a constant as having a normal dist"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "U8": {
+   "page": "special/Normal.html",
+   "document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "parts": [
+    {
+     "locator": "special/Normal.html@u:A metal rod is designed",
+     "found_by": "@u",
+     "segment_key": "seg:9aa15b25543793d52a4f180a6feb350f",
+     "kind": "unit",
+     "start": 20257,
+     "end": 20769,
+     "sha256": "a6824de52c4693e59005fc77f3d0f1406832d227e522a0c9c458c35e66c14d6b",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:d7f5c560d0d153559e24ae58937b434a",
+       "start": 20257,
+       "end": 20331
+      },
+      {
+       "id": "s2",
+       "key": "seg:2d62bec8ef4a94814838147187f9d1d4",
+       "start": 20332,
+       "end": 20425
+      },
+      {
+       "id": "s3",
+       "key": "seg:327c806dbcfb87aa63c4cca2502ddab9",
+       "start": 20426,
+       "end": 20523
+      },
+      {
+       "id": "s4",
+       "key": "seg:c06b44e7a1bd2f44fffbab96fb3905fd",
+       "start": 20524,
+       "end": 20598
+      },
+      {
+       "id": "s5",
+       "key": "seg:6c2c1fc5b53a20e305e21ddfeef3eca4",
+       "start": 20599,
+       "end": 20656
+      },
+      {
+       "id": "s6",
+       "key": "seg:13319312f522a9ddd2cf2e75e4e97b5b",
+       "start": 20668,
+       "end": 20740
+      },
+      {
+       "id": "s7",
+       "key": "seg:17abf3faaf5997aa5a5f035ebdc4ba48",
+       "start": 20741,
+       "end": 20769
+      }
+     ],
+     "first_80": "A metal rod is designed to fit into a circular hole on a certain assembly. The r"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "U9": {
+   "page": "special/LogNormal.html",
+   "document_key": "doc:0dd78f24fc1bdaaf8caf3c23abd9ff33",
+   "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+   "parts": [
+    {
+     "locator": "special/LogNormal.html@u:Suppose that \\(n \\in \\N_+\\) and that",
+     "found_by": "@u",
+     "segment_key": "seg:bf89d85bb1bd8d84eab6e3dafa1064ce",
+     "kind": "unit",
+     "start": 10048,
+     "end": 10936,
+     "sha256": "23a1dfc2e7f0bbf847b19a81c1d198710e476fe00d3a058f0aa2c9541ecdb730",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:c8858445283cc4b3aeebf62b43bc2380",
+       "start": 10048,
+       "end": 10298
+      },
+      {
+       "id": "s2",
+       "key": "seg:d4d15a5c15b937f230d666afa222625c",
+       "start": 10299,
+       "end": 10474
+      },
+      {
+       "id": "s3",
+       "key": "seg:ae936ca6dd75a6556c16350058871c9a",
+       "start": 10486,
+       "end": 10743
+      },
+      {
+       "id": "s4",
+       "key": "seg:f5bda7a82a6394d9651a5a2520b503bb",
+       "start": 10744,
+       "end": 10808
+      },
+      {
+       "id": "s5",
+       "key": "seg:cc5662bf909023b827077c3ccad88c2a",
+       "start": 10809,
+       "end": 10936
+      }
+     ],
+     "first_80": "Suppose that \\(n \\in \\N_+\\) and that \\((X_1, X_2, \\ldots, X_n)\\) is a sequence o"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "U10": {
+   "page": "special/Gamma.html",
+   "document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+   "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+   "parts": [
+    {
+     "locator": "special/Gamma.html#dfn4",
+     "found_by": "#d",
+     "segment_key": "seg:6a12d5c892b53e0caf55405219674c69",
+     "kind": "unit",
+     "start": 10263,
+     "end": 10480,
+     "sha256": "662ccef1773f1128c066be8aca7aa5a3f9d754a7eef24ce6f51767723758a6c6",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:f866c716530e7e0d81a76b88d387d242",
+       "start": 10263,
+       "end": 10480
+      }
+     ],
+     "first_80": "If \\(Z\\) has the standard gamma distribution with shape parameter \\(k \\in (0, \\i"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "U11": {
+   "page": "special/Gamma.html",
+   "document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+   "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+   "parts": [
+    {
+     "locator": "special/Gamma.html#rel2",
+     "found_by": "#r",
+     "segment_key": "seg:7d33a74d20d3f223e0806f7823a80949",
+     "kind": "unit",
+     "start": 16771,
+     "end": 17354,
+     "sha256": "ec0b2447a80f98cdc6c7f775970c34dd9360ce34147c839a751309baa4373898",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:3a0fdd2baeab629e1d8efe4065a86e9b",
+       "start": 16771,
+       "end": 16992
+      },
+      {
+       "id": "s2",
+       "key": "seg:ef641d35c7067a79e9a255ee53e5de15",
+       "start": 16993,
+       "end": 17100
+      },
+      {
+       "id": "s3",
+       "key": "seg:761456882896712fbe868b5815b43840",
+       "start": 17112,
+       "end": 17354
+      }
+     ],
+     "first_80": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": []
+  },
+  "U12": {
+   "page": "special/Gamma.html",
+   "document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+   "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+   "parts": [
+    {
+     "locator": "special/Gamma.html#mom1",
+     "found_by": "#m",
+     "segment_key": "seg:617e22d84559cfeea7e53551b4a4aee4",
+     "kind": "unit",
+     "start": 7253,
+     "end": 7672,
+     "sha256": "beb4fc41cdd5955463cc0d546797f22707de35b3ad09a2b1cf2483cf5a1468a3",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:7edc0b114a37b999625e6f5b6393f3f1",
+       "start": 7253,
+       "end": 7289
+      },
+      {
+       "id": "s2",
+       "key": "seg:fffdc9c9a07875ea4f25614d1db1cc51",
+       "start": 7291,
+       "end": 7308
+      },
+      {
+       "id": "s3",
+       "key": "seg:798141f60bd67c856fd7779c40e80b78",
+       "start": 7309,
+       "end": 7328
+      },
+      {
+       "id": "s4",
+       "key": "seg:b32398b5dd210b09054a83c2b028e06c",
+       "start": 7340,
+       "end": 7461
+      },
+      {
+       "id": "s5",
+       "key": "seg:1f928b3871064106c0e965a530dfa590",
+       "start": 7462,
+       "end": 7672
+      }
+     ],
+     "first_80": "The mean and variance of \\( X \\) are\n\n(a) \\(\\E(X) = k\\)\n(b) \\(\\var(X) = k\\)\n\nDet"
+    }
+   ],
+   "set": "core",
+   "rendition_dir": "results/s1",
+   "context": [
+    {
+     "id": "c1",
+     "key": "seg:c131493902e883cb77497f5026e09ed0",
+     "start": 7090,
+     "end": 7192
+    }
+   ]
+  },
+  "H1": {
+   "page": "special/Pareto.html",
+   "document_key": "doc:cb2ae5e4cc349d5f1f9586f3c044c519",
+   "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+   "parts": [
+    {
+     "locator": "special/Pareto.html@u:The basic Pareto distribution with shape paramet",
+     "found_by": "@u",
+     "segment_key": "seg:e22abb26c437ee670b93b4822adec9c3",
+     "kind": "unit",
+     "start": 235,
+     "end": 668,
+     "sha256": "4eb5a6bc48b306ad19e91953e05dc2161da58b491fb4bcff725f9ba0c7cc339c",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:3c1fc5ab8b03cca1fae5ea74902a1f4e",
+       "start": 235,
+       "end": 457
+      },
+      {
+       "id": "s2",
+       "key": "seg:88be3c3e2c879981545502af43c4da90",
+       "start": 458,
+       "end": 526
+      },
+      {
+       "id": "s3",
+       "key": "seg:6237c0b9d685922f45c02e5f64e46ca8",
+       "start": 538,
+       "end": 668
+      }
+     ],
+     "first_80": "The basic Pareto distribution with shape parameter \\(a \\in (0, \\infty)\\) is a co"
+    }
+   ],
+   "set": "held_out",
+   "rendition_dir": "results/s0r2/s1",
+   "context": []
+  },
+  "H2": {
+   "page": "special/Pareto.html",
+   "document_key": "doc:cb2ae5e4cc349d5f1f9586f3c044c519",
+   "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+   "parts": [
+    {
+     "locator": "special/Pareto.html@u:Suppose that \\(Z\\) has the basic Pareto distribu",
+     "found_by": "@u",
+     "segment_key": "seg:cadb37f4fed82392f49343180a280826",
+     "kind": "unit",
+     "start": 9161,
+     "end": 9398,
+     "sha256": "4f13001945ab4568f4e4ad9147df248b3ac2679ee4edc01f3392b2257b6f3da5",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:1f9af4c2c70fe57c4bc412022beb961a",
+       "start": 9161,
+       "end": 9288
+      },
+      {
+       "id": "s2",
+       "key": "seg:e01a4537ba484c5d48adc883bb90ce76",
+       "start": 9289,
+       "end": 9398
+      }
+     ],
+     "first_80": "Suppose that \\(Z\\) has the basic Pareto distribution with shape parameter \\(a \\i"
+    }
+   ],
+   "set": "held_out",
+   "rendition_dir": "results/s0r2/s1",
+   "context": []
+  },
+  "H3": {
+   "page": "special/Pareto.html",
+   "document_key": "doc:cb2ae5e4cc349d5f1f9586f3c044c519",
+   "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+   "parts": [
+    {
+     "locator": "special/Pareto.html@u:The mean and variance of \\( X \\) are (a) \\(\\E(X)",
+     "found_by": "@u",
+     "segment_key": "seg:788db1e3c765a15b7a8cfe995bb4901f",
+     "kind": "unit",
+     "start": 11780,
+     "end": 11931,
+     "sha256": "1838abf1140fb47d183bf6b64c625b82253776bd75245dd6383452169c95b155",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:4f6678b4fb4aa26b8cccb1490bd035ec",
+       "start": 11780,
+       "end": 11816
+      },
+      {
+       "id": "s2",
+       "key": "seg:ad67954ed078c791c41c4eb872547060",
+       "start": 11818,
+       "end": 11866
+      },
+      {
+       "id": "s3",
+       "key": "seg:1341c0e711da39ec41d8e4c8df1f4fbb",
+       "start": 11867,
+       "end": 11931
+      }
+     ],
+     "first_80": "The mean and variance of \\( X \\) are\n\n(a) \\(\\E(X) = b \\frac{a}{a - 1}\\) if \\(a \\"
+    }
+   ],
+   "set": "held_out",
+   "rendition_dir": "results/s0r2/s1",
+   "context": [
+    {
+     "id": "c1",
+     "key": "seg:e40745762d5acffee839216462c2c1c7",
+     "start": 2123,
+     "end": 2239
+    },
+    {
+     "id": "c2",
+     "key": "seg:d3c15258a497adce74a0c1449323ab0f",
+     "start": 9504,
+     "end": 9648
+    }
+   ]
+  },
+  "H4": {
+   "page": "special/ChiSquare.html",
+   "document_key": "doc:a05eaf325af0c7734ac9e99e9cdaf002",
+   "rendition_key": "ren:77c3a8c88f74974f3c555e3ed06fcbc4",
+   "parts": [
+    {
+     "locator": "special/ChiSquare.html@u:If \\(Z\\) has the standard normal distribution th",
+     "found_by": "@u",
+     "segment_key": "seg:3328c0eeb39571f76a839ad38053ade8",
+     "kind": "unit",
+     "start": 6836,
+     "end": 7463,
+     "sha256": "24ce465e58e5c83adb662a8b41a31ef4ae9249374a1fb30f8a43797e6177eb44",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:a3cf1caaee4cf355f74eb5bce979e62f",
+       "start": 6836,
+       "end": 6956
+      },
+      {
+       "id": "s2",
+       "key": "seg:8d2ed07cb9f8fcbe62d555d4a6c5d1a8",
+       "start": 6968,
+       "end": 7463
+      }
+     ],
+     "first_80": "If \\(Z\\) has the standard normal distribution then \\(X = Z^2\\) has the chi-squar"
+    }
+   ],
+   "set": "held_out",
+   "rendition_dir": "results/s0r2/s1",
+   "context": []
+  },
+  "H5": {
+   "page": "special/ChiSquare.html",
+   "document_key": "doc:a05eaf325af0c7734ac9e99e9cdaf002",
+   "rendition_key": "ren:77c3a8c88f74974f3c555e3ed06fcbc4",
+   "parts": [
+    {
+     "locator": "special/ChiSquare.html@u:Suppose that \\( n \\in \\N_+ \\) and that \\((Z_1, Z",
+     "found_by": "@u",
+     "segment_key": "seg:f007733d85ad718d92979b54e2154a55",
+     "kind": "unit",
+     "start": 8200,
+     "end": 8442,
+     "sha256": "70e57962eaa08f7abf07a5898efe818a4c8242b9d3d195f5cc3d3196f26788cc",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:b04fd34866a730f67d6f75ae9003dea3",
+       "start": 8200,
+       "end": 8322
+      },
+      {
+       "id": "s2",
+       "key": "seg:5e8fabd0f48e3a817e4c4cada9018c59",
+       "start": 8323,
+       "end": 8442
+      }
+     ],
+     "first_80": "Suppose that \\( n \\in \\N_+ \\) and that \\((Z_1, Z_2, \\ldots, Z_n)\\) is a sequence"
+    }
+   ],
+   "set": "held_out",
+   "rendition_dir": "results/s0r2/s1",
+   "context": []
+  },
+  "H6": {
+   "page": "special/Pareto.html",
+   "document_key": "doc:cb2ae5e4cc349d5f1f9586f3c044c519",
+   "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+   "parts": [
+    {
+     "locator": "special/Pareto.html@u:Suppose that the income of a certain population ",
+     "found_by": "@u",
+     "segment_key": "seg:9eb7d026ed22f34284e8e9ba8aea2655",
+     "kind": "unit",
+     "start": 17189,
+     "end": 17827,
+     "sha256": "7710c26a6e1c6ce52f9ebd479b0e8294bcc0468257658b1357bf137f092fb42c",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:fcee07fd89f3070b141d38ea33791e76",
+       "start": 17189,
+       "end": 17313
+      },
+      {
+       "id": "s2",
+       "key": "seg:714d81d64341e2c28f4237d13b755939",
+       "start": 17314,
+       "end": 17341
+      },
+      {
+       "id": "s3",
+       "key": "seg:449285a39a45c98f021d9a97de45fb03",
+       "start": 17343,
+       "end": 17415
+      },
+      {
+       "id": "s4",
+       "key": "seg:aa9eba035eb75c5ae710b55160844b2d",
+       "start": 17416,
+       "end": 17438
+      },
+      {
+       "id": "s5",
+       "key": "seg:98d245b3eef99655679faf1e699ee62d",
+       "start": 17439,
+       "end": 17501
+      },
+      {
+       "id": "s6",
+       "key": "seg:0f238435b68a1c6c520736dc3c7cff24",
+       "start": 17502,
+       "end": 17505
+      },
+      {
+       "id": "s7",
+       "key": "seg:58d4c849e3d5a6d446812a71cf429748",
+       "start": 17506,
+       "end": 17522
+      },
+      {
+       "id": "s8",
+       "key": "seg:33531ae49ec2d9fb3303a9a34ac2a605",
+       "start": 17523,
+       "end": 17560
+      },
+      {
+       "id": "s9",
+       "key": "seg:36d31f9cd0945767ae13199cdf0f5e10",
+       "start": 17561,
+       "end": 17585
+      },
+      {
+       "id": "s10",
+       "key": "seg:394c7b381e025f78bee710cf6bdd8f7e",
+       "start": 17597,
+       "end": 17637
+      },
+      {
+       "id": "s11",
+       "key": "seg:565ee294e22463f956505cb2a8d522a8",
+       "start": 17638,
+       "end": 17665
+      },
+      {
+       "id": "s12",
+       "key": "seg:4ae2c8c60b3e3a965567926517c1980f",
+       "start": 17666,
+       "end": 17687
+      },
+      {
+       "id": "s13",
+       "key": "seg:fc0a7ca48f49ea213d264d5ee7c4086c",
+       "start": 17688,
+       "end": 17752
+      },
+      {
+       "id": "s14",
+       "key": "seg:95322c4d5147c58899c480d025f8366d",
+       "start": 17753,
+       "end": 17773
+      },
+      {
+       "id": "s15",
+       "key": "seg:590e30dfa00de5c07cc334a0be94cde7",
+       "start": 17774,
+       "end": 17797
+      },
+      {
+       "id": "s16",
+       "key": "seg:8bde42e49ab4a956e80cb1103ba4aa71",
+       "start": 17798,
+       "end": 17827
+      }
+     ],
+     "first_80": "Suppose that the income of a certain population has the Pareto distribution with"
+    }
+   ],
+   "set": "held_out",
+   "rendition_dir": "results/s0r2/s1",
+   "context": []
+  },
+  "E1": {
+   "page": "special/Weibull.html",
+   "document_key": "doc:b64dc4d919f3ffc3e4faa3d08a84d99a",
+   "rendition_key": "ren:23c561a51cc7f27328f422b829b1d52a",
+   "parts": [
+    {
+     "locator": "special/Weibull.html@u:Suppose that \\(Z\\) has the basic Weibull distrib",
+     "found_by": "@u",
+     "segment_key": "seg:a2538940a13dd9ee9c006b64137933ca",
+     "kind": "unit",
+     "start": 10158,
+     "end": 10395,
+     "sha256": "b73782af951e3ca7923830c6b03b2f671b54e1b0530b8a0f3bdfa66ce53dd76b",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:b993ae058ec620788123cf9a97f317bf",
+       "start": 10158,
+       "end": 10255
+      },
+      {
+       "id": "s2",
+       "key": "seg:5797316bd78c74ee181f28d2e9315d73",
+       "start": 10256,
+       "end": 10395
+      }
+     ],
+     "first_80": "Suppose that \\(Z\\) has the basic Weibull distribution with shape parameter \\(k \\"
+    }
+   ],
+   "set": "example",
+   "rendition_dir": "results/s0r2/s1",
+   "context": []
+  },
+  "E2": {
+   "page": "special/Weibull.html",
+   "document_key": "doc:b64dc4d919f3ffc3e4faa3d08a84d99a",
+   "rendition_key": "ren:23c561a51cc7f27328f422b829b1d52a",
+   "parts": [
+    {
+     "locator": "special/Weibull.html@u:Suppose that \\(X\\) has the Weibull distribution ",
+     "found_by": "@u",
+     "segment_key": "seg:28087421af227a1afb6ccda19ca547ae",
+     "kind": "unit",
+     "start": 15721,
+     "end": 16151,
+     "sha256": "83b522b3a5a1e3601900aba00c012b2ed5a45eff252f4b080ff52c3449a74dd5",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:38fef439ebca598c5176b36f4bc69c43",
+       "start": 15721,
+       "end": 15854
+      },
+      {
+       "id": "s2",
+       "key": "seg:916c4cfd044f09a9bc2d6531dd70171b",
+       "start": 15855,
+       "end": 15981
+      },
+      {
+       "id": "s3",
+       "key": "seg:3af6e72e67f6a300a3e667d8dab49475",
+       "start": 15993,
+       "end": 16117
+      },
+      {
+       "id": "s4",
+       "key": "seg:a48c2b2326f23d8326497d46a6f28813",
+       "start": 16118,
+       "end": 16151
+      }
+     ],
+     "first_80": "Suppose that \\(X\\) has the Weibull distribution with shape parameter \\(k \\in (0,"
+    }
+   ],
+   "set": "example",
+   "rendition_dir": "results/s0r2/s1",
+   "context": []
+  },
+  "E3": {
+   "page": "special/Weibull.html",
+   "document_key": "doc:b64dc4d919f3ffc3e4faa3d08a84d99a",
+   "rendition_key": "ren:23c561a51cc7f27328f422b829b1d52a",
+   "parts": [
+    {
+     "locator": "special/Weibull.html@u:The lifetime \\(T\\) of a device (in hours) has th",
+     "found_by": "@u",
+     "segment_key": "seg:6d3094502a5b52609ee2e3e338daf737",
+     "kind": "unit",
+     "start": 22349,
+     "end": 22773,
+     "sha256": "b990ba59947e9850036839e75183785349bbd86e9cdcbcbf8e9e85f22e5a1f9f",
+     "sentences": [
+      {
+       "id": "s1",
+       "key": "seg:74606e929e4e27d897f2ecd9d910b3c8",
+       "start": 22349,
+       "end": 22486
+      },
+      {
+       "id": "s2",
+       "key": "seg:d80ba5b9449400a68ccb5edf8595d693",
+       "start": 22488,
+       "end": 22559
+      },
+      {
+       "id": "s3",
+       "key": "seg:514ff9ca372591e65af5202b96b65046",
+       "start": 22560,
+       "end": 22617
+      },
+      {
+       "id": "s4",
+       "key": "seg:ef97fb6af715acf844016fba4d12a944",
+       "start": 22618,
+       "end": 22656
+      },
+      {
+       "id": "s5",
+       "key": "seg:ca6678d4bd6eb92b8944eda75b16725f",
+       "start": 22668,
+       "end": 22699
+      },
+      {
+       "id": "s6",
+       "key": "seg:971485cd8612d6cebed6f519596bd1d7",
+       "start": 22700,
+       "end": 22741
+      },
+      {
+       "id": "s7",
+       "key": "seg:287585c4796235cdb6499c34fd8531db",
+       "start": 22742,
+       "end": 22773
+      }
+     ],
+     "first_80": "The lifetime \\(T\\) of a device (in hours) has the Weibull distribution with shap"
+    }
+   ],
+   "set": "example",
+   "rendition_dir": "results/s0r2/s1",
+   "context": []
+  }
+ }
+}

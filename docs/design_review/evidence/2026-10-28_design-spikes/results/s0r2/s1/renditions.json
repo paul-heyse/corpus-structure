@@ -1,0 +1,508 @@
+{
+ "special/ChiSquare.html": {
+  "page": "special/ChiSquare.html",
+  "source_uri": "siegrist_random/random/special/ChiSquare.html",
+  "document_key": "doc:a05eaf325af0c7734ac9e99e9cdaf002",
+  "rendition_key": "ren:77c3a8c88f74974f3c555e3ed06fcbc4",
+  "config": {
+   "adapter": "s1_adapter",
+   "version": "0.1.0",
+   "profile": "siegrist",
+   "parser": "lxml",
+   "unicode": "NFC",
+   "math_whitespace": "keep",
+   "sections": "h3h4",
+   "apps": "keep",
+   "render": {
+    "aref": "browser",
+    "q": "quotes",
+    "list_markers": "parenthesized",
+    "summary": "heading",
+    "figure": "caption"
+   }
+  },
+  "config_hash": "34008df1e4c303fb77a0a632e690069f",
+  "title": "Chi-Square and Related Distributions",
+  "meta": {
+   "author": "Kyle Siegrist",
+   "viewport": "width=device-width, initial-scale=1",
+   "keywords": "probability, statistics, chi-square distribution, chi distribution, non-central chi-square distribution, gamma distribution, exponential distribution, normal approximation, infinitely divisible distribution"
+  },
+  "parse_detail": {
+   "macros": {
+    "\\R": {
+     "nargs": 0,
+     "body": "\\mathbb{R}"
+    },
+    "\\N": {
+     "nargs": 0,
+     "body": "\\mathbb{N}"
+    },
+    "\\E": {
+     "nargs": 0,
+     "body": "\\mathbb{E}"
+    },
+    "\\P": {
+     "nargs": 0,
+     "body": "\\mathbb{P}"
+    },
+    "\\var": {
+     "nargs": 0,
+     "body": "\\text{var}"
+    },
+    "\\sd": {
+     "nargs": 0,
+     "body": "\\text{sd}"
+    },
+    "\\skw": {
+     "nargs": 0,
+     "body": "\\text{skew}"
+    },
+    "\\kur": {
+     "nargs": 0,
+     "body": "\\text{kurt}"
+    },
+    "\\bs": {
+     "nargs": 0,
+     "body": "\\boldsymbol"
+    }
+   },
+   "math_anomalies": [],
+   "orphans": [],
+   "unicode_changed": [],
+   "aref_rendered": 13
+  },
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "profile_engines": {
+   "per_rule": {
+    "block_hint:p.app": {
+     "cssselect2": 6,
+     "xpath": 6,
+     "identical": true
+    },
+    "block_hint:p.dfn": {
+     "cssselect2": 4,
+     "xpath": 4,
+     "identical": true
+    },
+    "block_hint:p.math": {
+     "cssselect2": 29,
+     "xpath": 29,
+     "identical": true
+    },
+    "details:details": {
+     "cssselect2": 15,
+     "xpath": 15,
+     "identical": true
+    },
+    "exclude:chapter_lists": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "exclude:controls": {
+     "cssselect2": 4,
+     "xpath": 4,
+     "identical": true
+    },
+    "exclude:images": {
+     "cssselect2": 4,
+     "xpath": 4,
+     "identical": true
+    },
+    "exclude:macro_block": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "exclude:navigation": {
+     "cssselect2": 2,
+     "xpath": 2,
+     "identical": true
+    },
+    "exclude:scripts": {
+     "cssselect2": 3,
+     "xpath": 3,
+     "identical": true
+    },
+    "summary:summary": {
+     "cssselect2": 15,
+     "xpath": 15,
+     "identical": true
+    },
+    "title:title": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "unit:unit": {
+     "cssselect2": 39,
+     "xpath": 39,
+     "identical": true
+    }
+   },
+   "all_identical": true,
+   "role_conflicts": []
+  },
+  "profile_xpaths": {
+   "script, noscript": "descendant-or-self::script | descendant-or-self::noscript",
+   "div.latex": "descendant-or-self::div[@class and contains(@class, 'latex') and contains(concat(' ', normalize-space(@class), ' '), ' latex ')]",
+   "header ol.map, footer": "descendant-or-self::header/descendant::ol[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')] | descendant-or-self::footer",
+   "button": "descendant-or-self::button",
+   "img": "descendant-or-self::img",
+   "ul.map": "descendant-or-self::ul[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')]",
+   "div.unit": "descendant-or-self::div[@class and contains(@class, 'unit') and contains(concat(' ', normalize-space(@class), ' '), ' unit ')]",
+   "header h2": "descendant-or-self::header/descendant::h2",
+   "p.dfn": "descendant-or-self::p[@class and contains(@class, 'dfn') and contains(concat(' ', normalize-space(@class), ' '), ' dfn ')]",
+   "p.dfm": "descendant-or-self::p[@class and contains(@class, 'dfm') and contains(concat(' ', normalize-space(@class), ' '), ' dfm ')]",
+   "p.dfin": "descendant-or-self::p[@class and contains(@class, 'dfin') and contains(concat(' ', normalize-space(@class), ' '), ' dfin ')]",
+   "p.math": "descendant-or-self::p[@class and contains(@class, 'math') and contains(concat(' ', normalize-space(@class), ' '), ' math ')]",
+   "p.exercise": "descendant-or-self::p[@class and contains(@class, 'exercise') and contains(concat(' ', normalize-space(@class), ' '), ' exercise ')]",
+   "p.exericse": "descendant-or-self::p[@class and contains(@class, 'exericse') and contains(concat(' ', normalize-space(@class), ' '), ' exericse ')]",
+   "p.app": "descendant-or-self::p[@class and contains(@class, 'app') and contains(concat(' ', normalize-space(@class), ' '), ' app ')]",
+   "p.stat": "descendant-or-self::p[@class and contains(@class, 'stat') and contains(concat(' ', normalize-space(@class), ' '), ' stat ')]",
+   "p.Proof": "descendant-or-self::p[@class and contains(@class, 'Proof') and contains(concat(' ', normalize-space(@class), ' '), ' Proof ')]",
+   "details": "descendant-or-self::details",
+   "details > summary": "descendant-or-self::details/summary"
+  }
+ },
+ "special/Pareto.html": {
+  "page": "special/Pareto.html",
+  "source_uri": "siegrist_random/random/special/Pareto.html",
+  "document_key": "doc:cb2ae5e4cc349d5f1f9586f3c044c519",
+  "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+  "config": {
+   "adapter": "s1_adapter",
+   "version": "0.1.0",
+   "profile": "siegrist",
+   "parser": "lxml",
+   "unicode": "NFC",
+   "math_whitespace": "keep",
+   "sections": "h3h4",
+   "apps": "keep",
+   "render": {
+    "aref": "browser",
+    "q": "quotes",
+    "list_markers": "parenthesized",
+    "summary": "heading",
+    "figure": "caption"
+   }
+  },
+  "config_hash": "34008df1e4c303fb77a0a632e690069f",
+  "title": "The Pareto Distribution",
+  "meta": {
+   "author": "Kyle Siegrist",
+   "viewport": "width=device-width, initial-scale=1",
+   "keywords": "probability, statistics, Pareto distribution, beta distribution, exponential distribution, uniform distribution, scale family"
+  },
+  "parse_detail": {
+   "macros": {
+    "\\P": {
+     "nargs": 0,
+     "body": "\\mathbb{P}"
+    },
+    "\\E": {
+     "nargs": 0,
+     "body": "\\mathbb{E}"
+    },
+    "\\var": {
+     "nargs": 0,
+     "body": "\\text{var}"
+    },
+    "\\sd": {
+     "nargs": 0,
+     "body": "\\text{sd}"
+    },
+    "\\N": {
+     "nargs": 0,
+     "body": "\\mathbb{N}"
+    },
+    "\\skw": {
+     "nargs": 0,
+     "body": "\\text{skew}"
+    },
+    "\\kur": {
+     "nargs": 0,
+     "body": "\\text{kurt}"
+    }
+   },
+   "math_anomalies": [],
+   "orphans": [],
+   "unicode_changed": [],
+   "aref_rendered": 21
+  },
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "profile_engines": {
+   "per_rule": {
+    "block_hint:p.app": {
+     "cssselect2": 8,
+     "xpath": 8,
+     "identical": true
+    },
+    "block_hint:p.dfn": {
+     "cssselect2": 2,
+     "xpath": 2,
+     "identical": true
+    },
+    "block_hint:p.math": {
+     "cssselect2": 21,
+     "xpath": 21,
+     "identical": true
+    },
+    "details:details": {
+     "cssselect2": 21,
+     "xpath": 21,
+     "identical": true
+    },
+    "exclude:chapter_lists": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "exclude:controls": {
+     "cssselect2": 4,
+     "xpath": 4,
+     "identical": true
+    },
+    "exclude:images": {
+     "cssselect2": 4,
+     "xpath": 4,
+     "identical": true
+    },
+    "exclude:macro_block": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "exclude:navigation": {
+     "cssselect2": 2,
+     "xpath": 2,
+     "identical": true
+    },
+    "exclude:scripts": {
+     "cssselect2": 3,
+     "xpath": 3,
+     "identical": true
+    },
+    "summary:summary": {
+     "cssselect2": 21,
+     "xpath": 21,
+     "identical": true
+    },
+    "title:title": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "unit:unit": {
+     "cssselect2": 31,
+     "xpath": 31,
+     "identical": true
+    }
+   },
+   "all_identical": true,
+   "role_conflicts": []
+  },
+  "profile_xpaths": {
+   "script, noscript": "descendant-or-self::script | descendant-or-self::noscript",
+   "div.latex": "descendant-or-self::div[@class and contains(@class, 'latex') and contains(concat(' ', normalize-space(@class), ' '), ' latex ')]",
+   "header ol.map, footer": "descendant-or-self::header/descendant::ol[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')] | descendant-or-self::footer",
+   "button": "descendant-or-self::button",
+   "img": "descendant-or-self::img",
+   "ul.map": "descendant-or-self::ul[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')]",
+   "div.unit": "descendant-or-self::div[@class and contains(@class, 'unit') and contains(concat(' ', normalize-space(@class), ' '), ' unit ')]",
+   "header h2": "descendant-or-self::header/descendant::h2",
+   "p.dfn": "descendant-or-self::p[@class and contains(@class, 'dfn') and contains(concat(' ', normalize-space(@class), ' '), ' dfn ')]",
+   "p.dfm": "descendant-or-self::p[@class and contains(@class, 'dfm') and contains(concat(' ', normalize-space(@class), ' '), ' dfm ')]",
+   "p.dfin": "descendant-or-self::p[@class and contains(@class, 'dfin') and contains(concat(' ', normalize-space(@class), ' '), ' dfin ')]",
+   "p.math": "descendant-or-self::p[@class and contains(@class, 'math') and contains(concat(' ', normalize-space(@class), ' '), ' math ')]",
+   "p.exercise": "descendant-or-self::p[@class and contains(@class, 'exercise') and contains(concat(' ', normalize-space(@class), ' '), ' exercise ')]",
+   "p.exericse": "descendant-or-self::p[@class and contains(@class, 'exericse') and contains(concat(' ', normalize-space(@class), ' '), ' exericse ')]",
+   "p.app": "descendant-or-self::p[@class and contains(@class, 'app') and contains(concat(' ', normalize-space(@class), ' '), ' app ')]",
+   "p.stat": "descendant-or-self::p[@class and contains(@class, 'stat') and contains(concat(' ', normalize-space(@class), ' '), ' stat ')]",
+   "p.Proof": "descendant-or-self::p[@class and contains(@class, 'Proof') and contains(concat(' ', normalize-space(@class), ' '), ' Proof ')]",
+   "details": "descendant-or-self::details",
+   "details > summary": "descendant-or-self::details/summary"
+  }
+ },
+ "special/Weibull.html": {
+  "page": "special/Weibull.html",
+  "source_uri": "siegrist_random/random/special/Weibull.html",
+  "document_key": "doc:b64dc4d919f3ffc3e4faa3d08a84d99a",
+  "rendition_key": "ren:23c561a51cc7f27328f422b829b1d52a",
+  "config": {
+   "adapter": "s1_adapter",
+   "version": "0.1.0",
+   "profile": "siegrist",
+   "parser": "lxml",
+   "unicode": "NFC",
+   "math_whitespace": "keep",
+   "sections": "h3h4",
+   "apps": "keep",
+   "render": {
+    "aref": "browser",
+    "q": "quotes",
+    "list_markers": "parenthesized",
+    "summary": "heading",
+    "figure": "caption"
+   }
+  },
+  "config_hash": "34008df1e4c303fb77a0a632e690069f",
+  "title": "The Weibull Distribution",
+  "meta": {
+   "author": "Kyle Siegrist",
+   "viewport": "width=device-width, initial-scale=1",
+   "keywords": "probability, statistics, Weibull distribution, reliability, uniform distribution, exponential distribution, Rayleigh distribution, scale family, exponential family"
+  },
+  "parse_detail": {
+   "macros": {
+    "\\R": {
+     "nargs": 0,
+     "body": "\\mathbb{R}"
+    },
+    "\\N": {
+     "nargs": 0,
+     "body": "\\mathbb{N}"
+    },
+    "\\E": {
+     "nargs": 0,
+     "body": "\\mathbb{E}"
+    },
+    "\\P": {
+     "nargs": 0,
+     "body": "\\mathbb{P}"
+    },
+    "\\var": {
+     "nargs": 0,
+     "body": "\\text{var}"
+    },
+    "\\sd": {
+     "nargs": 0,
+     "body": "\\text{sd}"
+    },
+    "\\cov": {
+     "nargs": 0,
+     "body": "\\text{cov}"
+    },
+    "\\cor": {
+     "nargs": 0,
+     "body": "\\text{cor}"
+    },
+    "\\skw": {
+     "nargs": 0,
+     "body": "\\text{skew}"
+    },
+    "\\kur": {
+     "nargs": 0,
+     "body": "\\text{kurt}"
+    }
+   },
+   "math_anomalies": [],
+   "orphans": [
+    {
+     "container": "section",
+     "sourceline": 351,
+     "text": "Recall that the minimum of independent, exponentially distributed variables also"
+    }
+   ],
+   "unicode_changed": [],
+   "aref_rendered": 31
+  },
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "profile_engines": {
+   "per_rule": {
+    "block_hint:p.app": {
+     "cssselect2": 8,
+     "xpath": 8,
+     "identical": true
+    },
+    "block_hint:p.dfn": {
+     "cssselect2": 2,
+     "xpath": 2,
+     "identical": true
+    },
+    "block_hint:p.math": {
+     "cssselect2": 27,
+     "xpath": 27,
+     "identical": true
+    },
+    "details:details": {
+     "cssselect2": 25,
+     "xpath": 25,
+     "identical": true
+    },
+    "exclude:chapter_lists": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "exclude:controls": {
+     "cssselect2": 4,
+     "xpath": 4,
+     "identical": true
+    },
+    "exclude:images": {
+     "cssselect2": 4,
+     "xpath": 4,
+     "identical": true
+    },
+    "exclude:macro_block": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "exclude:navigation": {
+     "cssselect2": 2,
+     "xpath": 2,
+     "identical": true
+    },
+    "exclude:scripts": {
+     "cssselect2": 3,
+     "xpath": 3,
+     "identical": true
+    },
+    "summary:summary": {
+     "cssselect2": 25,
+     "xpath": 25,
+     "identical": true
+    },
+    "title:title": {
+     "cssselect2": 1,
+     "xpath": 1,
+     "identical": true
+    },
+    "unit:unit": {
+     "cssselect2": 37,
+     "xpath": 37,
+     "identical": true
+    }
+   },
+   "all_identical": true,
+   "role_conflicts": []
+  },
+  "profile_xpaths": {
+   "script, noscript": "descendant-or-self::script | descendant-or-self::noscript",
+   "div.latex": "descendant-or-self::div[@class and contains(@class, 'latex') and contains(concat(' ', normalize-space(@class), ' '), ' latex ')]",
+   "header ol.map, footer": "descendant-or-self::header/descendant::ol[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')] | descendant-or-self::footer",
+   "button": "descendant-or-self::button",
+   "img": "descendant-or-self::img",
+   "ul.map": "descendant-or-self::ul[@class and contains(@class, 'map') and contains(concat(' ', normalize-space(@class), ' '), ' map ')]",
+   "div.unit": "descendant-or-self::div[@class and contains(@class, 'unit') and contains(concat(' ', normalize-space(@class), ' '), ' unit ')]",
+   "header h2": "descendant-or-self::header/descendant::h2",
+   "p.dfn": "descendant-or-self::p[@class and contains(@class, 'dfn') and contains(concat(' ', normalize-space(@class), ' '), ' dfn ')]",
+   "p.dfm": "descendant-or-self::p[@class and contains(@class, 'dfm') and contains(concat(' ', normalize-space(@class), ' '), ' dfm ')]",
+   "p.dfin": "descendant-or-self::p[@class and contains(@class, 'dfin') and contains(concat(' ', normalize-space(@class), ' '), ' dfin ')]",
+   "p.math": "descendant-or-self::p[@class and contains(@class, 'math') and contains(concat(' ', normalize-space(@class), ' '), ' math ')]",
+   "p.exercise": "descendant-or-self::p[@class and contains(@class, 'exercise') and contains(concat(' ', normalize-space(@class), ' '), ' exercise ')]",
+   "p.exericse": "descendant-or-self::p[@class and contains(@class, 'exericse') and contains(concat(' ', normalize-space(@class), ' '), ' exericse ')]",
+   "p.app": "descendant-or-self::p[@class and contains(@class, 'app') and contains(concat(' ', normalize-space(@class), ' '), ' app ')]",
+   "p.stat": "descendant-or-self::p[@class and contains(@class, 'stat') and contains(concat(' ', normalize-space(@class), ' '), ' stat ')]",
+   "p.Proof": "descendant-or-self::p[@class and contains(@class, 'Proof') and contains(concat(' ', normalize-space(@class), ' '), ' Proof ')]",
+   "details": "descendant-or-self::details",
+   "details > summary": "descendant-or-self::details/summary"
+  }
+ }
+}

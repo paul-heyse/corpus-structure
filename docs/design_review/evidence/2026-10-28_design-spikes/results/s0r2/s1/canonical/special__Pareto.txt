@@ -1,0 +1,276 @@
+The Pareto Distribution
+
+The Pareto distribution is a skewed, heavy-tailed distribution that is sometimes used to model the distribution of incomes and other financial variables.
+
+The Basic Pareto Distribution
+
+Distribution Functions
+
+The basic Pareto distribution with shape parameter \(a \in (0, \infty)\) is a continuous distribution on \( [1, \infty) \) with distribution function \( G \) given by \[ G(z) = 1 - \frac{1}{z^a}, \quad z \in [1, \infty) \] The special case \( a = 1 \) gives the standard Pareto distribution.
+
+Details:
+
+Clearly \( G \) is increasing and continuous on \( [1, \infty) \), with \( G(1) = 0 \) and \( G(z) \to 1 \) as \( z \to \infty \).
+
+The Pareto distribution is named for the economist Vilfredo Pareto.
+
+The probability density function \(g\) is given by \[ g(z) = \frac{a}{z^{a+1}}, \quad z \in [1, \infty)\]
+
+(a) \(g\) is decreasing with mode \( z = 1 \)
+(b) \( g \) is concave upward.
+
+Details:
+
+Recall that \( g = G^\prime \) where \(G\) is the cdf in [1]. Parts (a) and (b) follow from standard calculus.
+
+The reason that the Pareto distribution is heavy-tailed is that the \( g \) decreases at a power rate rather than an exponential rate.
+
+Open the special distribution simulator and select the Pareto distribution. Vary the shape parameter and note the shape of the probability density function. For selected values of the parameter, run the simulation 1000 times and compare the empirical density function to the probability density function.
+
+The quantile function \( G^{-1} \) is given by \[ G^{-1}(p) = \frac{1}{(1 - p)^{1/a}}, \quad p \in [0, 1) \]
+
+(a) The first quartile is \( q_1 = \left(\frac{4}{3}\right)^{1/a} \).
+(b) The median is \( q_2 = 2^{1/a} \).
+(c) The third quartile is \( q_3 = 4^{1/a} \).
+
+Details:
+
+The formula for \( G^{-1}(p) \) follow from [1] by solving \( G(z) = p \) for \( z \) in terms of \( p \).
+
+Open the quantile app and select the Pareto distribution. Vary the shape parameter and note the shape of the probability density and distribution functions. For selected values of the parameters, compute the quantiles of order 0.1 and 0.9.
+
+Moments
+
+Suppose that random variable \( Z \) has the basic Pareto distribution with shape parameter \( a \in (0, \infty) \). Because the distribution is heavy-tailed, the mean, variance, and other moments of \( Z \) are finite only if the shape parameter \(a\) is sufficiently large.
+
+The moments of \( Z \) (about 0) are
+
+(a) \(\E(Z^n) = \frac{a}{a - n}\) if \(0 \lt n \lt a\)
+(b) \(\E(Z^n) = \infty\) if \(n \ge a\)
+
+Details:
+
+Note that \[ E(Z^n) = \int_1^\infty z^n \frac{a}{z^{a+1}} dz = \int_1^\infty a z^{-(a + 1 - n)} dz \] The integral diverges to \( \infty \) if \( a + 1 - n \le 1 \) and evaluates to \(\frac{a}{a - n} \) if \( a + 1 - n \gt 1 \).
+
+It follows that the moment generating function of \( Z \) cannot be finite on any interval about 0.
+
+In particular, the mean and variance of \(Z\) are
+
+(a) \(\E(Z) = \frac{a}{a - 1}\) if \(a \gt 1\)
+(b) \(\var(Z) = \frac{a}{(a - 1)^2 (a - 2)}\) if \(a \gt 2\)
+
+Details:
+
+This results follow from [6] and the computational formula \( \var(Z) = \E\left(Z^2\right) - [E(Z)]^2 \).
+
+In the special distribution simulator, select the Pareto distribution. Vary the parameters and note the shape and location of the mean \( \pm \) standard deviation bar. For each of the following parameter values, run the simulation 1000 times and note the behavior of the empirical moments:
+
+(a) \(a = 1\)
+(b) \(a = 2\)
+(c) \(a = 3\)
+
+The skewness and kurtosis of \( Z \) are as follows:
+
+(a) If \( a \gt 3 \), \[ \skw(Z) = \frac{2 (1 + a)}{a - 3} \sqrt{1 - \frac{2}{a}}\]
+(b) If \( a \gt 4 \), \[ \kur(Z) = \frac{3 (a - 2)(3 a^2 + a + 2)}{a (a - 3)(a - 4)} \]
+
+Details:
+
+These results follow from the standard computational formulas for skewness and kurtosis, and the first 4 moments of \( Z \) in [6].
+
+So the distribution is positively skewed and \( \skw(Z) \to 2 \) as \( a \to \infty \) while \( \skw(Z) \to \infty \) as \( a \downarrow 3 \). Similarly, \( \kur(Z) \to 9 \) as \( a \to \infty \) and \( \kur(Z) \to \infty \) as \( a \downarrow 4 \). Recall that the excess kurtosis of \( Z \) is \[ \kur(Z) - 3 = \frac{3 (a - 2)(3 a^2 + a + 2)}{a (a - 3)(a - 4)} - 3 = \frac{6 (a^3 + a^2 - 6 a - 1)}{a(a - 3)(a - 4)} \]
+
+Related Distributions
+
+The basic Pareto distribution is invariant under positive powers of the underlying variable.
+
+Suppose that \( Z \) has the basic Pareto distribution with shape parameter \( a \in (0, \infty) \) and that \( n \in (0, \infty) \). Then \( W = Z^n \) has the basic Pareto distribution with shape parameter \( a / n \).
+
+Details:
+
+We use the CDF of \( Z \) in [1]. \[ \P(W \le w) = \P\left(Z \le w^{1/n}\right) = 1 - \frac{1}{w^{a/n}}, \quad w \in [1, \infty) \] As a function of \( w  \), this is the Pareto CDF with shape parameter \( a / n \).
+
+In particular, if \( Z \) has the standard Pareto distribution and \( a \in (0, \infty) \), then \( Z^{1 / a} \) has the basic Pareto distribution with shape parameter \( a \). Thus, all basic Pareto variables can be constructed from the standard one.
+
+The basic Pareto distribution has a reciprocal relationship with the beta distribution.
+
+Suppose that \( a \in (0, \infty) \).
+
+(a) If \(Z\) has the basic Pareto distribution with shape parameter \(a\) then \(V = 1 / Z\) has the beta distribution with left parameter \(a\) and right parameter 1.
+(b) If \( V \) has the beta distribution with left parameter \( a \) and right parameter 1, then \( Z = 1 / V \) has the basic Pareto distribution with shape parameter \( a \).
+
+Details:
+
+We will use the standard change of variables theorem. The transformations are \( v = 1 / z \) and \( z = 1 / v \) for \( z \in [1, \infty) \) and \( v \in (0, 1] \). These are inverses of each another. Let \( g \) and \( h \) denote PDFs of \( Z \) and \( V \) respectively.
+
+(a) We start with \( g(z) = a \big/ z^{a+1} \) for \( z \in [1, \infty) \), the PDF of \( Z \) in [2]. Then \[ h(v) = g(z) \left|\frac{dz}{dv}\right| = \frac{a}{(1 / v)^{a+1}} \frac{1}{v^2} = a v^{a-1}, \quad v \in (0, 1] \] which is the PDF of the beta distribution with left parameter \( a \) and right parameter 1.
+(b) We start with \( h(v) = a v^{a-1} \) for \( v \in (0, 1] \). Then \[ g(z) = h(v) \left|\frac{dv}{dz}\right] = a\left(\frac{1}{z}\right)^{a-1} \frac{1}{z^2} = \frac{a}{z^{a+1}}, \quad z \in [1, \infty) \] which is the PDF of the basic Pareto distribution with shape parameter \( a \).
+
+The basic Pareto distribution has the usual connections with the standard uniform distribution by means of the distribution function in [1] and quantile function in [4].
+
+Suppose that \( a \in (0, \infty) \).
+
+(a) If \( U \) has the standard uniform distribution then \( Z = 1 \big/ U^{1 / a} \) has the basic Pareto distribution with shape parameter \( a \).
+(b) If \( Z \) has the basic Pareto distribution with shape parameter \( a \) then \( U = 1 \big/ Z^a \) has the standard uniform distribution.
+
+Details:
+
+(a) If \( U \) has the standard uniform distribution, then so does \( 1 - U \). Hence \( Z = G^{-1}(1 - U) = 1 \big/ U^{1 / a} \) has the basic Pareto distribution with shape parameter \( a \).
+(b) If \( Z \) has the basic Pareto distribution with shape parameter \( a \), then \( G(Z) \) has the standard uniform distribution. But then \( U = 1 - G(Z)  = 1 \big/ Z^a \) also has the standard uniform distribution.
+
+Since the quantile function has a simple closed form, the basic Pareto distribution can be simulated using the random quantile method.
+
+Open the random quantile experiment and selected the Pareto distribution. Vary the shape parameter and note the shape of the distribution and probability density functions. For selected values of the parameter, run the experiment 1000 times and compare the empirical density function, mean, and standard deviation to their distributional counterparts.
+
+The basic Pareto distribution also has simple connections to the exponential distribution.
+
+Suppose that \( a \in (0, \infty) \).
+
+(a) If \( Z \) has the basic Pareto distribution with shape parameter \( a \), then \( T = \ln Z \) has the exponential distribution with rate parameter \( a \).
+(b) If \( T \) has the exponential distribution with rate parameter \( a \), then \( Z = e^T \) has the basic Pareto distribution with shape parameter \( a \).
+
+Details:
+
+We use the Pareto CDF in [1] and the CDF of the exponential distribution.
+
+(a) If \( t \in [0, \infty) \) then \[ \P(T \le t) = \P\left(Z \le e^t\right) = 1 - \frac{1}{\left(e^t\right)^a} = 1 - e^{-a t}\] which is the CDF of the exponential distribution with rate parameter \( a \).
+(b) If \( z \in [1, \infty) \) then \[ \P(Z \le z) = \P(T \le \ln z) = 1 - \exp(-a \ln z) = 1 - \frac{1}{z^a} \] which is the CDF of the basic Pareto distribution with shape parameter \( a \).
+
+The General Pareto Distribution
+
+As with many other distributions that govern positive variables, the Pareto distribution is often generalized by adding a scale parameter. Recall that a scale transformation often corresponds to a change of units (dollars into Euros, for example) and thus such transformations are of basic importance.
+
+Suppose that \(Z\) has the basic Pareto distribution with shape parameter \(a \in (0, \infty)\) and that \(b \in (0, \infty)\). Random variable \(X = b Z\) has the Pareto distribution with shape parameter \(a\) and scale parameter \(b\).
+
+Note that \(X\) has a continuous distribution on the interval \([b, \infty)\).
+
+Distribution Functions
+
+Suppose again that \( X \) has the Pareto distribution with shape parameter \( a \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \).
+
+\( X \) has distribution function \( F \) given by \[ F(x) = 1 - \left( \frac{b}{x} \right)^a, \quad x \in [b, \infty) \]
+
+Details:
+
+Recall that \( F(x) = G\left(\frac{x}{b}\right) \) for \( x \in [b, \infty) \) where \( G \) is the CDF of the basic distribution in [1] with shape parameter \( a \).
+
+\( X \) has probability density function \( f \) given by \[ f(x) = \frac{a b^a}{x^{a + 1}}, \quad x \in [b, \infty) \]
+
+Details:
+
+Recall that \( f(x) = \frac{1}{b} g\left(\frac{x}{b}\right) \) for \( x \in [b, \infty) \) where \( g \) is the PDF of the basic distribution in [2] with shape parameter \( a \).
+
+Open the special distribution simulator and select the Pareto distribution. Vary the parameters and note the shape and location of the probability density function. For selected values of the parameters, run the simulation 1000 times and compare the empirical density function to the probability density function.
+
+\( X \) has quantile function \( F^{-1} \) given by \[ F^{-1}(p) = \frac{b}{(1 - p)^{1/a}}, \quad p \in [0, 1) \]
+
+(a) The first quartile is \( q_1 = b \left(\frac{4}{3}\right)^{1/a} \).
+(b) The median is \( q_2 = b 2^{1/a} \).
+(c) The third quartile is \( q_3 = b 4^{1/a} \).
+
+Details:
+
+Recall that \( F^{-1}(p) = b G^{-1}(p) \) for \( p \in [0, 1) \) where \( G^{-1} \) is the quantile function of the basic distribution in [4].
+
+Open the quantile app and select the Pareto distribution. Vary the parameters and note the shape and location of the probability density and distribution functions. For selected values of the parameters, compute the quantiles of order 0.1 and 0.9.
+
+Moments
+
+Suppose again that \( X \) has the Pareto distribution with shape parameter \( a \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \)
+
+The moments of \( X \) are given by
+
+(a) \(\E(X^n) = b^n \frac{a}{a - n}\) if \(0 \lt n \lt a\)
+(b) \(\E(X^n) = \infty\) if \(n \ge a\)
+
+Details:
+
+By definition [15] we can take \( X = b Z \) where \( Z \) has the basic Pareto distribution with shape parameter \( a \). By the linearity of expected value, \( \E(X^n) = b^n \E(Z^n) \), so the result follows from [6].
+
+The mean and variance of \( X \) are
+
+(a) \(\E(X) = b \frac{a}{a - 1}\) if \(a \gt 1\)
+(b) \(\var(X) = b^2 \frac{a}{(a - 1)^2 (a - 2)}\) if \(a \gt 2\)
+
+Open the special distribution simulator and select the Pareto distribution. Vary the parameters and note the shape and location of the mean \( \pm \) standard deviation bar. For selected values of the parameters, run the simulation 1000 times and compare the empirical mean and standard deviation to the distribution mean and standard deviation.
+
+The skewness and kurtosis of \( X \) are as follows:
+
+(a) If \( a \gt 3 \), \[ \skw(X) = \frac{2 (1 + a)}{a - 3} \sqrt{1 - \frac{2}{a}}\]
+(b) If \( a \gt 4 \), \[ \kur(X) = \frac{3 (a - 2)(3 a^2 + a + 2)}{a (a - 3)(a - 4)} \]
+
+Details:
+
+Recall that skewness and kurtosis are defined in terms of the standard score, and hence are invariant under scale transformations. Thus the skewness and kurtosis of \( X \) are the same as the skewness and kurtosis of \( Z = X / b \) in [9].
+
+Related Distributions
+
+Since the Pareto distribution is a scale family for fixed values of the shape parameter, it is trivially closed under scale transformations.
+
+Suppose that \(X\) has the Pareto distribution with shape parameter \(a \in (0, \infty)\) and scale parameter \(b \in (0, \infty)\). If \(c \in (0, \infty)\) then \(Y = c X\) has the Pareto distribution with shape parameter \(a\) and scale parameter \(b c\).
+
+Details:
+
+By definition [15] we can take \( X = b Z \) where \( Z \) has the basic Pareto distribution with shape parameter \( a \). But then \( Y = c X = (b c) Z \).
+
+The Pareto distribution is closed under positive powers of the underlying variable.
+
+Suppose that \( X \) has the Pareto distribution with shape parameter \( a \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \). If \( n \in (0, \infty) \) then \( Y = X^n \) has the Pareto distribution with shape parameter \( a / n \) and scale parameter \( b^n \).
+
+Details:
+
+Again we can write \( X = b Z \) where \( Z \) has the basic Pareto distribution with shape parameter \( a \). Then from [10], \( Z^n \) has the basic Pareto distibution with shape parameter \( a / n \) and hence \( Y = X^n = b^n Z^n \) has the Pareto distribution with shape parameter \( a / n \) and scale parameter \( b^n \).
+
+All Pareto variables can be constructed from the standard one. If \( Z \) has the standard Pareto distribution and \( a, \, b \in (0, \infty) \) then \( X = b Z^{1 / a} \) has the Pareto distribution with shape parameter \( a \) and scale parameter \( b \).
+
+As before, the Pareto distribution has the usual connections with the standard uniform distribution by means of the distribution function in [16] and quantile function in [19].
+
+Suppose that \( a, \, b \in (0, \infty) \).
+
+(a) If \( U \) has the standard uniform distribution then \( X = b \big/ U^{1 / a} \) has the Pareto distribution with shape parameter \( a \) and scale parameter \( b \).
+(b) If \( X \) has the Pareto distribution with shape parameter \( a \) and scale parameter \( b \), then \( U = (b / X)^a \) has the standard uniform distribution.
+
+Details:
+
+(a) If \( U \) has the standard uniform distribution, then so does \( 1 - U \). Hence \( X = F^{-1}(1 - U) = b \big/ U^{1/a} \) has the Pareto distribution with shape parameter \( a \) and scale parameter \( b \).
+(b) If \( X \) has the Pareto distribution with shape parameter \( a \) and scale parameter \( b \), then \( F(X) \) has the standard uniform distribution. But then \( U = 1 - F(X)  = (b / X)^a \) also has the standard uniform distribution.
+
+Again, since the quantile function has a simple closed form, the basic Pareto distribution can be simulated using the random quantile method.
+
+Open the random quantile experiment and selected the Pareto distribution. Vary the parameters and note the shape of the distribution and probability density functions. For selected values of the parameters, run the experiment 1000 times and compare the empirical density function, mean, and standard deviation to their distributional counterparts.
+
+The Pareto distribution is closed with respect to conditioning on a right-tail event.
+
+Suppose that \( X \) has the Pareto distribution with shape parameter \( a \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \). For \( c \in [b, \infty) \), the conditional distribution of \( X \) given \( X \ge c \) is Pareto with shape parameter \( a \) and scale parameter \( c \).
+
+Details:
+
+Not surprisingly, its best to use right-tail distribution functions. Recall that this is the function \( F^c = 1 - F \) where \( F \) is the ordinary CDF in [16]. If \( x \ge c \), them \[ \P(X \gt x \mid X \gt c) = \frac{\P(X \gt x)}{\P(X \gt c)} = \frac{(b / x)^a}{(b / c)^a} = (c / x)^a \]
+
+Finally, the Pareto distribution is a general exponential distribution with respect to the shape parameter, for a fixed value of the scale parameter.
+
+Suppose that \( X \) has the Pareto distribution with shape parameter \( a \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \). For fixed \( b \), the distribution of \( X \) is a general exponential distribution with natural parameter \( -(a + 1) \) and natural statistic \( \ln X \).
+
+Details:
+
+This follows from the definition of the general exponential family, since the pdf in [17] can be written in the form \[ f(x) = a b^a \exp[-(a + 1) \ln x], \quad x \in [b, \infty) \]
+
+Computational Exercises
+
+Suppose that the income of a certain population has the Pareto distribution with shape parameter 3 and scale parameter 1000. Find each of the following:
+
+(a) The proportion of the population with incomes between 2000 and 4000.
+(b) The median income.
+(c) The first and third quartiles and the interquartile range.
+(d) The mean income.
+(e) The standard deviation of income.
+(f) The 90th percentile.
+
+Details:
+
+(a) \(\P(2000 \lt X \lt 4000) = 0.1637\) so the proportion is 16.37%
+(b) \(Q_2 = 1259.92\)
+(c) \(Q_1 = 1100.64\), \(Q_3 = 1587.40\), \(Q_3 - Q_1 = 486.76\)
+(d) \(\E(X) = 1500\)
+(e) \(\sd(X) = 866.03\)
+(f) \(F^{-1}(0.9) = 2154.43\)
