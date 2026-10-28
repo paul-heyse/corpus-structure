@@ -130,7 +130,7 @@ claim keys and evidence locators so a consumer can cite.
 |---|---|---|
 | `entity` | key or label | the entity, aliases, claim counts by predicate |
 | `claims` | subject?, predicate?, object?, status?, modality? | claims with values and conditions rendered |
-| `statement` | statement key or unit locator (`page#unit-id`) | the statement's kind, premises, conditions, conclusions, definientia, proof link, each with evidence |
+| `statement` | statement key or a locator (D6 §8: `page#unit-id`, `page@u:…`, `page@p:…`) | the statement's kind, premises, conditions, conclusions, definientia, proof link, each with evidence |
 | `evidence` | claim key | evidence spans with sentence context and segment locators |
 | `find` | text | BM25 hits over segments and alias hits over entities |
 | `unsupported` | cluster? | `unsupported` items and their clusters |

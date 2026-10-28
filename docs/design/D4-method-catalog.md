@@ -187,19 +187,23 @@ rationale (≤ 2 sentences), confidence ∈ {low, medium, high}}`.
 |---|---|---|---|
 | document | original bytes; adapter config | `kb.rendition`, `kb.segment` (structural kinds), `author_markup` observations | deterministic · 0 · base |
 
-**Behaviour.** Parse HTML; drop excluded content by declared rules; walk the body in reading
+**Behaviour.** Parse HTML; drop excluded content by declared rules; record the page's
+`\newcommand` macros (Siegrist's `div.latex` block) in the rendition's `parse_detail.macros`; walk the body in reading
 order emitting canonical text by D1 §3.1 and a segment for each block element and each math
 delimiter pair; attach author markup to segment `attrs` and emit it as `author_markup`
 observations (`dfn` terms with offsets, unit ids and classes, `details`, links with targets).
 Tables become `table`/`table_row`/`table_cell` segments with cell text in canonical text.
 
-**Configuration.** A *source profile* (one per source family, e.g. `siegrist`): exclusion rules
-(XPath), unit selector (`div.unit`), id-prefix → statement-kind hints (`dfn` → definition, …; the
-S1 report lists the prefixes present), math delimiters, block element set. The profile lives in
-the domain pack's `methods.yaml`; it is about the source's HTML, not the domain.
+**Configuration.** A *source profile* (one per source family; Siegrist's is drafted in
+[D2 §12.1](D2-schema-and-guidelines.md#121-methodsyaml)): exclusion rules, the title, section
+headings (`h3` and `h4` open nested sections), the unit selector (`div.unit`), statement-kind
+hints from block classes (`p.dfn` → definition, `p.math` → theorem, `p.app` → not claim-bearing)
+and from section titles ("Computational Exercises" → exercise), `details` kinds (proof or
+solution), math delimiters, and whether pages define macros. The profile lives in the domain
+pack's `methods.yaml`; it is about the source's HTML, not the domain.
 
-**Library realization.** `lxml.html.document_fromstring`; XPath for exclusions and unit
-selection; a small brace-aware scanner for `\( \)` and `\[ \]` (pylatexenc's `LatexWalker`
+**Library realization.** `lxml.html.document_fromstring`; CSS selectors through `lxml.cssselect` for exclusions
+and unit selection; a small brace-aware scanner for `\( \)` and `\[ \]` (pylatexenc's `LatexWalker`
 only to confirm that a delimited span is balanced); `html.unescape`, `unicodedata.normalize("NFC")`.
 
 **Measured by.** `parse_status` per rendition and segment; excluded-character share; segment
@@ -215,8 +219,8 @@ D9 §7). Spike: S1.
 | rendition | segments, `author_markup` | `ops.measurement` rows per segment | deterministic · 0 · base |
 
 Computes the features policies route on: length in characters and approximate tokens; inline
-and display math counts; math character share; presence of `dfn`, unit id prefix and its
-statement-kind hint; nesting depth; whether the segment sits in a `details` block. Pure
+and display math counts; math character share; presence of `dfn`; the statement-kind hint from
+block class or section title; nesting depth; whether the segment sits in a `details` block. Pure
 function of the rendition. No observations: these are measurements (D6 §6), because nothing
 consolidates them.
 
@@ -343,7 +347,7 @@ N(\mu, \sigma^2)`) as `relation` with label `stat:has_distribution` when the dom
 the notation.
 
 **Library realization.** pylatexenc `LatexWalker` (macros, groups, sub- and superscripts), the
-domain pack's macro map (`\R`, `\E`, `\var`, `\P`, `\ms` for Siegrist), a small rule table for
+page's macros recorded by M01, then the pack's fallback macro map (D2 §12.1), a small rule table for
 relational operators. No SymPy here.
 
 ## 7. LLM proposals and judgments
@@ -407,8 +411,8 @@ own tables.
 (`\R \setminus \{0\}`, `(0, \infty)`) become SymPy sets. Symbol binding is not done here: it
 needs scope (M13) and claims, so consolidation binds (D5 §4).
 
-**Library realization.** Macro expansion by pylatexenc's macro definitions or a regex map from
-the pack; `sympy.parsing.latex.parse_latex(..., backend="lark")` (SymPy 1.14), falling back to
+**Library realization.** Macro expansion with the page's macros (M01) and the pack's fallback
+map, by pylatexenc macro definitions or a regex map; `sympy.parsing.latex.parse_latex(..., backend="lark")` (SymPy 1.14), falling back to
 the ANTLR backend if S5 shows better coverage (`OPEN-D4-3`); `sympy.srepr` for storage.
 
 **Measured by.** Parse rate by math kind and page; failure categories (S5).

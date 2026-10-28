@@ -36,7 +36,9 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
   [design_review/evidence/2026-10-28_design-spikes](docs/design_review/evidence/2026-10-28_design-spikes/README.md);
   none has run.
 - The active plan is [design-phase_2026-10-28](docs/plans/design-phase_2026-10-28.md): lanes,
-  queue, the library-leverage brief and the disposition of every `OPEN-Dn-k` item.
+  queue, the library-leverage brief and the disposition of every `OPEN-Dn-k` item. The spike
+  lane's [S0/S1 execution plan](docs/plans/design-spikes-s0-s1_2026-10-28.md) is also active;
+  by operator decision several plans may be active and are reconciled later.
 - Its Q1 (S1) and Q2 (S0) are planned in detail by the
   [S0/S1 execution plan](docs/plans/design-spikes-s0-s1_2026-10-28.md) and its supporting
   documents (S1 ingest, S0 annotations, comparison instruments): HTML library selection, adapter

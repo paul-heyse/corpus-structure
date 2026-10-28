@@ -301,9 +301,10 @@ falls.
 Named slices (`ops.debug_slice`) restrict a run to selected documents and units; the run kind is
 `slice`, and a slice run is never promoted.
 
-Slices are declared in the domain's `slices.yaml` by **locator**: `page` (a source URI),
-`page#unit-id`, or `page@p:<text prefix>` (the paragraph whose canonical text starts with the
-prefix, for paragraphs without ids such as T1's lead-in and T2). Locators resolve to segments of
+Slices are declared in the domain's `slices.yaml` ([D2 §12.2](D2-schema-and-guidelines.md#122-slicesyaml))
+by **locator**: `page` (a source URI), `page#unit-id`, `page@u:<text prefix>` (a unit, for the
+many units without ids) or `page@p:<text prefix>` (a paragraph outside units, such as T1's
+lead-in and T2); prefixes match with whitespace collapsed and must select exactly one segment. Locators resolve to segments of
 the selected rendition when a run starts, so a slice survives adapter changes; a locator that
 does not resolve fails the run's start.
 

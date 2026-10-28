@@ -79,8 +79,8 @@ a parent. Segments form a tree rooted at the document segment. Kinds:
 | Kind | Meaning | Siegrist source |
 |---|---|---|
 | `document` | Whole canonical text | page |
-| `section` | Headed section | `<h2>`, `<h3>` and their content |
-| `unit` | An author-delimited numbered unit | `<div class="unit" id="…">` |
+| `section` | Headed section | `<h3>`, `<h4>`: each heading opens a section, nested by level, up to the next heading of the same or higher level (Siegrist has no wrapper elements) |
+| `unit` | An author-delimited numbered unit | `<div class="unit">`, usually with an `id` |
 | `paragraph` | Block of prose | `<p>` |
 | `list`, `list_item` | Lists | `<ol>`, `<ul>`, `<li>` |
 | `details` | Collapsible proof or solution | `<details>` |

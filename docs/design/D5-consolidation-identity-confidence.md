@@ -115,8 +115,8 @@ One `Statement` per anchor segment: each `unit` segment, each `details` block (k
 proposal or a claim-bearing classification places in a statement. Kind: author-markup hint
 (highest weight), M05 classification, proposal `kind`, in that order of precedence until the
 confidence model learns weights. Markup hints are skipped when the consolidation configuration
-sets `use_markup_hints: false` (witness ablations, D7 §6). The label is `<kind> <unit id>`, else
-`<kind> ¶<n>` (D2 §6); kind and label are not identity. A `details` block inside a unit yields the claim `proof
+sets `use_markup_hints: false` (witness ablations, D7 §6). The label is `<kind> <unit id>`, `<kind>
+unit <n>` for a unit without an id, else `<kind> ¶<n>` (D2 §6); kind and label are not identity. A `details` block inside a unit yields the claim `proof
 core:proves unit-statement` (`establishment: stated`, evidence the `details` summary span).
 
 ### 3.6 Merges and cannot-links
@@ -450,7 +450,7 @@ M13 binds `X`, `a`, `b`, `\mu`, `\sigma` to the unit; M10 proposes C1–C4.
 
 - §3: "normally distributed" links to `ent:normal` (lemma rule, M14); `X` and `a + bX` become
   local `RandomVariable`s `ent:X@rel1`, `ent:Y@rel1`; the unit becomes `stm:rel1` (kind
-  `theorem` from the `rel` id prefix, agreeing with M05), the `details` block `stm:rel1-proof`
+  `theorem` from the `p.math` block class, agreeing with M05), the `details` block `stm:rel1-proof`
   with `proves`.
 - §4: in C3, `\mu` binds `param_of C1 mean`; `\sigma` `param_expr_of C1 variance`; `a`, `b`
   `free` (restricted by C3's conditions).

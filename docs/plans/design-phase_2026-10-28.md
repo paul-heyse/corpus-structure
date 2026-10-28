@@ -49,9 +49,9 @@ or proposal id.
 
 Q1–Q4 run in parallel where their dependencies allow. Q5 may start per spike as reports land.
 
-Q1 and Q2 are being executed in detail under the spike lane's
-[S0/S1 execution plan](design-spikes-s0-s1_2026-10-28.md), which governs their procedure. The two
-plans should be one: see Risks (two active plans).
+Q1 and Q2 are executed in detail under the spike lane's
+[S0/S1 execution plan](design-spikes-s0-s1_2026-10-28.md), which governs their procedure. By
+operator decision (2026-10-28) more than one plan may be active; the plans are reconciled later.
 
 ## Library lane brief
 
@@ -169,7 +169,7 @@ Library proposals join as `L-nn` rows.
 | Design churn while spikes run | Spikes never edit D-documents; fold-ins are batched (Q5, Q8) |
 | Python 3.14 wheel gaps | OPEN-D9-1, resolved per package |
 | Output volume overwhelming review during debugging | Slices, caps and budgets (D6 §8, D8 §3) |
-| Two active plans: this plan and the spike lane's S0/S1 plan both declare themselves the sole plan (AGENTS.md allows one) | Operator decision pending: proposed resolution is that this plan stays the single active plan and the S0/S1 plan becomes its supporting document for Q1–Q2, with its findings rows merged here |
+| Two active plans (this plan and the spike lane's S0/S1 plan) drift apart | Allowed by operator decision (2026-10-28); each owns its own rows; reconciled at Q5, when S0 and S1 results are folded in |
 | The S0/S1 plan was written against D0–D5 before the 2026-10-28 review fold-in, which changed the ClaimProposalBatch (D2 §7.3: model-facing quote form, `extent`, `alternatives`, local refs) and the S0 brief | The spike lane re-reads D2 §7.3 and the S0 brief before fixing its batch contract |
 
 ## Standing conventions

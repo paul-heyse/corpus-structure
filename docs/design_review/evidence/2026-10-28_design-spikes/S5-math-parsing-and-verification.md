@@ -29,7 +29,9 @@ formula equivalence for evaluation, condition translation to z3, and the statist
 
 ## Procedure
 
-1. **Macro map.** Collect every macro used in math segments of the 78 pages with counts. Define
+1. **Macro map.** Collect every macro used in math segments of the 78 pages with counts. Pages
+   define their macros in a `div.latex` block, which M01 records; compare those definitions with
+   the fallback map in D2 §12.1. Define
    expansions for those with mathematical meaning (`\R`, `\N`, `\E`, `\var`, `\cov`, `\P`, `\ms`,
    …) and list the rest.
 2. **Parse rates.** Parse every math segment with `parse_latex` under the lark and ANTLR backends,

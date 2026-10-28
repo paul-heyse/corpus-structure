@@ -46,8 +46,8 @@ tier contributes in phase 1 and how much the LLM tier must carry.
    (subject, predicate, object) is found if a relation's head and tail overlap the reference
    subject's and object's mentions in the claim's evidence sentence. Report precision, recall and
    F1 per class and predicate, per variant, over thresholds 0.3, 0.4, 0.5, 0.6, 0.7.
-   Classification: accuracy against S0 statement kinds and modalities, and against the unit-id
-   prefix hint for statement kinds.
+   Classification: accuracy against S0 statement kinds and modalities, and against the block-class
+   and section-title hints for statement kinds (D2 §12.1).
 6. **Description sensitivity.** For the two weakest classes, try two rewritten descriptions and
    one added example each; report the change. (Schema authors need to know how much wording
    moves results.)

@@ -30,6 +30,12 @@ Order: S1 first, then S0 (it can start on raw page text while S1 finishes). S4 a
 independent and can run alongside. S2, S3 and S5 run in parallel once S0 and S1 have landed; S7
 follows S2. Each spike stops at its question's answer (ground rule 7).
 
+S0 and S1 are executed under the spike lane's
+[S0/S1 execution plan](../../../plans/design-spikes-s0-s1_2026-10-28.md), which extends these
+briefs; by operator direction the time-box does not apply to them. The core units' locators are
+drafted in [D2 §12.2](../../../design/D2-schema-and-guidelines.md#122-slicesyaml); S1 confirms
+that they resolve.
+
 ## The spike sample
 
 All spikes use the same material, so results can be compared and followed across methods.

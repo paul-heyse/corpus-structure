@@ -190,7 +190,7 @@ registry in `evaluate/witnesses.py` declares, per witness, which method inputs d
 
 | Witness | Measures | Independence condition |
 |---|---|---|
-| **Author markup** | `dfn` terms imply a definition statement defining that term: recall of `defines` claims for marked terms; unit id prefixes imply statement kinds | Valid only in an ablation run (consolidation `use_markup_hints: false`, M08 off) that the experiment harness makes on dev units; never in ordinary runs, which use markup |
+| **Author markup** | `dfn` terms imply a definition statement defining that term: recall of `defines` claims for marked terms; block classes (`p.dfn`, `p.math`) and section titles imply statement kinds | Valid only in an ablation run (consolidation `use_markup_hints: false`, M08 off) that the experiment harness makes on dev units; never in ordinary runs, which use markup |
 | **Computation** | Correctness (not guideline compliance) of distribution, moment and support claims: M21 verifier outcomes over accepted claims | Reported separately from runs where verifiers were confidence sources (the experiment harness can mask verifier sources) |
 | **Reference facts** | A small reference pack in the domain (`domains/statistics/reference/`): supports, standard parameterizations, means and variances of common families, written from `sympy.stats` and `scipy.stats` definitions | Not readable by any method; consulted only by evaluation |
 | **Cross-pass agreement** | Annotator agreement (§3.3) | Independent of the pipeline, not of Opus |

@@ -35,7 +35,10 @@ downstream is unreliable and D1 §3 must change before D3 fixes the tables.
      link targets);
    - the excluded content, with the rule that excluded it (navigation, scripts, app widgets,
      footer, MathJax configuration).
-   Record every choice you had to make that D1 §3 does not settle.
+   Record every choice you had to make that D1 §3 does not settle. Start from the Siegrist source
+   profile drafted in [D2 §12.1](../../../design/D2-schema-and-guidelines.md#121-methodsyaml) and
+   report every rule it lacks or gets wrong; check that every locator in D2 §12.2 resolves to
+   exactly one segment.
 2. **Invariants.** Check for every segment: `start <= end`; children inside parents; siblings
    ordered and non-overlapping; `canonical_text[start:end]` reproduces the element's text under
    the normalization rules. Report violations by kind.
