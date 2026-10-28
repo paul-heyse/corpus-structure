@@ -468,7 +468,8 @@ drops predicate and qualifier slots.
 
 The **decoding form** given to structured output follows rules the backends need: `oneOf`/`anyOf`
 only where branches are disjoint by a `const` (the predicate); never `if`/`then`/`not`, which
-xgrammar ignores; the `discriminator` keyword stripped; nesting at most 64 levels (ours nest 9–11);
+xgrammar ignores; no `allOf` with more than one branch, which xgrammar mishandles (newer vLLM rejects
+such schemas itself); the `discriminator` keyword stripped; nesting at most 64 levels (ours nest 9–11);
 one canonical shape per position (one entity-reference shape, one formula shape). Descriptions are
 optional in the decoding schema: constrained decoding does not show them to the model, and the
 annotator reference in the prompt is what it reads. Which xgrammar the vLLM in use bundles, and its

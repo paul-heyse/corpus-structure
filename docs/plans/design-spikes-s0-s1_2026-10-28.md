@@ -84,7 +84,7 @@ spike README's one-session time-box (ground rule 7) does not apply to S0 and S1.
 | OPEN-D2-2, OPEN-D5-4 | Raw, masked or Unicode math for encoders; mention overlap near math (D2 §11, D5 §13) | S2 |
 | D4 candidate method | spaCy candidates scored by GLiNER2 `score_explicit_spans` | S2 variant |
 | OPEN-D4-1, OPEN-D4-2, OPEN-D4-4 (M10) | Local model; reasoning on or off; unit of LLM work for the local tier | S3 |
-| Output caps | `max_tokens` for M10 and M24 from measured batch sizes (D4 §4.1, D8 §3) | S3 |
+| Output caps | `max_tokens` for M10 and M16 from measured batch sizes; M24's cap in characters (D4 §4.1, D8 §3) | S3 |
 | OPEN-D3-2 | Embedding model and dimension, within HNSW `halfvec` limits | S7 |
 | PARAM-01, RG-7 | Canonical parameter names across units, as linking cases | S7 |
 | OPEN-D6-2 | GPU mode default (co-residency) | joint package G1 (S2, S3, S7) |
@@ -234,7 +234,7 @@ reach the design through the closing package (§7, package X1).
   | Environment | For | Contents |
   |---|---|---|
   | `build/spike-venv` (CPU) | S4, S5, S6, the instruments | the S0/S1 set plus `rule-engine==5.1.0`, an explicit `jsonschema` pin, `z3-solver==5.3.2.0`, `psycopg[binary]==3.3.6`, `pgvector==0.5.1` |
-  | `build/spike-gpu-venv` | S2, S7 | CUDA torch, `gliner2[local]==2.1.0`, transformers |
+  | `build/spike-gpu-venv` | S2, S7 | CUDA torch, `gliner2[local]==2.1.0`, transformers, an exact `sentence-transformers` pin; the spaCy work of S2 and S7 runs in the CPU environment |
   | `build/spike-vllm-venv` | S3, S4's structured-output check, S7 pooling if chosen | a copy of `services/vllm-native/` from corpus-intelligence (vLLM 0.31, torch 2.13) with its own lock |
   | `build/spike-antlr-venv` | S5's ANTLR comparison only | SymPy 1.14 and `antlr4-python3-runtime` 4.11, without linkml (which pins antlr4 below 4.11) |
 
@@ -268,7 +268,9 @@ change is announced to its consumers here.
 | `results/s0r2/contested.tsv` | C1 | S2, S3 | Contested items mapped onto v1 local refs |
 | Instrument revision I-R2 | I-R2 | S2, S3, S5, S6, S7 | Token-form keys (ADR-0012) and sizing commands; the frozen scoring revision |
 | `results/s4/compiled/` | S4 | S2, S3, S6 | GLiNER2 dicts, both JSON Schema forms, rules, the generated reference, schema-table rows |
-| `results/s2/mentions/` (whole pages) | S2 | S7 | GLiNER2 mentions over the four spike pages, with offsets |
+| `results/s2/mentions/<page>.jsonl` | S2-D | S7 | GLiNER2 mentions over the four spike pages from S2's adopted configuration: offsets in the libxml2 renditions, class, score, configuration hash; one file per page |
+| `results/s4/compiled/` decoding form | S4-D | S3 | The structured-output schema by D2 §7.3's rules, with its xgrammar compile result |
+| `results/s3/replay/` | S3 | phase 1 tests (M10, M16) | Recorded exchanges for deterministic replay |
 | `results/s7/segments/` (78 pages, R1) | S7 | S5 (optional) | Regenerated segments with the parser recorded |
 
 **Rendition drift.** S1 decides the rendering conventions and section synthesis on the four
@@ -310,14 +312,15 @@ row. "Needs" names the input a package consumes, not merely an earlier row.
 | 22b | S0-R2 Annotator inputs v1 revisit (executed 2026-10-28) | S0, [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md) | S0-G | `results/s0r2/`; records `s0r2.*` |
 | 23 | E4 Environments for S2–S7 | §3.5 | — | the four environments with their records; OPEN-D9-1 evidence for gliner2 and z3 |
 | 24 | I-R2 Instruments revision: token-form keys (ADR-0012), sizing commands, frozen revision | Instruments | E4 (CPU) | revised `mathgrammar` and `instruments/values`; S0-G and S0-R2 figures rerun, superseding records (nothing removed) |
+| 24b | I-R3 Mention-level alignment for S2 and S7 (I-R2 plus one module, checked by hand on T1–T4); kept apart from I-R2 so S5 and S6-F, on phase 0's path, do not wait on it | Instruments, S2 §1 | I-R2 | the alignment module and its hand check |
 | 25 | E5 `not_run` outcome in evidence records | §3.5 | — | `tools/evidence` model and test |
 | 26 | C1 Contested items mapped onto the v1 reference | §3.5 | — | `results/s0r2/contested.tsv` |
 | 27 | S4-A…S4-E | S4 | E4 | see S4; unblocks phase 0 schema-and-rules |
 | 28 | S6-A…S6-G (S6-D loads S4-B's compiled rows) | S6 | E4, I-R2 for S6-F, S4-B for S6-D, the operator's disk space | see S6; unblocks phase 0 foundations (store) |
 | 29 | S5-A…S5-E | S5 | E4, I-R2 | see S5; S5-A unblocks phase 0 ingest-and-math (grammar port) |
-| 30 | S2-A…S2-D | S2 | E4 (GPU), I-R2, C1, S4-B optional | see S2 |
-| 31 | S3-A…S3-F | S3 | E4 (vLLM), I-R2, C1, S4-B optional | see S3 |
-| 32 | S7-A…S7-D | S7 | E4 (GPU), S2's whole-page mentions, I-R2 | see S7 |
+| 30 | S2-A…S2-D | S2 | E4 (GPU), I-R2, I-R3 (S2-C), C1, S4-D optional | see S2 |
+| 31 | S3-A…S3-F | S3 | E4 (vLLM, the RTX 5090 support of its wheel confirmed), I-R2, C1, S4-D's decoding form optional; disk for any larger model download | see S3 |
+| 32 | S7-A…S7-D | S7 | S7-A: E4 (GPU) only, so it can precede S2; S7-B and S7-C: S2-D's page mentions and I-R3 | see S7 |
 | 33 | G1 GPU co-residency (OPEN-D6-2) | §3.5 | S2-B, S3-A, S7-A | co-residency measurement and recommendation |
 | 34 | X2 Closing package for S2–S7 | §7 | each report reviewed by the operator | design updates, dispositions, STATUS |
 

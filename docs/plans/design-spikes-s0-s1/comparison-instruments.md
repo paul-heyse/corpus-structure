@@ -219,8 +219,7 @@ units' adjudicated batches in `results/s0r2/adjudication_v1/`); the v0 reference
 
 - S2 (GLiNER2) produces mentions and relations, not full claims. Its scoring needs a mention-level
   alignment (span overlap and type against the reference's entity evidence) and reports which
-  reference claims have a matching relation at the core tier; that extension is part of I-R2 if
-  S2's plan needs it before S2 starts, otherwise its own revision package.
+  reference claims have a matching relation at the core tier; that alignment is revision I-R3.
 - S3 (local LLM) produces model-facing batches; they pass through the validator, the locator and
   all three tiers exactly as S0's and S0-R2's passes do, with and without the contested items of
   `results/s0r2/contested.tsv` (package C1).
@@ -236,6 +235,7 @@ revision (single home after a port).
 |---|---|---|
 | I-R1 | the math grammar, slot-type validation, value tiers on the grammar, the quote cascade | done (2026-10-28) |
 | I-R2 | ADR-0012 token-form keys in `mathgrammar` and `instruments/values` (sizing commands dropped by the shared list); reruns of S0-G and S0-R2 figures with superseding records | coordinator row 24 |
+| I-R3 | Mention-level alignment (span overlap and type against the reference's entity evidence, one-to-one; contested items neutral) for S2 and S7 | coordinator row 24b |
 
 ## 8. Packages
 

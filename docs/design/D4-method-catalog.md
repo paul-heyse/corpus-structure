@@ -41,9 +41,13 @@ Rules every method follows:
    `failed` (with an error payload). A unit result never mixes failure with partial output; a
    method that can partially fail reports the failed part as an observation with `outcome:
    failed`.
-3. **Deterministic given inputs.** Same unit, same config hash, same model weights → same
-   observations. Sampling LLM methods fix a seed and record it in the config. This is what makes
-   task reuse (D6 §4) valid.
+3. **Deterministic given inputs, or recorded.** Same unit, same config hash, same model weights →
+   same observations, for every method except the LLM and agent tiers. Their outputs are
+   best-effort reproducible (temperature 0, a seed in the config) but not exactly: online vLLM
+   reproduces outputs only under batch invariance, and the agent not at all. Task reuse (D6 §4)
+   is valid for them because it reads the recorded observations by input hash instead of
+   regenerating them; tests replay recorded responses (D9 §4). S3 measures how often repeated
+   local-LLM runs differ.
 4. **Declared dependencies.** `input_digest` covers the unit's text, every observation kind it
    reads (by their task ids), the compiled-artifact hashes it uses (extraction schema, JSON
    Schema, rule set), and model revisions. Anything not in the digest must not influence output.
@@ -505,7 +509,7 @@ and record structures from the compiled schema. Mentions inside a math span are 
 `ci:threshold` or method default 0.5), math handling (`raw` or `mask`, by S2, `OPEN-D2-2`),
 batch size.
 
-**Library realization.** `GLiNER2.from_pretrained`; `Schema.from_dict` from the compiled
+**Library realization.** `AutoExtractor.from_pretrained` (the 2.5 checkpoint; `GLiNER2.from_pretrained` loads the older span architecture); `Schema.from_dict` from the compiled
 artifact; `batch_extract(..., include_spans=True, include_confidence=True)`; long units through
 `extract_long` with chunk overlap rather than truncation. Masking replaces each inline math span
 by a placeholder token (`⟨m3⟩`) and maps placeholders back to the math segment afterwards.
@@ -759,7 +763,7 @@ sentence; the port follows the patterns above, not those two.
 
 **Behaviour.** Candidate generation in order: normalized-alias exact match; lemma match after
 removing the class's head words ("distribution", "family") and mapping adverbial forms
-("normally distributed" → "normal"); `rapidfuzz.process.extract` with `token_set_ratio` over
+("normally distributed" → "normal"); `rapidfuzz.process.extract` with `token_sort_ratio` (not `token_set_ratio`, which scores "normal distribution" and "standard normal distribution" as identical) over
 aliases of the same class; from phase 2, pgvector nearest neighbours on alias embeddings. Each
 candidate gets features (exact, lemma, fuzzy score, cosine, page co-occurrence); the score is a
 logistic model fitted on golden links once there are enough (before: a fixed rule ordering).
