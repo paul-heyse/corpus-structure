@@ -441,7 +441,8 @@ CREATE TABLE ops.intervention (
   actor       text NOT NULL,                     -- 'agent:opus-5.5', 'human:operator'
   session_ref text,                              -- Claude Code session id or similar
   kind        text NOT NULL CHECK (kind IN ('extract','adjudicate','golden_write','golden_adjudicate',
-                   'schema_proposal','guideline_change','policy_proposal','direction','audit')),
+                   'schema_proposal','guideline_change','policy_proposal','experiment_decision',
+                   'direction','ack','veto','audit')),
   target      jsonb NOT NULL,                    -- what it acts on (unit key, claim key, golden unit, ...)
   before      jsonb,
   after       jsonb,
@@ -469,8 +470,8 @@ CREATE TABLE ops.experiment (
 
 ## 6. JSONB contracts
 
-Each JSONB column has a JSON Schema in `python/corpus_structure/core/schemas/` (D9), validated on
-write by the repository layer. Summaries:
+Each JSONB column has a JSON Schema in `corpus_structure/core/schemas/` ([D9 §1](D9-repository-and-phase0.md#1-layout)),
+validated on write by the repository layer. Summaries:
 
 ### 6.1 Values, qualifiers, conditions
 

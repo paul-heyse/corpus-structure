@@ -59,6 +59,7 @@ normal meaning.
 | `ci:gliner_label` | string | Label shown to GLiNER2; defaults to the class name in words |
 | `ci:reify` | `true` | Facts of this class are reified entities with role claims (D1 §5.4) |
 | `ci:examples` | list of strings | Short positive examples, used in the GLiNER2 description and the LLM prompt |
+| `ci:threshold` | number in (0, 1) | GLiNER2 score threshold for mentions of this class; default from the method configuration ([D4 M06](D4-method-catalog.md#m06-extractgliner_schema)) |
 
 ### 3.2 On slots (predicates and qualifiers)
 
@@ -70,7 +71,7 @@ normal meaning.
 | `ci:identity_qualifiers` | list | Which of them enter the claim key (D1 §10.1) |
 | `ci:extract` | `relation`, `record`, `llm`, `none` | How extraction proposes claims of this predicate: GLiNER2 relation, GLiNER2 record field, LLM only, or not extracted (derived only) |
 | `ci:symmetric` | `true` | `identical_parameter`-style predicates; consolidation orders subject and object canonically |
-| `ci:functional` | `true` | At most one accepted object per subject and context; a second one is a conflict (D5 §8) |
+| `ci:functional` | `true` | At most one object per subject and statement: candidates compete in one slot ([D5 §5.4](D5-consolidation-identity-confidence.md#54-slots-core-support-refinements-and-alternatives)), and across statements a second object is a conflict (D5 §5.5) |
 | `ci:record` | structure name | For `ci:extract: record`, the GLiNER2 structure that carries it (§7.2) |
 | `ci:anchor` | `true` | On a record field: the GLiNER2 record-mode anchor |
 | `ci:examples` | list | As on classes |
@@ -83,6 +84,7 @@ normal meaning.
 | `ci:extract: classification` with `ci:target: <segment kind>` | Compile to a GLiNER2 classification task on segments of that kind |
 | `ci:z3` (on a permissible value of a condition-predicate enum) | Name of the z3 encoding for this condition predicate, or absent if not encodable |
 | `ci:arity` | For condition predicates: `1`, `2`, `2+` |
+| `ci:claim_bearing` (on a permissible value of `StatementKind`) | `true` when units of this kind are expected to state claims; policies route proposals by it ([D6 §7.2](D6-orchestration-metrics-policies.md#72-unit-context)). Core defaults: true for every kind except `proof` and `solution` (narrative paragraphs such as T2 state claims) |
 
 ## 4. Predicates and qualifiers
 

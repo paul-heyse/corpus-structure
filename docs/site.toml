@@ -14,7 +14,7 @@ lychee = "0.24.2"
 [publication]
 entrypoints = ["README.md", "docs/README.md", "docs/design/README.md", "STATUS.md", "AGENTS.md", "docs/publishing.md", "docs/library_leverage/README.md", "docs/library_leverage/library-leverage-framework.md", "docs/library_leverage/patterns.md"]
 # The active plan, once written, e.g. ["docs/plans/<topic>_<YYYY-MM-DD>.md"]
-current_work = []
+current_work = ["docs/plans/design-phase_2026-10-28.md"]
 exclude = []
 assets = []
 

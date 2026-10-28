@@ -21,6 +21,18 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 - None yet.
 
+## Design phase (2026-10-28)
+
+- The proposed target design is written: [D0–D9 and the worked trace](docs/design/README.md),
+  all **Proposed**, nothing implemented. DESIGN §1 records the objective; binding decisions (§2)
+  wait for ADRs after the spikes.
+- Spike briefs S0–S7 are in
+  [design_review/evidence/2026-10-28_design-spikes](docs/design_review/evidence/2026-10-28_design-spikes/README.md);
+  none has run.
+- The active plan is [design-phase_2026-10-28](docs/plans/design-phase_2026-10-28.md): lanes,
+  queue, the library-leverage brief and the disposition of every `OPEN-Dn-k` item.
+
 ## Next
 
-- Write the objective in [DESIGN §1](docs/design/DESIGN.md) and the first plan in `docs/plans/`.
+- Spike lane: S1, then S0; S4 and S6 alongside (plan Q1–Q3).
+- Library lane: pass 1 over D4 cards and D2 §7 compilers (plan Q4).

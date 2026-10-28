@@ -35,10 +35,29 @@ version (skill brief, probe or source at that version), not that our code uses i
 
 ### §1.1 Objective
 
-**Proposed.** Builds a highly structured representation of a set of documents
+**Proposed.** Produce a structured, evidence-backed representation of the knowledge a set of
+documents states: entities, statements and claims with qualifiers, conditions and spans, under a
+declared domain schema, queryable by typed questions. The first corpus is the statistics corpus
+(Siegrist's *Probability, Mathematics and Statistics*, first-pass chapters), used as calibration;
+the target is any domain, eventually business documents and email, as a commercial product.
 
-State the promise, its consumers and what is explicitly out of scope. Add §1.2… as the scope
-needs them.
+Consumers: the operator and downstream tools through typed queries and exports; Opus in the
+Claude Code session through MCP tools, as the agent tier that fills gaps, adjudicates and writes
+goldens; later, hosted services.
+
+The pipeline improves incrementally: encoders and deterministic methods first, a local LLM, then
+Opus; every intervention is recorded; goldens and guidelines evolve under the operator's
+direction; measured reliability lets policies scale interventions back. The target design is
+[D0–D9](README.md#the-design-set).
+
+<a id="section-1-2"></a>
+
+### §1.2 Out of scope for now
+
+**Proposed.** Corpora other than statistics until phase 5; hosted LLM endpoints; multi-tenant
+service; RDF publication; the methods D0 lists as deliberately left out until a measured gap
+asks for them; per-item human verification of goldens (the operator steers through guidelines,
+[D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop)).
 
 <a id="section-2"></a>
 

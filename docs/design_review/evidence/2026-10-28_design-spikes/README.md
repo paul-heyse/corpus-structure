@@ -1,6 +1,6 @@
 # Design spikes, 2026-10-28
 
-**Status: briefs written 2026-10-28; S0 and S1 ready to run, S2–S7 briefed (see the table).**
+**Status: all briefs written 2026-10-28; S1, S0, S4 and S6 can run now; S2, S3, S5 and S7 need S0 and S1 outputs (see the table).**
 Throwaway investigations that test the proposed design ([docs/design](../../../design/README.md))
 against the real statistics corpus before code is built. A spike answers named design questions
 (`OPEN-Dn-k`) with evidence. It writes no product code.
@@ -19,15 +19,16 @@ GLiNER2 and the LLM need, and whether LaTeX parses.
 |---|---|---|---|---|
 | [S1 Ingest and segmentation](S1-ingest-and-segmentation.md) | Does the D1 evidence model (canonical text, segments, spans, author markup) fit Siegrist HTML? Does sentence splitting survive LaTeX? | D1 §3, OPEN-D1-1, D4 M01–M03 | CPU | **Yes** |
 | [S0 Reference annotations](S0-reference-annotations.md) | Can the D1 claim model and guideline v0 express what the core units state, and how determinate is it across two blind passes? | D1 §4–§8, OPEN-D1-2/3/4, D2 §9–§10, OPEN-D2-4/5 | Opus (this agent), S1 output or raw page text | **Yes** |
-| S2 GLiNER2.5 on statistics text | What do compiled schemas, `JointIE`, span attributes and classification find; raw versus masked math | D4 M05–M07, OPEN-D2-2 | CPU and GPU; S0 reference | Brief follows |
-| S3 Local LLM on the RTX 5090 | Which model fits; structured output from the compiled JSON Schema; quality against S0; pre-adjudication | D4 M10, M16; D0 model tiers | GPU; S0 reference | Brief follows |
-| S4 LinkML compilation | Does the statistics schema compile to GLiNER2, JSON Schema and rule-engine as D2 §7 specifies | D2 §7, OPEN-D2-1/3/6 | CPU | Brief follows |
-| S5 Math parsing and verification | LaTeX parse rates with the source macros; formula equivalence; simulation checks | D1 §6, D4 M09, M11, M21 | CPU | Brief follows |
-| S6 Storage smoke | D3 DDL on PostgreSQL 18 with pgvector and pg_textsearch; trace rows; typed queries | D3 | Local PostgreSQL | After D3 |
-| S7 Embeddings and linking | Embedding model and dimension for pgvector; alias and concept linking within the corpus | D3 embeddings, D4 M14 | GPU | After D4 |
+| [S4 LinkML compilation](S4-linkml-compilation.md) | Does the statistics schema compile to GLiNER2, JSON Schema and rule-engine as D2 §7 specifies? | D2 §7, OPEN-D2-1/3/6 | CPU | **Yes** (S0 batches improve the validation step) |
+| [S6 Storage smoke](S6-storage-smoke.md) | Does the D3 DDL apply on PostgreSQL 18 with pgvector and pg_textsearch; do trace rows and typed queries work? | D3, OPEN-D3-1/3/4 | Local PostgreSQL | **Yes** (S1 offsets improve the rows) |
+| [S2 GLiNER2.5 on statistics text](S2-gliner-on-statistics-text.md) | What do compiled schemas, `JointIE`, span attributes and classification find; raw versus masked math | D4 M05–M07, OPEN-D2-2, OPEN-D5-4 | GPU; S0, S1 | After S0, S1 |
+| [S3 Local LLM on the RTX 5090](S3-local-llm.md) | Which model and settings; structured output from the compiled JSON Schema; quality against S0; pre-adjudication | D4 M10, M16, OPEN-D4-1/2/4, OPEN-D6-2 | GPU; S0, S1 | After S0, S1 |
+| [S5 Math parsing and verification](S5-math-parsing-and-verification.md) | LaTeX parse rates with the source macros; symbol scoping; formula equivalence; z3; verifiers | D4 M09, M11, M13, M20, M21, OPEN-D4-3/5, OPEN-D7-2 | CPU; S1 (parsing), S0 (the rest) | Parsing after S1; rest after S0 |
+| [S7 Embeddings and linking](S7-embeddings-and-linking.md) | Embedding model and dimension; concept linking; example retrieval | D3 embeddings, D4 M14, OPEN-D3-2 | GPU; S0, S1, S2 | After S2 |
 
-Order: S1, then S0 (it can start on raw page text while S1 finishes). S2–S5 can run in parallel
-once S0 has its reference annotations. S6 and S7 follow D3 and D4.
+Order: S1 first, then S0 (it can start on raw page text while S1 finishes). S4 and S6 are
+independent and can run alongside. S2, S3 and S5 run in parallel once S0 and S1 have landed; S7
+follows S2. Each spike stops at its question's answer (ground rule 7).
 
 ## The spike sample
 

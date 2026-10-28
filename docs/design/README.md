@@ -30,7 +30,8 @@ that test the design are in
 | [D9 Repository and phase 0 plan](D9-repository-and-phase0.md) | Code layout, dependencies, lanes, phase 0 tasks and acceptance | Plan |
 | [Worked trace](trace.md) | Four Siegrist units: source, segments, target entities and claims, expected observations | Data |
 
-D3–D9 are being written on 2026-10-28; links to them resolve as they land.
+The library-leverage lane deepens D4's **Library realization** subsections; contract changes
+arrive as `> Library proposal (L-nn):` blocks, disposed in the [active plan](../plans/design-phase_2026-10-28.md).
 
 ## Responsibility map
 
