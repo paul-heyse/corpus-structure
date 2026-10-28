@@ -41,7 +41,7 @@ permission, concurrent-work and testing constraints, and follow discovered depen
 | `docs/design/DESIGN.md`, `docs/design/sections/` | Architectural collection; stable § IDs. DESIGN §2 holds the binding decisions (§B1, §B2, …) |
 | `docs/README.md` | Task routes and historical recovery |
 | `docs/publishing.md` | Documentation site commands; site navigation and search are derived |
-| `docs/plans/` | The active plan only; a finished or superseded plan is removed once its obligations move |
+| `docs/plans/` | Plans: the active ones and every finished or superseded one, which stay with their status line saying so. Plans are never deleted |
 | `docs/adr/` | Current decision records (accepted and open proposals), a generated index, and `TEMPLATE.md` |
 | `docs/design_review/design_principles/` | The layered design standard, declared in `standard.toml`: seven foundations (FP-01–07), including an explicit domain model, scoped semantic authority and qualitative execution-fit assessment for the intended workload; independent architectural judgments A1–A4, supporting rules DP-01–24 and gates G1–G8, the code-intelligence profile, and the repository binding (ADR-0002) |
 | `docs/design_review/audit/` | Living diagnostic baseline; not ordinary implementation context |
@@ -170,9 +170,14 @@ process scripts are stdlib-only and run without a project environment.
   alternatives, or would surprise a future session. Amend the owning architectural section in
   the same commit. To pivot, supersede the old ADR; accepted ADRs are immutable.
 - **Keep a current working set** (ADR-0001). Update the owner whose meaning changed instead of
-  appending history. When a plan, review, evidence folder or ADR loses its last current consumer,
-  carry its surviving obligations forward and delete it; Git holds it
+  appending history. When a review or ADR loses its last current consumer, carry its surviving
+  obligations forward and delete it; Git holds it
   ([historical recovery](docs/README.md#historical-recovery)).
+- **Never delete plan documents or evidence** (operator direction, 2026-10-28; this overrides
+  ADR-0001's retirement clause for plans and evidence until an ADR records the evidence system).
+  A finished or superseded plan stays in `docs/plans/` with its status line saying so. Evidence
+  folders, their results and their records stay; a revised result supersedes its record rather
+  than replacing or removing it.
 - **Design principle audits** use `design-principle-audit` before a diagnostic review of
   production or broad system scope. Test-only scope uses `design-principle-audit-tests` and
   the [separate test account](docs/design_review/test-audit/README.md), with the

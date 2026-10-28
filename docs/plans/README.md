@@ -1,8 +1,9 @@
 # Plans
 
-At most one **active plan** lives here, named `<topic>_<YYYY-MM-DD>.md`. It owns execution and the
-current disposition of scheduled findings; when it is finished or superseded, its remaining
-obligations move to the next owner and the file is deleted (Git holds it).
+Plans live here, named `<topic>_<YYYY-MM-DD>.md`. An active plan owns execution and the current
+disposition of scheduled findings. When it is finished or superseded, its remaining obligations
+move to the next owner and its status line says so; **the file is never deleted** (operator
+direction, 2026-10-28; see `AGENTS.md`).
 
 A plan usually has:
 
