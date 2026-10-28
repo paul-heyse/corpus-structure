@@ -152,6 +152,12 @@ def split_block(block: dict, pipe: str, math: str, macros: dict) -> list[int]:
 def _split_merged(nlp: Language, block: dict) -> list[int]:
     """b′: merge each inline math span into one token (POS PROPN) and forbid starts inside display math,
     before the statistical components run; offsets stay those of the canonical text."""
+    return [s.start_char for s in merged_doc(nlp, block).sents][1:]
+
+
+def merged_doc(nlp: Language, block: dict):
+    """The b′ document of a block: inline math and rendered reference markers merged into single
+    tokens, no sentence start inside display math or at a reference marker, then the pipeline."""
     doc = nlp.make_doc(block["text"])
     with doc.retokenize() as rt:
         for m in block["math"]:
@@ -178,7 +184,7 @@ def _split_merged(nlp: Language, block: dict) -> list[int]:
                 t.is_sent_start = False
     for _, proc in nlp.pipeline:
         doc = proc(doc)
-    return [s.start_char for s in doc.sents][1:]
+    return doc
 
 
 def sentences(rendition: dict, pipe: str, math: str) -> list[dict]:
