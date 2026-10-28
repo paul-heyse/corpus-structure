@@ -89,15 +89,20 @@ anchor:
 
 1. exact match within the cited sentence;
 2. exact match within the unit;
-3. match after normalizing whitespace and LaTeX delimiters (`$…$` ↔ `\(…\)`, spacing commands
-   `\,` `\;` `\!` removed, whitespace collapsed), with an offset map back to canonical text;
-4. `rapidfuzz.fuzz.partial_ratio_alignment(quote, sentence_text, score_cutoff=95)` within the
-   cited sentence, its `dest_start`/`dest_end` giving the span.
+3. exact up to spacing: a `regex` pattern of the quote's non-space characters joined by
+   `(?:\s|\\[,;!])*`, matched in canonical text itself (no offset map), cited sentence then unit;
+   then the same after expanding the rendition's argument-free macros on both sides;
+4. fuzzy: `rapidfuzz.fuzz.partial_ratio_alignment` (cutoff 85, trailing `.,;:` stripped) within
+   the cited sentence, refined inside its window (widened by 30% of the quote) by `regex`
+   `BESTMATCH` `(?b)(?:quote){e<=⌈0.15·len⌉}` with a 0.2 s timeout, the rapidfuzz window kept
+   when the refinement fails.
 
-Every result records the tier that located it, the number of exact matches when more than one
-exists (ambiguity), and, for tier 4, the score. RapidFuzz states that `partial_ratio` guarantees
-an optimal alignment only when the shorter string has at most 64 characters, so longer quotes
-reaching tier 4 are flagged. An unlocated quote falls back to its cited sentence's span with
+Every located span, at every tier, is snapped outward to word boundaries. Every result records
+the tier and step that located it, the number of exact matches when more than one exists
+(ambiguity), and, for tier 4, the score and the edit counts. The cascade is ADR-0009's
+(revisit I-R1, 2026-10-28), measured on 499 quotes under seeded errors in `code/regex_probe.py`;
+it replaced a tier 3 with an offset map and a tier 4 with a fixed-width window, which cut words
+when a quote's length differed from the source span. An unlocated quote falls back to its cited sentence's span with
 `coarse: true` (D5 §5.6); without a cited sentence the item is reported as malformed. Local
 entities' `extent` is resolved to a `scope_segment`: `statement` → the anchor segment of the
 statement that binds it; `section` → the enclosing section segment from S1's adopted synthesis.
@@ -116,14 +121,19 @@ occurs twice in a unit; a long quote with one typo (tier 4).
 Two values are compared in tiers, and the deciding tier is recorded per comparison (this tally
 is evidence for OPEN-D7-2, which S5 decides):
 
-1. **Canonical form, D1 §6.2.** Formulas and sets by normalized LaTeX: source macros expanded
+All three automatic tiers read formulas through one math grammar (`code/mathgrammar/`,
+ADR-0009, revisit I-R1): SymPy's Lark LaTeX grammar extended by directives, typed by the slot's
+range, with ambiguity resolved only from declared context. It replaced a string-rewrite shim
+whose defects were review findings F2, F3 and F5a.
+
+1. **Canonical form, D1 §6.2.** Formulas and sets by normalized LaTeX, written from the parse tree: source macros expanded
    from the page's macro table (S1 `renditions.json`), then D2 §12.1's fallback macro map; spacing commands, `\left`, `\right` and
    whitespace removed; braces around single tokens dropped (`b^{2}` → `b^2`). Numbers as
    normalized decimals with pint base units; text NFC-casefolded with collapsed whitespace. The
    same function produces the keys of §6, so key agreement and canonical-form equality cannot
    diverge.
-2. **SymPy, D7 §5.3.** `sympy.parsing.latex.parse_latex(s, backend="lark")` (SymPy 1.14) on the
-   macro-expanded LaTeX; equal when `sympy.simplify(a - b) == 0` within a time limit; sets
+2. **SymPy, D7 §5.3.** The grammar's tree converted by a subclass of SymPy's Lark transformer
+   (SymPy 1.14); equal when `sympy.simplify(a - b) == 0` within a time limit; sets
    compared as SymPy sets (`\R`, `(0, \infty)`, `\R \setminus \{0\}`). Parse failures are
    recorded with their LaTeX for S5.
 3. **Numeric fallback, D7 §5.3.** When simplification times out or is inconclusive: evaluation
@@ -219,6 +229,7 @@ S0 version.
 |---|---|---|---|
 | I-A | Pydantic batch models (both forms), schema files and `SchemaView` lookup, validator, invalid-batch tests, locator and stored-form conversion with planted tests | `code/instruments/{batch,schema_lookup,validate}.py`, `code/s0_locate.py`, `code/schema/`, `results/s0/instruments_tests.md` | Every invalid batch reported in its category; every planted quote located at its expected span or reported as expected-unlocated |
 | I-B | Value equivalence, aligner, scores, keys; verification (§9) | `code/instruments/{values,align,scores,keys}.py`, `results/s0/aligner_verification.md` | §9 checks pass, or each failure is fixed or reported with its effect on S0 numbers |
+| I-R1 | Revisit (ADR-0009): the math grammar module, slot-type validation, value tiers on the grammar, the quote cascade of §3, a symbol-occurrence API for M13 | `code/mathgrammar/`, `results/mathgrammar/`, revised `code/instruments/`, `code/s0_locate.py`, tests | Existing suites pass; F2/F3/F5a pass on the grammar; the cascade reproduces the probe's figures; grammar coverage recorded by kind with failure categories |
 
 I-A needs S1-A's canonical text for its locator tests; I-B is built and verified on T1–T4 trace
 data before S0's passes exist.

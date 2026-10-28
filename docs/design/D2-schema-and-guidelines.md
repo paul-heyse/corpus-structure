@@ -980,7 +980,7 @@ math:
   constants: ['e', '\pi']
 
 binders:                                               # M13 binder lexicon
-  sentence_initial: [suppose, let, assume, fix, define, consider, recall]
+  sentence_initial: [suppose, let, assume, fix, define, consider, recall, if]   # "if": S0 M13 probe (2026-10-28), ADR-0009
   clause: [where, for]
   reopen: [again]                                      # "Suppose again …" re-opens the section's earlier binding
   section_wide: ["in this section", "throughout this section"]

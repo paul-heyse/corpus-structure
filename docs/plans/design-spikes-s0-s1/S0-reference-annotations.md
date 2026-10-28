@@ -189,6 +189,13 @@ reported as evidence for D7 §3.4.
 
 ## 6. M13 rule probe (S0-E)
 
+**Revisit S0-R1 (ADR-0009, 2026-10-28).** The probe below ran first as written; its results
+(16 of 20 symbol extents; the misses were sentence-initial "if" binders and standalone paragraph
+statements) are kept in `m13_probe.*.tsv`. The revisit re-implements binder detection as spaCy
+`Matcher` patterns generated from D2 §12.1's binder lexicon (now including "if") and takes symbol
+occurrences from the math grammar instead of pylatexenc nodes, then reruns against the
+reference under both section syntheses.
+
 A small implementation of D4 M13's rules over the twelve units and their pages:
 
 - **Symbols** from S1's math segments via pylatexenc 3.0b2 `LatexWalker` nodes: letters from

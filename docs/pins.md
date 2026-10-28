@@ -18,6 +18,7 @@ with the `pin-check` skill.
 
 | Component | Pin | Reason | Revisit when | Verified |
 |---|---|---|---|---|
+| sympy (spike env `docs/design_review/evidence/2026-10-28_design-spikes/pyproject.toml`; the math grammar's base) | 1.14.0 | ADR-0009: the math grammar extends SymPy's shipped Lark LaTeX grammar and subclasses its transformer; SymPy marks that parser experimental, so a release can change rule names the extension overrides | a SymPy release whose `parsing/latex/lark/grammar/latex.lark` or `transformer.py` changes; bump only with the extension reviewed against the new grammar and the math-grammar coverage record rerun | 2026-10-28: spike env `sympy.__version__` → 1.14.0, lark 1.3.1 |
 
 Every registry dependency is pinned exactly (`=x.y.z`) or by git `rev`; `just deps` checks it.
 A row here is only for a hold. Declare crate families that must resolve to one version in

@@ -309,6 +309,14 @@ keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5
 collapsed whitespace. Formula equivalence for evaluation uses SymPy simplification
 ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)), not canonical form.
 
+Canonical form is written from the parse tree of the one math grammar (D4 M11), not by string
+rewriting: macros expand by whole command name (`\P` never matches inside `\Phi`), and a value
+that does not parse keeps its verbatim LaTeX, whitespace-collapsed, with `parse: partial` or
+`failed`. A value must parse under its slot's declared range (formula, set, relation, membership);
+a mismatch is a validation issue, not a silent coercion.
+
+> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+
 ## 7. Conditions
 
 A condition is a JSON tree. It states under what circumstances a claim holds. Every node

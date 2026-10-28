@@ -1,7 +1,7 @@
 definition	pages	example_pages
 \N -> \mathbb{N} (0)	78	dist/Introduction.html;dist/Discrete.html;dist/Continuous.html
 \R -> \mathbb{R} (0)	76	dist/Introduction.html;dist/Discrete.html;dist/Continuous.html
-\E -> \mathbb{E} (0)	63	dist/Convergence.html;expect/Properties.html;expect/Properties2.html
+\E -> \mathbb{E} (0)	69	dist/Convergence.html;expect/Properties.html;expect/Properties2.html
 \var -> \text{var} (0)	63	expect/Variance.html;expect/Skew.html;expect/Covariance.html
 \P -> \mathbb{P} (0)	55	special/LocationScale.html;special/GeneralExponential.html;special/Stable.html
 \sd -> \text{sd} (0)	53	expect/Variance.html;expect/Skew.html;expect/Covariance.html
@@ -13,7 +13,6 @@ definition	pages	example_pages
 \ms -> \mathscr (0)	12	dist/Introduction.html;dist/Discrete.html;dist/Continuous.html
 \Z -> \mathbb{Z} (0)	9	dist/Transformations.html;special/FoldedNormal.html;special/UniformDiscrete.html
 \sgn -> \text{sgn} (0)	7	dist/Transformations.html;special/FoldedNormal.html;special/Semicircle.html
- \E -> \mathbb{E} (0)	6	special/FoldedNormal.html;special/Semicircle.html;special/Triangle.html
 \sgn -> \,\text{sgn} (0)	3	special/Stable.html;special/Divisible.html;special/Levy.html
 \mse -> \text{mse} (0)	2	expect/Variance.html;expect/Covariance.html
 \mse -> \text{MSE} (0)	2	expect/Conditional.html;expect/Conditional2.html

@@ -164,11 +164,16 @@ Models cite evidence **by quote, not offset**: each evidence item is `{sentence:
 
 1. **Validate** against the compiled JSON Schema (vLLM enforces it during decoding; agent
    output is validated on submission, D8).
-2. **Locate quotes**: exact match in the cited sentence, then in the unit; then whitespace- and
-   LaTeX-delimiter-normalized match; then `rapidfuzz.fuzz.partial_ratio_alignment` ≥ 95 within
-   the cited sentence. The result is a span (rendition offsets). An unlocated quote leaves the
-   item in the batch with `evidence_unlocated: true`; consolidation treats such items as
-   unsupported by evidence (D5).
+2. **Locate quotes** by a cascade that never loses source offsets: exact in the cited sentence,
+   then in the unit; exact up to spacing (a `regex` pattern of the quote's non-space characters
+   joined by optional whitespace and spacing commands, matched in the original text, so no
+   offset map is needed); the same after expanding the rendition's macros on both sides; then
+   `rapidfuzz.fuzz.partial_ratio_alignment` (cutoff 85, trailing punctuation stripped), refined
+   inside its window by `regex` `BESTMATCH` with a bounded error count and a timeout. Every span
+   is snapped outward to word boundaries; each result records its step and edit counts. The
+   result is a span (rendition offsets). An unlocated quote leaves the item in the batch with
+   `evidence_unlocated: true`; consolidation treats such items as unsupported by evidence (D5).
+   > Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
 3. **Check references and types**: local refs resolve; subject and object types match the
    predicate's domain and range (entity-type side table, D2 §7.3).
 4. **Normalize math**: `$…$` and `\(…\)` are equivalent; values of type `formula` keep the LaTeX
@@ -203,8 +208,13 @@ solution), math delimiters, and whether pages define macros. The profile lives i
 pack's `methods.yaml`; it is about the source's HTML, not the domain.
 
 **Library realization.** `lxml.html.document_fromstring`; CSS selectors through `lxml.cssselect` for exclusions
-and unit selection; a small brace-aware scanner for `\( \)` and `\[ \]` (pylatexenc's `LatexWalker`
-only to confirm that a delimited span is balanced); `html.unescape`, `unicodedata.normalize("NFC")`.
+and unit selection; math delimiting by one `regex` pattern generated from the profile's declared
+delimiters and display environments (an escaped backslash is skipped; a span stops at the next
+delimiter, so an unclosed one is `partial` and the scan resynchronizes); each span validated by
+the math grammar (M11); `html.unescape`, `unicodedata.normalize("NFC")`. Source-specific facts
+(unit, reference, section and layout selectors, delimiters, the macro source) are profile data,
+never adapter code.
+> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
 
 **Measured by.** `parse_status` per rendition and segment; excluded-character share; segment
 counts by kind; author-markup counts (S1 compares them with `siegrist_sections.tsv`).
@@ -346,9 +356,10 @@ equality (`Y = a + b X`), distribution statements written in notation (`X \sim
 N(\mu, \sigma^2)`) as `relation` with label `stat:has_distribution` when the domain pack maps
 the notation.
 
-**Library realization.** pylatexenc `LatexWalker` (macros, groups, sub- and superscripts), the
-page's macros recorded by M01, then the pack's fallback macro map (D2 §12.1), a small rule table for
-relational operators. No SymPy here.
+**Library realization.** The math grammar of M11: symbol occurrences with offsets, sub- and
+superscripts as tree structure, relations and memberships as typed nodes; the page's macros
+recorded by M01, then the pack's fallback macro map (D2 §12.1). No SymPy conversion here.
+> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
 
 ## 7. LLM proposals and judgments
 
@@ -411,9 +422,16 @@ own tables.
 (`\R \setminus \{0\}`, `(0, \infty)`) become SymPy sets. Symbol binding is not done here: it
 needs scope (M13) and claims, so consolidation binds (D5 §4).
 
-**Library realization.** Macro expansion with the page's macros (M01) and the pack's fallback
-map, by pylatexenc macro definitions or a regex map; `sympy.parsing.latex.parse_latex(..., backend="lark")` (SymPy 1.14), falling back to
-the ANTLR backend if S5 shows better coverage (`OPEN-D4-3`); `sympy.srepr` for storage.
+**Library realization.** One math grammar for every reader of math: SymPy 1.14's Lark LaTeX
+grammar, unedited, extended by a separate file through Lark `%extend`/`%override` (typed start
+symbols formula, relation, member, set; sub- and superscripts as rules; set constructs; operator
+and set macros generated from the rendition's macro table, never named in the grammar); Earley
+with explicit ambiguity resolved only from declared context, otherwise `ambiguous`; failures
+carry Lark's error class, position and a category; a subclass of SymPy's `TransformToSymPyExpr`
+for the extended rules; canonical form (D1 §6.2) written from the tree; one parser cached per
+macro table; SymPy pinned as a hold. The ANTLR backend remains the comparison for `OPEN-D4-3`;
+`sympy.srepr` for storage.
+> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
 
 **Measured by.** Parse rate by math kind and page; failure categories (S5).
 
@@ -449,9 +467,14 @@ The payload names the binding site's mention, the extent segment, and, when the 
 states it, the provisional binding kind (`variable`, `param_of`, `constant`); consolidation
 completes bindings with claims (D5 §4).
 
-**Library realization.** Plain Python over the segment tree; spaCy for binder detection
-(sentence-initial lemma in the binder lexicon from `methods.yaml`). Spike evidence: S0
-annotators' scopes, S5.
+**Library realization.** Plain Python over the segment tree; binding sites by spaCy `Matcher`
+patterns over tokens, generated from the binder lexicon in `methods.yaml` (sentence-initial
+binders including "if", clause binders, section-wide phrases, "again"), with each merged math
+token carrying its kind from the math grammar (symbol, relation, membership) and its symbol
+occurrences; `DependencyMatcher` only where clause attachment decides the binding. A standalone
+claim-bearing paragraph is a statement extent; a section-wide binder takes precedence. Spike
+evidence: S0 annotators' scopes (`m13_probe.*.tsv`), S5.
+> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
 
 ### M14 resolve.concept_link
 

@@ -204,6 +204,15 @@ row. "Needs" names the input a package consumes, not merely an earlier row.
 | 15 | S0-F Gaps, OPEN answers, sizes, report | S0 | S0-C…E | `gaps.md`, `size.tsv`, `S0-report.md` |
 | 16 | S1-G Report | S1 | S1-A…F | `S1-report.md` with M01/M03 specifications |
 | 17 | X1 Closing package (with design-phase Q5) | this plan §7 | both reports reviewed by the operator | design updates, dispositions, STATUS |
+| 18 | I-R1 Instruments revisit: one math grammar (ADR-0009), slot-type validation, quote cascade | Instruments §3, §4 | I-B; `lark_probe`, `regex_probe` | `code/mathgrammar/`, grammar coverage record, revised locator and value tiers, tests |
+| 19 | S1-R1 Profile-driven math delimiting (ADR-0009) | S1 §3.1 | S1-D | delimiter pattern generated from the profile; S1-D checks rerun unchanged |
+| 20 | S0-R1 M13 revisit: binders as spaCy patterns, symbols from the grammar | S0 §6 | I-R1 symbol API; S0-D reference | `m13_probe.*.tsv` with the amended rules |
+| 21 | S0-G Rerun of every S0 comparison on the revised instruments; passes H and D7 scored | S0 §4 | I-R1 | `compare/`, revised figures for S0-F |
+
+Rows 18–21 were added 2026-10-28 after the operator approved the parsing recommendation
+(ADR-0009: one math grammar, source facts as profile data, offset-preserving quote location,
+spaCy patterns for prose constructs). S0-F waits for row 21 so the report's figures come from
+the revised instruments.
 
 Rows 6, 7 and 8 proceed in parallel; S0's annotation does not wait for the sentence gold,
 because quotes are located in the unit when a cited sentence id is wrong (D4 §4.3), and the
@@ -276,6 +285,7 @@ inventory (2026-10-28) and are scheduled into S1.
 | HTML-05 | M01 | ~26 misnested or unclosed `<p>` repaired differently by parsers; parser error logs do not report them | open · S1-A, S1-D | Parser diff and source-level repair inventory |
 | HTML-06 | M01, M09, M11 | `div.latex` macro definitions: per-source map or per-rendition attribute | open · S1-D | Macro tables compared across 78 pages |
 | HTML-07 | D4 M01 | Source-profile language (CSS rules with roles) and a fallback for unprofiled HTML | open · S1-A, S1-E, S1-F | Rule-engine agreement, coverage inventory, trafilatura and NIST evidence |
+| PARSE-01 | D1 §6.2, D4 §4.3, M01, M09, M11, M13 | Math read four ways by string code (scanner, pylatexenc walker, SymPy rewrite shim, regex expression test); review findings F2/F3/F5a; fixed-width fuzzy quote windows cut words; source facts in adapter code | decided · ADR-0009 (operator approval 2026-10-28); implementation I-R1, S1-R1, S0-R1 | `code/mathgrammar/` coverage record; F2/F3/F5a regression tests on the grammar; locator cascade reproduces `regex_probe` figures; S1-D checks unchanged under the profile-generated delimiter pattern |
 | OPEN-D2-1 | D2 §7.2 | `Schema.from_dict` keys in gliner2 | deferred · S4 | — |
 | OPEN-D2-2 | D2 §7.2, M06/M07 | Raw or masked math for GLiNER2 | deferred · S2 (S1 supplies math token cost) | — |
 | OPEN-D2-3 | D2 §7.4 | rule-engine syntax | deferred · S4 | — |

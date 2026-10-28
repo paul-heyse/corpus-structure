@@ -110,6 +110,11 @@ intersecting node sets.
 
 ## 4. The adapter
 
+**Revisit S1-R1 (ADR-0009, 2026-10-28).** Math delimiting is generated from the source profile
+(`math.delimiters`, `math.display_environments`) as one `regex` pattern instead of hand-written
+scanner code; `code/regex_probe.py` showed the pattern equal to the scanner on all 517 spike-page
+blocks. The revisit reruns S1-B and S1-D's invariant and count checks and reports any change.
+
 `code/s1_adapter.py` turns a page's bytes plus an adapter configuration into a rendition:
 canonical text, segments, author-markup records, excluded-content records and rendition
 attributes. Its configuration is a single JSON document whose canonical hash is the adapter

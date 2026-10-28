@@ -15,6 +15,8 @@ import copy
 import hashlib
 import json
 import re
+
+import regex
 import sys
 import unicodedata
 from dataclasses import dataclass, field
@@ -422,60 +424,66 @@ class Builder:
 
 # ---------------------------------------------------------------------------- math and runs
 
-def scan_math(s: str, environments: list[str]) -> tuple[list[dict], list[dict]]:
-    """Delimit \\( \\), \\[ \\] and bare \\begin{env}…\\end{env}; never rewrites. Returns spans, anomalies."""
+_MATH_PATTERNS: dict = {}
+
+
+def math_pattern(math_cfg) -> "regex.Pattern":
+    """One `regex` pattern from the profile's math declarations (ADR-0009, revisit S1-R1):
+    delimiter pairs (`inline`, `display`) and bare `display_environments`. An escaped backslash is
+    skipped; a span's body stops at the next declared delimiter, so an unclosed span ends there
+    (`partial`) and the scan resynchronizes; a closer outside any span is reported as stray."""
+    if isinstance(math_cfg, list):  # legacy call: environments only, default delimiters
+        math_cfg = {"inline": ["\\(", "\\)"], "display": ["\\[", "\\]"], "display_environments": math_cfg}
+    pairs = [tuple(math_cfg[k]) for k in ("inline", "display") if math_cfg.get(k)]
+    envs = list(math_cfg.get("display_environments") or [])
+    key = (tuple(pairs), tuple(envs))
+    if key in _MATH_PATTERNS:
+        return _MATH_PATTERNS[key]
+    opens = sorted({o for o, _ in pairs}, key=len, reverse=True)
+    closes = sorted({c for _, c in pairs}, key=len, reverse=True)
+    delims = "|".join(regex.escape(d) for d in sorted(set(opens) | set(closes), key=len, reverse=True))
+    alt = [r"\\\\ (*SKIP)(*F)",
+           r"(?P<open>" + "|".join(regex.escape(o) for o in opens) + r")"
+           r"(?P<body>(?:\\\\ | (?!" + delims + r") .)*+)"
+           r"(?P<close>" + "|".join(regex.escape(c) for c in closes) + r")?",
+           r"(?P<stray>" + "|".join(regex.escape(c) for c in closes) + r")"]
+    if envs:
+        names = "|".join(regex.escape(e) for e in envs)
+        alt.insert(1, r"(?P<env>\\begin\{(?P<name>" + names + r")\}) .*? (?P<envend>\\end\{(?P=name)\} | \Z)")
+    pat = regex.compile("(?V1)" + " | ".join(alt), regex.VERBOSE | regex.DOTALL)
+    _MATH_PATTERNS[key] = pat
+    return pat
+
+
+def scan_math(s: str, math_cfg) -> tuple[list[dict], list[dict]]:
+    """Delimit math in a text run by the profile's pattern; never rewrites. Returns spans, anomalies."""
+    pairs = None
+    if isinstance(math_cfg, dict):
+        pairs = {o: c for o, c in (math_cfg[k] for k in ("inline", "display") if math_cfg.get(k))}
+    else:
+        pairs = {"\\(": "\\)", "\\[": "\\]"}
+    inline_open = (math_cfg.get("inline") or [None])[0] if isinstance(math_cfg, dict) else "\\("
     spans: list[dict] = []
     anomalies: list[dict] = []
-    env_re = re.compile(r"\\begin\{(" + "|".join(re.escape(e) for e in environments) + r")\}")
-    open_: tuple[int, str] | None = None
-    i, n = 0, len(s)
-    while i < n:
-        if s[i] != "\\":
-            i += 1
-            continue
-        nxt = s[i + 1:i + 2]
-        if nxt == "\\":
-            i += 2
-            continue
-        if nxt in ("(", "["):
-            if open_ is not None:
-                spans.append({"start": open_[0], "end": i, "open": "\\" + open_[1], "close": None,
-                              "status": "partial", "reason": f"unclosed \\{open_[1]} before next opener"})
-            open_ = (i, nxt)
-            i += 2
-            continue
-        if nxt in (")", "]"):
-            if open_ is None:
-                anomalies.append({"pos": i, "kind": "stray closer", "delim": "\\" + nxt})
+    for m in math_pattern(math_cfg).finditer(s, timeout=10.0):
+        if m.group("stray"):
+            anomalies.append({"pos": m.start(), "kind": "stray closer", "delim": m.group("stray")})
+        elif m.groupdict().get("env"):
+            closed = bool(m.group("envend"))
+            spans.append({"start": m.start(), "end": m.end(), "open": m.group("env"),
+                          "close": m.group("envend") if closed else None, "status": "ok" if closed else "partial",
+                          "reason": None if closed else f"unclosed {m.group('env')}", "display": True})
+        else:
+            o, c = m.group("open"), m.group("close")
+            if c is None:
+                reason = "unclosed at block end" if m.end() == len(s) else f"unclosed {o} before next opener"
+                status = "partial"
+            elif pairs.get(o) != c:
+                reason, status = f"{o} closed by {c}", "partial"
             else:
-                ok = (open_[1], nxt) in (("(", ")"), ("[", "]"))
-                spans.append({"start": open_[0], "end": i + 2, "open": "\\" + open_[1], "close": "\\" + nxt,
-                              "status": "ok" if ok else "partial",
-                              "reason": None if ok else f"\\{open_[1]} closed by \\{nxt}"})
-                open_ = None
-            i += 2
-            continue
-        if open_ is None:
-            m = env_re.match(s, i)
-            if m:
-                env = m.group(1)
-                end_tok = "\\end{" + env + "}"
-                j = s.find(end_tok, m.end())
-                if j < 0:
-                    spans.append({"start": i, "end": n, "open": m.group(0), "close": None,
-                                  "status": "partial", "reason": f"unclosed {m.group(0)}"})
-                    i = n
-                else:
-                    spans.append({"start": i, "end": j + len(end_tok), "open": m.group(0),
-                                  "close": end_tok, "status": "ok", "reason": None})
-                    i = j + len(end_tok)
-                continue
-        i += 1
-    if open_ is not None:
-        spans.append({"start": open_[0], "end": n, "open": "\\" + open_[1], "close": None,
-                      "status": "partial", "reason": "unclosed at block end"})
-    for sp in spans:
-        sp["display"] = sp["open"] != "\\("
+                reason, status = None, "ok"
+            spans.append({"start": m.start(), "end": m.end(), "open": o, "close": c, "status": status,
+                          "reason": reason, "display": o != inline_open})
     return spans, anomalies
 
 
@@ -491,7 +499,7 @@ def validate_span(tex: str, ctx) -> tuple[str, str | None]:
 
 def process_run(run: Run, config: dict, prof: dict, ctx, stats: dict) -> tuple[str, list[dict], list[dict]]:
     raw = run.raw()
-    spans, anomalies = scan_math(raw, prof["math"].get("display_environments", []))
+    spans, anomalies = scan_math(raw, prof["math"])
     stats["math_anomalies"].extend(anomalies)
     in_math = [False] * len(raw)
     for sp in spans:

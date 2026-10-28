@@ -269,9 +269,9 @@ dist/Mixed.html	unit	seg:aeaeabc0bff0822fe3a4d821e72cfbca	172	33	0.564	76	98	the
 dist/Mixed.html	paragraph	seg:4d6d289da284af6f3d205b48f952fdef	393	77	0.387	125	144	
 dist/Mixed.html	unit	seg:7dce3efc423ed25e42ecc7062aebf579	213	40	0.653	100	127	theorem
 dist/Mixed.html	paragraph	seg:64dcedad8d409715e50837f50c1c1d86	280	47	0.043	56	59	
-dist/Mixed.html	unit	seg:a3a768753742ba2d409e1e5a0870b110	245	32	0.412	91	104	theorem
-dist/Mixed.html	unit	seg:d9cd2e3f7b00f010fb732e43c96cd606	222	28	0.446	87	103	theorem
-dist/Mixed.html	unit	seg:b9a154c634df20477f4431b71a04fd3e	414	69	0.316	148	157	theorem
+dist/Mixed.html	unit	seg:a3a768753742ba2d409e1e5a0870b110	245	32	0.412	91	104	example
+dist/Mixed.html	unit	seg:d9cd2e3f7b00f010fb732e43c96cd606	222	28	0.446	87	103	example
+dist/Mixed.html	unit	seg:b9a154c634df20477f4431b71a04fd3e	414	69	0.316	148	157	example
 dist/Joint.html	paragraph	seg:71430c604011442907e180a9ae50eeea	451	71	0.0	79	79	
 dist/Joint.html	paragraph	seg:c5fdeece311a05c61d4c1331efd73418	1068	188	0.272	303	368	
 dist/Joint.html	unit	seg:d3299c4bb65a65818f88747ed14776a9	611	117	0.378	203	240	theorem
@@ -930,7 +930,7 @@ expect/Properties2.html	paragraph	seg:0f82c01f89dc800dc39aa9797f195c41	290	48	0.
 expect/Properties2.html	paragraph	seg:7aed001e2d80c082d006dd2518ff5234	245	50	0.118	59	67	
 expect/Properties2.html	unit	seg:90b3f710ddc7788dc54065c0cfa5d260	951	177	0.415	310	369	theorem
 expect/Properties2.html	paragraph	seg:fc65134a0f9b33b416749e76a462e217	57	11	0.667	27	35	
-expect/Properties2.html	unit	seg:fc6a24f29906c9d7f5d359a6b0135016	264	65	0.436	102	114	theorem
+expect/Properties2.html	unit	seg:fc6a24f29906c9d7f5d359a6b0135016	264	65	0.436	102	114	example
 expect/Properties2.html	paragraph	seg:9d4b12293b870e72bef0ebe6d7957966	389	63	0.19	95	103	
 expect/Properties2.html	unit	seg:09924925662dc3cb3501cdca268369f2	431	74	0.418	169	193	theorem
 expect/Properties2.html	unit	seg:3ce10c7eeacac193f0bd3203418a7abd	377	65	0.048	79	79	remark
@@ -1457,12 +1457,12 @@ expect/Matrices.html	unit	seg:3d56ba11ca2dfcf5685444976b1e2dec	520	67	0.746	253	
 expect/Matrices.html	paragraph	seg:5b7f304494d4c2edd852a9fd611b82e9	585	85	0.499	226	291	
 expect/Matrices.html	paragraph	seg:bb17cfe5ba3f5408a0d859f1b53c5ca2	455	80	0.259	139	159	
 expect/Matrices.html	paragraph	seg:c38af394c954ecb8177e77902098cde3	628	99	0.177	170	201	
-expect/Matrices.html	unit	seg:e523c5e7fc0407721dd4070ce31fa975	373	52	0.66	170	190	theorem
-expect/Matrices.html	unit	seg:b3b07c70f19ad8e4bab951da3796918e	359	52	0.652	161	182	theorem
-expect/Matrices.html	unit	seg:3b46f5e937c501349ad521af87b68354	389	61	0.586	166	192	theorem
-expect/Matrices.html	unit	seg:c0a1e3186df390cdd56df8d77ce18061	589	87	0.655	276	299	theorem
-expect/Matrices.html	unit	seg:0534e0dee01a36e00ee662af18644c69	952	138	0.723	454	507	theorem
-expect/Matrices.html	unit	seg:a6e4503718af76cf7a73c3577a73bf93	373	48	0.552	151	178	theorem
+expect/Matrices.html	unit	seg:e523c5e7fc0407721dd4070ce31fa975	373	52	0.66	170	190	example
+expect/Matrices.html	unit	seg:b3b07c70f19ad8e4bab951da3796918e	359	52	0.652	161	182	example
+expect/Matrices.html	unit	seg:3b46f5e937c501349ad521af87b68354	389	61	0.586	166	192	example
+expect/Matrices.html	unit	seg:c0a1e3186df390cdd56df8d77ce18061	589	87	0.655	276	299	example
+expect/Matrices.html	unit	seg:0534e0dee01a36e00ee662af18644c69	952	138	0.723	454	507	example
+expect/Matrices.html	unit	seg:a6e4503718af76cf7a73c3577a73bf93	373	48	0.552	151	178	example
 expect/Integral.html	paragraph	seg:955c376a71b28b4dbc5e8d90f8cd8752	841	132	0.0	154	156	
 expect/Integral.html	paragraph	seg:92bc10e3e48be9aecbb3742bb9b5ba46	334	58	0.311	95	112	
 expect/Integral.html	paragraph	seg:dbfd1d5652ba713b77a99a7edb1b931a	410	71	0.295	115	136	
@@ -1667,13 +1667,13 @@ expect/Spaces.html	paragraph	seg:aa3e2a864efd03ff3efbd1036533adae	173	27	0.376	4
 expect/Spaces.html	unit	seg:ac85fed9a445589bef8e90c8d943e05a	1227	205	0.711	519	634	theorem
 expect/Spaces.html	unit	seg:00168f54433e39b26681f9dafdf6de7b	203	36	0.034	42	46	remark
 expect/Spaces.html	unit	seg:0ac1053f4be66b24748a29e4242b08a4	200	35	0.035	41	45	remark
-expect/Spaces.html	unit	seg:c7c0a4bf034100ee8af886e24f2eb766	275	45	0.505	127	148	theorem
-expect/Spaces.html	unit	seg:5766cc87aea6eb20384b73ca3b6b8d3f	470	75	0.526	198	240	theorem
-expect/Spaces.html	unit	seg:f38e72a26d338c01aab92b5d31980de8	322	54	0.668	159	179	theorem
-expect/Spaces.html	unit	seg:ea71e0eac842ff7f9727133946249118	553	104	0.392	208	241	theorem
-expect/Spaces.html	unit	seg:d1b43c5b4a9063d73ea8640f967c4935	259	43	0.286	77	91	theorem
-expect/Spaces.html	unit	seg:31a5655257ab613eb5f19053539904e0	267	46	0.322	85	98	theorem
-expect/Spaces.html	unit	seg:3253562b79f15ede0cb8e05b18fce99b	318	57	0.56	151	169	theorem
+expect/Spaces.html	unit	seg:c7c0a4bf034100ee8af886e24f2eb766	275	45	0.505	127	148	exercise
+expect/Spaces.html	unit	seg:5766cc87aea6eb20384b73ca3b6b8d3f	470	75	0.526	198	240	exercise
+expect/Spaces.html	unit	seg:f38e72a26d338c01aab92b5d31980de8	322	54	0.668	159	179	exercise
+expect/Spaces.html	unit	seg:ea71e0eac842ff7f9727133946249118	553	104	0.392	208	241	exercise
+expect/Spaces.html	unit	seg:d1b43c5b4a9063d73ea8640f967c4935	259	43	0.286	77	91	exercise
+expect/Spaces.html	unit	seg:31a5655257ab613eb5f19053539904e0	267	46	0.322	85	98	exercise
+expect/Spaces.html	unit	seg:3253562b79f15ede0cb8e05b18fce99b	318	57	0.56	151	169	exercise
 expect/Spaces.html	paragraph	seg:21ce36e5cadefe5e1e25626a6d54f482	100	15	0.0	17	18	
 expect/Spaces.html	unit	seg:d71f0e520ac13223c8c1f60c2166aad2	713	125	0.519	284	314	theorem
 expect/Spaces.html	paragraph	seg:5d58a78e5372367525f672a32917c97f	100	15	0.0	17	18	
@@ -1896,13 +1896,13 @@ special/Stable.html	paragraph	seg:7f738a18d426999ba4177d530408c453	481	79	0.391	
 special/Stable.html	paragraph	seg:316f939f07d2e5790ffec63def25e247	175	24	0.0	29	30	
 special/Stable.html	unit	seg:488bedc0b44d2263bdb7ed6e3b8b1338	878	157	0.449	294	332	theorem
 special/Stable.html	paragraph	seg:2229c4cc360d0096cb3551d9fc27f5b1	406	61	0.0	71	72	
-special/Stable.html	unit	seg:42b10aff903bfc2a49bdcd05130ac4e9	1174	219	0.313	336	373	theorem
+special/Stable.html	unit	seg:42b10aff903bfc2a49bdcd05130ac4e9	1174	219	0.313	336	373	example
 special/Stable.html	paragraph	seg:dbac93d68fe7370be27367c01ddf47a1	345	56	0.0	67	67	
-special/Stable.html	unit	seg:73d34bfa2552d59612d570b3e7662ab9	312	46	0.0	55	52	remark
-special/Stable.html	unit	seg:23c4500248f2c2d8b9097e09e9264ede	990	185	0.31	285	311	theorem
-special/Stable.html	unit	seg:8aa309a8b1eaae7b772cf32709671c41	312	46	0.0	56	53	remark
-special/Stable.html	unit	seg:85916874cc6c2b060b71c69091d2a25f	1219	217	0.393	386	427	theorem
-special/Stable.html	unit	seg:56c8b7f811a8c8917e5398122bb5830b	310	46	0.0	56	53	remark
+special/Stable.html	unit	seg:73d34bfa2552d59612d570b3e7662ab9	312	46	0.0	55	52	example
+special/Stable.html	unit	seg:23c4500248f2c2d8b9097e09e9264ede	990	185	0.31	285	311	example
+special/Stable.html	unit	seg:8aa309a8b1eaae7b772cf32709671c41	312	46	0.0	56	53	example
+special/Stable.html	unit	seg:85916874cc6c2b060b71c69091d2a25f	1219	217	0.393	386	427	example
+special/Stable.html	unit	seg:56c8b7f811a8c8917e5398122bb5830b	310	46	0.0	56	53	example
 special/Stable.html	paragraph	seg:3711331fc7b8162b41dcc19295011909	144	22	0.0	27	29	
 special/Divisible.html	paragraph	seg:54ccc4e878c6ead435403e942ff5612c	109	20	0.0	21	23	
 special/Divisible.html	paragraph	seg:2f0cc271994ad6c9238357f7900e17cf	491	76	0.063	97	101	
@@ -1996,9 +1996,9 @@ special/Normal.html	paragraph	seg:44a7a55189b25266a889e45347c64493	92	12	0.0	14	
 special/Normal.html	unit	seg:9302357f317ac5ab5fbc19cdec3b7fd1	565	72	0.487	187	222	theorem
 special/Normal.html	paragraph	seg:a17c7cf35e911bc575784acde92718fd	130	18	0.0	19	21	
 special/Normal.html	paragraph	seg:82f078688be95055a143cb2a38d7b68e	431	66	0.0	78	77	
-special/Normal.html	unit	seg:73691a52eb48ba3bad53c04718fab2c7	392	68	0.138	129	119	theorem
-special/Normal.html	unit	seg:9aa15b25543793d52a4f180a6feb350f	512	96	0.074	137	131	theorem
-special/Normal.html	unit	seg:574f442243d17d2de5c6f24da2212a3c	300	52	0.1	84	75	theorem
+special/Normal.html	unit	seg:73691a52eb48ba3bad53c04718fab2c7	392	68	0.138	129	119	exercise
+special/Normal.html	unit	seg:9aa15b25543793d52a4f180a6feb350f	512	96	0.074	137	131	exercise
+special/Normal.html	unit	seg:574f442243d17d2de5c6f24da2212a3c	300	52	0.1	84	75	exercise
 special/Normal.html	paragraph	seg:56cd22bafd1c152d7f14817bf7521324	582	90	0.017	127	127	
 special/MultiNormal.html	paragraph	seg:d319b5dfbcb9df4a08360d0fa732a557	542	73	0.0	87	86	
 special/MultiNormal.html	paragraph	seg:05045974162fb3bd8f86b0bfee2e7402	571	90	0.555	211	245	
@@ -2210,8 +2210,8 @@ special/ChiSquare.html	paragraph	seg:fef7d34dfc26caab5eac98032c6c9414	686	109	0.
 special/ChiSquare.html	unit	seg:c87716566f25b40041d9e759d63e0a6c	900	170	0.394	294	332	theorem
 special/ChiSquare.html	paragraph	seg:db32051f275bea26115cdee5a551634d	103	17	0.0	23	23	
 special/ChiSquare.html	unit	seg:fc1bf91a8ced077880fc793eb6771869	372	65	0.419	113	129	theorem
-special/ChiSquare.html	unit	seg:7833df3d8cecea9b2101715337d3cb84	480	87	0.144	133	133	theorem
-special/ChiSquare.html	unit	seg:c01a6aac18a67ecd1d4ac66636714abe	429	71	0.375	177	167	remark
+special/ChiSquare.html	unit	seg:7833df3d8cecea9b2101715337d3cb84	480	87	0.144	133	133	exercise
+special/ChiSquare.html	unit	seg:c01a6aac18a67ecd1d4ac66636714abe	429	71	0.375	177	167	exercise
 special/Student.html	paragraph	seg:9c75dcac7b7318c2ce521452a41fbb87	233	37	0.0	40	42	
 special/Student.html	unit	seg:e72d0d713fb0b91ff333b4dcbe8e667b	299	47	0.278	85	104	definition
 special/Student.html	paragraph	seg:bfbdef779f604a6d55f45ee74532e83d	245	41	0.094	55	60	
@@ -2245,7 +2245,7 @@ special/Student.html	paragraph	seg:c2b233a78d18db4f6e200a1cbcdb55d4	145	21	0.034
 special/Student.html	paragraph	seg:a7a582e91bf0130d49914b499d916f43	546	93	0.026	104	108	
 special/Student.html	unit	seg:24158a6f6fbe2e4c3a595ae21a2e9c33	374	61	0.305	109	133	definition
 special/Student.html	paragraph	seg:45474e018b537dd207d2b5c4013a304f	749	121	0.068	152	162	
-special/Student.html	unit	seg:707ca7a05200b6f270cb0740e2ee6fbd	429	71	0.399	180	182	theorem
+special/Student.html	unit	seg:707ca7a05200b6f270cb0740e2ee6fbd	429	71	0.399	180	182	exercise
 special/Fisher.html	paragraph	seg:2b9196be9e171ebaf9d53c4606af09cc	327	52	0.0	58	62	
 special/Fisher.html	unit	seg:00a0ca147d11b07d4b092a4f34492b56	396	67	0.268	112	134	definition
 special/Fisher.html	paragraph	seg:baf3fbba29409dd3187fa58e1a1bef88	227	40	0.084	52	56	
@@ -2317,8 +2317,8 @@ special/LogNormal.html	paragraph	seg:f8f30c25e8cf6e018371671f595963ae	179	25	0.0
 special/LogNormal.html	unit	seg:bf89d85bb1bd8d84eab6e3dafa1064ce	888	126	0.511	345	424	theorem
 special/LogNormal.html	paragraph	seg:4ab4491a92955284416778844b692f4f	95	12	0.0	15	17	
 special/LogNormal.html	unit	seg:7a2349c4fdf8fd34de9c91d25440982f	681	102	0.498	241	273	theorem
-special/LogNormal.html	unit	seg:b4fdf29d03928b2215a2209f0c8589fd	237	40	0.3	84	85	theorem
-special/LogNormal.html	unit	seg:f4f0a6cd475dad71cff28bb28bc4a5f7	337	54	0.386	133	143	theorem
+special/LogNormal.html	unit	seg:b4fdf29d03928b2215a2209f0c8589fd	237	40	0.3	84	85	exercise
+special/LogNormal.html	unit	seg:f4f0a6cd475dad71cff28bb28bc4a5f7	337	54	0.386	133	143	exercise
 special/FoldedNormal.html	paragraph	seg:b7822a5f78d31a58dd65b73d93f93e14	596	100	0.059	122	126	
 special/FoldedNormal.html	unit	seg:c73d42f15c386e061ff7b9267a12e751	224	45	0.379	66	77	definition
 special/FoldedNormal.html	paragraph	seg:cf887f0d230c60f46ce446f95c6e3a48	97	14	0.155	22	27	
@@ -3477,7 +3477,7 @@ special/Pareto.html	paragraph	seg:c9f610d6347d31f714dca5a229257795	85	13	0.0	17	
 special/Pareto.html	unit	seg:d316e6afad55b5c7a87f4cfce7fbb8b0	599	126	0.422	207	229	theorem
 special/Pareto.html	paragraph	seg:c4dc8233471fe64836cbc51b0e25e4d5	149	23	0.0	27	28	
 special/Pareto.html	unit	seg:148b9d43f11237e982512a1c508b34b2	489	96	0.319	149	158	theorem
-special/Pareto.html	unit	seg:9eb7d026ed22f34284e8e9ba8aea2655	638	107	0.265	273	236	theorem
+special/Pareto.html	unit	seg:9eb7d026ed22f34284e8e9ba8aea2655	638	107	0.265	273	236	exercise
 special/Wald.html	paragraph	seg:36f129cbe8f67ae13b1b3fec623d3674	471	73	0.0	92	93	
 special/Wald.html	paragraph	seg:9cf72377517ad77cedababa8bae643c1	150	23	0.067	29	33	
 special/Wald.html	unit	seg:c6340f56039beca4822fc9cc24487662	1629	224	0.718	641	788	definition
@@ -3587,7 +3587,7 @@ special/Weibull.html	paragraph	seg:fac97bffa1378fa36f07ed9802bdbf93	96	15	0.0	16
 special/Weibull.html	unit	seg:410bf9dfafb959f0e303dc9135f31a04	586	117	0.239	165	177	theorem
 special/Weibull.html	paragraph	seg:7f42952a0dc62a94d4ac927dec7e4e0f	129	20	0.0	24	25	
 special/Weibull.html	unit	seg:87dd6cd8e9bd8161fd124850521997db	416	77	0.233	114	123	theorem
-special/Weibull.html	unit	seg:6d3094502a5b52609ee2e3e338daf737	424	71	0.288	167	160	theorem
+special/Weibull.html	unit	seg:6d3094502a5b52609ee2e3e338daf737	424	71	0.288	167	160	exercise
 special/Benford.html	paragraph	seg:d86aef870aaef40bebf978e51a0dcba8	285	43	0.0	54	54	
 special/Benford.html	paragraph	seg:eb30c7a3c98e045af97445703f2c5a3b	823	146	0.153	226	231	
 special/Benford.html	paragraph	seg:79e361f17619f7e18abf7678af9cbe0d	379	68	0.174	103	114	
@@ -3634,13 +3634,13 @@ special/Benford.html	unit	seg:98edc61870a87bdd993b4dacca843e13	247	46	0.798	125	
 special/Benford.html	paragraph	seg:3104405f13f309bfd3cc3264dfec2afa	94	18	0.096	28	29	
 special/Benford.html	paragraph	seg:96e8eac3dd8cd30544b02bc7d172478e	230	37	0.0	47	50	
 special/Benford.html	paragraph	seg:9043b3beef9fc9fef9bafc78860d53a9	195	34	0.251	57	65	
-special/Benford.html	unit	seg:6cd01d516a6b6aff13c2a4ed9776f4c4	323	58	0.542	158	163	theorem
-special/Benford.html	unit	seg:6cfcb55cb1cb4b4777bcee52132fe437	350	70	0.314	202	173	theorem
-special/Benford.html	unit	seg:fa559cadaf04ef445988715ba43f78dd	818	133	0.078	729	448	theorem
-special/Benford.html	unit	seg:23de6d3f016c6ce4f6d3cf9c44ea8860	304	53	0.312	192	161	theorem
+special/Benford.html	unit	seg:6cd01d516a6b6aff13c2a4ed9776f4c4	323	58	0.542	158	163	exercise
+special/Benford.html	unit	seg:6cfcb55cb1cb4b4777bcee52132fe437	350	70	0.314	202	173	exercise
+special/Benford.html	unit	seg:fa559cadaf04ef445988715ba43f78dd	818	133	0.078	729	448	exercise
+special/Benford.html	unit	seg:23de6d3f016c6ce4f6d3cf9c44ea8860	304	53	0.312	192	161	exercise
 special/Benford.html	paragraph	seg:74fefa55b9be2e1dd5c481d0b54173ec	351	58	0.222	109	122	
-special/Benford.html	unit	seg:49120c405362afe890eda4d3fd4802d7	175	34	0.183	61	67	theorem
-special/Benford.html	unit	seg:a903de950d7c1ec07d7ea898341d43a5	142	35	0.697	90	92	theorem
+special/Benford.html	unit	seg:49120c405362afe890eda4d3fd4802d7	175	34	0.183	61	67	exercise
+special/Benford.html	unit	seg:a903de950d7c1ec07d7ea898341d43a5	142	35	0.697	90	92	exercise
 special/Zeta.html	paragraph	seg:0106e10a746e56f8abe240a1376fa66f	401	68	0.0	78	77	
 special/Zeta.html	unit	seg:a34e40b124f28b93e28c831cc63465dd	163	24	0.503	67	70	definition
 special/Zeta.html	paragraph	seg:2b03e9a72ac6ab47cbd5a49eff5e3c0c	123	23	0.179	35	38	
@@ -3662,8 +3662,8 @@ special/Zeta.html	paragraph	seg:5db0e16934d4ecd7f7ea6150e968bcdd	107	19	0.065	24
 special/Zeta.html	unit	seg:13f6bc155f6db8523f13e68297ed8c72	314	73	0.567	134	142	theorem
 special/Zeta.html	paragraph	seg:573cc9a0d9e2984d1a948fb8669eed7b	94	14	0.0	17	18	
 special/Zeta.html	unit	seg:85477825dd18dfea487fc327e8126160	392	62	0.227	107	119	theorem
-special/Zeta.html	unit	seg:a4a93dcc32d99160f8a474f952a9ee4d	256	45	0.348	90	95	theorem
-special/Zeta.html	unit	seg:871247e1015eb4d7379e9d87e10adc95	307	50	0.534	142	149	theorem
+special/Zeta.html	unit	seg:a4a93dcc32d99160f8a474f952a9ee4d	256	45	0.348	90	95	exercise
+special/Zeta.html	unit	seg:871247e1015eb4d7379e9d87e10adc95	307	50	0.534	142	149	exercise
 special/Logarithmic.html	paragraph	seg:bff42b879be78d597ecdf64ff1aa4508	213	32	0.0	39	38	
 special/Logarithmic.html	unit	seg:d8740a17fbcbe4086608ab7c8f742e12	853	158	0.472	323	348	definition
 special/Logarithmic.html	unit	seg:0f9bcd944ade3fbc3e4591107050e63b	310	45	0.0	55	51	remark
@@ -4056,9 +4056,9 @@ bernoulli/NegativeBinomial.html	paragraph	seg:7676ac9d72ce755875482d46a7fcbbdd	1
 bernoulli/NegativeBinomial.html	unit	seg:f74583e7951e70877665dc1eafab5ee7	487	97	0.376	155	170	theorem
 bernoulli/NegativeBinomial.html	paragraph	seg:39117189319131c7dc87a92adf7e26f8	166	24	0.048	30	32	
 bernoulli/NegativeBinomial.html	unit	seg:6d527e9a5dbde4c48b481ee0b8e44da6	534	106	0.545	195	229	theorem
-bernoulli/NegativeBinomial.html	unit	seg:453f1ce67eebadf0b1ec74cbec8b26a1	296	45	0.5	132	153	theorem
-bernoulli/NegativeBinomial.html	unit	seg:a0e37547839f7e3c9d28a68c6d221e59	296	46	0.5	129	155	theorem
-bernoulli/NegativeBinomial.html	unit	seg:442e5194525bf95ad638612ccaceee20	342	59	0.485	149	157	theorem
+bernoulli/NegativeBinomial.html	unit	seg:453f1ce67eebadf0b1ec74cbec8b26a1	296	45	0.5	132	153	exercise
+bernoulli/NegativeBinomial.html	unit	seg:a0e37547839f7e3c9d28a68c6d221e59	296	46	0.5	129	155	exercise
+bernoulli/NegativeBinomial.html	unit	seg:442e5194525bf95ad638612ccaceee20	342	59	0.485	149	157	exercise
 bernoulli/Multinomial.html	unit	seg:38a09b914a509cf2211ff033da173e9f	384	64	0.297	119	135	definition
 bernoulli/Multinomial.html	paragraph	seg:3c5a24c6b0726dc0e7157a8b96b84fdb	289	46	0.211	84	95	
 bernoulli/Multinomial.html	paragraph	seg:4e65f9d80787f31d592d32514fe6935a	148	24	0.0	27	28	
@@ -4078,12 +4078,12 @@ bernoulli/Multinomial.html	unit	seg:21e29bda43fd6ceea00a167b9d751bec	228	40	0.46
 bernoulli/Multinomial.html	unit	seg:4b6ccec92115f772db1622a5304a4253	578	99	0.474	228	280	theorem
 bernoulli/Multinomial.html	paragraph	seg:53a67c2833f208133e29172eb4b7a971	178	30	0.084	40	49	
 bernoulli/Multinomial.html	unit	seg:bc0512f6b451d509392ee5459fa44ce2	301	60	0.203	94	98	theorem
-bernoulli/Multinomial.html	unit	seg:20c428cd18dc58708737f34d6ffe8ff7	435	73	0.0	90	85	remark
-bernoulli/Multinomial.html	unit	seg:aa9568326f0a03a110be8eab81995123	406	79	0.0	142	116	theorem
-bernoulli/Multinomial.html	unit	seg:e602f238afb38c062872a266cadf4ce5	453	80	0.419	177	192	theorem
-bernoulli/Multinomial.html	unit	seg:286d41dc038c59cca655b82ca8c8bf04	247	38	0.0	47	46	remark
-bernoulli/Multinomial.html	unit	seg:a90edc738679fb82d4b5c842fa3fdddb	182	28	0.115	60	57	theorem
-bernoulli/Multinomial.html	unit	seg:e37240f796500062add125d7d9c9b6d4	258	43	0.0	61	59	remark
+bernoulli/Multinomial.html	unit	seg:20c428cd18dc58708737f34d6ffe8ff7	435	73	0.0	90	85	example
+bernoulli/Multinomial.html	unit	seg:aa9568326f0a03a110be8eab81995123	406	79	0.0	142	116	example
+bernoulli/Multinomial.html	unit	seg:e602f238afb38c062872a266cadf4ce5	453	80	0.419	177	192	example
+bernoulli/Multinomial.html	unit	seg:286d41dc038c59cca655b82ca8c8bf04	247	38	0.0	47	46	example
+bernoulli/Multinomial.html	unit	seg:a90edc738679fb82d4b5c842fa3fdddb	182	28	0.115	60	57	example
+bernoulli/Multinomial.html	unit	seg:e37240f796500062add125d7d9c9b6d4	258	43	0.0	61	59	example
 bernoulli/Walk.html	paragraph	seg:ebe1af09734ca5575a097164bb94bd3a	275	45	0.0	55	56	
 bernoulli/Walk.html	unit	seg:6ab98fade7b2d43d7a73c5f31fe05d4d	408	69	0.409	151	176	theorem
 bernoulli/Walk.html	paragraph	seg:9b96ea7c93b85d41e1a3deb6c0e1ed22	523	93	0.036	112	120	
@@ -4268,13 +4268,13 @@ poisson/Exponential.html	unit	seg:7454eef78cc1c0f65cff08f1dea26479	621	136	0.623
 poisson/Exponential.html	unit	seg:a3abbc6349415b888262ad50aa62482d	879	175	0.567	341	403	theorem
 poisson/Exponential.html	paragraph	seg:e011273bc2c810e1c27e6c1645dafcbe	161	27	0.0	29	31	
 poisson/Exponential.html	unit	seg:616c18ea28ab24c1d5e7d5b8d42c0a68	1342	264	0.675	591	672	theorem
-poisson/Exponential.html	unit	seg:f2875b84fe94c88a6565e248604b62d3	247	45	0.372	77	85	theorem
-poisson/Exponential.html	unit	seg:e18482faece050e9bb4cbf4c6e85b151	469	82	0.247	176	170	theorem
-poisson/Exponential.html	unit	seg:bb347d42beebb8621198db0e21383faa	482	78	0.251	182	162	theorem
-poisson/Exponential.html	unit	seg:7340667f5a083073289a4672b977a5a2	610	103	0.231	218	218	theorem
-poisson/Exponential.html	unit	seg:0fd4d49e7309b221fab50675bacc6ce6	493	83	0.32	212	200	theorem
-poisson/Exponential.html	unit	seg:25ca7fa887fd08fe66366db1b4bfcafc	579	102	0.313	240	223	theorem
-poisson/Exponential.html	unit	seg:c69f53c53a19d77884a00606c49d0949	629	143	0.668	286	312	theorem
+poisson/Exponential.html	unit	seg:f2875b84fe94c88a6565e248604b62d3	247	45	0.372	77	85	exercise
+poisson/Exponential.html	unit	seg:e18482faece050e9bb4cbf4c6e85b151	469	82	0.247	176	170	exercise
+poisson/Exponential.html	unit	seg:bb347d42beebb8621198db0e21383faa	482	78	0.251	182	162	exercise
+poisson/Exponential.html	unit	seg:7340667f5a083073289a4672b977a5a2	610	103	0.231	218	218	exercise
+poisson/Exponential.html	unit	seg:0fd4d49e7309b221fab50675bacc6ce6	493	83	0.32	212	200	exercise
+poisson/Exponential.html	unit	seg:25ca7fa887fd08fe66366db1b4bfcafc	579	102	0.313	240	223	exercise
+poisson/Exponential.html	unit	seg:c69f53c53a19d77884a00606c49d0949	629	143	0.668	286	312	exercise
 poisson/Gamma.html	paragraph	seg:b18a236508dcc38e68911586c829d268	512	81	0.111	119	128	
 poisson/Gamma.html	unit	seg:d4b406b81e8f5b481fd8f9d4af698c7c	280	50	0.511	117	140	definition
 poisson/Gamma.html	paragraph	seg:98d42f7bcb9cde580a5dceb4a993ec5d	214	42	0.304	62	70	
@@ -4318,13 +4318,13 @@ poisson/Gamma.html	paragraph	seg:2696e4706e23ae2b15db276a4bcbb4c0	389	59	0.082	8
 poisson/Gamma.html	unit	seg:78eb45d818a2fc4029f281c1f2f6ca48	280	43	0.271	79	97	theorem
 poisson/Gamma.html	paragraph	seg:a472a8d4f7f80b4d00c39112f489f9de	993	173	0.042	211	213	
 poisson/Gamma.html	unit	seg:96ba40eef5662671ea73c74073892975	1115	236	0.403	362	420	theorem
-poisson/Gamma.html	unit	seg:d241297fa38e2213e0911cee41cea9b2	245	42	0.037	60	55	theorem
-poisson/Gamma.html	unit	seg:2d374050533d9d44734ef0d46224b268	176	32	0.0	57	42	theorem
-poisson/Gamma.html	unit	seg:e05f2d5a5541bafcf7461a139a497272	212	38	0.042	59	53	theorem
-poisson/Gamma.html	unit	seg:d19b9a427e71e9bd7f36c6e9e195a0a5	181	33	0.21	58	59	theorem
-poisson/Gamma.html	unit	seg:66cdd5335bfd52146ee0766246c90319	250	42	0.0	62	54	theorem
-poisson/Gamma.html	unit	seg:947701d4c84e2166c332e3fc4ca976d1	298	54	0.312	129	126	remark
-poisson/Gamma.html	unit	seg:ebdc80c081900881d84f21084e9a9838	237	42	0.051	72	61	theorem
+poisson/Gamma.html	unit	seg:d241297fa38e2213e0911cee41cea9b2	245	42	0.037	60	55	exercise
+poisson/Gamma.html	unit	seg:2d374050533d9d44734ef0d46224b268	176	32	0.0	57	42	exercise
+poisson/Gamma.html	unit	seg:e05f2d5a5541bafcf7461a139a497272	212	38	0.042	59	53	exercise
+poisson/Gamma.html	unit	seg:d19b9a427e71e9bd7f36c6e9e195a0a5	181	33	0.21	58	59	exercise
+poisson/Gamma.html	unit	seg:66cdd5335bfd52146ee0766246c90319	250	42	0.0	62	54	exercise
+poisson/Gamma.html	unit	seg:947701d4c84e2166c332e3fc4ca976d1	298	54	0.312	129	126	exercise
+poisson/Gamma.html	unit	seg:ebdc80c081900881d84f21084e9a9838	237	42	0.051	72	61	exercise
 poisson/Poisson.html	paragraph	seg:10bbd866bc9fccbbaee0aee5ac170f71	272	49	0.055	62	63	
 poisson/Poisson.html	unit	seg:ca11b3c9b7fa704779a2b2ed14f65489	281	49	0.399	92	109	definition
 poisson/Poisson.html	unit	seg:a063d6b9fed7f9b1a1e8f1eb1c4b7442	559	92	0.386	189	224	definition
@@ -4389,20 +4389,20 @@ poisson/Poisson.html	paragraph	seg:41ad05685995c8d3badd2e57ed8fd4ad	957	160	0.11
 poisson/Poisson.html	paragraph	seg:297b34a52722210ecce930c051610363	368	67	0.098	90	94	
 poisson/Poisson.html	paragraph	seg:a8398d6e5333191b9f6e085522f3d256	95	12	0.0	16	17	
 poisson/Poisson.html	unit	seg:ccb125c6cbacc0c30c62702634117a00	2081	341	0.541	733	821	theorem
-poisson/Poisson.html	unit	seg:370e4b96f2c902107c4271016ad2fa78	194	36	0.046	53	48	theorem
-poisson/Poisson.html	unit	seg:b39febbd50fc48b454f1e32a2157853a	196	38	0.0	55	48	theorem
-poisson/Poisson.html	unit	seg:997dbe708e8c7ef22d042f22b8d6d147	212	39	0.042	58	52	theorem
-poisson/Poisson.html	unit	seg:b90cf0b6dbcb1746e7baaa27c6e39a6a	303	55	0.31	132	122	remark
-poisson/Poisson.html	unit	seg:2e3d849ea225e78d60b703aef5a69171	225	40	0.04	59	52	theorem
-poisson/Poisson.html	unit	seg:eebe2c1a4be48568c2d35974446d450b	213	38	0.0	50	46	theorem
-poisson/Poisson.html	unit	seg:3d7377f20632ce45734feaf6f0b49b89	226	40	0.0	58	49	theorem
-poisson/Poisson.html	unit	seg:0fd4c7bc74117951663af4be5e7d3981	277	53	0.162	91	97	remark
-poisson/Poisson.html	unit	seg:fe69e712201d76d42511926d0433f8cd	204	35	0.103	56	56	theorem
-poisson/Poisson.html	unit	seg:2fd44ac35fb7d5032ce513906381f6b2	311	52	0.26	129	124	remark
-poisson/Poisson.html	unit	seg:fa3c5e70953232afdbc47c747c98af31	214	34	0.0	57	47	theorem
-poisson/Poisson.html	unit	seg:8720daa103f696e53f802b065e1243b1	383	63	0.264	160	154	remark
-poisson/Poisson.html	unit	seg:9cee87b69444ab56976941246865f663	416	71	0.322	184	166	remark
-poisson/Poisson.html	unit	seg:9cb4cfd8eebf9a879778e93a70bdaa33	787	141	0.173	274	227	theorem
+poisson/Poisson.html	unit	seg:370e4b96f2c902107c4271016ad2fa78	194	36	0.046	53	48	exercise
+poisson/Poisson.html	unit	seg:b39febbd50fc48b454f1e32a2157853a	196	38	0.0	55	48	exercise
+poisson/Poisson.html	unit	seg:997dbe708e8c7ef22d042f22b8d6d147	212	39	0.042	58	52	exercise
+poisson/Poisson.html	unit	seg:b90cf0b6dbcb1746e7baaa27c6e39a6a	303	55	0.31	132	122	exercise
+poisson/Poisson.html	unit	seg:2e3d849ea225e78d60b703aef5a69171	225	40	0.04	59	52	exercise
+poisson/Poisson.html	unit	seg:eebe2c1a4be48568c2d35974446d450b	213	38	0.0	50	46	exercise
+poisson/Poisson.html	unit	seg:3d7377f20632ce45734feaf6f0b49b89	226	40	0.0	58	49	exercise
+poisson/Poisson.html	unit	seg:0fd4c7bc74117951663af4be5e7d3981	277	53	0.162	91	97	exercise
+poisson/Poisson.html	unit	seg:fe69e712201d76d42511926d0433f8cd	204	35	0.103	56	56	exercise
+poisson/Poisson.html	unit	seg:2fd44ac35fb7d5032ce513906381f6b2	311	52	0.26	129	124	exercise
+poisson/Poisson.html	unit	seg:fa3c5e70953232afdbc47c747c98af31	214	34	0.0	57	47	exercise
+poisson/Poisson.html	unit	seg:8720daa103f696e53f802b065e1243b1	383	63	0.264	160	154	exercise
+poisson/Poisson.html	unit	seg:9cee87b69444ab56976941246865f663	416	71	0.322	184	166	exercise
+poisson/Poisson.html	unit	seg:9cb4cfd8eebf9a879778e93a70bdaa33	787	141	0.173	274	227	exercise
 poisson/Splitting.html	unit	seg:6646c0a6cc0d2885c9028fce33e6c81c	915	155	0.336	301	358	definition
 poisson/Splitting.html	paragraph	seg:4677121f5d872983d2ff23e9c6d7bd3d	352	58	0.0	69	68	
 poisson/Splitting.html	unit	seg:2c39523a3aa9b80d45b03daf46085db1	534	94	0.096	139	143	definition
@@ -4427,10 +4427,10 @@ poisson/Splitting.html	paragraph	seg:590b50cd3b4ad1fcb9087fa431913b22	407	67	0.0
 poisson/Splitting.html	unit	seg:79c0fe4e8ce5d180a3962d26a2380d7c	938	162	0.422	337	379	definition
 poisson/Splitting.html	paragraph	seg:2fe55d0b72c8eab33eaaad5f8c4b7675	484	97	0.202	149	155	
 poisson/Splitting.html	unit	seg:8f4b30fe9b58f2294706eeebd77a5873	891	148	0.403	304	347	theorem
-poisson/Splitting.html	unit	seg:f3ea211bd6d7ef83653262e2a66a4277	271	46	0.107	72	70	remark
-poisson/Splitting.html	unit	seg:3a9e78207f564082ac4139bddab0de15	332	57	0.03	90	79	theorem
-poisson/Splitting.html	unit	seg:e1f37e13f840dbe03e90f57a2a0502f0	297	57	0.145	101	106	remark
-poisson/Splitting.html	unit	seg:d5f6465ccee2dc5fd16e657266186764	429	73	0.03	109	96	theorem
+poisson/Splitting.html	unit	seg:f3ea211bd6d7ef83653262e2a66a4277	271	46	0.107	72	70	exercise
+poisson/Splitting.html	unit	seg:3a9e78207f564082ac4139bddab0de15	332	57	0.03	90	79	exercise
+poisson/Splitting.html	unit	seg:e1f37e13f840dbe03e90f57a2a0502f0	297	57	0.145	101	106	exercise
+poisson/Splitting.html	unit	seg:d5f6465ccee2dc5fd16e657266186764	429	73	0.03	109	96	exercise
 poisson/Nonhomogeneous.html	paragraph	seg:eaa184483811990f9bef6e21dddd3c04	376	56	0.0	71	68	
 poisson/Nonhomogeneous.html	paragraph	seg:17b58a742b4f3e5fad91cfe66ac41d14	568	89	0.118	138	141	
 poisson/Nonhomogeneous.html	paragraph	seg:66eaab938a5734949866e53eb4e3304d	278	39	0.0	53	52	
@@ -4502,9 +4502,9 @@ poisson/General.html	paragraph	seg:713fa9b497a82779bf445bebaaa55a76	313	62	0.243
 poisson/General.html	paragraph	seg:7acfacdf6c02cdad80c0627e47ebc7d7	516	100	0.318	172	203	
 poisson/General.html	unit	seg:6b175349570a9708c790f36eb1a53e22	1038	172	0.555	392	473	theorem
 poisson/General.html	unit	seg:b180095fb613a8fa8c735e18881b3cb5	133	21	0.361	44	56	theorem
-poisson/General.html	unit	seg:e8af554a45510cb899f1157682b61546	331	60	0.0	95	83	theorem
-poisson/General.html	unit	seg:03cfa8dfabb115ea1b714446f6fb9b35	334	64	0.0	104	85	theorem
-poisson/General.html	unit	seg:c8a60cbcc008bc33eab4a6c5de1f9bb3	480	84	0.021	116	108	theorem
-poisson/General.html	unit	seg:d1d4e4d07500e594addc9a0abe311fd6	277	47	0.054	69	67	theorem
-poisson/General.html	unit	seg:4fa489a035fc355f5c58a54cf467ac88	215	40	0.0	61	49	theorem
-poisson/General.html	unit	seg:7e4b0b01900eea6728405bf93f23ee94	588	101	0.0	179	150	theorem
+poisson/General.html	unit	seg:e8af554a45510cb899f1157682b61546	331	60	0.0	95	83	exercise
+poisson/General.html	unit	seg:03cfa8dfabb115ea1b714446f6fb9b35	334	64	0.0	104	85	exercise
+poisson/General.html	unit	seg:c8a60cbcc008bc33eab4a6c5de1f9bb3	480	84	0.021	116	108	exercise
+poisson/General.html	unit	seg:d1d4e4d07500e594addc9a0abe311fd6	277	47	0.054	69	67	exercise
+poisson/General.html	unit	seg:4fa489a035fc355f5c58a54cf467ac88	215	40	0.0	61	49	exercise
+poisson/General.html	unit	seg:7e4b0b01900eea6728405bf93f23ee94	588	101	0.0	179	150	exercise
