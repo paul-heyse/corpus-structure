@@ -278,7 +278,7 @@ value objects: the v1 batches already do so (checked over `reference_model_v1`, 
 D2 §7.3's decoding rules want one shape per position.
 
 **Conditions** (D1 §7): `and`, `or`, `not`, `claim`, `member`, `cmp`, `pred` (arguments are
-`entity` or formula values), `forall`, and the form's `phrase` and `unsupported` leaves.
+entity references `{ref}` or formula values), `forall`, and the form's `phrase` and `unsupported` leaves.
 
 **Core qualifiers.** `CoreQualifiers` carries `modality` and `polarity` with defaults that
 `Field(exclude_if=…)` leaves out of dumps (so equal meaning gives equal JSON, D3 §6.1) and fills in
@@ -336,7 +336,7 @@ an independent implementation (schema-rules note §4).
 **Canonical forms** follow D1 §6.2: text NFC, casefolded and whitespace-collapsed; numbers as their
 (already canonical) `v` with `unit` and `basis` NFC and collapsed, never converted; formulas and
 sets as `{t, latex: token_form}` with the merged macro table, their `symbols`, `sympy` and `parse`
-outside; dates verbatim; intervals recursively; `entity` values and claim references by key;
+outside; dates verbatim; intervals recursively; entity references (`{ref}`) and claim references by key;
 `phrase` by text form. **Conditions** take D1 §7's canonical form: flatten nested `and`/`or`, drop
 empty ones (an empty tree is no condition), replace a one-argument `and`/`or` by its argument, sort
 `and`/`or` arguments by canonical JSON, write `>`/`>=` as `<`/`<=` with sides swapped, sort `pred`

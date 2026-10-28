@@ -42,8 +42,10 @@ REPO = PACKAGE.parents[1]
 ALEMBIC_DIR = PACKAGE / "alembic"
 VERSIONS_DIR = ALEMBIC_DIR / "versions"
 CORPUS_DIR = REPO / "docs" / "statistics_corpus"
-LOCK_FILE = REPO / "build" / "pg" / "test-templates.lock"
-LOCAL_CLUSTER_URL = f"postgresql:///postgres?host={REPO}/build/pg/run&port=5440"
+LOCK_FILE = REPO / "build" / "test-templates.lock"
+LOCAL_CLUSTER_URL = (
+    "postgresql:///postgres?host=/var/run/postgresql&port=5434"  # 18/corpus (D3 §13)
+)
 PROVISION = (
     "run `just db-up` (the project-local cluster with cs_template, D3 §3), "
     "or point CORPUS_DATABASE__URL at a server that has it"

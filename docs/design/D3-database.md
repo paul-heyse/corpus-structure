@@ -54,15 +54,11 @@ extension: it asserts it and fails with that instruction (design authority, 2026
 operator confirmed the installed package; [store note](../design_review/evidence/2026-10-28_library-store/README.md)
 §0, L-S5; [overview](../libraries/postgresql-18-pg-textsearch.md) §11.2).
 
-**Interim instance (operator, 2026-10-28).** Until the system instance is set up, development and
-tests use a project-local PostgreSQL 18 cluster built from the system's PG18 binaries: `just db-up`
-initializes it once under `build/pg/` (owned by the developer, who is its superuser), starts it on its
-own port and socket with `shared_preload_libraries = 'pg_textsearch'`, and creates `cs_template` with
-both extensions; `just db-down` stops it. No sudo and no restart of the system cluster is needed.
-Moving to the system instance later changes only `CORPUS_DATABASE__URL` (P0-F-1).
-> Status: **Interface-checked** (store note §0, 2026-10-28): the 1.5.1 install script refuses to
-> run unless the library is preloaded, and neither control file is marked trusted; the
-> provisioning step and the assertion are **Proposed** (2026-10-28)
+**Instance.** The project runs on one dedicated PostgreSQL 18 cluster on this machine, apart
+from the `main` cluster that other projects use (§13). Its provisioning creates the extensions
+as `postgres` in the template database; the project's roles never need superuser. Until it
+exists, a project-local interim cluster (`build/pg/`, P0-F-1) stands in; moving between
+them changes only `CORPUS_DATABASE__URL`.
 
 ```sql
 DO $$ BEGIN
@@ -1097,3 +1093,47 @@ partitioning is needed until a project holds many corpora.
 | OPEN-D3-2 | Embedding model and dimension (Qwen3-Embedding-0.6B at 1024, or 8B truncated by Matryoshka to 1024 or 2048) | Spike S7 |
 | OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | **Answered by mechanism** (2026-10-28): the BM25 index reads same-row text, and neither an index nor a generated column can read `kb.rendition`; the column stays |
 | OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | Spikes S6 and S0; phase 1 goldens if S0 has too few units; S0 evidence (2026-10-28): on 70 aligned claim pairs, meaning keys agreed for 41 (54 after the D1 §10.1 key-rule changes) against 21 (48) for claim keys. Migration 0001 has no meaning-key column; one is added only if an `s6.*` record calls for it (design authority, 2026-10-28) |
+
+## 13. Operating PostgreSQL on this machine
+
+The project runs on one dedicated PostgreSQL 18 cluster, `18/corpus` on port 5434, beside the
+`main` cluster (5432) that other projects use and that is never changed. It is created with
+`pg_createcluster` under postgresql-common, so it runs as the `postgresql@18-corpus` systemd unit,
+logs to `/var/log/postgresql/`, and upgrades with `pg_upgradecluster`. One idempotent command,
+`just db-provision` (sudo), creates and configures it from files tracked in `ops/postgresql/`, so
+a rebuild reproduces it. It holds the project database `corpus`, the template `cs_template` (with
+`pg_textsearch` and `vector`, created as `postgres`), the per-session test databases and the spike
+databases.
+> Status: **Proposed** (2026-10-28; operator direction: set up PostgreSQL with the installed
+> tooling, at low overhead while the data can be regenerated;
+> [overview](../libraries/PostgreSQL_System_Tooling_for_Ubuntu.md))
+
+**Configuration** (`ops/postgresql/corpus.conf`, one `conf.d` file; nothing set with `ALTER
+SYSTEM`), for this host (32 cores, 188 GB RAM shared with GPU work and another cluster, NVMe)
+and the workload of §11 (bulk COPY, short indexed queries, a queue):
+- preload `pg_textsearch`, `pg_stat_statements`, `auto_explain`;
+- `shared_buffers = 8GB`, `effective_cache_size = 64GB`, `work_mem = 64MB`,
+  `maintenance_work_mem = 8GB` (index builds);
+- `io_method = io_uring`, `effective_io_concurrency = 256`, `random_page_cost = 1.1`,
+  `wal_compression = zstd`, `max_wal_size = 8GB`;
+- `jit = off` (short queries and bulk writes, where compiling costs more than it saves);
+- `synchronous_commit = off`: a crash can lose the last fraction of a second of commits, which is
+  acceptable while every row can be regenerated;
+- `default_text_search_config = english`; `compute_query_id = on`;
+  `auto_explain.log_min_duration = 1s`; `log_min_duration_statement = 250ms` with a pgBadger-ready
+  `log_line_prefix`, so `pg_activity` and pgBadger can be pointed at it when a question arises;
+- socket only (`listen_addresses = ''`), peer authentication.
+
+**Roles.** The operator's login role owns the project's objects and has `CREATEDB` for test
+databases; `corpus_ro` (NOLOGIN, `SELECT` only) is assumed by read-only sessions (the agent's
+read-only `ci` commands, DuckDB analytics; D8 §1). No role needs superuser.
+
+**No backups or archiving yet** (operator, 2026-10-28): everything in the database is generated
+and can be regenerated, so backup and integrity machinery would be overhead now. **Revisit**
+when the database holds work that is costly to redo: the first adjudicated dev golden set
+(P0-E-3), or agent interventions and directions worth keeping; then pgBackRest (installed) with
+WAL archiving, and a logical `pg_dump` for version-independent copies.
+
+**Operation.** `just db-up`, `just db-down`, `just db-status` (`pg_ctlcluster`, `pg_lsclusters`);
+`pg_activity -p 5434` for live sessions; pgBadger over the cluster log for a period's slow
+statements. The interim project-local cluster (`build/pg/`, P0-F-1) is retired once nothing uses it.

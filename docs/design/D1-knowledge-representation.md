@@ -400,7 +400,7 @@ A value is a tagged JSON object. Every value has `t` (type). Value types:
 | `number` | `v` (canonical decimal string, §6.2); optional `unit` (the unit as the source states it) and `basis` (a reference basis the source states, such as `gauge` or `absolute`) | `{"t":"number","v":"0.002","unit":"cm"}`, `{"t":"number","v":"300","unit":"kPa","basis":"gauge"}` |
 | `bool` | `v` | `{"t":"bool","v":true}` |
 | `enum` | `enum`, `v` | `{"t":"enum","enum":"ParameterRole","v":"scale"}` |
-| `entity` | `ref` (entity key) | used inside qualifiers and condition trees |
+| (entity reference) | `{ref}` (a local ref in batches, an entity key once keyed) | not a value variant: one entity-reference shape, `{ref}` without `t`, in every position that names an entity (claim objects, `pred` arguments, entity-ranged qualifiers such as `attribution` and `base_variable`), so decoding has one shape per position (D2 §7.3). Proposed (2026-10-28, S4 variant V1; `s4.batch-validation`) |
 | `formula` | `latex`, `sympy`, `parse`, `symbols` | below |
 | `set` | `latex`, `sympy`, `parse`, `symbols` | `ℝ`, `(0, ∞)`, `ℝ ∖ {0}` |
 | `date` | `v` (ISO 8601, kept verbatim) | business domains |
@@ -507,8 +507,8 @@ The token form is fixed by these rules, settled before the first production keys
 because any later change to them moves keys:
 
 - **One outer pair of math delimiters is removed** (`\(…\)`, `\[…\]`, or the `\begin`/`\end` of
-  one of `equation`, `align`, `gather`, `multline`, `eqnarray`, `displaymath` and their starred
-  forms), so the same formula written inline or displayed keys alike; `$` is not a delimiter.
+  one of `equation`, `align`, `alignat`, `flalign`, `gather`, `multline`, `eqnarray`,
+  `displaymath`, `math` and their starred forms), so the same formula written inline or displayed keys alike; `$` is not a delimiter.
   Inner delimiters cannot occur: M01's delimiting never leaves one inside a span, and the drop list
   (which includes SymPy's `\(` literal) is applied as written. Macro expansion substitutes
   arguments as TeX does, without added braces, and is bounded at depth 16 and at 100,000 tokens of output;
