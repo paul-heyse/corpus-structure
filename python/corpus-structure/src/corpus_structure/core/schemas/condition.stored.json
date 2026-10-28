@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "ClaimNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "claim",
+          "type": "string"
+        },
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "CmpNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "cmp",
+          "type": "string"
+        },
+        "rel": {
+          "enum": [
+            "<",
+            "<=",
+            "=",
+            "!=",
+            ">",
+            ">="
+          ],
+          "type": "string"
+        },
+        "lhs": {
+          "$ref": "#/$defs/Formula"
+        },
+        "rhs": {
+          "$ref": "#/$defs/Formula"
+        }
+      },
+      "required": [
+        "op",
+        "rel",
+        "lhs",
+        "rhs"
+      ],
+      "type": "object"
+    },
+    "EntityRef": {
+      "additionalProperties": false,
+      "description": "The one entity-reference shape: a local ref in a batch, an entity key once stored.",
+      "properties": {
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "Formula": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "formula",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "enum": [
+            "ok",
+            "partial",
+            "ambiguous",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "MemberNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "member",
+          "type": "string"
+        },
+        "x": {
+          "$ref": "#/$defs/Formula"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        }
+      },
+      "required": [
+        "op",
+        "x",
+        "set"
+      ],
+      "type": "object"
+    },
+    "PredNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "pred",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EntityRef"
+              },
+              {
+                "$ref": "#/$defs/Formula"
+              }
+            ]
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "name",
+        "args"
+      ],
+      "type": "object"
+    },
+    "SetValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "set",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "enum": [
+            "ok",
+            "partial",
+            "ambiguous",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "StoredAnd": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "and",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/StoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "StoredCondition": {
+      "discriminator": {
+        "mapping": {
+          "and": "#/$defs/StoredAnd",
+          "claim": "#/$defs/ClaimNode",
+          "cmp": "#/$defs/CmpNode",
+          "forall": "#/$defs/StoredForall",
+          "member": "#/$defs/MemberNode",
+          "not": "#/$defs/StoredNot",
+          "or": "#/$defs/StoredOr",
+          "phrase": "#/$defs/StoredPhraseNode",
+          "pred": "#/$defs/PredNode",
+          "unsupported": "#/$defs/StoredUnsupportedNode"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StoredAnd"
+        },
+        {
+          "$ref": "#/$defs/StoredOr"
+        },
+        {
+          "$ref": "#/$defs/StoredNot"
+        },
+        {
+          "$ref": "#/$defs/StoredForall"
+        },
+        {
+          "$ref": "#/$defs/ClaimNode"
+        },
+        {
+          "$ref": "#/$defs/MemberNode"
+        },
+        {
+          "$ref": "#/$defs/CmpNode"
+        },
+        {
+          "$ref": "#/$defs/PredNode"
+        },
+        {
+          "$ref": "#/$defs/StoredPhraseNode"
+        },
+        {
+          "$ref": "#/$defs/StoredUnsupportedNode"
+        }
+      ]
+    },
+    "StoredForall": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "forall",
+          "type": "string"
+        },
+        "var": {
+          "type": "string"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        },
+        "body": {
+          "$ref": "#/$defs/StoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "var",
+        "set",
+        "body"
+      ],
+      "type": "object"
+    },
+    "StoredNot": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "not",
+          "type": "string"
+        },
+        "arg": {
+          "$ref": "#/$defs/StoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "arg"
+      ],
+      "type": "object"
+    },
+    "StoredOr": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "or",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/StoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "StoredPhraseNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coarse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "op",
+        "text",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "StoredUnsupportedNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "unsupported",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coarse": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text",
+        "start",
+        "end",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "SymbolBinding": {
+      "additionalProperties": false,
+      "description": "How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has.",
+      "properties": {
+        "bind": {
+          "enum": [
+            "variable",
+            "param_of",
+            "param_expr_of",
+            "family_param",
+            "free",
+            "constant",
+            "unresolved"
+          ],
+          "type": "string"
+        },
+        "entity": {
+          "type": "string"
+        },
+        "claim": {
+          "type": "string"
+        },
+        "param": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bind"
+      ],
+      "type": "object"
+    }
+  },
+  "$ref": "#/$defs/StoredCondition"
+}

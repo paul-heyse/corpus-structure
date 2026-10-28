@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JsonValue": {},
+    "LabelScore": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "score"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "task": {
+      "type": "string"
+    },
+    "labels": {
+      "items": {
+        "$ref": "#/$defs/LabelScore"
+      },
+      "type": "array"
+    },
+    "feasible": {
+      "type": "boolean"
+    },
+    "violations": {
+      "$ref": "#/$defs/JsonValue"
+    }
+  },
+  "required": [
+    "task",
+    "labels"
+  ],
+  "type": "object"
+}

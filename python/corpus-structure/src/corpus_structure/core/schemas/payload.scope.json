@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "MentionAt": {
+      "additionalProperties": false,
+      "description": "A mention ref with the mention's offsets, so a reused task's refs match by offsets.",
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mention_ref": {
+          "$ref": "#/$defs/MentionRef"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "mention_ref"
+      ],
+      "type": "object"
+    },
+    "MentionRef": {
+      "additionalProperties": false,
+      "description": "A mention by its task and ordinal; the task is absent inside the same task.",
+      "properties": {
+        "task": {
+          "type": "integer"
+        },
+        "ordinal": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ordinal"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "start": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "end": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "mention_ref": {
+      "$ref": "#/$defs/MentionRef"
+    },
+    "binding_site": {
+      "$ref": "#/$defs/MentionAt"
+    },
+    "scope_segment": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "extent": {
+      "enum": [
+        "statement",
+        "section",
+        "document"
+      ],
+      "type": "string"
+    },
+    "binding": {
+      "enum": [
+        "variable",
+        "param_of",
+        "param_expr_of",
+        "family_param",
+        "free",
+        "constant",
+        "unresolved"
+      ],
+      "type": "string"
+    },
+    "reopens": {
+      "$ref": "#/$defs/MentionAt"
+    }
+  },
+  "required": [
+    "start",
+    "end",
+    "mention_ref",
+    "binding_site",
+    "scope_segment",
+    "extent"
+  ],
+  "type": "object"
+}

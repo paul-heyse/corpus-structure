@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "LabelledSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "label"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "label": {
+      "type": "string"
+    },
+    "head": {
+      "$ref": "#/$defs/LabelledSpan"
+    },
+    "tail": {
+      "$ref": "#/$defs/LabelledSpan"
+    },
+    "joint": {
+      "type": "boolean"
+    },
+    "feasible": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "label",
+    "head",
+    "tail"
+  ],
+  "type": "object"
+}

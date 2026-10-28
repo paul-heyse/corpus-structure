@@ -1,0 +1,1616 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "AlternativeItem": {
+      "additionalProperties": false,
+      "properties": {
+        "refs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 2,
+          "type": "array"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "refs",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "AuthoredAnd": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "and",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/AuthoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "AuthoredBatch": {
+      "additionalProperties": false,
+      "properties": {
+        "unit_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "entities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AuthoredEntity"
+          },
+          "type": "array"
+        },
+        "statements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AuthoredStatement"
+          },
+          "type": "array"
+        },
+        "claims": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AuthoredClaim"
+          },
+          "type": "array"
+        },
+        "alternatives": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AlternativeItem"
+          },
+          "type": "array"
+        },
+        "unsupported": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AuthoredUnsupported"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit_ref"
+      ],
+      "type": "object"
+    },
+    "AuthoredClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "predicate": {
+          "type": "string"
+        },
+        "subject": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "statement": {
+          "type": "string"
+        },
+        "statement_role": {
+          "$ref": "#/$defs/StatementRole"
+        },
+        "object": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityRef"
+            },
+            {
+              "$ref": "#/$defs/AuthoredValue"
+            }
+          ]
+        },
+        "qualifiers": {
+          "$ref": "#/$defs/AuthoredQualifiers"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/AuthoredEvidence"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "local_ref",
+        "predicate",
+        "subject",
+        "object",
+        "evidence"
+      ],
+      "type": "object"
+    },
+    "AuthoredCondition": {
+      "discriminator": {
+        "mapping": {
+          "and": "#/$defs/AuthoredAnd",
+          "claim": "#/$defs/ClaimNode",
+          "cmp": "#/$defs/CmpNode",
+          "forall": "#/$defs/AuthoredForall",
+          "member": "#/$defs/MemberNode",
+          "not": "#/$defs/AuthoredNot",
+          "or": "#/$defs/AuthoredOr",
+          "phrase": "#/$defs/AuthoredPhraseNode",
+          "pred": "#/$defs/PredNode",
+          "unsupported": "#/$defs/AuthoredUnsupportedNode"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AuthoredAnd"
+        },
+        {
+          "$ref": "#/$defs/AuthoredOr"
+        },
+        {
+          "$ref": "#/$defs/AuthoredNot"
+        },
+        {
+          "$ref": "#/$defs/AuthoredForall"
+        },
+        {
+          "$ref": "#/$defs/ClaimNode"
+        },
+        {
+          "$ref": "#/$defs/MemberNode"
+        },
+        {
+          "$ref": "#/$defs/CmpNode"
+        },
+        {
+          "$ref": "#/$defs/PredNode"
+        },
+        {
+          "$ref": "#/$defs/AuthoredPhraseNode"
+        },
+        {
+          "$ref": "#/$defs/AuthoredUnsupportedNode"
+        }
+      ]
+    },
+    "AuthoredEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EntityScope"
+        },
+        "extent": {
+          "enum": [
+            "statement",
+            "section"
+          ],
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "aliases": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "identity": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "local_ref",
+        "type",
+        "label",
+        "scope"
+      ],
+      "type": "object"
+    },
+    "AuthoredEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/EvidenceRole"
+        }
+      },
+      "required": [
+        "sentence",
+        "quote",
+        "role"
+      ],
+      "type": "object"
+    },
+    "AuthoredForall": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "forall",
+          "type": "string"
+        },
+        "var": {
+          "type": "string"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        },
+        "body": {
+          "$ref": "#/$defs/AuthoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "var",
+        "set",
+        "body"
+      ],
+      "type": "object"
+    },
+    "AuthoredNot": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "not",
+          "type": "string"
+        },
+        "arg": {
+          "$ref": "#/$defs/AuthoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "arg"
+      ],
+      "type": "object"
+    },
+    "AuthoredOr": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "or",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/AuthoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "AuthoredPhrase": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "text"
+      ],
+      "type": "object"
+    },
+    "AuthoredPhraseNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text"
+      ],
+      "type": "object"
+    },
+    "AuthoredQualifiers": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "properties": {
+        "modality": {
+          "default": "asserted",
+          "enum": [
+            "asserted",
+            "supposed",
+            "defined",
+            "conventional",
+            "exemplified",
+            "posed",
+            "cited"
+          ],
+          "type": "string"
+        },
+        "polarity": {
+          "default": "positive",
+          "enum": [
+            "positive",
+            "negative"
+          ],
+          "type": "string"
+        },
+        "attribution": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "valid_time": {
+          "$ref": "#/$defs/IntervalValue"
+        },
+        "hedge": {
+          "$ref": "#/$defs/AuthoredPhrase"
+        },
+        "conditions": {
+          "$ref": "#/$defs/AuthoredCondition"
+        },
+        "scope": {
+          "enum": [
+            "statement",
+            "section",
+            "document"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuthoredStatement": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "enum": [
+                "unit",
+                "outside"
+              ],
+              "type": "string"
+            },
+            {
+              "items": {
+                "pattern": "^[sc][0-9]+$",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "required": [
+        "local_ref",
+        "kind",
+        "anchor"
+      ],
+      "type": "object"
+    },
+    "AuthoredUnsupported": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "local_ref",
+        "sentence",
+        "quote",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "AuthoredUnsupportedNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "unsupported",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "AuthoredValue": {
+      "discriminator": {
+        "mapping": {
+          "bool": "#/$defs/BoolValue",
+          "date": "#/$defs/DateValue",
+          "enum": "#/$defs/EnumValue",
+          "formula": "#/$defs/Formula",
+          "interval": "#/$defs/IntervalValue",
+          "number": "#/$defs/NumberValue",
+          "phrase": "#/$defs/AuthoredPhrase",
+          "set": "#/$defs/SetValue",
+          "text": "#/$defs/TextValue"
+        },
+        "propertyName": "t"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextValue"
+        },
+        {
+          "$ref": "#/$defs/NumberValue"
+        },
+        {
+          "$ref": "#/$defs/BoolValue"
+        },
+        {
+          "$ref": "#/$defs/EnumValue"
+        },
+        {
+          "$ref": "#/$defs/Formula"
+        },
+        {
+          "$ref": "#/$defs/SetValue"
+        },
+        {
+          "$ref": "#/$defs/DateValue"
+        },
+        {
+          "$ref": "#/$defs/IntervalValue"
+        },
+        {
+          "$ref": "#/$defs/AuthoredPhrase"
+        }
+      ]
+    },
+    "BoolValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "bool",
+          "type": "string"
+        },
+        "v": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "CitationFrame": {
+      "additionalProperties": false,
+      "description": "Maps each cited sentence id (`sN`, or `cN` of the standing context) to locator and text.",
+      "patternProperties": {
+        "^[sc][0-9]+$": {
+          "$ref": "#/$defs/FrameEntry"
+        }
+      },
+      "type": "object"
+    },
+    "ClaimNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "claim",
+          "type": "string"
+        },
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "CmpNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "cmp",
+          "type": "string"
+        },
+        "rel": {
+          "enum": [
+            "<",
+            "<=",
+            "=",
+            "!=",
+            ">",
+            ">="
+          ],
+          "type": "string"
+        },
+        "lhs": {
+          "$ref": "#/$defs/Formula"
+        },
+        "rhs": {
+          "$ref": "#/$defs/Formula"
+        }
+      },
+      "required": [
+        "op",
+        "rel",
+        "lhs",
+        "rhs"
+      ],
+      "type": "object"
+    },
+    "DateValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "date",
+          "type": "string"
+        },
+        "v": {
+          "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "EntityRef": {
+      "additionalProperties": false,
+      "description": "The one entity-reference shape: a local ref in a batch, an entity key once stored.",
+      "properties": {
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "EntityScope": {
+      "description": "`meta.schema_class.scope`, `kb.entity.scope`.",
+      "enum": [
+        "global",
+        "local"
+      ],
+      "type": "string"
+    },
+    "EnumValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
+      ],
+      "type": "object"
+    },
+    "EvidenceRole": {
+      "description": "`kb.claim_evidence.role`.",
+      "enum": [
+        "primary",
+        "supporting",
+        "condition",
+        "definition"
+      ],
+      "type": "string"
+    },
+    "Formula": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "formula",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "enum": [
+            "ok",
+            "partial",
+            "ambiguous",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "FrameEntry": {
+      "additionalProperties": false,
+      "description": "One cited sentence: its locator (D1 §3.4) and its canonical text.",
+      "properties": {
+        "locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "locator",
+        "text"
+      ],
+      "type": "object"
+    },
+    "IntervalValue": {
+      "additionalProperties": false,
+      "description": "An interval; an absent bound is unbounded.",
+      "properties": {
+        "t": {
+          "const": "interval",
+          "type": "string"
+        },
+        "start": {
+          "discriminator": {
+            "mapping": {
+              "date": "#/$defs/DateValue",
+              "formula": "#/$defs/Formula",
+              "number": "#/$defs/NumberValue"
+            },
+            "propertyName": "t"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumberValue"
+            },
+            {
+              "$ref": "#/$defs/DateValue"
+            },
+            {
+              "$ref": "#/$defs/Formula"
+            }
+          ]
+        },
+        "end": {
+          "discriminator": {
+            "mapping": {
+              "date": "#/$defs/DateValue",
+              "formula": "#/$defs/Formula",
+              "number": "#/$defs/NumberValue"
+            },
+            "propertyName": "t"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumberValue"
+            },
+            {
+              "$ref": "#/$defs/DateValue"
+            },
+            {
+              "$ref": "#/$defs/Formula"
+            }
+          ]
+        },
+        "start_incl": {
+          "type": "boolean"
+        },
+        "end_incl": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "type": "object"
+    },
+    "JsonValue": {},
+    "MemberNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "member",
+          "type": "string"
+        },
+        "x": {
+          "$ref": "#/$defs/Formula"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        }
+      },
+      "required": [
+        "op",
+        "x",
+        "set"
+      ],
+      "type": "object"
+    },
+    "NumberValue": {
+      "additionalProperties": false,
+      "description": "A number as its D1 §6.2 canonical decimal; `unit` and `basis` as the source states them.",
+      "properties": {
+        "t": {
+          "const": "number",
+          "type": "string"
+        },
+        "v": {
+          "pattern": "^(?:0|-?(?:[1-9][0-9]*(?:\\.[0-9]*[1-9])?|0\\.[0-9]*[1-9]))$",
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "PredNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "pred",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EntityRef"
+              },
+              {
+                "$ref": "#/$defs/Formula"
+              }
+            ]
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "name",
+        "args"
+      ],
+      "type": "object"
+    },
+    "RejectedItem": {
+      "additionalProperties": false,
+      "properties": {
+        "item": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "item",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "SetValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "set",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "enum": [
+            "ok",
+            "partial",
+            "ambiguous",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "StatementRole": {
+      "description": "`kb.claim.statement_role`.",
+      "enum": [
+        "premise",
+        "conclusion",
+        "definiens",
+        "restriction",
+        "example_value"
+      ],
+      "type": "string"
+    },
+    "StoredAnd": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "and",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/StoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "StoredBatch": {
+      "additionalProperties": false,
+      "properties": {
+        "unit_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "entities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StoredEntity"
+          },
+          "type": "array"
+        },
+        "statements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StoredStatement"
+          },
+          "type": "array"
+        },
+        "claims": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StoredClaim"
+          },
+          "type": "array"
+        },
+        "alternatives": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AlternativeItem"
+          },
+          "type": "array"
+        },
+        "unsupported": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StoredUnsupported"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit_ref"
+      ],
+      "type": "object"
+    },
+    "StoredClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "predicate": {
+          "type": "string"
+        },
+        "subject": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "statement": {
+          "type": "string"
+        },
+        "statement_role": {
+          "$ref": "#/$defs/StatementRole"
+        },
+        "object": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityRef"
+            },
+            {
+              "$ref": "#/$defs/StoredValue"
+            }
+          ]
+        },
+        "qualifiers": {
+          "$ref": "#/$defs/StoredQualifiers"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/StoredEvidence"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "local_ref",
+        "predicate",
+        "subject",
+        "object",
+        "evidence"
+      ],
+      "type": "object"
+    },
+    "StoredCondition": {
+      "discriminator": {
+        "mapping": {
+          "and": "#/$defs/StoredAnd",
+          "claim": "#/$defs/ClaimNode",
+          "cmp": "#/$defs/CmpNode",
+          "forall": "#/$defs/StoredForall",
+          "member": "#/$defs/MemberNode",
+          "not": "#/$defs/StoredNot",
+          "or": "#/$defs/StoredOr",
+          "phrase": "#/$defs/StoredPhraseNode",
+          "pred": "#/$defs/PredNode",
+          "unsupported": "#/$defs/StoredUnsupportedNode"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StoredAnd"
+        },
+        {
+          "$ref": "#/$defs/StoredOr"
+        },
+        {
+          "$ref": "#/$defs/StoredNot"
+        },
+        {
+          "$ref": "#/$defs/StoredForall"
+        },
+        {
+          "$ref": "#/$defs/ClaimNode"
+        },
+        {
+          "$ref": "#/$defs/MemberNode"
+        },
+        {
+          "$ref": "#/$defs/CmpNode"
+        },
+        {
+          "$ref": "#/$defs/PredNode"
+        },
+        {
+          "$ref": "#/$defs/StoredPhraseNode"
+        },
+        {
+          "$ref": "#/$defs/StoredUnsupportedNode"
+        }
+      ]
+    },
+    "StoredEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EntityScope"
+        },
+        "extent": {
+          "enum": [
+            "statement",
+            "section"
+          ],
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "aliases": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "identity": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "scope_segment": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "local_ref",
+        "type",
+        "label",
+        "scope"
+      ],
+      "type": "object"
+    },
+    "StoredEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "role": {
+          "$ref": "#/$defs/EvidenceRole"
+        },
+        "coarse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "role"
+      ],
+      "type": "object"
+    },
+    "StoredForall": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "forall",
+          "type": "string"
+        },
+        "var": {
+          "type": "string"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        },
+        "body": {
+          "$ref": "#/$defs/StoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "var",
+        "set",
+        "body"
+      ],
+      "type": "object"
+    },
+    "StoredNot": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "not",
+          "type": "string"
+        },
+        "arg": {
+          "$ref": "#/$defs/StoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "arg"
+      ],
+      "type": "object"
+    },
+    "StoredOr": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "or",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/StoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "StoredPhrase": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coarse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "text",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "StoredPhraseNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coarse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "op",
+        "text",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "StoredQualifiers": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "properties": {
+        "modality": {
+          "default": "asserted",
+          "enum": [
+            "asserted",
+            "supposed",
+            "defined",
+            "conventional",
+            "exemplified",
+            "posed",
+            "cited"
+          ],
+          "type": "string"
+        },
+        "polarity": {
+          "default": "positive",
+          "enum": [
+            "positive",
+            "negative"
+          ],
+          "type": "string"
+        },
+        "attribution": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "valid_time": {
+          "$ref": "#/$defs/IntervalValue"
+        },
+        "hedge": {
+          "$ref": "#/$defs/StoredPhrase"
+        },
+        "conditions": {
+          "$ref": "#/$defs/StoredCondition"
+        },
+        "scope": {
+          "$ref": "#/$defs/StoredScope"
+        }
+      },
+      "type": "object"
+    },
+    "StoredScope": {
+      "additionalProperties": false,
+      "description": "The stored scope qualifier: the extent and the segment it resolves to on the rendition.",
+      "properties": {
+        "extent": {
+          "enum": [
+            "statement",
+            "section",
+            "document"
+          ],
+          "type": "string"
+        },
+        "segment": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "extent",
+        "segment"
+      ],
+      "type": "object"
+    },
+    "StoredStatement": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "const": "outside",
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "required": [
+        "local_ref",
+        "kind",
+        "anchor"
+      ],
+      "type": "object"
+    },
+    "StoredUnsupported": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "coarse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "local_ref",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "StoredUnsupportedNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "unsupported",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coarse": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text",
+        "start",
+        "end",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "StoredValue": {
+      "discriminator": {
+        "mapping": {
+          "bool": "#/$defs/BoolValue",
+          "date": "#/$defs/DateValue",
+          "enum": "#/$defs/EnumValue",
+          "formula": "#/$defs/Formula",
+          "interval": "#/$defs/IntervalValue",
+          "number": "#/$defs/NumberValue",
+          "phrase": "#/$defs/StoredPhrase",
+          "set": "#/$defs/SetValue",
+          "text": "#/$defs/TextValue"
+        },
+        "propertyName": "t"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextValue"
+        },
+        {
+          "$ref": "#/$defs/NumberValue"
+        },
+        {
+          "$ref": "#/$defs/BoolValue"
+        },
+        {
+          "$ref": "#/$defs/EnumValue"
+        },
+        {
+          "$ref": "#/$defs/Formula"
+        },
+        {
+          "$ref": "#/$defs/SetValue"
+        },
+        {
+          "$ref": "#/$defs/DateValue"
+        },
+        {
+          "$ref": "#/$defs/IntervalValue"
+        },
+        {
+          "$ref": "#/$defs/StoredPhrase"
+        }
+      ]
+    },
+    "SymbolBinding": {
+      "additionalProperties": false,
+      "description": "How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has.",
+      "properties": {
+        "bind": {
+          "enum": [
+            "variable",
+            "param_of",
+            "param_expr_of",
+            "family_param",
+            "free",
+            "constant",
+            "unresolved"
+          ],
+          "type": "string"
+        },
+        "entity": {
+          "type": "string"
+        },
+        "claim": {
+          "type": "string"
+        },
+        "param": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bind"
+      ],
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "text",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A stored batch; for authored proposals also the batch as written and its frame.",
+  "properties": {
+    "batch": {
+      "$ref": "#/$defs/StoredBatch"
+    },
+    "authored": {
+      "$ref": "#/$defs/AuthoredBatch"
+    },
+    "citation_frame": {
+      "$ref": "#/$defs/CitationFrame"
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "rejected": {
+      "items": {
+        "$ref": "#/$defs/RejectedItem"
+      },
+      "type": "array"
+    },
+    "establishment": {
+      "const": "derived",
+      "type": "string"
+    },
+    "derived_from": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "rule": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "batch"
+  ],
+  "type": "object"
+}

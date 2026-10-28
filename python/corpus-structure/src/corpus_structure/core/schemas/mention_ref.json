@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A mention by its task and ordinal; the task is absent inside the same task.",
+  "properties": {
+    "task": {
+      "type": "integer"
+    },
+    "ordinal": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "ordinal"
+  ],
+  "type": "object"
+}

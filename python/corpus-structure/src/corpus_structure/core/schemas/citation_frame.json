@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "FrameEntry": {
+      "additionalProperties": false,
+      "description": "One cited sentence: its locator (D1 §3.4) and its canonical text.",
+      "properties": {
+        "locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "locator",
+        "text"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Maps each cited sentence id (`sN`, or `cN` of the standing context) to locator and text.",
+  "patternProperties": {
+    "^[sc][0-9]+$": {
+      "$ref": "#/$defs/FrameEntry"
+    }
+  },
+  "type": "object"
+}

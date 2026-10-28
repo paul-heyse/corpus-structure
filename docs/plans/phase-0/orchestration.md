@@ -147,9 +147,10 @@ without importing orchestration.
     `aliases`. D2 §12.1 keeps these sections outside `configs:`, while D4 §1 places them in the
     configuration of the methods that read them; the marker connects the two.
 - **`payload_hash(payload)`**: SHA-256 of the canonical JSON of an observation payload. This is the
-  one form in which digests cite upstream observations (coordinator decision 15). A float is refused,
-  as in keys. Phase 0's upstream payloads carry only offsets, labels and references. Phase 1's
-  encoder scores decide whether floats are refused or carried as canonical decimals.
+  one form in which digests cite upstream observations (coordinator decision 15). Floats in a payload
+  (observation `score`, encoder confidences) are converted to their canonical decimal with
+  `decimal_of_float` before hashing, as configuration loaders do; canonical JSON itself still refuses
+  floats, so keys never see one (coordinator, 2026-10-28, from P0-F-2b's payload models).
 - **`Registry`** and **`ResolvedConfig`** (method, configuration name, `Config` instance, canonical
   params, config hash, `ops.method_config` id): how A2, E1 and the MCP server name a configuration.
 

@@ -38,12 +38,17 @@ MAX_DEPTH = 16
 MAX_TOKENS = 100_000
 
 # Environments whose `\begin`/`\end` pair is an outer math delimiter (the display environments
-# M01's profiles declare; operator ruling 2026-10-28). Any other environment is content.
+# M01's profiles declare; operator ruling 2026-10-28, widened to I-R2's set). Any other
+# environment is content.
 OUTER_ENVIRONMENTS: frozenset[str] = frozenset(
-    name + star
-    for name in ("equation", "align", "gather", "multline", "eqnarray", "displaymath")
-    for star in ("", "*")
-)
+    {
+        *(name + star
+          for name in ("equation", "align", "alignat", "flalign", "gather", "multline", "eqnarray")
+          for star in ("", "*")),
+        "displaymath",  # neither has a starred form
+        "math",
+    }
+)  # fmt: skip
 
 TokenKind = Literal["word", "symbol", "open", "close", "param", "space", "char"]
 

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JsonValue": {},
+    "RuleSeverity": {
+      "description": "`meta.schema_rule.severity`.",
+      "enum": [
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "VerificationDetail": {
+      "additionalProperties": false,
+      "description": "What M19 writes for a failing rule.",
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/RuleSeverity"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "severity",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "claim_key": {
+      "type": "string"
+    },
+    "verifier": {
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "consistent",
+        "refuted",
+        "not_checkable"
+      ],
+      "type": "string"
+    },
+    "detail": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VerificationDetail"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "counterexample": {
+      "$ref": "#/$defs/JsonValue"
+    }
+  },
+  "required": [
+    "claim_key",
+    "verifier",
+    "verdict"
+  ],
+  "type": "object"
+}

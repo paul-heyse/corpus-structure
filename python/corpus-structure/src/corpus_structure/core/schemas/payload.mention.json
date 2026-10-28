@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JsonValue": {},
+    "LabelScore": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "score"
+      ],
+      "type": "object"
+    },
+    "MentionRef": {
+      "additionalProperties": false,
+      "description": "A mention by its task and ordinal; the task is absent inside the same task.",
+      "properties": {
+        "task": {
+          "type": "integer"
+        },
+        "ordinal": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ordinal"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "start": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "end": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "label": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "attributes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LabelScore"
+      },
+      "type": "object"
+    },
+    "math_ref": {
+      "$ref": "#/$defs/MentionRef"
+    },
+    "math": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "start",
+    "end",
+    "label",
+    "text"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JsonValue": {},
+    "MentionRef": {
+      "additionalProperties": false,
+      "description": "A mention by its task and ordinal; the task is absent inside the same task.",
+      "properties": {
+        "task": {
+          "type": "integer"
+        },
+        "ordinal": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ordinal"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "mention_ref": {
+      "$ref": "#/$defs/MentionRef"
+    },
+    "group": {
+      "type": "string"
+    },
+    "value": {
+      "$ref": "#/$defs/JsonValue"
+    }
+  },
+  "required": [
+    "mention_ref",
+    "group",
+    "value"
+  ],
+  "type": "object"
+}

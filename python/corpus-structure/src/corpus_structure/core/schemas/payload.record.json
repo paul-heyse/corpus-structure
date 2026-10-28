@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JsonValue": {},
+    "RecordField": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "text": {
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "text",
+        "score"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "structure": {
+      "type": "string"
+    },
+    "fields": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/RecordField"
+        },
+        "type": "array"
+      },
+      "type": "object"
+    },
+    "anchor": {
+      "$ref": "#/$defs/JsonValue"
+    }
+  },
+  "required": [
+    "structure",
+    "fields"
+  ],
+  "type": "object"
+}

@@ -461,7 +461,8 @@ ClaimProposalBatch                   model-facing form; "stored:" notes where th
                         extent?: statement | section        local entities only (D1 §4.2)
                         symbol?, aliases[], identity{ slot: value } }
                                      stored: adds scope_segment (segment key) for local entities
-  statements[]        { local_ref, kind ∈ enum(StatementKind), anchor: "unit" | [sentence ids] }
+  statements[]        { local_ref, kind ∈ enum(StatementKind), anchor: "unit" | [sentence ids] | "outside" }
+                                     "outside": a statement the unit refers to that lies outside it (Proposed, S4 V2)
                                      stored: anchor = [segment keys]
   claims[]            oneOf per predicate:
                         { local_ref, predicate: const <p>, subject: local_ref,

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "`ops.intervention.target`; a `promotion` targets the run it promotes.",
+  "properties": {
+    "kind": {
+      "enum": [
+        "unit",
+        "claim",
+        "alternative_group",
+        "golden_unit",
+        "schema",
+        "guideline",
+        "policy",
+        "run"
+      ],
+      "type": "string"
+    },
+    "ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ]
+    }
+  },
+  "required": [
+    "kind",
+    "ref"
+  ],
+  "type": "object"
+}

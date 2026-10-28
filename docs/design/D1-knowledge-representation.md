@@ -508,7 +508,7 @@ because any later change to them moves keys:
 
 - **One outer pair of math delimiters is removed** (`\(…\)`, `\[…\]`, or the `\begin`/`\end` of
   one of `equation`, `align`, `alignat`, `flalign`, `gather`, `multline`, `eqnarray`,
-  `displaymath`, `math` and their starred forms), so the same formula written inline or displayed keys alike; `$` is not a delimiter.
+  `displaymath`, `math`, and the starred forms of those that have one), so the same formula written inline or displayed keys alike; `$` is not a delimiter.
   Inner delimiters cannot occur: M01's delimiting never leaves one inside a span, and the drop list
   (which includes SymPy's `\(` literal) is applied as written. Macro expansion substitutes
   arguments as TeX does, without added braces, and is bounded at depth 16 and at 100,000 tokens of output;

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JudgmentTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "observation",
+            "claim",
+            "alternative_group",
+            "identity_group"
+          ],
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "ref"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "target": {
+      "$ref": "#/$defs/JudgmentTarget"
+    },
+    "decision": {
+      "enum": [
+        "accept",
+        "reject",
+        "choose",
+        "merge",
+        "split",
+        "unsure"
+      ],
+      "type": "string"
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "guideline_version": {
+      "type": "string"
+    },
+    "chosen": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "faithful": {
+      "type": "boolean"
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "target",
+    "decision",
+    "rationale",
+    "guideline_version"
+  ],
+  "type": "object"
+}

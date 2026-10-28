@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "`ops.policy_rule.action`: a named configuration `<method>/<name>`, a limit, then.",
+  "properties": {
+    "method": {
+      "pattern": "^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$",
+      "type": "string"
+    },
+    "limit": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "then": {
+      "enum": [
+        "stop",
+        "continue"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "method",
+    "limit",
+    "then"
+  ],
+  "type": "object"
+}

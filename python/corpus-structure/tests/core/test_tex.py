@@ -100,8 +100,8 @@ def test_drop_list() -> None:
 
 def test_declared_text_mode_and_environments() -> None:
     assert {"\\text", "\\mathrm", "\\textrm", "\\mbox", "\\operatorname"} == TEXT_MODE
-    names = ("equation", "align", "gather", "multline", "eqnarray", "displaymath")
-    assert {*names, *(n + "*" for n in names)} == OUTER_ENVIRONMENTS
+    names = ("equation", "align", "alignat", "flalign", "gather", "multline", "eqnarray")
+    assert {*names, *(n + "*" for n in names), "displaymath", "math"} == OUTER_ENVIRONMENTS
 
 
 # --- D1 rule cases (ported from the spike's test_values) -------------------------------------
@@ -169,6 +169,8 @@ def test_text_mode_keeps_collapsed_whitespace() -> None:
         ("\\begin{align} a &= b \\\\ c \\end{align}", "a&=b\\\\c"),
         ("\\begin{align*}x\\end{align*}", "x"),
         ("\\begin{equation}x\\end{equation}", "x"),
+        ("\\begin{alignat*}{2} x &= 1 \\end{alignat*}", "2x&=1"),  # the column count is content
+        ("\\begin{math}x\\end{math}", "x"),
         ("\\begin{cases}x\\end{cases}", "\\begin{cases}x\\end{cases}"),  # not a delimiter
         ("\\begin{align}x\\end{align} + y", "\\begin{align}x\\end{align}+y"),
         ("\\begin{equation}x\\end{align}", "\\begin{equation}x\\end{align}"),

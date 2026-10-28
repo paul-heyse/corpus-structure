@@ -1,0 +1,402 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "AuthoredAnd": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "and",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/AuthoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "AuthoredCondition": {
+      "discriminator": {
+        "mapping": {
+          "and": "#/$defs/AuthoredAnd",
+          "claim": "#/$defs/ClaimNode",
+          "cmp": "#/$defs/CmpNode",
+          "forall": "#/$defs/AuthoredForall",
+          "member": "#/$defs/MemberNode",
+          "not": "#/$defs/AuthoredNot",
+          "or": "#/$defs/AuthoredOr",
+          "phrase": "#/$defs/AuthoredPhraseNode",
+          "pred": "#/$defs/PredNode",
+          "unsupported": "#/$defs/AuthoredUnsupportedNode"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AuthoredAnd"
+        },
+        {
+          "$ref": "#/$defs/AuthoredOr"
+        },
+        {
+          "$ref": "#/$defs/AuthoredNot"
+        },
+        {
+          "$ref": "#/$defs/AuthoredForall"
+        },
+        {
+          "$ref": "#/$defs/ClaimNode"
+        },
+        {
+          "$ref": "#/$defs/MemberNode"
+        },
+        {
+          "$ref": "#/$defs/CmpNode"
+        },
+        {
+          "$ref": "#/$defs/PredNode"
+        },
+        {
+          "$ref": "#/$defs/AuthoredPhraseNode"
+        },
+        {
+          "$ref": "#/$defs/AuthoredUnsupportedNode"
+        }
+      ]
+    },
+    "AuthoredForall": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "forall",
+          "type": "string"
+        },
+        "var": {
+          "type": "string"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        },
+        "body": {
+          "$ref": "#/$defs/AuthoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "var",
+        "set",
+        "body"
+      ],
+      "type": "object"
+    },
+    "AuthoredNot": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "not",
+          "type": "string"
+        },
+        "arg": {
+          "$ref": "#/$defs/AuthoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "arg"
+      ],
+      "type": "object"
+    },
+    "AuthoredOr": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "or",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/AuthoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "AuthoredPhraseNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text"
+      ],
+      "type": "object"
+    },
+    "AuthoredUnsupportedNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "unsupported",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "ClaimNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "claim",
+          "type": "string"
+        },
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "CmpNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "cmp",
+          "type": "string"
+        },
+        "rel": {
+          "enum": [
+            "<",
+            "<=",
+            "=",
+            "!=",
+            ">",
+            ">="
+          ],
+          "type": "string"
+        },
+        "lhs": {
+          "$ref": "#/$defs/Formula"
+        },
+        "rhs": {
+          "$ref": "#/$defs/Formula"
+        }
+      },
+      "required": [
+        "op",
+        "rel",
+        "lhs",
+        "rhs"
+      ],
+      "type": "object"
+    },
+    "EntityRef": {
+      "additionalProperties": false,
+      "description": "The one entity-reference shape: a local ref in a batch, an entity key once stored.",
+      "properties": {
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "Formula": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "formula",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "enum": [
+            "ok",
+            "partial",
+            "ambiguous",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "MemberNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "member",
+          "type": "string"
+        },
+        "x": {
+          "$ref": "#/$defs/Formula"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        }
+      },
+      "required": [
+        "op",
+        "x",
+        "set"
+      ],
+      "type": "object"
+    },
+    "PredNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "pred",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EntityRef"
+              },
+              {
+                "$ref": "#/$defs/Formula"
+              }
+            ]
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "name",
+        "args"
+      ],
+      "type": "object"
+    },
+    "SetValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "set",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "enum": [
+            "ok",
+            "partial",
+            "ambiguous",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "SymbolBinding": {
+      "additionalProperties": false,
+      "description": "How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has.",
+      "properties": {
+        "bind": {
+          "enum": [
+            "variable",
+            "param_of",
+            "param_expr_of",
+            "family_param",
+            "free",
+            "constant",
+            "unresolved"
+          ],
+          "type": "string"
+        },
+        "entity": {
+          "type": "string"
+        },
+        "claim": {
+          "type": "string"
+        },
+        "param": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bind"
+      ],
+      "type": "object"
+    }
+  },
+  "$ref": "#/$defs/AuthoredCondition"
+}

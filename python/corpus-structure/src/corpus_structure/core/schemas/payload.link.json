@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "JsonValue": {},
+    "MentionRef": {
+      "additionalProperties": false,
+      "description": "A mention by its task and ordinal; the task is absent inside the same task.",
+      "properties": {
+        "task": {
+          "type": "integer"
+        },
+        "ordinal": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ordinal"
+      ],
+      "type": "object"
+    },
+    "NewCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "new": {
+          "$ref": "#/$defs/NewEntity"
+        }
+      },
+      "required": [
+        "new"
+      ],
+      "type": "object"
+    },
+    "NewEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "label"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "mention_ref": {
+      "$ref": "#/$defs/MentionRef"
+    },
+    "pair": {
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "type": "array"
+    },
+    "candidate": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/NewCandidate"
+        }
+      ]
+    },
+    "score": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "features": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "type": "object"
+    },
+    "rank": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "candidate",
+    "score",
+    "features"
+  ],
+  "type": "object"
+}
