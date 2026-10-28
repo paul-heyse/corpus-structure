@@ -4,24 +4,77 @@ Use the [design principles](../design_review/design_principles/core/design-princ
 when assessing consequential choices; consider physical realization early alongside ownership
 and contracts.
 
-**Proposed:** no responsibilities are assigned yet. [DESIGN](DESIGN.md) holds scope, the binding
-decisions and durable deferrals; add a focused owner under `sections/` when a responsibility
-needs more than a DESIGN section. [STATUS](../../STATUS.md) and the active plan own completion
-claims and the disposition of known defects.
+**Proposed (2026-10-28).** The target architecture is specified by the design set below. Nothing
+is implemented yet. [DESIGN](DESIGN.md) holds scope and, once ADRs decide them, the binding
+decisions; the D-documents hold the proposed target in implementable detail. [STATUS](../../STATUS.md)
+and the active plan in [plans](../plans/README.md) own completion claims and open findings.
 
-| Responsibility | Owner | Source entry / adjacent consumer |
+## The design set
+
+Read D0 first, then D1 → D2 → D3, which carry most of the risk. The [worked trace](trace.md) is
+the spine of the set: four Siegrist units carried through every document as exact data. Spikes
+that test the design are in
+[design_review/evidence/2026-10-28_design-spikes](../design_review/evidence/2026-10-28_design-spikes/README.md).
+
+| Doc | Question it answers | Detail level |
 |---|---|---|
-| Scope, binding decisions, deferrals | [DESIGN §1, §2, §13](DESIGN.md) | Every owner below; ADRs govern its §B sections |
+| [D0 Target overview](D0-target-overview.md) | What we build, why the previous architecture failed, the decisions taken | Summary |
+| [D1 Knowledge representation](D1-knowledge-representation.md) | What the pipeline produces: evidence, entities, claims, qualifiers, values, conditions, statuses, identity | Full |
+| [D2 Schema conventions and statistics pack](D2-schema-and-guidelines.md) | How a domain is declared in LinkML, how one schema compiles into extraction, validation and LLM output, the statistics schema v0 and guideline v0 | Full |
+| [D3 Database](D3-database.md) | The PostgreSQL layout of all three levels, JSONB contracts, indexes, run semantics | Full |
+| [D4 Method catalog](D4-method-catalog.md) | Every analysis method: inputs, observations, library calls, configuration, outcomes | Cards; library detail to deepen |
+| [D5 Consolidation, identity and confidence](D5-consolidation-identity-confidence.md) | How observations become entities and claims, how conflicts and confidence work, validation | Algorithms |
+| [D6 Orchestration, metrics and policies](D6-orchestration-metrics-policies.md) | Stage graph, task lifecycle, caching, GPU use, metric definitions, policy rules | Algorithms |
+| [D7 Evaluation, goldens and the outer loop](D7-evaluation-goldens-outer-loop.md) | Guidelines, blind golden authoring, alignment and scoring, experiments, the operator's review loop | Protocols |
+| [D8 Agent and query interfaces](D8-agent-and-query-interfaces.md) | MCP tools for Opus, work packets, CLI, typed queries | Contracts |
+| [D9 Repository and phase 0 plan](D9-repository-and-phase0.md) | Code layout, dependencies, lanes, phase 0 tasks and acceptance | Plan |
+| [Worked trace](trace.md) | Four Siegrist units: source, segments, target entities and claims, expected observations | Data |
 
-Record the dependency direction here once there is more than one owner. This table describes
-intended ownership; it is not a certificate of current architectural conformance.
+D3–D9 are being written on 2026-10-28; links to them resolve as they land.
+
+## Responsibility map
+
+| Responsibility | Owner document | Code package (D9) |
+|---|---|---|
+| Scope, binding decisions, deferrals | [DESIGN §1, §2, §13](DESIGN.md) | — |
+| Knowledge model types and invariants | D1 | `core` |
+| Domain schema language and compilers | D2 | `schema` |
+| Storage layout and migrations | D3 | `core.db` |
+| Document ingest and segmentation | D4 (M01–M03) | `ingest` |
+| Extraction, normalization, resolution methods | D4 | `methods` |
+| Observations to claims; confidence | D5 | `consolidate` |
+| Constraint and condition checking, domain verifiers | D5 | `validate`, `domains/<name>` |
+| Stage graph, tasks, policies, metrics | D6 | `orchestrate` |
+| Goldens, alignment, scoring, experiments | D7 | `evaluate` |
+| Agent and human intervention tools | D8 | `intervene` |
+| Query surface and exports | D8 | `serve` |
+
+**Dependency direction.** `core` ← `schema` ← (`ingest`, `methods`) ← `consolidate` ←
+`validate` ← `orchestrate` ← (`evaluate`, `intervene`, `serve`). A package imports only packages
+to its left. `domains/<name>` holds data (schema, guideline, policies) plus verifier plug-ins
+that implement interfaces declared in `validate`.
+
+This table describes intended ownership; it is not a certificate of current architectural
+conformance.
 
 ## Reading and extending
 
 For a change, identify the semantic owner, its consumer contract and the expected extension axis.
 Read that owner plus affected consumers, then the ADR that governs the section
 ([index](../adr/README.md)); reuse or compose existing capabilities where their semantics fit.
-Detailed fields and invariants belong in executable declarations. Update the owner when meaning or
-boundaries change, and follow the existing review cadence. Internal refactors need no additional
-proof packet. Section IDs never renumber; a moved live section keeps a relocation pointer, and
-retired material is recovered from Git ([historical recovery](../README.md#historical-recovery)).
+Detailed fields and invariants belong in executable declarations once code exists; until then the
+D-documents carry them. Update the owner when meaning or boundaries change. Section IDs never
+renumber; a moved live section keeps a relocation pointer, and retired material is recovered from
+Git ([historical recovery](../README.md#historical-recovery)).
+
+## Conventions used in the D-documents
+
+- **Labels.** Each document's label applies to all its content unless a line says otherwise. At
+  this stage everything is `Proposed`. A spike result that confirms a library behaviour upgrades
+  the specific claim to `Interface-checked` with the evidence folder cited.
+- **Open questions** are marked `OPEN-Dn-k` inline and collected in the active plan's findings
+  table, which owns their disposition.
+- **Library proposals** from the library-leverage lane are marked `> Library proposal (L-nn):`
+  inline until the design owner accepts or rejects them (see the active plan).
+- **Names.** Code identifiers are `snake_case`; schema classes are `PascalCase`; predicates are
+  `snake_case` and namespaced by domain prefix in storage (`stat:has_distribution`).
