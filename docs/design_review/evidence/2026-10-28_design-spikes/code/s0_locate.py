@@ -14,15 +14,31 @@ CLI (one batch)::
 
 where CONTEXT.json holds ``text_path`` (or ``text``), ``unit_ranges``, ``sentences``
 (``{sid: [start, end]}``), optional ``unit_keys``, ``sentence_keys``, ``document_key``,
-``sections`` (``[[start, end, key], ...]``) and ``segments`` (``[[start, end, key], ...]``,
-any non-sentence segments, used for the default ``statement_scope``).
+``sections`` (``[[start, end, key], ...]``), ``segments`` (``[[start, end, key], ...]``,
+any non-sentence segments, used for the default ``statement_scope``) and ``macros`` (the page's
+``parse_detail.macros``, for the macro step).
 
-Tiers (recorded on every result): 1 exact in the cited sentence; 2 exact in the unit; 3 exact
-after normalization (math delimiters ``$``/``$$``/``\\(\\)``/``\\[\\]`` and spacing commands
-``\\,`` ``\\;`` ``\\!`` dropped, all whitespace removed) with an offset map, cited sentence
-then unit; 4 ``rapidfuzz.fuzz.partial_ratio_alignment(quote, sentence, score_cutoff=95)``
-within the cited sentence (quotes over 64 characters flagged). Unlocated: the cited sentence's
-span with ``coarse: true``; without a valid cited sentence the item is dropped as malformed.
+Cascade (D4 §4.3 step 2, instruments revisit I-R1; measured in code/regex_probe.py). Every
+result records its step, tier number, the number of matches and, for the fuzzy step, the
+RapidFuzz score and the regex fuzzy counts (substitutions, insertions, deletions):
+
+  1 ``exact_sentence``  exact in the cited sentence
+  2 ``exact_unit``      exact in the unit (the occurrence nearest the cited sentence)
+  3 ``spacing``         exact up to spacing: a ``regex`` pattern over the original text, the quote's
+                        non-space characters joined by ``(?:\\s|\\[,;!]|\\[()\\[\\]])*``; a math
+                        delimiter in the quote (``$``, ``$$``, ``\\(``, ``\\)``, ``\\[``, ``\\]``) is an optional
+                        delimiter (D4: "$...$ and \\(...\\) are equivalent"); cited sentence, then unit
+  4 ``macros``          as 3, with each nargs-0 macro of the page (D2 §12.1 fallback beneath) or
+                        its body in the quote matching either spelling in the text (\\R = \\mathbb{R})
+  5 ``fuzzy``           RapidFuzz ``partial_ratio_alignment`` (cutoff 85) of the quote stripped of
+                        trailing ``.,;:`` within the cited sentence; refined inside that window
+                        widened by 30% of the quote length with ``regex`` BESTMATCH
+                        ``(?b)(?:quote){e<=ceil(0.15 len)}`` (timeout 0.2 s); the RapidFuzz window
+                        when the refine finds nothing (``fuzzy_window``)
+
+Every located span is snapped outward to word boundaries (within the sentence or unit). Offsets
+are always the original text's: no offset map. Unlocated: the cited sentence's span with
+``coarse: true``; without a valid cited sentence the item is dropped as malformed.
 """
 
 from __future__ import annotations
@@ -35,6 +51,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
 
+import math
+import time
+
+import regex
 from rapidfuzz import fuzz
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -42,8 +62,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from instruments.batch import load_batch  # noqa: E402
 from instruments.conditions import as_dict, entity_positions, formula_positions  # noqa: E402
 
-FUZZY_CUTOFF = 95
+FUZZY_CUTOFF = 85
 FUZZY_OPTIMAL_MAX = 64  # RapidFuzz: partial_ratio is optimal only up to 64 chars of the shorter string
+REFINE_PAD = 0.30  # window widening, share of the quote length
+REFINE_ERRORS = 0.15  # BESTMATCH error budget, share of the quote length
+REFINE_TIMEOUT = 0.2  # seconds
+JOIN = r"(?:\s|\\[,;!]|\\[()\[\]])*?"  # spacing, spacing commands, math delimiters (lazy)
+OPT_DELIM = r"(?:(?:\s|\\[,;!])*?(?:\\[()\[\]]|\$\$?))?"  # a quote's delimiter: optional, preferred
+STEPS = {"exact_sentence": 1, "exact_unit": 2, "spacing": 3, "macros": 4, "fuzzy": 5, "fuzzy_window": 5}
 
 
 @dataclass
@@ -56,6 +82,7 @@ class UnitContext:
     section_of: Callable[[int], str | None] | None = None
     statement_scope: Callable[[list[str]], str | None] | None = None
     document_key: str | None = None
+    macros: dict | None = None  # the page's parse_detail.macros (D2 §12.1 fallback beneath)
 
     def sentence_span(self, sid):
         return self.sentences.get(sid) if sid is not None else None
@@ -65,14 +92,17 @@ class UnitContext:
 class Located:
     start: int | None
     end: int | None
-    tier: int | None  # 1-4, None when unlocated
+    tier: int | None  # 1-5 (STEPS), None when unlocated
     scope: str | None = None  # sentence | unit
-    matches: int = 0  # exact (or normalized) matches at the deciding tier; >1 = ambiguous
-    score: float | None = None
+    matches: int = 0  # matches at the deciding step; >1 = ambiguous
+    score: float | None = None  # RapidFuzz score (fuzzy step)
     long_quote: bool = False
     coarse: bool = False
     dropped: bool = False
     note: str = ""
+    step: str | None = None  # exact_sentence | exact_unit | spacing | macros | fuzzy | fuzzy_window
+    fuzzy_counts: tuple | None = None  # (substitutions, insertions, deletions) of the regex refine
+    ms: float = 0.0
 
 
 def _occurrences(hay: str, needle: str, base: int) -> list[int]:
@@ -83,97 +113,133 @@ def _occurrences(hay: str, needle: str, base: int) -> list[int]:
     return out
 
 
-_OPEN = ("\\(", "\\[")
-_CLOSE = ("\\)", "\\]")
-_SPACING = ("\\,", "\\;", "\\!")
+def snap(text: str, a: int, b: int, lo: int, hi: int) -> tuple[int, int]:
+    """Widen [a, b) outward so it neither starts nor ends inside a word (within [lo, hi))."""
+    while lo < a < len(text) and text[a - 1].isalnum() and text[a].isalnum():
+        a -= 1
+    while 0 < b < hi and text[b - 1].isalnum() and text[b].isalnum():
+        b += 1
+    return a, b
 
 
-def normalize(s: str, dollars: bool) -> tuple[str, list[int]]:
-    """Normalized string and, per normalized character, its index in ``s``."""
-    out, idx = [], []
-    i, n = 0, len(s)
-    while i < n:
-        two = s[i : i + 2]
-        if two in _OPEN or two in _CLOSE or two in _SPACING:
-            i += 2
-            continue
-        if dollars and s[i] == "$":
-            i += 2 if two == "$$" else 1
-            continue
-        if s[i].isspace():
+_QUOTE_DELIM = regex.compile(r"\$\$|\$|\\[()\[\]]")
+
+
+def spacing_pattern(quote: str, macros: dict[str, str] | None = None) -> str:
+    """Regex for the quote up to spacing (and, with ``macros``, macro spelling)."""
+    parts: list[str] = []
+    i, q = 0, quote
+    alts = []
+    for name, body in sorted((macros or {}).items(), key=lambda kv: -len(kv[0])):
+        name_pat = regex.escape(name) + r"(?![A-Za-z])"
+        body_pat = JOIN.join(regex.escape(c) for c in body if not c.isspace())
+        alts.append((regex.compile(name_pat), regex.compile(body_pat), f"(?:{name_pat}|{body_pat})"))
+    while i < len(q):
+        c = q[i]
+        if c.isspace():
             i += 1
             continue
-        out.append(s[i])
-        idx.append(i)
+        m = _QUOTE_DELIM.match(q, i)
+        if m:
+            parts.append(OPT_DELIM)
+            i = m.end()
+            continue
+        hit = None
+        for name_re, body_re, either in alts:
+            mm = name_re.match(q, i) or body_re.match(q, i)
+            if mm and mm.end() > i:
+                hit = (mm.end(), either)
+                break
+        if hit:
+            parts.append(hit[1])
+            i = hit[0]
+            continue
+        parts.append(regex.escape(c))
         i += 1
-    return "".join(out), idx
+    return JOIN.join(parts)
 
 
-def _extend_delims(text: str, start: int, end: int, quote: str) -> tuple[int, int]:
-    q = quote.strip()
-    if q.startswith(("$", "\\(", "\\[")):
-        j = start
-        while j > 0 and text[j - 1].isspace():
-            j -= 1
-        if text[max(0, j - 2) : j] in _OPEN:
-            start = j - 2
-    if q.endswith(("$", "\\)", "\\]")):
-        j = end
-        while j < len(text) and text[j].isspace():
-            j += 1
-        if text[j : j + 2] in _CLOSE:
-            end = j + 2
-    return start, end
+def _page_macros(ctx: UnitContext) -> dict[str, str]:
+    from instruments.values import merged_macros
+
+    return {n: m["body"] for n, m in merged_macros(ctx.macros).items() if int(m.get("nargs") or 0) == 0}
 
 
-def _norm_find(text: str, lo: int, hi: int, quote: str) -> list[tuple[int, int]]:
-    hay, idx = normalize(text[lo:hi], dollars=False)
-    nq, _ = normalize(quote, dollars=True)
-    if not nq:
-        return []
+def _search_all(pat: str, text: str, ranges: list[tuple[int, int]]) -> list[tuple[int, int, int, int]]:
     out = []
-    i = hay.find(nq)
-    while i >= 0:
-        s, e = lo + idx[i], lo + idx[i + len(nq) - 1] + 1
-        out.append(_extend_delims(text, s, e, quote))
-        i = hay.find(nq, i + 1)
+    for lo, hi in ranges:
+        try:
+            for m in regex.finditer(pat, text, pos=lo, endpos=hi, timeout=1.0):
+                if m.end() > m.start():
+                    out.append((m.start(), m.end(), lo, hi))
+        except TimeoutError:
+            pass
     return out
 
 
 def locate_quote(quote: str, sentence: str | None, ctx: UnitContext) -> Located:
     """D4 §4.3 step 2 for one quote cited in ``sentence`` (an id, or None)."""
+    t0 = time.perf_counter()
+    res = _locate(quote, sentence, ctx)
+    res.ms = round((time.perf_counter() - t0) * 1000, 3)
+    return res
+
+
+def _found(text, a, b, lo, hi, step, scope, matches, long_q, **kw) -> Located:
+    while a < b and text[a].isspace():  # an optional leading delimiter may let a match start on a space
+        a += 1
+    while b > a and text[b - 1].isspace():
+        b -= 1
+    a, b = snap(text, a, b, lo, hi)
+    return Located(a, b, STEPS[step], scope, matches, long_quote=long_q, step=step, **kw)
+
+
+def _locate(quote: str, sentence: str | None, ctx: UnitContext) -> Located:
     text = ctx.text
     sent = ctx.sentence_span(sentence)
     long_q = len(quote) > FUZZY_OPTIMAL_MAX
     if not quote.strip():
         return Located(*(sent or (None, None)), None, coarse=sent is not None, dropped=sent is None, note="empty quote")
+    anchor = sent[0] if sent else ctx.unit_ranges[0][0]
     # 1 exact in the cited sentence
     if sent:
-        occ = _occurrences(text[sent[0] : sent[1]], quote, sent[0])
+        occ = _occurrences(text[sent[0]: sent[1]], quote, sent[0])
         if occ:
-            return Located(occ[0], occ[0] + len(quote), 1, "sentence", len(occ), long_quote=long_q)
+            return _found(text, occ[0], occ[0] + len(quote), sent[0], sent[1], "exact_sentence", "sentence", len(occ), long_q)
     # 2 exact in the unit (nearest occurrence to the cited sentence when several)
-    occ = [o for lo, hi in ctx.unit_ranges for o in _occurrences(text[lo:hi], quote, lo) if o + len(quote) <= hi]
+    occ = [(o, lo, hi) for lo, hi in ctx.unit_ranges for o in _occurrences(text[lo:hi], quote, lo) if o + len(quote) <= hi]
     if occ:
-        anchor = sent[0] if sent else ctx.unit_ranges[0][0]
-        best = min(occ, key=lambda o: (abs(o - anchor), o))
-        return Located(best, best + len(quote), 2, "unit", len(occ), long_quote=long_q)
-    # 3 normalized, sentence then unit
+        o, lo, hi = min(occ, key=lambda x: (abs(x[0] - anchor), x[0]))
+        return _found(text, o, o + len(quote), lo, hi, "exact_unit", "unit", len(occ), long_q)
+    # 3 exact up to spacing, 4 the same with macro spellings: cited sentence, then unit
+    for step, macros in (("spacing", None), ("macros", _page_macros(ctx))):
+        pat = spacing_pattern(quote, macros)
+        for scope, ranges in (("sentence", [sent] if sent else []), ("unit", ctx.unit_ranges)):
+            hits = _search_all(pat, text, ranges)
+            if hits:
+                a, b, lo, hi = min(hits, key=lambda h: (abs(h[0] - anchor), h[0]))
+                return _found(text, a, b, lo, hi, step, scope, len(hits), long_q)
+    # 5 fuzzy within the cited sentence: RapidFuzz window, regex BESTMATCH refine
     if sent:
-        hits = _norm_find(text, sent[0], sent[1], quote)
-        if hits:
-            return Located(hits[0][0], hits[0][1], 3, "sentence", len(hits), long_quote=long_q)
-    hits = [h for lo, hi in ctx.unit_ranges for h in _norm_find(text, lo, hi, quote)]
-    if hits:
-        anchor = sent[0] if sent else ctx.unit_ranges[0][0]
-        best = min(hits, key=lambda h: (abs(h[0] - anchor), h[0]))
-        return Located(best[0], best[1], 3, "unit", len(hits), long_quote=long_q)
-    # 4 fuzzy within the cited sentence
-    if sent:
-        r = fuzz.partial_ratio_alignment(quote, text[sent[0] : sent[1]], score_cutoff=FUZZY_CUTOFF)
+        lo, hi = sent
+        qq = quote.rstrip(".,;:") or quote
+        r = fuzz.partial_ratio_alignment(qq, text[lo:hi], score_cutoff=FUZZY_CUTOFF)
         if r is not None:
-            return Located(sent[0] + r.dest_start, sent[0] + r.dest_end, 4, "sentence", 1, r.score, long_q)
-        return Located(sent[0], sent[1], None, coarse=True, long_quote=long_q, note="unlocated; cited sentence span")
+            pad = math.ceil(REFINE_PAD * len(qq))
+            wlo, whi = max(lo, lo + r.dest_start - pad), min(hi, lo + r.dest_end + pad)
+            k = max(1, math.ceil(REFINE_ERRORS * len(qq)))
+            m = None
+            try:
+                m = regex.search(r"(?b)(?:" + regex.escape(qq) + "){e<=" + str(k) + "}", text, pos=wlo, endpos=whi,
+                                 timeout=REFINE_TIMEOUT)
+            except TimeoutError:
+                m = None
+            if m is not None and m.end() > m.start():
+                return _found(text, m.start(), m.end(), lo, hi, "fuzzy", "sentence", 1, long_q,
+                              score=round(r.score, 1), fuzzy_counts=tuple(m.fuzzy_counts))
+            return _found(text, lo + r.dest_start, lo + r.dest_end, lo, hi, "fuzzy_window", "sentence", 1, long_q,
+                          score=round(r.score, 1), note="regex refine found nothing; RapidFuzz window")
+        return Located(lo, hi, None, coarse=True, long_quote=long_q, note="unlocated; cited sentence span")
     return Located(None, None, None, dropped=True, long_quote=long_q, note="unlocated and no valid cited sentence")
 
 
@@ -196,7 +262,7 @@ class LocateReport:
     def by_tier(self) -> dict:
         out: dict = {}
         for r in self.records:
-            k = "dropped" if r.result.dropped else ("coarse" if r.result.coarse else f"tier{r.result.tier}")
+            k = "dropped" if r.result.dropped else ("coarse" if r.result.coarse else r.result.step)
             out[k] = out.get(k, 0) + 1
         return out
 
@@ -491,6 +557,7 @@ def context_from_json(cfg: dict, base: Path) -> UnitContext:
         section_of=section_of if sections else None,
         statement_scope=statement_scope,
         document_key=cfg.get("document_key"),
+        macros=cfg.get("macros"),
     )
 
 

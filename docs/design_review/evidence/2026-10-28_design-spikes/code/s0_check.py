@@ -24,6 +24,11 @@ from s0_locate import UnitContext, to_stored  # noqa: E402
 EVIDENCE = CODE.parent
 S1 = EVIDENCE / "results" / "s1"
 SAMPLE = json.loads((EVIDENCE / "sample.json").read_text())
+RENDITIONS = json.loads((S1 / "renditions.json").read_text())
+
+
+def page_macros(unit: str) -> dict:
+    return RENDITIONS[SAMPLE["units"][unit]["page"]]["parse_detail"]["macros"]
 
 
 def _name(page: str) -> str:
@@ -59,7 +64,7 @@ def context(unit: str) -> UnitContext:
     return UnitContext(text=text, unit_ranges=[(p["start"], p["end"]) for p in meta["parts"]],
                        sentences=sentences, unit_keys=[p["segment_key"] for p in meta["parts"]],
                        sentence_keys=sentence_keys, section_of=section_of, statement_scope=statement_scope,
-                       document_key=meta["document_key"])
+                       document_key=meta["document_key"], macros=page_macros(unit))
 
 
 def check(folder: Path, out: Path | None) -> int:
@@ -71,7 +76,7 @@ def check(folder: Path, out: Path | None) -> int:
             continue
         raw = json.loads(path.read_text())
         ctx = context(unit)
-        model = validate_batch(raw, form="model", sentence_ids=ctx.sentences.keys())
+        model = validate_batch(raw, form="model", sentence_ids=ctx.sentences.keys(), macros=ctx.macros)
         try:
             stored, loc = to_stored(raw, ctx)
         except Exception as exc:  # reported, never hidden
@@ -79,7 +84,8 @@ def check(folder: Path, out: Path | None) -> int:
             failures += 1
             report[unit] = {"conversion_error": repr(exc), "model_issues": model.lines()}
             continue
-        st = validate_batch(stored, form="stored", canonical_text=ctx.text, unit_ranges=ctx.unit_ranges)
+        st = validate_batch(stored, form="stored", canonical_text=ctx.text, unit_ranges=ctx.unit_ranges,
+                            macros=ctx.macros)
         tiers = loc.by_tier()
         bad = (not model.ok) or (not st.ok) or loc.unlocated() or loc.problems
         failures += bool(bad)

@@ -40,7 +40,7 @@ REAL_CASES = [
      "The parameter \\( \\sigma \\) is the shape parameter of the distribution", 1),
     ("special__LogNormal", T4_UNIT, "Then \\(X = e^Y\\) has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\)",
      "Then \\(X = e^Y\\) has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\)", 1),
-    # trace-style list numbering and $-math: 3 marker chars and 6 delimiter chars differ
+    # trace-style list numbering and $-math: fuzzy step (score 91.2 >= 85 since I-R1; coarse before)
     ("special__LogNormal", T4_UNIT, "1. The parameter $\\sigma$ is the shape parameter of the distribution",
-     "COARSE", None, "(a) The parameter"),
+     "a) The parameter \\( \\sigma \\) is the shape parameter of the distribution", 5),
 ]

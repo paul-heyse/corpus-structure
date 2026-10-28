@@ -149,6 +149,26 @@ def _(b):
     claim(b, "C3")["qualifiers"]["conditions"]["args"].append({"op": "pred", "name": "independent", "args": [{"ref": "X"}]})
 
 
+@case("set in a Formula slot", "type_mismatch", "slot_kind")
+def _(b):
+    claim(b, "C2")["object"]["latex"] = "\\R \\setminus \\{0\\}"
+
+
+@case("relation in a Formula slot", "type_mismatch", "slot_kind")
+def _(b):
+    claim(b, "C2")["object"]["latex"] = "a < b"
+
+
+@case("formula in a member's set position", "type_mismatch", "slot_kind")
+def _(b):
+    claim(b, "C3")["qualifiers"]["conditions"]["args"][1]["set"]["latex"] = "a + b"
+
+
+@case("bare unit expression as a formula", "type_mismatch", "bare_unit_formula")
+def _(b):
+    claim(b, "C1")["qualifiers"]["param_values"]["mean"]["latex"] = "1 cm"
+
+
 # ---------------------------------------------------------------- reference error
 @case("unresolved subject", "reference_error", "unresolved_ref")
 def _(b):
@@ -238,6 +258,19 @@ class TestValid(unittest.TestCase):
             self.assertTrue(r.ok, r.lines())
             r = validate_batch(stored(model, ctx), LK, "stored", canonical_text=TEXT, unit_ranges=ctx.unit_ranges)
             self.assertTrue(r.ok, r.lines())
+
+    def test_unreadable_value_is_a_note_not_an_issue(self):
+        b = t3_model()
+        claim(b, "C2")["object"]["latex"] = "\\begin{cases} a & b \\end{cases}"
+        r = validate_batch(b, LK, "model", sentence_ids=SIDS3)
+        self.assertTrue(r.ok, r.lines())
+        self.assertEqual(len(r.notes), 1, r.notes)
+        self.assertIn("environment", r.notes[0])
+
+    def test_single_letter_after_number_is_not_flagged(self):
+        b = t3_model()
+        claim(b, "C1")["qualifiers"]["param_values"]["mean"]["latex"] = "2 x"
+        self.assertTrue(validate_batch(b, LK, "model", sentence_ids=SIDS3).ok)
 
     def test_inv09_marks_conditional(self):
         b = t3_model()

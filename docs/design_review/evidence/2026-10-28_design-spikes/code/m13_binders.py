@@ -11,8 +11,9 @@ A binding site is a math token whose `bound` symbols are introduced by one of:
   initial     a sentence whose first word is in `sentence_initial` ("Suppose", "Let", "If", …)
   clause      a math token directly after a `clause` binder ("where", "for")
   definition  an equation whose left side is one symbol, anywhere (`W = e^Z`)
-Sentence-level flags: `section_wide` phrases make the binding section-wide; `reopen` words
-("again") re-open the section's earlier binding.
+  section_wide a sentence containing a `section_wide` phrase ("in this section"), which also
+              makes the binding section-wide
+Sentence-level flag: `reopen` words ("again") re-open the section's earlier binding.
 """
 
 from __future__ import annotations
@@ -73,6 +74,8 @@ def binding_sites(doc: Doc, matcher: Matcher) -> list[dict]:
                 rules.append("clause")
             if info.get("kind") == "equation":
                 rules.append("definition")
+            if "SECTION_WIDE" in f:  # "In this section, we assume … \(Z\)": the phrase itself binds
+                rules.append("section_wide")
             if not rules:
                 continue
             sites.append({"symbols": list(info["bound"]), "start": info["start"], "end": info["end"],

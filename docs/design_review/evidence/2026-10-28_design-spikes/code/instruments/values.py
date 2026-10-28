@@ -4,8 +4,9 @@ Tiers, recorded per comparison (evidence for OPEN-D7-2):
 
 1. ``canonical``: D1 §6.2 canonical form (normalized LaTeX; numbers in base units; text NFC
    casefolded). The same function feeds ``keys``, so key agreement and tier-1 equality agree.
-2. ``sympy``: ``parse_latex(..., backend="lark")`` on the macro-expanded LaTeX, then
-   ``simplify(a - b) == 0`` under a time limit; sets by SymPy set equality.
+2. ``sympy``: the value read by the math grammar (``code/mathgrammar``, ADR-0009) under its
+   declared kind and converted by ``mathgrammar.to_sympy``; ``simplify(a - b) == 0`` under a
+   time limit; sets by SymPy set equality; relations and memberships as relations.
 3. ``numeric``: evaluation at random points satisfying the claims' ``member``/``cmp``
    conditions (rejection sampling, fixed seed); numbers after unit conversion.
 4. ``manual``: decisions read from the root's ``manual_equivalence.tsv``; undecided pairs are
@@ -19,12 +20,12 @@ or bounded by numeric bounds from ``member`` sets and ``symbol <rel> number`` le
 ``math.isclose(rel_tol=1e-9, abs_tol=1e-12)``; at least 6 distinct valid points to decide,
 otherwise manual. Relations (``x < 1``) compare as relations (kind ``relation``).
 
-The SymPy 1.14 lark grammar lacks ``\\sigma``, ``\\pi``, capital Greek, ``\\lvert``/``\\rvert`` and
-implicit multiplication after a power (``b^2 \\sigma^2``). Each formula is parsed raw first; a
-raw failure is logged in ``PARSE_LOG`` for S5 and the parse is retried through a compatibility
-shim (``_lark_shim``) that keeps subscripts in placeholder names; the comparison records
-whether the shim was needed. A symbol directly followed by ``(`` (``\\Phi(x)``, ``f(x) y``,
-``\\Gamma(k)``) is ambiguous between application and product and goes to manual.
+Reading math has one authority, the math grammar: tier-1 canonical forms are printed from its
+tree (``mathgrammar.canonical``; token normalization only for values that do not parse), tier 2
+converts its tree. A value that does not parse, is ambiguous (``\\Phi(x)``: application or
+product, undeclared) or has no SymPy value (``\\pm``, ellipses) goes to manual; ``PARSE_LOG``
+records each such value with the grammar's status and reason. Symbols listed in a formula's
+binding map are declared variables, which lets the grammar read ``a(b + c)`` as a product.
 """
 
 from __future__ import annotations
@@ -71,13 +72,7 @@ ABS_TOL = 1e-12
 
 # ============================================================================ LaTeX tokens
 
-_TOKEN_RE = re.compile(r"\\[A-Za-z]+\*?|\\.|\s+|.", re.S)
-_DROP = {"\\,", "\\;", "\\!", "\\left", "\\right"}  # D1 §6.2
-_CW = re.compile(r"\\[A-Za-z]+\*?$")
-
-
-def tokenize(latex: str) -> list[str]:
-    return _TOKEN_RE.findall(latex)
+import mathgrammar as MG  # noqa: E402  (code/ is on sys.path for every instruments consumer)
 
 
 def merged_macros(page_macros: dict | None) -> dict[str, dict]:
@@ -90,132 +85,19 @@ def merged_macros(page_macros: dict | None) -> dict[str, dict]:
     return out
 
 
-def _read_arg(tokens: list[str], j: int) -> tuple[list[str], int]:
-    while j < len(tokens) and tokens[j].isspace():
-        j += 1
-    if j >= len(tokens):
-        return [], j
-    if tokens[j] == "{":
-        depth, k = 0, j
-        while k < len(tokens):
-            if tokens[k] == "{":
-                depth += 1
-            elif tokens[k] == "}":
-                depth -= 1
-                if depth == 0:
-                    return tokens[j + 1 : k], k + 1
-            k += 1
-        return tokens[j + 1 :], len(tokens)
-    return [tokens[j]], j + 1
-
-
-def expand_macros(tokens: list[str], macros: dict[str, dict], depth: int = 0) -> list[str]:
-    out: list[str] = []
-    i = 0
-    while i < len(tokens):
-        t = tokens[i]
-        spec = macros.get(t)
-        if spec is None or depth > 20:
-            out.append(t)
-            i += 1
-            continue
-        args = []
-        j = i + 1
-        for _ in range(spec["nargs"]):
-            a, j = _read_arg(tokens, j)
-            args.append(a)
-        body = tokenize(spec["body"])
-        sub: list[str] = []
-        k = 0
-        while k < len(body):
-            if body[k] == "#" and k + 1 < len(body) and body[k + 1].isdigit():
-                n = int(body[k + 1]) - 1
-                sub.extend(["{", *(args[n] if n < len(args) else []), "}"])
-                k += 2
-            else:
-                sub.append(body[k])
-                k += 1
-        out.extend(expand_macros(sub, macros, depth + 1))
-        i = j
-    return out
-
-
 def strip_math_delimiters(latex: str) -> str:
-    s = latex.strip()
-    for o, c in (("$$", "$$"), ("$", "$"), ("\\(", "\\)"), ("\\[", "\\]")):
-        if s.startswith(o) and s.endswith(c) and len(s) >= len(o) + len(c):
-            return s[len(o) : len(s) - len(c)].strip()
-    return s
+    return MG.printer.strip_delimiters(latex)
 
 
-def _group_tree(tokens: list[str]):
-    stack: list[list] = [[]]
-    for t in tokens:
-        if t == "{":
-            stack.append([])
-        elif t == "}":
-            if len(stack) == 1:
-                return None
-            g = stack.pop()
-            stack[-1].append(g)
-        else:
-            stack[-1].append(t)
-    return stack[0] if len(stack) == 1 else None
-
-
-def _simplify_groups(items: list) -> list:
-    out = []
-    for it in items:
-        if isinstance(it, list):
-            inner = _simplify_groups(it)
-            if len(inner) == 1 and isinstance(inner[0], str):
-                out.append(inner[0])  # braces around a single token dropped (b^{2} -> b^2)
-            else:
-                out.append(inner)
-        else:
-            out.append(it)
-    return out
-
-
-def _flatten(items: list) -> list[str]:
-    out: list[str] = []
-    for it in items:
-        if isinstance(it, list):
-            out.extend(["{", *_flatten(it), "}"])
-        else:
-            out.append(it)
-    return out
-
-
-def serialize(tokens: list[str]) -> str:
-    """Join tokens; a space follows a control word only where TeX needs it (next is a letter)."""
-    out = []
-    prev = ""
-    for t in tokens:
-        if prev and _CW.match(prev) and t[:1].isalpha():
-            out.append(" ")
-        out.append(t)
-        prev = t
-    return "".join(out)
-
-
-def canonical_tokens(latex: str, macros: dict | None = None) -> list[str]:
-    toks = expand_macros(tokenize(strip_math_delimiters(latex)), merged_macros(macros))
-    toks = [t for t in toks if not t.isspace() and t not in _DROP]
-    tree = _group_tree(toks)
-    if tree is None:
-        return toks
-    return _flatten(_simplify_groups(tree))
+def math_parse(latex: str, kind: str = "any_value", macros: dict | None = None, variables: Iterable[str] = ()):
+    """The grammar's reading of a value; ``macros`` are page macros (D2 §12.1 fallback beneath)."""
+    ctx = {"variables": sorted(variables)} if variables else None
+    return MG.parse(latex, kind, macros=merged_macros(macros), context=ctx)
 
 
 def canonical_latex(latex: str, macros: dict | None = None) -> str:
-    """D1 §6.2 normalized LaTeX."""
-    return serialize(canonical_tokens(latex, macros))
-
-
-def expanded_latex(latex: str, macros: dict | None = None) -> str:
-    """Macro-expanded LaTeX with original spacing (input to SymPy)."""
-    return "".join(expand_macros(tokenize(strip_math_delimiters(latex)), merged_macros(macros)))
+    """D1 §6.2 canonical LaTeX, printed from the grammar's tree (token form when unparsed)."""
+    return MG.canonical(math_parse(latex, "any_value", macros))
 
 
 def canonical_symbol(symbol: str | None, macros: dict | None = None) -> str | None:
@@ -328,18 +210,7 @@ def canonical_value(v: Any, macros: dict | None = None, ref_key: Callable[[str],
 
 # ============================================================================ SymPy tier
 
-PARSE_LOG: list[dict] = []  # raw lark failures and shim outcomes, for S5
-
-_LARK_GREEK = {
-    "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta", "theta",
-    "vartheta", "kappa", "lambda", "mu", "nu", "xi", "rho", "varrho", "tau", "upsilon",
-    "phi", "varphi", "chi", "psi", "omega",
-}
-_SHIM_GREEK = {"sigma", "varsigma", "iota", "pi", "varpi", "Gamma", "Delta", "Theta", "Lambda",
-               "Xi", "Pi", "Sigma", "Upsilon", "Phi", "Psi", "Omega"}
-_NON_ATOM_AFTER = {"+", "-", "=", "<", ">", ",", ")", "]", "}", "^", "_", "|", "!", "/", "*",
-                   "\\cdot", "\\times", "\\le", "\\ge", "\\leq", "\\geq", "\\ne", "\\neq",
-                   "\\in", "\\setminus", "\\div", "\\mid", "&"}
+PARSE_LOG: list[dict] = []  # values the grammar did not read into SymPy: status and reason, for S5
 
 
 class _Timeout(Exception):
@@ -360,278 +231,48 @@ def time_limit(seconds: float):
         signal.signal(signal.SIGALRM, old)
 
 
-def _group_end(tokens: list[str], i: int) -> int:
-    """Index of the ``}`` closing the group opened at ``tokens[i] == "{"`` (or -1)."""
-    depth = 0
-    for k in range(i, len(tokens)):
-        depth += tokens[k] == "{"
-        depth -= tokens[k] == "}"
-        if depth == 0:
-            return k
-    return -1
-
-
-def _encode(sub: str) -> str:
-    """Injective letters-only encoding of a subscript (hex of its UTF-8, digits a-p)."""
-    return "".join("abcdefghijklmnop"[int(c, 16)] for c in sub.encode("utf-8").hex())
-
-
-def application_ambiguity(tokens: list[str]) -> str | None:
-    """A symbol directly followed by ``(`` reads as function application or as a product
-    (``\\Phi(-x)``, ``f(x) y``, ``\\Gamma(k)``, ``X_1(t)``); SymPy's lark grammar either returns
-    an unresolved ambiguity or silently picks the product. Such formulas go to manual."""
-    for i, t in enumerate(tokens):
-        if t != "(" or i == 0:
-            continue
-        p = tokens[i - 1]
-        sym = None
-        if re.fullmatch(r"[A-Za-z]", p) and not (i >= 2 and tokens[i - 2] == "^"):
-            sym = p
-        elif p.startswith("\\") and (p[1:] in _LARK_GREEK or p[1:] in _SHIM_GREEK):
-            sym = p
-        elif i >= 2 and tokens[i - 2] == "_":
-            sym = "".join(tokens[max(0, i - 3) : i])
-        elif p == "}":
-            depth, k = 0, i - 1
-            while k >= 0:
-                depth += tokens[k] == "}"
-                depth -= tokens[k] == "{"
-                if depth == 0:
-                    break
-                k -= 1
-            if k >= 1 and tokens[k - 1] == "_":
-                sym = "".join(tokens[max(0, k - 2) : i])
-        if sym is not None:
-            return f"{sym}( reads as application or product"
-    return None
-
-
-def _lark_shim(tokens: list[str]) -> tuple[str, dict[str, str]]:
-    """Rewrite canonical tokens into what SymPy 1.14's lark grammar accepts.
-
-    Returns the LaTeX string and a symbol rename map (placeholder name -> intended name).
-    Greek letters the grammar lacks become ``\\mathit{name}``; a subscript (any token or
-    group, e.g. ``\\sigma_{X_1}``, ``\\sigma_\\mu``) is kept in the placeholder name through an
-    injective letters-only encoding and restored as ``name_{sub}`` after parsing.
-    """
-    renames: dict[str, str] = {}
-    toks: list[str] = []
-    i = 0
-    while i < len(tokens):
-        t = tokens[i]
-        if t in ("\\lvert", "\\rvert", "\\vert", "\\lVert", "\\rVert"):
-            toks.append("|")
-        elif t.startswith("\\") and t[1:] in _SHIM_GREEK:
-            name = t[1:]
-            ph = name
-            if i + 1 < len(tokens) and tokens[i + 1] == "_" and i + 2 < len(tokens):
-                if tokens[i + 2] == "{":
-                    k = _group_end(tokens, i + 2)
-                    if k < 0:
-                        raise ValueError("unbalanced subscript group")
-                    sub_toks, i = tokens[i + 3 : k], k
-                else:
-                    sub_toks, i = [tokens[i + 2]], i + 2
-                sub = serialize(sub_toks)
-                ph = f"{name}ZZ{_encode(sub)}"
-                renames[ph] = f"{name}_{{{sub}}}"
-            toks.extend(["\\mathit", "{", ph, "}"])
-        else:
-            toks.append(t)
-        i += 1
-    # implicit multiplication after a power and after a closing |...|
-    out: list[str] = []
-    bar_open = False
-    i = 0
-    while i < len(toks):
-        t = toks[i]
-        out.append(t)
-        end_of_factor = False
-        if t == "^" and i + 1 < len(toks):
-            if toks[i + 1] == "{":
-                depth, k = 0, i + 1
-                while k < len(toks):
-                    depth += toks[k] == "{"
-                    depth -= toks[k] == "}"
-                    if depth == 0:
-                        break
-                    k += 1
-                out.extend(toks[i + 1 : k + 1])
-                i = k
-            else:
-                out.append(toks[i + 1])
-                i += 1
-                if toks[i] == "\\mathit" and i + 3 < len(toks):
-                    out.extend(toks[i + 1 : i + 4])
-                    i += 3
-            end_of_factor = True
-        elif t == "|":
-            bar_open = not bar_open
-            end_of_factor = not bar_open
-        elif t == "}":  # end of an argument group (\sqrt{..}, \frac{..}{..}, \mathit{..})
-            end_of_factor = True
-        if end_of_factor and i + 1 < len(toks):
-            nxt = toks[i + 1]
-            if nxt not in _NON_ATOM_AFTER and nxt != "{" and not (nxt == "|" and bar_open):
-                out.append("\\cdot")
-        i += 1
-    return " ".join(out), renames
-
-
-def _plain(expr, renames: dict[str, str]):
-    import sympy
-
-    rep = {}
-    for s in expr.free_symbols:
-        name = renames.get(str(s), str(s))
-        if name == "e":
-            rep[s] = sympy.E
-        elif name == "pi":
-            rep[s] = sympy.pi
-        else:
-            rep[s] = sympy.Symbol(name)
-    return expr.xreplace(rep)
-
-
 @dataclass
 class ParseResult:
     expr: Any = None
-    shim: bool = False
+    status: str = "failed"  # the grammar's status: ok | partial | ambiguous | failed
+    kind: str | None = None
     error: str | None = None
 
 
-_PARSE_CACHE: dict[str, ParseResult] = {}
+_LOGGED: set = set()
 
 
-def parse_formula(latex: str, macros: dict | None = None) -> ParseResult:
-    from sympy.parsing.latex import parse_latex
-
-    raw = expanded_latex(latex, macros).strip()
-    key = repr((raw, sorted((macros or {}).items()) if macros else None))
-    if key in _PARSE_CACHE:
-        return _PARSE_CACHE[key]
-    res = ParseResult()
-    amb = application_ambiguity(canonical_tokens(latex, macros))
-    if amb is not None:
-        res.error = f"ambiguous: {amb}"
-        PARSE_LOG.append({"latex": latex, "expanded": raw, "raw_error": res.error, "shimmed": None,
-                          "shim_ok": False, "shim_error": res.error})
-        _PARSE_CACHE[key] = res
-        return res
-    try:
-        res.expr = _plain(parse_latex(raw, backend="lark"), {})
-    except Exception as ex:  # noqa: BLE001
-        raw_err = f"{type(ex).__name__}: {str(ex).splitlines()[0][:120]}"
-        shimmed, ren = None, {}
-        try:
-            shimmed, ren = _lark_shim(canonical_tokens(latex, macros))
-            res.expr = _plain(parse_latex(shimmed, backend="lark"), ren)
-            res.shim = True
-        except Exception as ex2:  # noqa: BLE001
-            res.error = f"{type(ex2).__name__}: {str(ex2).splitlines()[0][:120]}"
-        PARSE_LOG.append({"latex": latex, "expanded": raw, "raw_error": raw_err,
-                          "shimmed": shimmed, "shim_ok": res.error is None, "shim_error": res.error})
-    _PARSE_CACHE[key] = res
+def _read(latex: str, kinds: tuple[str, ...], macros, variables) -> ParseResult:
+    last = None
+    for k in kinds:
+        r = math_parse(latex, k, macros, variables)
+        if r.status in ("ok", "partial"):
+            try:
+                return ParseResult(MG.to_sympy(r), r.status, r.kind or k)
+            except Exception as ex:  # noqa: BLE001  NotRepresentable and conversion errors
+                res = ParseResult(None, r.status, r.kind or k, f"no SymPy value: {ex}")
+                break
+        if r.status == "ambiguous":
+            res = ParseResult(None, "ambiguous", r.kind or k, "ambiguous: " + "; ".join(r.notes))
+            break
+        last = r
+    else:
+        why = (last.reason or {}) if last else {}
+        res = ParseResult(None, "failed", None, f"failed: {why.get('category', '?')} at {why.get('at', '')!r}")
+    key = (latex, kinds)
+    if key not in _LOGGED:
+        _LOGGED.add(key)
+        PARSE_LOG.append({"latex": latex, "kinds": list(kinds), "status": res.status, "error": res.error})
     return res
 
 
-# ----- sets
-
-_BLACKBOARD = {"R": "Reals", "Z": "Integers", "Q": "Rationals", "C": "Complexes", "N": "Naturals0"}
-
-
-def _match_close(toks: list[str], i: int, closers: set[str]) -> tuple[int, int]:
-    """From an opener at i, return (comma index at depth 0, closer index)."""
-    depth, comma = 0, -1
-    for k in range(i + 1, len(toks)):
-        t = toks[k]
-        if t in ("(", "[", "{", "\\{"):
-            depth += 1
-        elif t in (")", "]", "}", "\\}") and depth > 0:
-            depth -= 1
-        elif depth == 0 and t == ",":
-            comma = k
-        elif depth == 0 and t in closers:
-            return comma, k
-    return -1, -1
+def parse_formula(latex: str, macros: dict | None = None, variables: Iterable[str] = ()) -> ParseResult:
+    """A formula position: an expression or equation, else a relation or a membership."""
+    return _read(latex, ("formula", "relation", "member"), macros, variables)
 
 
-def _set_term(toks: list[str], i: int, macros):
-    import sympy
-
-    t = toks[i]
-    if t == "\\mathbb" and i + 1 < len(toks):
-        name = _BLACKBOARD.get(toks[i + 1])
-        if name is None:
-            raise ValueError(f"unknown blackboard set {toks[i + 1]}")
-        s = getattr(sympy.S, name)
-        j = i + 2
-        if j + 1 < len(toks) and toks[j] in ("_", "^") and toks[j + 1] == "+":
-            s = sympy.Interval.open(0, sympy.oo) if name == "Reals" else (
-                sympy.S.Naturals if name in ("Naturals0", "Integers") else s.intersect(sympy.Interval.open(0, sympy.oo)))
-            j += 2
-        return s, j
-    if t in ("\\emptyset", "\\varnothing"):
-        return sympy.S.EmptySet, i + 1
-    if t in ("(", "["):
-        comma, close = _match_close(toks, i, {")", "]"})
-        if comma < 0 or close < 0:
-            raise ValueError("unbalanced interval")
-        lo = parse_formula(serialize(toks[i + 1 : comma]), macros)
-        hi = parse_formula(serialize(toks[comma + 1 : close]), macros)
-        if lo.expr is None or hi.expr is None:
-            raise ValueError(f"interval endpoint: {lo.error or hi.error}")
-        return sympy.Interval(lo.expr, hi.expr, left_open=t == "(", right_open=toks[close] == ")"), close + 1
-    if t == "\\{":
-        depth, k, parts, cur = 0, i + 1, [], []
-        while k < len(toks):
-            x = toks[k]
-            if x == "\\}" and depth == 0:
-                break
-            if x in ("(", "[", "{"):
-                depth += 1
-            elif x in (")", "]", "}"):
-                depth -= 1
-            if x == "," and depth == 0:
-                parts.append(cur)
-                cur = []
-            else:
-                cur.append(x)
-            k += 1
-        parts.append(cur)
-        elems = []
-        for p in parts:
-            if not p:
-                continue
-            r = parse_formula(serialize(p), macros)
-            if r.expr is None:
-                raise ValueError(f"set element: {r.error}")
-            elems.append(r.expr)
-        return sympy.FiniteSet(*elems), k + 1
-    raise ValueError(f"unexpected token {t!r}")
-
-
-def parse_set(latex: str, macros: dict | None = None) -> ParseResult:
-    import sympy
-
-    toks = canonical_tokens(latex, macros)
-    try:
-        s, i = _set_term(toks, 0, macros)
-        while i < len(toks):
-            op = toks[i]
-            rhs, i = _set_term(toks, i + 1, macros)
-            if op in ("\\setminus", "\\backslash", "-"):
-                s = sympy.Complement(s, rhs)
-            elif op == "\\cup":
-                s = sympy.Union(s, rhs)
-            elif op == "\\cap":
-                s = sympy.Intersection(s, rhs)
-            else:
-                raise ValueError(f"unknown set operator {op!r}")
-        return ParseResult(expr=s)
-    except Exception as ex:  # noqa: BLE001
-        PARSE_LOG.append({"latex": latex, "set": True, "error": str(ex)[:120]})
-        return ParseResult(error=f"set: {ex}")
+def parse_set(latex: str, macros: dict | None = None, variables: Iterable[str] = ()) -> ParseResult:
+    return _read(latex, ("set_expr",), macros, variables)
 
 
 # ============================================================================ comparison
@@ -645,7 +286,7 @@ class Equivalence:
     a: str
     b: str
     detail: str = ""
-    shim: bool = False
+    grammar: str = ""  # the grammar's status of the two values, e.g. "ok/ok"
 
 
 def _collect_constraints(conds: Iterable[Any], macros) -> tuple[list, list]:
@@ -801,6 +442,7 @@ class ValueComparator:
     log: list[Equivalence] = field(default_factory=list)
     pending: list[Equivalence] = field(default_factory=list)
     _cache: dict = field(default_factory=dict)
+    _vars: tuple = ()  # symbols declared variables by the compared values' binding maps
 
     @classmethod
     def with_manual_tsv(cls, path: str | Path | None, **kw) -> "ValueComparator":
@@ -854,7 +496,8 @@ class ValueComparator:
             self.log.append(res)
             return res
         conds = list(conds)
-        ck = (sa, sb, repr([c.model_dump() if hasattr(c, "model_dump") else c for c in conds]))
+        self._vars = tuple(sorted({k.lstrip("\\") for v in (va, vb) for k in (v.get("symbols") or {})}))
+        ck = (sa, sb, repr([c.model_dump() if hasattr(c, "model_dump") else c for c in conds]), self._vars)
         if ck in self._cache:
             return self._cache[ck]
         res = self._compare(ta, va, vb, ca, cb, conds)
@@ -903,42 +546,48 @@ class ValueComparator:
         import sympy
 
         parse = parse_set if t == "set" else parse_formula
-        pa, pb = parse(la, self.macros), parse(lb, self.macros)
-        shim = pa.shim or pb.shim
+        pa, pb = parse(la, self.macros, self._vars), parse(lb, self.macros, self._vars)
+        gs = f"{pa.status}/{pb.status}"
         if pa.expr is None or pb.expr is None:
             why = f"parse failed: {pa.error or ''} {pb.error or ''}".strip()
             r = self._manual(t, a, b, why)
-            r.shim = shim
+            r.grammar = gs
             return r
         if t == "set":
             try:
                 with time_limit(SIMPLIFY_SECONDS):
                     d = pa.expr.symmetric_difference(pb.expr)
                 if d == sympy.S.EmptySet or pa.expr == pb.expr:
-                    return Equivalence(True, "sympy", t, a, b, shim=shim)
+                    return Equivalence(True, "sympy", t, a, b, grammar=gs)
                 if not d.free_symbols and d.is_empty is False:
-                    return Equivalence(False, "sympy", t, a, b, "symmetric difference non-empty", shim)
+                    return Equivalence(False, "sympy", t, a, b, "symmetric difference non-empty", gs)
             except _Timeout:
                 pass
             r = self._manual(t, a, b, "set equality inconclusive")
-            r.shim = shim
+            r.grammar = gs
             return r
         ea, eb = pa.expr, pb.expr
         ka, kb = _expr_kind(ea), _expr_kind(eb)
+        if "boolean" in (ka, kb):  # memberships, chains (And), negations: structural SymPy equality
+            if ka == kb and ea == eb:
+                return Equivalence(True, "sympy", "relation", a, b, grammar=gs)
+            if ka != kb:
+                return Equivalence(False, "sympy", "relation", a, b, f"{ka} versus {kb}", gs)
+            return self._manual("relation", a, b, "membership or chain equivalence inconclusive")
         if "relation" in (ka, kb):
-            return self._compare_relation(ea, eb, ka, kb, a, b, shim)
+            return self._compare_relation(ea, eb, ka, kb, a, b, gs)
         rel_a, rel_b = ka == "equation", kb == "equation"
         if rel_a != rel_b:
-            return Equivalence(False, "sympy", t, a, b, "equation versus expression", shim)
+            return Equivalence(False, "sympy", t, a, b, "equation versus expression", gs)
         diffs = [ea.lhs - ea.rhs - (eb.lhs - eb.rhs), ea.lhs - ea.rhs + (eb.lhs - eb.rhs)] if rel_a else [ea - eb]
         detail = ""
         try:
             with time_limit(SIMPLIFY_SECONDS):
                 simp = [sympy.simplify(d) for d in diffs]
             if any(s == 0 for s in simp):
-                return Equivalence(True, "sympy", t, a, b, shim=shim)
+                return Equivalence(True, "sympy", t, a, b, grammar=gs)
             if all(s.is_number and s.is_zero is False for s in simp):
-                return Equivalence(False, "sympy", t, a, b, "difference is a nonzero constant", shim)
+                return Equivalence(False, "sympy", t, a, b, "difference is a nonzero constant", gs)
             detail = "simplify inconclusive"
         except _Timeout:
             detail = f"simplify timed out ({SIMPLIFY_SECONDS}s)"
@@ -963,12 +612,12 @@ class ValueComparator:
         n_valid = max((len(v) for v in verdicts), default=0)
         if n_valid >= NUMERIC_MIN_POINTS:
             eq = any(v and all(v) for v in verdicts)
-            return Equivalence(eq, "numeric", t, a, b, f"{detail}; {n_valid} points", shim)
+            return Equivalence(eq, "numeric", t, a, b, f"{detail}; {n_valid} points", gs)
         r = self._manual(t, a, b, f"{detail}; numeric: {n_valid} valid points")
-        r.shim = shim
+        r.grammar = gs
         return r
 
-    def _compare_relation(self, ea, eb, ka, kb, a, b, shim) -> Equivalence:
+    def _compare_relation(self, ea, eb, ka, kb, a, b, gs) -> Equivalence:
         """Inequalities (``x < 1``, ``X \\le x``): equal when the operators agree after writing
         ``>``/``>=`` as ``<``/``<=`` and ``lhs - rhs`` simplifies to the same expression;
         unequal when the differences differ by a nonzero constant or the other side is not a
@@ -976,7 +625,7 @@ class ValueComparator:
         import sympy
 
         if ka != kb:
-            return Equivalence(False, "sympy", "relation", a, b, f"{ka} versus {kb}", shim)
+            return Equivalence(False, "sympy", "relation", a, b, f"{ka} versus {kb}", gs)
         ea, eb = _lt_form(ea), _lt_form(eb)
         if type(ea) is not type(eb):
             return self._manual("relation", a, b, f"operators differ: {type(ea).__name__} vs {type(eb).__name__}")
@@ -988,9 +637,9 @@ class ValueComparator:
         except Exception as ex:  # noqa: BLE001  (timeout included)
             return self._manual("relation", a, b, f"simplify {type(ex).__name__}")
         if any(c == 0 for c in simp):
-            return Equivalence(True, "sympy", "relation", a, b, shim=shim)
+            return Equivalence(True, "sympy", "relation", a, b, grammar=gs)
         if all(c.is_number and c.is_zero is False for c in simp):
-            return Equivalence(False, "sympy", "relation", a, b, "sides differ by a nonzero constant", shim)
+            return Equivalence(False, "sympy", "relation", a, b, "sides differ by a nonzero constant", gs)
         return self._manual("relation", a, b, "relation equivalence inconclusive")
 
 
@@ -999,6 +648,9 @@ def _expr_kind(e) -> str:
 
     if isinstance(e, sympy.Equality):
         return "equation"
+    if (isinstance(e, sympy.logic.boolalg.Boolean) and not isinstance(e, sympy.core.relational.Relational)
+            and not isinstance(e, sympy.Expr)):  # Contains, And, Not; Min/Max are lattice Exprs
+        return "boolean"
     if isinstance(e, sympy.core.relational.Relational):
         return "relation"
     return "expression"

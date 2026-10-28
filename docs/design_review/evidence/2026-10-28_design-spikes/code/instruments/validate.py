@@ -11,7 +11,11 @@ Pydantic, and semantic checks run on every item that parsed. Categories:
 - ``type_mismatch``: subject or object class outside domain or range (``class_ancestors``),
   value type other than the predicate's ``ci:object``, a schema qualifier the predicate does
   not list, entity scope disagreeing with the class's ``ci:scope``, a class's identity
-  attributes missing, condition-predicate arity or argument class.
+  attributes missing, condition-predicate arity or argument class; a value that the math
+  grammar reads only under another kind than its slot declares (``slot_kind``: a set in a
+  Formula slot, a relation where a formula belongs, a formula in a SetExpr or member-set
+  position), and a formula that is a bare unit expression (``bare_unit_formula``: "1 cm" read
+  as 1·c·m, which belongs in a number value with a unit).
 - ``reference_error``: duplicate or unresolved local ref, a ref of the wrong kind (including
   a symbol binding that names the wrong kind of local ref), a condition ``claim`` node outside
   the batch (INV-08), a reference cycle among conditions (D5 §5.2), unknown sentence ids.
@@ -20,6 +24,9 @@ Pydantic, and semantic checks run on every item that parsed. Categories:
 INV-09 cannot be violated by a batch (a batch has no "unconditional" flag); the validator
 instead *marks* every claim with a ``phrase``/``unsupported`` condition leaf as conditional
 (``ValidationReport.conditional_claims``), which consumers must honour.
+
+Values the grammar cannot read under any kind are not errors (grammar coverage is not the
+annotator's fault): they are listed in ``ValidationReport.notes``.
 """
 
 from __future__ import annotations
@@ -61,6 +68,7 @@ class ValidationReport:
     form: str
     issues: list[Issue] = field(default_factory=list)
     conditional_claims: list[str] = field(default_factory=list)  # INV-09 marks
+    notes: list[str] = field(default_factory=list)  # values the math grammar could not read
 
     @property
     def ok(self) -> bool:
@@ -93,8 +101,9 @@ def default_lookup() -> SchemaLookup:
 
 
 class _V:
-    def __init__(self, raw, lookup, form, canonical_text, sentence_ids, unit_ranges):
+    def __init__(self, raw, lookup, form, canonical_text, sentence_ids, unit_ranges, macros=None):
         self.raw = raw
+        self.macros = macros
         self.lk = lookup
         self.form = form
         self.text = canonical_text
@@ -253,9 +262,36 @@ class _V:
             elif any(b.get(f) for f in ("entity", "claim", "param")):
                 self.add("malformed", "binding_fields", bl, f"{kind} binding takes no target", owner)
 
+    _OTHER = {"formula": ("set_expr", "relation", "member"), "set_expr": ("formula", "relation", "member")}
+
+    def check_slot(self, fv: dict, expect: str, loc, owner):
+        """The value must parse under its slot's kind (``formula`` or ``set_expr``)."""
+        from .values import _UREG, math_parse
+        import mathgrammar as MG
+
+        latex = fv.get("latex")
+        if not isinstance(latex, str):
+            return
+        r = math_parse(latex, expect, self.macros, tuple(fv.get("symbols") or ()))
+        if r.status != "failed":
+            unit = MG.bare_unit(r) if expect == "formula" else None
+            if unit and len(unit) >= 2 and _UREG is not None and unit in _UREG:
+                self.add("type_mismatch", "bare_unit_formula", loc,
+                         f"formula {latex!r} is a number and the unit {unit!r} (reads as a product); use a number value with a unit", owner)
+            return
+        for other in self._OTHER[expect]:
+            if math_parse(latex, other, self.macros).status != "failed":
+                what = {"formula": "a formula", "set_expr": "a set", "relation": "a relation", "member": "a membership"}[other]
+                self.add("type_mismatch", "slot_kind", loc,
+                         f"{latex!r} reads as {what}, not as the {'set' if expect == 'set_expr' else 'formula'} its slot declares", owner)
+                return
+        cat = (r.reason or {}).get("category", "?")
+        self.rep.notes.append(f"{'.'.join(map(str, loc))}: {latex!r} not read by the math grammar ({cat})")
+
     def check_tree(self, tree: dict, loc, owner):
         for f_kind, fv in formula_positions(tree):
             self.check_bindings(fv, loc, owner)
+            self.check_slot(fv, "set_expr" if f_kind == "set" else "formula", loc, owner)
         for n in iter_nodes(tree):
             op = n.get("op")
             if op == "claim":
@@ -437,6 +473,7 @@ class _V:
                 self.qualifier(name, val, rule, (*loc, "qualifiers", name), r, formulas, trees)
             for floc, fv in formulas:
                 self.check_bindings(fv, floc, r)
+                self.check_slot(fv, "set_expr" if fv.get("t") == "set" else "formula", floc, r)
             for tree in trees:
                 self.check_tree(tree, (*loc, "qualifiers"), r)
                 for cr in claim_refs(tree):
@@ -521,10 +558,13 @@ def validate_batch(
     canonical_text: str | None = None,
     sentence_ids: Iterable[str] | None = None,
     unit_ranges: Iterable[tuple[int, int]] | None = None,
+    macros: dict | None = None,
 ) -> ValidationReport:
     """Validate a raw batch dict (model-facing ``form="model"`` or ``"stored"``).
 
     ``sentence_ids`` (model form) enables the unknown-sentence check; ``canonical_text`` and
-    ``unit_ranges`` (stored form) enable INV-10 and the inside-the-unit check.
+    ``unit_ranges`` (stored form) enable INV-10 and the inside-the-unit check; ``macros`` (the
+    page's ``parse_detail.macros``, D2 §12.1 fallback beneath) is what the math grammar reads
+    values with for the slot-kind check.
     """
-    return _V(raw, lookup or default_lookup(), form, canonical_text, sentence_ids, unit_ranges).run()
+    return _V(raw, lookup or default_lookup(), form, canonical_text, sentence_ids, unit_ranges, macros).run()

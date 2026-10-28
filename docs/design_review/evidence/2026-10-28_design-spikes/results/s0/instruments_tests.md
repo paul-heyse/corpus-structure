@@ -3,16 +3,20 @@
 **2026-10-28.** Implements packages I-A and I-B of
 [comparison-instruments.md](../../../../../plans/design-spikes-s0-s1/comparison-instruments.md)
 (§2–§9) against D1 §6–§7, §10–§11, D2 §6, §7.3, §9, §12.1, D4 §4.3, D5 §5.2, §5.6 and D7 §5.
-Baseline: HEAD `60ac9e5`; review fixes on `249b0c2` (2026-10-28). Spike env: Python 3.14.10, pydantic 2.14.1, linkml-runtime 1.12.1, pint 0.26.2,
-rapidfuzz 3.14.6, scipy 1.18.1, statsmodels 0.15.0, sympy 1.14.0 + lark 1.3.1 (pylatexenc is not
-used by the instruments). Claims below are **Tested** on synthetic and S1 text unless marked.
+Baseline: HEAD `60ac9e5`; review fixes on `249b0c2`; instruments revisit I-R1 (one math grammar,
+new quote cascade; ADR-0009, proposed) on `3e2ae5b` (all 2026-10-28). Spike env: Python 3.14.10,
+pydantic 2.14.1, linkml-runtime 1.12.1, pint 0.26.2, rapidfuzz 3.14.6, regex 2026.9.29, scipy
+1.18.1, statsmodels 0.15.0, sympy 1.14.0 + lark 1.3.1 (pylatexenc is not used by the
+instruments). Claims below are **Tested** on synthetic and S1 text unless marked.
 
 ## Result
 
 | Command (from `code/tests_instruments/`) | Outcome |
 |---|---|
-| `UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python run_all.py --logs` | **passed**: 50 tests (37 invalid-batch cases and 20 planted locator cases run as subtests), exit 0, 2026-10-28, after the review fixes below (first run: 40 tests, passed) |
-| `… uv run python -m unittest test_locate_real` (S1 canonical text, `provisional` sentences) | **passed**: 11 real-text cases, 2026-10-28 (rerun after the review fixes) |
+| `UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python run_all.py --logs` | **passed**: 75 tests (41 invalid-batch cases, 21 planted locator cases, 8 cascade kinds and the probe reproduction run as subtests), exit 0, 2026-10-28, after I-R1 (earlier runs: 40, then 50 tests after the review fixes, passed) |
+| `… uv run python -m unittest test_locate_real` (S1 canonical text, `provisional` sentences) | **passed**: 11 real-text cases, 2026-10-28 (rerun after I-R1) |
+| `… uv run python code/mathgrammar/coverage.py --per-page 10` (from the evidence folder) | **passed** (ran to completion): figures in "Math grammar" below and `results/mathgrammar/` |
+| Reviewer probes `e1`, `sym` rerun after I-R1 | **passed**: `e1` 6/6 at all tiers, bindings 12/12; `sym` symmetric on all 12 units |
 | The 10 review regression tests (`test_align.TestReviewFindings`, `test_values.TestTiers.test_f*`) against the pre-fix instruments of `de5bd4c` (copied to a scratch tree) | **failed** as intended: 17 failures, 3 errors; every new test discriminates |
 | Reviewer probes `e1` (both orders, `diff_ev`), `e2`, `e3`, `sym`, `keysreal`, `ents trace|ab`, `run_real trace_a|a_b` on the real trace and pass batches | **passed**: no exceptions; `e1` 6/6 at all tiers, bindings 12/12; `sym` symmetric on all 12 units. No agreement figures computed or reported here |
 | `… uv run python ../s0_locate.py t3.json --context ctx.json --out … --report …` (CLI smoke, scratch files) | **passed**: 5 quotes tier 1, envelope carried, scope segments set |
@@ -37,32 +41,37 @@ All under `docs/design_review/evidence/2026-10-28_design-spikes/`:
 | `code/instruments/schema_lookup.py` | `SchemaLookup` over `SchemaView` |
 | `code/instruments/validate.py` | `validate_batch` |
 | `code/s0_locate.py` | Quote locator, stored-form conversion, re-anchoring, CLI |
-| `code/instruments/values.py` | Canonical forms, tiered `ValueComparator`, lark parse log |
+| `code/mathgrammar/` | The math reader (ADR-0009): `extension.lark` (our additions to SymPy's grammar), `build.py` (assembly, macro classification, parser cache), `api.py` (parse, ambiguity, occurrences), `printer.py` (canonical form), `to_sympy.py` (transformer subclass), `coverage.py` (coverage record) |
+| `code/instruments/values.py` | Canonical forms and tier-2 values from the math grammar; tiered `ValueComparator`; `PARSE_LOG` |
 | `code/instruments/conditions.py` | Condition canonicalization and equivalence (shared by keys and align) |
 | `code/instruments/align.py` | `align_unit`, `describe` |
 | `code/instruments/scores.py` | P/R/F1, bootstrap, agreement rows, binding/scope accuracy, kappa, key agreement, symmetrization |
 | `code/instruments/keys.py` | `compute_keys`, `mismatch_causes` |
-| `code/tests_instruments/` | `fixtures.py` (synthetic T2/T3 text and batches), `test_validate.py`, `test_locate.py`, `test_locate_real.py` + `real_text_cases.py` (**coordinator hook**), `test_values.py`, `test_align.py`, `run_all.py` |
+| `code/tests_instruments/` | `fixtures.py` (synthetic T2/T3 text and batches), `test_validate.py`, `test_locate.py`, `test_locate_real.py` + `real_text_cases.py` (**coordinator hook**), `test_locate_cascade.py` (regex-probe perturbation kinds and figure reproduction), `test_mathgrammar.py`, `test_values.py`, `test_align.py`, `run_all.py` |
+| `results/mathgrammar/` | Coverage record: `summary.json`, `values.tsv` (S0 values), `spans.tsv` (corpus sample), `README.md` |
 
 ## Public functions the coordinator calls
 
 ```python
 from instruments.batch import load_batch, wrap                 # (envelope|None, batch) / enveloped dict
 from instruments.validate import validate_batch                # -> ValidationReport (.ok .issues .categories() .counts() .lines() .conditional_claims)
-validate_batch(raw, lookup=None, form="model"|"stored", *, canonical_text=None, sentence_ids=None, unit_ranges=None)
+validate_batch(raw, lookup=None, form="model"|"stored", *, canonical_text=None, sentence_ids=None, unit_ranges=None,
+               macros=None)                                     # page macros for the slot-kind check; .notes lists unread values
 
 from s0_locate import UnitContext, locate_quote, to_stored, reanchor
 UnitContext(text, unit_ranges, sentences={sid: (start, end)}, unit_keys=[], sentence_keys={sid: key},
             section_of=None,        # offset -> section segment key (S1's adopted synthesis)
             statement_scope=None,   # [anchor segment keys] -> one scope segment key (default: the single key)
-            document_key=None)
-locate_quote(quote, sentence_id, ctx) -> Located(start, end, tier, scope, matches, score, long_quote, coarse, dropped, note)
+            document_key=None,
+            macros=None)            # page parse_detail.macros for the macro step (D2 §12.1 fallback beneath)
+locate_quote(quote, sentence_id, ctx) -> Located(start, end, tier, scope, matches, score, long_quote, coarse, dropped, note,
+                                                 step, fuzzy_counts, ms)
 to_stored(model_batch, ctx) -> (stored_batch, LocateReport)    # .by_tier() .ambiguous() .unlocated() .problems .as_json()
 reanchor(stored_batch, old_text, new_ctx) -> (stored_batch, failed_spans)
 
 from instruments.values import ValueComparator, canonical_latex, canonical_value, PARSE_LOG
 cmp = ValueComparator.with_manual_tsv("results/s0/manual_equivalence.tsv", macros=page_macros)  # TSV: kind a b decision reason
-cmp.compare(va, vb, conds=(), ref_eq=None) -> Equivalence(equal, tier, kind, a, b, detail, shim); cmp.tally(); cmp.pending_tsv()
+cmp.compare(va, vb, conds=(), ref_eq=None) -> Equivalence(equal, tier, kind, a, b, detail, grammar); cmp.tally(); cmp.pending_tsv()
 
 from instruments.align import Side, align_unit, describe
 align_unit(Side(ref_stored, segment_spans={key: (s, e)}, sentences=[(s, e), ...], unit=...),
@@ -70,7 +79,17 @@ align_unit(Side(ref_stored, segment_spans={key: (s, e)}, sentences=[(s, e), ...]
 
 from instruments.keys import compute_keys, mismatch_causes      # compute_keys(stored, lookup=None, macros=page_macros) -> BatchKeys
 from instruments.scores import score, prf, agreement_rows, write_tsv, symmetrized, key_agreement, kappas
+
+import mathgrammar as M                                          # the math reader (ADR-0009)
+r = M.parse(latex, kind="formula"|"relation"|"member"|"set_expr"|"any_value", macros=page_macros,
+            context={"variables": [...], "functions": [...]})   # -> MathResult(status, kind, tree, reason, occurrences, notes)
+M.canonical(r); M.to_sympy(r)                                   # raises Ambiguous / NotRepresentable / NotParsed
+r, occ = M.occurrences_in_span(text, start, end, macros=page_macros)   # M13: symbols of a math span, offsets into text
+# Occurrence(name, base, sub, sup, start, end, constant, in_subscript_of)
 ```
+
+`mathgrammar.parse` takes the macro table as given; the instruments pass
+`values.merged_macros(page_macros)` (page over the D2 §12.1 fallback).
 
 Pass the page's `parse_detail.macros` (S1 `renditions.json`) as `macros` to the comparator and
 to `compute_keys`; `Side.segment_spans` must contain the statement anchor keys (unit, sentence
@@ -92,18 +111,30 @@ category and code written first. Reported exactly as expected:
 Also tested: the T2, T3 and T3-sd batches are valid in both forms; INV-09 marks a claim with a
 `phrase` leaf conditional; one batch with four independent defects reports all four categories.
 
-## Locator (D4 §4.3 step 2, instruments §3)
+## Locator (D4 §4.3 step 2, instruments §3; cascade revised in I-R1)
 
-Planted synthetic cases (20) and real S1 cases (11) all hit their expected span and tier:
+The cascade is the one the regex probe measured (`code/regex_probe.py`, results/regex_probe/):
+exact in the sentence (step 1), exact in the unit (2), exact up to spacing as a `regex` pattern
+over the original text (3), the same with the page's macro spellings (4), RapidFuzz window
+refined by `regex` BESTMATCH (5, or the window when the refine finds nothing); every span snapped
+outward to word boundaries; coarse sentence span otherwise. Planted synthetic cases (21) and real
+S1 cases (11) all hit their expected span and step:
 
-| Case | Tier |
+| Case | Step |
 |---|---|
-| exact in cited sentence; verbatim quotes across an `a.ref` gap under conventions (a) nothing, (b) `[ref]`, (c) target text; list item with and without its "(a) " marker; real T1–T4 quotes | 1 |
-| exact in the unit with the wrong sentence cited; phrase twice in the unit (nearest occurrence to the cited sentence chosen, `matches=2`) | 2 |
-| `$…$` with re-spaced LaTeX; `\(\sigma\)` against `\( \sigma \)`; real `let $X = a + b Z$` → `let \(X = a + b \, Z\)`; real `$b^2\sigma^2$` → `\(b^2 \sigma^2\)` | 3 |
-| gap "repaired" by the annotator under (a) (96.1); straight for curly quotes, 48-char quote (95.8); "1." for "(a)" marker (96.2); 104-char quote with one typo (flagged `long_quote`) | 4 |
-| gap repaired under (b) and (c); straight quotes, 29-char quote; real trace-style "1. The parameter $\sigma$ …" | coarse (sentence span) |
+| exact in cited sentence; verbatim quotes across an `a.ref` gap under conventions (a) nothing, (b) `[ref]`, (c) target text; list item with and without its "(a) " marker; real T1–T4 quotes | 1 `exact_sentence` |
+| exact in the unit with the wrong sentence cited; phrase twice in the unit (nearest occurrence to the cited sentence chosen, `matches=2`) | 2 `exact_unit` |
+| `$…$` with re-spaced LaTeX; `\(\sigma\)` against `\( \sigma \)`; real `let $X = a + b Z$` → `let \(X = a + b \, Z\)`; real `$b^2\sigma^2$` → `\(b^2 \sigma^2\)`; real `scale parameter $\sigma \in (0,\infty)$` | 3 `spacing` |
+| `\mathbb{R}` in the quote for `\R` in the text (cascade test) | 4 `macros` |
+| gap "repaired" under (a) (96.1, whole clause) and (b) (86.3, whole clause; coarse before I-R1); straight for curly quotes, 29 and 48 characters (coarse / step 4 before); "1." for "(a)" marker; 104-character quote with one typo (whole span; truncated before); real trace-style "1. The parameter $\sigma$ …" (91.2; coarse before) | 5 `fuzzy` |
+| gap repaired under (c) (an 11-character gap); a long dropped word; an unrelated quote | coarse (sentence span) |
 | unlocated with an unknown sentence id | dropped, reported |
+
+**The probe's figures reproduced** (`test_locate_cascade.TestProbeFigures`, the probe's own
+quotes and seeded perturbations through `s0_locate.locate_quote`, 2026-10-28): 0 mid-word cuts in
+every kind; macro 16/16 exact; respace 60/60 exact; drop_word 43/99 exact (76 found); typo 130/132;
+add_period 96/162; trim_end 47/58; worst case 210.7 ms (the 0.2 s refine timeout). A refine that
+times out falls back to the RapidFuzz window, snapped (tested).
 
 Stored conversion: T2 `X` (extent section) → `seg:section`; `scope: section` → `{extent, segment}`;
 T3 `X`, `Y` (extent statement, statement anchored to two sentences) → the enclosing unit; an
@@ -122,14 +153,16 @@ Tested decisions, each re-checked by hand (the equivalence spot-check of §9 for
 | Pair | Conditions | Decision · tier | Hand check |
 |---|---|---|---|
 | `b^{2} \sigma^2` / `b^2\sigma^{2}` | — | equal · canonical | correct |
-| `b^2 \sigma^2` / `\sigma^2 b^{2}` | — | equal · sympy (shim) | correct |
+| `b^2 \sigma^2` / `\sigma^2 b^{2}` | — | equal · sympy (math grammar) | correct |
 | `a + b \mu` / `\mu b + a`; `X = e^Y` / `e^{Y} = X` | — | equal · sympy | correct |
 | `\R \setminus \{0\}` / `(-\infty, 0) \cup (0, \infty)` | — | equal · sympy | correct |
 | `\lvert b \rvert \sigma` / `\sqrt{b^2} \sigma` | b ∈ ℝ∖{0} | equal · numeric | correct for real b |
 | `\lvert b \rvert \sigma` / `b \sigma` | b ∈ (0, ∞) | equal · numeric | correct |
 | `\lvert b \rvert \sigma` / `b \sigma` | b ∈ ℝ∖{0} | unequal · numeric | correct |
 | `a + b \mu` / `a + b`; `2 + 2` / `5`; `(0, \infty)` / `[0, \infty)` | — | unequal · numeric / sympy / sympy | correct |
-| `\var(X)` / `\sigma^2` | — | pending (manual) | parse failure, correctly not decided |
+| `\var(X)` / `\sigma^2` | — | pending (manual) | `\var(X)` reads as the undefined operator var(X): simplify cannot decide, numeric cannot evaluate; correctly not decided |
+| `\Gamma(a+1)` / `a \Gamma(a)` | — | equal · sympy | correct (`\Gamma` is a declared known function) |
+| `a(b + c)` / `a b + a c` | a, b, c bound | equal · sympy; pending without the binding map | correct (product only when declared) |
 | 1 cm / 0.01 m; 0.1 / 0.1000000000001 | — | equal · canonical / numeric | correct |
 
 ## Perturbation suite (§9)
@@ -164,15 +197,15 @@ Symmetrized T2 swap agreement 0.6 in both directions.
 | Predicate names | `has_distribution` and `stat:has_distribution` both accepted; keys use the prefixed name |
 | Wrong-kind binding | `reference_error` / `binding_wrong_ref_kind`, naming the ref, its actual kind and the expected kind; `variable` must name a local entity, `family_param` a `FamilyParameter`, `param_of`/`param_expr_of` a claim (plus `binding_param_missing` when that claim's `param_values` lacks `param`) |
 | Missing identity attributes; scope against `ci:scope` | `type_mismatch` (`identity_keys_missing`, `scope_disagrees_with_class`) |
-| Locator tier 3 | Delimiters (`$`, `$$`, `\(\)`, `\[\]`) and `\,` `\;` `\!` dropped and **all** whitespace removed (spec: "collapsed"); collapsing cannot match re-spaced LaTeX. Sentence then unit; span extended over enclosing delimiters when the quote had them |
+| Locator cascade (I-R1) | As measured by the probe; cutoff 85; refine window widened by 30% of the quote, error budget ⌈0.15·len⌉, timeout 0.2 s; quote stripped of trailing `.,;:` for the fuzzy step. Additions to the probe's pattern, both recorded because D4 requires them: the joiner also skips math delimiters (`\(`, `\)`, `\[`, `\]`) and a delimiter written in the quote (`$`, `$$`, `\(` …) is an optional, preferred delimiter (D4 §4.3: "$…$ and \(…\) are equivalent"); the joiner is lazy and span ends are trimmed of whitespace (a greedy joiner swallowed a closing `\)` and the following space, caught by the planted tests). Steps 3 and 4 search the cited sentence, then the unit (the probe searched the sentence only; the figures are unchanged since its quotes cite the right sentence). The macro step uses the context's `macros` (page) over the D2 §12.1 fallback, so `s0_check.context` works unchanged |
 | Several exact matches in the unit | The occurrence nearest the cited sentence; `matches` records the count |
 | `extent: statement` | Binding statement = the statement of the earliest-evidenced claim mentioning the entity (subject, object, entity qualifier, `variable`/`family_param` binding, `pred` argument); else the batch's only statement; else reported. Its anchor keys → one segment via the caller's `statement_scope` |
 | `extent: section` | `section_of(earliest evidence start of those claims)` |
 | Stored `scope` qualifier | `{extent, segment}` (D1 §5.2); `section` → section of the claim's first evidence, `statement` → statement scope, `document` → document key |
-| Canonical LaTeX | D1 §6.2, except a space is kept after a control word followed by a letter (`\mu x` ≠ `\mux`); outer math delimiters stripped |
+| Canonical LaTeX | D1 §6.2, printed from the math grammar's tree (`mathgrammar.canonical`): leaves in order, macros expanded from the table, what the grammar ignores dropped (spacing commands, `\left`/`\right`, `\quad`, whitespace, …), braces around single tokens dropped; a space is kept after a control word followed by a letter (`\mu x` ≠ `\mux`). Values that do not parse get the same normalization on their tokens. On all 86 S0 values the output equals the pre-I-R1 form, so keys do not move |
 | Numbers | pint 0.26.2 (in the spike env since `de5bd4c`) converts to base units; its float factors are rounded to 15 significant digits so canonical strings carry no float noise. The fallback table (m, cm, mm, km, in, ft, kg, g, s, min, h, %) applies only when pint is absent or does not know the unit; an unknown unit is kept as written with factor 1 |
-| SymPy tier | Raw `parse_latex(expanded, backend="lark")` first; on failure a shim (unsupported Greek → `\mathit{name}`, with any subscript token or group kept in the placeholder through an injective letters-only encoding and restored as `name_{sub}`; `\lvert`/`\rvert` → `|`; `\cdot` inserted after a power, a closing `|` or a closing argument group), recorded with `shim=True` and in `PARSE_LOG`. `simplify(a − b) == 0` → equal; nonzero constant → unequal; equations compared as `lhs − rhs` up to sign; `e` → E, `\pi` → π |
-| Function application | A symbol (Latin letter, Greek letter, subscripted symbol) directly followed by `(` reads as application or product (`\Phi(-x)`, `f(x) y`, `\Gamma(k)`, `X_1(t)`); lark either returns an unresolved ambiguity or silently multiplies. Such formulas are not parsed: they go to manual with the reason. Undefined SymPy functions were not used because their equivalence would need the numeric tier, which cannot evaluate them |
+| SymPy tier (I-R1) | The value read by the math grammar under its slot's kind (formula: `formula`, then `relation`, then `member`; set: `set_expr`), converted by `mathgrammar.to_sympy`; the shim is gone. The formula's binding-map symbols are declared variables. Ambiguous, unparsed and unrepresentable values go to manual, each logged once in `PARSE_LOG` with status and reason. `simplify(a − b) == 0` → equal; nonzero constant → unequal; equations compared as `lhs − rhs` up to sign; `e` → E, `\pi` → π; memberships and chains compare by SymPy equality, else manual |
+| Function application | Through the grammar's ambiguity rules: `symbol(...)` is an application only for a declared function (`\Gamma`, the gamma function, by default; or a definition `g(x) = …` in the same value) and a product only when every such symbol is a declared variable (binding map); otherwise ambiguous → manual. Operators from the macro table (`\E(X)`, `\var(X)`) are undefined SymPy functions, never ambiguous |
 | Relations | `x < 1`, `X \le x`: kind `relation`. `>`/`>=` rewritten as `<`/`<=`; same operator and `lhs − rhs` simplifying to the same expression → equal; differing by a nonzero constant → unequal; relation against an expression or equation → unequal; different operators or anything else → manual |
 | Simplify time limit | 5 s (SIGALRM; main thread only) |
 | Numeric sampling | Seed 20261028; up to 12 **distinct** accepted points, at most 4,000 draws; reals half uniform in [−5, 5], half of magnitude 10⁻²…10³ with random sign (so `\min(x, 10)` is exercised), shifted or bounded by numeric bounds read from `member` sets and `symbol <rel> number` leaves; integers (symbols in integer sets) uniform over [lower bound, lower bound + 200], default [−100, 100]; top-level conjunctive `member`/`cmp` leaves of both claims' conditions; `isclose(rel 1e-9, abs 1e-12)`; at least **6 distinct** valid points to decide, else manual; any disagreeing point → unequal |
@@ -189,19 +222,54 @@ Symmetrized T2 swap agreement 0.6 in both directions.
 | Symmetrization | Mean of the two directions' F1 per tier; a difference is flagged `asymmetric` |
 | Bootstrap | 1,000 resamples over units, percentile 95% interval, seed 20261028, NaN resamples skipped |
 
+## Math grammar (instruments revisit I-R1, ADR-0009)
+
+One reader of math for every instrument: `code/mathgrammar`. SymPy 1.14's shipped `latex.lark`
+is read unedited from the installed package (as `LarkLaTeXParser` does); our additions are in
+`extension.lark` (`%extend` / `%override` only); a block generated from the rendition's macro
+table defines the operator, set and wrapper terminals. Earley, `ambiguity="explicit"`,
+`propagate_positions`, `keep_all_tokens`. **Measured** coverage (`results/mathgrammar/`,
+2026-10-28): S0 values 86/86 read under their declared kind (formula 70, set 16), 85 with a SymPy
+value, canonical form unchanged on all 86; corpus sample of 1,532 spans from 78 pages: 976 ok,
+256 ambiguous, 1 partial, 299 failed (inline 664/780 ok). Failures by category and what is left
+to S5 are in `results/mathgrammar/README.md`.
+
+| Choice | Decision |
+|---|---|
+| Assembly | shipped grammar + generated whole-name `%override`s of SymPy's own command terminals (derived from its definitions, so `\sinh` never lexes as `\sin`+`h`, `\le` never inside `\left`) + `extension.lark` + `GEN_SET` / `GEN_OP` / `GEN_STYLE` from the macro table. All command terminals end in `(?![A-Za-z])`: `\P` never matches the start of `\Phi` |
+| Macro classification (source data) | nargs-0 bodies, spacing ignored (`\,\text{sgn}`): `\mathbb{R|N|Z|Q|C}` → set constant; other `\mathbb{X}` → operator X; `\text{w}` / `\operatorname{w}` / `\textrm{w}` / `\mathrm{w}` (≥ 2 letters) → operator w; a bare typeface command → transparent wrapper; anything else → `other` (not in the grammar, listed). Macros with arguments only expand in the canonical form. One parser per classification (cached), results cached per (latex, kind, table, context) |
+| Symbols | Sub- and superscripts as rules: `sub_symbol` (base `_` token or `{list}`), `sup_sub` (`\sigma^2_X`), replacing SymPy's four `*_WITH_*_SUBSCRIPT` regex terminals; SymPy names are taken from the structure (`sigma_{X_1}`, `X_{(n)}`, `X_{1}`), so no subscript is lost or merged (F2) |
+| Implicit multiplication | SymPy's particular adjacent pairs replaced by one rule, a power-level factor before a product (right-associative): `b^2 \sigma^2`, `\sqrt{2\pi}\sigma`, `(r_1 + r_2)\lambda(A)`, `\binom{n}{k} p^k` |
+| Kinds | Start symbols `formula` (expression or equation), `relation` (inequalities, ≠, chains `a = b \le c`, `\subset`, convergence `\to`/`\uparrow`, `\sim`/`\approx`/`\equiv`/`\propto`), `member` (`a, b \in S`, `\notin`), `set_expr`, `any_value` (any of these, or a comma list `f(x) = …, \quad x \in S`). An equation is a formula only, so equations are not read twice |
+| Sets | `\R`-type constants with `_+`/`_-` or a power, intervals `(a, b]`, braced lists (ellipses allowed), set-builder `\{x \in S: …\}`, events `\{X \le x\}`, named sets, `\setminus`/`\cup`/`\cap`/`\times`, `\emptyset`. SymPy: ℕ → `Naturals0`, ℕ₊/ℤ₊ → `Naturals` (as before I-R1), `\R^2` → `ProductSet`, set-builder → `ConditionSet` |
+| Operators | `op_name (…)` / `op_name […]` with lists, relations, memberships and conditions inside (`\P(X \in A \mid Y)`, `\P(I = 1, V \le u)`) → undefined SymPy `Function` named by the operator (`E`, `var`); a condition is `Given(lhs, rhs)` |
+| No SymPy value (parse, then `NotRepresentable`) | `\pm`, ellipses, norms, `\liminf`/`\limsup`, `\sup`/`\inf`, set-indexed sums and integrals, `\wedge`/`\vee`, named sets, events, `\subset`, convergence and `\sim`-type relations, symbolic set powers |
+| Ambiguity | Explicit; resolved only from declared context: `symbol(…)` is an application for a declared function (`\Gamma` by default; `context["functions"]`; a definition `g(x) = …` in the same value) and a product only when every such symbol is a declared variable (`context["variables"]`: the binding map); readings with identical SymPy values are one (associativity); under `any_value` a lone symbol is a formula (a named set needs a set position) and `a, b \in S` is the membership of every element (standard convention; both noted); a bare `(a, b)` under `any_value` is ambiguous (interval or pair); `F^{-1}(p)` with undeclared F is ambiguous (inverse notation the grammar would read as a product); anything else ambiguous is reported, never picked |
+| Status | `ok`; `ambiguous`; `partial` (read only after dropping trailing `.`, `,`, `;`); `failed` with `{error, pos, at, category}`. Category: the offending command first (`\lim`/`\to` limit-arrow, `\int` integral-bounds, `\sum`/`\prod` sum-bounds, `\begin` environment, `\text` text-in-math, `\Rightarrow`-type unsupported-relation, else unknown-command), `UnexpectedInput.match_examples` otherwise (with Earley, an error where an expression is expected shares its parser state with most examples, so `match_examples` alone labelled `\begin{cases}` "limit-arrow"; caught by a test) |
+| Occurrences (M13) | From token positions: `Occurrence(name, base, sub, sup, start, end, constant, in_subscript_of)`; a subscript's own symbols are occurrences too (`X_1` inside `\sigma_{X_1}`); `e` and `\pi` flagged constant; operator names and `\text` words are not symbols. `occurrences_in_span(text, start, end, macros)` gives offsets into canonical text |
+| Canonical form | Printed from the tree's leaves (see Decisions, "Canonical LaTeX"); the token form is the fallback for unread values, with the same rules, so a value's canonical form does not change when the grammar learns to read it |
+| Validator slot check | A formula, set or condition-operand value must read under its slot's kind: read only as another kind → `type_mismatch` / `slot_kind` (a set in a Formula slot, a relation where a formula belongs, a formula as a member's set); a number followed by letters that pint knows as a unit (≥ 2 letters: `1 cm`) → `type_mismatch` / `bare_unit_formula` (single letters such as `2 x` are not flagged); not read under any kind → `ValidationReport.notes` (coverage is not the annotator's fault) |
+
+Defects found while building I-R1 and fixed: the quote pattern's greedy joiner swallowed a
+closing `\)` and the following space, and an optional leading delimiter let a match start on a
+space (planted locator tests); `match_examples` mislabelled errors (above); the lone-symbol,
+`a, b \in S` and `g(x) = …` rules were added after the first coverage run showed 364 ambiguous
+spans dominated by them (now 256, of which 222 are undeclared application-or-product).
+
 ## Ambiguities and contradictions found in the design
 
 1. **D4 §4.3 step 2 vs D5 §5.6.** D4: an unlocated quote leaves the item with
    `evidence_unlocated: true`; D5: it falls back to the cited sentence's span with
    `evidence_coarse`. The instruments follow D5 and instruments §3.
-2. **D4 §4.3 tier 4 spans (F-LOC-1).** `partial_ratio_alignment` returns a window of exactly
-   `len(quote)` characters, so a quote shorter than the text it paraphrases gives a span cut at
-   one end, mid-word ("… approximation hol"); windows shifted by one character can tie. Proposed:
-   widen the window to word boundaries (or search the boundary that maximizes `fuzz.ratio`).
-3. **D4 §4.3 tier 3 normalization.** "whitespace collapsed" does not match re-spaced LaTeX
-   (implemented as removal); curly versus straight quotation marks (S1 renders `<q>` as “ ”) are
-   not normalized, so a short quote typed with straight quotes falls back to coarse. Proposed:
-   add quotation-mark (and dash) folding to tier 3.
+2. **D4 §4.3 fuzzy spans (F-LOC-1), addressed by I-R1.** `partial_ratio_alignment` returns a
+   window of exactly `len(quote)` characters, so a paraphrased quote was cut mid-word ("…
+   approximation hol"). The I-R1 cascade refines inside the window with `regex` BESTMATCH and snaps
+   every span to word boundaries: 0 cuts on the probe's 527 perturbed quotes. D4 §4.3 should name
+   the refine and the snap.
+3. **D4 §4.3 normalization, addressed by I-R1.** "Whitespace collapsed" did not match re-spaced
+   LaTeX; the spacing step now matches up to spacing over the original text (60/60 re-spaced quotes
+   exact), and straight for curly quotes is found by the fuzzy step (2 substitutions) instead of
+   falling back to coarse. D4 §4.3 should state the cutoff (85, not 95) and the steps.
 4. **D7 §5.2 vs §5.4.** "Normalized symbol and same scope segment" as an alignment *condition*
    makes scope accuracy over aligned local entities 1 by construction; implemented as a weight.
 5. **D7 §5.3 claim leaves.** "By the alignment of the referenced claims" does not say which
@@ -233,11 +301,13 @@ Symmetrized T2 swap agreement 0.6 in both directions.
     different keys (cause `label`).
 15. **D2 §4 map qualifiers.** LinkML's inlined `ParamValue` (`key`, `value`) would serialize
     as `{mean: {value: …}}`; batches use `{mean: <formula>}`. S4 should confirm the JSON shape.
-16. **SymPy 1.14 lark (for S5, OPEN-D7-2, D2 §12.1 `normalize.formula: lark`).** The grammar has
-    no `\sigma`, `\pi`, uppercase Greek, `\lvert`/`\rvert`, no implicit multiplication after a
-    power or a closing group (`b^2 \sigma^2`, `x^{k-1} e^{-x/b}`, `\sqrt{2\pi} \sigma` all fail
-    raw), and no `\text{var}`, `\mathbb{E}`. Every T3 formula containing σ failed raw and parsed
-    only through the shim.
+16. **SymPy 1.14 lark (for S5, OPEN-D7-2, D2 §12.1 `normalize.formula: lark`).** The shipped
+    grammar has no `\sigma`, `\pi`, uppercase Greek, `\lvert`/`\rvert`, implicit multiplication
+    after a power or a closing group (`b^2 \sigma^2`, `\sqrt{2\pi} \sigma`), `\text{var}`,
+    `\mathbb{E}`; it reads `X_1`, `\mu_1` as single regex terminals (no `\sigma_{X_1}`, `X_{(n)}`),
+    returns an unresolved `_ambig` for `f(x)` and silently multiplies `f(x) y`. I-R1 extends it by
+    Lark directives only (see "Math grammar"); S5 should take `code/mathgrammar` as its M09/M11
+    starting point rather than the shipped grammar or a string shim.
 
 ## S4 observations (byproduct)
 
@@ -272,6 +342,14 @@ Symmetrized T2 swap agreement 0.6 in both directions.
   premise; references are now harvested from raw items.
 
 ## Not done here; for the coordinator
+
+- **I-R1 follow-ups.** Pass the page's macros: `UnitContext(..., macros=...)` in
+  `s0_check.context` (the macro step otherwise uses the D2 §12.1 fallback, identical for the four
+  spike pages), `validate_batch(..., macros=...)`, and `ValueComparator(macros=...)` as before.
+  Switch `s0e_m13_probe.py` to `mathgrammar.occurrences_in_span`. No key recomputation is
+  needed: canonical forms are unchanged on every S0 value (86/86). Re-locating the stored passes
+  with the new cascade changes fuzzy spans (now whole words) and locates quotes that were coarse;
+  re-run `to_stored` before figures that depend on evidence spans.
 
 - Write the trace's T1–T4 tables as stored batches, align a pass to them by hand, compare with
   `describe(align_unit(...))`, and write `results/s0/aligner_verification.md` (instruments §9);

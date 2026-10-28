@@ -100,12 +100,22 @@ class TestTiers(unittest.TestCase):
         self.assertEqual(self.tier(F("\\sigma_{X_1} \\sigma_{X_2}"), F("\\sigma_{X_2}\\sigma_{X_1}")), (True, "sympy"))
 
     def test_f3_application_is_not_multiplication(self):
-        for a, b in (("\\Phi(-x)", "-\\Phi(x)"), ("\\Phi(z)", "z \\Phi"), ("\\Gamma(2 a)", "2 \\Gamma(a)"),
-                     ("\\Gamma(a+1)", "a \\Gamma(a)"), ("f(x) y", "f x y"), ("\\phi(2x)", "2\\phi(x)")):
+        # F3 through the grammar: an undeclared symbol before (...) is ambiguous (application or
+        # product) and goes to manual, never multiplied silently
+        for a, b in (("\\Phi(-x)", "-\\Phi(x)"), ("\\Phi(z)", "z \\Phi"), ("f(x) y", "f x y"), ("\\phi(2x)", "2\\phi(x)")):
             with self.subTest(a=a, b=b):
                 e = self.c.compare(F(a), F(b))
                 self.assertIsNot(e.equal, True, e)
-        self.assertEqual(self.tier(F("\\Phi(-x)"), F("-\\Phi(x)"))[1], "pending")
+                self.assertEqual(e.tier, "pending", e)
+        # \Gamma is a declared known function (the gamma function): Gamma(2a) != 2 Gamma(a), and
+        # Gamma(a + 1) = a Gamma(a) is a true identity (under the shim this pair was kept unequal
+        # only because \Gamma( was not read at all)
+        self.assertIsNot(self.c.compare(F("\\Gamma(2 a)"), F("2 \\Gamma(a)")).equal, True)
+        self.assertEqual(self.tier(F("\\Gamma(a+1)"), F("a \\Gamma(a)")), (True, "sympy"))
+        # declared variables (the binding map) make a(b + c) a product
+        bound = {"t": "formula", "latex": "a(b + c)", "symbols": {k: {"bind": "free"} for k in "abc"}}
+        self.assertEqual(self.tier(bound, F("a b + a c")), (True, "sympy"))
+        self.assertEqual(self.c.compare(F("a(b + c)"), F("a b + a c")).tier, "pending")
 
     def test_f5a_relations(self):
         self.assertEqual(self.tier(F("x < 1"), F("x < 2")), (False, "sympy"))
@@ -114,6 +124,12 @@ class TestTiers(unittest.TestCase):
         self.assertEqual(self.tier(F("x < 1"), F("x - 1")), (False, "sympy"))
         self.assertEqual(self.c.compare(F("x < 1"), F("x \\le 1")).tier, "pending")
         self.assertEqual(self.c.compare(F("x < 1"), F("x < 2")).kind, "relation")
+
+    def test_memberships_and_chains(self):
+        self.assertEqual(self.tier(F("x \\in \\R"), F("x\\in\\mathbb{R}")), (True, "canonical"))
+        self.assertEqual(self.tier(F("x \\in (0, \\infty)"), F("x \\in \\R_+")), (True, "sympy"))
+        self.assertEqual(self.c.compare(F("x \\in \\R"), F("x < 1")).equal, False)
+        self.assertEqual(self.c.compare(F("x \\in \\N"), F("x \\in \\Z")).tier, "pending")
 
     def test_f5b_distinct_points_and_range(self):
         nat = [{"op": "member", "x": "n", "set": "\\N"}, {"op": "cmp", "rel": ">", "lhs": "n", "rhs": "8"}]
@@ -130,9 +146,15 @@ class TestTiers(unittest.TestCase):
         self.assertEqual(canonical_value({"t": "number", "v": "7", "unit": "widgets"})["unit"], "widgets")  # unknown: kept
 
     def test_parse_log_records_raw_failures(self):
-        V.parse_formula("\\tau^2 \\kappa^2")  # lark lacks implicit multiplication after a power
-        rec = [r for r in V.PARSE_LOG if r.get("latex") == "\\tau^2 \\kappa^2"]
-        self.assertTrue(rec and rec[0]["shim_ok"], rec)
+        # SymPy's shipped grammar rejected \tau^2 \kappa^2 (implicit product after a power); the
+        # math grammar reads it, so nothing is logged
+        self.assertEqual(V.parse_formula("\\tau^2 \\kappa^2").status, "ok")
+        self.assertFalse([r for r in V.PARSE_LOG if r["latex"] == "\\tau^2 \\kappa^2"])
+        for latex, status in (("\\begin{cases} x & y \\end{cases}", "failed"), ("\\Phi(x)", "ambiguous"), ("\\mu \\pm \\sigma", "ok")):
+            r = V.parse_formula(latex)
+            self.assertIsNone(r.expr)
+            rec = [x for x in V.PARSE_LOG if x["latex"] == latex]
+            self.assertEqual((rec[0]["status"], bool(rec[0]["error"])), (status, True), rec)
 
 
 if __name__ == "__main__":

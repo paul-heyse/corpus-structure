@@ -1,0 +1,301 @@
+{
+ "seed": 20261028,
+ "values": {
+  "n": 86,
+  "distinct_latex": 54,
+  "status_by_kind": {
+   "formula": {
+    "ok": 70
+   },
+   "set_expr": {
+    "ok": 16
+   }
+  },
+  "failed_by_category": {},
+  "sympy": {
+   "ok": 85,
+   "NotRepresentable": 1
+  },
+  "canonical_same_as_9223fb3": {
+   "True": 86
+  },
+  "canonical_differences": [],
+  "ms_max": 70.1
+ },
+ "spans": {
+  "pages": 78,
+  "n": 1532,
+  "per_page_and_kind": 10,
+  "status": {
+   "ok": 976,
+   "failed": 299,
+   "ambiguous": 256,
+   "partial": 1
+  },
+  "status_by_math_kind": {
+   "math_inline": {
+    "ok": 664,
+    "failed": 64,
+    "ambiguous": 52
+   },
+   "math_display": {
+    "ambiguous": 204,
+    "failed": 235,
+    "ok": 312,
+    "partial": 1
+   }
+  },
+  "detected": {
+   "formula": 647,
+   "list": 260,
+   "relation": 198,
+   "set_expr": 33,
+   "member": 94,
+   "": 1
+  },
+  "failed_by_category": {
+   "unexpected-token": 66,
+   "environment": 64,
+   "punctuation-or-list": 62,
+   "unknown-command": 45,
+   "limit-arrow": 35,
+   "text-in-math": 14,
+   "unsupported-relation": 9,
+   "incomplete": 4
+  },
+  "failed_commands": [
+   [
+    "\\cdots",
+    3
+   ],
+   [
+    "\\in \\R^2",
+    2
+   ],
+   [
+    "\\setminus B) =",
+    2
+   ],
+   [
+    "\\in B) = \\frac",
+    1
+   ],
+   [
+    "\\in \\",
+    1
+   ],
+   [
+    "\\cap D) + P",
+    1
+   ],
+   [
+    "\\in S \\times T",
+    1
+   ],
+   [
+    "\\approx \\frac",
+    1
+   ],
+   [
+    "\\R Q",
+    1
+   ],
+   [
+    "\\partial A \\in",
+    1
+   ],
+   [
+    "\\infty",
+    1
+   ],
+   [
+    "\\in [0, 1] \\ti",
+    1
+   ],
+   [
+    "\\ge n)\\right] ",
+    1
+   ],
+   [
+    "\\otimes \\mu)",
+    1
+   ],
+   [
+    "\\gt x)\\right] ",
+    1
+   ],
+   [
+    "\\ge k)\\right] ",
+    1
+   ],
+   [
+    "\\le X \\lt s)",
+    1
+   ],
+   [
+    "\\in S \\times L",
+    1
+   ],
+   [
+    "\\asymp \\frac",
+    1
+   ],
+   [
+    "\\bs X = \\left",
+    1
+   ],
+   [
+    "\\bs Z)\\right] ",
+    1
+   ],
+   [
+    "\\bs t \\right),",
+    1
+   ],
+   [
+    "\\partial",
+    1
+   ],
+   [
+    "\\bs X)\\right] ",
+    1
+   ],
+   [
+    "\\Gamma",
+    1
+   ]
+  ],
+  "ambiguous_notes": [
+   [
+    "unresolved ambiguity",
+    217
+   ],
+   [
+    "g declared a function by its definition",
+    72
+   ],
+   [
+    "P declared a function by its definition",
+    68
+   ],
+   [
+    "f_{n} declared a function by its definition",
+    68
+   ],
+   [
+    "f declared a function by its definition",
+    64
+   ],
+   [
+    "interval or pair: a bare",
+    20
+   ],
+   [
+    "F declared a function by its definition",
+    19
+   ],
+   [
+    "M declared a function by its definition",
+    16
+   ],
+   [
+    "m declared a function by its definition",
+    15
+   ],
+   [
+    "h declared a function by its definition",
+    12
+   ],
+   [
+    "chi declared a function by its definition",
+    10
+   ],
+   [
+    "G declared a function by its definition",
+    8
+   ],
+   [
+    "M_{X+Y} declared a function by its definition",
+    8
+   ],
+   [
+    "f_{2} declared a function by its definition",
+    8
+   ],
+   [
+    "product or application: F",
+    7
+   ],
+   [
+    "product or application: G",
+    6
+   ],
+   [
+    "F_{\\theta} declared a function by its definition",
+    4
+   ],
+   [
+    "F_{n} declared a function by its definition",
+    4
+   ],
+   [
+    "h_{n} declared a function by its definition",
+    4
+   ],
+   [
+    "f_{1} declared a function by its definition",
+    4
+   ],
+   [
+    "g_{n} declared a function by its definition",
+    4
+   ],
+   [
+    "F_{j,k} declared a function by its definition",
+    3
+   ],
+   [
+    "product or application: F, G",
+    3
+   ],
+   [
+    "r declared a function by its definition",
+    3
+   ],
+   [
+    "Phi declared a function by its definition",
+    2
+   ],
+   [
+    "f_{\\theta} declared a function by its definition",
+    2
+   ],
+   [
+    "H declared a function by its definition",
+    2
+   ],
+   [
+    "product or application: r",
+    1
+   ],
+   [
+    "product or application: F, Phi",
+    1
+   ],
+   [
+    "product or application: G, Phi",
+    1
+   ],
+   [
+    "m_{0} declared a function by its definition",
+    1
+   ],
+   [
+    "N declared a function by its definition",
+    1
+   ]
+  ],
+  "ms_median": 41.3,
+  "ms_max": 825.6
+ }
+}

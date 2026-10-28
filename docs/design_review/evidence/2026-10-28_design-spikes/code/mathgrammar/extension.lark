@@ -1,0 +1,139 @@
+// ===== corpus-structure extension of SymPy 1.14's latex.lark (ADR-0009, instruments revisit I-R1) =====
+// Appended to the shipped grammar text, which is read unedited from the installed package.
+// Only %extend / %override and new rules or terminals appear here. Source facts (the rendition's
+// macro names) are not written here: mathgrammar.build appends a generated block that defines
+// GEN_SET, GEN_OP and GEN_STYLE from the macro table. Every command terminal defined here matches
+// whole command names only (a letter may not follow), so \P never matches the start of \Phi.
+
+// ---------------------------------------------------------------- letters and constants
+// Greek letters, whole names only; adds the letters SymPy lacks (sigma, iota, upper case) and \ell.
+%override GREEK_SYMBOL: /\\(?:alpha|beta|gamma|delta|epsilon|varepsilon|zeta|eta|theta|vartheta|iota|kappa|lambda|mu|nu|xi|rho|varrho|sigma|varsigma|tau|upsilon|phi|varphi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega|ell)(?![A-Za-z])/
+CMD_PI: /\\pi(?![A-Za-z])/
+pi_constant: CMD_PI
+
+// ---------------------------------------------------------------- relations, bars, signs
+%extend LT: /\\lt(?![A-Za-z])/
+%extend GT: /\\gt(?![A-Za-z])/
+%extend BAR: /\\(?:lvert|rvert|vert|mid)(?![A-Za-z])/
+CMD_PM: /\\(?:pm|mp)(?![A-Za-z])/
+plus_minus: _expression CMD_PM _expression_mul
+    | CMD_PM _expression_mul
+%extend _expression: plus_minus
+
+// ---------------------------------------------------------------- sub- and superscripts as structure
+// SymPy reads X_1, \mu_1 as single regex terminals (LATIN_SYMBOL_WITH_LATIN_SUBSCRIPT, ...), which
+// hide the subscript and reject \sigma_{X_1}, X_{(n)}. They are replaced by rules.
+%override _one_letter_symbol: SYMBOL | GREEK_SYMBOL_WITH_PRIMES | sub_symbol
+sub_symbol: _sym_base UNDERSCORE _script_arg
+_sym_base: SYMBOL | GREEK_SYMBOL_WITH_PRIMES
+_script_arg: SYMBOL | DIGIT | GREEK_SYMBOL_WITH_PRIMES | script_group
+script_group: L_BRACE list_of_expressions R_BRACE
+%override symbol_prime: sub_symbol PRIMES
+// superscript written before the subscript: \sigma^2_X
+sup_sub: _sym_base CARET _expression_core UNDERSCORE _script_arg
+%extend _expression_power: sup_sub
+
+// ---------------------------------------------------------------- implicit multiplication
+// SymPy lists particular adjacent pairs (a symbol or number before a factor, a parenthesized group
+// before a group or symbol, a function before a function, a fraction before a factor), so
+// b^2 \sigma^2, (r_1 + r_2) \lambda(A), \binom{n}{k} p^k and \sqrt{2\pi} \sigma fail. Replaced by
+// the general rule: any power-level factor followed by a product (right-associative). The
+// application-or-product question for symbol(...) is left to the ambiguity rules (api).
+%override adjacent_expressions: _expression_power _expression_mul
+%extend _atomic_expr: pi_constant | ellipsis | styled
+%extend _expression_func: group_square_brackets | norm | lim_infsup | extremum
+
+// sizing commands are presentation, like \left / \right
+%ignore /\\(?:big|Big|bigg|Bigg)[lrm]?(?![A-Za-z])/
+
+// ---------------------------------------------------------------- other operators (parse; no SymPy value)
+NORM_BAR: "\\|" | /\\(?:lVert|rVert|Vert)(?![A-Za-z])/
+norm: NORM_BAR _expression NORM_BAR (UNDERSCORE _script_arg)?
+FUNC_LIMINFSUP: /\\(?:liminf|limsup)(?![A-Za-z])/
+lim_infsup: FUNC_LIMINFSUP UNDERSCORE group_curly_parentheses_lim _expression
+FUNC_SUPINF: /\\(?:sup|inf|argmax|argmin)(?![A-Za-z])/
+extremum: (FUNC_SUPINF | FUNC_MAX | FUNC_MIN) UNDERSCORE _script_arg _expression
+    | FUNC_SUPINF _expression
+set_integral: FUNC_INT UNDERSCORE _expression_core _expression DIFFERENTIAL_SYMBOL _one_letter_symbol
+%extend _integral: set_integral
+// sums, products and integrals indexed by a set: \sum_{x \in S} f(x), \int_{\R^2} g
+set_indexed: (FUNC_SUM | FUNC_PROD | FUNC_INT) UNDERSCORE L_BRACE (member | set_expr) R_BRACE _expression
+%extend _expression_mul: set_indexed
+CMD_WEDGEVEE: /\\(?:wedge|vee)(?![A-Za-z])/
+wedge_vee: _expression_mul CMD_WEDGEVEE _expression_power
+%extend _expression_mul: wedge_vee
+
+// ---------------------------------------------------------------- ellipses
+ELLIPSIS: /\\(?:ldots|cdots|dots|dotsc|dotsb|dotsm)(?![A-Za-z])/ | "..."
+ellipsis: ELLIPSIS
+
+// ---------------------------------------------------------------- typeface wrappers (transparent)
+CMD_STYLE: /\\(?:mathscr|mathcal|mathbf|boldsymbol|bm|mathsf|mathfrak)(?![A-Za-z])/
+CMD_MATHRM: /\\mathrm(?![A-Za-z])/
+styled: (CMD_STYLE | GEN_STYLE) (SYMBOL | GREEK_SYMBOL_WITH_PRIMES | L_BRACE _expression R_BRACE)
+    | CMD_MATHRM (SYMBOL | L_BRACE SYMBOL R_BRACE)
+
+// ---------------------------------------------------------------- operators applied to (...) or [...]
+// \mathbb{E}(X), \text{var}(X), \operatorname{cov}(X, Y), and the rendition's operator macros
+// (GEN_OP: \E, \var, ... classified from macro bodies). P(X | Y) style conditions inside.
+CMD_MATHBB: /\\mathbb(?![A-Za-z])/
+CMD_OPWORD: /\\(?:text|operatorname|textrm|mathrm)(?![A-Za-z])/
+OPWORD: /[A-Za-z]{2,}/
+BB_OP_LETTER: /[ABD-MOPS-Y]/
+BB_SET_LETTER: /[CNQRZ]/
+op_name: GEN_OP
+    | CMD_MATHBB L_BRACE BB_OP_LETTER R_BRACE
+    | CMD_OPWORD L_BRACE OPWORD R_BRACE
+op_applied: op_name L_PAREN _op_args R_PAREN
+    | op_name L_BRACKET _op_args R_BRACKET
+_op_args: list_of_expressions | _cond_item | cond_list | conditional
+_cond_item: _relation | member | rel_chain
+cond_list: _cond_item ("," _cond_item)+
+conditional: _cond_side BAR _cond_side
+_cond_side: list_of_expressions | _cond_item | cond_list
+%extend _function: op_applied
+
+// ---------------------------------------------------------------- sets
+CMD_SETMINUS: /\\(?:setminus|smallsetminus|backslash)(?![A-Za-z])/
+CMD_CUP: /\\cup(?![A-Za-z])/
+CMD_CAP: /\\cap(?![A-Za-z])/
+CMD_IN: /\\in(?![A-Za-z])/
+CMD_NOTIN: /\\notin(?![A-Za-z])/
+CMD_SUBSET: /\\(?:subseteq|subset|supseteq|supset)(?![A-Za-z])/
+CMD_EMPTYSET: /\\(?:emptyset|varnothing)(?![A-Za-z])/
+set_const: _set_name set_sign? (CARET _expression_core)?
+_set_name: GEN_SET | CMD_MATHBB L_BRACE BB_SET_LETTER R_BRACE
+set_sign: (UNDERSCORE | CARET) (ADD | SUB | L_BRACE (ADD | SUB) R_BRACE)
+interval: (L_PAREN | L_BRACKET) _expression "," _expression (R_PAREN | R_BRACKET)
+set_list: L_BRACE_LITERAL list_of_expressions R_BRACE_LITERAL
+set_builder: L_BRACE_LITERAL (_expression | member) (COLON | BAR) _builder_cond R_BRACE_LITERAL
+_builder_cond: _cond_item | cond_list
+set_event: L_BRACE_LITERAL (_cond_item | cond_list) R_BRACE_LITERAL
+empty_set: CMD_EMPTYSET
+set_named: _one_letter_symbol | styled
+set_group: L_PAREN set_expr R_PAREN
+?set_atom: set_const | interval | set_list | set_builder | set_event | empty_set | set_named | set_group
+?set_expr: set_atom | set_minus | set_union | set_intersection | set_product
+set_minus: set_expr CMD_SETMINUS set_atom
+set_union: set_expr CMD_CUP set_atom
+set_intersection: set_expr CMD_CAP set_atom
+set_product: set_expr CMD_TIMES set_atom
+
+// ---------------------------------------------------------------- typed start symbols
+member: list_of_expressions (CMD_IN | CMD_NOTIN) set_expr
+// chains: a = b = c, 0 < p \le 1, f(x) = g(x) \le h(x)
+rel_chain: _expression _rel_op _expression (_rel_op _expression)+
+_rel_op: EQUAL | NOT_EQUAL | LT | LTE | GT | GTE
+subset_rel: set_expr CMD_SUBSET set_expr
+// statements of convergence and distribution, and other relations: parse, no SymPy value
+CMD_ARROW_REL: /\\(?:uparrow|downarrow|nearrow|searrow)(?![A-Za-z])/
+CMD_OTHER_REL: /\\(?:sim|approx|equiv|propto|simeq|cong)(?![A-Za-z])/
+approach: _expression (LIM_APPROACH_SYM | CMD_ARROW_REL) _expression
+other_rel: _expression CMD_OTHER_REL _expression
+formula: _expression | eq
+// an equation is a formula (D1 §6: expression or equation), so relation holds the others
+relation: ne | lt | lte | gt | gte | rel_chain | subset_rel | approach | other_rel
+// several values separated by commas (\quad is ignored): "f(x) = ..., \quad x \in [0, 1]"
+value_list: _list_item ("," _list_item)+
+_list_item: formula | relation | member
+any_value: formula | relation | member | set_expr | value_list

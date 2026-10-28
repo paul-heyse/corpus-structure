@@ -143,6 +143,119 @@ def probe_page(page: str, sections_mode: str, clause_binders: bool = False, if_b
     return {"text": text, "mentions": mentions, "sites": sites, "units": units}
 
 
+# ---------------------------------------------------------------- engine "patterns" (revisit S0-R1, ADR-0009)
+
+def _tokens(node):
+    from lark import Token, Tree
+    if isinstance(node, Token):
+        yield node
+    elif isinstance(node, Tree):
+        for c in node.children:
+            yield from _tokens(c)
+
+
+def math_classifier(macros: dict):
+    """`Token._.math` from the math grammar: kind and the symbols the math itself introduces
+    (a lone symbol or list of symbols; the left side of a membership or relation; the left side of
+    an equation when it is a single symbol), with positions relative to the token text."""
+    from lark import Tree
+    from mathgrammar import api
+
+    def classify(latex: str) -> dict:
+        r = api.parse(latex, "any_value", macros=macros)
+        occ = [(norm(o.name), o.start + r.offset) for o in r.occurrences if not o.constant and not o.in_subscript_of]
+        info = {"kind": r.kind or r.status, "symbols": [n for n, _ in occ], "bound": [], "bound_pos": []}
+        if r.status not in ("ok", "ambiguous") or r.tree is None or r.kind in (None, "ambiguous"):
+            return info
+        node = r.tree.children[0] if r.tree.data == "any_value" else r.tree
+        node = node if isinstance(node, Tree) else None
+        if node is None:
+            return info
+        if r.kind == "list" or (r.kind == "formula" and len(occ) == 1 and not any(
+                isinstance(c, Tree) and c.data == "eq" for c in node.children)):
+            info["kind"] = "symbol" if r.kind == "formula" else "list"
+            lhs_occ = occ if r.kind == "list" else occ[:1]
+        else:
+            op = node.children[0] if r.kind in ("formula", "relation") and node.children and isinstance(node.children[0], Tree) else node
+            if r.kind == "formula" and getattr(op, "data", None) != "eq":
+                info["kind"] = "expression"
+                return info
+            if r.kind == "formula":
+                info["kind"] = "equation"
+            lhs = op.children[0] if op.children else None
+            toks = [t for t in _tokens(lhs) if t.start_pos is not None] if lhs is not None else []
+            if not toks:
+                return info
+            lo, hi = min(t.start_pos for t in toks) + r.offset, max(t.end_pos for t in toks) + r.offset
+            lhs_occ = [(n, p) for n, p in occ if lo <= p < hi]
+            if r.kind == "formula" and len(lhs_occ) != 1:  # only `X = …` with one symbol on the left defines it
+                return info
+        info["bound"] = [n for n, _ in lhs_occ]
+        info["bound_pos"] = [p for _, p in lhs_occ]
+        return info
+    return classify
+
+
+def probe_page_patterns(page: str, sections_mode: str, paragraph_statements: bool = False,
+                        sample_parts: list | None = None) -> dict:
+    """The same extents and assignment as `probe_page`, with binding sites from spaCy Matcher
+    patterns (m13_binders, D2 §12.1 lexicon) and symbols from the math grammar."""
+    import m13_binders as mb
+    from mathgrammar import api
+    from s1_sentences import blocks_of, merged_doc, pipeline
+
+    r = adapt(page, {"sections": sections_mode})
+    text, segs = r["text"], r["segments"]
+    macros = r["rendition"]["parse_detail"]["macros"]
+    nlp = pipeline("P1")
+    matcher = mb.build_matcher(nlp, BINDERS)
+    classify = math_classifier(macros)
+    units = [s for s in segs if s["kind"] == "unit"]
+    secs = [s for s in segs if s["kind"] == "section"]
+    sents = sentences(r, "P1", "bp+c")
+    mentions = []
+    for m in (s for s in segs if s["kind"].startswith("math")):
+        _, occ = api.occurrences_in_span(text, m["start"], m["end"], macros)
+        for o in occ:
+            if o.constant or o.in_subscript_of:
+                continue
+            sent = next((s for s in sents if s["start"] <= o.start < s["end"]), None)
+            mentions.append({"symbol": norm(o.name), "pos": o.start, "sentence": sent, "math": m})
+
+    def unit_of(pos):
+        return next((u for u in units if u["start"] <= pos < u["end"]), None)
+
+    def section_of(pos):
+        inside = [s for s in secs if s["start"] <= pos < s["end"]]
+        return min(inside, key=lambda s: s["end"] - s["start"]) if inside else None
+
+    sites = []
+    for b in blocks_of(r):
+        doc = mb.annotate(merged_doc(nlp, b), b["start"], b["text"], classify)
+        for site in mb.binding_sites(doc, matcher):
+            a, e = site["sentence"]
+            st = b["text"][a:e]
+            tok = next(t for t in doc if t._.math and t._.math["start"] == site["start"])
+            for sym, rel in zip(tok._.math["bound"], tok._.math["bound_pos"]):
+                pos = site["start"] + rel
+                u = unit_of(pos)
+                if u is None and paragraph_statements and not (site["section_wide"] or site["reopen"]):
+                    u = next((p for p in (sample_parts or []) if p["start"] <= pos < p["end"]), None)
+                if u and not site["section_wide"]:
+                    extent = ("statement", u["start"], u["end"], u["key"])
+                else:
+                    sec = section_of(pos)
+                    extent = ("section", pos, sec["end"] if sec else len(text), sec["key"] if sec else None)
+                sites.append({"symbol": sym, "pos": pos, "extent": extent, "again": site["reopen"],
+                              "sentence": st[:100], "rules": site["rules"]})
+    for s in sites:
+        if s["again"]:
+            prev = [p for p in sites if p["symbol"] == s["symbol"] and p["pos"] < s["pos"] and p["extent"][0] == "section"]
+            if prev:
+                s["reopens"] = prev[-1]["sentence"][:60]
+    return {"text": text, "mentions": mentions, "sites": sites, "units": units}
+
+
 def assign(pg: dict, symbol: str, ranges: list[tuple[int, int]]) -> dict:
     """Each mention of the symbol inside the unit goes to the innermost binding site at or before it
     whose extent contains it (D4 M13 rule 3); the unit's binding is that of its first mention."""
@@ -166,6 +279,8 @@ def main() -> int:
     ap.add_argument("--if-binder", action="store_true", help="variant: sentence-initial \"if\" binds")
     ap.add_argument("--paragraph-statements", action="store_true",
                     help="variant: a sample paragraph outside any unit is a statement extent")
+    ap.add_argument("--engine", choices=["regex", "patterns"], default="regex",
+                    help="regex: the first probe; patterns: spaCy Matcher binders and math-grammar symbols (S0-R1)")
     a = ap.parse_args()
     pages: dict = {}
     rows = []
@@ -176,8 +291,12 @@ def main() -> int:
         meta = SAMPLE["units"][f.stem]
         parts = [{"start": p["start"], "end": p["end"], "key": p["segment_key"]} for m in SAMPLE["units"].values()
                  if m["page"] == meta["page"] for p in m["parts"]]
-        pg = pages.setdefault(meta["page"], probe_page(meta["page"], a.sections, a.clause_binders, a.if_binder,
-                                                       a.paragraph_statements, parts))
+        if meta["page"] not in pages:
+            pages[meta["page"]] = (probe_page_patterns(meta["page"], a.sections, a.paragraph_statements, parts)
+                                   if a.engine == "patterns" else
+                                   probe_page(meta["page"], a.sections, a.clause_binders, a.if_binder,
+                                              a.paragraph_statements, parts))
+        pg = pages[meta["page"]]
         for e in b.get("entities", []):
             if e.get("scope") != "local" or not e.get("symbol"):
                 continue
@@ -191,8 +310,9 @@ def main() -> int:
                          "annotated_extent": annotated,
                          "probe": got["binding"], "match": got["binding"] == annotated,
                          "probe_site": (got.get("site") or "")[:90], "reopens": got.get("reopens") or ""})
-    tag = (f"{a.sections}{'.clause' if a.clause_binders else ''}{'.if' if a.if_binder else ''}"
-           f"{'.para' if a.paragraph_statements else ''}")
+    tag = ((f"patterns.{a.sections}{'.para' if a.paragraph_statements else ''}") if a.engine == "patterns" else
+           (f"{a.sections}{'.clause' if a.clause_binders else ''}{'.if' if a.if_binder else ''}"
+            f"{'.para' if a.paragraph_statements else ''}"))
     out = EVIDENCE / "results" / "s0" / f"m13_probe.{a.stored.name}.{tag}.tsv"
     with out.open("w", encoding="utf-8") as fh:
         fh.write("\t".join(rows[0]) + "\n")

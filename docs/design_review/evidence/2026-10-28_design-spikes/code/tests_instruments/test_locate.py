@@ -1,16 +1,13 @@
-"""I-A: planted quote-location cases with hand-written expected spans (instruments §3).
+"""I-A: planted quote-location cases with hand-written expected spans (instruments §3, revisit I-R1).
 
 Expected spans are written as the exact expected substring plus which occurrence (or the
-cited sentence for coarse fallbacks); expected tiers follow from D4 §4.3's cascade as specified.
-Fuzzy (tier 4) expectations were reasoned from the Indel ratio (2·matches / total length) before
-running: one substitution costs 2, so a quote of length L with k substitutions scores about
-100·(1 − 2k/2L). Tier-4 spans follow the specification literally: ``partial_ratio_alignment``
-returns a destination window of exactly ``len(quote)`` characters (when the quote is the shorter
-string), so a quote shorter than the text it paraphrases yields a span truncated at one end
-("… approximation hol"); the expectations below encode that (finding F-LOC-1 in the record).
-The "different marker" case was first expected unlocated (estimated ~94); it scores 96.2 because
-the window can start inside "(a)"; windows shifted by one character tie, and the hand-derived
-"a) … parameter" lost the tie to ") … parameter " (boundary observed, not predicted).
+cited sentence for coarse fallbacks); expected steps follow from the cascade in s0_locate's
+docstring (exact sentence, exact unit, spacing, macros, fuzzy). Every located span is snapped to
+word boundaries, so no expectation ends inside a word. Fuzzy cases were re-derived for I-R1
+(cutoff 85, regex refine): the repaired a.ref gap under (b) and the short straight-quoted phrase,
+coarse before, are now located; (c) (an 11-character gap) stays coarse. The "different marker"
+span starts at "a)": the refine aligns "1." to "a)" by two substitutions, and "(" is not part of
+a word, so the snap does not add it.
 """
 
 from __future__ import annotations
@@ -64,25 +61,26 @@ CASES = [
     ("exact in unit, wrong sentence cited", "a_nothing", "Stirling's approximation holds", "s1", "Stirling's approximation holds", 0, 2, {}),
     ("phrase twice in the cited sentence", "a_nothing", "parameter \\(", "s1", "parameter \\(", 0, 1, {"matches": 2}),
     ("phrase twice in the unit, nearest to the cited sentence", "a_nothing", "the scale parameter is", "s6", "the scale parameter is", 1, 2, {"matches": 2}),
-    ("$...$ and re-spaced LaTeX", "a_nothing", "shape parameter $k\\in(0,\\infty)$", "s1", "shape parameter \\(k \\in (0, \\infty)\\)", 0, 3, {}),
-    ("\\(\\) without inner spaces", "a_nothing", "\\(\\sigma\\) is the shape parameter", "s6", "\\( \\sigma \\) is the shape parameter", 0, 3, {}),
+    ("$...$ and re-spaced LaTeX", "a_nothing", "shape parameter $k\\in(0,\\infty)$", "s1", "shape parameter \\(k \\in (0, \\infty)\\)", 0, 3, {"step": "spacing"}),
+    ("\\(\\) without inner spaces", "a_nothing", "\\(\\sigma\\) is the shape parameter", "s6", "\\( \\sigma \\) is the shape parameter", 0, 3, {"step": "spacing"}),
+    ("macro spelled out in the quote", "a_nothing", "parameter \\(k \\in (0, \\infty)\\)", "s1", "parameter \\(k \\in (0, \\infty)\\)", 0, 1, {}),
     ("verbatim quote across an a.ref gap (a)", "a_nothing", "As a special case of , Stirling's", "s2", "As a special case of , Stirling's", 0, 1, {}),
     ("verbatim quote across an a.ref gap (b)", "b_placeholder", "As a special case of [ref], Stirling's", "s2", "As a special case of [ref], Stirling's", 0, 1, {}),
     ("verbatim quote across an a.ref gap (c)", "c_target", "As a special case of Theorem 3, Stirling's", "s2", "As a special case of Theorem 3, Stirling's", 0, 1, {}),
-    # an annotator who "repairs" the gap: one deleted comma under (a) is ~99; (b) and (c) insert 7 / 11 chars
-    ("gap repaired by the annotator (a)", "a_nothing", "As a special case of Stirling's approximation holds", "s2", "As a special case of , Stirling's approximation hol", 0, 4, {}),
-    ("gap repaired by the annotator (b)", "b_placeholder", "As a special case of Stirling's approximation holds", "s2", "COARSE", 0, None, {}),
+    # an annotator who "repairs" the gap: fuzzy step; the span covers the whole clause (no cut word)
+    ("gap repaired by the annotator (a)", "a_nothing", "As a special case of Stirling's approximation holds", "s2", "As a special case of , Stirling's approximation holds", 0, 5, {"fuzzy_counts": (0, 2, 0)}),
+    ("gap repaired by the annotator (b)", "b_placeholder", "As a special case of Stirling's approximation holds", "s2", "As a special case of [ref], Stirling's approximation holds", 0, 5, {"fuzzy_counts": (0, 7, 0)}),
     ("gap repaired by the annotator (c)", "c_target", "As a special case of Stirling's approximation holds", "s2", "COARSE", 0, None, {}),
     # <q> rendered as curly quotes; annotator types straight quotes (2 substitutions)
-    ("straight for curly quotes, short quote", "a_nothing", "\"standard gamma distribution\"", "s3", "COARSE", 0, None, {}),
-    ("straight for curly quotes, longer quote", "a_nothing", "is called the \"standard gamma distribution\" when", "s3", "is called the “standard gamma distribution” when", 0, 4, {}),
+    ("straight for curly quotes, short quote", "a_nothing", "\"standard gamma distribution\"", "s3", "“standard gamma distribution”", 0, 5, {"fuzzy_counts": (2, 0, 0)}),
+    ("straight for curly quotes, longer quote", "a_nothing", "is called the \"standard gamma distribution\" when", "s3", "is called the “standard gamma distribution” when", 0, 5, {"fuzzy_counts": (2, 0, 0)}),
     ("list item without its marker", "a_nothing", "The parameter \\( \\sigma \\) is the shape parameter", "s6", "The parameter \\( \\sigma \\) is the shape parameter", 0, 1, {}),
     ("list item with the marker", "a_nothing", "(a) The parameter \\( \\sigma \\) is the shape parameter", "s6", "(a) The parameter \\( \\sigma \\) is the shape parameter", 0, 1, {}),
-    ("list item with a different marker", "a_nothing", "1. The parameter \\( \\sigma \\) is the shape parameter", "s6", ") The parameter \\( \\sigma \\) is the shape parameter ", 0, 4, {}),
+    ("list item with a different marker", "a_nothing", "1. The parameter \\( \\sigma \\) is the shape parameter", "s6", "a) The parameter \\( \\sigma \\) is the shape parameter", 0, 5, {"fuzzy_counts": (2, 0, 0)}),
     ("long quote with one typo", "a_nothing",
      "Suppose that \\(X\\) has the gamma distrbution with shape parameter \\(k \\in (0, \\infty)\\) and scale parameter",
-     "s1", "Suppose that \\(X\\) has the gamma distribution with shape parameter \\(k \\in (0, \\infty)\\) and scale paramete", 0, 4,
-     {"long_quote": True}),
+     "s1", "Suppose that \\(X\\) has the gamma distribution with shape parameter \\(k \\in (0, \\infty)\\) and scale parameter", 0, 5,
+     {"long_quote": True, "fuzzy_counts": (0, 1, 0)}),
     ("unlocated quote", "a_nothing", "the moment generating function exists", "s4", "COARSE", 0, None, {}),
     ("unlocated quote with an unknown sentence", "a_nothing", "the moment generating function exists", "s9", "DROPPED", 0, None, {}),
 ]
