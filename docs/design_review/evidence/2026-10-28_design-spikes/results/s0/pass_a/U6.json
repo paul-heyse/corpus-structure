@@ -4,8 +4,8 @@
     {"local_ref": "st1", "kind": "narrative", "anchor": "unit"}
   ],
   "entities": [
-    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {"symbol": "X"}},
-    {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": ["the standard score Z"], "identity": {"symbol": "Z"}},
+    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+    {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": ["the standard score Z"], "identity": {}},
     {"local_ref": "SS", "type": "Concept", "label": "standard score", "scope": "global", "aliases": [], "identity": {}},
     {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normally distributed"], "identity": {}},
     {"local_ref": "SN", "type": "DistributionFamily", "label": "standard normal distribution", "scope": "global", "aliases": ["standard normal variable"], "identity": {}},

@@ -33,6 +33,7 @@ dependencies = [
     "statsmodels==0.15.0",
     "numpy==2.5.4",
     "pyyaml==6.0.3",
+    "pint==0.26.2",
 ]
 
 [tool.uv]

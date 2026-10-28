@@ -5,8 +5,8 @@
     {"local_ref": "st2", "kind": "definition", "anchor": ["s4", "s5", "s6"]}
   ],
   "entities": [
-    {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "section", "symbol": "Z", "aliases": [], "identity": {"symbol": "Z"}},
-    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {"symbol": "X"}},
+    {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "section", "symbol": "Z", "aliases": [], "identity": {}},
+    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
     {"local_ref": "LS", "type": "FamilyConstruction", "label": "location-scale family", "scope": "global", "aliases": ["location-scale family associated with the given distribution of Z"], "identity": {}},
     {"local_ref": "p_loc", "type": "FamilyParameter", "label": "location parameter", "scope": "global", "aliases": ["a"], "identity": {"family": "LS", "canonical_name": "location"}},
     {"local_ref": "p_scale", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "aliases": ["b"], "identity": {"family": "LS", "canonical_name": "scale"}}

@@ -4,10 +4,10 @@
     {"local_ref": "st1", "kind": "definition", "anchor": "unit"}
   ],
   "entities": [
-    {"local_ref": "Y", "type": "RandomVariable", "label": "Y", "scope": "local", "extent": "statement", "symbol": "Y", "aliases": [], "identity": {"symbol": "Y"}},
-    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {"symbol": "X"}},
-    {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": [], "identity": {"symbol": "Z"}},
-    {"local_ref": "W", "type": "RandomVariable", "label": "W", "scope": "local", "extent": "statement", "symbol": "W", "aliases": [], "identity": {"symbol": "W"}},
+    {"local_ref": "Y", "type": "RandomVariable", "label": "Y", "scope": "local", "extent": "statement", "symbol": "Y", "aliases": [], "identity": {}},
+    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+    {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": [], "identity": {}},
+    {"local_ref": "W", "type": "RandomVariable", "label": "W", "scope": "local", "extent": "statement", "symbol": "W", "aliases": [], "identity": {}},
     {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}},
     {"local_ref": "LN", "type": "DistributionFamily", "label": "lognormal distribution", "scope": "global", "aliases": [], "identity": {}},
     {"local_ref": "SN", "type": "DistributionFamily", "label": "standard normal distribution", "scope": "global", "aliases": [], "identity": {}},

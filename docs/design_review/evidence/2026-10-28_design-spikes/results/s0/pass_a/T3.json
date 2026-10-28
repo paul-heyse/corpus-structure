@@ -5,8 +5,8 @@
     {"local_ref": "st2", "kind": "proof", "anchor": ["s3"]}
   ],
   "entities": [
-    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {"symbol": "X"}},
-    {"local_ref": "aX", "type": "RandomVariable", "label": "a + b X", "scope": "local", "extent": "statement", "symbol": "a + b X", "aliases": [], "identity": {"symbol": "a + b X"}},
+    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+    {"local_ref": "aX", "type": "RandomVariable", "label": "a + b X", "scope": "local", "extent": "statement", "symbol": "a + b X", "aliases": [], "identity": {}},
     {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normally distributed"], "identity": {}}
   ],
   "claims": [

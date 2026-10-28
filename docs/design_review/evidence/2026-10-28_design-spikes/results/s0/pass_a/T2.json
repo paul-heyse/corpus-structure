@@ -4,7 +4,7 @@
     {"local_ref": "st1", "kind": "narrative", "anchor": "unit"}
   ],
   "entities": [
-    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "section", "symbol": "X", "aliases": [], "identity": {"symbol": "X"}},
+    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "section", "symbol": "X", "aliases": [], "identity": {}},
     {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}},
     {"local_ref": "p_loc", "type": "FamilyParameter", "label": "location parameter", "scope": "global", "aliases": ["\\mu"], "identity": {"family": "N", "canonical_name": "location"}},
     {"local_ref": "p_scale", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "aliases": ["\\sigma"], "identity": {"family": "N", "canonical_name": "scale"}},

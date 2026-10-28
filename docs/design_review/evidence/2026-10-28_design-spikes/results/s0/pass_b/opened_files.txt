@@ -1,0 +1,25 @@
+results/s0/inputs/golden/instructions_b.md
+results/s0/inputs/golden/guideline.md
+results/s0/inputs/golden/schema.yaml
+results/s0/inputs/golden/model.md
+results/s0/inputs/golden/format.md
+results/s0/inputs/golden/units/T1.md
+results/s0/inputs/golden/units/T2.md
+results/s0/inputs/golden/units/T3.md
+results/s0/inputs/golden/units/T4.md
+results/s0/inputs/golden/units/U5.md
+results/s0/inputs/golden/units/U6.md
+results/s0/inputs/golden/units/U7.md
+results/s0/inputs/golden/units/U8.md
+results/s0/inputs/golden/units/U9.md
+results/s0/inputs/golden/units/U10.md
+results/s0/inputs/golden/units/U11.md
+results/s0/inputs/golden/units/U12.md
+results/s0/inputs/golden/pages/special__LocationScale.md
+results/s0/inputs/golden/pages/special__Normal.md
+results/s0/inputs/golden/pages/special__LogNormal.md
+results/s0/inputs/golden/pages/special__Gamma.md
+results/s0/inputs/golden (directory listing)
+results/s0/pass_b (directory listing; own output files)
+code/s0_check.py (run only, not opened)
+results/s0/inputs/golden/* (byte counts via wc -c over every file in the folder, including instructions_a.md; contents of instructions_a.md not viewed)

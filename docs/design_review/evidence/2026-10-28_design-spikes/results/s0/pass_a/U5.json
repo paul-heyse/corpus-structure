@@ -5,10 +5,10 @@
     {"local_ref": "st2", "kind": "proof", "anchor": ["s5"]}
   ],
   "entities": [
-    {"local_ref": "X1", "type": "RandomVariable", "label": "X_1", "scope": "local", "extent": "statement", "symbol": "X_1", "aliases": [], "identity": {"symbol": "X_1"}},
-    {"local_ref": "X2", "type": "RandomVariable", "label": "X_2", "scope": "local", "extent": "statement", "symbol": "X_2", "aliases": [], "identity": {"symbol": "X_2"}},
-    {"local_ref": "Xi", "type": "RandomVariable", "label": "X_i", "scope": "local", "extent": "statement", "symbol": "X_i", "aliases": [], "identity": {"symbol": "X_i"}},
-    {"local_ref": "S", "type": "RandomVariable", "label": "X_1 + X_2", "scope": "local", "extent": "statement", "symbol": "X_1 + X_2", "aliases": [], "identity": {"symbol": "X_1 + X_2"}},
+    {"local_ref": "X1", "type": "RandomVariable", "label": "X_1", "scope": "local", "extent": "statement", "symbol": "X_1", "aliases": [], "identity": {}},
+    {"local_ref": "X2", "type": "RandomVariable", "label": "X_2", "scope": "local", "extent": "statement", "symbol": "X_2", "aliases": [], "identity": {}},
+    {"local_ref": "Xi", "type": "RandomVariable", "label": "X_i", "scope": "local", "extent": "statement", "symbol": "X_i", "aliases": [], "identity": {}},
+    {"local_ref": "S", "type": "RandomVariable", "label": "X_1 + X_2", "scope": "local", "extent": "statement", "symbol": "X_1 + X_2", "aliases": [], "identity": {}},
     {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normally distributed"], "identity": {}}
   ],
   "claims": [

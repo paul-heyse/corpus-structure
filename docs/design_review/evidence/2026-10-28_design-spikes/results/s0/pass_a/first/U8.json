@@ -1,0 +1,60 @@
+{
+  "unit_ref": "U8",
+  "statements": [
+    {"local_ref": "st1", "kind": "exercise", "anchor": ["s1", "s2", "s3", "s4", "s5"]},
+    {"local_ref": "st2", "kind": "solution", "anchor": ["s6", "s7"]}
+  ],
+  "entities": [
+    {"local_ref": "R_rod", "type": "RandomVariable", "label": "the radius of the rod", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+    {"local_ref": "R_hole", "type": "RandomVariable", "label": "the radius of the hole", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+    {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normally distributed"], "identity": {}}
+  ],
+  "claims": [
+    {
+      "local_ref": "c_rod_normal",
+      "predicate": "has_distribution",
+      "subject": "R_rod",
+      "object": {"ref": "N"},
+      "qualifiers": {
+        "modality": "exemplified",
+        "param_values": {
+          "mean": {"t": "number", "v": "1", "unit": "cm"},
+          "standard_deviation": {"t": "number", "v": "0.002", "unit": "cm"}
+        }
+      },
+      "statement": "st1",
+      "statement_role": "example_value",
+      "evidence": [{"sentence": "s2", "quote": "The radius of the rod is normally distributed with mean 1 cm and standard deviation 0.002 cm", "role": "primary"}]
+    },
+    {
+      "local_ref": "c_hole_normal",
+      "predicate": "has_distribution",
+      "subject": "R_hole",
+      "object": {"ref": "N"},
+      "qualifiers": {
+        "modality": "exemplified",
+        "param_values": {
+          "mean": {"t": "number", "v": "1.01", "unit": "cm"},
+          "standard_deviation": {"t": "number", "v": "0.003", "unit": "cm"}
+        }
+      },
+      "statement": "st1",
+      "statement_role": "example_value",
+      "evidence": [{"sentence": "s3", "quote": "The radius of the hole is normally distributed with mean 1.01 cm and standard deviation 0.003 cm", "role": "primary"}]
+    },
+    {
+      "local_ref": "c_proves",
+      "predicate": "proves",
+      "subject": "st2",
+      "object": {"ref": "st1"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st2",
+      "evidence": [{"sentence": "s6", "quote": "Let \\(X\\) denote the radius of the rod and \\(Y\\) the radius of the hole", "role": "primary"}]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s4", "quote": "The machining processes that produce the rod and the hole are independent", "reason": "Independence exists only as a condition predicate, not a claim predicate, and the text states it of the machining processes rather than the two radii."},
+    {"local_ref": "u2", "sentence": "s5", "quote": "Find the probability that the rod is to big for the hole", "reason": "The posed quantity is the probability of an event (radius of rod > radius of hole); no predicate states a posed probability."}
+  ]
+}

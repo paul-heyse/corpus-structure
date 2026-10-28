@@ -18,8 +18,8 @@
       "qualifiers": {
         "modality": "exemplified",
         "param_values": {
-          "mean": {"t": "number", "v": "1", "unit": "cm"},
-          "standard_deviation": {"t": "number", "v": "0.002", "unit": "cm"}
+          "mean": {"t": "formula", "latex": "1", "symbols": {}},
+          "standard_deviation": {"t": "formula", "latex": "0.002", "symbols": {}}
         }
       },
       "statement": "st_ex",
@@ -36,8 +36,8 @@
       "qualifiers": {
         "modality": "exemplified",
         "param_values": {
-          "mean": {"t": "number", "v": "1.01", "unit": "cm"},
-          "standard_deviation": {"t": "number", "v": "0.003", "unit": "cm"}
+          "mean": {"t": "formula", "latex": "1.01", "symbols": {}},
+          "standard_deviation": {"t": "formula", "latex": "0.003", "symbols": {}}
         }
       },
       "statement": "st_ex",
@@ -62,6 +62,8 @@
   "unsupported": [
     {"local_ref": "u_setup", "sentence": "s1", "quote": "A metal rod is designed to fit into a circular hole on a certain assembly", "reason": "Physical setup of the exercise; no class or predicate for physical objects or their fit."},
     {"local_ref": "u_independent", "sentence": "s4", "quote": "The machining processes that produce the rod and the hole are independent", "reason": "Independence exists only as a condition predicate over random variables; here it is an exemplified setup fact, stated of the machining processes rather than of the two radii."},
+    {"local_ref": "u_units_rod", "sentence": "s2", "quote": "mean 1 cm and standard deviation 0.002 cm", "reason": "param_values entries must be formulas, so the unit cm of the stated parameter values cannot be carried."},
+    {"local_ref": "u_units_hole", "sentence": "s3", "quote": "mean 1.01 cm and standard deviation 0.003 cm", "reason": "param_values entries must be formulas, so the unit cm of the stated parameter values cannot be carried."},
     {"local_ref": "u_posed", "sentence": "s5", "quote": "Find the probability that the rod is to big for the hole", "reason": "The posed quantity is a probability of an event (rod radius exceeds hole radius); no predicate states a probability or an asked-for quantity."}
   ]
 }

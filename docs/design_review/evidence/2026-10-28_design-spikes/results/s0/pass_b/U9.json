@@ -56,11 +56,11 @@
         },
         "conditions": {"op": "and", "args": [
           {"op": "member", "x": {"t": "formula", "latex": "n", "symbols": {"n": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\N_+", "symbols": {}}},
-          {"op": "pred", "name": "independent", "args": [{"t": "formula", "latex": "(X_1, X_2, \\ldots, X_n)", "symbols": {
-            "X_1": {"bind": "variable", "entity": "e_Xi"},
-            "X_2": {"bind": "variable", "entity": "e_Xi"},
-            "X_n": {"bind": "variable", "entity": "e_Xi"}
-          }}]},
+          {"op": "pred", "name": "independent", "args": [
+            {"t": "formula", "latex": "X_1", "symbols": {"X_1": {"bind": "variable", "entity": "e_Xi"}}},
+            {"t": "formula", "latex": "X_2", "symbols": {"X_2": {"bind": "variable", "entity": "e_Xi"}}},
+            {"t": "formula", "latex": "X_n", "symbols": {"X_n": {"bind": "variable", "entity": "e_Xi"}}}
+          ]},
           {"op": "forall", "var": "i", "set": {"t": "set", "latex": "\\{1, 2, \\ldots, n\\}", "symbols": {"n": {"bind": "free"}}}, "body": {"op": "and", "args": [
             {"op": "claim", "ref": "c_Xi_lognormal"},
             {"op": "member", "x": {"t": "formula", "latex": "\\mu_i", "symbols": {"mu_i": {"bind": "param_of", "claim": "c_Xi_lognormal", "param": "mu"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}},
