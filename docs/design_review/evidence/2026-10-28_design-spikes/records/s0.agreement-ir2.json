@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "id": "s0.agreement-ir2",
+  "title": "Agreement between the blind passes, with keys and trace comparisons",
+  "group": "S0 Reference annotations",
+  "package": "S0-D, S0-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [
+    "s0.agreement"
+  ],
+  "superseded_by": null,
+  "question": "How determinate is guideline v0: do two blind Opus passes produce the same claims, at which tier, and do their claim keys agree?",
+  "answers": [
+    "D7 §3.3",
+    "D7 §5",
+    "OPEN-D3-4",
+    "D1 §10.1"
+  ],
+  "method": "D7 §5 alignment, A as reference then symmetrized; bootstrap over units; key agreement raw and with statement anchors and global labels normalized. I-R2 (2026-10-28): rerun with the instruments revised to D1 §6.2's token form for keys (ADR-0012); the nine keys of results/s0/manual_equivalence.tsv written in the old spelling (text-mode whitespace removed) were rewritten to the token form by code/i_r2_migrate_manual.py, no decision or reason changed.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/stored/pass_a results/s0/stored/pass_b a_vs_b --symmetric",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_key_variants.py results/s0/stored/pass_<a|b> results/s0/key_variants/<anchors|labels|both>/pass_<a|b> <--anchors|--labels|--anchors --labels>",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/key_variants/<anchors|labels|both>/pass_a results/s0/key_variants/<anchors|labels|both>/pass_b a_vs_b.keys_<anchors|labels|both>",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/trace_stored results/s0/stored/pass_a trace_vs_a",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/trace_stored results/s0/stored/pass_b trace_vs_b",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/reference results/s0/trace_stored ref_vs_trace"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/s0/manual_equivalence.tsv",
+      "role": "manual value decisions (token-form keys)",
+      "sha256": "a75b8602b079bc6302ec860c029c9da360bf22b61ab6d9b1a0435d9230910bca"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/compare/a_vs_b",
+      "role": null,
+      "sha256": "929393014e7039b2eef5ceecb6482d5a5ca0edce9709a1e3b77f39f0d41d5cc2"
+    },
+    {
+      "path": "results/s0/compare/a_vs_b.keys_anchors",
+      "role": null,
+      "sha256": "777a77c66e5438d0d01da12b8213fcc913e70499747794b276b45f2520962227"
+    },
+    {
+      "path": "results/s0/compare/a_vs_b.keys_labels",
+      "role": null,
+      "sha256": "f3c20a2464305860ce06042b22043e0f0ca267f93bfe49ab58944ad62843213a"
+    },
+    {
+      "path": "results/s0/compare/a_vs_b.keys_both",
+      "role": null,
+      "sha256": "dac55db2baa23d4a9bbcf22be70154fd80cbad102adbd28a675d9098c867372e"
+    },
+    {
+      "path": "results/s0/key_variants",
+      "role": null,
+      "sha256": "cad6bab92321dcb21e6cc2d19f72dd9cc8a3437eb91a93176b8709046f78e052"
+    },
+    {
+      "path": "results/s0/compare/trace_vs_a",
+      "role": null,
+      "sha256": "14936a48386537aef1c2b747dd6c5b238ba3b5be53a3aaa348a7407247dedd53"
+    },
+    {
+      "path": "results/s0/compare/trace_vs_b",
+      "role": null,
+      "sha256": "1c408cf7cbc907df81dc49371668118a5a5e904e03a1d478ca1ebff27ab5185c"
+    },
+    {
+      "path": "results/s0/compare/ref_vs_trace",
+      "role": null,
+      "sha256": "6adb66c9c1fa20c326b74a077c838177e904aaa7fdc3cdf97eb78515db11076f"
+    }
+  ],
+  "depends_on": [
+    "s0.stored",
+    "s0.instruments-ir2"
+  ],
+  "results": [
+    {
+      "name": "ab_core_f1",
+      "value": 0.933,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ab_full_f1",
+      "value": 0.627,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ab_evidence_f1",
+      "value": 0.6,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "binding_accuracy",
+      "value": 1.0,
+      "of": 76,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "claim_keys_equal_raw",
+      "value": 21,
+      "of": 70,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "claim_keys_equal_normalized",
+      "value": 48,
+      "of": 70,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Core 0.93, full 0.63: annotators agree on what is claimed and differ on qualifiers, conditions and roles (guideline rules); two key rules cause most key disagreement. Rerun under the token form (I-R2): no figure changed.",
+  "consumed_by": [
+    "S0-report.md",
+    "OPEN-D3-4"
+  ]
+}

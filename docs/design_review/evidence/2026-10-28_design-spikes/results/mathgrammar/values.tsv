@@ -1,21 +1,21 @@
 unit	kind	latex	status	detected	category	at	sympy	notes	canonical	canonical_9223fb3	canonical_same	ms
-T1	formula	X = a + b \, Z	ok	formula			ok		X=a+bZ	X=a+bZ	True	70.1
-T1	formula	a	ok	formula			ok		a	a	True	6.2
-T1	formula	a + b \, Z	ok	formula			ok		a+bZ	a+bZ	True	13.7
-T1	formula	b	ok	formula			ok		b	b	True	5.9
-T1	set_expr	(0, \infty)	ok	set_expr			ok		(0,\infty)	(0,\infty)	True	11.9
-T1	set_expr	\R	ok	set_expr			ok		\mathbb R	\mathbb R	True	0.5
+T1	formula	X = a + b \, Z	ok	formula			ok		X=a+bZ	X=a+bZ	True	70.3
+T1	formula	a	ok	formula			ok		a	a	True	6.1
+T1	formula	a + b \, Z	ok	formula			ok		a+bZ	a+bZ	True	13.5
+T1	formula	b	ok	formula			ok		b	b	True	5.8
+T1	set_expr	(0, \infty)	ok	set_expr			ok		(0,\infty)	(0,\infty)	True	11.8
+T1	set_expr	\R	ok	set_expr			ok		\mathbb R	\mathbb R	True	0.4
 T2	formula	\mu	ok	formula			ok		\mu	\mu	True	5.9
-T2	formula	\sigma	ok	formula			ok		\sigma	\sigma	True	6.1
+T2	formula	\sigma	ok	formula			ok		\sigma	\sigma	True	6.0
 T2	set_expr	(0, \infty)	ok	set_expr			ok		(0,\infty)	(0,\infty)	True	0.0
 T2	set_expr	\R	ok	set_expr			ok		\mathbb R	\mathbb R	True	0.0
 T3	formula	\mu	ok	formula			ok		\mu	\mu	True	0.0
-T3	formula	\sigma^2	ok	formula			ok		\sigma^2	\sigma^2	True	9.9
+T3	formula	\sigma^2	ok	formula			ok		\sigma^2	\sigma^2	True	9.7
 T3	formula	a	ok	formula			ok		a	a	True	0.0
 T3	formula	a + b X	ok	formula			ok		a+bX	a+bX	True	13.6
-T3	formula	a + b \mu	ok	formula			ok		a+b\mu	a+b\mu	True	13.5
+T3	formula	a + b \mu	ok	formula			ok		a+b\mu	a+b\mu	True	13.6
 T3	formula	b	ok	formula			ok		b	b	True	0.0
-T3	formula	b^2 \sigma^2	ok	formula			ok		b^2\sigma^2	b^2\sigma^2	True	18.3
+T3	formula	b^2 \sigma^2	ok	formula			ok		b^2\sigma^2	b^2\sigma^2	True	18.2
 T3	set_expr	\R	ok	set_expr			ok		\mathbb R	\mathbb R	True	0.0
 T3	set_expr	\R \setminus \{0\}	ok	set_expr			ok		\mathbb R\setminus\{0\}	\mathbb R\setminus\{0\}	True	9.3
 T4	formula	X = e^Y	ok	formula			ok		X=e^Y	X=e^Y	True	15.6
@@ -27,61 +27,67 @@ T4	formula	e^\mu	ok	formula			ok		e^\mu	e^\mu	True	9.9
 T4	set_expr	(0, \infty)	ok	set_expr			ok		(0,\infty)	(0,\infty)	True	0.0
 T4	set_expr	\R	ok	set_expr			ok		\mathbb R	\mathbb R	True	0.0
 U10	formula	b	ok	formula			ok		b	b	True	0.0
-U10	formula	b Z	ok	formula			ok		bZ	bZ	True	8.6
-U10	formula	k	ok	formula			ok		k	k	True	6.0
+U10	formula	b Z	ok	formula			ok		bZ	bZ	True	8.5
+U10	formula	k	ok	formula			ok		k	k	True	5.9
 U10	set_expr	(0, \infty)	ok	set_expr			ok		(0,\infty)	(0,\infty)	True	0.0
 U11	formula	X_1	ok	formula			ok		X_1	X_1	True	8.7
-U11	formula	X_1 + X_2	ok	formula			ok		X_1+X_2	X_1+X_2	True	16.0
-U11	formula	X_2	ok	formula			ok		X_2	X_2	True	8.5
+U11	formula	X_1 + X_2	ok	formula			ok		X_1+X_2	X_1+X_2	True	16.8
+U11	formula	X_2	ok	formula			ok		X_2	X_2	True	8.4
 U11	formula	b	ok	formula			ok		b	b	True	0.0
-U11	formula	i	ok	formula			ok		i	i	True	6.0
-U11	formula	k_1	ok	formula			ok		k_1	k_1	True	8.5
-U11	formula	k_1 + k_2	ok	formula			ok		k_1+k_2	k_1+k_2	True	16.2
-U11	formula	k_2	ok	formula			ok		k_2	k_2	True	8.6
-U11	formula	k_i	ok	formula			ok		k_i	k_i	True	8.5
+U11	formula	i	ok	formula			ok		i	i	True	5.9
+U11	formula	k_1	ok	formula			ok		k_1	k_1	True	8.7
+U11	formula	k_1 + k_2	ok	formula			ok		k_1+k_2	k_1+k_2	True	15.8
+U11	formula	k_2	ok	formula			ok		k_2	k_2	True	8.4
+U11	formula	k_i	ok	formula			ok		k_i	k_i	True	8.3
 U11	set_expr	(0, \infty)	ok	set_expr			ok		(0,\infty)	(0,\infty)	True	0.0
-U11	set_expr	\{1, 2\}	ok	set_expr			ok		\{1,2\}	\{1,2\}	True	14.9
+U11	set_expr	\{1, 2\}	ok	set_expr			ok		\{1,2\}	\{1,2\}	True	14.6
 U12	formula	k	ok	formula			ok		k	k	True	0.0
 U5	formula	X_1	ok	formula			ok		X_1	X_1	True	0.0
 U5	formula	X_1 + X_2	ok	formula			ok		X_1+X_2	X_1+X_2	True	0.0
 U5	formula	X_2	ok	formula			ok		X_2	X_2	True	0.0
-U5	formula	\mu_1	ok	formula			ok		\mu_1	\mu_1	True	8.5
-U5	formula	\mu_1 + \mu_2	ok	formula			ok		\mu_1+\mu_2	\mu_1+\mu_2	True	16.1
-U5	formula	\mu_2	ok	formula			ok		\mu_2	\mu_2	True	8.5
-U5	formula	\mu_i	ok	formula			ok		\mu_i	\mu_i	True	8.5
-U5	formula	\sigma_1^2	ok	formula			ok		\sigma_1^2	\sigma_1^2	True	12.5
-U5	formula	\sigma_1^2 + \sigma_2^2	ok	formula			ok		\sigma_1^2+\sigma_2^2	\sigma_1^2+\sigma_2^2	True	23.7
-U5	formula	\sigma_2^2	ok	formula			ok		\sigma_2^2	\sigma_2^2	True	12.3
-U5	formula	\sigma_i^2	ok	formula			ok		\sigma_i^2	\sigma_i^2	True	12.5
+U5	formula	\mu_1	ok	formula			ok		\mu_1	\mu_1	True	8.3
+U5	formula	\mu_1 + \mu_2	ok	formula			ok		\mu_1+\mu_2	\mu_1+\mu_2	True	15.9
+U5	formula	\mu_2	ok	formula			ok		\mu_2	\mu_2	True	8.3
+U5	formula	\mu_i	ok	formula			ok		\mu_i	\mu_i	True	8.3
+U5	formula	\sigma_1^2	ok	formula			ok		\sigma_1^2	\sigma_1^2	True	12.3
+U5	formula	\sigma_1^2 + \sigma_2^2	ok	formula			ok		\sigma_1^2+\sigma_2^2	\sigma_1^2+\sigma_2^2	True	23.3
+U5	formula	\sigma_2^2	ok	formula			ok		\sigma_2^2	\sigma_2^2	True	12.1
+U5	formula	\sigma_i^2	ok	formula			ok		\sigma_i^2	\sigma_i^2	True	12.4
 U5	formula	i	ok	formula			ok		i	i	True	0.0
 U5	set_expr	\{1, 2\}	ok	set_expr			ok		\{1,2\}	\{1,2\}	True	0.0
-U6	formula	(X - \mu) / \sigma	ok	formula			ok		(X-\mu)/\sigma	(X-\mu)/\sigma	True	18.0
-U6	formula	0	ok	formula			ok		0	0	True	6.0
+U6	formula	(X - \mu) / \sigma	ok	formula			ok		(X-\mu)/\sigma	(X-\mu)/\sigma	True	17.7
+U6	formula	0	ok	formula			ok		0	0	True	5.9
 U6	formula	\mu	ok	formula			ok		\mu	\mu	True	0.0
 U6	formula	\sigma	ok	formula			ok		\sigma	\sigma	True	0.0
 U7	formula	0	ok	formula			ok		0	0	True	0.0
-U8	formula	0.002	ok	formula			ok		0.002	0.002	True	6.0
-U8	formula	0.002 cm	ok	formula			ok		0.002cm	0.002cm	True	11.3
-U8	formula	0.003	ok	formula			ok		0.003	0.003	True	6.0
-U8	formula	0.003 cm	ok	formula			ok		0.003cm	0.003cm	True	11.2
-U8	formula	1	ok	formula			ok		1	1	True	6.0
-U8	formula	1 cm	ok	formula			ok		1cm	1cm	True	11.6
+U7	formula	\text{the constant}	failed		unexpected-token	constant}	NotParsed		\text{the constant}	\text{theconstant}	False	259.5
+U7	formula	the constant	ok	formula			ok		theconstant	theconstant	True	33.2
+U8	formula	0.002	ok	formula			ok		0.002	0.002	True	5.9
+U8	formula	0.002 \text{ cm}	failed		incomplete	<EOF>	NotParsed		0.002\text{ cm}	0.002\text{cm}	False	5.9
+U8	formula	0.002 cm	ok	formula			ok		0.002cm	0.002cm	True	11.1
+U8	formula	0.003	ok	formula			ok		0.003	0.003	True	5.9
+U8	formula	0.003 \text{ cm}	failed		incomplete	<EOF>	NotParsed		0.003\text{ cm}	0.003\text{cm}	False	5.9
+U8	formula	0.003 cm	ok	formula			ok		0.003cm	0.003cm	True	11.1
+U8	formula	1	ok	formula			ok		1	1	True	5.9
+U8	formula	1 \text{ cm}	failed		incomplete	<EOF>	NotParsed		1\text{ cm}	1\text{cm}	False	5.9
+U8	formula	1 cm	ok	formula			ok		1cm	1cm	True	11.1
 U8	formula	1.01	ok	formula			ok		1.01	1.01	True	5.9
-U8	formula	1.01 cm	ok	formula			ok		1.01cm	1.01cm	True	11.1
+U8	formula	1.01 \text{ cm}	failed		incomplete	<EOF>	NotParsed		1.01\text{ cm}	1.01\text{cm}	False	5.9
+U8	formula	1.01 cm	ok	formula			ok		1.01cm	1.01cm	True	11.7
 U9	formula	X_1	ok	formula			ok		X_1	X_1	True	0.0
 U9	formula	X_2	ok	formula			ok		X_2	X_2	True	0.0
-U9	formula	X_n	ok	formula			ok		X_n	X_n	True	8.6
+U9	formula	X_n	ok	formula			ok		X_n	X_n	True	8.4
 U9	formula	\mu	ok	formula			ok		\mu	\mu	True	0.0
 U9	formula	\mu_i	ok	formula			ok		\mu_i	\mu_i	True	0.0
-U9	formula	\prod_{i=1}^n X_i	ok	formula			ok		\prod_{i=1}^nX_i	\prod_{i=1}^nX_i	True	18.6
+U9	formula	\prod_{i=1}^n X_i	ok	formula			ok		\prod_{i=1}^nX_i	\prod_{i=1}^nX_i	True	18.2
 U9	formula	\sigma	ok	formula			ok		\sigma	\sigma	True	0.0
 U9	formula	\sigma^2	ok	formula			ok		\sigma^2	\sigma^2	True	0.0
-U9	formula	\sigma_i	ok	formula			ok		\sigma_i	\sigma_i	True	8.5
-U9	formula	\sum_{i=1}^n \mu_i	ok	formula			ok		\sum_{i=1}^n\mu_i	\sum_{i=1}^n\mu_i	True	18.4
-U9	formula	\sum_{i=1}^n \sigma_i^2	ok	formula			ok		\sum_{i=1}^n\sigma_i^2	\sum_{i=1}^n\sigma_i^2	True	22.3
+U9	formula	\sigma_i	ok	formula			ok		\sigma_i	\sigma_i	True	8.4
+U9	formula	\sum_{i=1}^n \mu_i	ok	formula			ok		\sum_{i=1}^n\mu_i	\sum_{i=1}^n\mu_i	True	18.3
+U9	formula	\sum_{i=1}^n \sigma_i^2	ok	formula			ok		\sum_{i=1}^n\sigma_i^2	\sum_{i=1}^n\sigma_i^2	True	22.2
 U9	formula	i	ok	formula			ok		i	i	True	0.0
-U9	formula	n	ok	formula			ok		n	n	True	6.0
+U9	formula	n	ok	formula			ok		n	n	True	5.9
 U9	set_expr	(0, \infty)	ok	set_expr			ok		(0,\infty)	(0,\infty)	True	0.0
 U9	set_expr	\N_+	ok	set_expr			ok		\mathbb N_+	\mathbb N_+	True	0.5
 U9	set_expr	\R	ok	set_expr			ok		\mathbb R	\mathbb R	True	0.0
-U9	set_expr	\{1, 2, \ldots, n\}	ok	set_expr			NotRepresentable		\{1,2,\ldots,n\}	\{1,2,\ldots,n\}	True	26.2
+U9	set_expr	\{1, 2, \ldots, n\}	ok	set_expr			NotRepresentable		\{1,2,\ldots,n\}	\{1,2,\ldots,n\}	True	25.6

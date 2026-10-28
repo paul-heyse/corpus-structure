@@ -5,9 +5,9 @@
   "group": "S0 Reference annotations",
   "package": "S0-R2",
   "finalized": "2026-10-28",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "s0r2.report-2",
   "question": "Do Sonnet and Haiku reach Opus-level agreement when the conventions are written down and context is assembled by query?",
   "answers": [
     "OPEN-D4-4"

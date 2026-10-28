@@ -2123,28 +2123,28 @@
    "manual",
    "True",
    "1.01cm",
-   "1.01\\text{cm}"
+   "1.01\\text{ cm}"
   ],
   [
    "U8",
    "manual",
    "True",
    "0.003cm",
-   "0.003\\text{cm}"
+   "0.003\\text{ cm}"
   ],
   [
    "U8",
    "manual",
    "True",
    "1cm",
-   "1\\text{cm}"
+   "1\\text{ cm}"
   ],
   [
    "U8",
    "manual",
    "True",
    "0.002cm",
-   "0.002\\text{cm}"
+   "0.002\\text{ cm}"
   ]
  ],
  "symmetrized": {

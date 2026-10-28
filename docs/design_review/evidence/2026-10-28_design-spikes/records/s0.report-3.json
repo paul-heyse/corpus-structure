@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "s0.report-3",
+  "title": "S0 report (with the Sonnet runs and the input diagnosis), re-rendered after I-R2",
+  "group": "S0 Reference annotations",
+  "package": "S0-F",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [
+    "s0.report-2"
+  ],
+  "superseded_by": null,
+  "question": "Can D1's claim model and schema and guideline v0 express what the core units state, and how determinate is annotation and adjudication?",
+  "answers": [
+    "OPEN-D1-2",
+    "OPEN-D1-3",
+    "OPEN-D1-4",
+    "OPEN-D2-4",
+    "OPEN-D2-5",
+    "OPEN-D5-1",
+    "OPEN-D8-3",
+    "OPEN-D4-4",
+    "OPEN-D4-5",
+    "OPEN-D3-4",
+    "OPEN-D7-2"
+  ],
+  "method": "Report rendered from the evidence catalog (ADR-0010): figures are queries over the S0 records' outputs; prose by the root. catalog.sql extended on 2026-10-28 to read the S0-R2 comparisons too; the report re-rendered identically (input hash refreshed). Re-rendered after I-R2 (2026-10-28) from the superseding -ir2 records: comparison figures unchanged under the token form; the math-grammar sentence states the token form and the coverage rerun (87 of 92 S0 values read, the input set having grown).",
+  "commands": [
+    "just evidence catalog",
+    "just evidence render docs/design_review/evidence/2026-10-28_design-spikes/S0-report.md.j2"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "S0-report.md.j2",
+      "role": "template",
+      "sha256": "b4b59a8e51fd2268909568accb0479aa01dbb020f2733352c554954bf2697705"
+    },
+    {
+      "path": "catalog.sql",
+      "role": "catalog views",
+      "sha256": "2da72b74c7457e47f814f2cb86ef9fc9c867379160f4e319c5472da434272ac6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "S0-report.md",
+      "role": "report",
+      "sha256": "b8e3ac45317e42266596afc3c36c12fb1424e5766652c7af3722b2d8b0b01f61"
+    }
+  ],
+  "depends_on": [
+    "s0.agreement-ir2",
+    "s0.pass-scores-ir2",
+    "s0.adjudication-determinacy-ir2",
+    "s0.m13-probe-2",
+    "s0.stored",
+    "s0.gaps",
+    "s0.sizes",
+    "s0.trace-diff",
+    "s0.instruments-ir2",
+    "s0.offset-probe",
+    "s0.sonnet-scores-ir2"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The claim model fits with a few constructs missing; annotators agree on content (core 0.93) far more than on qualifiers (full 0.63); Sonnet matches Opus on content and adjudicates close to the root (0.97/0.82), and the qualifier gap of the smaller models sits at conventions the inputs do not state, so the inputs, not the models, are the next change; the packet loses nothing at a fixed model; two key rules and two scope rules to change.",
+  "consumed_by": [
+    "design-phase plan Q2",
+    "X1 fold-in",
+    "S2",
+    "S3"
+  ]
+}

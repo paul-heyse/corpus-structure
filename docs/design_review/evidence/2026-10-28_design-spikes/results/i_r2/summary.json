@@ -1,0 +1,21 @@
+{
+ "spans": 918,
+ "spans_by_page": {
+  "special/LocationScale.html": 195,
+  "special/Normal.html": 258,
+  "special/LogNormal.html": 192,
+  "special/Gamma.html": 273
+ },
+ "parsed": 881,
+ "status": {
+  "failed": 37,
+  "ok": 800,
+  "ambiguous": 81
+ },
+ "tree_token_agree": 881,
+ "tree_token_differ": 0,
+ "differ_by_cause": {},
+ "spans_with_sizing_commands": 7,
+ "spans_with_text_mode_whitespace": 3,
+ "unexpanded_at_depth_bound": []
+}

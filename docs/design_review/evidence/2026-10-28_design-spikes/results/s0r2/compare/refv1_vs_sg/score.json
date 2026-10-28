@@ -2091,15 +2091,15 @@
    "U8",
    "manual",
    "False",
-   "1.01",
-   "1.01\\text{cm}"
+   "1",
+   "1\\text{ cm}"
   ],
   [
    "U8",
    "manual",
    "False",
-   "1",
-   "1\\text{cm}"
+   "1.01",
+   "1.01\\text{ cm}"
   ]
  ]
 }

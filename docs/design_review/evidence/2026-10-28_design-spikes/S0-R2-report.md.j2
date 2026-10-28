@@ -14,7 +14,7 @@
 {%- if r.of is not none %} of {{ r.of }}{% endif -%}
 {%- endmacro %}
 {% set _ = record(F ~ 's0r2.inputs') %}{% set _ = record(F ~ 's0r2.reference-v1') %}{% set _ = record(F ~ 's0r2.pass-sv') %}
-{% set _ = record(F ~ 's0r2.pass-hv') %}{% set _ = record(F ~ 's0r2.adjudication') %}{% set _ = record(F ~ 's0r2.scores') %}
+{% set _ = record(F ~ 's0r2.pass-hv') %}{% set _ = record(F ~ 's0r2.adjudication') %}{% set _ = record(F ~ 's0r2.scores-ir2') %}
 # S0-R2 · Annotator inputs v1 — revisit report
 
 **Run:** 2026-10-28, by Claude Opus 5.5 (root) with fresh subagents for the two passes (Sonnet 5.5, Haiku 5.5)
@@ -29,8 +29,8 @@ context assembled by query, Sonnet annotating from unit packets alone agrees wit
 full tier {{ f1('refv1_vs_sv', 'full') }}, where the same model on the v0 inputs scored
 {{ f1('refv1_vs_sp', 'full') }} and the Opus passes (v0 inputs, with pages) {{ f1('refv1_vs_a', 'full') }}
 and {{ f1('refv1_vs_b', 'full') }}; before a three-item reference correction found by reading pass SV,
-Sonnet was {{ res('s0r2.scores', 'pre_correction_sv_full') }} and the Opus passes
-{{ res('s0r2.scores', 'pre_correction_a_full') }} and {{ res('s0r2.scores', 'pre_correction_b_full') }}. Haiku rises from {{ f1('refv1_vs_p', 'full') }} to
+Sonnet was {{ res('s0r2.scores-ir2', 'pre_correction_sv_full') }} and the Opus passes
+{{ res('s0r2.scores-ir2', 'pre_correction_a_full') }} and {{ res('s0r2.scores-ir2', 'pre_correction_b_full') }}. Haiku rises from {{ f1('refv1_vs_p', 'full') }} to
 {{ f1('refv1_vs_hv', 'full') }}. The two passes agree with each other on six units from pages no
 rule was written from at {{ f1('sv_vs_hv.held_out', 'full') }}, so the gain is not confined to
 the units the rules came from. Both models can do the task; what they lacked was the information.
@@ -54,15 +54,16 @@ followed v1 on most points, and the root's decisions, each with its rule, are li
 claims in T3 and U10) were added after the v1 passes were scored, when comparing pass SV showed the
 reference had missed rule 2. The figures below use the corrected reference. Because the correction
 was found by looking at a pass, the record also keeps the figures before it, which are fully fixed in
-advance: full-tier SV {{ res('s0r2.scores', 'pre_correction_sv_full') }}, HV
-{{ res('s0r2.scores', 'pre_correction_hv_full') }}, A {{ res('s0r2.scores', 'pre_correction_a_full') }},
-B {{ res('s0r2.scores', 'pre_correction_b_full') }}. Before the correction Sonnet equals the Opus
+advance: full-tier SV {{ res('s0r2.scores-ir2', 'pre_correction_sv_full') }}, HV
+{{ res('s0r2.scores-ir2', 'pre_correction_hv_full') }}, A {{ res('s0r2.scores-ir2', 'pre_correction_a_full') }},
+B {{ res('s0r2.scores-ir2', 'pre_correction_b_full') }}. Before the correction Sonnet equals the Opus
 passes; after it, Sonnet is above them (the correction adds restrictions that the Opus v0 passes,
 annotating under v0, did not write).
 
 ## Results
 
-Record [s0r2.scores](records/s0r2.scores.json). F1 with 95% bootstrap intervals over the units.
+Record [s0r2.scores-ir2](records/s0r2.scores-ir2.json). F1 with 95% bootstrap intervals over the units.
+The comparisons were rerun under D1 §6.2's token form for keys (I-R2, ADR-0012); no figure changed.
 
 ### Each pass against the v1 reference (twelve core units)
 

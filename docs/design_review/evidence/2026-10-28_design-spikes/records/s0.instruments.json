@@ -5,9 +5,9 @@
   "group": "S0 Reference annotations",
   "package": "I-A, I-B, I-R1",
   "finalized": "2026-10-28",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "s0.instruments-ir2",
   "question": "Do the validator, quote locator, value equivalence, aligner, scores and keys implement D7 §5 and ADR-0009?",
   "answers": [
     "D7 §5",

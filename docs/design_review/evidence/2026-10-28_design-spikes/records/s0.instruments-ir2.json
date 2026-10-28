@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "id": "s0.instruments-ir2",
+  "title": "Comparison instruments, review and math grammar, with the token form for keys (I-R2)",
+  "group": "S0 Reference annotations",
+  "package": "I-A, I-B, I-R1, I-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [
+    "s0.instruments"
+  ],
+  "superseded_by": null,
+  "question": "Do the validator, quote locator, value equivalence, aligner, scores and keys implement D7 §5 and ADR-0009? Do they key every math value by D1 §6.2's token form (ADR-0012), and what moves when they do?",
+  "answers": [
+    "D7 §5",
+    "D4 §4.3",
+    "D1 §6.2",
+    "ADR-0012",
+    "OPEN-D7-2"
+  ],
+  "method": "Worker-built instruments, independent implementation review (F1–F5 fixed), hand alignment against the trace diff, math-grammar coverage. I-R2 (2026-10-28): mathgrammar.printer realizes D1 §6.2's token form (TeX tokenizer with no * in control words; one declared drop list, SymPy 1.14.0's latex.lark %ignore literals plus the 16 sizing commands, from which build generates the grammar's sizing %ignore and against which it checks every %ignore; text-mode whitespace collapsed to one space; one outer \\(…\\), \\[…\\] or math-environment pair removed, not $; macro depth 16), api.canonical and values.canonical_latex return it for every value, and the tree printer is checked against it (api.tree_token_agreement) over every math span of the four spike pages. The key forms of every batch value are compared with the instruments at 35ea59a (code/i_r2_key_diff.py); the nine root manual-decision keys written in the old spelling were rewritten to the token form (code/i_r2_migrate_manual.py; no decision or reason changed). Math-grammar coverage rerun: its S0 value set grew from 86 to 92 because the Sonnet passes' stored sets (pass_sg, pass_sp) were added after the I-R1 coverage run; the pre-I-R2 grammar gives the same 92 values and statuses, so the change is the input set, not I-R2. Runs after the spike venv was checked against its lock (uv sync --locked --check, 2026-10-28 15:42).",
+  "commands": [
+    "cd code/tests_instruments && UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python run_all.py --logs",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/mathgrammar/coverage.py --per-page 10",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/i_r2_token_form.py",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/i_r2_key_diff.py --before 35ea59a",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/i_r2_migrate_manual.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (instruments)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    },
+    {
+      "role": "implementation reviewer",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    },
+    {
+      "role": "executor (I-R2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/mathgrammar",
+      "role": "math reader and token form",
+      "sha256": "9e5fee61fdc97c016f348b4ae4691294d3d18cd418f4b6b9065c2a12ff275492"
+    },
+    {
+      "path": "code/instruments",
+      "role": "instruments",
+      "sha256": "710c293a289db97d302a7349021d738f559a7e473279affaee389d02e51b3e71"
+    },
+    {
+      "path": "code/tests_instruments",
+      "role": "tests",
+      "sha256": "614ae813251fc2f387a1f37cf7b13b7e72665407de27d5c82c97c75a5ed48b9c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/instruments_tests.md",
+      "role": null,
+      "sha256": "5c579ce8f6ba81f49bffb7af7b91879e1c4b12a11458955a2338624a9c80c4ea"
+    },
+    {
+      "path": "results/s0/aligner_verification.md",
+      "role": null,
+      "sha256": "b92ed1ed4ebb4e9f3a68cd5f5ab724794a5cafb8ffbd380524537e5be60d2b3d"
+    },
+    {
+      "path": "results/mathgrammar",
+      "role": null,
+      "sha256": "75ee220afcc2f631dc1e59a28e50198a77cd6d1103316a01bfe3bcaf4a1a8ac9"
+    },
+    {
+      "path": "results/i_r2/tree_token_property.tsv",
+      "role": "tree/token property, corpus layer",
+      "sha256": "3d6c51cdfd734f6d4eb87d02db15cf5406c2130a74629218a29fb281ff3ed068"
+    },
+    {
+      "path": "results/i_r2/summary.json",
+      "role": "property counts",
+      "sha256": "ace4c468349d951662f0b19a815bc752b1c9d13377fad3f81d3647385097ab5a"
+    },
+    {
+      "path": "results/i_r2/key_form_diff.tsv",
+      "role": "key forms moved",
+      "sha256": "0f32a02d2c190d61f20d5320c37c00b55ba6964dc757051fe0a4d7c4058fbf95"
+    },
+    {
+      "path": "results/i_r2/key_form_diff.json",
+      "role": "key forms moved (counts)",
+      "sha256": "389dc85cb373b4f5f7a9e3d2d67d2e83d67aa746ada4a2d51fb1a0f3fda0c617"
+    },
+    {
+      "path": "results/s0/manual_equivalence.tsv",
+      "role": "manual value decisions (keys migrated)",
+      "sha256": "a75b8602b079bc6302ec860c029c9da360bf22b61ab6d9b1a0435d9230910bca"
+    }
+  ],
+  "depends_on": [
+    "s0.trace-diff",
+    "parse.lark-probe",
+    "parse.regex-probe",
+    "e4.env-cpu"
+  ],
+  "results": [
+    {
+      "name": "tests_passed",
+      "value": 79,
+      "of": null,
+      "unit": null,
+      "note": "75 at I-R1; 4 added for the token-form rules, metamorphic layer, tree/token property and generated %ignore"
+    },
+    {
+      "name": "grammar_values_read",
+      "value": 87,
+      "of": 92,
+      "unit": null,
+      "note": "86 of 86 at I-R1; the input set grew (pass_sg, pass_sp); the 5 not read are text in math (N \\text{ cm} x4, \\text{the constant})"
+    },
+    {
+      "name": "grammar_spans_ok",
+      "value": 976,
+      "of": 1532,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "hand_alignment_agreement",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "spike_page_spans_tree_token_agree",
+      "value": 881,
+      "of": 881,
+      "unit": null,
+      "note": "parsed spans of 918 on the four spike pages; 4 differed (at \\big/) before I-R2"
+    },
+    {
+      "name": "key_forms_moved",
+      "value": 5,
+      "of": 219,
+      "unit": null,
+      "note": "distinct batch values and symbols; all text-mode whitespace"
+    },
+    {
+      "name": "manual_keys_migrated",
+      "value": 9,
+      "of": null,
+      "unit": null,
+      "note": "no decision changed"
+    },
+    {
+      "name": "unexpanded_at_depth_bound",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The aligner reproduces the hand classification; keys are now the token form for every value, the tree printer agrees with it on all 881 parsed spike-page spans, and only 5 text-mode-whitespace values change form; with the manual decision keys migrated, every S0 and S0-R2 comparison reproduces its figures.",
+  "consumed_by": [
+    "S0-G",
+    "S0 report",
+    "S0-R2 report",
+    "P0-F-2a",
+    "S5"
+  ]
+}

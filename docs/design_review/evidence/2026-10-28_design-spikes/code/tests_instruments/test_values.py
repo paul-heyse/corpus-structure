@@ -30,12 +30,63 @@ class TestCanonical(unittest.TestCase):
         self.assertEqual(canonical_latex("a\\;+\\!b"), "a+b")
         self.assertEqual(canonical_latex("e^{\\mu}"), "e^\\mu")
         self.assertEqual(canonical_latex("\\(x\\)"), "x")
-        self.assertEqual(canonical_latex("$x$"), "x")
+        self.assertEqual(canonical_latex("\\[ x \\]"), "x")
+        # D1 §6.2: $ is not one of the delimiters removed (I-R2)
+        self.assertEqual(canonical_latex("$x$"), "$x$")
         # a control word keeps the separator TeX needs, so \mu x and \mux stay distinct
         self.assertEqual(canonical_latex("\\mu  x"), "\\mu x")
         self.assertNotEqual(canonical_latex("\\mu x"), canonical_latex("\\mux"))
         # \{ \} are control symbols, not group braces
         self.assertEqual(canonical_latex("\\R \\setminus \\{0\\}"), "\\mathbb R\\setminus\\{0\\}")
+
+    def test_token_form_rules_i_r2(self):
+        """D1 §6.2 token-form rules settled by I-R2 (written from the design, not read back)."""
+        # sizing commands are on the drop list
+        self.assertEqual(canonical_latex("a \\big/ b"), "a/b")
+        self.assertEqual(canonical_latex("\\Bigl( x \\Bigr)"), "(x)")
+        self.assertEqual(canonical_latex("\\biggm| x"), "|x")
+        # a sizing name is matched whole: \bigcup is not \big + cup
+        self.assertEqual(canonical_latex("A \\bigcup B"), "A\\bigcup B")
+        # a * is never part of a control word: \cmd* is \cmd then *
+        self.assertEqual(V.MG.printer.tex_tokens("\\operatorname*{max}"), ["\\operatorname", "*", "{", "m", "a", "x", "}"])
+        # text-mode arguments keep one space per whitespace run
+        self.assertEqual(canonical_latex("x \\text{ for all } y"), "x\\text{ for all }y")
+        self.assertEqual(canonical_latex("\\text{for   all}"), "\\text{for all}")
+        self.assertEqual(canonical_latex("1 \\text{ cm}"), "1\\text{ cm}")
+        self.assertNotEqual(canonical_latex("\\text{for all}"), canonical_latex("\\text{forall}"))
+        self.assertEqual(canonical_latex("\\mathrm{a  b}"), "\\mathrm{a b}")
+        self.assertEqual(canonical_latex("\\mbox{ }x"), "\\mbox{ }x")
+        # one outer pair: an inline and a displayed formula key alike; inner delimiters stay
+        self.assertEqual(canonical_latex("\\begin{align} a &= b \\end{align}"), "a&=b")
+        self.assertEqual(canonical_latex("\\begin{align*} a \\end{align*}"), canonical_latex("\\(a\\)"))
+        self.assertEqual(canonical_latex("\\begin{cases} a \\end{cases}"), "\\begin{cases}a\\end{cases}")
+        # a \) inside: not one outer pair, so nothing is stripped (\( is on the drop list, \) is not)
+        self.assertEqual(canonical_latex("\\(\\(x\\)\\)"), "x\\)\\)")
+        self.assertEqual(canonical_latex("\\(a\\) + \\(b\\)"), "a\\)+b\\)")  # \( on the drop list, \) not
+        # macro expansion is bounded at depth 16; the unexpanded token is kept and reported
+        loop = {"\\loop": {"nargs": 0, "body": "x\\loop"}}
+        V.UNEXPANDED.clear()
+        self.assertEqual(canonical_latex("\\loop", loop), "x" * 16 + "\\loop")
+        self.assertEqual(V.UNEXPANDED, [("\\loop", ["\\loop"])])
+        chain = {f"\\m{chr(97 + i)}": {"nargs": 0, "body": f"\\m{chr(98 + i)}"} for i in range(15)}
+        self.assertEqual(canonical_latex("\\ma", chain), "\\mp")  # 15 nested expansions: within the bound
+
+    def test_token_form_metamorphic(self):
+        """D1 §6.2 metamorphic layer: invariances of the token form alone (no grammar)."""
+        base = "a + b X_1^2 - \\frac{c}{d} \\sigma(x) \\in \\R"
+        want = canonical_latex(base)
+        for variant in ("a \\, + b X_1^2 - \\frac{c}{d} \\sigma(x) \\in \\R",
+                        "a + \\; b X_1^{2} - \\frac{c}{d} \\sigma(x) \\in \\R",
+                        "a + b\\! X_{1}^2 - \\frac c d \\sigma(x) \\in \\R",
+                        "a + b X_1^2 - \\frac{c}{d} \\sigma\\big(x\\big) \\in \\R",
+                        "a+bX_1^2-\\frac{c}{d}\\sigma(x)\\in\\R",
+                        "  a   +   b X_1 ^ 2 - \\frac { c } { d } \\sigma ( x ) \\in \\R  ",
+                        "{a} + b {X}_1^2 - \\frac{c}{d} \\sigma(x) \\in \\R"):
+            with self.subTest(variant):
+                self.assertEqual(canonical_latex(variant), want)
+        self.assertNotEqual(canonical_latex("\\P"), canonical_latex("\\Phi"))
+        self.assertNotEqual(canonical_latex("\\Phi"), "\\mathbb Phi")  # \P never expands inside \Phi
+        self.assertNotEqual(canonical_latex("\\mu x"), canonical_latex("\\mux"))
 
     def test_macros_page_over_fallback(self):
         self.assertEqual(canonical_latex("\\R"), "\\mathbb R")  # D2 §12.1 fallback

@@ -13,6 +13,7 @@ instruments). Claims below are **Tested** on synthetic and S1 text unless marked
 
 | Command (from `code/tests_instruments/`) | Outcome |
 |---|---|
+| `UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python run_all.py --logs` (I-R2, 2026-10-28) | **passed**: 79 tests, after the token-form revision (section "Token form for keys (I-R2)"); the I-R1 run below |
 | `UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python run_all.py --logs` | **passed**: 75 tests (41 invalid-batch cases, 21 planted locator cases, 8 cascade kinds and the probe reproduction run as subtests), exit 0, 2026-10-28, after I-R1 (earlier runs: 40, then 50 tests after the review fixes, passed) |
 | `… uv run python -m unittest test_locate_real` (S1 canonical text, `provisional` sentences) | **passed**: 11 real-text cases, 2026-10-28 (rerun after I-R1) |
 | `… uv run python code/mathgrammar/coverage.py --per-page 10` (from the evidence folder) | **passed** (ran to completion): figures in "Math grammar" below and `results/mathgrammar/` |
@@ -202,7 +203,7 @@ Symmetrized T2 swap agreement 0.6 in both directions.
 | `extent: statement` | Binding statement = the statement of the earliest-evidenced claim mentioning the entity (subject, object, entity qualifier, `variable`/`family_param` binding, `pred` argument); else the batch's only statement; else reported. Its anchor keys → one segment via the caller's `statement_scope` |
 | `extent: section` | `section_of(earliest evidence start of those claims)` |
 | Stored `scope` qualifier | `{extent, segment}` (D1 §5.2); `section` → section of the claim's first evidence, `statement` → statement scope, `document` → document key |
-| Canonical LaTeX | D1 §6.2, printed from the math grammar's tree (`mathgrammar.canonical`): leaves in order, macros expanded from the table, what the grammar ignores dropped (spacing commands, `\left`/`\right`, `\quad`, whitespace, …), braces around single tokens dropped; a space is kept after a control word followed by a letter (`\mu x` ≠ `\mux`). Values that do not parse get the same normalization on their tokens. On all 86 S0 values the output equals the pre-I-R1 form, so keys do not move |
+| Canonical LaTeX | **Superseded by I-R2** (keys are the token form; section "Token form for keys (I-R2)"). Was: D1 §6.2, printed from the math grammar's tree (`mathgrammar.canonical`): leaves in order, macros expanded from the table, what the grammar ignores dropped (spacing commands, `\left`/`\right`, `\quad`, whitespace, …), braces around single tokens dropped; a space is kept after a control word followed by a letter (`\mu x` ≠ `\mux`). Values that do not parse get the same normalization on their tokens. On all 86 S0 values the output equals the pre-I-R1 form, so keys do not move |
 | Numbers | pint 0.26.2 (in the spike env since `de5bd4c`) converts to base units; its float factors are rounded to 15 significant digits so canonical strings carry no float noise. The fallback table (m, cm, mm, km, in, ft, kg, g, s, min, h, %) applies only when pint is absent or does not know the unit; an unknown unit is kept as written with factor 1 |
 | SymPy tier (I-R1) | The value read by the math grammar under its slot's kind (formula: `formula`, then `relation`, then `member`; set: `set_expr`), converted by `mathgrammar.to_sympy`; the shim is gone. The formula's binding-map symbols are declared variables. Ambiguous, unparsed and unrepresentable values go to manual, each logged once in `PARSE_LOG` with status and reason. `simplify(a − b) == 0` → equal; nonzero constant → unequal; equations compared as `lhs − rhs` up to sign; `e` → E, `\pi` → π; memberships and chains compare by SymPy equality, else manual |
 | Function application | Through the grammar's ambiguity rules: `symbol(...)` is an application only for a declared function (`\Gamma`, the gamma function, by default; or a definition `g(x) = …` in the same value) and a product only when every such symbol is a declared variable (binding map); otherwise ambiguous → manual. Operators from the macro table (`\E(X)`, `\var(X)`) are undefined SymPy functions, never ambiguous |
@@ -247,7 +248,7 @@ to S5 are in `results/mathgrammar/README.md`.
 | Ambiguity | Explicit; resolved only from declared context: `symbol(…)` is an application for a declared function (`\Gamma` by default; `context["functions"]`; a definition `g(x) = …` in the same value) and a product only when every such symbol is a declared variable (`context["variables"]`: the binding map); readings with identical SymPy values are one (associativity); under `any_value` a lone symbol is a formula (a named set needs a set position) and `a, b \in S` is the membership of every element (standard convention; both noted); a bare `(a, b)` under `any_value` is ambiguous (interval or pair); `F^{-1}(p)` with undeclared F is ambiguous (inverse notation the grammar would read as a product); anything else ambiguous is reported, never picked |
 | Status | `ok`; `ambiguous`; `partial` (read only after dropping trailing `.`, `,`, `;`); `failed` with `{error, pos, at, category}`. Category: the offending command first (`\lim`/`\to` limit-arrow, `\int` integral-bounds, `\sum`/`\prod` sum-bounds, `\begin` environment, `\text` text-in-math, `\Rightarrow`-type unsupported-relation, else unknown-command), `UnexpectedInput.match_examples` otherwise (with Earley, an error where an expression is expected shares its parser state with most examples, so `match_examples` alone labelled `\begin{cases}` "limit-arrow"; caught by a test) |
 | Occurrences (M13) | From token positions: `Occurrence(name, base, sub, sup, start, end, constant, in_subscript_of)`; a subscript's own symbols are occurrences too (`X_1` inside `\sigma_{X_1}`); `e` and `\pi` flagged constant; operator names and `\text` words are not symbols. `occurrences_in_span(text, start, end, macros)` gives offsets into canonical text |
-| Canonical form | Printed from the tree's leaves (see Decisions, "Canonical LaTeX"); the token form is the fallback for unread values, with the same rules, so a value's canonical form does not change when the grammar learns to read it |
+| Canonical form | I-R2: the token form for every value (`mathgrammar.canonical`, `printer.token_form`); the tree printer (`printer.tree_canonical`) serves validation and symbol names and is checked against it (`api.tree_token_agreement`). Before I-R2: printed from the tree's leaves, the token form only for unread values |
 | Validator slot check | A formula, set or condition-operand value must read under its slot's kind: read only as another kind → `type_mismatch` / `slot_kind` (a set in a Formula slot, a relation where a formula belongs, a formula as a member's set); a number followed by letters that pint knows as a unit (≥ 2 letters: `1 cm`) → `type_mismatch` / `bare_unit_formula` (single letters such as `2 x` are not flagged); not read under any kind → `ValidationReport.notes` (coverage is not the annotator's fault) |
 
 Defects found while building I-R1 and fixed: the quote pattern's greedy joiner swallowed a
@@ -255,6 +256,53 @@ closing `\)` and the following space, and an optional leading delimiter let a ma
 space (planted locator tests); `match_examples` mislabelled errors (above); the lone-symbol,
 `a, b \in S` and `g(x) = …` rules were added after the first coverage run showed 364 ambiguous
 spans dominated by them (now 256, of which 222 are undeclared application-or-product).
+
+## Token form for keys (I-R2, ADR-0012)
+
+**2026-10-28.** Keys and tier-1 comparison use D1 §6.2's token form for every value, never the
+tree (ADR-0012 and its amendment). `code/mathgrammar/printer.py`:
+
+| Rule (D1 §6.2) | Realization |
+|---|---|
+| One outer pair of delimiters | `strip_outer`: `\(…\)`, `\[…\]`, or `\begin{env}…\end{env}` for an environment that opens math mode (`MATH_ENVIRONMENTS`: equation, align, alignat, flalign, gather, multline, eqnarray and their starred forms, displaymath, math); never `$`; an inner `cases`/`aligned` stays. The parser's own input stripping (`strip_delimiters`) is unchanged (reading, not keys) |
+| TeX tokens | `TEX_TOKEN = \\[A-Za-z]+ \| \\. \| .`: a `*` is never part of a control word (`\operatorname*` is two tokens) |
+| One declared drop list | `DROP_LIST` = `SYMPY_IGNORE_LITERALS` (every `%ignore` literal of SymPy 1.14.0's `latex.lark` lines 3–11, in file order) + `SIZING_COMMANDS` (`\big \Big \bigg \Bigg` with `l`/`r`/`m`, 16). `build.drop_list_ignores` generates the grammar's sizing `%ignore` from it (one whole-name terminal; the hand-written line in `extension.lark` is gone) and `build.check_ignores` refuses an assembled grammar with an `%ignore` the list does not cover, or a shipped literal set that differs from the declared one |
+| Text-mode arguments | `\text \mathrm \textrm \mbox \operatorname`: each whitespace run in the argument becomes one space; a group holding only a space keeps its braces |
+| Macro depth 16 | `expand`: a macro met at nesting depth 16 is kept unexpanded and reported (`token_form` returns the list; `values.UNEXPANDED` collects them). None occurs in the spike data |
+| Effective macro table | page macros over the D2 §12.1 fallback (`values.merged_macros`, as before), as `printer.macro_table` |
+
+Macro arguments are substituted as a group (`#1` → `{…}`, braces then dropped around a single
+token), as before; no spike-page macro takes arguments.
+
+**What moved** (`results/i_r2/key_form_diff.tsv`, `code/i_r2_key_diff.py` against `35ea59a`):
+5 of 219 distinct batch values and symbols, all text-mode whitespace: `\text{the constant}` and
+`0.002`, `0.003`, `1`, `1.01` followed by `\text{ cm}` (was `\text{theconstant}`, `…\text{cm}`). No
+batch value contains a sizing command, a starred command, `$` or an environment. Nine keys of the
+root's manual decisions (`results/s0/manual_equivalence.tsv`) were written in the old spelling and
+no longer found their pairs (two decisions per affected comparison went to `pending`); they were
+rewritten to the token form by `code/i_r2_migrate_manual.py`, no decision or reason changed.
+With that, every S0 and S0-R2 comparison reproduces its figures; only the logged value strings
+of those pairs change (records `*-ir2`).
+
+**Tree/token property, corpus layer** (`results/i_r2/tree_token_property.tsv`, `summary.json`,
+`code/i_r2_token_form.py`): on the four spike pages, 918 math spans, 881 parse, and the tree
+printer equals the token form on all 881 (before I-R2: 4 differed, at `\big/`). 7 spans hold
+sizing commands, 3 hold text-mode whitespace (none of them parses). The metamorphic layer is in
+`test_values.TestCanonical.test_token_form_metamorphic`; the rule cases in
+`test_token_form_rules_i_r2`; the generated `%ignore` in
+`test_mathgrammar.TestCanonicalAndOccurrences.test_grammar_ignores_come_from_the_drop_list`.
+
+**Coverage rerun** (`results/mathgrammar/`, 2026-10-28): S0 batch values 87 of 92 read under
+their declared kind (formula 71 of 76, set 16 of 16), against 86 of 86 at I-R1. The input set grew:
+`coverage.py` reads every `results/s0/stored/pass_*`, and the Sonnet passes' stored sets
+(`pass_sg`, `pass_sp`) were added after the I-R1 coverage run; the pre-I-R2 grammar gives the same
+92 values and statuses. The 5 not read are text in math (`N \text{ cm}` ×4, `\text{the constant}`;
+categories `incomplete`, `unexpected-token`). The 1,532-span corpus sample is unchanged (976 ok,
+256 ambiguous, 1 partial, 299 failed). Against the pre-I-R1 forms (`canonical_9223fb3`), 87 of 92
+values have the same canonical form; the 5 that differ are the text-mode-whitespace values above.
+
+**Parity file** for the product's `core/tex.py` (P0-F-2a): `results/i_r2/token_form_spike_pages.jsonl`
+(record `i-r2.token-form-parity`).
 
 ## Ambiguities and contradictions found in the design
 

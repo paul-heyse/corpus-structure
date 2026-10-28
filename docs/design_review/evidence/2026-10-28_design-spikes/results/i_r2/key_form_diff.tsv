@@ -1,0 +1,6 @@
+unit	kind	value	form_before	form_after
+U7	latex	\text{the constant}	\text{theconstant}	\text{the constant}
+U8	latex	0.002 \text{ cm}	0.002\text{cm}	0.002\text{ cm}
+U8	latex	0.003 \text{ cm}	0.003\text{cm}	0.003\text{ cm}
+U8	latex	1 \text{ cm}	1\text{cm}	1\text{ cm}
+U8	latex	1.01 \text{ cm}	1.01\text{cm}	1.01\text{ cm}

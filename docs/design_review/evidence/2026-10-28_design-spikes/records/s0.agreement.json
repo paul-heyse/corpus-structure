@@ -5,9 +5,9 @@
   "group": "S0 Reference annotations",
   "package": "S0-D, S0-G",
   "finalized": "2026-10-28",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "s0.agreement-ir2",
   "question": "How determinate is guideline v0: do two blind Opus passes produce the same claims, at which tier, and do their claim keys agree?",
   "answers": [
     "D7 §3.3",

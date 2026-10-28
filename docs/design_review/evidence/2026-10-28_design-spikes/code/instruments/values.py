@@ -2,7 +2,7 @@
 
 Tiers, recorded per comparison (evidence for OPEN-D7-2):
 
-1. ``canonical``: D1 §6.2 canonical form (normalized LaTeX; numbers in base units; text NFC
+1. ``canonical``: D1 §6.2 canonical form (math by the token form; numbers in base units; text NFC
    casefolded). The same function feeds ``keys``, so key agreement and tier-1 equality agree.
 2. ``sympy``: the value read by the math grammar (``code/mathgrammar``, ADR-0009) under its
    declared kind and converted by ``mathgrammar.to_sympy``; ``simplify(a - b) == 0`` under a
@@ -20,9 +20,9 @@ or bounded by numeric bounds from ``member`` sets and ``symbol <rel> number`` le
 ``math.isclose(rel_tol=1e-9, abs_tol=1e-12)``; at least 6 distinct valid points to decide,
 otherwise manual. Relations (``x < 1``) compare as relations (kind ``relation``).
 
-Reading math has one authority, the math grammar: tier-1 canonical forms are printed from its
-tree (``mathgrammar.canonical``; token normalization only for values that do not parse), tier 2
-converts its tree. A value that does not parse, is ambiguous (``\\Phi(x)``: application or
+Reading math has one authority, the math grammar, which tier 2 converts; tier-1 canonical forms
+and keys are the token form (``mathgrammar.token_form``, D1 §6.2, ADR-0012) for every value, over
+the effective macro table (page macros over the D2 §12.1 fallback), whether or not it parses. A value that does not parse, is ambiguous (``\\Phi(x)``: application or
 product, undeclared) or has no SymPy value (``\\pm``, ellipses) goes to manual; ``PARSE_LOG``
 records each such value with the grammar's status and reason. Symbols listed in a formula's
 binding map are declared variables, which lets the grammar read ``a(b + c)`` as a product.
@@ -95,9 +95,26 @@ def math_parse(latex: str, kind: str = "any_value", macros: dict | None = None, 
     return MG.parse(latex, kind, macros=merged_macros(macros), context=ctx)
 
 
+_TOKEN_CACHE: dict[tuple[str, str], str] = {}
+# (latex, macro tokens kept unexpanded at the depth bound): D1 §6.2 reports them
+UNEXPANDED: list[tuple[str, list[str]]] = []
+
+
+def effective_macros(page_macros: dict | None) -> dict[str, tuple[int, str]]:
+    """The effective macro table (page over the D2 §12.1 fallback) as name -> (nargs, body)."""
+    return MG.macro_table(merged_macros(page_macros))
+
+
 def canonical_latex(latex: str, macros: dict | None = None) -> str:
-    """D1 §6.2 canonical LaTeX, printed from the grammar's tree (token form when unparsed)."""
-    return MG.canonical(math_parse(latex, "any_value", macros))
+    """D1 §6.2 canonical LaTeX: the token form over the effective macro table, for every value."""
+    ck = (latex, repr(sorted((macros or {}).items())))
+    hit = _TOKEN_CACHE.get(ck)
+    if hit is None:
+        hit, unexpanded = MG.token_form(latex, effective_macros(macros))
+        if unexpanded:
+            UNEXPANDED.append((latex, unexpanded))
+        _TOKEN_CACHE[ck] = hit
+    return hit
 
 
 def canonical_symbol(symbol: str | None, macros: dict | None = None) -> str | None:

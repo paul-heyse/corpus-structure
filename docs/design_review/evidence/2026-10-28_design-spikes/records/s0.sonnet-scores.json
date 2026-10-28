@@ -5,9 +5,9 @@
   "group": "S0 Reference annotations",
   "package": "S0-E, S0-G",
   "finalized": "2026-10-28",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "s0.sonnet-scores-ir2",
   "question": "Is Sonnet 5.5 closer than Haiku 5.5 to the Opus passes and the reference, as annotator and as adjudicator?",
   "answers": [
     "OPEN-D4-4",

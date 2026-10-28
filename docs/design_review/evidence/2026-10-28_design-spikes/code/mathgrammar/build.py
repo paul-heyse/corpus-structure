@@ -4,7 +4,11 @@ grammar = SymPy's shipped latex.lark (read unedited from the installed package, 
 LarkLaTeXParser does)
         + generated whole-name overrides of SymPy's command terminals
         + extension.lark (ours)
+        + the %ignore of the drop-list commands the shipped grammar lacks (printer.DROP_LIST)
         + a block generated from the rendition's macro table (GEN_SET, GEN_OP, GEN_STYLE).
+
+Building fails if an %ignore of the assembled grammar is not covered by the drop list (or the
+whitespace rule), so the grammar and the token form never drop different sets (D1 §6.2).
 
 One Earley parser is built per macro-table classification and cached (construction is costly).
 """
@@ -144,9 +148,59 @@ def generated_block(mc: MacroClass) -> str:
     )
 
 
+_WHITESPACE_IGNORE = "/[ \\t\\n\\r]+/"  # shipped line 1; the token form removes whitespace itself (rule 5)
+
+
+def _shipped_literals(text: str) -> list[str]:
+    out = []
+    for line in text.splitlines():
+        if line.startswith("%ignore"):
+            out += ["\\" + m for m in re.findall(r'"\\\\([^"]+)"', line)]
+    return out
+
+
+@lru_cache(maxsize=1)
+def drop_list_ignores() -> str:
+    """``%ignore`` for the drop-list commands the shipped grammar does not already ignore,
+    as one whole-name terminal (``\\big`` never matches inside ``\\bigcup``)."""
+    from .printer import DROP_LIST
+
+    shipped = set(_shipped_literals(BASE_GRAMMAR.read_text(encoding="utf-8")))
+    extra = [c for c in DROP_LIST if c not in shipped]
+    if any(not re.fullmatch(r"\\[A-Za-z]+", c) for c in extra):
+        raise ValueError(f"drop-list additions must be control words: {extra}")
+    return "%ignore " + _alt(extra) + "\n"
+
+
+def check_ignores(text: str) -> None:
+    """Every %ignore of the assembled grammar is on the drop list (literals), is the shipped
+    whitespace rule, or is the generated drop-list terminal; the shipped literals equal
+    printer.SYMPY_IGNORE_LITERALS."""
+    from .printer import DROP, SYMPY_IGNORE_LITERALS
+
+    shipped = _shipped_literals(BASE_GRAMMAR.read_text(encoding="utf-8"))
+    if tuple(shipped) != SYMPY_IGNORE_LITERALS:
+        raise ValueError(f"SymPy's %ignore literals changed: {shipped}")
+    generated = drop_list_ignores().strip()
+    for line in text.splitlines():
+        if not line.startswith("%ignore"):
+            continue
+        body = line[len("%ignore"):].strip()
+        if line.strip() == generated or body == _WHITESPACE_IGNORE:
+            continue
+        lits = re.findall(r'"\\\\([^"]+)"', body)
+        rest = re.sub(r'"\\\\[^"]+"|\|', "", body).strip()
+        if rest or not lits or any("\\" + x not in DROP for x in lits):
+            raise ValueError(f"%ignore not covered by the drop list: {line}")
+
+
 def grammar_text(mc: MacroClass) -> str:
-    return (BASE_GRAMMAR.read_text(encoding="utf-8") + "\n// ---- whole-name overrides of the shipped command terminals\n"
-            + whole_name_overrides() + EXTENSION.read_text(encoding="utf-8") + "\n" + generated_block(mc))
+    text = (BASE_GRAMMAR.read_text(encoding="utf-8") + "\n// ---- whole-name overrides of the shipped command terminals\n"
+            + whole_name_overrides() + EXTENSION.read_text(encoding="utf-8")
+            + "\n// ---- generated from the token form's drop list (printer.DROP_LIST)\n" + drop_list_ignores()
+            + "\n" + generated_block(mc))
+    check_ignores(text)
+    return text
 
 
 _PARSERS: dict[str, lark.Lark] = {}

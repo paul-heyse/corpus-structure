@@ -5,9 +5,9 @@
   "group": "S0 Reference annotations",
   "package": "S0-D, S0-G",
   "finalized": "2026-10-28",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "s0.adjudication-determinacy-ir2",
   "question": "Is adjudication determinate under guideline v0 (D7 §3.4)?",
   "answers": [
     "D7 §3.4"

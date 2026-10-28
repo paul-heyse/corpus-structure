@@ -5,9 +5,9 @@
   "group": "S0 Reference annotations",
   "package": "S0-R2",
   "finalized": "2026-10-28",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "s0r2.scores-ir2",
   "question": "Do inputs v1 raise agreement for Sonnet and Haiku, and does the rise hold on units no rule was written from?",
   "answers": [
     "OPEN-D4-4",

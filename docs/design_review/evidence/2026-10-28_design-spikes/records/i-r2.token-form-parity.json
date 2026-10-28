@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "i-r2.token-form-parity",
+  "title": "Token form of every math span of the four spike pages (parity file for core/tex.py)",
+  "group": "Token form (ADR-0012)",
+  "package": "I-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What is D1 §6.2's token form of each math span of the spike pages under its rendition's effective macro table, as a fixture the product's core/tex.py must reproduce?",
+  "answers": [
+    "D1 §6.2",
+    "ADR-0012"
+  ],
+  "method": "code/i_r2_token_form.py over the S1 renditions (results/s1/canonical, segments): one row per math_inline or math_display span with its canonical-text slice including delimiters, the effective macro table (page macros over the D2 §12.1 fallback), and mathgrammar.token_form's output. Math environments counted as outer delimiters: equation, align, alignat, flalign, gather, multline, eqnarray (and starred forms), displaymath, math (adopted for core/tex.py, operator ruling 2026-10-28). Macro arguments are substituted as a group; no spike-page macro takes arguments.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/i_r2_token_form.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (I-R2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s1/canonical",
+      "role": "renditions",
+      "sha256": "8c5d52ad0ecdfc3eed2ada6ceda308f4ac8469741781476c1bc8c2070ebd8ed5"
+    },
+    {
+      "path": "results/s1/segments",
+      "role": "math spans",
+      "sha256": "15347e8f907cebd26891ac425248429ed1006c42a0bfc03ba5cd31e8f5d43ffb"
+    },
+    {
+      "path": "results/s1/renditions.json",
+      "role": "page macro tables",
+      "sha256": "aa75c9c0af1039f5360bc81639cd63de6b1a5c2c68d9a7b4a4b89fe83c60a884"
+    },
+    {
+      "path": "code/mathgrammar/printer.py",
+      "role": "token form",
+      "sha256": "6970f5b3565a780d13d8a1608a2ff636699e8e174cd3238fb9c605d0eee43377"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/i_r2/token_form_spike_pages.jsonl",
+      "role": "parity fixture",
+      "sha256": "6ef886422275a5098c7dcae6757403539827850a450719e960ace7ab639ee9bf"
+    }
+  ],
+  "depends_on": [
+    "s1.adapter",
+    "s0.instruments-ir2"
+  ],
+  "results": [
+    {
+      "name": "spans",
+      "value": 918,
+      "of": null,
+      "unit": null,
+      "note": "LocationScale 195, Normal 258, LogNormal 192, Gamma 273"
+    },
+    {
+      "name": "spans_with_sizing_commands",
+      "value": 7,
+      "of": 918,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "spans_with_text_mode_whitespace",
+      "value": 3,
+      "of": 918,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unexpanded_at_depth_bound",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "918 rows of (page, offsets, LaTeX, effective macro table, token form); the product's core/tex.py must reproduce every token_form (copied with provenance to fixtures/tex/token_form_spike_pages.jsonl).",
+  "consumed_by": [
+    "P0-F-2a"
+  ]
+}

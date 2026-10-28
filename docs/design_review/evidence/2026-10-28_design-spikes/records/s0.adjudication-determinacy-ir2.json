@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "id": "s0.adjudication-determinacy-ir2",
+  "title": "Root adjudication against the D7 adjudicator session",
+  "group": "S0 Reference annotations",
+  "package": "S0-D, S0-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [
+    "s0.adjudication-determinacy"
+  ],
+  "superseded_by": null,
+  "question": "Is adjudication determinate under guideline v0 (D7 §3.4)?",
+  "answers": [
+    "D7 §3.4"
+  ],
+  "method": "The root's reference aligned with the Haiku D7 adjudicator's batches, symmetrized. I-R2 (2026-10-28): rerun with the instruments revised to D1 §6.2's token form for keys (ADR-0012); the nine keys of results/s0/manual_equivalence.tsv written in the old spelling (text-mode whitespace removed) were rewritten to the token form by code/i_r2_migrate_manual.py, no decision or reason changed.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/reference results/s0/stored/adjudication_d7 ref_vs_d7 --symmetric"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/s0/manual_equivalence.tsv",
+      "role": "manual value decisions (token-form keys)",
+      "sha256": "a75b8602b079bc6302ec860c029c9da360bf22b61ab6d9b1a0435d9230910bca"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/compare/ref_vs_d7",
+      "role": null,
+      "sha256": "17fd47574390f40752bca3d6f132d4008f6435011e5a97a587f10602401e9d85"
+    }
+  ],
+  "depends_on": [
+    "s0.stored",
+    "s0.instruments-ir2"
+  ],
+  "results": [
+    {
+      "name": "core_f1",
+      "value": 0.967,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "full_f1",
+      "value": 0.742,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Adjudicators agree on content (core 0.97) but not on qualifiers and roles (full 0.74); three points were decided oppositely, each believed settled by the guideline. Rerun under the token form (I-R2): no figure changed.",
+  "consumed_by": [
+    "S0-report.md",
+    "D7 §3.4"
+  ]
+}

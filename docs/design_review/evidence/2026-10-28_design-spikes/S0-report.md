@@ -29,7 +29,7 @@ added. Claim keys are unstable for two reasons in D1 §10.1, both fixable.
 
 | Record | Package | Outcome | What |
 |---|---|---|---|
-| [s0.instruments](records/s0.instruments.json) | I-A, I-B, I-R1 | passed | Comparison instruments, review and math grammar |
+| [s0.instruments-ir2](records/s0.instruments-ir2.json) | I-A, I-B, I-R1, I-R2 | passed | Comparison instruments, review and math grammar, with the token form for keys (I-R2) |
 | [s0.packets](records/s0.packets.json) | S0-A | passed | Blind annotation packets |
 | [s0.offset-probe](records/s0.offset-probe.json) | S0-B | partial | Offset-form evidence probe |
 | [s0.pass-a](records/s0.pass-a.json) | S0-B | passed | Pass A: blind annotation of the twelve core units (Claude Opus 5.5, golden inputs) |
@@ -39,14 +39,14 @@ added. Claim keys are unstable for two reasons in D1 §10.1, both fixable.
 | [s0.adjudication](records/s0.adjudication.json) | S0-D | passed | Root adjudication of A and B into the reference |
 | [s0.adjudication-d7](records/s0.adjudication-d7.json) | S0-D | passed | D7 adjudicator session (Haiku) |
 | [s0.adjudication-d7-sonnet](records/s0.adjudication-d7-sonnet.json) | S0-D | passed | D7 adjudicator session (Sonnet) |
-| [s0.adjudication-determinacy](records/s0.adjudication-determinacy.json) | S0-D, S0-G | passed | Root adjudication against the D7 adjudicator session |
-| [s0.agreement](records/s0.agreement.json) | S0-D, S0-G | passed | Agreement between the blind passes, with keys and trace comparisons |
+| [s0.adjudication-determinacy-ir2](records/s0.adjudication-determinacy-ir2.json) | S0-D, S0-G | passed | Root adjudication against the D7 adjudicator session |
+| [s0.agreement-ir2](records/s0.agreement-ir2.json) | S0-D, S0-G | passed | Agreement between the blind passes, with keys and trace comparisons |
 | [s0.pass-h](records/s0.pass-h.json) | S0-E | passed | Pass H: blind annotation of the twelve core units (Claude Haiku 5.5, golden inputs (control for P)) |
 | [s0.pass-p](records/s0.pass-p.json) | S0-E | passed | Pass P: blind annotation of the twelve core units (Claude Haiku 5.5, unit packets only) |
 | [s0.pass-sg](records/s0.pass-sg.json) | S0-E | passed | Pass SG: blind annotation of the twelve core units (Claude Sonnet 5.5, golden inputs) |
 | [s0.pass-sp](records/s0.pass-sp.json) | S0-E | passed | Pass SP: blind annotation of the twelve core units (Claude Sonnet 5.5, unit packets only) |
-| [s0.pass-scores](records/s0.pass-scores.json) | S0-E, S0-G | passed | Every pass against the reference; packet versus model effect |
-| [s0.sonnet-scores](records/s0.sonnet-scores.json) | S0-E, S0-G | passed | Sonnet passes and adjudicator against the reference and the Opus passes |
+| [s0.pass-scores-ir2](records/s0.pass-scores-ir2.json) | S0-E, S0-G | passed | Every pass against the reference; packet versus model effect |
+| [s0.sonnet-scores-ir2](records/s0.sonnet-scores-ir2.json) | S0-E, S0-G | passed | Sonnet passes and adjudicator against the reference and the Opus passes |
 | [s0.m13-probe-2](records/s0.m13-probe-2.json) | S0-E, S0-R1, S0-G | passed | M13 rule scoping against the reference (D2 lexicon with 'if') |
 | [s0.gaps](records/s0.gaps.json) | S0-F | passed | Gap analysis |
 | [s0.report-2](records/s0.report-2.json) | S0-F | passed | S0 report (with the Sonnet runs and the input diagnosis) |
@@ -57,7 +57,7 @@ added. Claim keys are unstable for two reasons in D1 §10.1, both fixable.
 Commands are in each record (`commands`); all run from this folder with
 `UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python …`. Environment: [e0.environment](records/e0.environment.json)
 (Python 3.14.10; spaCy 3.8.18; pylatexenc 3.0b2; sympy 1.14.0; lark 1.3.1; regex 2026.9.29; rapidfuzz;
-pint 0.26.2). The instruments ([s0.instruments](records/s0.instruments.json)) passed their own
+pint 0.26.2). The instruments ([s0.instruments-ir2](records/s0.instruments-ir2.json)) passed their own
 suite and an independent implementation review, whose blocking finding (F1, the core matching's
 dependence on ties) was fixed before any figure here was computed; the aligner reproduced the root's
 hand classification of T1–T4 exactly ([aligner_verification](results/s0/aligner_verification.md)).
@@ -85,7 +85,7 @@ none was rerun. Same-model annotators remain a limit on independence (below).
 
 ### Agreement between the two Opus passes
 
-Record [s0.agreement](records/s0.agreement.json). F1 with 95% bootstrap intervals over the twelve units.
+Record [s0.agreement-ir2](records/s0.agreement-ir2.json). F1 with 95% bootstrap intervals over the twelve units.
 
 | Comparison | Core | Full | Evidence |
 |---|---|---|---|
@@ -136,7 +136,7 @@ differences with the passes are readings v0 does not decide ([trace_diff](result
 
 ### Each pass against the reference; packet versus model
 
-Record [s0.pass-scores](records/s0.pass-scores.json). The reference is the root's adjudication of A and B.
+Record [s0.pass-scores-ir2](records/s0.pass-scores-ir2.json). The reference is the root's adjudication of A and B.
 
 | Pass | Model | Inputs | Core | Full | Evidence | Binding accuracy |
 |---|---|---|---|---|---|---|
@@ -158,7 +158,7 @@ Pass against pass, symmetrized (no reference involved):
 | H vs P | Haiku, Haiku | 0.79 [0.69, 0.86] | 0.56 [0.44, 0.69] | 0.54 [0.40, 0.68] |
 
 Sonnet records: [s0.pass-sg](records/s0.pass-sg.json), [s0.pass-sp](records/s0.pass-sp.json),
-[s0.sonnet-scores](records/s0.sonnet-scores.json); its inputs were byte-identical to H's and P's
+[s0.sonnet-scores-ir2](records/s0.sonnet-scores-ir2.json); its inputs were byte-identical to H's and P's
 apart from output paths.
 
 B scores 1.00 at core by construction: every core-level difference was adjudicated in B's favour,
@@ -242,8 +242,8 @@ statements it cites, each citable by id) rather than by position.
 
 ### Adjudication determinacy (D7 §3.4)
 
-Records [s0.adjudication-determinacy](records/s0.adjudication-determinacy.json) and
-[s0.sonnet-scores](records/s0.sonnet-scores.json): the root's reference against fresh adjudicators
+Records [s0.adjudication-determinacy-ir2](records/s0.adjudication-determinacy-ir2.json) and
+[s0.sonnet-scores-ir2](records/s0.sonnet-scores-ir2.json): the root's reference against fresh adjudicators
 given what D7 §3.4 gives an adjudicator (guideline, packets, both passes, their alignment diff):
 Haiku 5.5 core 0.97 [0.87, 1.00], full 0.74 [0.57, 0.84]; Sonnet 5.5 core
 0.97 [0.87, 1.00], full 0.82 [0.71, 0.91]. With both passes in front of it,
@@ -314,8 +314,12 @@ section", "Suppose again") taking precedence.
 ### Value equivalence (OPEN-D7-2)
 
 Across the main comparisons, every value pair was decided by canonical form except these distinct
-pairs, all judged unequal: 1 by the manual tier, 4 by the numeric tier. Canonical forms now come from the math grammar ([s0.instruments](records/s0.instruments.json)):
-86 of 86 S0 values read; on a 78-page sample
+pairs, all judged unequal: 1 by the manual tier, 4 by the numeric tier. Canonical forms are D1 §6.2's token form for every value (ADR-0012; rerun under it in I-R2,
+with no figure changed: [s0.instruments-ir2](records/s0.instruments-ir2.json)); the math grammar reads
+87 of 92 S0 values under their declared kind (86 of 86 at I-R1: the
+input set grew when the Sonnet passes' stored sets were added after that coverage run, and the pre-I-R2
+grammar gives the same 92 values and statuses; the 5 not read are text in math, `N \text{ cm}` four
+times and `\text{the constant}`); on a 78-page sample
 976 of 1532 spans parse, the rest ambiguous (never resolved silently)
 or failed by recorded category, for S5.
 
@@ -332,7 +336,7 @@ a family's parameterizations (RG-7); modality of structural claims (GG-2).
 
 | Item | Answer | Evidence |
 |---|---|---|
-| OPEN-D1-2 | A `section` extent is needed: T1's Z ("In this section") and T2's X ("Suppose again") are section-scoped in every pass, the D7 adjudication and the reference, and U12's X in all but pass P, which had no page context and so could not see the binding outside its unit; statement scope cannot express them, and M13 reproduces them with section-wide and reopen binders | m13 table; [s0.agreement](records/s0.agreement.json) scope accuracy 1.00 |
+| OPEN-D1-2 | A `section` extent is needed: T1's Z ("In this section") and T2's X ("Suppose again") are section-scoped in every pass, the D7 adjudication and the reference, and U12's X in all but pass P, which had no page context and so could not see the binding outside its unit; statement scope cannot express them, and M13 reproduces them with section-wide and reopen binders | m13 table; [s0.agreement-ir2](records/s0.agreement-ir2.json) scope accuracy 1.00 |
 | OPEN-D1-3 | Unsettled by v0: A, B and the trace name the lognormal σ `sigma`, P and H `shape`; the normal's parameter keys vary by unit. Rule proposed (GG-5): name by the role the source states, else the symbol, and record the role as a claim | [gaps](results/s0/gaps.md) |
 | OPEN-D1-4 | `section` (under nested h3/h4 synthesis) is the extent both annotators and the trace use for T1's page-level assumption; `document` was never needed | trace diff; reference |
 | OPEN-D2-4 | Keep separate property predicates: only `mean_value` and `variance_value` were used, both present; add a standard-deviation property (missing in U6) | [gaps](results/s0/gaps.md) |
@@ -388,4 +392,4 @@ by the same design process as the trace.
   units, plus a few units from other pages not used to write the rules, to measure whether full-tier
   agreement and adjudication determinacy rise and whether the rise holds outside these twelve.
 
-<!-- generated by `just evidence render S0-report.md.j2` on 2026-10-28; records: 2026-10-28_design-spikes/s0.adjudication-determinacy, 2026-10-28_design-spikes/s0.agreement, 2026-10-28_design-spikes/s0.condition-classes, 2026-10-28_design-spikes/s0.gaps, 2026-10-28_design-spikes/s0.instruments, 2026-10-28_design-spikes/s0.m13-probe-2, 2026-10-28_design-spikes/s0.offset-probe, 2026-10-28_design-spikes/s0.pass-scores, 2026-10-28_design-spikes/s0.sizes, 2026-10-28_design-spikes/s0.sonnet-scores, 2026-10-28_design-spikes/s0.stored, 2026-10-28_design-spikes/s0.trace-diff -->
+<!-- generated by `just evidence render S0-report.md.j2` on 2026-10-28; records: 2026-10-28_design-spikes/s0.adjudication-determinacy-ir2, 2026-10-28_design-spikes/s0.agreement-ir2, 2026-10-28_design-spikes/s0.condition-classes, 2026-10-28_design-spikes/s0.gaps, 2026-10-28_design-spikes/s0.instruments-ir2, 2026-10-28_design-spikes/s0.m13-probe-2, 2026-10-28_design-spikes/s0.offset-probe, 2026-10-28_design-spikes/s0.pass-scores-ir2, 2026-10-28_design-spikes/s0.sizes, 2026-10-28_design-spikes/s0.sonnet-scores-ir2, 2026-10-28_design-spikes/s0.stored, 2026-10-28_design-spikes/s0.trace-diff -->

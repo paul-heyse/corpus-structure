@@ -5,7 +5,8 @@
     r.kind            detected kind: formula | relation | member | set_expr
     r.reason          None, or {"error", "pos", "at", "category", ...}
     r.occurrences     symbol occurrences with offsets into ``latex``
-    canonical(r)      D1 §6.2 canonical LaTeX from the tree
+    canonical(r)      D1 §6.2 token form of the value (keys; total, never from the tree)
+    tree_token_agreement(r)   the tree printer against the token form (validation property)
     to_sympy(r)       SymPy object (raises Ambiguous / NotRepresentable / NotParsed)
     occurrences_in_span(text, start, end, macros)   symbols of a math span of canonical text
 
@@ -45,7 +46,7 @@ import sympy
 from lark import Token, Tree
 
 from .build import STARTS, MacroClass, classify, parser_for
-from .printer import leaves, node_text, strip_delimiters, tokens_canonical, tree_canonical
+from .printer import leaves, node_text, strip_delimiters, token_form, tokens_canonical, tree_canonical
 from .to_sympy import KNOWN_FUNCTIONS, NotRepresentable, symbol_name, transform
 
 PARSE_SECONDS = 2.0
@@ -99,7 +100,7 @@ class Occurrence:
 
 @dataclass
 class MathResult:
-    latex: str
+    latex: str  # the parser's input (delimiters stripped for reading)
     requested: str
     status: str
     kind: str | None = None
@@ -110,6 +111,7 @@ class MathResult:
     mc: MacroClass | None = None
     context: dict = field(default_factory=dict)
     offset: int = 0  # where ``latex`` starts within the caller's text
+    source: str = ""  # the value as given (the token form's input)
 
 
 # ============================================================================ errors
@@ -382,7 +384,8 @@ def _parse(latex: str, kind: str, mc: MacroClass, ctx: dict) -> MathResult:
     raw = latex
     inner = strip_delimiters(raw)
     offset = raw.find(inner) if inner else 0
-    res = MathResult(latex=inner, requested=kind, status="failed", mc=mc, context=ctx, offset=max(offset, 0))
+    res = MathResult(latex=inner, requested=kind, status="failed", mc=mc, context=ctx, offset=max(offset, 0),
+                     source=raw)
     p = parser_for(mc)
 
     def parse_fn(s):
@@ -431,12 +434,22 @@ def _parse(latex: str, kind: str, mc: MacroClass, ctx: dict) -> MathResult:
 
 
 def canonical(result: MathResult) -> str:
-    """D1 §6.2 canonical LaTeX: from the tree when the value parsed, else by the same token
-    normalization (so every value has a canonical form)."""
+    """D1 §6.2 canonical form for keys: the token form of the value as given, for every value
+    (ADR-0012); it does not depend on whether or how the value parses."""
     bodies = result.mc.table() if result.mc else {}
+    return tokens_canonical(result.source or result.latex, bodies)
+
+
+def tree_token_agreement(result: MathResult) -> dict:
+    """The tree/token property (D1 §6.2): for a parsed value, the tree printer's form against the
+    token form. ``{"parsed", "agree", "tree", "token", "unexpanded"}``; ``agree`` is None when
+    the value did not parse. A disagreement is reported, never resolved: the token form is the key."""
+    bodies = result.mc.table() if result.mc else {}
+    tok, unexpanded = token_form(result.source or result.latex, bodies)
     if result.tree is None:
-        return tokens_canonical(result.latex, bodies)
-    return tree_canonical(result.tree, bodies)
+        return {"parsed": False, "agree": None, "tree": None, "token": tok, "unexpanded": unexpanded}
+    tree = tree_canonical(result.tree, bodies)
+    return {"parsed": True, "agree": tree == tok, "tree": tree, "token": tok, "unexpanded": unexpanded}
 
 
 def to_sympy(result: MathResult):

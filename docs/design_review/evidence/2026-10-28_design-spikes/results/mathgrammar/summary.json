@@ -1,26 +1,57 @@
 {
  "seed": 20261028,
  "values": {
-  "n": 86,
-  "distinct_latex": 54,
+  "n": 92,
+  "distinct_latex": 60,
   "status_by_kind": {
    "formula": {
-    "ok": 70
+    "ok": 71,
+    "failed": 5
    },
    "set_expr": {
     "ok": 16
    }
   },
-  "failed_by_category": {},
+  "failed_by_category": {
+   "unexpected-token": 1,
+   "incomplete": 4
+  },
   "sympy": {
-   "ok": 85,
+   "ok": 86,
    "NotRepresentable": 1
   },
   "canonical_same_as_9223fb3": {
-   "True": 86
+   "True": 87,
+   "False": 5
   },
-  "canonical_differences": [],
-  "ms_max": 70.1
+  "canonical_differences": [
+   [
+    "0.002 \\text{ cm}",
+    "0.002\\text{ cm}",
+    "0.002\\text{cm}"
+   ],
+   [
+    "0.003 \\text{ cm}",
+    "0.003\\text{ cm}",
+    "0.003\\text{cm}"
+   ],
+   [
+    "1 \\text{ cm}",
+    "1\\text{ cm}",
+    "1\\text{cm}"
+   ],
+   [
+    "1.01 \\text{ cm}",
+    "1.01\\text{ cm}",
+    "1.01\\text{cm}"
+   ],
+   [
+    "\\text{the constant}",
+    "\\text{the constant}",
+    "\\text{theconstant}"
+   ]
+  ],
+  "ms_max": 259.5
  },
  "spans": {
   "pages": 78,
@@ -295,7 +326,7 @@
     1
    ]
   ],
-  "ms_median": 41.3,
-  "ms_max": 825.6
+  "ms_median": 41.9,
+  "ms_max": 776.9
  }
 }

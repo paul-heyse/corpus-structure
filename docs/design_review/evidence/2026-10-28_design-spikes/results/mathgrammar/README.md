@@ -10,18 +10,22 @@ plus terminals generated from each rendition's macro table). **Measured** by
 
 ## S0 batch values
 
-Every LaTeX value in the stored S0 batches (reference, trace, passes A, B, H, P): formula and set
-objects, qualifier values, condition operands. 86 values (54 distinct), each parsed under its
-declared kind with the page's macro table over the D2 §12.1 fallback.
+**Rerun 2026-10-28 (I-R2, token form for keys, ADR-0012).** Every LaTeX value in the stored S0
+batches (reference, trace, every stored pass: A, B, H, P and, since the I-R1 run, SG and SP):
+formula and set objects, qualifier values, condition operands. 92 values (60 distinct), each parsed
+under its declared kind with the page's macro table over the D2 §12.1 fallback.
 
 | Kind | n | ok | failed |
 |---|---|---|---|
-| formula | 70 | 70 | 0 |
+| formula | 76 | 71 | 5 |
 | set_expr | 16 | 16 | 0 |
 
-SymPy values: 85 of 86; one has none by design (a `\pm`). The canonical form printed from the
-tree equals the instruments' pre-I-R1 canonical form (`values.canonical_latex` at `9223fb3`) for
-all 86 values, so claim and meaning keys do not move. Slowest value: 70 ms.
+The 5 failures are text in math from the Sonnet passes (`N \text{ cm}` four times, `\text{the
+constant}`); the I-R1 run read 86 of 86 because those sets did not exist yet (the pre-I-R2 grammar
+gives the same 92 values and statuses). SymPy values: 86 of the 87 read; one has none by design (a
+`\pm`). The `canonical` column is now the token form (D1 §6.2); it equals the pre-I-R1 form
+(`values.canonical_latex` at `9223fb3`) for 87 of 92 values, the 5 others being text-mode
+whitespace (`1\text{ cm}`, was `1\text{cm}`), which I-R2 keeps as one space. Slowest value: 260 ms.
 
 ## Corpus math spans
 

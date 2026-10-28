@@ -133,15 +133,36 @@ class TestAmbiguity(unittest.TestCase):
 
 
 class TestCanonicalAndOccurrences(unittest.TestCase):
-    def test_canonical_from_tree_equals_token_form(self):
+    def test_canonical_is_the_token_form(self):
+        """ADR-0012: keys are the token form for every value, parsed or not."""
+        mm = merged_macros(PAGE)
+        for latex in ("b^{2} \\, \\sigma^2", "x \\text{ if } y", "\\begin{cases} x \\end{cases}"):
+            with self.subTest(latex):
+                r = M.parse(latex, "any_value", macros=mm)
+                self.assertEqual(M.canonical(r), tokens_canonical(latex, r.mc.table()))
+        self.assertEqual(M.canonical(M.parse("\\R", "set_expr", macros=mm)), "\\mathbb R")
+
+    def test_tree_printer_agrees_with_token_form(self):
+        """The tree/token property (D1 §6.2) on parsed values, including sizing commands."""
         mm = merged_macros(PAGE)
         for latex in ("b^{2} \\, \\sigma^2", "\\left( x \\right)", "\\R \\setminus \\{0\\}", "\\E(X) = \\mu",
-                      "a + b \\, Z", "\\sigma_{X_1}^{2}", "e^{\\mu}"):
+                      "a + b \\, Z", "\\sigma_{X_1}^{2}", "e^{\\mu}", "a \\big/ b", "\\Bigl( x \\Bigr)"):
             with self.subTest(latex):
                 r = M.parse(latex, "any_value", macros=mm)
                 self.assertNotEqual(r.status, "failed")
-                self.assertEqual(M.canonical(r), tokens_canonical(latex, r.mc.table()))
-        self.assertEqual(M.canonical(M.parse("\\R", "set_expr", macros=mm)), "\\mathbb R")
+                got = M.tree_token_agreement(r)
+                self.assertTrue(got["agree"], got)
+        self.assertIsNone(M.tree_token_agreement(M.parse("\\begin{cases} x \\end{cases}", macros=mm))["agree"])
+
+    def test_grammar_ignores_come_from_the_drop_list(self):
+        """build refuses an assembled grammar with an %ignore the drop list does not cover."""
+        from mathgrammar.build import check_ignores, grammar_text
+
+        text = grammar_text(classify(PAGE))
+        check_ignores(text)
+        self.assertIn("bigg", [l for l in text.splitlines() if l.startswith("%ignore /")][-1])
+        with self.assertRaises(ValueError):
+            check_ignores(text + '\n%ignore "\\\\hspace"\n')
 
     def test_occurrences(self):
         latex = "\\sigma_{X_1}^2 + \\mu_i + e^{\\pi x} + \\mathscr{F}"

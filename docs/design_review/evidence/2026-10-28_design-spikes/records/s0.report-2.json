@@ -5,11 +5,11 @@
   "group": "S0 Reference annotations",
   "package": "S0-F",
   "finalized": "2026-10-28",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [
     "s0.report"
   ],
-  "superseded_by": null,
+  "superseded_by": "s0.report-3",
   "question": "Can D1's claim model and schema and guideline v0 express what the core units state, and how determinate is annotation and adjudication?",
   "answers": [
     "OPEN-D1-2",
