@@ -1,0 +1,282 @@
+{
+  "P1/a": {
+    "blocks_with_errors": 20,
+    "blocks_flagged_by_proxy": 3,
+    "flagged_and_erroneous": 3,
+    "lower_start": 2,
+    "math_start": 1
+  },
+  "P1/a+c": {
+    "blocks_with_errors": 11,
+    "blocks_flagged_by_proxy": 3,
+    "flagged_and_erroneous": 3,
+    "lower_start": 2,
+    "math_start": 1
+  },
+  "P1/b1": {
+    "blocks_with_errors": 26,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 1,
+    "math_start": 1
+  },
+  "P1/b1+c": {
+    "blocks_with_errors": 16,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 1,
+    "math_start": 1
+  },
+  "P1/b2": {
+    "blocks_with_errors": 10,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 1,
+    "math_start": 1
+  },
+  "P1/b2+c": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 1,
+    "math_start": 1
+  },
+  "P1/bp": {
+    "blocks_with_errors": 0,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P1/bp+c": {
+    "blocks_with_errors": 0,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P1/d": {
+    "blocks_with_errors": 30,
+    "blocks_flagged_by_proxy": 15,
+    "flagged_and_erroneous": 14,
+    "lower_start": 4,
+    "math_start": 15
+  },
+  "P1/d+c": {
+    "blocks_with_errors": 21,
+    "blocks_flagged_by_proxy": 15,
+    "flagged_and_erroneous": 14,
+    "lower_start": 4,
+    "math_start": 15
+  },
+  "P2/a": {
+    "blocks_with_errors": 16,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P2/a+c": {
+    "blocks_with_errors": 8,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P2/b1": {
+    "blocks_with_errors": 32,
+    "blocks_flagged_by_proxy": 0,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 0
+  },
+  "P2/b1+c": {
+    "blocks_with_errors": 26,
+    "blocks_flagged_by_proxy": 0,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 0
+  },
+  "P2/b2": {
+    "blocks_with_errors": 14,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P2/b2+c": {
+    "blocks_with_errors": 5,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P2/bp": {
+    "blocks_with_errors": 8,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P2/bp+c": {
+    "blocks_with_errors": 8,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P2/d": {
+    "blocks_with_errors": 21,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 0,
+    "math_start": 2
+  },
+  "P2/d+c": {
+    "blocks_with_errors": 14,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 0,
+    "math_start": 2
+  },
+  "P3/a": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/a+c": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/b1": {
+    "blocks_with_errors": 18,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/b1+c": {
+    "blocks_with_errors": 18,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/b2": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/b2+c": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/bp": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/bp+c": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/d": {
+    "blocks_with_errors": 7,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P3/d+c": {
+    "blocks_with_errors": 7,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P4/a": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P4/a+c": {
+    "blocks_with_errors": 0,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P4/b1": {
+    "blocks_with_errors": 9,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 0,
+    "math_start": 2
+  },
+  "P4/b1+c": {
+    "blocks_with_errors": 8,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 0,
+    "math_start": 2
+  },
+  "P4/b2": {
+    "blocks_with_errors": 3,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 1,
+    "math_start": 1
+  },
+  "P4/b2+c": {
+    "blocks_with_errors": 2,
+    "blocks_flagged_by_proxy": 2,
+    "flagged_and_erroneous": 1,
+    "lower_start": 1,
+    "math_start": 1
+  },
+  "P4/bp": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P4/bp+c": {
+    "blocks_with_errors": 1,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P4/d": {
+    "blocks_with_errors": 3,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  },
+  "P4/d+c": {
+    "blocks_with_errors": 3,
+    "blocks_flagged_by_proxy": 1,
+    "flagged_and_erroneous": 0,
+    "lower_start": 0,
+    "math_start": 1
+  }
+}

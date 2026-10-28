@@ -1,0 +1,323 @@
+# special/Gamma.html (canonical text; [pN] numbers page sentences for reference only)
+
+The Gamma Distribution
+
+[p1] In this section we will study a family of distributions that has special importance in probability and statistics. [p2] In particular, the arrival times in the Poisson process have gamma distributions, and the chi-square distribution in statistics is a special case of the gamma distribution. [p3] Also, the gamma distribution is widely used to model physical quantities that take positive values.
+
+The Gamma Function
+
+[p4] Before we can study the gamma distribution, we need to introduce the gamma function, a special function whose values will play the role of the normalizing constants.
+
+Definition
+
+[p5] The gamma function \( \Gamma \) is defined as follows \[ \Gamma(k) = \int_0^\infty x^{k-1} e^{-x} \, dx, \quad k \in (0, \infty) \] [p6] The function is well defined, that is, the integral converges for any \(k \gt 0\). [p7] On the other hand, the integral diverges to \( \infty \) for \( k \le 0 \).
+
+Details:
+
+[p8] Note that \[ \int_0^\infty x^{k-1} e^{-x} \, dx = \int_0^1 x^{k-1} e^{-x} \, dx + \int_1^\infty x^{k-1} e^{-x} \, dx \] [p9] For the first integral on the right, \[\int_0^1 x^{k-1} e^{-x} \, dx \le \int_0^1 x^{k-1} \, dx = \frac{1}{k}\] For the second integral, let \( n = \lceil k \rceil \). [p10] Then \[ \int_1^\infty x^{k-1} e^{-x} \, dx \le \int_1^\infty x^{n-1} e^{-x} \, dx \] [p11] The last integral can be evaluated explicitly by integrating by parts, and is finite for every \( n \in \N_+ \).
+
+[p12] Finally, if \( k \le 0 \), note that \[ \int_0^1 x^{k-1} e^{-x}, \, dx \ge e^{-1} \int_0^1 x^{k-1} \, dx = \infty \]
+
+[p13] The gamma function was first introduced by Leonhard Euler.
+
+[p14] The graph of the gamma function on the interval \((0, 5)\)
+
+[p15] The (lower) incomplete gamma function is defined by \[ \Gamma(k, x) = \int_0^x t^{k-1} e^{-t} \, dt, \quad k, x \in (0, \infty) \]
+
+Properties
+
+[p16] Here are a few of the essential properties of the gamma function. [p17] The first is the fundamental identity.
+
+[p18] \(\Gamma(k + 1) = k \, \Gamma(k)\) for \(k \in (0, \infty)\).
+
+Details:
+
+[p19] This follows from integrating by parts, with \( u = x^k \) and \( dv = e^{-x} \, dx \): \[ \Gamma(k + 1) = \int_0^\infty x^k e^{-x} \, dx = \left(-x^k e^{-x}\right)_0^\infty + \int_0^\infty k x^{k-1} e^{-x} \, dx = 0 + k \, \Gamma(k) \]
+
+[p20] Applying this result repeatedly gives \[ \Gamma(k + n) = k (k + 1) \cdots (k + n - 1) \Gamma(k), \quad n \in \N_+ \] [p21] It's clear that the gamma function is a continuous extension of the factorial function.
+
+[p22] \(\Gamma(k + 1) = k!\) for \(k \in \N\).
+
+Details:
+
+[p23] This follows from [3] and the fact that \(\Gamma(1) = 1\).
+
+[p24] The values of the gamma function for non-integer arguments generally cannot be expressed in simple, closed forms. [p25] However, there are exceptions.
+
+[p26] \(\Gamma\left(\frac{1}{2}\right) = \sqrt{\pi}\).
+
+Details:
+
+[p27] By definition, \[ \Gamma\left(\frac{1}{2}\right) = \int_0^\infty x^{-1/2} e^{-x} \, dx \] [p28] Substituting \( x = z^2 / 2 \) gives \[ \Gamma\left(\frac{1}{2}\right) = \int_0^\infty \sqrt{2} e^{-z^2/2} \, dz = 2 \sqrt{\pi} \int_0^\infty \frac{1}{\sqrt{2 \pi}} e^{-z^2/2} \, dz\] [p29] But the last integrand is the PDF of the standard normal distribution, and so the integral evaluates to \( \frac{1}{2} \)
+
+[p30] We can generalize the last result to odd multiples of \( \frac{1}{2} \).
+
+[p31] For \( n \in \N \), \[ \Gamma\left(\frac{2 n + 1}{2}\right) = \frac{1 \cdot 3 \cdots (2 n - 1)}{2^n} \sqrt{\pi} = \frac{(2 n)!}{4^n n!} \sqrt{\pi} \]
+
+Details:
+
+[p32] This follows from [5] and [3].
+
+Stirling's Approximation
+
+[p33] One of the most famous asymptotic formulas for the gamma function is Stirling's formula, named for James Stirling. [p34] First we need to recall a definition.
+
+[p35] Suppose that \( f, \, g: D \to (0, \infty) \) where \( D = (0, \infty) \) or \( D = \N_+ \). [p36] Then \( f(x) \approx g(x) \) as \( x \to \infty \) means that \[ \frac{f(x)}{g(x)} \to 1 \text{ as } x \to \infty \]
+
+[p37] Stirling's formula: \[ \Gamma(x + 1) \approx \left( \frac{x}{e} \right)^x \sqrt{2 \pi x} \text{ as } x \to \infty \]
+
+[p38] As a special case of [8], Stirling's result gives an asymptotic formula for the factorial function: \[ n! \approx \left( \frac{n}{e} \right)^n \sqrt{2 \pi n} \text{ as } n \to \infty \]
+
+The Standard Gamma Distribution
+
+Distribution Functions
+
+[p39] The standard gamma distribution with shape parameter \( k \in (0, \infty) \) is a continuous distribution on \( (0, \infty) \) with probability density function \(f\) given by \[ f(x) = \frac{1}{\Gamma(k)} x^{k-1} e^{-x}, \quad x \in (0, \infty) \]
+
+Details:
+
+[p40] Clearly \( f \) is a valid probability density function, since \( f(x) \gt 0 \) for \( x \gt 0 \), and by definition, \( \Gamma(k) \) is the normalizing constant for the function \( x \mapsto x^{k-1} e^{-x} \) on \( (0, \infty) \).
+
+[p41] The following theorem shows that the gamma density has a rich variety of shapes, and shows why \(k\) is called the shape parameter.
+
+[p42] The gamma probability density function \( f \) with shape parameter \( k \in (0, \infty) \) satisfies the following properties:
+
+[p43] (a) If \(0 \lt k \lt 1\), \(f\) is decreasing with \(f(x) \to \infty\) as \(x \downarrow 0\).
+[p44] (b) If \(k = 1\), \(f\) is decreasing with \(f(0) = 1\).
+[p45] (c) If \(k \gt 1\), \(f\) increases and then decreases, with mode at \( k - 1 \).
+[p46] (d) If \( 0 \lt k \le 1 \), \( f \) is concave upward.
+[p47] (e) If \( 1 \lt k \le 2 \), \( f \) is concave downward and then upward, with inflection point at \( k - 1 + \sqrt{k - 1} \).
+[p48] (f) If \( k \gt 2 \), \( f \) is concave upward, then downward, then upward again, with inflection points at \( k - 1 \pm \sqrt{k - 1} \).
+
+Details:
+
+[p49] These results follow from standard calculus. [p50] For \( x \gt 0 \), \begin{align*}
+		f^\prime(x) &= \frac{1}{\Gamma(k)} x^{k-2} e^{-x}[(k - 1) - x] \\
+		f^{\prime \prime}(x) &= \frac{1}{\Gamma(k)} x^{k-3} e^{-x} \left[(k - 1)(k - 2) - 2 (k - 1) x + x^2\right]
+	\end{align*}
+
+[p51] The special case \(k = 1\) gives the standard exponential distribution. [p52] The exponential distribution is studied in more detail in the chapter on Poisson process. [p53] When \(k \ge 1\), the gamma distribution is unimodal.
+
+[p54] Open the special distribution simulator and select the gamma distribution. [p55] Keep the app open as you read this section. [p56] First, vary the shape parameter and note the shape of the density function. [p57] For various values of \(k\), run the simulation 1000 times and compare the empirical density function to the true probability density function.
+
+[p58] The distribution function and the quantile function do not have simple, closed representations for most values of the shape parameter. [p59] However, the distribution function has a trivial representation in terms of the incomplete and complete gamma functions in definitions [1] and [2].
+
+[p60] The distribution function \( F \) of the standard gamma distribution with shape parameter \( k \in (0, \infty) \) is given by \[ F(x) = \frac{\Gamma(k, x)}{\Gamma(k)}, \quad x \in (0, \infty) \]
+
+[p61] Approximate values of the distribution and quantile functions can be obtained from most mathematical and statistical software packages.
+
+[p62] Using the quantile app, find the median, the first and third quartiles, and the interquartile range in each of the following cases:
+
+[p63] (a) \(k = 1\)
+[p64] (b) \(k = 2\)
+[p65] (c) \(k = 3\)
+
+Moments
+
+[p66] Suppose that \( X \) has the standard gamma distribution with shape parameter \( k \in (0, \infty) \). [p67] The mean and variance are both simply the shape parameter.
+
+
+<<< UNIT U12 part 1 begins >>>
+[p68] The mean and variance of \( X \) are
+
+[p69] (a) \(\E(X) = k\)
+[p70] (b) \(\var(X) = k\)
+
+Details:
+
+[p71] (a) From [3], \[ \E(X) = \int_0^\infty x \frac{1}{\Gamma(k)} x^{k-1} e^{-x} \, dx = \frac{\Gamma(k + 1)}{\Gamma(k)} = k\]
+[p72] (b) From [3] again \[ \E\left(X^2\right) = \int_0^\infty x^2 \frac{1}{\Gamma(k)} x^{k-1} e^{-x} \, dx = \frac{\Gamma(k + 2)}{\Gamma(k)} = (k + 1) k\] and hence \( \var(X) = \E\left(X^2\right) - [\E(X)]^2 = k \)
+<<< UNIT U12 part 1 ends >>>
+
+
+[p73] In the special distribution simulator, select the gamma distribution. [p74] Vary the shape parameter and note the size and location of the mean \( \pm \) standard deviation bar. [p75] For selected values of \(k\), run the simulation 1000 times and compare the empirical mean and standard deviation to the distribution mean and standard deviation.
+
+[p76] More generally, the moments can be expressed easily in terms of the gamma function:
+
+[p77] The moments of \( X \) are
+
+[p78] (a) \(\E(X^a) = \Gamma(a + k) \big/ \Gamma(k)\) if \(a \gt -k\)
+[p79] (b) \(\E(X^n) = k^{[n]} = k (k + 1) \cdots (k + n - 1)\) if \(n \in \N\)
+
+Details:
+
+[p80] (a) For \( a \gt -k \), \[ \E(X^a) = \int_0^\infty x^a \frac{1}{\Gamma(k)} x^{k-1} e^{-x} \, dx = \frac{1}{\Gamma(k)} \int_0^\infty x^{a + k} e^{-x} \, dx = \frac{\Gamma(a + k)}{\Gamma(k)} \]
+[p81] (b) If \( n \in \N \), then by [3], \( \Gamma(k + n) = k (k + 1) \cdots (k + n - 1) \Gamma(k)  \), so the result follows from (a).
+
+[p82] Note also that \( \E(X^a) = \infty \) if \( a \le -k \). [p83] We can now also compute the skewness and the kurtosis.
+
+[p84] The skewness and kurtosis of \( X \) are
+
+[p85] (a) \( \skw(X) = \frac{2}{\sqrt{k}} \)
+[p86] (b) \( \kur(X) = 3 + \frac{6}{k} \)
+
+Details:
+
+[p87] These results follows from [16] and the computational formulas for skewness and kurtosis.
+
+[p88] In particular, note that \( \skw(X) \to 0 \) and \( \kur(X) \to 3 \) as \( k \to \infty \). [p89] Note also that the excess kurtosis \( \kur(X) - 3 \to 0 \) as \( k \to \infty \).
+
+[p90] In the special distribution simulator, select the gamma distribution. [p91] Increase the shape parameter and note the shape of the density function in light of the previous results on skewness and kurtosis. [p92] For various values of \(k\), run the simulation 1000 times and compare the empirical density function to the true probability density function.
+
+[p93] Theorem [19] next gives the moment generating function.
+
+[p94] The moment generating function of \( X \) is given by \[ \E\left(e^{t X}\right) = \frac{1}{(1 - t)^k}, \quad t \lt 1 \]
+
+Details:
+
+[p95] For \( t \lt 1 \), \[ \E\left(e^{t X}\right) = \int_0^\infty e^{t x} \frac{1}{\Gamma(k)} x^{k-1} e^{-x} \, dx = \int_0^\infty \frac{1}{\Gamma(k)} x^{k-1} e^{-x(1 - t)} \, dx \] [p96] Substituting \( u = x(1 - t) \) so that \( x = u \big/ (1 - t) \) and \( dx = du \big/ (1 - t) \) gives \[ \E\left(e^{t X}\right) = \frac{1}{(1 - t)^k} \int_0^\infty \frac{1}{\Gamma(k)} u^{k-1} e^{-u} \, du = \frac{1}{(1 - t)^k} \]
+
+The General Gamma Distribution
+
+[p97] The gamma distribution is usually generalized by adding a scale parameter. [p98] As usual, scale parameters often arise when physical units are changed (inches to centimeters, for example).
+
+
+<<< UNIT U10 part 1 begins >>>
+[p99] If \(Z\) has the standard gamma distribution with shape parameter \(k \in (0, \infty)\) and if \( b \in (0, \infty) \), then \(X = b Z\) has the gamma distribution with shape parameter \(k\) and scale parameter \(b\).
+<<< UNIT U10 part 1 ends >>>
+
+
+[p100] The reciprocal of the scale parameter, \(r = 1 / b\) is known as the rate parameter, particularly in the context of the Poisson process. [p101] The gamma distribution with parameters \(k = 1\) and \(b\) is the exponential distribution with scale parameter \(b\) (or rate parameter \(r = 1 / b\)). [p102] More generally, when the shape parameter \(k\) is a positive integer, the gamma distribution is known as the Erlang distribution, named for the Danish mathematician Agner Erlang. [p103] The exponential distribution governs the time between arrivals in the Poisson model, while the Erlang distribution governs the actual arrival times.
+
+[p104] Basic properties of the general gamma distribution follow easily from corresponding properties of the standard distribution and basic results for scale transformations.
+
+Distribution Functions
+
+[p105] Suppose that \( X \) has the gamma distribution with shape parameter \( k \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \).
+
+[p106] \(X\) has probability density function \( f \) given by \[ f(x) = \frac{1}{\Gamma(k) b^k} x^{k-1} e^{-x/b}, \quad x \in (0, \infty) \]
+
+Details:
+
+[p107] Recall that if \( g \) is the PDF of the standard gamma distribution with shape parameter \( k \) in [9], then \( f(x) = \frac{1}{b} g\left(\frac{x}{b}\right) \) for \( x \gt 0 \).
+
+[p108] Recall that the inclusion of a scale parameter does not change the shape of the density function, but simply scales the graph horizontally and vertically. [p109] In particular, we have the same basic shapes as for the standard gamma density function in [10].
+
+[p110] The probability density function \( f \) of \( X \) satisfies the following properties:
+
+[p111] (a) If \(0 \lt k \lt 1\), \(f\) is decreasing with \(f(x) \to \infty\) as \(x \downarrow 0\).
+[p112] (b) If \(k = 1\), \(f\) is decreasing with \(f(0) = 1\).
+[p113] (c) If \(k \gt 1\), \(f\) increases and then decreases, with mode at \( (k - 1) b \).
+[p114] (d) If \( 0 \lt k \le 1 \), \( f \) is concave upward.
+[p115] (e) If \( 1 \lt k \le 2 \), \( f \) is concave downward and then upward, with inflection point at \( b \left(k - 1 + \sqrt{k - 1}\right) \).
+[p116] (f) If \( k \gt 2 \), \( f \) is concave upward, then downward, then upward again, with inflection points at \( b \left(k - 1 \pm \sqrt{k - 1}\right) \).
+
+[p117] In the simulation of the special distribution simulator, select the gamma distribution. [p118] Vary the shape and scale parameters and note the shape and location of the probability density function. [p119] For various values of the parameters, run the simulation 1000 times and compare the empirical density function to the true probability density function.
+
+[p120] Once again, the distribution function and the quantile function do not have simple, closed representations for most values of the shape parameter. [p121] However, the distribution function has a simple representation in terms of the incomplete and complete gamma functions in definitions [1] and [2]
+
+[p122] The distribution function \( F \) of \( X \) is given by \[ F(x) = \frac{\Gamma(k, x/b)}{\Gamma(k)}, \quad x \in (0, \infty) \]
+
+Details:
+
+[p123] From defintion [20] we can take \( X = b Z \) where \( Z \) has the standard gamma distribution with shape parameter \( k \). [p124] Then \( \P(X \le x) = \P(Z \le x/b) \) for \( x \in (0, \infty) \), so the result follows from the distribution function of \( Z \) in [12].
+
+[p125] Approximate values of the distribution and quanitle functions can be obtained from quantile app, and from most mathematical and statistical software packages.
+
+[p126] Open the quantile app. [p127] Vary the shape and scale parameters and note the shape and location of the distribution and quantile functions. [p128] For selected values of the parameters, find the median and the first and third quartiles.
+
+Moments
+
+[p129] Suppose again that \( X \) has the gamma distribution with shape parameter \( k \in (0, \infty) \) and scale parameter \( b \in (0, \infty) \).
+
+[p130] The mean and variance of \( X \) are
+
+[p131] (a) \(\E(X) = b k\)
+[p132] (b) \(\var(X) = b^2 k\)
+
+Details:
+
+[p133] From definition [20], we can take \( X = b Z \) where \( Z \) has the standard gamma distribution with shape parameter \( k \). [p134] Then from the mean and variance of \( Z \) in [14],
+
+[p135] (a) \( \E(X) = b \E(Z) = b k \)
+[p136] (b) \( \var(X) = b^2 \var(Z) = b^2 k \)
+
+[p137] In the special distribution simulator, select the gamma distribution. [p138] Vary the parameters and note the shape and location of the mean \( \pm \) standard deviation bar. [p139] For selected values of the parameters, run the simulation 1000 times and compare the empirical mean and standard deviation to the distribution mean and standard deviation.
+
+[p140] The moments of \( X \) are
+
+[p141] (a) \(\E(X^a) = b^a \Gamma(a + k) \big/ \Gamma(k)\) for \(a \gt -k\)
+[p142] (b) \(\E(X^n) = b^n k^{[n]} = b^n k (k + 1) \cdots (k + n - 1)\) if \(n \in \N\)
+
+Details:
+
+[p143] Again, from definition [20], we can take \( X = b Z \) where \( Z \) has the standard gamma distribution with shape parameter \( k \). [p144] The results follow from the moment results for \( Z \) in [16], since \( E(X^a) = b^a \E(Z^a) \).
+
+[p145] Note also that \( \E(X^a) = \infty \) if \( a \le -k \). [p146] Recall that skewness and kurtosis are defined in terms of the standard score, and hence are unchanged by the addition of a scale parameter.
+
+[p147] The skewness and kurtosis of \( X \) are
+
+[p148] (a) \( \skw(X) = \frac{2}{\sqrt{k}} \)
+[p149] (b) \( \kur(X) = 3 + \frac{6}{k} \)
+
+[p150] The moment generating function of \(X\) is given by \[ \E\left(e^{t X}\right) = \frac{1}{(1 - b t)^k}, \quad t \lt \frac{1}{b} \]
+
+Details:
+
+[p151] From definition [20], we can take \( X = b Z\) where \( Z \) has the standard gamma distribution with shape parameter \( k \). [p152] Then \( \E\left(e^{t X}\right) = \E\left[e^{(t b )Z}\right] \), so the result follows from the moment generating function of \( Z \) in [19].
+
+Related Distributions
+
+[p153] Our first result is simply a restatement of the meaning of the term scale parameter.
+
+[p154] Suppose that \(X\) has the gamma distribution with shape parameter \(k \in (0, \infty)\) and scale parameter \(b \in (0, \infty)\). [p155] If \(c \in (0, \infty)\), then \(c X\) has the gamma distribution with shape parameter \(k\) and scale parameter \(b c\).
+
+Details:
+
+[p156] From definition [20], we can take \( X = b Z \) where \( Z \) has the standard gamma distribution with shape parameter \( k \). [p157] Then \( c X = c b Z \).
+
+[p158] More importantly, if the scale parameter is fixed, the gamma family is closed with respect to sums of independent variables.
+
+
+<<< UNIT U11 part 1 begins >>>
+[p159] Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) has the gamma distribution with shape parameter \(k_i \in (0, \infty)\) and scale parameter \(b \in (0, \infty)\) for \(i \in \{1, 2\}\). [p160] Then \(X_1 + X_2\) has the gamma distribution with shape parameter \(k_1 + k_2\) and scale parameter \(b\).
+
+Details:
+
+[p161] Recall that the MGF of \( X = X_1 + X_2 \) is the product of the MGFs of \( X_1 \) and \( X_2 \), so \[ \E\left(e^{t X}\right) = \frac{1}{(1 - b t)^{k_1}} \frac{1}{(1 - b t)^{k_2}} = \frac{1}{(1 - b t)^{k_1 + k_2}}, \quad t \lt \frac{1}{b} \]
+<<< UNIT U11 part 1 ends >>>
+
+
+[p162] From [32], it follows that the gamma distribution is infinitely divisible:
+
+[p163] Suppose that \(X\) has the gamma distribution with shape parameter \(k \in (0, \infty)\) and scale parameter \(b \in (0, \infty)\). [p164] For \( n \in \N_+ \), \( X \) has the same distribution as \( \sum_{i=1}^n X_i \), where \((X_1, X_2, \ldots, X_n)\) is a sequence of independent random variables, each with the gamma distribution with with shape parameter \( k / n \) and scale parameter \( b \).
+
+[p165] From [32] and the central limit theorm, it follows that if \(k\) is large, the gamma distribution with shape parameter \( k \) and scale parameter \( b \) can be approximated by the normal distribution with mean \(k b\) and variance \(k b^2\). [p166] Here is the precise statement:
+
+[p167] Suppose that \( X_k \) has the gamma distribution with shape parameter \( k \in (0, \infty) \) and fixed scale parameter \( b \in (0, \infty) \). [p168] Then the distribution of the standardized variable below converges to the standard normal distribution as \(k \to \infty\): \[ Z_k = \frac{X_k - k b}{\sqrt{k} b} \]
+
+[p169] In the special distribution simulator, select the gamma distribution. [p170] For various values of the scale parameter, increase the shape parameter and note the increasingly “normal” shape of the density function. [p171] For selected values of the parameters, run the experiment 1000 times and compare the empirical density function to the true probability density function.
+
+[p172] The gamma distribution is a member of the general exponential family of distributions:
+
+[p173] Suppose that \(X\) has gamma distribution with shape parameter \(k \in (0, \infty)\) and scale parameter \(b \in (0, \infty)\). [p174] Then the distribution of \(X\) is a two-parameter exponential family with natural parameters \((k - 1, -1 / b)\), and natural statistics \((\ln X, X)\).
+
+Details:
+
+[p175] This follows from the definition of the general exponential family. [p176] The gamma PDF can be written as \[ f(x) = \frac{1}{b^k \Gamma(k)} \exp\left[(k - 1) \ln x - \frac{1}{b} x\right], \quad x \in (0, \infty) \]
+
+[p177] For \( n \in (0, \infty) \), the gamma distribution with shape parameter \( n / 2 \) and scale parameter 2 is known as the chi-square distribution with \( n \) degrees of freedom, a distribution that is very important in statistics
+
+Computational Exercise
+
+[p178] Suppose that the lifetime of a device (in hours) has the gamma distribution with shape parameter \(k = 4\) and scale parameter \(b = 100\).
+
+[p179] (a) Find the probability that the device will last more than 300 hours.
+[p180] (b) Find the mean and standard deviation of the lifetime.
+
+Details:
+
+[p181] Let \(X\) denote the lifetime in hours.
+
+[p182] (a) \(\P(X \gt 300) = 13 e^{-3} \approx 0.6472\)
+[p183] (b) \(\E(X) = 400\), \(\sd(X) = 200\)
+
+[p184] Suppose that \(Y\) has the gamma distribution with parameters \(k = 10\) and \(b = 2\). [p185] For each of the following, compute the true value using the quantile app and then compute the normal approximation. [p186] Compare the results.
+
+[p187] (a) \(\P(18 \lt X \lt 25)\)
+[p188] (b) The 80th percentile of \(Y\)
+
+Details:
+
+[p189] (a) \(\P(18 \lt X \lt 25) = 0.3860\), \(\P(18 \lt X \lt 25) \approx 0.4095\)
+[p190] (b) \(y_{0.8} = 25.038\), \(y_{0.8} \approx 25.325\)

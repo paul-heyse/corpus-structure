@@ -1,0 +1,328 @@
+{
+  "P1/a": {
+    "fp": {
+      "inside math": 20,
+      "mid-clause": 2,
+      "after list marker": 1,
+      "at reference marker": 1
+    },
+    "fn": {}
+  },
+  "P1/a+c": {
+    "fp": {
+      "inside math": 9,
+      "mid-clause": 2,
+      "after list marker": 1
+    },
+    "fn": {}
+  },
+  "P1/b1": {
+    "fp": {
+      "inside math": 11,
+      "before Then/where/so/and": 1,
+      "at reference marker": 1
+    },
+    "fn": {
+      "other": 11,
+      "before Then/where/so/and": 5
+    }
+  },
+  "P1/b1+c": {
+    "fp": {
+      "before Then/where/so/and": 1
+    },
+    "fn": {
+      "other": 11,
+      "before Then/where/so/and": 5
+    }
+  },
+  "P1/b2": {
+    "fp": {
+      "inside math": 10,
+      "before Then/where/so/and": 1,
+      "at reference marker": 1
+    },
+    "fn": {}
+  },
+  "P1/b2+c": {
+    "fp": {
+      "before Then/where/so/and": 1
+    },
+    "fn": {}
+  },
+  "P1/bp": {
+    "fp": {},
+    "fn": {}
+  },
+  "P1/bp+c": {
+    "fp": {},
+    "fn": {}
+  },
+  "P1/d": {
+    "fp": {
+      "after list marker": 10,
+      "mid-clause": 8,
+      "before Then/where/so/and": 2,
+      "inside math": 10,
+      "at reference marker": 1
+    },
+    "fn": {
+      "other": 5,
+      "before Then/where/so/and": 1
+    }
+  },
+  "P1/d+c": {
+    "fp": {
+      "after list marker": 10,
+      "mid-clause": 8,
+      "before Then/where/so/and": 2
+    },
+    "fn": {
+      "other": 5,
+      "before Then/where/so/and": 1
+    }
+  },
+  "P2/a": {
+    "fp": {
+      "at reference marker": 19,
+      "after list marker": 7,
+      "inside math": 3
+    },
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P2/a+c": {
+    "fp": {
+      "after list marker": 7,
+      "inside math": 2
+    },
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P2/b1": {
+    "fp": {
+      "at reference marker": 19,
+      "after list marker": 7,
+      "inside math": 1
+    },
+    "fn": {
+      "other": 15,
+      "before Then/where/so/and": 6,
+      "after display math": 1
+    }
+  },
+  "P2/b1+c": {
+    "fp": {
+      "after list marker": 7
+    },
+    "fn": {
+      "other": 15,
+      "before Then/where/so/and": 6,
+      "after display math": 1
+    }
+  },
+  "P2/b2": {
+    "fp": {
+      "at reference marker": 19,
+      "after list marker": 4,
+      "inside math": 1
+    },
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P2/b2+c": {
+    "fp": {
+      "after list marker": 4
+    },
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P2/bp": {
+    "fp": {
+      "after list marker": 7
+    },
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P2/bp+c": {
+    "fp": {
+      "after list marker": 7
+    },
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P2/d": {
+    "fp": {
+      "at reference marker": 19,
+      "after list marker": 7,
+      "inside math": 1,
+      "mid-clause": 1
+    },
+    "fn": {
+      "other": 6,
+      "before Then/where/so/and": 1,
+      "after display math": 1
+    }
+  },
+  "P2/d+c": {
+    "fp": {
+      "after list marker": 7,
+      "mid-clause": 1
+    },
+    "fn": {
+      "other": 6,
+      "before Then/where/so/and": 1,
+      "after display math": 1
+    }
+  },
+  "P3/a": {
+    "fp": {},
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P3/a+c": {
+    "fp": {},
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P3/b1": {
+    "fp": {},
+    "fn": {
+      "other": 14,
+      "before Then/where/so/and": 6,
+      "after display math": 1
+    }
+  },
+  "P3/b1+c": {
+    "fp": {},
+    "fn": {
+      "other": 14,
+      "before Then/where/so/and": 6,
+      "after display math": 1
+    }
+  },
+  "P3/b2": {
+    "fp": {},
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P3/b2+c": {
+    "fp": {},
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P3/bp": {
+    "fp": {},
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P3/bp+c": {
+    "fp": {},
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P3/d": {
+    "fp": {},
+    "fn": {
+      "other": 6,
+      "before Then/where/so/and": 1,
+      "after display math": 1
+    }
+  },
+  "P3/d+c": {
+    "fp": {},
+    "fn": {
+      "other": 6,
+      "before Then/where/so/and": 1,
+      "after display math": 1
+    }
+  },
+  "P4/a": {
+    "fp": {
+      "inside math": 1
+    },
+    "fn": {}
+  },
+  "P4/a+c": {
+    "fp": {},
+    "fn": {}
+  },
+  "P4/b1": {
+    "fp": {
+      "inside math": 1,
+      "mid-clause": 1
+    },
+    "fn": {
+      "other": 5,
+      "before Then/where/so/and": 1,
+      "after display math": 1
+    }
+  },
+  "P4/b1+c": {
+    "fp": {
+      "mid-clause": 1
+    },
+    "fn": {
+      "other": 5,
+      "before Then/where/so/and": 1,
+      "after display math": 1
+    }
+  },
+  "P4/b2": {
+    "fp": {
+      "inside math": 1,
+      "after list marker": 1
+    },
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P4/b2+c": {
+    "fp": {
+      "after list marker": 1
+    },
+    "fn": {
+      "after display math": 1
+    }
+  },
+  "P4/bp": {
+    "fp": {
+      "mid-clause": 2
+    },
+    "fn": {}
+  },
+  "P4/bp+c": {
+    "fp": {
+      "mid-clause": 2
+    },
+    "fn": {}
+  },
+  "P4/d": {
+    "fp": {},
+    "fn": {
+      "other": 1,
+      "before Then/where/so/and": 1,
+      "after display math": 1
+    }
+  },
+  "P4/d+c": {
+    "fp": {},
+    "fn": {
+      "other": 1,
+      "before Then/where/so/and": 1,
+      "after display math": 1
+    }
+  }
+}

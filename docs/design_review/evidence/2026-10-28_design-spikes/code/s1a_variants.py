@@ -80,9 +80,10 @@ def blocks(r: dict) -> list[dict]:
     kids: dict[str, list[dict]] = {}
     for s in segs:
         kids.setdefault(s["parent"], []).append(s)
+    has_text_child = {s["parent"] for s in segs if s["kind"] in TEXT_KINDS}
     out = []
     for s in segs:
-        if s["kind"] in TEXT_KINDS:
+        if s["kind"] in TEXT_KINDS and s["key"] not in has_text_child:  # leaf text blocks only
             math = [{"start": m["start"] - s["start"], "end": m["end"] - s["start"], "kind": m["kind"]}
                     for m in kids.get(s["key"], []) if m["kind"].startswith("math")]
             out.append({"segment": s["key"], "kind": s["kind"], "start": s["start"], "text": text_of(r, s),

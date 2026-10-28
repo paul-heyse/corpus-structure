@@ -564,14 +564,18 @@ def serialize(blk: Block, config, prof, ctx, stats) -> tuple[str, dict]:
     markup: list[dict] = []
     offset = 0
     sep = separator(blk.kind)
+    has_blocks = any(isinstance(c, Block) for c in blk.children)
     for ch in blk.children:
         if isinstance(ch, Run):
             text, math_segs, mk = process_run(ch, config, prof, ctx, stats)
             if not text:
                 continue
-            if blk.kind in TEXT_BLOCKS:
+            if blk.kind in TEXT_BLOCKS and not has_blocks:
                 seg_children = math_segs
                 own = None
+            elif blk.kind in TEXT_BLOCKS:  # text of a list item (etc.) that also holds a nested list or table
+                own = {"kind": "paragraph", "start": 0, "end": len(text),
+                       "attrs": {"inline_text_of": blk.kind}, "parse_status": "ok", "children": math_segs}
             else:  # text directly in a container: an orphan paragraph (e.g. after parser repair)
                 own = {"kind": "paragraph", "start": 0, "end": len(text),
                        "attrs": {"orphan": True, "container": blk.kind}, "parse_status": "ok",
@@ -583,6 +587,9 @@ def serialize(blk: Block, config, prof, ctx, stats) -> tuple[str, dict]:
             if not text:
                 continue
             seg_children, mk = [], []
+        if own is not None and isinstance(ch, Run):
+            own["markup"] = mk
+            mk = []
         if parts:
             parts.append(sep)
             offset += len(sep)

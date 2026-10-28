@@ -1,0 +1,333 @@
+{
+  "pages": 78,
+  "invariants": {
+    "start_le_end": 0,
+    "inside_parent": 0,
+    "siblings_ordered": 0,
+    "keys_unique": 0,
+    "independent_checked": 19432,
+    "independent_mismatched": 0
+  },
+  "math_parse_status": {
+    "ok": 28948,
+    "partial": 8
+  },
+  "math_anomalies": [
+    {
+      "page": "dist/Discrete.html",
+      "anomaly": {
+        "pos": 38,
+        "kind": "stray closer",
+        "delim": "\\)"
+      }
+    },
+    {
+      "page": "dist/Joint.html",
+      "segment": "seg:58331b22bb6f5e2a6137f7306c840c4f",
+      "reason": "unclosed \\( before next opener",
+      "text": "\\(f given by "
+    },
+    {
+      "page": "dist/Conditional.html",
+      "segment": "seg:fd78cfd7c4e0b65b25ffbf992c217069",
+      "reason": "unclosed at block end",
+      "text": "\\(n \\in \\{1, 2, 3, 4, 5\\}). A bulb is selected at random from the box and tested."
+    },
+    {
+      "page": "dist/Convergence.html",
+      "segment": "seg:6d3566af98bfd2535c34c2d149e51b43",
+      "reason": "unclosed \\( before next opener",
+      "text": "\\(x \\in [0, \\infty), this is the distribution function of the exponential distribution with paramete"
+    },
+    {
+      "page": "expect/Generating.html",
+      "segment": "seg:f047ca3510b6301c3c7d7539a2428248",
+      "reason": "unclosed at block end",
+      "text": "\\(t \\in \\R)."
+    },
+    {
+      "page": "expect/Generating.html",
+      "segment": "seg:9ff5eeb32df99383d38a33faf2462a64",
+      "reason": "unclosed \\( before next opener",
+      "text": "\\(\\R) with probability density function "
+    },
+    {
+      "page": "expect/Generating.html",
+      "segment": "seg:c4b43c8f51cca690eae093318211b6cd",
+      "reason": "unclosed \\( before next opener",
+      "text": "\\([1, \\infty) with probability density function "
+    },
+    {
+      "page": "special/Wald.html",
+      "segment": "seg:5bac6a73d063c94cb66e8feac05d6a4a",
+      "reason": "unclosed at block end",
+      "text": "\\[ f(x) =  \\sqrt{\\frac{\\lambda}{2 \\pi x^3}} \\exp\\left[\\frac{-\\lambda (x - \\mu)^2}{2 \\mu^2 x}\\right],"
+    },
+    {
+      "page": "bernoulli/Walk.html",
+      "segment": "seg:11f53fd1d001c917e79e0a1d1851afb4",
+      "reason": "\\[ closed by \\)",
+      "text": "\\[ \\P(X_1 \\gt 0, X_2 \\gt 0, \\ldots, X_{2 j} \\gt 0\\)"
+    },
+    {
+      "page": "bernoulli/Walk.html",
+      "anomaly": {
+        "pos": 1111,
+        "kind": "stray closer",
+        "delim": "\\]"
+      }
+    },
+    {
+      "page": "poisson/Exponential.html",
+      "anomaly": {
+        "pos": 173,
+        "kind": "stray closer",
+        "delim": "\\)"
+      }
+    }
+  ],
+  "nfkc_changed": [],
+  "nfkc_changed_count": 0,
+  "profile_engines_identical_all_pages": true,
+  "v6": {
+    "default_state": {
+      "spans_agree": 28932,
+      "scanner_only": 24,
+      "walker_only": 12,
+      "comment_nodes": 3,
+      "parse_errors": 0
+    },
+    "prose_safe": {
+      "spans_agree": 28943,
+      "scanner_only": 13,
+      "walker_only": 5,
+      "comment_nodes": 0,
+      "parse_errors": 0
+    },
+    "examples": [
+      {
+        "page": "dist/Discrete.html",
+        "state": "default",
+        "segment": "seg:6cc326093483584c1cbf66814bc2fd2e",
+        "comment_swallowed": "% of the components and has a defective rate of 4%; line 2 has produces 30% of the components and has a defective rate o"
+      },
+      {
+        "page": "dist/Joint.html",
+        "state": "default",
+        "segment": "seg:e417c4fd41fc91c80773153e586d4d39",
+        "walker_only": "\\(f given by \\(f(x, y, z) = \\binom{12}{x, \\, y, \\, z} \\left(\\frac{1}{10}\\right)^x \\left(\\frac{2}{10}\\right)^y \\left(\\fra"
+      },
+      {
+        "page": "dist/Joint.html",
+        "state": "default",
+        "segment": "seg:e417c4fd41fc91c80773153e586d4d39",
+        "scanner_only": "\\(f given by "
+      },
+      {
+        "page": "dist/Joint.html",
+        "state": "default",
+        "segment": "seg:e417c4fd41fc91c80773153e586d4d39",
+        "scanner_only": "\\(f(x, y, z) = \\binom{12}{x, \\, y, \\, z} \\left(\\frac{1}{10}\\right)^x \\left(\\frac{2}{10}\\right)^y \\left(\\frac{3}{10}\\righ"
+      },
+      {
+        "page": "dist/Joint.html",
+        "state": "prose_safe",
+        "segment": "seg:e417c4fd41fc91c80773153e586d4d39",
+        "walker_only": "\\(f given by \\(f(x, y, z) = \\binom{12}{x, \\, y, \\, z} \\left(\\frac{1}{10}\\right)^x \\left(\\frac{2}{10}\\right)^y \\left(\\fra"
+      },
+      {
+        "page": "dist/Joint.html",
+        "state": "prose_safe",
+        "segment": "seg:e417c4fd41fc91c80773153e586d4d39",
+        "scanner_only": "\\(f given by "
+      },
+      {
+        "page": "dist/Joint.html",
+        "state": "prose_safe",
+        "segment": "seg:e417c4fd41fc91c80773153e586d4d39",
+        "scanner_only": "\\(f(x, y, z) = \\binom{12}{x, \\, y, \\, z} \\left(\\frac{1}{10}\\right)^x \\left(\\frac{2}{10}\\right)^y \\left(\\frac{3}{10}\\righ"
+      },
+      {
+        "page": "dist/Convergence.html",
+        "state": "default",
+        "segment": "seg:65d549db53e031809708c554b747fba2",
+        "walker_only": "\\(x \\in [0, \\infty), this is the distribution function of the exponential distribution with parameter \\(r\\)."
+      },
+      {
+        "page": "dist/Convergence.html",
+        "state": "default",
+        "segment": "seg:65d549db53e031809708c554b747fba2",
+        "scanner_only": "\\(x \\in [0, \\infty), this is the distribution function of the exponential distribution with parameter "
+      },
+      {
+        "page": "dist/Convergence.html",
+        "state": "default",
+        "segment": "seg:65d549db53e031809708c554b747fba2",
+        "scanner_only": "\\(r\\)"
+      },
+      {
+        "page": "dist/Convergence.html",
+        "state": "prose_safe",
+        "segment": "seg:65d549db53e031809708c554b747fba2",
+        "walker_only": "\\(x \\in [0, \\infty), this is the distribution function of the exponential distribution with parameter \\(r\\)."
+      },
+      {
+        "page": "dist/Convergence.html",
+        "state": "prose_safe",
+        "segment": "seg:65d549db53e031809708c554b747fba2",
+        "scanner_only": "\\(x \\in [0, \\infty), this is the distribution function of the exponential distribution with parameter "
+      },
+      {
+        "page": "dist/Convergence.html",
+        "state": "prose_safe",
+        "segment": "seg:65d549db53e031809708c554b747fba2",
+        "scanner_only": "\\(r\\)"
+      },
+      {
+        "page": "expect/Generating.html",
+        "state": "default",
+        "segment": "seg:4e5298bca2d9c199b763d96ef3e707f8",
+        "walker_only": "\\(\\R) with probability density function \\(\\phi\\) given by \\[ \\phi(z) = \\frac{1}{\\sqrt{2 \\pi}} e^{-\\frac{1}{2} z^2}, \\qua"
+      },
+      {
+        "page": "expect/Generating.html",
+        "state": "default",
+        "segment": "seg:4e5298bca2d9c199b763d96ef3e707f8",
+        "scanner_only": "\\(\\R) with probability density function "
+      },
+      {
+        "page": "expect/Generating.html",
+        "state": "default",
+        "segment": "seg:4e5298bca2d9c199b763d96ef3e707f8",
+        "scanner_only": "\\(\\phi\\)"
+      },
+      {
+        "page": "expect/Generating.html",
+        "state": "prose_safe",
+        "segment": "seg:4e5298bca2d9c199b763d96ef3e707f8",
+        "walker_only": "\\(\\R) with probability density function \\(\\phi\\) given by \\[ \\phi(z) = \\frac{1}{\\sqrt{2 \\pi}} e^{-\\frac{1}{2} z^2}, \\qua"
+      },
+      {
+        "page": "expect/Generating.html",
+        "state": "prose_safe",
+        "segment": "seg:4e5298bca2d9c199b763d96ef3e707f8",
+        "scanner_only": "\\(\\R) with probability density function "
+      },
+      {
+        "page": "expect/Generating.html",
+        "state": "prose_safe",
+        "segment": "seg:4e5298bca2d9c199b763d96ef3e707f8",
+        "scanner_only": "\\(\\phi\\)"
+      },
+      {
+        "page": "expect/Conditional.html",
+        "state": "default",
+        "segment": "seg:4f60ed8935832b386508dcaaab2c400b",
+        "walker_only": "$50 and standard deviation $"
+      },
+      {
+        "page": "special/LogNormal.html",
+        "state": "default",
+        "segment": "seg:826c8fc3c3fec10d74959fa72030c7f1",
+        "walker_only": "$1000 units) has the lognormal distribution with parameters \\(\\mu = 2\\) and \\(\\sigma = 1\\). Find \\(\\P(X \\gt 20)\\)."
+      },
+      {
+        "page": "special/LogNormal.html",
+        "state": "default",
+        "segment": "seg:826c8fc3c3fec10d74959fa72030c7f1",
+        "scanner_only": "\\(\\mu = 2\\)"
+      },
+      {
+        "page": "special/LogNormal.html",
+        "state": "default",
+        "segment": "seg:826c8fc3c3fec10d74959fa72030c7f1",
+        "scanner_only": "\\(\\sigma = 1\\)"
+      },
+      {
+        "page": "special/Pareto.html",
+        "state": "default",
+        "segment": "seg:77971db1021dccc11946723c1968423c",
+        "comment_swallowed": "%"
+      },
+      {
+        "page": "bernoulli/Binomial.html",
+        "state": "default",
+        "segment": "seg:90213fccf3c6900720ec0fd1fd40b670",
+        "comment_swallowed": "% of the registered voters prefer candidate \\(A\\). A random sample of 50 registered voters is selected. Let \\(Z\\) denote"
+      },
+      {
+        "page": "bernoulli/Binomial.html",
+        "state": "default",
+        "segment": "seg:90213fccf3c6900720ec0fd1fd40b670",
+        "scanner_only": "\\(A\\)"
+      },
+      {
+        "page": "bernoulli/Binomial.html",
+        "state": "default",
+        "segment": "seg:90213fccf3c6900720ec0fd1fd40b670",
+        "scanner_only": "\\(Z\\)"
+      },
+      {
+        "page": "bernoulli/Geometric.html",
+        "state": "default",
+        "segment": "seg:501d90c5c78863dcf9561e7294638de3",
+        "walker_only": "$1000"
+      },
+      {
+        "page": "bernoulli/NegativeBinomial.html",
+        "state": "default",
+        "segment": "seg:7d764e92241edcef1e351d468a53e430",
+        "walker_only": "$50 each. The players toss a fair coin until one of them has 10 wins; the winner takes the entire fortune. Suppose that "
+      },
+      {
+        "page": "bernoulli/NegativeBinomial.html",
+        "state": "default",
+        "segment": "seg:7d764e92241edcef1e351d468a53e430",
+        "scanner_only": "\\(A\\)"
+      },
+      {
+        "page": "bernoulli/NegativeBinomial.html",
+        "state": "default",
+        "segment": "seg:7d764e92241edcef1e351d468a53e430",
+        "scanner_only": "\\(B\\)"
+      },
+      {
+        "page": "bernoulli/Walk.html",
+        "state": "default",
+        "segment": "seg:ba223b1239d9d7896f269c5e9f85856b",
+        "walker_only": "\\[ \\P(X_1 \\gt 0, X_2 \\gt 0, \\ldots, X_{2 j} \\gt 0\\) = \\P(X_1 = 0) \\P(X_1 \\ge 0, X_2 \\ge 0, \\ldots, X_{2 j - 1} \\ge 0) \\]"
+      },
+      {
+        "page": "bernoulli/Walk.html",
+        "state": "default",
+        "segment": "seg:ba223b1239d9d7896f269c5e9f85856b",
+        "scanner_only": "\\[ \\P(X_1 \\gt 0, X_2 \\gt 0, \\ldots, X_{2 j} \\gt 0\\)"
+      },
+      {
+        "page": "bernoulli/Walk.html",
+        "state": "default",
+        "segment": "seg:638d46444f03fb304b7e24eddb3c3cfa",
+        "walker_only": "$1 on red, at even stakes, 50 times, winning 22 times and losing 28 times. Find the probability that Fred's net fortune "
+      },
+      {
+        "page": "bernoulli/Walk.html",
+        "state": "prose_safe",
+        "segment": "seg:ba223b1239d9d7896f269c5e9f85856b",
+        "walker_only": "\\[ \\P(X_1 \\gt 0, X_2 \\gt 0, \\ldots, X_{2 j} \\gt 0\\) = \\P(X_1 = 0) \\P(X_1 \\ge 0, X_2 \\ge 0, \\ldots, X_{2 j - 1} \\ge 0) \\]"
+      },
+      {
+        "page": "bernoulli/Walk.html",
+        "state": "prose_safe",
+        "segment": "seg:ba223b1239d9d7896f269c5e9f85856b",
+        "scanner_only": "\\[ \\P(X_1 \\gt 0, X_2 \\gt 0, \\ldots, X_{2 j} \\gt 0\\)"
+      }
+    ]
+  },
+  "pages_with_count_delta": {
+    "units": 1,
+    "definition_units": 0,
+    "dfn_terms": 0,
+    "details_blocks": 0,
+    "display_math": 1
+  }
+}

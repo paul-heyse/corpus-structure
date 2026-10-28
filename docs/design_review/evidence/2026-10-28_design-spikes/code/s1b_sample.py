@@ -188,6 +188,7 @@ def main() -> int:
         page = locs[0].split("#")[0].split("@")[0]
         r = renditions[page]
         parts = []
+        n_sent = 0  # sentence ids run across a unit's parts (T1 has two)
         for loc in locs:
             hits = resolve(loc, r)
             if len(hits) != 1:
@@ -199,9 +200,10 @@ def main() -> int:
             parts.append({"locator": loc, "found_by": loc.split(page)[1][:2], "segment_key": h["key"],
                           "kind": h["kind"], "start": h["start"], "end": h["end"],
                           "sha256": hashlib.sha256(unit_text.encode("utf-8")).hexdigest(),
-                          "sentences": [{"id": f"s{i + 1}", "key": s["key"], "start": s["start"], "end": s["end"]}
+                          "sentences": [{"id": f"s{n_sent + i + 1}", "key": s["key"], "start": s["start"], "end": s["end"]}
                                         for i, s in enumerate(sids)],
                           "first_80": unit_text[:80]})
+            n_sent += len(sids)
         sample["units"][uid] = {"page": page, "document_key": r["rendition"]["document_key"],
                                 "rendition_key": r["rendition"]["rendition_key"], "parts": parts}
     (EVIDENCE / "sample.json").write_text(json.dumps(sample, indent=2, ensure_ascii=False) + "\n")

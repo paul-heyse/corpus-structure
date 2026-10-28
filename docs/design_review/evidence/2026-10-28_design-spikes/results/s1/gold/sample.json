@@ -1,0 +1,1238 @@
+{
+  "seed": 20261028,
+  "blocks": [
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:b7ef9bc0c9f6d487babd378ce084b4a3",
+      "kind": "list_item",
+      "start": 19748,
+      "end": 19775,
+      "text": "The chi-square distribution",
+      "strata": [
+        "math_none",
+        "list_item"
+      ],
+      "id": "B001"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:2c89744562d711bc88598d00b5ef3b7d",
+      "kind": "paragraph",
+      "start": 20150,
+      "end": 20195,
+      "text": "Let \\(X\\) denote the volume of beer in liters",
+      "strata": [
+        "math_low",
+        "details"
+      ],
+      "id": "B002"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:7b1f9e346f765e7507dee385d7500e95",
+      "kind": "list_item",
+      "start": 20264,
+      "end": 20291,
+      "text": "(a) \\(\\P(18 \\lt X \\lt 25)\\)",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "id": "B003"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:bce5fb8d802e9d76ebe534e00fe37626",
+      "kind": "paragraph",
+      "start": 18568,
+      "end": 18877,
+      "text": "Expanding the square, the normal PDF can be written in the form \\[ f(x) = \\frac{1}{\\sqrt{2 \\pi} \\sigma} \\exp\\left(-\\frac{\\mu^2}{2 \\sigma^2}\\right) \\exp\\left(\\frac{\\mu}{\\sigma^2} x - \\frac{1}{2 \\sigma^2} x^2 \\right), \\quad x \\in \\R\\] so the result follows from the definition of the general exponential family.",
+      "strata": [
+        "math_none",
+        "display",
+        "details",
+        "trap"
+      ],
+      "id": "B004"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:f1ec626da2d2d163e2458aee00ad7f4b",
+      "kind": "list_item",
+      "start": 19999,
+      "end": 20036,
+      "text": "(b) \\(\\E(X) = 400\\), \\(\\sd(X) = 200\\)",
+      "strata": [
+        "math_high",
+        "list_item",
+        "details"
+      ],
+      "id": "B005"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:039ff7e94c2ef96086ecbe37e9ac9992",
+      "kind": "paragraph",
+      "start": 13210,
+      "end": 13369,
+      "text": "The skewness and kurtosis of a variable are defined in terms of the standard score, so these results follows from the corresponding result for \\( Z \\) in [11].",
+      "strata": [
+        "math_low",
+        "details"
+      ],
+      "id": "B006"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:62ee937f5caee12b3b28383d1ec497cc",
+      "kind": "paragraph",
+      "start": 8734,
+      "end": 8922,
+      "text": "If \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\in (0, \\infty)\\) then \\(1 / X\\) has the lognormal distribution with parameters \\(-\\mu\\) and \\(\\sigma\\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "id": "B007"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:f909fcf8ff2b684174abb97868277b59",
+      "kind": "paragraph",
+      "start": 12692,
+      "end": 13037,
+      "text": "In the simulation of the special distribution simulator, select the gamma distribution. Vary the shape and scale parameters and note the shape and location of the probability density function. For various values of the parameters, run the simulation 1000 times and compare the empirical density function to the true probability density function.",
+      "strata": [
+        "math_none"
+      ],
+      "id": "B008"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:2250960a92253d197f6856bec95434d9",
+      "kind": "paragraph",
+      "start": 4145,
+      "end": 4181,
+      "text": "The mean and variance of \\( Z \\) are",
+      "strata": [
+        "math_low"
+      ],
+      "id": "B009"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:5b5e9e2848d7c1d3dde1d051dac089f1",
+      "kind": "paragraph",
+      "start": 8927,
+      "end": 9100,
+      "text": "In particular, note that \\( \\skw(X) \\to 0 \\) and \\( \\kur(X) \\to 3 \\) as \\( k \\to \\infty \\). Note also that the excess kurtosis \\( \\kur(X) - 3 \\to 0 \\) as \\( k \\to \\infty \\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "id": "B010"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:c5db5a3cde86d1ae66fe5097a746859b",
+      "kind": "paragraph",
+      "start": 3230,
+      "end": 3305,
+      "text": "\\[ f(x) = \\frac{1}{b} \\, g \\left( \\frac{x - a}{b} \\right), \\quad x \\in \\R\\]",
+      "strata": [
+        "math_none",
+        "display",
+        "trap"
+      ],
+      "id": "B011"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:e0449944581837d44828643ea91ac5fe",
+      "kind": "list_item",
+      "start": 20229,
+      "end": 20255,
+      "text": "(b) \\(x_{0.95} = 0.51645\\)",
+      "strata": [
+        "math_high",
+        "list_item",
+        "details"
+      ],
+      "id": "B012"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:581b3e025324ae9b88b40fff6880863a",
+      "kind": "paragraph",
+      "start": 4401,
+      "end": 4632,
+      "text": "Clearly \\( f \\) is a valid probability density function, since \\( f(x) \\gt 0 \\) for \\( x \\gt 0 \\), and by definition, \\( \\Gamma(k) \\) is the normalizing constant for the function \\( x \\mapsto x^{k-1} e^{-x} \\) on \\( (0, \\infty) \\).",
+      "strata": [
+        "math_high",
+        "details",
+        "trap"
+      ],
+      "id": "B013"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:9db81873350d0f9fe0f146b0c39e3ef3",
+      "kind": "paragraph",
+      "start": 16869,
+      "end": 17287,
+      "text": "The normal distribution is stable. Specifically, suppose that \\( X \\) has the normal distribution with mean \\( \\mu \\in \\R \\) and variance \\( \\sigma^2 \\in (0, \\infty)\\). If \\( (X_1, X_2, \\ldots, X_n) \\) are independent copies of \\( X \\), then \\( X_1 + X_2 + \\cdots + X_n \\) has the same distribution as \\( \\left(n - \\sqrt{n}\\right) \\mu + \\sqrt{n} X \\), namely normal with mean \\( n \\mu \\) and variance \\( n \\sigma^2 \\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "id": "B014"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:23a4fae76b5085c4c4fa106803b90843",
+      "kind": "paragraph",
+      "start": 3565,
+      "end": 3647,
+      "text": "In the quantile app, select the normal distribution and keep the default settings.",
+      "strata": [
+        "math_none"
+      ],
+      "id": "B015"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:cd84aa2685d2f91590d3791a362cfdc7",
+      "kind": "paragraph",
+      "start": 4778,
+      "end": 5089,
+      "text": "In the simulation of the special distribution simulator, select the lognormal distribution. Vary the parameters and note the shape and location of the mean\\( \\pm \\)standard deviation bar. For selected values of the parameters, run the simulation 1000 times and compare the empirical moments to the true moments.",
+      "strata": [
+        "math_low"
+      ],
+      "id": "B016"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:6f1e757edd7730acacea446e09c207d3",
+      "kind": "list_item",
+      "start": 6286,
+      "end": 6327,
+      "text": "(a) \\(\\E \\left( Z^{2 n + 1} \\right) = 0\\)",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "id": "B017"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:d0e2e21b97a60ac00835a67f3def5a57",
+      "kind": "paragraph",
+      "start": 13333,
+      "end": 13460,
+      "text": "The distribution function \\( F \\) of \\( X \\) is given by \\[ F(x) = \\frac{\\Gamma(k, x/b)}{\\Gamma(k)}, \\quad x \\in (0, \\infty) \\]",
+      "strata": [
+        "math_low",
+        "display",
+        "trap"
+      ],
+      "id": "B018"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:3194e5d06d29536f49da9e212eab9d4e",
+      "kind": "list_item",
+      "start": 19700,
+      "end": 19724,
+      "text": "The Poisson distribution",
+      "strata": [
+        "math_none",
+        "list_item"
+      ],
+      "id": "B019"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:fb6454c89a1e19a6a2e63963e903379b",
+      "kind": "paragraph",
+      "start": 7560,
+      "end": 8026,
+      "text": "Suppose that \\(Z\\) has the standard normal distribution and let \\(W = e^Z\\) so that \\(W\\) has the standard lognormal distribution. If \\(\\mu \\in \\R\\) and \\(\\sigma \\in (0, \\infty)\\) then \\(Y = \\mu + \\sigma Z\\) has the normal distribution with mean \\(\\mu\\) and standard deviation \\(\\sigma\\) and hence \\(X = e^Y\\) has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\). But \\[X = e^Y = e^{\\mu + \\sigma Z} = e^\\mu \\left(e^Z\\right)^\\sigma = e^\\mu W^\\sigma\\]",
+      "strata": [
+        "math_low",
+        "display",
+        "details",
+        "trap"
+      ],
+      "id": "B020"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:70967694e11e302f84c1f18f516f6862",
+      "kind": "list_item",
+      "start": 1914,
+      "end": 1979,
+      "text": "(b) \\(\\phi\\) increases and then decreases, with mode \\( z = 0 \\).",
+      "strata": [
+        "math_low",
+        "list_item",
+        "trap"
+      ],
+      "id": "B021"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:73d33d6d8ecb6bc438ea602f5143ced4",
+      "kind": "paragraph",
+      "start": 12046,
+      "end": 12169,
+      "text": "The Wald distribution is a scale family, although in the usual formulation, neither of the parameters is a scale parameter.",
+      "strata": [
+        "math_none"
+      ],
+      "id": "B022"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:906050c59dfb4cae58e92d09b7187d8e",
+      "kind": "paragraph",
+      "start": 12714,
+      "end": 13060,
+      "text": "In the special distribution simulator select the normal distribution. Vary the mean and standard deviation and note the size and location of the mean \\(\\pm\\) standard deviation bar. With your choice of parameter settings, run the simulation 1000 times and compare the empirical mean and standard deviation to the true mean and standard deviation.",
+      "strata": [
+        "math_low"
+      ],
+      "id": "B023"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:6e3ef1859250a1a2e333cb7e0cd20157",
+      "kind": "list_item",
+      "start": 5618,
+      "end": 5674,
+      "text": "(b) \\(s(x) = (1 / b)r(x / b)\\) for \\(x \\in [0, \\infty)\\)",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "id": "B024"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:234621b94d680c42ddbacf01d9d476dd",
+      "kind": "paragraph",
+      "start": 2008,
+      "end": 2162,
+      "text": "If \\(Z\\) has distribution function \\(G\\) then \\(X\\) has distribution function \\(F\\) given by \\[  F(x) = G \\left( \\frac{x - a}{b} \\right), \\quad x \\in \\R\\]",
+      "strata": [
+        "math_low",
+        "display",
+        "trap"
+      ],
+      "id": "B025"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:c620fe95004d63d7b7f68f0dbc06ec5d",
+      "kind": "list_item",
+      "start": 19768,
+      "end": 19839,
+      "text": "(a) Find the probability that the device will last more than 300 hours.",
+      "strata": [
+        "math_none",
+        "list_item"
+      ],
+      "id": "B026"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:f7a40a66b06f0b1fe6ccfd0bfa4a4bf4",
+      "kind": "paragraph",
+      "start": 5411,
+      "end": 5562,
+      "text": "These result follow from the first four moments of the lognormal distribution in [7] and the standard computational formulas for skewness and kurtosis.",
+      "strata": [
+        "math_none",
+        "details"
+      ],
+      "id": "B027"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:5721fb64394059c63f8017052cb3699f",
+      "kind": "paragraph",
+      "start": 9327,
+      "end": 9583,
+      "text": "Suppose that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\in (0, \\infty)\\) and that \\(a \\in \\R \\setminus \\{0\\}\\). Then \\(X^a\\) has the lognormal distribution with parameters with parameters \\(a \\mu\\) and \\(|a| \\sigma\\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "id": "B028"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:a50344a3200802885dff5e50f733fcf9",
+      "kind": "paragraph",
+      "start": 1519,
+      "end": 1577,
+      "text": "The gamma function was first introduced by Leonhard Euler.",
+      "strata": [
+        "math_none"
+      ],
+      "id": "B029"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:961bd2f195a522959949a1bc0e280447",
+      "kind": "paragraph",
+      "start": 16493,
+      "end": 16867,
+      "text": "Theorem [26] generalizes to a sum of \\(n\\) independent, normal variables. The important part is that the sum is still normal; the expressions for the mean and variance are standard results that hold for the sum of independent variables generally. As a consequence of this result and the one for linear transformations [24], it follows that the normal distribution is stable.",
+      "strata": [
+        "math_low"
+      ],
+      "id": "B030"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:9cbfc708579c0efeaa7a7d9a1b8e3092",
+      "kind": "list_item",
+      "start": 1276,
+      "end": 1461,
+      "text": "(b) \\( f \\) is concave upward then downward then upward again, with inflection points at \\( x = \\exp\\left(\\mu - \\frac{3}{2} \\sigma^2 \\pm \\frac{1}{2} \\sigma \\sqrt{\\sigma^2 + 4}\\right) \\)",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "id": "B031"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:5dced91714ba215e076ad815d1bb29c4",
+      "kind": "paragraph",
+      "start": 19160,
+      "end": 19368,
+      "text": "This follows from the definition of the general exponential family. The gamma PDF can be written as \\[ f(x) = \\frac{1}{b^k \\Gamma(k)} \\exp\\left[(k - 1) \\ln x - \\frac{1}{b} x\\right], \\quad x \\in (0, \\infty) \\]",
+      "strata": [
+        "math_none",
+        "display",
+        "details",
+        "trap"
+      ],
+      "id": "B032"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:ef4aa7772da5ace923321cd0bb5f238c",
+      "kind": "list_item",
+      "start": 3307,
+      "end": 3505,
+      "text": "(a) For the location family associated with \\(g\\), the graph of \\(f\\) is obtained by shifting the graph of \\(g\\), \\(a\\) units to the right if \\(a \\gt 0\\) and \\(-a\\) units to the left if \\(a \\lt 0\\).",
+      "strata": [
+        "math_low",
+        "list_item",
+        "trap"
+      ],
+      "id": "B033"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:3ded189bda70aae341a58acddfe7fdd5",
+      "kind": "paragraph",
+      "start": 9983,
+      "end": 10094,
+      "text": "This follows from the change of variables formula corresponding to the transformation \\( x = \\mu + \\sigma z \\).",
+      "strata": [
+        "math_low",
+        "details",
+        "trap"
+      ],
+      "id": "B034"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:531df07dfeb823b290c6aed0a4a865d0",
+      "kind": "paragraph",
+      "start": 3867,
+      "end": 4220,
+      "text": "First note that \\( \\P(X = x) = \\P\\left(Z = \\frac{x - a}{b}\\right) = 0 \\), so \\( X \\) has a continuous distribution. Typically, \\( Z \\) takes values in an interval of \\( \\R \\) and thus so does \\( X \\). The formula for the density function follows by taking derivatives of the distribution function in [2], since \\( f = F^\\prime \\) and \\( g = G^\\prime \\).",
+      "strata": [
+        "math_high",
+        "details",
+        "trap"
+      ],
+      "id": "B035"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:1afa32439081e2b1ffa09798ded4cc63",
+      "kind": "list_item",
+      "start": 19725,
+      "end": 19747,
+      "text": "The gamma distribution",
+      "strata": [
+        "math_none",
+        "list_item"
+      ],
+      "id": "B036"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:34bda2eaffdb548b8b0a8db2dbceecbc",
+      "kind": "paragraph",
+      "start": 4567,
+      "end": 4655,
+      "text": "If \\(G\\) and \\(F\\) are the distribution functions of \\(Z\\) and \\(X\\), respectively, then",
+      "strata": [
+        "math_low"
+      ],
+      "id": "B037"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:fd952d92b09630a5d9406337aff8f8a4",
+      "kind": "list_item",
+      "start": 9754,
+      "end": 9982,
+      "text": "(b) Suppose there exists \\( a \\in \\R \\) and \\( b \\in (0, \\infty) \\) such that \\( F(x) = G\\left(\\frac{x - a}{b}\\right) \\) for \\( x \\in \\R \\). Then \\( G(x) = F(a + b x) = F\\left(\\frac{x - (-a/b)}{1/b}\\right) \\) for \\( x \\in \\R \\).",
+      "strata": [
+        "math_high",
+        "list_item",
+        "details",
+        "trap"
+      ],
+      "id": "B038"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:a83b76ae014cc2daf40dcb07e381cffe",
+      "kind": "paragraph",
+      "start": 6096,
+      "end": 6281,
+      "text": "The result follows easily from the definition of entropy as an expected value: \\[ H(X) = -\\E[\\ln f(X)] = -\\E[\\ln f(b Z)] = -\\E(\\ln [ g(Z) / b]) = -\\E[\\ln g(Z) - \\ln b] = H(Z) + \\ln b \\]",
+      "strata": [
+        "math_none",
+        "display",
+        "details",
+        "trap"
+      ],
+      "id": "B039"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:cab818c3a9dd3a2b5175879728a01535",
+      "kind": "list_item",
+      "start": 5129,
+      "end": 5183,
+      "text": "(d) If \\( 0 \\lt k \\le 1 \\), \\( f \\) is concave upward.",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "id": "B040"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:684184d60296ae5972527ff185d756d4",
+      "kind": "paragraph",
+      "start": 11323,
+      "end": 11406,
+      "text": "Part (a) follows since \\( X = \\mu + \\sigma Z \\). Parts (b) and (c) follow from (a).",
+      "strata": [
+        "math_low",
+        "details"
+      ],
+      "id": "B041"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:54c3b764f824d7f4e62d8640d9816891",
+      "kind": "paragraph",
+      "start": 3121,
+      "end": 3193,
+      "text": "We can generalize the last result to odd multiples of \\( \\frac{1}{2} \\).",
+      "strata": [
+        "math_low",
+        "trap"
+      ],
+      "id": "B042"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:1ca53c66c33f55ca4f36f098564a5499",
+      "kind": "paragraph",
+      "start": 10639,
+      "end": 10691,
+      "text": "The arcsine distribution is a location-scale family.",
+      "strata": [
+        "math_none"
+      ],
+      "id": "B043"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:7febc2565a23dfae6e89d000e6cc1092",
+      "kind": "paragraph",
+      "start": 19627,
+      "end": 19766,
+      "text": "Suppose that the lifetime of a device (in hours) has the gamma distribution with shape parameter \\(k = 4\\) and scale parameter \\(b = 100\\).",
+      "strata": [
+        "math_low",
+        "trap"
+      ],
+      "id": "B044"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:d8437ecff0348423362855ef48a2866c",
+      "kind": "list_item",
+      "start": 6480,
+      "end": 6510,
+      "text": "(a) \\(\\E(X) = a + b \\, \\E(Z)\\)",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "id": "B045"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:2a1549e6230ce0c0b72491783f136a5f",
+      "kind": "paragraph",
+      "start": 525,
+      "end": 718,
+      "text": "The standard normal distribution is a continuous distribution on \\( \\R \\) with probability density function \\(\\phi\\) given by \\[ \\phi(z) = \\frac{1}{\\sqrt{2 \\pi}} e^{-z^2 / 2}, \\quad z \\in \\R \\]",
+      "strata": [
+        "math_low",
+        "display",
+        "trap"
+      ],
+      "id": "B046"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:9a14c2418fa1fb1d346472c7ca29363b",
+      "kind": "list_item",
+      "start": 11246,
+      "end": 11311,
+      "text": "(c) \\(F(\\mu) = \\frac{1}{2}\\) so the median occurs at \\(x = \\mu\\).",
+      "strata": [
+        "math_high",
+        "list_item",
+        "trap"
+      ],
+      "id": "B047"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:c20859cdaba971cf11ac78c255ae35ab",
+      "kind": "paragraph",
+      "start": 2172,
+      "end": 2361,
+      "text": "These results follow from standard calculus. Note that \\(\\phi^\\prime(z) = - z \\phi(z)\\) (which gives (b)) and hence also \\( \\phi^{\\prime \\prime}(z) = (z^2 - 1) \\phi(z) \\) (which gives (c)).",
+      "strata": [
+        "math_high",
+        "details"
+      ],
+      "id": "B048"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:e7f7723fac36e855652b1b59fa038590",
+      "kind": "list_item",
+      "start": 5310,
+      "end": 5448,
+      "text": "(f) If \\( k \\gt 2 \\), \\( f \\) is concave upward, then downward, then upward again, with inflection points at \\( k - 1 \\pm \\sqrt{k - 1} \\).",
+      "strata": [
+        "math_high",
+        "list_item",
+        "trap"
+      ],
+      "id": "B049"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:12dee7c3ecd01a539bff67efa60db483",
+      "kind": "paragraph",
+      "start": 6001,
+      "end": 6220,
+      "text": "Even though the lognormal distribution has finite moments of all orders, the moment generating function is infinite at any positive number. This property is one of the reasons for the fame of the lognormal distribution.",
+      "strata": [
+        "math_none"
+      ],
+      "id": "B050"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:923b6bd7807a12404d44395d5691100f",
+      "kind": "paragraph",
+      "start": 5731,
+      "end": 5946,
+      "text": "The special case \\(k = 1\\) gives the standard exponential distribution. The exponential distribution is studied in more detail in the chapter on Poisson process. When \\(k \\ge 1\\), the gamma distribution is unimodal.",
+      "strata": [
+        "math_low"
+      ],
+      "id": "B051"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:237ae960b05b781a14dcc6f14fb542dd",
+      "kind": "list_item",
+      "start": 4203,
+      "end": 4224,
+      "text": "(b) \\( \\var(Z) = 1 \\)",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "id": "B052"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:943790bf95e1f77f3327e73b61ffb73c",
+      "kind": "paragraph",
+      "start": 9505,
+      "end": 9624,
+      "text": "The moment generating function of \\( X \\) is given by \\[ \\E\\left(e^{t X}\\right) = \\frac{1}{(1 - t)^k}, \\quad t \\lt 1 \\]",
+      "strata": [
+        "math_low",
+        "display",
+        "trap"
+      ],
+      "id": "B053"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:a5f27ed749622037b6c4f5fc992f4cc0",
+      "kind": "list_item",
+      "start": 10391,
+      "end": 10455,
+      "text": "(d) \\(f(x) \\to 0\\) as \\(x \\to \\infty\\) and as \\(x \\to -\\infty\\).",
+      "strata": [
+        "math_high",
+        "list_item",
+        "trap"
+      ],
+      "id": "B054"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:5ba4183ad5723cac18a98c9b24698857",
+      "kind": "list_item",
+      "start": 8463,
+      "end": 8593,
+      "text": "(b) If \\( n \\in \\N \\), then by [3], \\( \\Gamma(k + n) = k (k + 1) \\cdots (k + n - 1) \\Gamma(k)  \\), so the result follows from (a).",
+      "strata": [
+        "math_high",
+        "list_item",
+        "details"
+      ],
+      "id": "B055"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:00a4b64db3b709994014b818eb15c610",
+      "kind": "paragraph",
+      "start": 3839,
+      "end": 4087,
+      "text": "The moments of the lognormal distribution can be computed from the moment generating function of the normal distribution. Once again, we assume that \\(X\\) has the lognormal distribution with parameters \\(\\mu \\in \\R\\) and \\(\\sigma \\in (0, \\infty)\\).",
+      "strata": [
+        "math_low",
+        "trap"
+      ],
+      "id": "B056"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:be3ab627f3e52281050abcee6635479a",
+      "kind": "paragraph",
+      "start": 3801,
+      "end": 3964,
+      "text": "In the quantile app, select the normal distribution and keep the default settings. Find the quantiles of the following orders for the standard normal distribution:",
+      "strata": [
+        "math_none"
+      ],
+      "id": "B057"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:1ac7b039706148cc0392c1d30eee6948",
+      "kind": "paragraph",
+      "start": 13371,
+      "end": 13472,
+      "text": "The moment generating function \\( M \\) and characteristic function \\( \\chi \\) of \\( X \\) are given by",
+      "strata": [
+        "math_low"
+      ],
+      "id": "B058"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:71fd5f82f4572ea854c3471da39cc875",
+      "kind": "paragraph",
+      "start": 6014,
+      "end": 6084,
+      "text": "The entropy of \\(X\\) and \\(Z\\) are related by \\(H(X) = H(Z) + \\ln b\\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "id": "B059"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:7ad88e664118d8d542e5a1ab4eb61cef",
+      "kind": "paragraph",
+      "start": 612,
+      "end": 902,
+      "text": "The gamma function \\( \\Gamma \\) is defined as follows \\[ \\Gamma(k) = \\int_0^\\infty x^{k-1} e^{-x} \\, dx, \\quad k \\in (0, \\infty) \\] The function is well defined, that is, the integral converges for any \\(k \\gt 0\\). On the other hand, the integral diverges to \\( \\infty \\) for \\( k \\le 0 \\).",
+      "strata": [
+        "math_low",
+        "display",
+        "trap"
+      ],
+      "id": "B060"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:461ade98bfb3c5eab5a9dda35ee81c12",
+      "kind": "paragraph",
+      "start": 41,
+      "end": 436,
+      "text": "As usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P)\\). So \\( \\Omega \\) is the set of outcomes, \\( \\ms F \\) the collection of events, and \\( \\P \\) the probability measure on the sample space \\( (\\Omega, \\mathscr F) \\). In this section, we assume that we fixed random variable \\( Z \\) defined on the probability space, with values in \\( \\R \\).",
+      "strata": [
+        "math_low",
+        "trap"
+      ],
+      "core": true,
+      "id": "B061"
+    },
+    {
+      "page": "special/LocationScale.html",
+      "rendition": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+      "key": "seg:80a1bea8017a84beea5f9eb8683503d8",
+      "kind": "paragraph",
+      "start": 450,
+      "end": 744,
+      "text": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\), let \\(X = a + b \\, Z\\). The two-parameter family of distributions associated with \\(X\\) is called the location-scale family associated with the given distribution of \\(Z\\). Specifically, \\(a\\) is the location parameter and \\(b\\) the scale parameter.",
+      "strata": [
+        "math_low"
+      ],
+      "core": true,
+      "id": "B062"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:a3c88aa2d5cdbd70f8a179347967faa2",
+      "kind": "paragraph",
+      "start": 11565,
+      "end": 11826,
+      "text": "Suppose again that \\( X \\) has the normal distribution with location parameter \\( \\mu \\in \\R \\) and scale parameter \\( \\sigma \\in (0, \\infty) \\). As the notation suggests, the location and scale parameters are also the mean and standard deviation, respectively.",
+      "strata": [
+        "math_low"
+      ],
+      "core": true,
+      "id": "B063"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:75055150bc39eb76341152422aa76802",
+      "kind": "paragraph",
+      "start": 14382,
+      "end": 14615,
+      "text": "Suppose that \\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\). If \\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\), then \\(a + b X\\) is normally distributed with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "core": true,
+      "id": "B064"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:f4657471136f2a1f4d010c236db6d5ae",
+      "kind": "paragraph",
+      "start": 14627,
+      "end": 14925,
+      "text": "The MGF of \\(a + b X\\) is \\[ \\E\\left[e^{t (a + b X)}\\right] = e^{ta} \\E\\left[e^{(t b) X}\\right] = e^{ta} e^{\\mu (t b) + \\sigma^2 (t b)^2 / 2} = e^{(a + b \\mu)t + b^2 \\sigma^2 t^2 / 2} \\] which we recognize as the MGF of the normal distribution with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\).",
+      "strata": [
+        "math_low",
+        "display",
+        "details",
+        "trap"
+      ],
+      "core": true,
+      "id": "B065"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:57bebab2809e83fa2c27612c682ef9bf",
+      "kind": "paragraph",
+      "start": 14927,
+      "end": 15341,
+      "text": "Recall that in general, if \\(X\\) is a random variable with mean \\(\\mu\\) and standard deviation \\(\\sigma \\gt 0\\), then \\(Z = (X - \\mu) / \\sigma\\) is the standard score of \\(X\\). A corollary of the last result is that if \\(X\\) has a normal distribution then the standard score \\(Z\\) has a standard normal distribution. Conversely, any normally distributed variable can be constructed from a standard normal variable.",
+      "strata": [
+        "math_low"
+      ],
+      "core": true,
+      "id": "B066"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:4357688142c695cfd874fbe0c593f403",
+      "kind": "paragraph",
+      "start": 15741,
+      "end": 15968,
+      "text": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_i\\) is normally distributed with mean \\(\\mu_i\\) and variance \\(\\sigma_i^2\\) for \\(i \\in \\{1, 2\\}\\). Then \\(X_1 + X_2\\) is normally distributed with",
+      "strata": [
+        "math_high"
+      ],
+      "core": true,
+      "id": "B067"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:1fc4f1523c99b2bbf59d103ac4089f1d",
+      "kind": "list_item",
+      "start": 15970,
+      "end": 16007,
+      "text": "(a) \\(\\E(X_1 + X_2) = \\mu_1 + \\mu_2\\)",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "core": true,
+      "id": "B068"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:67bbb7982f68a465555a729bc7378413",
+      "kind": "list_item",
+      "start": 16008,
+      "end": 16057,
+      "text": "(b) \\(\\var(X_1 + X_2) = \\sigma_1^2 + \\sigma_2^2\\)",
+      "strata": [
+        "math_high",
+        "list_item"
+      ],
+      "core": true,
+      "id": "B069"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:c74d1c3205e9307a347528d528f87be3",
+      "kind": "paragraph",
+      "start": 16069,
+      "end": 16491,
+      "text": "The MGF of \\(X_1 + X_2\\) is the product of the MGFs, so \\[ \\E\\left(\\exp\\left[t (X_1 + X_2)\\right]\\right) = \\exp\\left(\\mu_1 t + \\sigma_1^2 t^2 / 2\\right) \\exp\\left(\\mu_2 t + \\sigma_2^2 t^2 / 2\\right) = \\exp\\left[\\left(\\mu_1 + \\mu_2\\right)t + \\left(\\sigma_1^2 + \\sigma_2^2\\right) t^2 / 2\\right] \\] which we recognize as the MGF of the normal distribution with mean \\(\\mu_1 + \\mu_2\\) and variance \\(\\sigma_1^2 + \\sigma_2^2\\).",
+      "strata": [
+        "math_low",
+        "display",
+        "details",
+        "trap"
+      ],
+      "core": true,
+      "id": "B070"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:2b4a4fa4f207a5e243726ad1156c5463",
+      "kind": "paragraph",
+      "start": 20257,
+      "end": 20656,
+      "text": "A metal rod is designed to fit into a circular hole on a certain assembly. The radius of the rod is normally distributed with mean 1 cm and standard deviation 0.002 cm. The radius of the hole is normally distributed with mean 1.01 cm and standard deviation 0.003 cm. The machining processes that produce the rod and the hole are independent. Find the probability that the rod is to big for the hole.",
+      "strata": [
+        "math_none"
+      ],
+      "core": true,
+      "id": "B071"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:6bc892d274779d7b065f2d33d420c4c6",
+      "kind": "paragraph",
+      "start": 20668,
+      "end": 20769,
+      "text": "Let \\(X\\) denote the radius of the rod and \\(Y\\) the radius of the hole. \\(\\P(Y - X \\lt 0) = 0.0028\\)",
+      "strata": [
+        "math_high",
+        "details"
+      ],
+      "core": true,
+      "id": "B072"
+    },
+    {
+      "page": "special/Normal.html",
+      "rendition": "ren:00eba99a1563ca56a25ab35fc9c51546",
+      "key": "seg:56cd22bafd1c152d7f14817bf7521324",
+      "kind": "paragraph",
+      "start": 21098,
+      "end": 21680,
+      "text": "In some settings, it's convenient to consider a constant as having a normal distribution (with mean being the constant and variance 0, of course). This convention simplifies the statements of theorems and definitions in these settings. Of course, the formulas for the probability density function [14] and the distribution function [17] do not hold for a constant, but the other results involving the moment generating function [23], linear transformations [24], and sums [26] are still valid. Moreover, the result for linear transformations [24] would hold for all \\(a\\) and \\(b\\).",
+      "strata": [
+        "math_low",
+        "trap"
+      ],
+      "core": true,
+      "id": "B073"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:433abdc489f598a161ee504d23879f92",
+      "kind": "paragraph",
+      "start": 54,
+      "end": 264,
+      "text": "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in (0, \\infty)\\). Then \\(X = e^Y\\) has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "core": true,
+      "id": "B074"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:c55d11e7becfb2511bbf468ba578be8a",
+      "kind": "list_item",
+      "start": 266,
+      "end": 340,
+      "text": "(a) The parameter \\( \\sigma \\) is the shape parameter of the distribution.",
+      "strata": [
+        "math_low",
+        "list_item"
+      ],
+      "core": true,
+      "id": "B075"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:794c4c37b1a56730c645d9e8157882e8",
+      "kind": "list_item",
+      "start": 341,
+      "end": 413,
+      "text": "(b) The parameter \\( e^\\mu\\) is the scale parameter of the distribution.",
+      "strata": [
+        "math_low",
+        "list_item"
+      ],
+      "core": true,
+      "id": "B076"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:97da5c2b5ea4a984d999d857c5a1283a",
+      "kind": "paragraph",
+      "start": 415,
+      "end": 518,
+      "text": "If \\(Z\\) has the standard normal distribution then \\(W = e^Z\\) has the standard lognormal distribution.",
+      "strata": [
+        "math_low"
+      ],
+      "core": true,
+      "id": "B077"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:680f3eb3f2fdb65fe5886ea06547a38c",
+      "kind": "paragraph",
+      "start": 10048,
+      "end": 10474,
+      "text": "Suppose that \\(n \\in \\N_+\\) and that \\((X_1, X_2, \\ldots, X_n)\\) is a sequence of independent variables, where \\(X_i\\) has the lognormal distribution with parameters \\(\\mu_i \\in \\R\\) and \\(\\sigma_i \\in (0, \\infty)\\) for \\(i \\in \\{1, 2, \\ldots, n\\}\\). Then \\(\\prod_{i=1}^n X_i\\) has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\) where \\(\\mu = \\sum_{i=1}^n \\mu_i\\) and \\(\\sigma^2 = \\sum_{i=1}^n \\sigma_i^2\\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "core": true,
+      "id": "B078"
+    },
+    {
+      "page": "special/LogNormal.html",
+      "rendition": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+      "key": "seg:602ca4c1b831d5adcded6291a03c0f13",
+      "kind": "paragraph",
+      "start": 10486,
+      "end": 10936,
+      "text": "Again from definition [1], we can write \\( X_i = e^{Y_i} \\) where \\(Y_i\\) has the normal distribution with mean \\(\\mu_i\\) and standard deviation \\(\\sigma_i\\) for \\(i \\in \\{1, 2, \\ldots, n\\}\\) and where \\((Y_1, Y_2, \\ldots, Y_n)\\) is an independent sequence. Hence \\(\\prod_{i=1}^n X_i = \\exp\\left(\\sum_{i=1}^n Y_i\\right)\\). But \\(\\sum_{i=1}^n Y_i\\) has the normal distribution with mean \\(\\sum_{i=1}^n \\mu_i\\) and variance \\(\\sum_{i=1}^n \\sigma_i^2\\).",
+      "strata": [
+        "math_high",
+        "details",
+        "trap"
+      ],
+      "core": true,
+      "id": "B079"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:c792f39a931e8b7eb0ddf8df8434706e",
+      "kind": "paragraph",
+      "start": 7253,
+      "end": 7289,
+      "text": "The mean and variance of \\( X \\) are",
+      "strata": [
+        "math_low"
+      ],
+      "core": true,
+      "id": "B080"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:228967fd44c042484a95b24665f5d697",
+      "kind": "list_item",
+      "start": 7340,
+      "end": 7461,
+      "text": "(a) From [3], \\[ \\E(X) = \\int_0^\\infty x \\frac{1}{\\Gamma(k)} x^{k-1} e^{-x} \\, dx = \\frac{\\Gamma(k + 1)}{\\Gamma(k)} = k\\]",
+      "strata": [
+        "math_none",
+        "display",
+        "list_item",
+        "details",
+        "trap"
+      ],
+      "core": true,
+      "id": "B081"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:a5b46f423e039e5f8fec66092e0177d7",
+      "kind": "list_item",
+      "start": 7462,
+      "end": 7672,
+      "text": "(b) From [3] again \\[ \\E\\left(X^2\\right) = \\int_0^\\infty x^2 \\frac{1}{\\Gamma(k)} x^{k-1} e^{-x} \\, dx = \\frac{\\Gamma(k + 2)}{\\Gamma(k)} = (k + 1) k\\] and hence \\( \\var(X) = \\E\\left(X^2\\right) - [\\E(X)]^2 = k \\)",
+      "strata": [
+        "math_low",
+        "display",
+        "list_item",
+        "details"
+      ],
+      "core": true,
+      "id": "B082"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:b235377969af424785b02e0e64bbbd59",
+      "kind": "paragraph",
+      "start": 10263,
+      "end": 10480,
+      "text": "If \\(Z\\) has the standard gamma distribution with shape parameter \\(k \\in (0, \\infty)\\) and if \\( b \\in (0, \\infty) \\), then \\(X = b Z\\) has the gamma distribution with shape parameter \\(k\\) and scale parameter \\(b\\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "core": true,
+      "id": "B083"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:cef3622cb20961761f3ca9c1f2a94aec",
+      "kind": "paragraph",
+      "start": 16771,
+      "end": 17100,
+      "text": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_i\\) has the gamma distribution with shape parameter \\(k_i \\in (0, \\infty)\\) and scale parameter \\(b \\in (0, \\infty)\\) for \\(i \\in \\{1, 2\\}\\). Then \\(X_1 + X_2\\) has the gamma distribution with shape parameter \\(k_1 + k_2\\) and scale parameter \\(b\\).",
+      "strata": [
+        "math_high",
+        "trap"
+      ],
+      "core": true,
+      "id": "B084"
+    },
+    {
+      "page": "special/Gamma.html",
+      "rendition": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+      "key": "seg:75a0e5f635391e787b1d8c00fdbf96c7",
+      "kind": "paragraph",
+      "start": 17112,
+      "end": 17354,
+      "text": "Recall that the MGF of \\( X = X_1 + X_2 \\) is the product of the MGFs of \\( X_1 \\) and \\( X_2 \\), so \\[ \\E\\left(e^{t X}\\right) = \\frac{1}{(1 - b t)^{k_1}} \\frac{1}{(1 - b t)^{k_2}} = \\frac{1}{(1 - b t)^{k_1 + k_2}}, \\quad t \\lt \\frac{1}{b} \\]",
+      "strata": [
+        "math_low",
+        "display",
+        "details",
+        "trap"
+      ],
+      "core": true,
+      "id": "B085"
+    }
+  ]
+}

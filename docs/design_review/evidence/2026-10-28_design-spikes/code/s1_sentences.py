@@ -46,9 +46,10 @@ def blocks_of(rendition: dict) -> list[dict]:
     kids: dict[str | None, list[dict]] = {}
     for s in segs:
         kids.setdefault(s["parent"], []).append(s)
+    has_text_child = {s["parent"] for s in segs if s["kind"] in SPLIT_KINDS}
     out = []
     for s in segs:
-        if s["kind"] in SPLIT_KINDS:
+        if s["kind"] in SPLIT_KINDS and s["key"] not in has_text_child:  # leaf text blocks only
             math = [{"start": m["start"] - s["start"], "end": m["end"] - s["start"], "display": m["kind"] == "math_display"}
                     for m in kids.get(s["key"], []) if m["kind"].startswith("math")]
             refs = [{"start": r["start"] - s["start"], "end": r["end"] - s["start"]}
