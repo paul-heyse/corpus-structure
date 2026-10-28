@@ -17,7 +17,6 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
     ([report](docs/design_review/evidence/2026-10-28_design-spikes/S4-report.md)).
   - S6 smoke-tested D3's DDL, BM25, vectors, queue and keys
     ([report](docs/design_review/evidence/2026-10-28_design-spikes/S6-report.md)).
-  - Their fold-in into the design (X2) waits on the operator's review of the S4 and S6 reports.
 - **Build lane:** P0-F-1, P0-F-2a, P0-I-0 and P0-F-2b are built in `python/corpus-structure/`.
   An implementation review's findings are fixed (coordinator §11, IR-01…12); IR-13…15 are open
   with owners.
@@ -44,8 +43,7 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 - S4/S6 design implications (D2 §3, §6, §7, §9; D3 DDL fixes, BM25 kind list, query
   corrections, naming join) are proposals in the reports until X2 folds them in.
-- `docs/libraries/` holds operator overviews not yet committed (pgembed, hypothesis, jsonschema,
-  html5lib, pgevector, ppi_py, vllm, postgresql-18-pg-textsearch).
+- Eight operator overviews in `docs/libraries/` are not yet committed (the operator's).
 - EVID-01 and APPARATUS-01 wait on the operator's evidence-system design.
 
 ## Next
