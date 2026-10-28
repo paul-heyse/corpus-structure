@@ -1,0 +1,23 @@
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/instructions_sv.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/guideline.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/reference.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/format.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/T1.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/T2.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/T3.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/T4.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U5.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U6.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U7.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U8.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U9.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U10.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U11.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U12.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/H1.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/H2.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/H3.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/H4.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/H5.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/H6.md
+(own output files under /home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/pass_sv/ written/read back; schema.yaml and model.md were not opened; validation command was run but its code not opened)

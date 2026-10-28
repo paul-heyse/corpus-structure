@@ -73,8 +73,11 @@ annotations, before any code depends on them.
   records (row 22). Results are finalized as records in the evidence folder
   ([records index](../design_review/evidence/2026-10-28_design-spikes/README.md#records)); reports
   [S1](../design_review/evidence/2026-10-28_design-spikes/S1-report.md) and
-  [S0](../design_review/evidence/2026-10-28_design-spikes/S0-report.md). **Remaining:** X1, gated on
-  the operator's review of both reports.
+  [S0](../design_review/evidence/2026-10-28_design-spikes/S0-report.md). Revisit **S0-R2** (operator direction, 2026-10-28): annotator inputs v1 (guideline v1 candidate,
+  schema-generated reference, query context, rule warnings), Sonnet and Haiku passes and a Sonnet
+  adjudicator over the core units plus six held-out units
+  ([S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md)). **Remaining:**
+  X1, gated on the operator's review of the reports; guideline v1 and its v2 points go to D2 §10 there.
 - **Pre-execution facts established while planning (2026-10-28)**, recorded so execution does
   not rediscover them:
   - A read-only inventory of all 78 first-pass pages (stdlib parser; summarized in

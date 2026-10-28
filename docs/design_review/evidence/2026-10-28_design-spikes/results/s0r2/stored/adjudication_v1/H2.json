@@ -1,0 +1,443 @@
+{
+ "envelope": {
+  "unit": "H2",
+  "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+  "source": "results/s0r2/adjudication_v1/H2.json"
+ },
+ "unit_ref": "H2",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "definition",
+   "anchor": [
+    "seg:1f9af4c2c70fe57c4bc412022beb961a",
+    "seg:e01a4537ba484c5d48adc883bb90ce76"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Z",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:cadb37f4fed82392f49343180a280826"
+  },
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:cadb37f4fed82392f49343180a280826"
+  },
+  {
+   "local_ref": "BP",
+   "type": "DistributionFamily",
+   "label": "basic Pareto distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "P",
+   "type": "DistributionFamily",
+   "label": "Pareto distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "pP_shape",
+   "type": "FamilyParameter",
+   "label": "shape parameter",
+   "scope": "global",
+   "aliases": [
+    "a"
+   ],
+   "identity": {
+    "family": "P",
+    "canonical_name": "shape"
+   }
+  },
+  {
+   "local_ref": "pP_scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "aliases": [
+    "b"
+   ],
+   "identity": {
+    "family": "P",
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Z_basic",
+   "predicate": "has_distribution",
+   "subject": "Z",
+   "object": {
+    "ref": "BP"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "a",
+      "symbols": {
+       "a": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 9174,
+     "end": 9256,
+     "role": "primary"
+    },
+    {
+     "start": 9161,
+     "end": 9173,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_defines",
+   "predicate": "defines",
+   "subject": "st1",
+   "object": {
+    "ref": "P"
+   },
+   "qualifiers": {},
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 9317,
+     "end": 9397,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_def",
+   "predicate": "defined_as",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "b Z",
+    "symbols": {
+     "b": {
+      "bind": "family_param",
+      "entity": "pP_scale"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "family_param",
+        "entity": "pP_scale"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "(0, \\infty)",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 9305,
+     "end": 9316,
+     "role": "primary"
+    },
+    {
+     "start": 9266,
+     "end": 9287,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_pareto",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "P"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "a",
+      "symbols": {
+       "a": {
+        "bind": "param_of",
+        "claim": "c_Z_basic",
+        "param": "shape"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "family_param",
+        "entity": "pP_scale"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_Z_basic"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "param_of",
+          "claim": "c_Z_basic",
+          "param": "shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "family_param",
+          "entity": "pP_scale"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 9305,
+     "end": 9397,
+     "role": "primary"
+    },
+    {
+     "start": 9235,
+     "end": 9256,
+     "role": "condition"
+    },
+    {
+     "start": 9266,
+     "end": 9287,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_hp_shape",
+   "predicate": "has_parameter",
+   "subject": "P",
+   "object": {
+    "ref": "pP_shape"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 9350,
+     "end": 9371,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_hp_scale",
+   "predicate": "has_parameter",
+   "subject": "P",
+   "object": {
+    "ref": "pP_scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 9376,
+     "end": 9397,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_dom_shape",
+   "predicate": "parameter_domain",
+   "subject": "pP_shape",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 9235,
+     "end": 9256,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_dom_scale",
+   "predicate": "parameter_domain",
+   "subject": "pP_scale",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 9266,
+     "end": 9287,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_P_transform",
+   "predicate": "transformation_of",
+   "subject": "P",
+   "object": {
+    "ref": "BP"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "transform": {
+     "t": "formula",
+     "latex": "b Z",
+     "symbols": {
+      "b": {
+       "bind": "family_param",
+       "entity": "pP_scale"
+      },
+      "Z": {
+       "bind": "variable",
+       "entity": "Z"
+      }
+     }
+    },
+    "param_mapping": {
+     "shape": "shape"
+    },
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "family_param",
+        "entity": "pP_scale"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "(0, \\infty)",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 9305,
+     "end": 9344,
+     "role": "primary"
+    },
+    {
+     "start": 9174,
+     "end": 9213,
+     "role": "supporting"
+    },
+    {
+     "start": 9266,
+     "end": 9287,
+     "role": "condition"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

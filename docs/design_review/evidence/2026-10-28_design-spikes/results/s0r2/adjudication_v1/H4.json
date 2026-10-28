@@ -1,0 +1,79 @@
+{
+ "unit_ref": "H4",
+ "statements": [
+  {"local_ref": "st1", "kind": "theorem", "anchor": ["s1"]},
+  {"local_ref": "st2", "kind": "proof", "anchor": ["s2"]}
+ ],
+ "entities": [
+  {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": [], "identity": {}},
+  {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+  {"local_ref": "SN", "type": "DistributionFamily", "label": "standard normal distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "CS", "type": "DistributionFamily", "label": "chi-square distribution", "scope": "global", "aliases": [], "identity": {}}
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Z_SN",
+   "predicate": "has_distribution",
+   "subject": "Z",
+   "object": {"ref": "SN"},
+   "qualifiers": {"modality": "supposed"},
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\(Z\\) has the standard normal distribution", "role": "primary"},
+    {"sentence": "s1", "quote": "If", "role": "supporting"}
+   ]
+  },
+  {
+   "local_ref": "c_X_def",
+   "predicate": "defined_as",
+   "subject": "X",
+   "object": {"t": "formula", "latex": "Z^2", "symbols": {"Z": {"bind": "variable", "entity": "Z"}}},
+   "qualifiers": {"modality": "defined"},
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [{"sentence": "s1", "quote": "\\(X = Z^2\\)", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_X_CS",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {"ref": "CS"},
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {"degrees_of_freedom": {"t": "formula", "latex": "1", "symbols": {}}},
+    "conditions": {"op": "claim", "ref": "c_Z_SN"}
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [{"sentence": "s1", "quote": "has the chi-square distribution with 1 degree of freedom", "role": "primary"}, {"sentence": "s1", "quote": "then", "role": "supporting"}]
+  },
+  {
+   "local_ref": "c_CS_transform",
+   "predicate": "transformation_of",
+   "subject": "CS",
+   "object": {"ref": "SN"},
+   "qualifiers": {
+    "modality": "asserted",
+    "transform": {"t": "formula", "latex": "Z^2", "symbols": {"Z": {"bind": "variable", "entity": "Z"}}}
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\(X = Z^2\\) has the chi-square distribution", "role": "primary"},
+    {"sentence": "s1", "quote": "\\(Z\\) has the standard normal distribution", "role": "supporting"}
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {"ref": "st1"},
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [{"sentence": "s2", "quote": "which we recognize as the chi-square PDF with 1 degree of freedom", "role": "primary"}]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

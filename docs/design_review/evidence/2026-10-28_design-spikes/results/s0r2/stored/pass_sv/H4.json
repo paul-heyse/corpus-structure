@@ -1,0 +1,204 @@
+{
+ "envelope": {
+  "unit": "H4",
+  "rendition_key": "ren:77c3a8c88f74974f3c555e3ed06fcbc4",
+  "source": "results/s0r2/pass_sv/H4.json"
+ },
+ "unit_ref": "H4",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "seg:a3cf1caaee4cf355f74eb5bce979e62f"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "seg:8d2ed07cb9f8fcbe62d555d4a6c5d1a8"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Z",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:823b9d2e90ce50983bf51fa8cd32da9a"
+  },
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:823b9d2e90ce50983bf51fa8cd32da9a"
+  },
+  {
+   "local_ref": "SN",
+   "type": "DistributionFamily",
+   "label": "standard normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "CS",
+   "type": "DistributionFamily",
+   "label": "chi-square distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Z_SN",
+   "predicate": "has_distribution",
+   "subject": "Z",
+   "object": {
+    "ref": "SN"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {}
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 6839,
+     "end": 6881,
+     "role": "primary"
+    },
+    {
+     "start": 6836,
+     "end": 6838,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_def",
+   "predicate": "defined_as",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "Z^2",
+    "symbols": {
+     "Z": {
+      "bind": "variable",
+      "entity": "Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 6887,
+     "end": 6898,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_CS",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "CS"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {
+     "degrees_of_freedom": {
+      "t": "formula",
+      "latex": "1",
+      "symbols": {}
+     }
+    },
+    "conditions": {
+     "op": "claim",
+     "ref": "c_Z_SN"
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 6887,
+     "end": 6955,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_CS_transform",
+   "predicate": "transformation_of",
+   "subject": "CS",
+   "object": {
+    "ref": "SN"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "transform": {
+     "t": "formula",
+     "latex": "Z^2",
+     "symbols": {
+      "Z": {
+       "bind": "variable",
+       "entity": "Z"
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 6887,
+     "end": 6930,
+     "role": "primary"
+    },
+    {
+     "start": 6839,
+     "end": 6881,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 7397,
+     "end": 7462,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

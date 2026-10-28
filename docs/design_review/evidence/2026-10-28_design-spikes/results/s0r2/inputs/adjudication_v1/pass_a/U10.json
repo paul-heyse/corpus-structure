@@ -1,0 +1,143 @@
+{
+ "unit_ref": "U10",
+ "statements": [
+  {"local_ref": "st1", "kind": "definition", "anchor": "unit"}
+ ],
+ "entities": [
+  {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": [], "identity": {}},
+  {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+  {"local_ref": "SG", "type": "DistributionFamily", "label": "standard gamma distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "G", "type": "DistributionFamily", "label": "gamma distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "pG_shape", "type": "FamilyParameter", "label": "shape parameter", "scope": "global", "aliases": ["k"], "identity": {"family": "G", "canonical_name": "shape"}},
+  {"local_ref": "pG_scale", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "aliases": ["b"], "identity": {"family": "G", "canonical_name": "scale"}}
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Z_std",
+   "predicate": "has_distribution",
+   "subject": "Z",
+   "object": {"ref": "SG"},
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {"shape": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "free"}}}}
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\(Z\\) has the standard gamma distribution with shape parameter \\(k \\in (0, \\infty)\\)", "role": "primary"},
+    {"sentence": "s1", "quote": "If", "role": "supporting"}
+   ]
+  },
+  {
+   "local_ref": "c_defines",
+   "predicate": "defines",
+   "subject": "st1",
+   "object": {"ref": "G"},
+   "qualifiers": {},
+   "statement": "st1",
+   "evidence": [{"sentence": "s1", "quote": "has the gamma distribution with shape parameter \\(k\\) and scale parameter \\(b\\)", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_X_def",
+   "predicate": "defined_as",
+   "subject": "X",
+   "object": {"t": "formula", "latex": "b Z", "symbols": {"b": {"bind": "family_param", "entity": "pG_scale"}, "Z": {"bind": "variable", "entity": "Z"}}},
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "family_param", "entity": "pG_scale"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\(X = b Z\\)", "role": "primary"},
+    {"sentence": "s1", "quote": "\\( b \\in (0, \\infty) \\)", "role": "condition"}
+   ]
+  },
+  {
+   "local_ref": "c_X_gamma",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {"ref": "G"},
+   "qualifiers": {
+    "modality": "defined",
+    "param_values": {
+     "shape": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "param_of", "claim": "c_Z_std", "param": "shape"}}},
+     "scale": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "family_param", "entity": "pG_scale"}}}
+    },
+    "conditions": {"op": "and", "args": [
+     {"op": "claim", "ref": "c_Z_std"},
+     {"op": "member", "x": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "param_of", "claim": "c_Z_std", "param": "shape"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}},
+     {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "family_param", "entity": "pG_scale"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}
+    ]}
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\(X = b Z\\) has the gamma distribution with shape parameter \\(k\\) and scale parameter \\(b\\)", "role": "primary"},
+    {"sentence": "s1", "quote": "\\(k \\in (0, \\infty)\\)", "role": "condition"},
+    {"sentence": "s1", "quote": "\\( b \\in (0, \\infty) \\)", "role": "condition"}
+   ]
+  },
+  {
+   "local_ref": "c_hp_shape",
+   "predicate": "has_parameter",
+   "subject": "G",
+   "object": {"ref": "pG_shape"},
+   "qualifiers": {"modality": "defined"},
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [{"sentence": "s1", "quote": "shape parameter \\(k\\) and scale", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_hp_scale",
+   "predicate": "has_parameter",
+   "subject": "G",
+   "object": {"ref": "pG_scale"},
+   "qualifiers": {"modality": "defined"},
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [{"sentence": "s1", "quote": "scale parameter \\(b\\)", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_dom_shape",
+   "predicate": "parameter_domain",
+   "subject": "pG_shape",
+   "object": {"t": "set", "latex": "(0, \\infty)", "symbols": {}},
+   "qualifiers": {"modality": "defined"},
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [{"sentence": "s1", "quote": "\\(k \\in (0, \\infty)\\)", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_dom_scale",
+   "predicate": "parameter_domain",
+   "subject": "pG_scale",
+   "object": {"t": "set", "latex": "(0, \\infty)", "symbols": {}},
+   "qualifiers": {"modality": "defined"},
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [{"sentence": "s1", "quote": "\\( b \\in (0, \\infty) \\)", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_G_transform",
+   "predicate": "transformation_of",
+   "subject": "G",
+   "object": {"ref": "SG"},
+   "qualifiers": {
+    "modality": "defined",
+    "transform": {"t": "formula", "latex": "b Z", "symbols": {"b": {"bind": "family_param", "entity": "pG_scale"}, "Z": {"bind": "variable", "entity": "Z"}}},
+    "param_mapping": {"shape": "shape"},
+    "conditions": {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "family_param", "entity": "pG_scale"}}}, "set": {"t": "set", "latex": "(0, \\infty)", "symbols": {}}}
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\(X = b Z\\) has the gamma distribution", "role": "primary"},
+    {"sentence": "s1", "quote": "\\(Z\\) has the standard gamma distribution", "role": "supporting"},
+    {"sentence": "s1", "quote": "\\( b \\in (0, \\infty) \\)", "role": "condition"}
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

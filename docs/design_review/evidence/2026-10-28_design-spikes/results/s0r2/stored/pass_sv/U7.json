@@ -1,0 +1,110 @@
+{
+ "envelope": {
+  "unit": "U7",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0r2/pass_sv/U7.json"
+ },
+ "unit_ref": "U7",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "convention",
+   "anchor": [
+    "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1",
+    "seg:a92e794aa544c8922ed156fee2a14236"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "remark",
+   "anchor": [
+    "seg:c4c8c220064b7baae0c9dd5163d76845",
+    "seg:40928ef040f210259852048694d4901f"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "K",
+   "type": "RandomVariable",
+   "label": "a constant",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:56cd22bafd1c152d7f14817bf7521324"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_K_normal",
+   "predicate": "has_distribution",
+   "subject": "K",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "conventional",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "c",
+      "symbols": {
+       "c": {
+        "bind": "variable",
+        "entity": "K"
+       }
+      }
+     },
+     "variance": {
+      "t": "formula",
+      "latex": "0",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 21144,
+     "end": 21243,
+     "role": "primary"
+    },
+    {
+     "start": 21245,
+     "end": 21333,
+     "role": "supporting"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "Negative statement about which earlier results (cited by number) hold in the extended setting; no predicate relates a convention to results outside the unit.",
+   "start": 21345,
+   "end": 21461
+  },
+  {
+   "local_ref": "u2",
+   "reason": "Statement that other numbered results remain valid; those results are outside the unit and no predicate expresses validity of a result.",
+   "start": 21467,
+   "end": 21590
+  },
+  {
+   "local_ref": "u3",
+   "reason": "Extension of the domain of a cited result (a, b unrestricted); the result is outside the unit and no predicate expresses it.",
+   "start": 21602,
+   "end": 21679
+  }
+ ]
+}

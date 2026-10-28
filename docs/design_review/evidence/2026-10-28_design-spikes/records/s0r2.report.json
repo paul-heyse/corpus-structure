@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "s0r2.report",
+  "title": "S0-R2 report",
+  "group": "S0 Reference annotations",
+  "package": "S0-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do Sonnet and Haiku reach Opus-level agreement when the conventions are written down and context is assembled by query?",
+  "answers": [
+    "OPEN-D4-4"
+  ],
+  "method": "Report rendered from the evidence catalog; prose by the root.",
+  "commands": [
+    "just evidence catalog",
+    "just evidence render docs/design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md.j2"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "S0-R2-report.md.j2",
+      "role": "template",
+      "sha256": "48f3a0800c933b314337a011f912f9e4f3526c4f01149506d2e780d2741e6ab7"
+    },
+    {
+      "path": "catalog.sql",
+      "role": "catalog views",
+      "sha256": "2da72b74c7457e47f814f2cb86ef9fc9c867379160f4e319c5472da434272ac6"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "S0-R2-report.md",
+      "role": "report",
+      "sha256": "2634867ef465485f7133a001a3faf152d05d2abd24e342afb82720b3261ded34"
+    }
+  ],
+  "depends_on": [
+    "s0r2.inputs",
+    "s0r2.reference-v1",
+    "s0r2.pass-sv",
+    "s0r2.pass-hv",
+    "s0r2.adjudication",
+    "s0r2.scores"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Sonnet and Haiku can do the task: with the conventions written, a schema-generated reference, examples and query context, Sonnet on packets matches or exceeds the Opus v0 passes and Haiku nearly doubles; the rise holds on held-out units.",
+  "consumed_by": [
+    "X1 fold-in",
+    "design-phase Q5"
+  ]
+}

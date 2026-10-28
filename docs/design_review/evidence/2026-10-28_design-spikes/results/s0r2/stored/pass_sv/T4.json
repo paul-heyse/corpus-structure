@@ -1,0 +1,642 @@
+{
+ "envelope": {
+  "unit": "T4",
+  "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+  "source": "results/s0r2/pass_sv/T4.json"
+ },
+ "unit_ref": "T4",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "definition",
+   "anchor": [
+    "seg:3fd093d02f8f19cfc6e08e97885fed09"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "Y",
+   "type": "RandomVariable",
+   "label": "Y",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Y",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:3fd093d02f8f19cfc6e08e97885fed09"
+  },
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:3fd093d02f8f19cfc6e08e97885fed09"
+  },
+  {
+   "local_ref": "Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Z",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:3fd093d02f8f19cfc6e08e97885fed09"
+  },
+  {
+   "local_ref": "W",
+   "type": "RandomVariable",
+   "label": "W",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "W",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:3fd093d02f8f19cfc6e08e97885fed09"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "LN",
+   "type": "DistributionFamily",
+   "label": "lognormal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "SN",
+   "type": "DistributionFamily",
+   "label": "standard normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "SLN",
+   "type": "DistributionFamily",
+   "label": "standard lognormal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "pLN_mu",
+   "type": "FamilyParameter",
+   "label": "parameter mu",
+   "scope": "global",
+   "aliases": [
+    "\\mu"
+   ],
+   "identity": {
+    "family": "LN",
+    "canonical_name": "mu"
+   }
+  },
+  {
+   "local_ref": "pLN_shape",
+   "type": "FamilyParameter",
+   "label": "shape parameter",
+   "scope": "global",
+   "aliases": [
+    "\\sigma"
+   ],
+   "identity": {
+    "family": "LN",
+    "canonical_name": "shape"
+   }
+  },
+  {
+   "local_ref": "pLN_scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "aliases": [
+    "e^\\mu"
+   ],
+   "identity": {
+    "family": "LN",
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Y_normal",
+   "predicate": "has_distribution",
+   "subject": "Y",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "free"
+       }
+      }
+     },
+     "standard_deviation": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 67,
+     "end": 175,
+     "role": "primary"
+    },
+    {
+     "start": 54,
+     "end": 66,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_def",
+   "predicate": "defined_as",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "e^Y",
+    "symbols": {
+     "e": {
+      "bind": "constant"
+     },
+     "Y": {
+      "bind": "variable",
+      "entity": "Y"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 182,
+     "end": 193,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_LN",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "LN"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "param_values": {
+     "mu": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "param_of",
+        "claim": "c_Y_normal",
+        "param": "mean"
+       }
+      }
+     },
+     "shape": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "param_of",
+        "claim": "c_Y_normal",
+        "param": "standard_deviation"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_Y_normal"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\mu",
+        "symbols": {
+         "mu": {
+          "bind": "param_of",
+          "claim": "c_Y_normal",
+          "param": "mean"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\sigma",
+        "symbols": {
+         "sigma": {
+          "bind": "param_of",
+          "claim": "c_Y_normal",
+          "param": "standard_deviation"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 182,
+     "end": 263,
+     "role": "primary"
+    },
+    {
+     "start": 111,
+     "end": 125,
+     "role": "condition"
+    },
+    {
+     "start": 149,
+     "end": 175,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_defines_LN",
+   "predicate": "defines",
+   "subject": "st1",
+   "object": {
+    "ref": "LN"
+   },
+   "qualifiers": {},
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 194,
+     "end": 263,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_defines_SLN",
+   "predicate": "defines",
+   "subject": "st1",
+   "object": {
+    "ref": "SLN"
+   },
+   "qualifiers": {},
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 478,
+     "end": 517,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_LN_transform",
+   "predicate": "transformation_of",
+   "subject": "LN",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "transform": {
+     "t": "formula",
+     "latex": "e^Y",
+     "symbols": {
+      "e": {
+       "bind": "constant"
+      },
+      "Y": {
+       "bind": "variable",
+       "entity": "Y"
+      }
+     }
+    },
+    "param_mapping": {
+     "mean": "mu",
+     "standard_deviation": "shape"
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 182,
+     "end": 224,
+     "role": "primary"
+    },
+    {
+     "start": 67,
+     "end": 100,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_SLN_transform",
+   "predicate": "transformation_of",
+   "subject": "SLN",
+   "object": {
+    "ref": "SN"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "transform": {
+     "t": "formula",
+     "latex": "e^Z",
+     "symbols": {
+      "e": {
+       "bind": "constant"
+      },
+      "Z": {
+       "bind": "variable",
+       "entity": "Z"
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 466,
+     "end": 517,
+     "role": "primary"
+    },
+    {
+     "start": 418,
+     "end": 460,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_hp_mu",
+   "predicate": "has_parameter",
+   "subject": "LN",
+   "object": {
+    "ref": "pLN_mu"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 230,
+     "end": 263,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_hp_shape",
+   "predicate": "has_parameter",
+   "subject": "LN",
+   "object": {
+    "ref": "pLN_shape"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 270,
+     "end": 339,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_hp_scale",
+   "predicate": "has_parameter",
+   "subject": "LN",
+   "object": {
+    "ref": "pLN_scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 345,
+     "end": 412,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_dom_mu",
+   "predicate": "parameter_domain",
+   "subject": "pLN_mu",
+   "object": {
+    "t": "set",
+    "latex": "\\R",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 111,
+     "end": 125,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_dom_shape",
+   "predicate": "parameter_domain",
+   "subject": "pLN_shape",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 149,
+     "end": 175,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_derived_scale",
+   "predicate": "derived_parameter",
+   "subject": "pLN_scale",
+   "object": {
+    "t": "formula",
+    "latex": "e^\\mu",
+    "symbols": {
+     "e": {
+      "bind": "constant"
+     },
+     "mu": {
+      "bind": "family_param",
+      "entity": "pLN_mu"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 359,
+     "end": 392,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_Z_SN",
+   "predicate": "has_distribution",
+   "subject": "Z",
+   "object": {
+    "ref": "SN"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {}
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 418,
+     "end": 460,
+     "role": "primary"
+    },
+    {
+     "start": 415,
+     "end": 417,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_W_def",
+   "predicate": "defined_as",
+   "subject": "W",
+   "object": {
+    "t": "formula",
+    "latex": "e^Z",
+    "symbols": {
+     "e": {
+      "bind": "constant"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 466,
+     "end": 477,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_W_SLN",
+   "predicate": "has_distribution",
+   "subject": "W",
+   "object": {
+    "ref": "SLN"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "claim",
+     "ref": "c_Z_SN"
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 466,
+     "end": 517,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

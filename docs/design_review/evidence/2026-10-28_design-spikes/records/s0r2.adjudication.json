@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "s0r2.adjudication",
+  "title": "Adjudicator (Sonnet) over passes SV and HV, inputs v1",
+  "group": "S0 Reference annotations",
+  "package": "S0-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does a Sonnet adjudicator given inputs v1 and both passes reach the v1 reference?",
+  "answers": [
+    "OPEN-D8-3"
+  ],
+  "method": "Fresh subagent with the v1 inputs, both passes' batches and their alignment; one decision table per unit.",
+  "commands": [
+    "python3 code/s0r2_adjudication_inputs.py",
+    "S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0r2/adjudication_v1 --rules --out results/s0r2/stored/adjudication_v1"
+  ],
+  "agents": [
+    {
+      "role": "adjudicator",
+      "model": "Claude Sonnet 5.5",
+      "brief": "results/s0r2/inputs/adjudication_v1/instructions_adj.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote only its output folder"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s0r2/inputs/adjudication_v1",
+      "role": "inputs",
+      "sha256": "8ab23abb59c48bcdbb6f17b4ebbaa7dfe297d53138188cb5f497a7273938a837"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0r2/adjudication_v1",
+      "role": "batches, decisions",
+      "sha256": "b67ad65e06b9e91b03ef70f8af8414dc576aec5500f50142e000112d1891193d"
+    },
+    {
+      "path": "results/s0r2/stored/adjudication_v1",
+      "role": "stored form",
+      "sha256": "682b1b76387ab466cac3f666f17a5e1575fc0d7747819773cc2464ca16fab516"
+    }
+  ],
+  "depends_on": [
+    "s0r2.pass-sv",
+    "s0r2.pass-hv"
+  ],
+  "results": [
+    {
+      "name": "decisions",
+      "value": 111,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "guideline_gap_decisions",
+      "value": 14,
+      "of": 111,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "See s0r2.scores for agreement with the v1 reference.",
+  "consumed_by": [
+    "s0r2.scores"
+  ]
+}

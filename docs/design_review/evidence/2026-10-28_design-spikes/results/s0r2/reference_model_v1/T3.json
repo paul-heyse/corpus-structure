@@ -111,7 +111,46 @@
     }
    },
    "qualifiers": {
-    "modality": "defined"
+    "modality": "defined",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R \\setminus \\{0\\}",
+        "symbols": {}
+       }
+      }
+     ]
+    }
    },
    "statement": "st1",
    "statement_role": "definiens",

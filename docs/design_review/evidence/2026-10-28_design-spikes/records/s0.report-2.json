@@ -24,7 +24,7 @@
     "OPEN-D3-4",
     "OPEN-D7-2"
   ],
-  "method": "Report rendered from the evidence catalog (ADR-0010): figures are queries over the S0 records' outputs; prose by the root.",
+  "method": "Report rendered from the evidence catalog (ADR-0010): figures are queries over the S0 records' outputs; prose by the root. catalog.sql extended on 2026-10-28 to read the S0-R2 comparisons too; the report re-rendered identically (input hash refreshed).",
   "commands": [
     "just evidence catalog",
     "just evidence render docs/design_review/evidence/2026-10-28_design-spikes/S0-report.md.j2"
@@ -39,7 +39,7 @@
     {
       "path": "catalog.sql",
       "role": "catalog views",
-      "sha256": "df2365706a815cc7c6f9847fb17b3c1e1fc3b5dbd7c443f865cadc9dd9c987f5"
+      "sha256": "2da72b74c7457e47f814f2cb86ef9fc9c867379160f4e319c5472da434272ac6"
     }
   ],
   "outputs": [

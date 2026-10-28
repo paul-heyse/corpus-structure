@@ -35,6 +35,16 @@
   "decision": "§10.4: a parameter_role claim is added only when the role differs from the canonical name; p_scale is already named scale"
  },
  {
+  "unit": "T3",
+  "item": "c_aX_def",
+  "decision": "§10.7 rule 2: a formula claim keeps the restrictions stated with it on its own symbols (a ∈ ℝ, b ∈ ℝ ∖ {0}); added after the v1 passes were scored, found by comparing pass SV"
+ },
+ {
+  "unit": "U10",
+  "item": "c_X_def, c_G_transform",
+  "decision": "§10.7 rule 2, as T3 (b ∈ (0, ∞)); added after the v1 passes were scored, found by comparing pass SV"
+ },
+ {
   "unit": "U12",
   "item": "c_X_stdgamma (new)",
   "decision": "§10.2 context premise: the supposition in standing context c1 recorded once as an assumption statement; §10.7 rule 3: the conclusions reference it and repeat k ∈ (0, ∞); k binds param_of it"

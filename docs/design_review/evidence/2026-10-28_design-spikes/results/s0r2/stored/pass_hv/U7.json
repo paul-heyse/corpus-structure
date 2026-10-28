@@ -1,0 +1,83 @@
+{
+ "envelope": {
+  "unit": "U7",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0r2/pass_hv/U7.json"
+ },
+ "unit_ref": "U7",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "convention",
+   "anchor": [
+    "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "remark",
+   "anchor": [
+    "seg:c4c8c220064b7baae0c9dd5163d76845",
+    "seg:40928ef040f210259852048694d4901f"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_refers",
+   "predicate": "refers_to",
+   "subject": "st1",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 21158,
+     "end": 21186,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "The convention's subject is a constant, not a random variable; no predicate or subject type covers a degenerate distribution.",
+   "start": 21135,
+   "end": 21243
+  },
+  {
+   "local_ref": "u2",
+   "reason": "Negative claim about the validity of results outside the unit; no predicate for the validity of a result for a constant.",
+   "start": 21345,
+   "end": 21461
+  },
+  {
+   "local_ref": "u3",
+   "reason": "Validity claim about results outside the unit; no predicate.",
+   "start": 21467,
+   "end": 21590
+  },
+  {
+   "local_ref": "u4",
+   "reason": "Counterfactual validity claim about a result outside the unit; no predicate.",
+   "start": 21602,
+   "end": 21679
+  }
+ ]
+}

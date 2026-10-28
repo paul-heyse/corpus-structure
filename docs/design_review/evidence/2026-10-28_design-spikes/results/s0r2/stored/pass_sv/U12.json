@@ -1,0 +1,234 @@
+{
+ "envelope": {
+  "unit": "U12",
+  "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+  "source": "results/s0r2/pass_sv/U12.json"
+ },
+ "unit_ref": "U12",
+ "statements": [
+  {
+   "local_ref": "st0",
+   "kind": "assumption",
+   "anchor": [
+    "seg:c131493902e883cb77497f5026e09ed0"
+   ]
+  },
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "seg:7edc0b114a37b999625e6f5b6393f3f1",
+    "seg:fffdc9c9a07875ea4f25614d1db1cc51",
+    "seg:798141f60bd67c856fd7779c40e80b78"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "seg:b32398b5dd210b09054a83c2b028e06c",
+    "seg:1f928b3871064106c0e965a530dfa590"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:c4fe4f7d381a7309db596d113d517bb8"
+  },
+  {
+   "local_ref": "SG",
+   "type": "DistributionFamily",
+   "label": "standard gamma distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_SG",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "SG"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k",
+      "symbols": {
+       "k": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st0",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 7103,
+     "end": 7191,
+     "role": "primary"
+    },
+    {
+     "start": 7090,
+     "end": 7102,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_mean",
+   "predicate": "mean_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "k",
+    "symbols": {
+     "k": {
+      "bind": "param_of",
+      "claim": "c_X_SG",
+      "param": "shape"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_SG"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "k",
+        "symbols": {
+         "k": {
+          "bind": "param_of",
+          "claim": "c_X_SG",
+          "param": "shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 7295,
+     "end": 7308,
+     "role": "primary"
+    },
+    {
+     "start": 7168,
+     "end": 7191,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_var",
+   "predicate": "variance_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "k",
+    "symbols": {
+     "k": {
+      "bind": "param_of",
+      "claim": "c_X_SG",
+      "param": "shape"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_SG"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "k",
+        "symbols": {
+         "k": {
+          "bind": "param_of",
+          "claim": "c_X_SG",
+          "param": "shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 7313,
+     "end": 7328,
+     "role": "primary"
+    },
+    {
+     "start": 7168,
+     "end": 7191,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 7622,
+     "end": 7672,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

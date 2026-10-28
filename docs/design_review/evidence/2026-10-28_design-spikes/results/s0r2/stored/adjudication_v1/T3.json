@@ -1,0 +1,582 @@
+{
+ "envelope": {
+  "unit": "T3",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0r2/adjudication_v1/T3.json"
+ },
+ "unit_ref": "T3",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "seg:00e021f9f31ec4b64dcd0865bcfeb8b1",
+    "seg:ecb3cd5053f5a67593c76acdc749caff"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "seg:5a2f009d4c96aa7a005f3f3d5efa512a"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:75055150bc39eb76341152422aa76802"
+  },
+  {
+   "local_ref": "E",
+   "type": "RandomVariable",
+   "label": "a + b X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "a + b X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:75055150bc39eb76341152422aa76802"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_norm",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "free"
+       }
+      }
+     },
+     "variance": {
+      "t": "formula",
+      "latex": "\\sigma^2",
+      "symbols": {
+       "sigma": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 14395,
+     "end": 14468,
+     "role": "primary"
+    },
+    {
+     "start": 14382,
+     "end": 14394,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_mean_prem",
+   "predicate": "mean_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "\\mu",
+    "symbols": {
+     "mu": {
+      "bind": "param_of",
+      "claim": "c_X_norm",
+      "param": "mean"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "supposed"
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 14425,
+     "end": 14442,
+     "role": "primary"
+    },
+    {
+     "start": 14382,
+     "end": 14394,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_var_prem",
+   "predicate": "variance_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "\\sigma^2",
+    "symbols": {
+     "sigma": {
+      "bind": "param_expr_of",
+      "claim": "c_X_norm",
+      "param": "variance"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "supposed"
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 14447,
+     "end": 14468,
+     "role": "primary"
+    },
+    {
+     "start": 14382,
+     "end": 14394,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_E_def",
+   "predicate": "defined_as",
+   "subject": "E",
+   "object": {
+    "t": "formula",
+    "latex": "a + b X",
+    "symbols": {
+     "a": {
+      "bind": "free"
+     },
+     "b": {
+      "bind": "free"
+     },
+     "X": {
+      "bind": "variable",
+      "entity": "X"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R \\setminus \\{0\\}",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 14525,
+     "end": 14536,
+     "role": "primary"
+    },
+    {
+     "start": 14473,
+     "end": 14485,
+     "role": "condition"
+    },
+    {
+     "start": 14490,
+     "end": 14518,
+     "role": "condition"
+    },
+    {
+     "start": 14470,
+     "end": 14472,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_E_dist",
+   "predicate": "has_distribution",
+   "subject": "E",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "a + b \\mu",
+      "symbols": {
+       "a": {
+        "bind": "free"
+       },
+       "b": {
+        "bind": "free"
+       },
+       "mu": {
+        "bind": "param_of",
+        "claim": "c_X_norm",
+        "param": "mean"
+       }
+      }
+     },
+     "variance": {
+      "t": "formula",
+      "latex": "b^2 \\sigma^2",
+      "symbols": {
+       "b": {
+        "bind": "free"
+       },
+       "sigma": {
+        "bind": "param_expr_of",
+        "claim": "c_X_norm",
+        "param": "variance"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_norm"
+      },
+      {
+       "op": "claim",
+       "ref": "c_X_mean_prem"
+      },
+      {
+       "op": "claim",
+       "ref": "c_X_var_prem"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R \\setminus \\{0\\}",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 14525,
+     "end": 14614,
+     "role": "primary"
+    },
+    {
+     "start": 14473,
+     "end": 14485,
+     "role": "condition"
+    },
+    {
+     "start": 14490,
+     "end": 14518,
+     "role": "condition"
+    },
+    {
+     "start": 14520,
+     "end": 14524,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_E_mean",
+   "predicate": "mean_value",
+   "subject": "E",
+   "object": {
+    "t": "formula",
+    "latex": "a + b \\mu",
+    "symbols": {
+     "a": {
+      "bind": "free"
+     },
+     "b": {
+      "bind": "free"
+     },
+     "mu": {
+      "bind": "param_of",
+      "claim": "c_X_norm",
+      "param": "mean"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_norm"
+      },
+      {
+       "op": "claim",
+       "ref": "c_X_mean_prem"
+      },
+      {
+       "op": "claim",
+       "ref": "c_X_var_prem"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R \\setminus \\{0\\}",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 14561,
+     "end": 14584,
+     "role": "primary"
+    },
+    {
+     "start": 14473,
+     "end": 14485,
+     "role": "condition"
+    },
+    {
+     "start": 14490,
+     "end": 14518,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_E_var",
+   "predicate": "variance_value",
+   "subject": "E",
+   "object": {
+    "t": "formula",
+    "latex": "b^2 \\sigma^2",
+    "symbols": {
+     "b": {
+      "bind": "free"
+     },
+     "sigma": {
+      "bind": "param_expr_of",
+      "claim": "c_X_norm",
+      "param": "variance"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_norm"
+      },
+      {
+       "op": "claim",
+       "ref": "c_X_mean_prem"
+      },
+      {
+       "op": "claim",
+       "ref": "c_X_var_prem"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R \\setminus \\{0\\}",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 14589,
+     "end": 14614,
+     "role": "primary"
+    },
+    {
+     "start": 14473,
+     "end": 14485,
+     "role": "condition"
+    },
+    {
+     "start": 14490,
+     "end": 14518,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 14814,
+     "end": 14924,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

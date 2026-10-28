@@ -1,0 +1,245 @@
+{
+ "envelope": {
+  "unit": "T2",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0r2/pass_hv/T2.json"
+ },
+ "unit_ref": "T2",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "assumption",
+   "anchor": [
+    "seg:f0640da77bd7c8b14e91e1681babddc7"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "remark",
+   "anchor": [
+    "seg:0f7a63ff92a79c2f2572c034a1dbfbc5"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:7271b23dccb8434265edcd0e4daeadcb"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "pN_loc",
+   "type": "FamilyParameter",
+   "label": "location parameter",
+   "scope": "global",
+   "aliases": [
+    "mu"
+   ],
+   "identity": {
+    "family": "N",
+    "canonical_name": "location"
+   }
+  },
+  {
+   "local_ref": "pN_scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "aliases": [
+    "sigma"
+   ],
+   "identity": {
+    "family": "N",
+    "canonical_name": "scale"
+   }
+  },
+  {
+   "local_ref": "pN_mean",
+   "type": "FamilyParameter",
+   "label": "mean",
+   "scope": "global",
+   "aliases": [],
+   "identity": {
+    "family": "N",
+    "canonical_name": "mean"
+   }
+  },
+  {
+   "local_ref": "pN_sd",
+   "type": "FamilyParameter",
+   "label": "standard deviation",
+   "scope": "global",
+   "aliases": [],
+   "identity": {
+    "family": "N",
+    "canonical_name": "standard_deviation"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_norm",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "location": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "free"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 11584,
+     "end": 11709,
+     "role": "primary"
+    },
+    {
+     "start": 11565,
+     "end": 11583,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_id_mean",
+   "predicate": "identical_parameter",
+   "subject": "pN_loc",
+   "object": {
+    "ref": "pN_mean"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st2",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 11737,
+     "end": 11825,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_id_sd",
+   "predicate": "identical_parameter",
+   "subject": "pN_scale",
+   "object": {
+    "ref": "pN_sd"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st2",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 11737,
+     "end": 11825,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_mean",
+   "predicate": "mean_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "\\mu",
+    "symbols": {
+     "mu": {
+      "bind": "param_of",
+      "claim": "c_X_norm",
+      "param": "location"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_norm"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\mu",
+        "symbols": {
+         "mu": {
+          "bind": "param_of",
+          "claim": "c_X_norm",
+          "param": "location"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st2",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 11737,
+     "end": 11825,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "No predicate states the standard deviation of a distribution; the identical_parameter claim records only the naming.",
+   "start": 11780,
+   "end": 11825
+  }
+ ]
+}

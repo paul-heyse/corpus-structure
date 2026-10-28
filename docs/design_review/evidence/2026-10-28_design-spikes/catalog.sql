@@ -1,12 +1,14 @@
 -- Catalog views over this folder's results (ADR-0010). Rendered by `just evidence catalog` with
 -- {{ "{{ folder }}" }} = this folder's path; created in the folder's own schema.
 
+-- Comparisons of S0 (results/s0/compare) and its revisit S0-R2 (results/s0r2/compare; names do not collide).
+
 -- Every comparison's tier scores: precision, recall, F1 with 95% bootstrap intervals over units.
 CREATE TABLE comparison_scores AS
 WITH s AS (
     SELECT regexp_extract(filename, 'compare/([^/]+)/score.json', 1) AS comparison, j
-    FROM read_json('{{ folder }}/results/s0/compare/*/score.json', format = 'auto', filename = true,
-                   records = false, columns = {'j': 'JSON'})
+    FROM read_json(['{{ folder }}/results/s0/compare/*/score.json', '{{ folder }}/results/s0r2/compare/*/score.json'],
+                   format = 'auto', filename = true, records = false, columns = {'j': 'JSON'})
 )
 SELECT comparison, tier,
        CAST(j -> 'tiers' -> tier -> 'precision' ->> 'value' AS DOUBLE) AS precision,
@@ -24,8 +26,8 @@ FROM s, (VALUES ('core'), ('full'), ('evidence')) t(tier);
 CREATE TABLE comparison_accuracy AS
 WITH s AS (
     SELECT regexp_extract(filename, 'compare/([^/]+)/score.json', 1) AS comparison, j
-    FROM read_json('{{ folder }}/results/s0/compare/*/score.json', format = 'auto', filename = true,
-                   records = false, columns = {'j': 'JSON'})
+    FROM read_json(['{{ folder }}/results/s0/compare/*/score.json', '{{ folder }}/results/s0r2/compare/*/score.json'],
+                   format = 'auto', filename = true, records = false, columns = {'j': 'JSON'})
 )
 SELECT comparison,
        CAST(j -> 'binding_accuracy' ->> 'value' AS DOUBLE) AS binding_accuracy,
@@ -46,8 +48,8 @@ FROM s;
 CREATE TABLE comparison_field_failures AS
 WITH s AS (
     SELECT regexp_extract(filename, 'compare/([^/]+)/score.json', 1) AS comparison, j
-    FROM read_json('{{ folder }}/results/s0/compare/*/score.json', format = 'auto', filename = true,
-                   records = false, columns = {'j': 'JSON'})
+    FROM read_json(['{{ folder }}/results/s0/compare/*/score.json', '{{ folder }}/results/s0r2/compare/*/score.json'],
+                   format = 'auto', filename = true, records = false, columns = {'j': 'JSON'})
 )
 SELECT comparison, k AS field, CAST(j -> 'field_breakdown' -> 'failures' ->> k AS INTEGER) AS failures
 FROM s, unnest(json_keys(j -> 'field_breakdown' -> 'failures')) AS t(k);
@@ -56,8 +58,8 @@ FROM s, unnest(json_keys(j -> 'field_breakdown' -> 'failures')) AS t(k);
 CREATE TABLE key_agreement AS
 WITH s AS (
     SELECT regexp_extract(filename, 'compare/([^/]+)/score.json', 1) AS comparison, j
-    FROM read_json('{{ folder }}/results/s0/compare/*/score.json', format = 'auto', filename = true,
-                   records = false, columns = {'j': 'JSON'})
+    FROM read_json(['{{ folder }}/results/s0/compare/*/score.json', '{{ folder }}/results/s0r2/compare/*/score.json'],
+                   format = 'auto', filename = true, records = false, columns = {'j': 'JSON'})
 )
 SELECT comparison, tier,
        CAST(j -> ('keys_' || tier) ->> 'pairs' AS INTEGER) AS pairs,
@@ -68,7 +70,8 @@ FROM s, (VALUES ('core'), ('full')) t(tier);
 -- Per-unit, per-predicate counts behind every comparison.
 CREATE TABLE agreement_rows AS
 SELECT regexp_extract(filename, 'compare/([^/]+)/agreement.tsv', 1) AS comparison, * EXCLUDE (filename)
-FROM read_csv('{{ folder }}/results/s0/compare/*/agreement.tsv', delim = '\t', header = true, filename = true);
+FROM read_csv(['{{ folder }}/results/s0/compare/*/agreement.tsv', '{{ folder }}/results/s0r2/compare/*/agreement.tsv'],
+              delim = '\t', header = true, filename = true);
 
 -- Batch and packet sizes per unit and pass.
 CREATE TABLE sizes AS SELECT * FROM read_csv('{{ folder }}/results/s0/size.tsv', delim = '\t', header = true);
@@ -85,8 +88,8 @@ FROM read_csv('{{ folder }}/results/s0/m13_probe.*.tsv', delim = '\t', header = 
 CREATE TABLE value_decisions AS
 WITH s AS (
     SELECT regexp_extract(filename, 'compare/([^/]+)/score.json', 1) AS comparison, j
-    FROM read_json('{{ folder }}/results/s0/compare/*/score.json', format = 'auto', filename = true,
-                   records = false, columns = {'j': 'JSON'})
+    FROM read_json(['{{ folder }}/results/s0/compare/*/score.json', '{{ folder }}/results/s0r2/compare/*/score.json'],
+                   format = 'auto', filename = true, records = false, columns = {'j': 'JSON'})
 )
 SELECT comparison, d ->> 0 AS unit, d ->> 1 AS tier, d ->> 2 AS equal, d ->> 3 AS a, d ->> 4 AS b
 FROM s, unnest(CAST(j -> 'non_canonical_value_decisions' AS JSON[])) AS t(d);

@@ -1,0 +1,353 @@
+{
+  "schema_version": 1,
+  "id": "s0r2.scores",
+  "title": "S0-R2 scores: v0 and v1 passes against the v1 reference; pass against pass on core and held-out units",
+  "group": "S0 Reference annotations",
+  "package": "S0-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do inputs v1 raise agreement for Sonnet and Haiku, and does the rise hold on units no rule was written from?",
+  "answers": [
+    "OPEN-D4-4",
+    "OPEN-D7-2"
+  ],
+  "method": "The S0 comparison instrument with the S0-R2 sample (S0_SAMPLE) against the corrected v1 reference; pass-against-pass symmetrized on core and held-out units; pre-correction full-tier figures from the first scoring against the uncorrected v1 reference.",
+  "commands": [
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_a",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_b",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_sg",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_sp",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_h",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_p",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_sv",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_hv",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_refv0",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> refv1_vs_adj",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> sv_vs_hv",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> sv_vs_hv.core",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> sv_vs_hv.held_out",
+    "S0_COMPARE=results/s0r2/compare S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py <ref> <pred> sp_vs_p_v0"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/s0r2/reference_v1",
+      "role": "v1 reference",
+      "sha256": "43860b19cd349555c731dadf188ab36c0e57c452cb4723a03a471974bd5b3bab"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0r2/compare/refv1_vs_a",
+      "role": "score, alignment, agreement",
+      "sha256": "d0531fdea1f1be60d4f83814ada2e775a568301e17fdda9303c3449683e578b2"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_b",
+      "role": "score, alignment, agreement",
+      "sha256": "415ea1dc1056a6d843b39fbacc04754d1e0b022c90f51b8756808e206515cdbb"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_sg",
+      "role": "score, alignment, agreement",
+      "sha256": "b8e041856b77ea7c04b6a9b0f9fb418d74f93e9ea10d8b4744f41f5e926a6f19"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_sp",
+      "role": "score, alignment, agreement",
+      "sha256": "75f0fe7acdda07e5d666fe9b954b1bfbaa8fae2436a00c2c0da123e2f19ae983"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_h",
+      "role": "score, alignment, agreement",
+      "sha256": "9883acd4388a61a59daa1c01c552a03ecedcc103d1581a775f3325a8543fda70"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_p",
+      "role": "score, alignment, agreement",
+      "sha256": "f690ea192675c12e5a30e54bb459ab1b4d30c8fdf5b1fbc1543faa9486199b7e"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_sv",
+      "role": "score, alignment, agreement",
+      "sha256": "a79b43ee96d878f6b932ff14b9a4e6d319374c252314ee6eb1c03a14357b3429"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_hv",
+      "role": "score, alignment, agreement",
+      "sha256": "902e7d5ba52c1f1e16ee6af75fb0a6db4c3c7868d7ef0765c157e9d5b50d33da"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_refv0",
+      "role": "score, alignment, agreement",
+      "sha256": "f467cb3a771f125d8288f7e210e44961bb3c468acba2651c4c2581b3525c85f9"
+    },
+    {
+      "path": "results/s0r2/compare/refv1_vs_adj",
+      "role": "score, alignment, agreement",
+      "sha256": "795660479186f0c22950bab1bc15f65ab0709192fbe14605ac0b5a5e3b28ca85"
+    },
+    {
+      "path": "results/s0r2/compare/sv_vs_hv",
+      "role": "score, alignment, agreement",
+      "sha256": "86a3279d3beec8db30cd6b51fccc992cb77e880dcee3e5ec2d2b514a5d1fc313"
+    },
+    {
+      "path": "results/s0r2/compare/sv_vs_hv.core",
+      "role": "score, alignment, agreement",
+      "sha256": "a46aba227810e91ee443e8dc381448fdd5f5c1c559b7ceeec35ecb1fa73744e5"
+    },
+    {
+      "path": "results/s0r2/compare/sv_vs_hv.held_out",
+      "role": "score, alignment, agreement",
+      "sha256": "914f23e68db032db102d46830c6a346ec0e7f65adc9a393f9ea250a5057f1637"
+    },
+    {
+      "path": "results/s0r2/compare/sp_vs_p_v0",
+      "role": "score, alignment, agreement",
+      "sha256": "d86d026f5c6932f132122639605e99bdf91b3389382457d2996c25faf7f8b3cc"
+    }
+  ],
+  "depends_on": [
+    "s0r2.reference-v1",
+    "s0r2.pass-sv",
+    "s0r2.pass-hv",
+    "s0r2.adjudication",
+    "s0.pass-scores",
+    "s0.sonnet-scores"
+  ],
+  "results": [
+    {
+      "name": "refv1_vs_a_core_f1",
+      "value": 0.919,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_a_full_f1",
+      "value": 0.676,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_b_core_f1",
+      "value": 0.972,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_b_full_f1",
+      "value": 0.681,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_sg_core_f1",
+      "value": 0.919,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_sg_full_f1",
+      "value": 0.474,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_sp_core_f1",
+      "value": 0.887,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_sp_full_f1",
+      "value": 0.366,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_h_core_f1",
+      "value": 0.702,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_h_full_f1",
+      "value": 0.29,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_p_core_f1",
+      "value": 0.752,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_p_full_f1",
+      "value": 0.346,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_sv_core_f1",
+      "value": 0.95,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_sv_full_f1",
+      "value": 0.766,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_hv_core_f1",
+      "value": 0.817,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_hv_full_f1",
+      "value": 0.676,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_refv0_core_f1",
+      "value": 0.972,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_refv0_full_f1",
+      "value": 0.861,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_adj_core_f1",
+      "value": 0.893,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refv1_vs_adj_full_f1",
+      "value": 0.747,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sv_vs_hv_core_f1",
+      "value": 0.794,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sv_vs_hv_full_f1",
+      "value": 0.623,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sv_vs_hv.core_core_f1",
+      "value": 0.752,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sv_vs_hv.core_full_f1",
+      "value": 0.567,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sv_vs_hv.held_out_core_f1",
+      "value": 0.897,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sv_vs_hv.held_out_full_f1",
+      "value": 0.759,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sp_vs_p_v0_core_f1",
+      "value": 0.767,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sp_vs_p_v0_full_f1",
+      "value": 0.376,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pre_correction_sv_full",
+      "value": 0.72,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pre_correction_hv_full",
+      "value": 0.63,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pre_correction_a_full",
+      "value": 0.72,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pre_correction_b_full",
+      "value": 0.71,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Against the v1 reference at full tier: Sonnet 0.366 (v0) to 0.766 (v1); Haiku 0.346 to 0.676; Opus v0 passes 0.676, 0.681. Sonnet against Haiku rises from 0.376 to 0.567 on core units and is 0.759 on held-out units.",
+  "consumed_by": [
+    "S0-R2 report",
+    "design-phase Q5"
+  ]
+}

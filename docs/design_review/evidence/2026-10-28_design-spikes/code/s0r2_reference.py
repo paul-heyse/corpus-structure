@@ -22,6 +22,8 @@ DECISIONS = [
     ("U10", "b in c_X_def, c_X_gamma", "§10.7 bindings row 4: b first appears in the restriction 'if b ∈ (0, ∞)' and the definition names it the gamma's scale parameter, so family_param"),
     ("T1", "c_role_loc, c_role_scale (removed)", "§10.4: as T4 c_scale_role; the parameters are named location and scale"),
     ("T4", "c_scale_role (removed)", "§10.4: a parameter_role claim is added only when the role differs from the canonical name; p_scale is already named scale"),
+    ("T3", "c_aX_def", "§10.7 rule 2: a formula claim keeps the restrictions stated with it on its own symbols (a ∈ ℝ, b ∈ ℝ ∖ {0}); added after the v1 passes were scored, found by comparing pass SV"),
+    ("U10", "c_X_def, c_G_transform", "§10.7 rule 2, as T3 (b ∈ (0, ∞)); added after the v1 passes were scored, found by comparing pass SV"),
     ("U12", "c_X_stdgamma (new)", "§10.2 context premise: the supposition in standing context c1 recorded once as an assumption statement; §10.7 rule 3: the conclusions reference it and repeat k ∈ (0, ∞); k binds param_of it"),
 ]
 
@@ -67,7 +69,17 @@ def main():
                 rebind(v)
     for r in ("c_X_def", "c_X_gamma"):
         rebind(claim(b, r))
+    b_member = next(n for n in claim(b, "c_X_gamma")["qualifiers"]["conditions"]["args"]
+                    if n.get("op") == "member" and n["x"]["latex"] == "b")
+    for r in ("c_X_def", "c_G_transform"):
+        claim(b, r)["qualifiers"]["conditions"] = json.loads(json.dumps(b_member))
     save("U10", b)
+
+    b = load("T3")
+    concl = claim(b, "c_aX_normal")["qualifiers"]["conditions"]["args"]
+    claim(b, "c_aX_def")["qualifiers"]["conditions"] = {
+        "op": "and", "args": [json.loads(json.dumps(n)) for n in concl if n.get("op") == "member"]}
+    save("T3", b)
 
     b = load("T4")
     b["claims"] = [c for c in b["claims"] if c["local_ref"] != "c_scale_role"]

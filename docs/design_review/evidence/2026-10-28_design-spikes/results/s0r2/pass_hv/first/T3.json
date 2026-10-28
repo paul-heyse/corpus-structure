@@ -1,0 +1,87 @@
+{
+ "unit_ref": "T3",
+ "statements": [
+  {"local_ref": "st1", "kind": "theorem", "anchor": ["s1", "s2"]},
+  {"local_ref": "st2", "kind": "proof", "anchor": ["s3"]}
+ ],
+ "entities": [
+  {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+  {"local_ref": "E", "type": "RandomVariable", "label": "a + bX", "scope": "local", "extent": "statement", "symbol": "a + bX", "aliases": [], "identity": {}},
+  {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "pN_mean", "type": "FamilyParameter", "label": "mean", "scope": "global", "aliases": ["mu"], "identity": {"family": "N", "canonical_name": "mean"}},
+  {"local_ref": "pN_var", "type": "FamilyParameter", "label": "variance", "scope": "global", "aliases": ["sigma"], "identity": {"family": "N", "canonical_name": "variance"}}
+ ],
+ "claims": [
+  {"local_ref": "c_X_norm", "predicate": "has_distribution", "subject": "X", "object": {"ref": "N"},
+   "qualifiers": {"modality": "supposed", "param_values": {
+     "mean": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "free"}}},
+     "variance": {"t": "formula", "latex": "\\sigma^2", "symbols": {"sigma": {"bind": "free"}}}}},
+   "statement": "st1", "statement_role": "premise",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\)", "role": "primary"},
+    {"sentence": "s1", "quote": "Suppose that", "role": "supporting"}
+   ]},
+  {"local_ref": "c_X_mean_prem", "predicate": "mean_value", "subject": "X",
+   "object": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "param_of", "claim": "c_X_norm", "param": "mean"}}},
+   "qualifiers": {"modality": "supposed"}, "statement": "st1", "statement_role": "premise",
+   "evidence": [{"sentence": "s1", "quote": "with mean \\(\\mu\\)", "role": "primary"}]},
+  {"local_ref": "c_X_var_prem", "predicate": "variance_value", "subject": "X",
+   "object": {"t": "formula", "latex": "\\sigma^2", "symbols": {"sigma": {"bind": "param_expr_of", "claim": "c_X_norm", "param": "variance"}}},
+   "qualifiers": {"modality": "supposed"}, "statement": "st1", "statement_role": "premise",
+   "evidence": [{"sentence": "s1", "quote": "variance \\(\\sigma^2\\)", "role": "primary"}]},
+  {"local_ref": "c_E_def", "predicate": "defined_as", "subject": "E",
+   "object": {"t": "formula", "latex": "a + bX", "symbols": {"a": {"bind": "free"}, "b": {"bind": "free"}, "X": {"bind": "variable", "entity": "X"}}},
+   "qualifiers": {"modality": "defined", "conditions": {"op": "and", "args": [
+     {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}},
+     {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R \\setminus \\{0\\}", "symbols": {}}}
+   ]}},
+   "statement": "st1", "statement_role": "definiens",
+   "evidence": [
+    {"sentence": "s2", "quote": "\\(a + bX\\)", "role": "primary"},
+    {"sentence": "s2", "quote": "If \\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\)", "role": "condition"}
+   ]},
+  {"local_ref": "c_E_dist", "predicate": "has_distribution", "subject": "E", "object": {"ref": "N"},
+   "qualifiers": {"modality": "asserted", "param_values": {
+     "mean": {"t": "formula", "latex": "a + b \\mu", "symbols": {"a": {"bind": "free"}, "b": {"bind": "free"}, "mu": {"bind": "param_of", "claim": "c_X_norm", "param": "mean"}}},
+     "variance": {"t": "formula", "latex": "b^2 \\sigma^2", "symbols": {"b": {"bind": "free"}, "sigma": {"bind": "param_expr_of", "claim": "c_X_norm", "param": "variance"}}}},
+    "conditions": {"op": "and", "args": [
+     {"op": "claim", "ref": "c_X_norm"},
+     {"op": "claim", "ref": "c_X_mean_prem"},
+     {"op": "claim", "ref": "c_X_var_prem"},
+     {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}},
+     {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R \\setminus \\{0\\}", "symbols": {}}}
+    ]}},
+   "statement": "st1", "statement_role": "conclusion",
+   "evidence": [
+    {"sentence": "s2", "quote": "\\(a + bX\\) is normally distributed with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)", "role": "primary"},
+    {"sentence": "s2", "quote": "If \\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\)", "role": "condition"},
+    {"sentence": "s2", "quote": "then", "role": "supporting"}
+   ]},
+  {"local_ref": "c_E_mean", "predicate": "mean_value", "subject": "E",
+   "object": {"t": "formula", "latex": "a + b \\mu", "symbols": {"a": {"bind": "free"}, "b": {"bind": "free"}, "mu": {"bind": "param_of", "claim": "c_X_norm", "param": "mean"}}},
+   "qualifiers": {"modality": "asserted", "conditions": {"op": "and", "args": [
+     {"op": "claim", "ref": "c_X_norm"},
+     {"op": "claim", "ref": "c_X_mean_prem"},
+     {"op": "claim", "ref": "c_X_var_prem"},
+     {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}},
+     {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R \\setminus \\{0\\}", "symbols": {}}}
+   ]}},
+   "statement": "st1", "statement_role": "conclusion",
+   "evidence": [{"sentence": "s2", "quote": "with mean \\(a + b \\mu\\)", "role": "primary"}]},
+  {"local_ref": "c_E_var", "predicate": "variance_value", "subject": "E",
+   "object": {"t": "formula", "latex": "b^2 \\sigma^2", "symbols": {"b": {"bind": "free"}, "sigma": {"bind": "param_expr_of", "claim": "c_X_norm", "param": "variance"}}},
+   "qualifiers": {"modality": "asserted", "conditions": {"op": "and", "args": [
+     {"op": "claim", "ref": "c_X_norm"},
+     {"op": "claim", "ref": "c_X_mean_prem"},
+     {"op": "claim", "ref": "c_X_var_prem"},
+     {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}},
+     {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\R \\setminus \\{0\\}", "symbols": {}}}
+   ]}},
+   "statement": "st1", "statement_role": "conclusion",
+   "evidence": [{"sentence": "s2", "quote": "variance \\(b^2 \\sigma^2\\)", "role": "primary"}]},
+  {"local_ref": "c_proves", "predicate": "proves", "subject": "st2", "object": {"ref": "st1"}, "qualifiers": {}, "statement": "st2",
+   "evidence": [{"sentence": "s3", "quote": "which we recognize as the MGF of the normal distribution with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)", "role": "primary"}]}
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

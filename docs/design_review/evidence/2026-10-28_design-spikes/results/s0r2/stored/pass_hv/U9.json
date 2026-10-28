@@ -1,0 +1,344 @@
+{
+ "envelope": {
+  "unit": "U9",
+  "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+  "source": "results/s0r2/pass_hv/U9.json"
+ },
+ "unit_ref": "U9",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "seg:c8858445283cc4b3aeebf62b43bc2380",
+    "seg:d4d15a5c15b937f230d666afa222625c"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "seg:ae936ca6dd75a6556c16350058871c9a",
+    "seg:f5bda7a82a6394d9651a5a2520b503bb",
+    "seg:cc5662bf909023b827077c3ccad88c2a"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "Xi",
+   "type": "RandomVariable",
+   "label": "X_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X_i",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:680f3eb3f2fdb65fe5886ea06547a38c"
+  },
+  {
+   "local_ref": "P",
+   "type": "RandomVariable",
+   "label": "product of X_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "\\prod_{i=1}^n X_i",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:680f3eb3f2fdb65fe5886ea06547a38c"
+  },
+  {
+   "local_ref": "L",
+   "type": "DistributionFamily",
+   "label": "lognormal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "pL_mu",
+   "type": "FamilyParameter",
+   "label": "parameter mu",
+   "scope": "global",
+   "aliases": [
+    "mu"
+   ],
+   "identity": {
+    "family": "L",
+    "canonical_name": "mu"
+   }
+  },
+  {
+   "local_ref": "pL_sigma",
+   "type": "FamilyParameter",
+   "label": "parameter sigma",
+   "scope": "global",
+   "aliases": [
+    "sigma"
+   ],
+   "identity": {
+    "family": "L",
+    "canonical_name": "sigma"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Xi_prem",
+   "predicate": "has_distribution",
+   "subject": "Xi",
+   "object": {
+    "ref": "L"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "mu": {
+      "t": "formula",
+      "latex": "\\mu_i",
+      "symbols": {
+       "mu_i": {
+        "bind": "free"
+       }
+      }
+     },
+     "sigma": {
+      "t": "formula",
+      "latex": "\\sigma_i",
+      "symbols": {
+       "sigma_i": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "i",
+      "symbols": {
+       "i": {
+        "bind": "free"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "\\{1, 2, \\ldots, n\\}",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 10159,
+     "end": 10263,
+     "role": "primary"
+    },
+    {
+     "start": 10153,
+     "end": 10158,
+     "role": "supporting"
+    },
+    {
+     "start": 10264,
+     "end": 10297,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_P_def",
+   "predicate": "defined_as",
+   "subject": "P",
+   "object": {
+    "t": "formula",
+    "latex": "\\prod_{i=1}^n X_i",
+    "symbols": {
+     "X_i": {
+      "bind": "variable",
+      "entity": "Xi"
+     },
+     "i": {
+      "bind": "free"
+     },
+     "n": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10304,
+     "end": 10325,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_P_dist",
+   "predicate": "has_distribution",
+   "subject": "P",
+   "object": {
+    "ref": "L"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {
+     "mu": {
+      "t": "formula",
+      "latex": "\\sum_{i=1}^n \\mu_i",
+      "symbols": {
+       "mu_i": {
+        "bind": "param_of",
+        "claim": "c_Xi_prem",
+        "param": "mu"
+       },
+       "i": {
+        "bind": "free"
+       },
+       "n": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_Xi_prem"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\mu_i",
+        "symbols": {
+         "mu_i": {
+          "bind": "param_of",
+          "claim": "c_Xi_prem",
+          "param": "mu"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "n",
+        "symbols": {
+         "n": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\N_+",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "i",
+        "symbols": {
+         "i": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\{1, 2, \\ldots, n\\}",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "pred",
+       "name": "independent",
+       "args": [
+        {
+         "ref": "Xi"
+        },
+        {
+         "ref": "Xi"
+        },
+        {
+         "ref": "Xi"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 10402,
+     "end": 10430,
+     "role": "primary"
+    },
+    {
+     "start": 10326,
+     "end": 10395,
+     "role": "supporting"
+    },
+    {
+     "start": 10113,
+     "end": 10151,
+     "role": "condition"
+    },
+    {
+     "start": 10061,
+     "end": 10075,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 10834,
+     "end": 10935,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "The schema states parameter values as formulas; the relation gives sigma squared, not sigma, and a square root would be a derived fact the source does not state.",
+   "start": 10435,
+   "end": 10473
+  }
+ ]
+}

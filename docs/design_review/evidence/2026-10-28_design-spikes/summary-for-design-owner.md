@@ -79,14 +79,24 @@ where the inputs leave a decision to inference:
 - standing context chosen by position, which brought one exercise the setup of another;
 - no generated per-predicate inventory (D2 §10.10 was a placeholder) and no worked example.
 
-Proposed: generate the annotator reference from the schema; write those rules; assemble standing
-context by query over the segment and scope indexes, each item citable by id; and serve the same
-lookups to agents as D8 tools. Then rerun a Sonnet and a Haiku pass, including units from outside
-the twelve. This bears on D7 §3's golden author, which the plan currently names as Opus.
+**Tested in the S0-R2 revisit** ([S0-R2 report](S0-R2-report.md), 2026-10-28). Inputs v1 wrote the
+conventions down (a guideline v1 candidate for D2 §10, [s0r2/guideline_v1.md](s0r2/guideline_v1.md)),
+generated the annotator reference from the schema with worked examples, assembled standing context by
+query over M13 binding sites, and reported checkable rule violations in the validator. Against the
+reference conformed to v1, at full tier, from unit packets only:
+
+- Sonnet rose from 0.37 to 0.77, against 0.68 for the Opus v0 passes. Before a three-item reference
+  correction found by reading the Sonnet pass, the figures were 0.72 and 0.71–0.72.
+- Haiku rose from 0.35 to 0.68.
+- Sonnet against Haiku reaches 0.76 on six units from pages no rule was written from.
+
+A Sonnet adjudicator over the two passes adds nothing over the Sonnet pass. This bears on D7 §3:
+Sonnet can author goldens from packets, Haiku with a check, and the adjudicator is a check on
+contested items.
 
 ## Waiting on decisions
 
-- **Operator:** review of both reports, which gates X1; the golden author after the rerun above; and
+- **Operator:** review of the reports (S1, S0, S0-R2), which gates X1; the golden author in light of S0-R2; and
   whether finalized evidence records outlive their folder (this would supersede ADR-0001's clause).
 - **Design owner:** the dispositions of the items above in your findings table, and whether ADR-0009
   and ADR-0010 fit the Q8 decisions. Both ADRs were written in the spike lane with the operator's

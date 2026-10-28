@@ -1,0 +1,47 @@
+{
+ "unit_ref": "H6",
+ "statements": [
+  {"local_ref": "st1", "kind": "exercise", "anchor": ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"]},
+  {"local_ref": "st2", "kind": "solution", "anchor": ["s10", "s11", "s12", "s13", "s14", "s15", "s16"]}
+ ],
+ "entities": [
+  {"local_ref": "I", "type": "RandomVariable", "label": "income of a certain population", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+  {"local_ref": "P", "type": "DistributionFamily", "label": "Pareto distribution", "scope": "global", "aliases": [], "identity": {}}
+ ],
+ "claims": [
+  {
+   "local_ref": "c_I_pareto",
+   "predicate": "has_distribution",
+   "subject": "I",
+   "object": {"ref": "P"},
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "shape": {"t": "formula", "latex": "3", "symbols": {}},
+     "scale": {"t": "formula", "latex": "1000", "symbols": {}}
+    }
+   },
+   "statement": "st1",
+   "statement_role": "example_value",
+   "evidence": [{"sentence": "s1", "quote": "the income of a certain population has the Pareto distribution with shape parameter 3 and scale parameter 1000", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {"ref": "st1"},
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [{"sentence": "s16", "quote": "\\(F^{-1}(0.9) = 2154.43\\)", "role": "primary"}]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {"local_ref": "u1", "sentence": "s3", "quote": "The proportion of the population with incomes between 2000 and 4000", "reason": "asked quantity"},
+  {"local_ref": "u2", "sentence": "s4", "quote": "The median income", "reason": "asked quantity"},
+  {"local_ref": "u3", "sentence": "s5", "quote": "The first and third quartiles and the interquartile range", "reason": "asked quantity"},
+  {"local_ref": "u4", "sentence": "s7", "quote": "The mean income", "reason": "asked quantity"},
+  {"local_ref": "u5", "sentence": "s8", "quote": "The standard deviation of income", "reason": "asked quantity"},
+  {"local_ref": "u6", "sentence": "s9", "quote": "The 90th percentile", "reason": "asked quantity"}
+ ]
+}

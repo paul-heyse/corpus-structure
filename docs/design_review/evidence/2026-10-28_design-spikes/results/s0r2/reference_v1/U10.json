@@ -131,7 +131,25 @@
     }
    },
    "qualifiers": {
-    "modality": "defined"
+    "modality": "defined",
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "family_param",
+        "entity": "pG_scale"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "(0, \\infty)",
+      "symbols": {}
+     }
+    }
    },
    "statement": "st1",
    "statement_role": "definiens",
@@ -368,6 +386,24 @@
     },
     "param_mapping": {
      "shape": "shape"
+    },
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "family_param",
+        "entity": "pG_scale"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "(0, \\infty)",
+      "symbols": {}
+     }
     }
    },
    "statement": "st1",

@@ -1,0 +1,321 @@
+{
+ "envelope": {
+  "unit": "U11",
+  "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+  "source": "results/s0r2/pass_sv/U11.json"
+ },
+ "unit_ref": "U11",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "seg:3a0fdd2baeab629e1d8efe4065a86e9b",
+    "seg:ef641d35c7067a79e9a255ee53e5de15"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "seg:761456882896712fbe868b5815b43840"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "Xi",
+   "type": "RandomVariable",
+   "label": "X_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X_i",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:cef3622cb20961761f3ca9c1f2a94aec"
+  },
+  {
+   "local_ref": "S",
+   "type": "RandomVariable",
+   "label": "X_1 + X_2",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X_1 + X_2",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:cef3622cb20961761f3ca9c1f2a94aec"
+  },
+  {
+   "local_ref": "G",
+   "type": "DistributionFamily",
+   "label": "gamma distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Xi_gamma",
+   "predicate": "has_distribution",
+   "subject": "Xi",
+   "object": {
+    "ref": "G"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k_i",
+      "symbols": {
+       "k_i": {
+        "bind": "free"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "i",
+      "symbols": {
+       "i": {
+        "bind": "free"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "\\{1, 2\\}",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 16847,
+     "end": 16968,
+     "role": "primary"
+    },
+    {
+     "start": 16973,
+     "end": 16991,
+     "role": "condition"
+    },
+    {
+     "start": 16771,
+     "end": 16783,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_S_def",
+   "predicate": "defined_as",
+   "subject": "S",
+   "object": {
+    "t": "formula",
+    "latex": "X_1 + X_2",
+    "symbols": {
+     "X_1": {
+      "bind": "variable",
+      "entity": "Xi"
+     },
+     "X_2": {
+      "bind": "variable",
+      "entity": "Xi"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 16998,
+     "end": 17011,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_S_gamma",
+   "predicate": "has_distribution",
+   "subject": "S",
+   "object": {
+    "ref": "G"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "k_1 + k_2",
+      "symbols": {
+       "k_1": {
+        "bind": "param_of",
+        "claim": "c_Xi_gamma",
+        "param": "shape"
+       },
+       "k_2": {
+        "bind": "param_of",
+        "claim": "c_Xi_gamma",
+        "param": "shape"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "param_of",
+        "claim": "c_Xi_gamma",
+        "param": "scale"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_Xi_gamma"
+      },
+      {
+       "op": "pred",
+       "name": "independent",
+       "args": [
+        {
+         "ref": "Xi"
+        },
+        {
+         "ref": "Xi"
+        }
+       ]
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "i",
+        "symbols": {
+         "i": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\{1, 2\\}",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "k_i",
+        "symbols": {
+         "k_i": {
+          "bind": "param_of",
+          "claim": "c_Xi_gamma",
+          "param": "shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "param_of",
+          "claim": "c_Xi_gamma",
+          "param": "scale"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 16998,
+     "end": 17099,
+     "role": "primary"
+    },
+    {
+     "start": 16784,
+     "end": 16836,
+     "role": "condition"
+    },
+    {
+     "start": 16973,
+     "end": 16991,
+     "role": "condition"
+    },
+    {
+     "start": 16903,
+     "end": 16926,
+     "role": "condition"
+    },
+    {
+     "start": 16947,
+     "end": 16968,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 17293,
+     "end": 17351,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

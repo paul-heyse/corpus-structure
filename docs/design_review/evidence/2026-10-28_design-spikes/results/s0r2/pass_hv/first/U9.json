@@ -1,0 +1,56 @@
+{
+ "unit_ref": "U9",
+ "statements": [
+  {"local_ref": "st1", "kind": "theorem", "anchor": ["s1", "s2"]},
+  {"local_ref": "st2", "kind": "proof", "anchor": ["s3", "s4", "s5"]}
+ ],
+ "entities": [
+  {"local_ref": "Xi", "type": "RandomVariable", "label": "X_i", "scope": "local", "extent": "statement", "symbol": "X_i", "aliases": [], "identity": {}},
+  {"local_ref": "P", "type": "RandomVariable", "label": "product of X_i", "scope": "local", "extent": "statement", "symbol": "\\prod_{i=1}^n X_i", "aliases": [], "identity": {}},
+  {"local_ref": "L", "type": "DistributionFamily", "label": "lognormal distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "pL_mu", "type": "FamilyParameter", "label": "parameter mu", "scope": "global", "aliases": ["mu"], "identity": {"family": "L", "canonical_name": "mu"}},
+  {"local_ref": "pL_sigma", "type": "FamilyParameter", "label": "parameter sigma", "scope": "global", "aliases": ["sigma"], "identity": {"family": "L", "canonical_name": "sigma"}}
+ ],
+ "claims": [
+  {"local_ref": "c_Xi_prem", "predicate": "has_distribution", "subject": "Xi", "object": {"ref": "L"},
+   "qualifiers": {"modality": "supposed",
+     "param_values": {
+       "mu": {"t": "formula", "latex": "\\mu_i", "symbols": {"mu_i": {"bind": "free"}}},
+       "sigma": {"t": "formula", "latex": "\\sigma_i", "symbols": {"sigma_i": {"bind": "free"}}}},
+     "conditions": {"op": "member", "x": {"t": "formula", "latex": "i", "symbols": {"i": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\{1, 2, \\ldots, n\\}", "symbols": {}}}},
+   "statement": "st1", "statement_role": "premise",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\(X_i\\) has the lognormal distribution with parameters \\(\\mu_i \\in \\R\\) and \\(\\sigma_i \\in (0, \\infty)\\)", "role": "primary"},
+    {"sentence": "s1", "quote": "where", "role": "supporting"},
+    {"sentence": "s1", "quote": "for \\(i \\in \\{1, 2, \\ldots, n\\}\\)", "role": "condition"}
+   ]},
+  {"local_ref": "c_P_def", "predicate": "defined_as", "subject": "P",
+   "object": {"t": "formula", "latex": "\\prod_{i=1}^n X_i", "symbols": {"X_i": {"bind": "variable", "entity": "Xi"}, "i": {"bind": "free"}, "n": {"bind": "free"}}},
+   "qualifiers": {"modality": "defined"}, "statement": "st1", "statement_role": "definiens",
+   "evidence": [{"sentence": "s2", "quote": "\\(\\prod_{i=1}^n X_i\\)", "role": "primary"}]},
+  {"local_ref": "c_P_dist", "predicate": "has_distribution", "subject": "P", "object": {"ref": "L"},
+   "qualifiers": {"modality": "asserted",
+     "param_values": {
+       "mu": {"t": "formula", "latex": "\\sum_{i=1}^n \\mu_i", "symbols": {"mu_i": {"bind": "param_of", "claim": "c_Xi_prem", "param": "mu"}, "i": {"bind": "free"}, "n": {"bind": "free"}}}},
+     "conditions": {"op": "and", "args": [
+       {"op": "claim", "ref": "c_Xi_prem"},
+       {"op": "member", "x": {"t": "formula", "latex": "\\mu_i", "symbols": {"mu_i": {"bind": "param_of", "claim": "c_Xi_prem", "param": "mu"}}}, "set": {"t": "set", "latex": "\\R", "symbols": {}}},
+       {"op": "member", "x": {"t": "formula", "latex": "n", "symbols": {"n": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\N_+", "symbols": {}}},
+       {"op": "member", "x": {"t": "formula", "latex": "i", "symbols": {"i": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\{1, 2, \\ldots, n\\}", "symbols": {}}},
+       {"op": "pred", "name": "independent", "args": [{"ref": "Xi"}, {"ref": "Xi"}, {"ref": "Xi"}]}
+     ]}},
+   "statement": "st1", "statement_role": "conclusion",
+   "evidence": [
+    {"sentence": "s2", "quote": "\\(\\mu = \\sum_{i=1}^n \\mu_i\\)", "role": "primary"},
+    {"sentence": "s2", "quote": "has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\)", "role": "supporting"},
+    {"sentence": "s1", "quote": "is a sequence of independent variables", "role": "condition"},
+    {"sentence": "s1", "quote": "\\( n \\in \\N_+ \\)", "role": "condition"}
+   ]},
+  {"local_ref": "c_proves", "predicate": "proves", "subject": "st2", "object": {"ref": "st1"}, "qualifiers": {}, "statement": "st2",
+   "evidence": [{"sentence": "s5", "quote": "has the normal distribution with mean \\(\\sum_{i=1}^n \\mu_i\\) and variance \\(\\sum_{i=1}^n \\sigma_i^2\\)", "role": "primary"}]}
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {"local_ref": "u1", "sentence": "s2", "quote": "\\(\\sigma^2 = \\sum_{i=1}^n \\sigma_i^2\\)", "reason": "The schema states parameter values as formulas; the relation gives sigma squared, not sigma, and a square root would be a derived fact the source does not state."}
+ ]
+}

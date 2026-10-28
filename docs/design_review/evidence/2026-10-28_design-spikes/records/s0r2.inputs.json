@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "id": "s0r2.inputs",
+  "title": "Annotator inputs v1: guideline v1, schema-generated reference, worked examples, query context",
+  "group": "S0 Reference annotations",
+  "package": "S0-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do Sonnet and Haiku reach Opus-level agreement when the conventions are written down and context is assembled by query?",
+  "answers": [
+    "OPEN-D4-4",
+    "OPEN-D1-2"
+  ],
+  "method": "Guideline v1 written from the S0 gap analysis (GG-1…17, G1–G5); reference generated from the schema with per-predicate role, modality and condition rules; three worked examples on the Weibull page; standing context = M13 binding sites outside the unit, citable as cN; six held-out units from Pareto and ChiSquare chosen by kind before any pass; validator reports rule warnings.",
+  "commands": [
+    "S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0r2_sample.py",
+    "S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0r2_inputs.py",
+    "S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0r2/examples --rules"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/s0/gaps.md",
+      "role": "gap analysis",
+      "sha256": "697d8548f75faf4cbd09f5a2a291c657403c9b457db953144a4a016078cfad71"
+    },
+    {
+      "path": "code/schema",
+      "role": "schema",
+      "sha256": "6de5c7eb0e959610b0f329efca839a061f97c8a40fa666fd31f6ee92bd66da23"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "s0r2/guideline_v1.md",
+      "role": "guideline v1 candidate",
+      "sha256": "a3e3a1b618c5e6cc228469c184e8534bcaf5ac8843f6b5c71dd4462772953815"
+    },
+    {
+      "path": "results/s0r2/sample.json",
+      "role": "sample with context",
+      "sha256": "6a2553d01250b755d225eda8b4007d691c45c30006d364a56881060cde0cb4b2"
+    },
+    {
+      "path": "results/s0r2/s1",
+      "role": "renditions of new pages",
+      "sha256": "c39cacbfe098c3806d5026f1581f671c2453e7adeb1343d6add10204ac4dd26c"
+    },
+    {
+      "path": "results/s0r2/examples",
+      "role": "worked examples",
+      "sha256": "ed890c5478ed75c50119b57210528823111a9a551d861d4528b3f53bc9639e35"
+    },
+    {
+      "path": "results/s0r2/inputs/packet_v1",
+      "role": "annotator inputs",
+      "sha256": "2b5c5d9d373fdfa0a4c1b9e39ed77b716d3710513a385a56ee82a2f337b4cad2"
+    },
+    {
+      "path": "code/s0r2_rules.py",
+      "role": "rule checker",
+      "sha256": "abc04655db3c3d69cd2036228dbaec2ba1c94e3509b4ca25ef32af56f35328c0"
+    }
+  ],
+  "depends_on": [
+    "s0.gaps",
+    "s0.m13-probe-2",
+    "s1.adapter"
+  ],
+  "results": [
+    {
+      "name": "units",
+      "value": 18,
+      "of": null,
+      "unit": null,
+      "note": "12 core, 6 held out"
+    },
+    {
+      "name": "examples_validated",
+      "value": 3,
+      "of": 3,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "units_with_context",
+      "value": 3,
+      "of": 18,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Inputs v1 built; examples validate with no rule warnings; context is empty for self-contained units and carries the supposition for units that depend on one (U12, H3, T2).",
+  "consumed_by": [
+    "s0r2.pass-sv",
+    "s0r2.pass-hv",
+    "S0-R2 report"
+  ]
+}

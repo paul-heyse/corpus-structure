@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "s0r2.pass-hv",
+  "title": "Pass HV: Haiku 5.5 on inputs v1, unit packets only",
+  "group": "S0 Reference annotations",
+  "package": "S0-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How does Haiku annotate with inputs v1?",
+  "answers": [
+    "OPEN-D4-4"
+  ],
+  "method": "Fresh subagent; packet-only inputs v1 over T1, T2, T3, T4, U5–U12 and held-out H1–H6; validated with rule warnings; first versions kept.",
+  "commands": [
+    "S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0r2/pass_hv --rules --out results/s0r2/stored/pass_hv"
+  ],
+  "agents": [
+    {
+      "role": "annotator Pass HV",
+      "model": "Claude Haiku 5.5",
+      "brief": "results/s0r2/inputs/packet_v1/instructions_hv.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote validator output and a quote-check script (reading only its packets and batches) to temporary files outside its folders, then deleted them"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s0r2/inputs/packet_v1",
+      "role": "inputs",
+      "sha256": "2b5c5d9d373fdfa0a4c1b9e39ed77b716d3710513a385a56ee82a2f337b4cad2"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0r2/pass_hv",
+      "role": "batches, notes, first versions",
+      "sha256": "12c85b86692dc8c6995ffef511e03277d5d33b117d399413f665f7d44cb478a3"
+    },
+    {
+      "path": "results/s0r2/stored/pass_hv",
+      "role": "stored form",
+      "sha256": "7d9acbd197a8cdb4ba7509287312f4b62d05389af3e143d57fd9272af58a9aea"
+    }
+  ],
+  "depends_on": [
+    "s0r2.inputs"
+  ],
+  "results": [
+    {
+      "name": "units_validated",
+      "value": 18,
+      "of": 18,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "units_failing_first_run",
+      "value": 4,
+      "of": 18,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Eighteen valid batches with no rule warnings; four units needed repairs (a JSON brace, LaTeX spacing copied inexactly, a missing scope qualifier, a quote).",
+  "consumed_by": [
+    "s0r2.scores",
+    "s0r2.adjudication"
+  ]
+}

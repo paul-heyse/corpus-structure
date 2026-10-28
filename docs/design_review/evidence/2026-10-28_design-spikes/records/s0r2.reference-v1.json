@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "s0r2.reference-v1",
+  "title": "The S0 reference conformed to guideline v1",
+  "group": "S0 Reference annotations",
+  "package": "S0-R2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What does the root's reference look like under guideline v1?",
+  "answers": [],
+  "method": "results/s0/reference_model copied and edited by code/s0r2_reference.py; each decision recorded with its rule in decisions_v1.json; validated with rule warnings. Three restrictions (T3, U10) were added after the v1 passes were scored, found by comparing pass SV against rule 2.",
+  "commands": [
+    "python3 code/s0r2_reference.py",
+    "S0_SAMPLE=results/s0r2/sample.json UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0r2/reference_model_v1 --out results/s0r2/reference_v1 --rules"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/s0/reference_model",
+      "role": "v0 reference",
+      "sha256": "63bd3461c57ba0bf56c274534045760e2cae2faface271b4fdbb2372d2c011ab"
+    },
+    {
+      "path": "code/s0r2_reference.py",
+      "role": "decisions",
+      "sha256": "4fca0971bd5e3e5fb48ed134d963dd3761d205b55af1416ed705e0f391ee6b29"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0r2/reference_model_v1",
+      "role": "model-facing v1 reference",
+      "sha256": "34f49dd67a804a94ee6caa2eefd0dda4a96bd30382b3f716c850dba2ff8683dc"
+    },
+    {
+      "path": "results/s0r2/reference_v1",
+      "role": "stored v1 reference",
+      "sha256": "43860b19cd349555c731dadf188ab36c0e57c452cb4723a03a471974bd5b3bab"
+    }
+  ],
+  "depends_on": [
+    "s0.adjudication",
+    "s0r2.inputs"
+  ],
+  "results": [
+    {
+      "name": "decisions",
+      "value": 10,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "rule_warnings",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "decisions_after_scoring",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "T3 c_aX_def; U10 c_X_def and c_G_transform"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The v0 reference already followed v1 on most points (v0 against v1 full F1 0.86); the decisions remove restrictions from a premise, claim nodes from formula claims, redundant role claims, add the U12 context premise, and rebind U10's b.",
+  "consumed_by": [
+    "s0r2.scores"
+  ]
+}

@@ -1,0 +1,301 @@
+{
+ "envelope": {
+  "unit": "H1",
+  "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+  "source": "results/s0r2/pass_sv/H1.json"
+ },
+ "unit_ref": "H1",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "definition",
+   "anchor": [
+    "seg:3c1fc5ab8b03cca1fae5ea74902a1f4e",
+    "seg:88be3c3e2c879981545502af43c4da90"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "seg:6237c0b9d685922f45c02e5f64e46ca8"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "BP",
+   "type": "DistributionFamily",
+   "label": "basic Pareto distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "SP",
+   "type": "DistributionFamily",
+   "label": "standard Pareto distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "pBP_shape",
+   "type": "FamilyParameter",
+   "label": "shape parameter",
+   "scope": "global",
+   "aliases": [
+    "a"
+   ],
+   "identity": {
+    "family": "BP",
+    "canonical_name": "shape"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_defines_BP",
+   "predicate": "defines",
+   "subject": "st1",
+   "object": {
+    "ref": "BP"
+   },
+   "qualifiers": {},
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 235,
+     "end": 307,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_defines_SP",
+   "predicate": "defines",
+   "subject": "st1",
+   "object": {
+    "ref": "SP"
+   },
+   "qualifiers": {},
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 487,
+     "end": 525,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_hp_shape",
+   "predicate": "has_parameter",
+   "subject": "BP",
+   "object": {
+    "ref": "pBP_shape"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 270,
+     "end": 307,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_dom_shape",
+   "predicate": "parameter_domain",
+   "subject": "pBP_shape",
+   "object": {
+    "t": "set",
+    "latex": "(0, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 286,
+     "end": 307,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_support",
+   "predicate": "support",
+   "subject": "BP",
+   "object": {
+    "t": "set",
+    "latex": "[1, \\infty)",
+    "symbols": {}
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 324,
+     "end": 357,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_cdf",
+   "predicate": "cdf",
+   "subject": "BP",
+   "object": {
+    "t": "formula",
+    "latex": "1 - \\frac{1}{z^a}",
+    "symbols": {
+     "z": {
+      "bind": "free"
+     },
+     "a": {
+      "bind": "family_param",
+      "entity": "pBP_shape"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "family_param",
+          "entity": "pBP_shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "z",
+        "symbols": {
+         "z": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "[1, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 405,
+     "end": 429,
+     "role": "primary"
+    },
+    {
+     "start": 437,
+     "end": 454,
+     "role": "condition"
+    },
+    {
+     "start": 286,
+     "end": 307,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_SP_special",
+   "predicate": "special_case_of",
+   "subject": "SP",
+   "object": {
+    "ref": "BP"
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "param_constraints": {
+     "op": "cmp",
+     "rel": "=",
+     "lhs": {
+      "t": "formula",
+      "latex": "a",
+      "symbols": {
+       "a": {
+        "bind": "family_param",
+        "entity": "pBP_shape"
+       }
+      }
+     },
+     "rhs": {
+      "t": "formula",
+      "latex": "1",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 458,
+     "end": 525,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 605,
+     "end": 667,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "No predicate states that a distribution is continuous (absolutely continuous / continuous type).",
+   "start": 308,
+   "end": 336
+  }
+ ]
+}

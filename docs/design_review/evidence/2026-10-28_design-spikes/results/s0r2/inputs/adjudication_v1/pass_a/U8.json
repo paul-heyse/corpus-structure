@@ -1,0 +1,61 @@
+{
+ "unit_ref": "U8",
+ "statements": [
+  {"local_ref": "st1", "kind": "exercise", "anchor": ["s1", "s2", "s3", "s4", "s5"]},
+  {"local_ref": "st2", "kind": "solution", "anchor": ["s6", "s7"]}
+ ],
+ "entities": [
+  {"local_ref": "R_rod", "type": "RandomVariable", "label": "radius of the rod", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+  {"local_ref": "R_hole", "type": "RandomVariable", "label": "radius of the hole", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+  {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}}
+ ],
+ "claims": [
+  {
+   "local_ref": "c_rod_normal",
+   "predicate": "has_distribution",
+   "subject": "R_rod",
+   "object": {"ref": "N"},
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "mean": {"t": "formula", "latex": "1", "symbols": {}},
+     "standard_deviation": {"t": "formula", "latex": "0.002", "symbols": {}}
+    }
+   },
+   "statement": "st1",
+   "statement_role": "example_value",
+   "evidence": [{"sentence": "s2", "quote": "The radius of the rod is normally distributed with mean 1 cm and standard deviation 0.002 cm", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_hole_normal",
+   "predicate": "has_distribution",
+   "subject": "R_hole",
+   "object": {"ref": "N"},
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "mean": {"t": "formula", "latex": "1.01", "symbols": {}},
+     "standard_deviation": {"t": "formula", "latex": "0.003", "symbols": {}}
+    }
+   },
+   "statement": "st1",
+   "statement_role": "example_value",
+   "evidence": [{"sentence": "s3", "quote": "The radius of the hole is normally distributed with mean 1.01 cm and standard deviation 0.003 cm", "role": "primary"}]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {"ref": "st1"},
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [{"sentence": "s7", "quote": "\\(\\P(Y - X \\lt 0) = 0.0028\\)", "role": "primary"}]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {"local_ref": "u1", "sentence": "s2", "quote": "mean 1 cm and standard deviation 0.002 cm", "reason": "The unit of measurement (cm) of a random variable cannot be stated (no predicate); same for the hole radius in s3."},
+  {"local_ref": "u2", "sentence": "s4", "quote": "The machining processes that produce the rod and the hole are independent", "reason": "Independence of the two radii (via their production processes) is a condition, but no claim in the unit depends on it (the only dependent item is the asked quantity); no predicate states independence of entities."},
+  {"local_ref": "u3", "sentence": "s5", "quote": "Find the probability that the rod is to big for the hole", "reason": "asked quantity"}
+ ]
+}

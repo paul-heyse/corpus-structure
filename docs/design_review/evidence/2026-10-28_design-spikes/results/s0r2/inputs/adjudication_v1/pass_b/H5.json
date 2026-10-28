@@ -1,0 +1,45 @@
+{
+ "unit_ref": "H5",
+ "statements": [
+  {"local_ref": "st1", "kind": "theorem", "anchor": ["s1", "s2"]}
+ ],
+ "entities": [
+  {"local_ref": "Zi", "type": "RandomVariable", "label": "Z_i", "scope": "local", "extent": "statement", "symbol": "Z_i", "aliases": [], "identity": {}},
+  {"local_ref": "V", "type": "RandomVariable", "label": "V", "scope": "local", "extent": "statement", "symbol": "V", "aliases": [], "identity": {}},
+  {"local_ref": "SN", "type": "DistributionFamily", "label": "standard normal distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "C", "type": "DistributionFamily", "label": "chi-square distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "pC_df", "type": "FamilyParameter", "label": "degrees of freedom", "scope": "global", "aliases": [], "identity": {"family": "C", "canonical_name": "degrees_of_freedom"}}
+ ],
+ "claims": [
+  {"local_ref": "c_Zi_sn", "predicate": "has_distribution", "subject": "Zi", "object": {"ref": "SN"},
+   "qualifiers": {"modality": "supposed",
+     "conditions": {"op": "member", "x": {"t": "formula", "latex": "i", "symbols": {"i": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\{1, 2, \\ldots, n\\}", "symbols": {}}}},
+   "statement": "st1", "statement_role": "premise",
+   "evidence": [
+    {"sentence": "s1", "quote": "independent standard normal variables", "role": "primary"},
+    {"sentence": "s1", "quote": "Suppose that", "role": "supporting"},
+    {"sentence": "s1", "quote": "\\((Z_1, Z_2, \\ldots, Z_n)\\)", "role": "condition"}
+   ]},
+  {"local_ref": "c_V_def", "predicate": "defined_as", "subject": "V",
+   "object": {"t": "formula", "latex": "\\sum_{i=1}^n Z_i^2", "symbols": {"Z_i": {"bind": "variable", "entity": "Zi"}, "i": {"bind": "free"}, "n": {"bind": "free"}}},
+   "qualifiers": {"modality": "defined"}, "statement": "st1", "statement_role": "definiens",
+   "evidence": [{"sentence": "s2", "quote": "V = \\sum_{i=1}^n Z_i^2", "role": "primary"}]},
+  {"local_ref": "c_V_chi", "predicate": "has_distribution", "subject": "V", "object": {"ref": "C"},
+   "qualifiers": {"modality": "asserted",
+     "param_values": {"degrees_of_freedom": {"t": "formula", "latex": "n", "symbols": {"n": {"bind": "free"}}}},
+     "conditions": {"op": "and", "args": [
+       {"op": "claim", "ref": "c_Zi_sn"},
+       {"op": "member", "x": {"t": "formula", "latex": "n", "symbols": {"n": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\N_+", "symbols": {}}},
+       {"op": "pred", "name": "independent", "args": [{"ref": "Zi"}, {"ref": "Zi"}, {"ref": "Zi"}]}
+     ]}},
+   "statement": "st1", "statement_role": "conclusion",
+   "evidence": [
+    {"sentence": "s2", "quote": "has the chi-square distribution with \\(n\\) degrees of freedom", "role": "primary"},
+    {"sentence": "s2", "quote": "Then", "role": "supporting"},
+    {"sentence": "s1", "quote": "\\( n \\in \\N_+ \\)", "role": "condition"},
+    {"sentence": "s1", "quote": "is a sequence of independent standard normal variables", "role": "condition"}
+   ]}
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

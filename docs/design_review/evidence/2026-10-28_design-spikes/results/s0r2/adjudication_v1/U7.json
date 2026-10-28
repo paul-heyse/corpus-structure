@@ -1,0 +1,37 @@
+{
+ "unit_ref": "U7",
+ "statements": [
+  {"local_ref": "st1", "kind": "convention", "anchor": ["s1", "s2"]},
+  {"local_ref": "st2", "kind": "remark", "anchor": ["s3", "s4"]}
+ ],
+ "entities": [
+  {"local_ref": "K", "type": "RandomVariable", "label": "a constant", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+  {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}}
+ ],
+ "claims": [
+  {
+   "local_ref": "c_K_normal",
+   "predicate": "has_distribution",
+   "subject": "K",
+   "object": {"ref": "N"},
+   "qualifiers": {
+    "modality": "conventional",
+    "param_values": {
+     "mean": {"t": "formula", "latex": "c", "symbols": {"c": {"bind": "variable", "entity": "K"}}},
+     "variance": {"t": "formula", "latex": "0", "symbols": {}}
+    }
+   },
+   "statement": "st1",
+   "evidence": [
+    {"sentence": "s1", "quote": "a constant as having a normal distribution (with mean being the constant and variance 0, of course)", "role": "primary"},
+    {"sentence": "s1", "quote": "it's convenient to consider", "role": "supporting"}
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {"local_ref": "u1", "sentence": "s3", "quote": "the formulas for the probability density function [14] and the distribution function [17] do not hold for a constant", "reason": "Negative statement about which earlier results (cited by number) hold in the extended setting; no predicate relates a convention to results outside the unit."},
+  {"local_ref": "u2", "sentence": "s3", "quote": "the other results involving the moment generating function [23], linear transformations [24], and sums [26] are still valid", "reason": "Statement that other numbered results remain valid; those results are outside the unit and no predicate expresses validity of a result."},
+  {"local_ref": "u3", "sentence": "s4", "quote": "the result for linear transformations [24] would hold for all \\(a\\) and \\(b\\)", "reason": "Extension of the domain of a cited result (a, b unrestricted); the result is outside the unit and no predicate expresses it."}
+ ]
+}

@@ -1,0 +1,47 @@
+{
+ "unit_ref": "U8",
+ "statements": [
+  {"local_ref": "st1", "kind": "exercise", "anchor": ["s1", "s2", "s3", "s4", "s5"]},
+  {"local_ref": "st2", "kind": "solution", "anchor": ["s6", "s7"]}
+ ],
+ "entities": [
+  {"local_ref": "R", "type": "RandomVariable", "label": "radius of the rod", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+  {"local_ref": "H", "type": "RandomVariable", "label": "radius of the hole", "scope": "local", "extent": "statement", "aliases": [], "identity": {}},
+  {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "pN_mean", "type": "FamilyParameter", "label": "mean", "scope": "global", "aliases": [], "identity": {"family": "N", "canonical_name": "mean"}},
+  {"local_ref": "pN_sd", "type": "FamilyParameter", "label": "standard deviation", "scope": "global", "aliases": [], "identity": {"family": "N", "canonical_name": "standard_deviation"}}
+ ],
+ "claims": [
+  {"local_ref": "c_R_norm", "predicate": "has_distribution", "subject": "R", "object": {"ref": "N"},
+   "qualifiers": {"modality": "exemplified", "param_values": {
+     "mean": {"t": "formula", "latex": "1", "symbols": {}},
+     "standard_deviation": {"t": "formula", "latex": "0.002", "symbols": {}}}},
+   "statement": "st1", "statement_role": "example_value",
+   "evidence": [{"sentence": "s2", "quote": "is normally distributed with mean 1 cm and standard deviation 0.002 cm", "role": "primary"}]},
+  {"local_ref": "c_R_mean", "predicate": "mean_value", "subject": "R",
+   "object": {"t": "formula", "latex": "1", "symbols": {}},
+   "qualifiers": {"modality": "exemplified"}, "statement": "st1", "statement_role": "example_value",
+   "evidence": [{"sentence": "s2", "quote": "with mean 1 cm", "role": "primary"}]},
+  {"local_ref": "c_H_norm", "predicate": "has_distribution", "subject": "H", "object": {"ref": "N"},
+   "qualifiers": {"modality": "exemplified", "param_values": {
+     "mean": {"t": "formula", "latex": "1.01", "symbols": {}},
+     "standard_deviation": {"t": "formula", "latex": "0.003", "symbols": {}}}},
+   "statement": "st1", "statement_role": "example_value",
+   "evidence": [{"sentence": "s3", "quote": "is normally distributed with mean 1.01 cm and standard deviation 0.003 cm", "role": "primary"}]},
+  {"local_ref": "c_H_mean", "predicate": "mean_value", "subject": "H",
+   "object": {"t": "formula", "latex": "1.01", "symbols": {}},
+   "qualifiers": {"modality": "exemplified"}, "statement": "st1", "statement_role": "example_value",
+   "evidence": [{"sentence": "s3", "quote": "with mean 1.01 cm", "role": "primary"}]},
+  {"local_ref": "c_proves", "predicate": "proves", "subject": "st2", "object": {"ref": "st1"}, "qualifiers": {}, "statement": "st2",
+   "evidence": [{"sentence": "s7", "quote": "\\(\\P(Y - X \\lt 0) = 0.0028\\)", "role": "primary"}]}
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {"local_ref": "u1", "sentence": "s2", "quote": "1 cm", "reason": "The unit of measurement of a random variable cannot be stated (no predicate)."},
+  {"local_ref": "u2", "sentence": "s2", "quote": "standard deviation 0.002", "reason": "No predicate states the standard deviation as a property of a variable; the parameter is recorded in c_R_norm."},
+  {"local_ref": "u3", "sentence": "s3", "quote": "1.01 cm", "reason": "The unit of measurement of a random variable cannot be stated (no predicate)."},
+  {"local_ref": "u4", "sentence": "s3", "quote": "standard deviation 0.003", "reason": "No predicate states the standard deviation as a property of a variable; the parameter is recorded in c_H_norm."},
+  {"local_ref": "u5", "sentence": "s4", "quote": "The machining processes that produce the rod and the hole are independent", "reason": "Independence is a condition on claims; no claim in this unit carries it, since the asked quantity is unsupported."},
+  {"local_ref": "u6", "sentence": "s5", "quote": "Find the probability that the rod is to big for the hole", "reason": "asked quantity"}
+ ]
+}

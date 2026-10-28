@@ -1,0 +1,163 @@
+{
+ "envelope": {
+  "unit": "U8",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0r2/pass_sv/U8.json"
+ },
+ "unit_ref": "U8",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "exercise",
+   "anchor": [
+    "seg:d7f5c560d0d153559e24ae58937b434a",
+    "seg:2d62bec8ef4a94814838147187f9d1d4",
+    "seg:327c806dbcfb87aa63c4cca2502ddab9",
+    "seg:c06b44e7a1bd2f44fffbab96fb3905fd",
+    "seg:6c2c1fc5b53a20e305e21ddfeef3eca4"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "solution",
+   "anchor": [
+    "seg:13319312f522a9ddd2cf2e75e4e97b5b",
+    "seg:17abf3faaf5997aa5a5f035ebdc4ba48"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "R_rod",
+   "type": "RandomVariable",
+   "label": "radius of the rod",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:2b4a4fa4f207a5e243726ad1156c5463"
+  },
+  {
+   "local_ref": "R_hole",
+   "type": "RandomVariable",
+   "label": "radius of the hole",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:2b4a4fa4f207a5e243726ad1156c5463"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_rod_normal",
+   "predicate": "has_distribution",
+   "subject": "R_rod",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "1",
+      "symbols": {}
+     },
+     "standard_deviation": {
+      "t": "formula",
+      "latex": "0.002",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "example_value",
+   "evidence": [
+    {
+     "start": 20332,
+     "end": 20424,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_hole_normal",
+   "predicate": "has_distribution",
+   "subject": "R_hole",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "1.01",
+      "symbols": {}
+     },
+     "standard_deviation": {
+      "t": "formula",
+      "latex": "0.003",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "example_value",
+   "evidence": [
+    {
+     "start": 20426,
+     "end": 20522,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 20741,
+     "end": 20769,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "The unit of measurement (cm) of a random variable cannot be stated (no predicate); same for the hole radius in s3.",
+   "start": 20383,
+   "end": 20424
+  },
+  {
+   "local_ref": "u2",
+   "reason": "Independence of the two radii (via their production processes) is a condition, but no claim in the unit depends on it (the only dependent item is the asked quantity); no predicate states independence of entities.",
+   "start": 20524,
+   "end": 20597
+  },
+  {
+   "local_ref": "u3",
+   "reason": "asked quantity",
+   "start": 20599,
+   "end": 20655
+  }
+ ]
+}

@@ -1,0 +1,62 @@
+{
+ "unit_ref": "T2",
+ "statements": [
+  {"local_ref": "st1", "kind": "remark", "anchor": "unit"}
+ ],
+ "entities": [
+  {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "section", "symbol": "X", "aliases": [], "identity": {}},
+  {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [], "identity": {}},
+  {"local_ref": "pN_loc", "type": "FamilyParameter", "label": "location parameter", "scope": "global", "aliases": ["mu"], "identity": {"family": "N", "canonical_name": "location"}},
+  {"local_ref": "pN_scale", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "aliases": ["sigma"], "identity": {"family": "N", "canonical_name": "scale"}},
+  {"local_ref": "pN_mean", "type": "FamilyParameter", "label": "mean", "scope": "global", "aliases": [], "identity": {"family": "N", "canonical_name": "mean"}},
+  {"local_ref": "pN_sd", "type": "FamilyParameter", "label": "standard deviation", "scope": "global", "aliases": [], "identity": {"family": "N", "canonical_name": "standard_deviation"}}
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_normal",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {"ref": "N"},
+   "qualifiers": {
+    "modality": "supposed",
+    "scope": "statement",
+    "param_values": {
+     "location": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "free"}}},
+     "scale": {"t": "formula", "latex": "\\sigma", "symbols": {"sigma": {"bind": "free"}}}
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {"sentence": "s1", "quote": "\\( X \\) has the normal distribution with location parameter \\( \\mu \\in \\R \\) and scale parameter \\( \\sigma \\in (0, \\infty) \\)", "role": "primary"},
+    {"sentence": "s1", "quote": "Suppose again that", "role": "supporting"}
+   ]
+  },
+  {
+   "local_ref": "c_id_mean",
+   "predicate": "identical_parameter",
+   "subject": "pN_loc",
+   "object": {"ref": "pN_mean"},
+   "qualifiers": {"modality": "asserted"},
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {"sentence": "s2", "quote": "the location and scale parameters are also the mean and standard deviation, respectively", "role": "primary"}
+   ]
+  },
+  {
+   "local_ref": "c_id_sd",
+   "predicate": "identical_parameter",
+   "subject": "pN_scale",
+   "object": {"ref": "pN_sd"},
+   "qualifiers": {"modality": "asserted"},
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {"sentence": "s2", "quote": "the location and scale parameters are also the mean and standard deviation, respectively", "role": "primary"}
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

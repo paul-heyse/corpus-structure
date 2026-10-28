@@ -1,0 +1,332 @@
+{
+ "envelope": {
+  "unit": "H3",
+  "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+  "source": "results/s0r2/pass_hv/H3.json"
+ },
+ "unit_ref": "H3",
+ "statements": [
+  {
+   "local_ref": "st0",
+   "kind": "assumption",
+   "anchor": [
+    "seg:d3c15258a497adce74a0c1449323ab0f"
+   ]
+  },
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "seg:4f6678b4fb4aa26b8cccb1490bd035ec",
+    "seg:ad67954ed078c791c41c4eb872547060",
+    "seg:1341c0e711da39ec41d8e4c8df1f4fbb"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:86ccd0db4b4555515112bde3d805a835"
+  },
+  {
+   "local_ref": "P",
+   "type": "DistributionFamily",
+   "label": "Pareto distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "pP_shape",
+   "type": "FamilyParameter",
+   "label": "shape parameter",
+   "scope": "global",
+   "aliases": [
+    "a"
+   ],
+   "identity": {
+    "family": "P",
+    "canonical_name": "shape"
+   }
+  },
+  {
+   "local_ref": "pP_scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "aliases": [
+    "b"
+   ],
+   "identity": {
+    "family": "P",
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_p",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "P"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "a",
+      "symbols": {
+       "a": {
+        "bind": "free"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "b",
+      "symbols": {
+       "b": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st0",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 9523,
+     "end": 9647,
+     "role": "primary"
+    },
+    {
+     "start": 9504,
+     "end": 9522,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_mean",
+   "predicate": "mean_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "b \\frac{a}{a - 1}",
+    "symbols": {
+     "b": {
+      "bind": "param_of",
+      "claim": "c_X_p",
+      "param": "scale"
+     },
+     "a": {
+      "bind": "param_of",
+      "claim": "c_X_p",
+      "param": "shape"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_p"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "param_of",
+          "claim": "c_X_p",
+          "param": "shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "param_of",
+          "claim": "c_X_p",
+          "param": "scale"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "cmp",
+       "rel": ">",
+       "lhs": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "param_of",
+          "claim": "c_X_p",
+          "param": "shape"
+         }
+        }
+       },
+       "rhs": {
+        "t": "formula",
+        "latex": "1",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 11822,
+     "end": 11851,
+     "role": "primary"
+    },
+    {
+     "start": 11852,
+     "end": 11866,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_var",
+   "predicate": "variance_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "b^2 \\frac{a}{(a - 1)^2 (a - 2)}",
+    "symbols": {
+     "b": {
+      "bind": "param_of",
+      "claim": "c_X_p",
+      "param": "scale"
+     },
+     "a": {
+      "bind": "param_of",
+      "claim": "c_X_p",
+      "param": "shape"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_X_p"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "param_of",
+          "claim": "c_X_p",
+          "param": "shape"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "param_of",
+          "claim": "c_X_p",
+          "param": "scale"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "cmp",
+       "rel": ">",
+       "lhs": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "param_of",
+          "claim": "c_X_p",
+          "param": "shape"
+         }
+        }
+       },
+       "rhs": {
+        "t": "formula",
+        "latex": "2",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 11871,
+     "end": 11916,
+     "role": "primary"
+    },
+    {
+     "start": 11917,
+     "end": 11931,
+     "role": "condition"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

@@ -1,0 +1,279 @@
+{
+ "envelope": {
+  "unit": "U6",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0r2/pass_hv/U6.json"
+ },
+ "unit_ref": "U6",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "definition",
+   "anchor": [
+    "seg:c4911a7f4faa75ff5bf326ba9647d648"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "corollary",
+   "anchor": [
+    "seg:28cfa3f4055ede760eb40320bc762a96"
+   ]
+  },
+  {
+   "local_ref": "st3",
+   "kind": "remark",
+   "anchor": [
+    "seg:72ebc16e02cb1e80ee804bbd71f8cb84"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:64828b76d08d1987adeb5a325b9a2055"
+  },
+  {
+   "local_ref": "Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "Z",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:64828b76d08d1987adeb5a325b9a2055"
+  },
+  {
+   "local_ref": "SS",
+   "type": "Concept",
+   "label": "standard score",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "SN",
+   "type": "DistributionFamily",
+   "label": "standard normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_mean",
+   "predicate": "mean_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "\\mu",
+    "symbols": {
+     "mu": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "scope": {
+     "extent": "statement",
+     "segment": "seg:57bebab2809e83fa2c27612c682ef9bf"
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 14981,
+     "end": 14998,
+     "role": "primary"
+    },
+    {
+     "start": 14951,
+     "end": 14980,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_Z_def",
+   "predicate": "defined_as",
+   "subject": "Z",
+   "object": {
+    "t": "formula",
+    "latex": "(X - \\mu) / \\sigma",
+    "symbols": {
+     "X": {
+      "bind": "variable",
+      "entity": "X"
+     },
+     "mu": {
+      "bind": "free"
+     },
+     "sigma": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 15045,
+     "end": 15071,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_SS_def",
+   "predicate": "definition_formula",
+   "subject": "SS",
+   "object": {
+    "t": "formula",
+    "latex": "(X - \\mu) / \\sigma",
+    "symbols": {
+     "X": {
+      "bind": "variable",
+      "entity": "X"
+     },
+     "mu": {
+      "bind": "free"
+     },
+     "sigma": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 15051,
+     "end": 15071,
+     "role": "primary"
+    },
+    {
+     "start": 15072,
+     "end": 15102,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_defines_SS",
+   "predicate": "defines",
+   "subject": "st1",
+   "object": {
+    "ref": "SS"
+   },
+   "qualifiers": {},
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 15072,
+     "end": 15102,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_norm",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "supposed"
+   },
+   "statement": "st2",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 15146,
+     "end": 15177,
+     "role": "primary"
+    },
+    {
+     "start": 15143,
+     "end": 15145,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_Z_sn",
+   "predicate": "has_distribution",
+   "subject": "Z",
+   "object": {
+    "ref": "SN"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "conditions": {
+     "op": "claim",
+     "ref": "c_X_norm"
+    }
+   },
+   "statement": "st2",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 15183,
+     "end": 15242,
+     "role": "primary"
+    },
+    {
+     "start": 15178,
+     "end": 15182,
+     "role": "supporting"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "No predicate states the standard deviation of a random variable.",
+   "start": 15003,
+   "end": 15038
+  },
+  {
+   "local_ref": "u2",
+   "reason": "follows_from needs a local statement; the last result lies outside the unit.",
+   "start": 15104,
+   "end": 15134
+  },
+  {
+   "local_ref": "u3",
+   "reason": "No predicate states that a family can be constructed from a base variable (existence claim).",
+   "start": 15256,
+   "end": 15340
+  }
+ ]
+}

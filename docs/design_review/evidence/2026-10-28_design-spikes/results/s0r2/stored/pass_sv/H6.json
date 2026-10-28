@@ -1,0 +1,148 @@
+{
+ "envelope": {
+  "unit": "H6",
+  "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+  "source": "results/s0r2/pass_sv/H6.json"
+ },
+ "unit_ref": "H6",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "exercise",
+   "anchor": [
+    "seg:fcee07fd89f3070b141d38ea33791e76",
+    "seg:714d81d64341e2c28f4237d13b755939",
+    "seg:449285a39a45c98f021d9a97de45fb03",
+    "seg:aa9eba035eb75c5ae710b55160844b2d",
+    "seg:98d245b3eef99655679faf1e699ee62d",
+    "seg:0f238435b68a1c6c520736dc3c7cff24",
+    "seg:58d4c849e3d5a6d446812a71cf429748",
+    "seg:33531ae49ec2d9fb3303a9a34ac2a605",
+    "seg:36d31f9cd0945767ae13199cdf0f5e10"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "solution",
+   "anchor": [
+    "seg:394c7b381e025f78bee710cf6bdd8f7e",
+    "seg:565ee294e22463f956505cb2a8d522a8",
+    "seg:4ae2c8c60b3e3a965567926517c1980f",
+    "seg:fc0a7ca48f49ea213d264d5ee7c4086c",
+    "seg:95322c4d5147c58899c480d025f8366d",
+    "seg:590e30dfa00de5c07cc334a0be94cde7",
+    "seg:8bde42e49ab4a956e80cb1103ba4aa71"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "I",
+   "type": "RandomVariable",
+   "label": "income of a certain population",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:9eb7d026ed22f34284e8e9ba8aea2655"
+  },
+  {
+   "local_ref": "P",
+   "type": "DistributionFamily",
+   "label": "Pareto distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_I_pareto",
+   "predicate": "has_distribution",
+   "subject": "I",
+   "object": {
+    "ref": "P"
+   },
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "shape": {
+      "t": "formula",
+      "latex": "3",
+      "symbols": {}
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "1000",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "example_value",
+   "evidence": [
+    {
+     "start": 17202,
+     "end": 17312,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {},
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 17802,
+     "end": 17827,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "asked quantity",
+   "start": 17347,
+   "end": 17414
+  },
+  {
+   "local_ref": "u2",
+   "reason": "asked quantity",
+   "start": 17420,
+   "end": 17437
+  },
+  {
+   "local_ref": "u3",
+   "reason": "asked quantity",
+   "start": 17443,
+   "end": 17500
+  },
+  {
+   "local_ref": "u4",
+   "reason": "asked quantity",
+   "start": 17506,
+   "end": 17521
+  },
+  {
+   "local_ref": "u5",
+   "reason": "asked quantity",
+   "start": 17527,
+   "end": 17559
+  },
+  {
+   "local_ref": "u6",
+   "reason": "asked quantity",
+   "start": 17565,
+   "end": 17584
+  }
+ ]
+}

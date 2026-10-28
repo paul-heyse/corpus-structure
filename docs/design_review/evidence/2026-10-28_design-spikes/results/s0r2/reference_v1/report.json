@@ -342,7 +342,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -408,7 +408,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.006
+     "ms": 0.005
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -510,7 +510,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.008
+     "ms": 0.005
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -528,7 +528,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.003
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -546,7 +546,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.003
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[1]",
@@ -600,7 +600,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[4].evidence[0]",
@@ -708,7 +708,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.005
+     "ms": 0.004
     },
     {
      "loc": "claims[9].evidence[0]",
@@ -744,7 +744,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[11].evidence[0]",
@@ -780,7 +780,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[13].evidence[0]",
@@ -900,7 +900,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.009
+     "ms": 0.005
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -1110,7 +1110,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.011
+     "ms": 0.005
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -1182,7 +1182,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[2]",
@@ -1236,7 +1236,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     }
    ]
   }
@@ -1266,7 +1266,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.006
+     "ms": 0.004
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -1386,7 +1386,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.009
+     "ms": 0.005
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -1476,7 +1476,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[3]",
@@ -1494,7 +1494,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -1615,7 +1615,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.009
+     "ms": 0.005
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -1651,7 +1651,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -1669,7 +1669,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[1]",
@@ -1705,7 +1705,7 @@
      "note": "",
      "step": "exact_unit",
      "fuzzy_counts": null,
-     "ms": 0.006
+     "ms": 0.005
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -1723,7 +1723,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[1]",
@@ -1759,7 +1759,7 @@
      "note": "",
      "step": "exact_unit",
      "fuzzy_counts": null,
-     "ms": 0.004
+     "ms": 0.003
     },
     {
      "loc": "claims[4].evidence[0]",
@@ -1777,7 +1777,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[5].evidence[0]",
@@ -1916,7 +1916,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.006
+     "ms": 0.005
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -1952,7 +1952,7 @@
      "note": "",
      "step": "exact_unit",
      "fuzzy_counts": null,
-     "ms": 0.004
+     "ms": 0.003
     },
     {
      "loc": "unsupported[0]",
@@ -2072,7 +2072,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.003
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -2090,7 +2090,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.001
+     "ms": 0.002
     },
     {
      "loc": "unsupported[0]",
@@ -2108,7 +2108,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "unsupported[1]",
@@ -2144,7 +2144,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.001
+     "ms": 0.002
     },
     {
      "loc": "unsupported[3]",
@@ -2162,7 +2162,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.001
+     "ms": 0.002
     },
     {
      "loc": "unsupported[4]",
@@ -2210,7 +2210,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.011
+     "ms": 0.009
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -2228,7 +2228,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.003
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -2354,7 +2354,7 @@
      "note": "",
      "step": "exact_sentence",
      "fuzzy_counts": null,
-     "ms": 0.002
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[0]",

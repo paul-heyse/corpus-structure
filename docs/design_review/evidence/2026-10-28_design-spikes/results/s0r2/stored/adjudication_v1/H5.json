@@ -1,0 +1,233 @@
+{
+ "envelope": {
+  "unit": "H5",
+  "rendition_key": "ren:77c3a8c88f74974f3c555e3ed06fcbc4",
+  "source": "results/s0r2/adjudication_v1/H5.json"
+ },
+ "unit_ref": "H5",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "seg:b04fd34866a730f67d6f75ae9003dea3",
+    "seg:5e8fabd0f48e3a817e4c4cada9018c59"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "Zi",
+   "type": "RandomVariable",
+   "label": "Z_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "Z_i",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:f007733d85ad718d92979b54e2154a55"
+  },
+  {
+   "local_ref": "V",
+   "type": "RandomVariable",
+   "label": "V",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "V",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:f007733d85ad718d92979b54e2154a55"
+  },
+  {
+   "local_ref": "SN",
+   "type": "DistributionFamily",
+   "label": "standard normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "CS",
+   "type": "DistributionFamily",
+   "label": "chi-square distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Zi_SN",
+   "predicate": "has_distribution",
+   "subject": "Zi",
+   "object": {
+    "ref": "SN"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "i",
+      "symbols": {
+       "i": {
+        "bind": "free"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "\\{1, 2, \\ldots, n\\}",
+      "symbols": {
+       "n": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 8284,
+     "end": 8321,
+     "role": "primary"
+    },
+    {
+     "start": 8200,
+     "end": 8212,
+     "role": "supporting"
+    },
+    {
+     "start": 8239,
+     "end": 8266,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_V_def",
+   "predicate": "defined_as",
+   "subject": "V",
+   "object": {
+    "t": "formula",
+    "latex": "\\sum_{i=1}^n Z_i^2",
+    "symbols": {
+     "Z_i": {
+      "bind": "variable",
+      "entity": "Zi"
+     },
+     "i": {
+      "bind": "free"
+     },
+     "n": {
+      "bind": "free"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 8354,
+     "end": 8376,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_V_CS",
+   "predicate": "has_distribution",
+   "subject": "V",
+   "object": {
+    "ref": "CS"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {
+     "degrees_of_freedom": {
+      "t": "formula",
+      "latex": "n",
+      "symbols": {
+       "n": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_Zi_SN"
+      },
+      {
+       "op": "pred",
+       "name": "independent",
+       "args": [
+        {
+         "ref": "Zi"
+        },
+        {
+         "ref": "Zi"
+        },
+        {
+         "ref": "Zi"
+        }
+       ]
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "n",
+        "symbols": {
+         "n": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\N_+",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 8380,
+     "end": 8441,
+     "role": "primary"
+    },
+    {
+     "start": 8323,
+     "end": 8327,
+     "role": "supporting"
+    },
+    {
+     "start": 8213,
+     "end": 8229,
+     "role": "condition"
+    },
+    {
+     "start": 8267,
+     "end": 8321,
+     "role": "condition"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}
