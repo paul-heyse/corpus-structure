@@ -15,7 +15,7 @@ results/s0/trace_stored`: passed, 0 issues).
 
 A and B agree with each other far more than either agrees with the trace. Of 26 differences, 2
 are the trace's (a paragraph of the unit left out, and a capture §10.3 asks for missing), 2 are a pass's, and 22 are
-readings the guideline v0 does not decide. Twelve of those come from five rules (G1–G5 below), so
+readings the guideline v0 does not decide. Ten of those come from five rules (G1–G5 below), so
 the guideline, not the schema, is where T1–T4 disagreement sits. No difference involves a
 "must not appear" item: neither pass pairs "respectively" wrongly, gives `b \sigma` as a standard
 deviation, makes the location-scale family a `DistributionFamily`, or states a derived fact.
