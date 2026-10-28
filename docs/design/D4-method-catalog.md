@@ -174,6 +174,7 @@ Models cite evidence **by quote, not offset**: each evidence item is `{sentence:
    result is a span (rendition offsets). An unlocated quote leaves the item in the batch with
    `evidence_unlocated: true`; consolidation treats such items as unsupported by evidence (D5).
    > Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+   > Status: **Tested** in the spike instruments (2026-10-28): 733 of 735 S0 quotes exact, 2 after spacing, none fuzzy ([s0.stored](../design_review/evidence/2026-10-28_design-spikes/records/s0.stored.json))
 3. **Check references and types**: local refs resolve; subject and object types match the
    predicate's domain and range (entity-type side table, D2 §7.3).
 4. **Normalize math**: `$…$` and `\(…\)` are equivalent; values of type `formula` keep the LaTeX
@@ -215,6 +216,7 @@ the math grammar (M11); `html.unescape`, `unicodedata.normalize("NFC")`. Source-
 (unit, reference, section and layout selectors, delimiters, the macro source) are profile data,
 never adapter code.
 > Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Status: **Tested** in the S1 adapter (2026-10-28): the generated pattern delimits identically to the scanner on 517 blocks ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json))
 
 **Measured by.** `parse_status` per rendition and segment; excluded-character share; segment
 counts by kind; author-markup counts (S1 compares them with `siegrist_sections.tsv`).
@@ -360,6 +362,7 @@ the notation.
 superscripts as tree structure, relations and memberships as typed nodes; the page's macros
 recorded by M01, then the pack's fallback macro map (D2 §12.1). No SymPy conversion here.
 > Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Status: **Implemented** in the spike instruments (2026-10-28), exercised by the M13 probe; production code not written
 
 ## 7. LLM proposals and judgments
 
@@ -432,6 +435,7 @@ for the extended rules; canonical form (D1 §6.2) written from the tree; one par
 macro table; SymPy pinned as a hold. The ANTLR backend remains the comparison for `OPEN-D4-3`;
 `sympy.srepr` for storage.
 > Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Status: **Measured** in the spike instruments (2026-10-28): 976 of 1,532 spans parse on a 78-page sample, the rest ambiguous or failed by recorded category ([s0.instruments](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments.json)); coverage is S5's question
 
 **Measured by.** Parse rate by math kind and page; failure categories (S5).
 
@@ -475,6 +479,7 @@ occurrences; `DependencyMatcher` only where clause attachment decides the bindin
 claim-bearing paragraph is a statement extent; a section-wide binder takes precedence. Spike
 evidence: S0 annotators' scopes (`m13_probe.*.tsv`), S5.
 > Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Status: **Measured** on the S0 reference (2026-10-28): 20 of 20 annotated symbol scopes reproduced, 18 of 20 without the paragraph rule ([s0.m13-probe-2](../design_review/evidence/2026-10-28_design-spikes/records/s0.m13-probe-2.json))
 
 ### M14 resolve.concept_link
 

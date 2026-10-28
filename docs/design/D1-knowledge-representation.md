@@ -316,6 +316,7 @@ that does not parse keeps its verbatim LaTeX, whitespace-collapsed, with `parse:
 a mismatch is a validation issue, not a silent coercion.
 
 > Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Status: **Tested** in the spike instruments (2026-10-28): 86 of 86 S0 values read, canonical forms decided all but a handful of value comparisons ([s0.instruments](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments.json)); production code not written
 
 ## 7. Conditions
 

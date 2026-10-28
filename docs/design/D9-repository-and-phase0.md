@@ -82,7 +82,7 @@ latest release at phase 0 start, recorded in `docs/pins.md` when held.
 
 **Python 3.14.** The root requires ≥ 3.14, and the vLLM environment already runs torch 2.13 on
 3.14. Whether gliner2, spaCy, z3 and pgmpy ship 3.14 wheels is checked by the spikes' environment
-(`OPEN-D9-1`); a missing wheel is resolved per package (build from source, or isolate that method
+(`OPEN-D9-1`). **Tested** for the S0/S1 set (2026-10-28, [e0.environment](../design_review/evidence/2026-10-28_design-spikes/records/e0.environment.json)): on 3.14.10 spaCy 3.8.18 with `en_core_web_sm`/`trf` 3.8.0, spacy-curated-transformers, torch 2.14.1 (CPU), lxml, html5lib, sympy 1.14.0, lark, pydantic, linkml-runtime, rapidfuzz, scipy and statsmodels install and import; DuckDB 2.0 installs from its abi3 wheel. gliner2, z3, pgmpy and splink remain for S2, S4 and S5. A missing wheel is resolved per package (build from source, or isolate that method
 in a side environment like vLLM), never by lowering the product's Python version silently.
 
 ## 3. Conventions

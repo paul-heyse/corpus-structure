@@ -134,7 +134,7 @@ base guidance is manual. Plans retain execution disposition and existing review 
 The collection entry pages are unassessed; discovery/design-quality benefits remain Proposed.
 
 
-**Evidence records — Implemented** (ADR-0010). A finalized result of an investigation gets one
+**Evidence records — Implemented and Tested** (ADR-0010; `tests/evidence`, 2026-10-28). A finalized result of an investigation gets one
 typed record in its evidence folder (`records/<id>.json`: question, informed items, method,
 agents, hashed inputs and outputs, headline results, outcome, conclusion, consumers); revisions
 supersede. `just evidence` derives the README indexes, a rebuildable DuckDB catalog with
