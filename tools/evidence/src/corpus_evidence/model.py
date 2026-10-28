@@ -9,6 +9,7 @@ folder; `finalize` fills the content hashes that let `check` notice an output ch
 from __future__ import annotations
 
 import datetime as dt
+import re
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -22,6 +23,29 @@ RecordRef = Annotated[
     StringConstraints(pattern=r"^([0-9]{4}-[0-9]{2}-[0-9]{2}_[a-z0-9\-]+/)?[a-z0-9][a-z0-9.\-]*$"),
 ]
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+
+# A reference to a design, plan or evidence item: an identifier, optionally followed by a qualifier
+# after one space ("OPEN-D1-1", "ADR-0009", "P0-F-2a", "D2 §7.1", "s0.adjudication",
+# "S0-report.md", "foundations §3.9"). The identifier families, matched in this order:
+ITEM_FAMILIES: dict[str, str] = {
+    "open": r"OPEN-D[0-9]+-[0-9]+",  # a design OPEN item
+    "adr": r"ADR-[0-9]{4}",  # a decision record
+    "id": r"[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*[a-z]?",  # package, finding, spike or section: P0-M-1, D2
+    "file": r"[A-Za-z0-9][A-Za-z0-9\-]*\.md",  # a report or page by file name
+    "record": r"[a-z0-9][a-z0-9\-]*\.[a-z0-9][a-z0-9.\-]*",  # an evidence record id
+    "document": r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*",  # a named document or owner: design-phase plan
+}
+_QUALIFIER = r"(?: \S.*)?"
+ITEM_REF = "^(?:" + "|".join(ITEM_FAMILIES.values()) + ")" + _QUALIFIER + "$"
+ItemRef = Annotated[str, StringConstraints(pattern=ITEM_REF, max_length=120)]
+
+
+def item_kind(ref: str) -> str:
+    """The identifier family of a valid `ItemRef` (the first that matches its leading token)."""
+    for kind, pattern in ITEM_FAMILIES.items():
+        if re.fullmatch(pattern + _QUALIFIER, ref):
+            return kind
+    raise ValueError(f"not an item reference: {ref!r}")
 
 
 class _Strict(BaseModel):
@@ -82,7 +106,7 @@ class Record(_Strict):
     supersedes: list[RecordRef] = Field(default_factory=list)
     superseded_by: RecordRef | None = None
     question: str = Field(min_length=3, description="Why it was investigated")
-    answers: list[str] = Field(
+    answers: list[ItemRef] = Field(
         default_factory=list, description="Design or plan items it informs (OPEN-D1-1, ADR-0009)"
     )
     method: str = Field(min_length=3, description="How, in a sentence or two")
@@ -96,8 +120,9 @@ class Record(_Strict):
     results: list[Result] = Field(default_factory=list)
     outcome: Literal["passed", "failed", "blocked", "partial", "not_run"]
     conclusion: str = Field(min_length=3)
-    consumed_by: list[str] = Field(
-        default_factory=list, description="Reports, plans, ADRs that rely on it"
+    consumed_by: list[ItemRef] = Field(
+        default_factory=list,
+        description="Reports, plans, packages, ADRs or records that rely on it (P0-C-1, S0 report)",
     )
 
     @model_validator(mode="after")

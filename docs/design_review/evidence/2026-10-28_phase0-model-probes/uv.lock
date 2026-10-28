@@ -235,6 +235,7 @@ source = { editable = "../../../../tools/evidence" }
 dependencies = [
     { name = "duckdb" },
     { name = "jinja2" },
+    { name = "pyarrow" },
     { name = "pydantic" },
 ]
 
@@ -242,6 +243,7 @@ dependencies = [
 requires-dist = [
     { name = "duckdb", specifier = "==2.0.0" },
     { name = "jinja2", specifier = "==3.1.6" },
+    { name = "pyarrow", specifier = "==26.0.0" },
     { name = "pydantic", specifier = "==2.14.1" },
 ]
 

@@ -251,6 +251,8 @@
     "answers": {
       "description": "Design or plan items it informs (OPEN-D1-1, ADR-0009)",
       "items": {
+        "maxLength": 120,
+        "pattern": "^(?:OPEN-D[0-9]+-[0-9]+|ADR-[0-9]{4}|[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*[a-z]?|[A-Za-z0-9][A-Za-z0-9\\-]*\\.md|[a-z0-9][a-z0-9\\-]*\\.[a-z0-9][a-z0-9.\\-]*|[a-z][a-z0-9]*(?:-[a-z0-9]+)*)(?: \\S.*)?$",
         "type": "string"
       },
       "title": "Answers",
@@ -324,8 +326,10 @@
       "type": "string"
     },
     "consumed_by": {
-      "description": "Reports, plans, ADRs that rely on it",
+      "description": "Reports, plans, packages, ADRs or records that rely on it (P0-C-1, S0 report)",
       "items": {
+        "maxLength": 120,
+        "pattern": "^(?:OPEN-D[0-9]+-[0-9]+|ADR-[0-9]{4}|[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*[a-z]?|[A-Za-z0-9][A-Za-z0-9\\-]*\\.md|[a-z0-9][a-z0-9\\-]*\\.[a-z0-9][a-z0-9.\\-]*|[a-z][a-z0-9]*(?:-[a-z0-9]+)*)(?: \\S.*)?$",
         "type": "string"
       },
       "title": "Consumed By",

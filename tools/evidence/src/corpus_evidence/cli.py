@@ -1,6 +1,7 @@
 """`just evidence <command>`: check, finalize, index, catalog, render, schema.
 
-Without a command: index, catalog, then check."""
+Without a command: index, catalog, then check. `check` also resolves the record citations in the
+design and the ADRs (`--docs`, by default the docs root above the evidence root)."""
 
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import catalog, index, report, store
+from . import catalog, citations, index, report, store
 from .model import json_schema
 
 ROOT = Path("docs/design_review/evidence")
@@ -17,9 +18,11 @@ CATALOG = Path("build/evidence.duckdb")
 SCHEMA_OUT = Path("tools/evidence/record.schema.json")
 
 
-def _check(st: store.Store) -> int:
-    issues = store.check(st)
+def _check(st: store.Store, docs: Path) -> int:
+    issues = store.check(st) + citations.check(st, docs)
     stale = index.stale(st)
+    if SCHEMA_OUT.exists() and json.loads(SCHEMA_OUT.read_text(encoding="utf-8")) != json_schema():
+        issues.append(store.Issue(str(SCHEMA_OUT), "out of date (run `just evidence schema`)"))
     for i in issues:
         print(i)
     for p in stale:
@@ -39,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
         "--root", type=Path, default=ROOT, help="the evidence root (default: %(default)s)"
     )
     ap.add_argument("--catalog", type=Path, default=CATALOG)
+    ap.add_argument("--docs", type=Path, help="the docs root whose design and ADRs cite records")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("check", help="validate records, hashes, references and generated indexes")
     fin = sub.add_parser("finalize", help="fill a record's file hashes and date")
@@ -53,8 +57,9 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
 
     st = store.load(a.root)
+    docs = a.docs or a.root.parent.parent  # docs/design_review/evidence → docs
     if a.cmd == "check":
-        return _check(st)
+        return _check(st, docs)
     if a.cmd == "finalize":
         folder = st.folders.get(a.folder)
         if folder is None:
@@ -85,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     st = store.load(a.root)
     catalog.build(st, a.catalog)
     print(f"built {a.catalog}")
-    return _check(st)
+    return _check(st, docs)
 
 
 if __name__ == "__main__":

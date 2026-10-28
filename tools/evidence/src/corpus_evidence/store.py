@@ -10,7 +10,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from .model import FileRef, Record
+from .model import FileRef, Record, item_kind
 
 RECORDS_DIR = "records"
 FOLDER_GLOB = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_*"
@@ -165,4 +165,9 @@ def check(store: Store) -> list[Issue]:
             hit = store.resolve(folder, ref)
             if hit and hit[1].status == "superseded" and rec.status == "current":
                 issues.append(Issue(where, f"depends on superseded {ref}", "warning"))
+        for name in ("answers", "consumed_by"):
+            for item in getattr(rec, name):
+                ref = item.split(" ", 1)[0]
+                if item_kind(item) == "record" and store.resolve(folder, ref) is None:
+                    issues.append(Issue(where, f"{name} names unknown record {ref}", "warning"))
     return issues

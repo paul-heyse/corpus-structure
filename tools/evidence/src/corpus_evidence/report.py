@@ -3,34 +3,69 @@
 Template globals:
   query(sql, **params) -> list of row dicts   (named parameters as $name)
   value(sql, **params) -> the single value of a one-row, one-column result
-  record(gid)          -> a record row; the record is listed as a source of the report
+  record(gid)          -> a record row
   pct(x, digits=0), num(x, digits=2) -> formatting helpers
 Undefined names are errors (StrictUndefined), so a missing figure cannot render as a blank. The
 rendered file ends with a provenance comment naming the template and the records it used.
+
+A record counts as used when any of the three reads names it: `record(gid)`; a `query()` or
+`value()` whose parameters or SQL string literals hold its gid (`record_results WHERE gid = $g`);
+or one whose result holds its gid in a cell, its `folder` and `id` in one row, or an `id` column
+value that only one record has (`SELECT id, … FROM records WHERE folder = …`). Reads of a
+folder's own `catalog.sql` tables do not name a record; a template that reports such figures names
+their records with `record()`.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import re
 from pathlib import Path
 from typing import Any
 
 import duckdb
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+_LITERAL = re.compile(r"'((?:[^']|'')*)'")
+
 
 class _Ctx:
     def __init__(self, con: duckdb.DuckDBPyConnection):
         self.con = con
+        self.gids: set[str] = {g for (g,) in con.execute("SELECT gid FROM records").fetchall()}
+        # an id that only one folder uses names its record without the folder
+        self.by_id = {
+            i: g
+            for i, g in con.execute(
+                "SELECT id, any_value(gid) FROM records GROUP BY id HAVING count(*) = 1"
+            ).fetchall()
+        }
         self.used: set[str] = set()
 
-    def query(self, sql: str, **params) -> list[dict]:
+    def _note(self, *values: Any) -> None:
+        self.used.update(v for v in values if isinstance(v, str) and v in self.gids)
+
+    def _run(self, sql: str, params: dict) -> tuple[list[str], list[tuple]]:
         cur = self.con.execute(sql, params or None)
         cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, row, strict=True)) for row in cur.fetchall()]
+        rows = cur.fetchall()
+        self._note(*params.values(), *_LITERAL.findall(sql))
+        for row in rows:
+            self._note(*row)
+            d = dict(zip(cols, row, strict=True))
+            rid = d.get("id")
+            if isinstance(d.get("folder"), str) and isinstance(rid, str):
+                self._note(f"{d['folder']}/{rid}")
+            elif isinstance(rid, str) and rid in self.by_id:
+                self._note(self.by_id[rid])
+        return cols, rows
+
+    def query(self, sql: str, **params) -> list[dict]:
+        cols, rows = self._run(sql, params)
+        return [dict(zip(cols, row, strict=True)) for row in rows]
 
     def value(self, sql: str, **params):
-        rows = self.con.execute(sql, params or None).fetchall()
+        _, rows = self._run(sql, params)
         if len(rows) != 1 or len(rows[0]) != 1:
             raise ValueError(
                 f"value() needs exactly one row and column, got {len(rows)} rows: {sql}"
@@ -41,7 +76,6 @@ class _Ctx:
         rows = self.query("SELECT * FROM records WHERE gid = $gid", gid=gid)
         if not rows:
             raise KeyError(f"no record {gid}")
-        self.used.add(gid)
         return rows[0]
 
 
