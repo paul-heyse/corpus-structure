@@ -28,8 +28,14 @@ pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-
 domains/<name>/
   schema/
     <name>.yaml          LinkML schema; imports ../../core/schema/core.yaml
-    rules.yaml           validation rules (rule-engine expressions) and rule views (`views:`), §7.4
+    rules.yaml           rule-engine rules (`rules:`), the guideline's warnings (`guideline:`), rule
+                         views (`views:`), lookup tables (`tables:`) and derivations (`derive:`), §7.4
     migrations/          schema migration mappings for breaking changes, §8
+  reference/             the annotator reference's worked examples E1, E2, …: each its packet text,
+                         authored batch and citation frame (§7.5)
+  eval/                  evaluation-only data, read by no method: `split.yaml` (the forced-dev pages
+                         and the split seed, D7 §3.1), `baselines.yaml` (the S0-R2 comparison figures
+                         with their record ids, D7 §7) and the reference facts (D7 §6)
   guideline.md           the annotation guideline (§10 is v1 for statistics)
   policies.yaml          routing policies for this domain (D6 §7)
   methods.yaml           domain parameters of methods and named configurations (`configs:`):
@@ -40,15 +46,23 @@ domains/<name>/
   queries.py             optional domain queries implementing serve's query protocol (§7.6, D8 §5.2)
   README.md              scope of the pack, source corpora, owner notes
 domains/core/schema/core.yaml   core classes, predicates, value classes and enums shared by all packs
+domains/core/schema/rules.yaml  domain-free rules every pack runs (such as `core.value_kind_matches_slot`,
+                                a finalize warning), §7.4
 sources/<profile>.yaml          source profiles (D4 M01): how one source's HTML becomes segments;
                                 outside every pack, named by the packs that read the source (§12.1)
 ```
 
-A **schema version** is the content hash over `<name>.yaml`, `rules.yaml` and the imported
-`core.yaml`: SHA-256 of the canonical JSON (D1 §10.1) of the parsed files, not of their bytes or
-of a SchemaView dump, which carries file paths and varies with the LinkML release
-([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-07; stable across hash seeds and load paths, probe 2026-10-28). The guideline is versioned separately ([D7 §2](D7-evaluation-goldens-outer-loop.md#2-guidelines)),
+A **schema version** is the content hash over `<name>.yaml`, the pack's `rules.yaml` (its
+`guideline:` section included), the imported `core.yaml`, the core `rules.yaml` and the worked
+examples in `reference/`: SHA-256 of the canonical JSON (D1 §10.1) of the parsed files (an
+example's packet text as a string), not of their bytes or of a SchemaView dump, which carries file
+paths and varies with the LinkML release
+([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-07; stable across hash seeds and load paths, probe 2026-10-28). The worked examples are inside it because
+every prompt and golden pass reads them through the annotator reference (§7.5), so changing one is
+a schema change for reuse (D6 §4). The guideline is versioned separately ([D7 §2](D7-evaluation-goldens-outer-loop.md#2-guidelines)),
 because guideline wording changes far more often than the schema.
+> Status: **Proposed** (2026-10-28) for the core rules file, the `guideline:` section and the
+> worked examples as hash inputs
 
 ## 3. The `ci:` annotation vocabulary
 
@@ -263,8 +277,10 @@ classes:
     description: Text kept but not interpreted; anchored to its span once stored.
     attributes:
       text: {range: string, required: true, annotations: {ci:role: field}}
-      start: {range: integer, annotations: {ci:role: field}}
-      end: {range: integer, annotations: {ci:role: field}}
+      sentence: {range: string, annotations: {ci:role: field}}   # model-facing: the sN or cN holding the text, optional
+      start: {range: integer, annotations: {ci:role: field}}     # stored form
+      end: {range: integer, annotations: {ci:role: field}}       # stored form
+      coarse: {range: boolean, annotations: {ci:role: field}}    # stored form: the span is the whole cited sentence
     annotations: {ci:kind: value}
 
 slots:
@@ -348,7 +364,7 @@ enums:
   BindKind:
     permissible_values: {variable: {}, param_of: {}, param_expr_of: {}, family_param: {}, free: {}, constant: {}, unresolved: {}}
   ParseStatus:
-    permissible_values: {ok: {}, partial: {}, failed: {}}
+    permissible_values: {ok: {}, partial: {}, ambiguous: {}, failed: {}}
 ```
 
 ## 7. Compilers
@@ -362,8 +378,10 @@ version, its compiler and that compiler's version, and its kind (the batch schem
 the annotator reference, the compiled rules and views, the schema tables' content): one
 `meta.compiled_artifact` row each (D3 §3), never a field of the schema version that a compiler fix
 would rewrite under runs that used the old output. A compiler fix therefore adds rows beside the
-old ones. Method configurations reference artifact hashes, so work done with the old artifact
-keeps its provenance and is not reused for the new one (D6 §4). Artifacts are deterministic, so
+old ones. A method configuration declares the artifacts it reads by compiler and kind; the method
+registry resolves them against the run's schema version to artifact hashes, which enter the
+configuration hash, so work done with the old artifact keeps its provenance and is not reused for
+the new one (D6 §4). Artifacts are deterministic, so
 any one can be rebuilt from its schema version and compiler and checked against its stored hash;
 compiled rules are rebuilt this way, never pickled (§7.4).
 > Status: **Proposed** (2026-10-28)
@@ -465,7 +483,8 @@ ClaimProposalBatch                   model-facing form; "stored:" notes where th
 - **Values.** Formula and set values carry `t`, `latex` and `symbols` (the binding map, D1 §6.1);
   `sympy` and `parse` are added by M11 during consolidation and appear in neither batch form.
 - **Global entities** are identified across units by `label` and `identity`; packets list the
-  canonical labels already known for the page (D4 §4.1) so proposals reuse them.
+  known entities linked to the page (the reference run's global entities with a claim whose
+  evidence is on the page, by key, at most 30; D4 §4.1) so proposals reuse their labels.
 - **Extent.** `statement` scopes a local entity to the statement that binds it; `section` to the
   enclosing section from the binding sentence on (D1 §4.2). The stored form resolves it to a
   `scope_segment`.
@@ -498,7 +517,9 @@ packet-relative; the frame makes them absolute, so the batch means the same on e
 its page. The stored form is derived from batch and frame, per rendition, by the production quote
 cascade ([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing)), and records the
 rendition it was derived on. It is never authored, so an ingest change re-derives it rather than
-orphaning it; golden items are this derivation for goldens (D7 §3.1).
+orphaning it; golden items are this derivation for goldens (D7 §3.1). A quote the cascade cannot
+locate becomes a span over the whole cited sentence marked `coarse` (D5 §5.6), never an invented
+offset.
 > Status: **Proposed** (2026-10-28)
 
 **How the schema is built** (schema-rules note L-02, L-03). The compiler builds one claim model per
@@ -517,13 +538,17 @@ such schemas itself); the `discriminator` keyword stripped; nesting at most 64 l
 one canonical shape per position (one entity-reference shape, one formula shape). Descriptions are
 optional in the decoding schema: constrained decoding does not show them to the model, and the
 annotator reference in the prompt is what it reads. Which xgrammar the vLLM in use bundles, and its
-grammar compile cost for a 49–73 KB schema, are measured in S3.
+grammar compile cost for a 49–73 KB schema, are measured in S3. Phase 0 builds the decoding form as
+a pure transform of the model-facing schema, with structural tests of the rules above only: its
+first consumer is the local tier in phase 1 (M10, M16).
 > Status: **Tested** by probe for the model-facing form (25 branches, 15 batches, seeded errors;
 > schema-rules note, 2026-10-28); the stored form and the decoding form against vLLM not yet built
 
 ### 7.4 To rule-engine rules
 
-`rules.yaml` holds named rules and the rule views they read:
+`rules.yaml` holds named rules and the rule views they read. The core `rules.yaml`
+(`domains/core/schema/`) holds the domain-free rules in the same form, such as
+`core.value_kind_matches_slot`, a finalize warning, and every pack's rules run beside them:
 
 ```yaml
 views:                         # pool facts as claim-view attributes, compiled for the generic view builder
@@ -534,14 +559,20 @@ views:                         # pool facts as claim-view attributes, compiled f
     project: object.identity.canonical_name    # what each matching source claim contributes
 rules:
   - id: stat.param_keys_known
-    applies_to: stat:has_distribution
+    applies_to: stat:has_distribution          # a predicate, a list of them, subset:<name>, or any
     severity: warning          # warning | error
     description: Every param_values key is a parameter the family has.
     at: [finalize]             # call sites (D5 §8.2): a family's parameters are complete only at finalize
     when: "claim.predicate == 'stat:has_distribution'"
     check: "$all([k in claim.family_params for k in (claim.qualifiers.param_values ?? {}).keys])"
-tables:                        # lookup tables compiled to typed builtins
-  roles_by_kind: {theorem: [conclusion, premise], definition: [definition]}
+guideline:                     # the guideline rules code can check: always warnings, always at [batch, finalize]
+  - id: guideline.no_claim_nodes_on_structure
+    applies_to: subset:family_structure
+    description: Family-structure claims carry no claim nodes (guideline §10.7 rule 2).
+    check: "not $any([n.op == 'claim' for n in claim.condition_nodes])"
+tables:                        # lookup tables compiled to typed builtins; the annotator reference renders them (§7.5)
+  roles_by_kind: {theorem: [premise, definiens, conclusion], definition: [premise, definiens]}
+  modality_by_role: {premise: supposed, definiens: defined, conclusion: asserted, example_value: exemplified}
 ```
 
 The compiler parses each `when` and `check` with `rule_engine.Rule` under a typed `Context`
@@ -568,7 +599,12 @@ validation observation and lowers confidence (D5 §6).
   > Status: **Proposed** (2026-10-28); the `views:` form is checked on the pack's own rules in S4
 - Every rule declares `at:`, the call sites it runs at: `batch` (submission, local refs) and/or
   `finalize` (keys). One compiled rule serves both because the view exposes `claim.id` (local ref,
-  later key) and a nullable `claim.key` (D5 §8.2).
+  later key) and a nullable `claim.key` (D5 §8.2). Entries of `guideline:` declare neither `at:` nor
+  `severity`: each is a warning at both call sites.
+- `applies_to` takes a predicate, a list of predicates, `subset:<name>` (a predicate subset, §3) or
+  `any`. The compiler expands it against the schema version, and a name the schema lacks fails
+  compilation.
+  > Status: **Proposed** (2026-10-28)
 - **Readers per call site** (P0CL-14; operator, 2026-10-28). At `batch` the view reads formula
   symbols with `core/tex.py`'s TeX tokenizer, which is total and fast, never with the math grammar:
   submission runs in MCP worker threads, where the grammar's `setitimer` timeout cannot fire
@@ -578,14 +614,18 @@ validation observation and lowers confidence (D5 §6).
   > Status: **Proposed** (2026-10-28); a test submits a pathological formula
 - Each rule is compiled in its own context, and the nondeterministic builtins `$now`, `$today` and
   `$random` are rejected, so a rule's outcome depends only on its inputs (D6 §4 reuse). Compiled
-  rules are rebuilt from the schema version, never pickled.
+  rules are rebuilt from the schema version, never pickled. These settings (the typed context, UTC,
+  one context per rule, the rejected builtins) live in one rule-language helper in `schema/`, which
+  the policy chains reuse ([D6 §7.1](D6-orchestration-metrics-policies.md#71-language)), so rules
+  and policies accept the same language.
 > Status: **Tested** by probe (all 11 guideline checks of `code/s0r2_rules.py` compiled as rules: 0
 > warnings on the 15 v1 batches, 11 of 11 seeded violations caught; schema-rules note, 2026-10-28)
 
-**Guideline rules as batch warnings.** The guideline rules that code can check are compiled as a
-`guideline:` group of `warning` rules applied to model-facing batches when they are written (golden
-passes through `write_golden`, LLM and agent proposals), so the author sees them and fixes the batch
-or says why the rule does not apply:
+**Guideline rules as batch warnings.** The guideline rules that code can check are the top-level
+`guideline:` section of `rules.yaml`, part of the schema version (§2). Every entry is a `warning`
+run at both call sites: when a model-facing batch is written (golden passes through `write_golden`,
+LLM and agent proposals), so the author sees it and fixes the batch or says why the rule does not
+apply, and at finalize, which records it on the claim:
 - statement role by statement kind;
 - modality by role;
 - which claims may carry a condition tree, and what it may hold;
@@ -595,8 +635,9 @@ or says why the rule does not apply:
 - `parameter_role` only when it differs from the canonical name.
 
 Rules the code cannot see (which premises a claim depends on, restrictions repeated in each
-dependent claim) stay the author's. The validator's invariant INV-06 and the guideline agree: a
-premise that no condition references carries `scope: statement`.
+dependent claim) stay the author's. Invariant INV-06 and the guideline agree (a premise that no
+condition references carries `scope: statement`); INV-06 is enforced at submission, where an item
+that breaks it is rejected by `validate`'s batch checks (D5 §8.3, D8 §2.1), so no rule repeats it.
 > Status: **Tested** in the spike instruments (S0-R2, 2026-10-28: `code/s0r2_rules.py`; the v1
 > reference, the worked examples and both v1 passes end with no warnings)
 
@@ -612,14 +653,18 @@ The compiler generates the **annotator reference** (§10.10) on every schema ver
 golden passes, the agent and the LLM tiers write from cannot drift from the schema. Its parts:
 
 - **Entity types:** each with its description, scope, identity slots and examples.
-- **Predicates:** a card per predicate, grouped as structural, formula and family-structure, and
-  other. Each card gives the subject and object types, the description, the predicate's own
-  qualifiers, and the predicate's statement role, modality and condition rule from guideline §10.3,
-  §10.6 and §10.7.
+- **Predicates:** a card per predicate, grouped by the pack's predicate subsets (§3). Each card
+  gives the subject and object types, the description, the predicate's own qualifiers, and the
+  predicate's statement role, modality and condition rule (guideline §10.3, §10.6, §10.7), rendered
+  from the pack's `tables:` (§7.4) and the descriptions of the subsets the predicate is in, never
+  from predicate groups in the compiler, so a second pack's cards need no compiler change.
 - **Qualifiers and enums.**
 - **Shapes:** the exact JSON shape of every value, binding and condition node.
-- **Worked examples:** complete packets with their batches, from pages outside every golden split
-  (D7 §4).
+- **Worked examples:** the pack's `reference/E*`, each a complete packet's text with its authored
+  batch and citation frame, from pages outside every golden split (D7 §3.1, §4). They are inputs of
+  the schema version (§2), and the packet assembler has a test that it reproduces each example's
+  packet (D4 §4.1), so the examples show the packets models actually receive.
+> Status: **Proposed** (2026-10-28) for the cards' sources and the examples' place
 
 It replaces giving annotators the LinkML schema verbatim with a model excerpt beside it. The raw
 schema stays available as background.
@@ -968,15 +1013,21 @@ Initial `rules.yaml` (expressions to be syntax-checked in S4):
 | Rule id | Applies to | Severity | Check |
 |---|---|---|---|
 | `stat.param_keys_known` | `has_distribution` | warning | Every `param_values` key is a canonical name of a parameter the family has in this run, or a `ParameterRole` value; reads the `family_params` view (§7.4), `at: [finalize]` |
-| `stat.supposed_is_used` | any `supposed` claim | warning | INV-06: referenced by a condition or has a `scope` |
 | `stat.one_distribution_per_statement` | `has_distribution` | error | At most one asserted or defined `stated` `has_distribution` per variable per statement; derived claims are exempt |
 | `stat.domain_is_set` | `parameter_domain`, `takes_values_in`, `support` | warning | Object parses as a set (`parse = ok`); otherwise a warning, and the object is kept as written. `at: [finalize]`, because it reads the grammar's parse status (§7.4) |
 | `stat.variance_nonnegative` | `has_distribution` with a `variance` key | warning | Checked by M20 with z3, not by rule-engine: the conditions imply variance ≥ 0 when the formula parses |
 | `stat.no_family_on_variable` | `has_parameter` | error | Subject is not a `RandomVariable` |
 
+INV-06 (a `supposed` claim is referenced by a condition or has a `scope`) has no rule here: an item
+that breaks it is rejected at submission (§7.4, D5 §8.3).
+
 ## 10. Guideline v1 (statistics)
 
-This is the starting content of `domains/statistics/guideline.md`. Golden passes, written by
+This is the design copy of `domains/statistics/guideline.md`. The pack's file is ported from this
+section, not from the S0-R2 file (`../design_review/evidence/2026-10-28_design-spikes/s0r2/guideline_v1.md`):
+the two differ in one rule, the parameter naming of §10.4 (review B2), which the v1 reference and
+trace T4 follow, and otherwise only in cross-reference wording (checked 2026-10-28). Guideline v1,
+frozen for phase 0, is this section's text (design authority, 2026-10-28). Golden passes, written by
 Sonnet subagents, work from it together with the generated annotator reference (§10.10)
 ([D7 §3](D7-evaluation-goldens-outer-loop.md#3-golden-authoring-protocol), ADR-0011); the operator
 steers it ([D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop)). In
@@ -1231,17 +1282,33 @@ What the inspection found, and why the hints look the way they do:
 A source profile describes a source's HTML, not a domain (D4 M01), so it lives outside the pack in
 `sources/<profile>.yaml` (§2): a second domain over the same source reuses it, and a second source
 for statistics adds a file without editing the pack. The pack's `methods.yaml` names the profile
-(`configs: ingest.html`), and only the resolved profile enters `ingest.html`'s configuration hash,
-so adding a profile changes no other configuration. The profile also declares the claims its
-containment structure states (`synthesize:`), which consolidation applies (D5 §3.5), so that
-convention is source data rather than consolidation code (P0CL-07; operator, 2026-10-28).
-> Status: **Proposed** (2026-10-28) for the location and `synthesize:`; the profile's values are
-> **Tested** (S1, below)
+and the sentence configuration (`configs: ingest.html`); `ingest.html`'s configuration hash takes
+the profile it names, resolved, and the `segment.sentences` configuration it names, resolved,
+because M03 runs as a step of M01's task (D4 M03). Adding a profile therefore changes no other
+configuration. The profile also declares the claims its containment structure states
+(`synthesize:`), which consolidation applies (D5 §3.5), so that convention is source data rather
+than consolidation code (P0CL-07; operator, 2026-10-28).
+
+The profile also places the source in the corpus. `root` is the source's directory under the
+corpus root, and a document's page, the `page` of its locators (D1 §3.4), is its source URI less
+the root, so `siegrist_random/random/special/Normal.html` is `special/Normal.html`. `index` names
+the corpus index that `ci project init` registers documents from and that the `{index: …}` slice
+selector reads (§12.2); two documents whose pages collide are refused at project init (D8 §4).
+`language` names the text-search configuration of the source's segments (`kb.segment.ts_config`,
+D3 §5), outside the rendition's content digest (D1 §3.1), since it changes search, not content.
+> Status: **Proposed** (2026-10-28) for the location, `synthesize:`, `root`, `index` and
+> `language`; the profile's other values are **Tested** (S1, below)
 
 `sources/siegrist.yaml`:
 
 ```yaml
 version: 0.1.0
+root: "siegrist_random/random"                     # relative to the corpus root; page = source URI less root
+index:                                             # the corpus index, one row per page
+  file: "../index/siegrist_sections.tsv"           # relative to the corpus root
+  page: path                                       # column holding the page
+  first_pass: first_pass                           # column marking first-pass pages (`yes`)
+language: english                                  # kb.segment.ts_config; outside the content digest
 applies_to: "siegrist_random/random/**/*.html"     # relative to the corpus root
 exclude:                                           # CSS selectors; excluded text is recorded per rule (D4 M01)
   scripts: "script, noscript"
@@ -1287,7 +1354,7 @@ render:
   summary: heading                                 # a details summary is a heading segment
   figure: caption
 orphan_text: paragraph                             # with attrs.orphan: true (S1: 44 runs)
-# S1 merged (2026-10-28): every value above except `synthesize:` Tested on 78 pages (record s1.corpus); vocabulary in D4 M01
+# S1 merged (2026-10-28): every value above except `root`, `index`, `language` and `synthesize:` Tested on 78 pages (record s1.corpus); vocabulary in D4 M01
 ```
 
 `domains/statistics/methods.yaml`:
@@ -1338,12 +1405,16 @@ patterns: []                                           # M08: none until a measu
 
 configs:                                               # named configurations, referenced as <method>/<name>
   ingest.html:
-    default: {source_profile: siegrist}                # sources/siegrist.yaml, resolved by name
+    default: {source_profile: siegrist, sentences: segment.sentences/default}   # both resolved into the hash
   segment.sentences:
-    default: {model: en_core_web_sm, variant: merged}  # b′: inline math merged into one token (S1, OPEN-D1-1)
+    default: {model: en_core_web_sm, variant: math_as_word, exclude: [ner, lemmatizer]}
+                                                       # b′ (D4 M03): each inline math span and reference marker is one
+                                                       # word of a words-and-spaces Doc, no retokenizer (S1, OPEN-D1-1)
   agent.opus:                                          # caps in characters: the one cap authority for agent packets (D8 §3)
     extract: {mode: extract, examples: reference, hints: none, packet_cap_chars: 18000}  # phase 0: the reference's worked examples; dev-golden retrieval needs M04 (phase 1)
     adjudicate: {mode: adjudicate, packet_cap_chars: 9000, max_alternatives: 6}
+    expectation: {mode: extract, role: expectation, examples: reference, hints: none, packet_cap_chars: 18000}
+                                                       # golden-expectation runs (D7 §9); `role` keeps its digests apart from live tasks'
   llm.propose_claims:                                  # local tier: caps in the served model's tokens (D4 §4.1)
     default: {model: Qwen3.5-9B, temperature: 0, seed: 0, reasoning: false, examples: 2,
               hints: none, repair_retries: 1, packet_cap_tokens: 3000}   # S3 chooses model and reasoning
@@ -1380,10 +1451,12 @@ tokenizer (D4 §4.1, phase 1).
 
 ```yaml
 version: 0.1.0
-# Locators (D1 §3.4): page | page#unit-id | page@u:<text prefix> (a unit) | page@p:<text prefix>
-# (a paragraph outside units), with an ordinal page@u[n]:… where prefixes coincide. Pages are
-# relative to siegrist_random/random/. Prefixes match the start of the segment's canonical text
-# with whitespace collapsed; each locator must resolve to exactly one segment, else it is refused.
+# Selectors. A string is a locator, whose forms D1 §3.4 governs (a bare page selects the whole
+# page; pages are relative to the source profile's root, §12.1); it must resolve to exactly one
+# segment, else it is refused. {include: <slice>} adds another slice's selections as they are;
+# {pages: [<slice>, …]} adds every unit of the pages the named slices' selections lie on;
+# {index: <column>} adds the pages the corpus index marks in that column; {golden_set: <label>}
+# adds each unit of that dev golden set by its unit locator. Everything resolves when a run starts.
 slices:
   trace:
     - 'special/LocationScale.html@p:As usual, our starting point'             # T1 lead-in
@@ -1406,18 +1479,23 @@ slices:
     - special/Normal.html
     - special/LogNormal.html
     - special/Gamma.html
-  phase0-golden:                                                               # scope of the phase 0 first pass (D6 §7.4, §8)
-    - {include: spike-pages}                                                   # the pages of trace and core12, forced dev
-    - special/Pareto.html                                                      # forced dev: S0-R2 held-out pages (D7 §3.1)
-    - special/ChiSquare.html
-    # + the pages holding dev golden units: declared by name here, filled by `ci golden create` from the dev set (D7 §3.1)
+  phase0-golden:                                                               # scope of the phase 0 first pass (D6 §7.4, §8; D7 §9)
+    - {pages: [core12]}                                                        # the trace and core units' pages whole: the four spike pages, 208 units
+    - {golden_set: p0}                                                         # every dev golden unit by its unit locator (D7 §3.1)
   first-pass:
     - {index: first_pass}                                                      # pages with first_pass = yes in the corpus index
 ```
 
-`phase0-golden` is a run scope, not a debug slice: a run over the first-pass corpus names it
-(run option `scope`, D6 §8), proposes for its units only and records every other eligible unit
-`skipped` with reason `scope`, and it can be promoted (D6 §7.4, D7 §7). Its golden-unit pages are
-resolved from the dev golden set, so they are not hand-kept: `ci golden create` fills them when it
-samples the set. It holds no test page (P0CL-09; operator, 2026-10-28).
+A run is over a slice and may be scoped to another: run option `corpus` names the slice it runs
+over (default `first-pass`), and run option `scope` the slice whose units the policies route
+(D6 §8). `phase0-golden` is such a scope, not a debug slice: a run over the first-pass corpus names
+it, proposes for its units only and records every other eligible unit `skipped` with reason
+`scope`, and it can be promoted (D6 §7.4, D7 §7). It is the four spike pages whole (LocationScale,
+Normal, LogNormal and Gamma, whose 208 units the `spike-pages` run already works and later runs
+reuse) and every unit of the dev golden set `p0` by its unit locator, about 234 packets by
+simulation ([phase0-golden size](../design_review/evidence/2026-10-28_phase0-golden-size/README.md)). Other
+pages, the forced-dev pages of D7 §3.1 among them, enter only through units of that set, and the
+reserved page holds none. Its golden part is resolved from the set when a run starts, so it is
+never hand-kept, and the resolved unit list and its hash are recorded in the run's `scope` option (`ops.run.options`, D3 §4), so a later change to the set
+cannot change what a finished run covered. It holds no test page (P0CL-09; operator, 2026-10-28).
 > Status: **Proposed** (2026-10-28)

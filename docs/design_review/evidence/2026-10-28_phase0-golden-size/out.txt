@@ -1,0 +1,6 @@
+first-pass pages 78 annotation units 4509 spike-page units 208 forced units found 13
+dev golden units: median 40, 5-95 % 40-40, range 40-40
+whole golden pages: pages: median 26, 5-95 % 22-29, range 20-31
+whole golden pages: packets: median 1655, 5-95 % 1405-1914, range 1190-2163
+spike pages whole + golden units: packets: median 234, 5-95 % 231-235, range 230-235
+non-test, non-reserved units: median 3826, 5-95 % 3709-3945, range 3583-4017

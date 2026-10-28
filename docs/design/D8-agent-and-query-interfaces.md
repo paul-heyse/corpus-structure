@@ -10,7 +10,7 @@ intervention or a versioned artifact; nothing writes knowledge rows directly (D1
 | Surface | User | Realization | Writes |
 |---|---|---|---|
 | MCP server `corpus-structure` | Opus in the Claude Code session | FastMCP 4.1, stdio transport, registered in the repository's `.mcp.json`; a process of its own, separate from the orchestrator (D6 §1) | Observations (`claim_proposal`, `judgment`), proposals, interventions |
-| MCP server `corpus-structure-golden` | each golden-pass subagent | the same package with only the golden tools, declared inline in the golden agent file, so every subagent gets its own server process (§2.2) | Golden passes |
+| MCP server `corpus-structure-golden` | each golden-pass subagent | the same package with only the golden tools, declared inline in the golden agent file, so every subagent gets its own server process; its alignment runs in one spawned single-worker process (§2.2) | Golden passes |
 | CLI `ci` | The operator; scripts; Opus for read-only inspection | Typer with Rich output | Runs, directions, acks, vetoes, exports |
 | Query API | CLI, MCP, later services | `serve/queries.py`: named, typed functions over SQL; generic queries in `serve`, domain queries from the pack's `queries.py` plug-in (§5.2) | Nothing |
 | Exports | Downstream tools | JSON Lines and Parquet | Files |
@@ -34,16 +34,18 @@ validation messages shaped for an agent and pagination to the bounds of §3.
 | Tool | Input | Output | Effect |
 |---|---|---|---|
 | `queue_status` | `run?` | counts of `awaiting_agent` tasks by mode and stage; budgets left | — |
-| `queue_next` | `mode?` (`extract`, `adjudicate`), `run?`, `max_units?` (default 1, at most 5) | task ids, unit keys, packet sizes | Leases the tasks to the session (30 minutes, renewed by any call on the task) |
-| `read_unit` | `task_id`, `part?` | the packet as the assembler produced it (D4 §4.1; its hash is on the task), as text, one part at a time | — |
-| `read_instructions` | `task_id` | the prompt parts for the task's mode (D4 §4.2: system instructions, guideline core, the generated annotator reference, examples, model-facing JSON Schema) with their hashes; identical for all tasks of one run and mode, so read once per session | — |
-| `propose_claims` | `task_id`, `batch` (model-facing ClaimProposalBatch) | accepted item count; rejected items with reasons; unlocated quotes | First submission with errors keeps the task open for one corrected resubmission; a clean or second submission completes it (`claim_proposal` observation holding the authored batch with its citation frame, D4 §4.3; an intervention row referencing it). In the same transaction every other `awaiting_agent` task with the same input hash is set `reused`, pointing at the completed task, so a later `complete` run never asks the agent for the same packet twice (D6 §3.1, §4) |
+| `queue_next` | `mode?` (`extract`, `adjudicate`), `run?`, `max_units?` (default 1; at most 1 until the OPEN-D8-2 comparison decides grouping, then 5) | task ids, unit keys, packet sizes | Leases the tasks to the session (30 minutes, renewed by any call on the task) |
+| `read_unit` | `task_id`, `part?` | the packet, re-assembled from its recorded inputs and checked against the task's `packet_hash` (D4 §4.1), as text, one part at a time, and beside it as structured content the packet's sentence map (each `sN` and `cN` to its locator and text), from which the submission's citation frame is built; packet text is never stored | — |
+| `read_instructions` | `task_id`, `part?` | the prompt parts for the task's mode (D4 §4.2: system instructions, guideline core, the generated annotator reference, examples, model-facing JSON Schema) with their hashes, one part at a time, each paginated at 24,000 characters (§3); identical for all tasks of one run and mode, so read once per session | — |
+| `propose_claims` | `task_id`, `batch` (model-facing ClaimProposalBatch) | accepted item count; rejected items with reasons; unlocated quotes | A first submission with errors, unlocated quotes or rule warnings is held open for one corrected resubmission: the task stays `awaiting_agent`, its lease is renewed and that first result is kept in `ops.task.error`. A clean or second submission completes it (`claim_proposal` observation holding the authored batch with its citation frame, D4 §4.3; an intervention row referencing it). Completion is orchestration's agent completion primitive, called in the tool's transaction (D6 §3.1): the fenced completion, the settlement of every other `awaiting_agent` task with the same input digest as `reused`, pointing at the completed task, and the notification the orchestrator waits on. Twins settle only from a `done` or `empty` result, and leasing and task creation settle them too, so a later `complete` run never asks the agent for the same packet twice (D6 §3.1, §4) |
 | `adjudicate` | `task_id`, `judgment` (D4 §4.3 judge form) | confirmation | Completes the task (`judgment` observation; an intervention row referencing it). Used from phase 1 |
 | `release` | `task_id`, `reason` | — | Returns the task to `awaiting_agent` |
 
-Validation on submission: the compiled batch models (D2 §7.3); quote location (D4 §4.3);
-reference and type checks; M19's rules for the `batch` call site, the `guideline:` group included,
-run inside the tool over the batch (D2 §7.4, D5 §8.2). Those rules read formula symbols with the
+Validation on submission: the compiled batch models (D2 §7.3); `validate`'s reference, type and
+conformance checks, which reject an item that breaks a D1 invariant a batch can violate (INV-06
+among them) with the invariant named (D5 §8.3, D9 §1); quote location (D4 §4.3); M19's rules for the
+`batch` call site, the `guideline:` section included, run inside the tool over the batch (D2 §7.4,
+D5 §8.2). Those rules read formula symbols with the
 TeX tokenizer, and grammar-dependent rules wait for finalize, so no grammar parse runs in the
 tool's worker thread (P0CL-14; operator, 2026-10-28). Messages name the item and field
 (`claims[3].qualifiers.param_values.mean: not a key of the normal family's parameters`), so a
@@ -56,13 +58,24 @@ about 11,000 characters is also trimmed by Claude Code. The batch schema is serv
 `read_instructions` with its hash, not as the tool's input schema (embedding the compiled schema
 there failed at registration).
 
+**The in-process harness.** `intervene.testing` drives the same tools through an in-process
+client. It maps a fixture batch's sentence ids onto the served packet through the sentence map, so
+the deterministic acceptance test and evaluation's live-run answers (D9 §4, D7 §9) submit authored
+batches by the path the session uses.
+
+**Reused proposals.** A proposal reused by a later run whose rendition of the page no longer
+resolves the proposal's citation frame is re-located by each cited sentence's recorded text, as a
+golden unit is (D7 §3.5); an item whose sentence is no longer there falls back as D5 §5.6
+describes.
+> Status: **Proposed** (2026-10-28)
+
 ### 2.2 Goldens (D7 §3)
 
 | Tool | Input | Output | Effect |
 |---|---|---|---|
-| `golden_next` | `set`, `pass` (`a`, `b`, `c`) | the next unit needing that pass | Leases it |
-| `read_golden_unit` | `unit`, `pass` | golden-mode packet (query-assembled standing context, D7 §3.2) with the guideline and the generated annotator reference; for pass `c` also passes A and B and their alignment diff | — |
-| `write_golden` | `unit`, `pass`, `batch`, `decisions?` (pass `c`: per-difference decision and reason, `guideline_gap` marks) | validation result: errors, and guideline-rule warnings (D2 §7.4) | Stores the pass (the authored batch with its citation frame) with its session reference and model. The transaction that stores the second of passes `a` and `b` also creates the unit's pass-`c` task. Pass `c` sets the unit `adjudicated`; its golden items are derived per rendition (D7 §3.1) |
+| `golden_next` | `set`, `pass` (`a`, `b`, `c`) | the next unit needing that pass, from candidates that skip units whose earlier pass came from this server instance | Leases it |
+| `read_golden_unit` | `unit`, `pass`, `part?` | golden-mode packet (query-assembled standing context, D7 §3.2) with the guideline and the generated annotator reference; for pass `c` also passes A and B and their alignment diff; one part at a time, each paginated at 24,000 characters (§3) | — |
+| `write_golden` | `unit`, `pass`, `batch`, `decisions?` (pass `c`: per-difference decision and reason, `guideline_gap` marks) | validation result: errors, and guideline-rule warnings (D2 §7.4) | Stores the pass (the authored batch with its citation frame) with its session reference and model, completing its task through orchestration's agent completion primitive (D6 §3.1). It locks the unit's `eval.golden_unit` row, so concurrent writes of passes `a` and `b` create exactly one pass-`c` task: the transaction that stores the second of them also stores the unit's agreement (the whole A/B alignment result, its diff included; D7 §3.3) and creates the pass-`c` task. Pass `c` sets the unit `adjudicated`. It derives no golden items: evaluation derives them per rendition with the quote cascade (D7 §3.1) |
 
 Golden passes A, B and C are fresh **Sonnet 5.5** subagent sessions dispatched by the Claude Code
 session (D7 §3, ADR-0011); the session itself (Opus) does not author goldens. Passes A and B must
@@ -74,9 +87,21 @@ is a fresh value on every call, and subagents share the parent's connection, so 
 cannot tell pass A from pass B. The golden agent file declares its own inline server
 (`corpus-structure-golden`), so each subagent invocation starts one server process, which mints an
 instance id at startup and records it as `session_ref` on every pass and lease
-([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-2). Golden leases are tasks of a `golden` run (D3 §8).
-Pass-`c` tasks are created by `write_golden` itself, in the transaction that stores a unit's
-second blind pass, so neither `ci run` nor a separate command has to watch for completed pairs.
+([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-2).
+
+**The golden run.** Golden leases are tasks of a run of kind `golden` (D3 §8). `ci golden create`
+creates it with the golden set and its units (D7 §3.1): its parent is the run whose renditions
+and M13 output the golden packets read, and it holds the pass `a` and `b` task of every unit,
+created through orchestration's task creation. The tasks are of method `golden.pass`, whose input
+digest is the golden packet's hash, the prompt parts' hashes and the model. Pass-`c` tasks are
+created by `write_golden` itself, in the transaction that stores a unit's second blind pass, so
+neither `ci run` nor a separate command has to watch for completed pairs. Evaluation owns when the
+run finishes: when every unit is `adjudicated`.
+
+**No grammar in a worker thread.** The A/B diff and agreement align the two passes with value
+equivalence (D7 §5.3), which needs the math grammar and SymPy, whose timeouts need a process's
+main thread. The golden server therefore runs that alignment in one spawned single-worker process
+and its tools wait on it; the main server never imports the grammar (D9 §3).
 > Status: **Proposed** (2026-10-28)
 
 > Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md)
@@ -87,6 +112,10 @@ session test golden items, test alignments or test errors other than as aggregat
 
 ### 2.3 Knowledge-level proposals and decisions
 
+From phase 1, except `record_direction`, which phase 0 has together with `ci direct` (§4). In
+phase 0 schema v0 and guideline v1 are frozen (D7 §9), so phase 0 adopts no proposal.
+> Status: **Proposed** (2026-10-28)
+
 | Tool | Input | Effect |
 |---|---|---|
 | `propose_schema_change` | YAML patch to the domain schema or `rules.yaml`, class (`additive`, `breaking`), rationale, migration mapping for breaking changes | Compiled and checked (D2 §7); stored as a pending schema version; enters through an experiment (D7 §7) |
@@ -96,6 +125,10 @@ session test golden items, test alignments or test errors other than as aggregat
 | `record_direction` | text in the operator's words, `scope?` | Direction intervention and direction-log entry (used when the operator dictates in the session) |
 
 ### 2.4 Inspection (read-only)
+
+From phase 1. In phase 0 the session inspects through the read-only `ci` commands of §4, which
+call the same query functions.
+> Status: **Proposed** (2026-10-28)
 
 | Tool | Returns |
 |---|---|
@@ -113,9 +146,10 @@ cap has one authority**, M24's configuration (`packet_cap_chars`,
 [D2 §12.1](D2-schema-and-guidelines.md#121-methodsyaml)): the assembler splits a larger unit into
 parts under it (D4 §4.1), and `read_unit` serves those parts as they are, paginating by part and
 never re-cutting or re-capping them (P0CL-05; operator, 2026-10-28). The other bounds below are the
-tools' own response limits; beyond them a tool returns a page token (bound to a run and a query
-version, §5). FastMCP's response-limiting middleware stays only as a backstop: it counts bytes and
-drops the structured result. Claude Code warns at 10,000 tokens, stops at 25,000 and writes a
+tools' own response limits; beyond them a tool returns a page token. For query results `serve`
+issues the token (bound to a run id and a query version, §5) and the MCP layer passes it the
+character bound a page must fit. FastMCP's response-limiting middleware stays only as a backstop:
+it counts bytes and drops the structured result. Claude Code warns at 10,000 tokens, stops at 25,000 and writes a
 result over 50,000 characters to a file, so every bound below sits well under those (interfaces
 note IE-3). The LLM-tier packet caps (D4 §4.1) are counted with the served model's tokenizer
 instead. The bounds for the session:
@@ -125,7 +159,8 @@ instead. The bounds for the session:
 | Extraction packet text and context (`read_unit` part) | M24 `extract`: 18,000 characters (about 6,000 tokens); larger units are split at sentence boundaries into parts sharing the standing context (D4 §4.1) |
 | Extraction output (one ClaimProposalBatch) | sized from batches, not units: S0 batches reached about 2,500 tokens on units of at most 345 (record s0.sizes); the bound is set from S3's p99, and 24,000 characters (about 8,000 tokens) for the agent until then |
 | Judge packet | M24 `adjudicate`: 9,000 characters (about 3,000 tokens); at most 6 alternatives |
-| Units per `queue_next` | 5, and only units of one page, grouped when their packets together fit one cap |
+| Instructions (`read_instructions`), golden unit (`read_golden_unit`) | served one part at a time (each prompt part; for a golden unit also its packet and, for pass `c`, each pass and the diff), each part paginated at 24,000 characters (about 8,000 tokens) |
+| Units per `queue_next` | 1 until the OPEN-D8-2 comparison decides grouping; then 5, and only units of one page, grouped when their packets together fit one cap |
 | Any inspection response | 6,000 characters (about 2,000 tokens), with a page token and a truncation marker |
 | `explain` | top 10 supports and 10 links, counts for the rest |
 > Status: **Proposed** (2026-10-28)
@@ -145,18 +180,20 @@ errors, and to keep rationales to two sentences.
 | Command | Does |
 |---|---|
 | `ci db init`, `ci db migrate` | Create or migrate the database (Alembic) |
-| `ci project init --domain NAME --corpus PATH` | Create the project; register the corpus's documents from its index (with `first_pass`); load the pack's schema, guideline, policy and named configurations; declare its slices |
-| `ci schema compile [--domain]`, `ci schema diff <a> <b>` | Compile the pack and show the artifacts' hashes; diff two schema versions |
+| `ci mcp serve [--golden [--variant page-text]]` | Run an MCP server on stdio: the main server, or with `--golden` the golden server (§2.2); `.mcp.json` and the golden agent file start them this way. `--variant page-text` is the OPEN-D7-5 profile ([D7 §3.2](D7-evaluation-goldens-outer-loop.md#32-pass-a-and-pass-b-blind)) |
+| `ci project init --domain NAME --corpus PATH` | Create the project; register the corpus's documents from the corpus index each source profile names (with `first_pass`), a document's page being its source URI less the profile's `root`, and refuse two documents with one page (D2 §12.1, D1 §3.4); load the pack's schema, guideline, policy and named configurations; declare its slices |
+| `ci schema compile [--domain]`, `ci schema diff <a> <b>` | Compile the pack and show the artifacts' hashes; diff two schema versions (from phase 1: phase 0 holds schema v0 frozen, so no second version exists) |
 | `ci ingest [--slice NAME | PATH…]` | Run M01–M03 |
-| `ci run [--slice NAME | --scope NAME] [--phase N] [--agent-mode wait|complete] [--fresh METHOD]…` | Start a run (D6 §2): `--slice` makes a debug slice run (kind `slice`, never promoted); `--scope` is a run option that keeps kind `full`, runs the whole corpus, routes only the named slice's units and can be promoted (D6 §8); a long run is a sequence of `complete` runs, each reusing finished tasks (D7 §7 item 5) |
-| `ci status [RUN]`, `ci tasks [RUN] [--status S] [--method M]` | Run progress; task listing |
+| `ci run [--slice NAME | --scope NAME] [--corpus NAME] [--phase N] [--agent-mode wait|complete] [--fresh METHOD]…` | Start a run (D6 §2): `--slice` makes a debug slice run (kind `slice`, never promoted); `--scope` is a run option that keeps kind `full`, runs the whole corpus, routes only the named slice's units and can be promoted (D6 §8); `--corpus` names the slice the run is over (default `first-pass`). Selectors resolve at run start, and a scope's resolved unit list and its hash are recorded in the run's `scope` option (D2 §12.2). A long run is a sequence of `complete` runs, each reusing finished tasks (D7 §7 item 5) |
+| `ci run cancel RUN` | Cancel a run and its open tasks; the way out for a run `ci status` reports orphaned |
+| `ci status [RUN]`, `ci tasks [RUN] [--status S] [--method M]` | Run progress, with a running run whose orchestrator lock is free reported as orphaned (below); task listing |
 | `ci explain claim KEY [--run RUN]`, `ci explain unit KEY [--run RUN]` | As the MCP `explain`; the run defaults to the promoted run, resolved once and printed with the result |
 | `ci query NAME [--run RUN] [--param VALUE]…` | Typed queries (§5); the run defaults to the promoted run, resolved once; the result names the run id it was served from and its coverage |
 | `ci eval [RUN] [--split dev|test]` | Scores |
-| `ci golden split`, `ci golden create --split S --size N [--seed K]`, `ci golden status` | Page split assignment and unit sampling (D7 §3.1); authoring progress |
+| `ci golden split`, `ci golden create --label L --split S --size N --run RUN [--seed K]`, `ci golden status` | Page split assignment; unit sampling, which creates the golden set, its units, the `golden` run and the pass A and B tasks (D7 §3.1, §2.2); `RUN`, the golden run's parent, is the run whose renditions and M13 output the golden packets read; authoring progress |
 | `ci experiment new|show|list` | Experiments (D7 §7) |
 | `ci digest` | The operator digest |
-| `ci direct "TEXT" [--scope S]`, `ci ack CHANGE`, `ci veto EXPERIMENT` | The operator's outer-loop actions |
+| `ci direct "TEXT" [--scope S]`, `ci ack CHANGE`, `ci veto EXPERIMENT` | The operator's outer-loop actions; `ci ack` and `ci veto` from phase 1 |
 | `ci promote RUN` | Manual promotion (normally by experiment decision); shows the pre-registered readings (D7 §7 item 5) and asks the operator to confirm |
 | `ci export claims|statements --format jsonl|parquet [--run RUN]` | Exports (§6) |
 
@@ -171,6 +208,12 @@ P0CL-15, operator 2026-10-28). `ci ingest` creates a run of kind `ingest`.
 Opus may run read-only `ci` commands through its shell; writes go through MCP tools so they are
 validated and recorded as interventions.
 
+**Orphaned runs.** The orchestrator's `LISTEN` connection holds a session advisory lock for each
+run it drives (D6 §1), so the lock is freed when that process or its connection dies. `ci status`
+reports a run in a running status whose lock is free as **orphaned**, and `ci run cancel` cancels it
+together with its open tasks, so a crashed orchestrator never leaves a run that looks live.
+> Status: **Proposed** (2026-10-28)
+
 **Realization** (Typer 0.27, Rich 15; [interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) §3):
 command groups through `add_typer`, all in the `cli` package (D9 §1); a root callback builds
 settings once; `--json` writes the same result models the query API returns, so scripts and the
@@ -179,9 +222,11 @@ MCP tools see one shape; shell completion reads pack files, never the database.
 ## 5. Typed queries
 
 Each query is a function with a Pydantic parameter model, a result model and a version,
-implemented over the D3 §9 SQL patterns. Every query takes a `run`: a run key, or `promoted` (the
+implemented over the D3 §9 SQL patterns. Every query takes a `run`: a run id, or `promoted` (the
 default). Without a promoted run, a query that names none fails with that reason instead of
-reading an arbitrary run; the trace acceptance test names its slice run.
+reading an arbitrary run; the trace acceptance test names its slice run. A query over a run that
+has not `finished` is refused with that reason, since its materializations are still being
+written (D3 §8).
 
 **Pinning and coverage** (P0CL-11; operator, 2026-10-28):
 - **One run per journey.** A journey is a query and its continuations: further pages, and
@@ -190,15 +235,18 @@ reading an arbitrary run; the trace acceptance test names its slice run.
   `promoted`. A promotion between pages, or before an `explain`, therefore cannot mix runs, which
   matters because keys are unique per run (D3) and a key read under another run is another
   realization.
-- **Page tokens** bind the run id and the query version. A token whose query version has changed,
-  or whose run's materialized rows have been deleted (D3 §8), is **stale** and refused with that
-  reason; the caller starts a new journey.
+- **Page tokens** are issued by `serve` and bind the run id and the query version; the caller
+  (the MCP layer, `ci query`) passes the character bound a page must fit (§3). A token whose query
+  version has changed, or whose run's materialized rows have been deleted (D3 §8), is **stale** and
+  refused with that reason; the caller starts a new journey.
 - **Coverage.** Every result carries coverage for its scope: of the run's eligible units that the
   query reads (the whole run for corpus-wide queries; the page or unit for one named by locator),
   how many were extracted, how many were skipped and for which reason (D6 §1), how many
   failed, and how many are still unresolved at the agent. Every eligible unit has a recorded fate
-  (D6 §7.4), so a short or empty answer over a partial run reads as partial, not as absence. In
-  phase 0 every run is partial by construction (the `phase0-golden` slice, D7 §9).
+  (D6 §7.4), so a short or empty answer over a partial run reads as partial, not as absence. A
+  finished run's fates are its tasks as of its `finished_at`: a task that finishes later, a reused
+  agent result among them, counts as unresolved for that run. In phase 0 every run is partial by
+  construction (the `phase0-golden` slice, D7 §9).
 > Status: **Proposed** (2026-10-28)
 
 Other defaults: status `accepted` (option `include_candidates`);
@@ -215,7 +263,7 @@ claim keys and evidence locators so a consumer can cite.
 | `statement` | statement key or a locator ([D1 §3.4](D1-knowledge-representation.md#34-locators): `page#unit-id`, `page@u:…`, `page@p:…`), resolved on the run's rendition of the page | the statement's kind, premises, conditions, conclusions, definientia, proof link, each with evidence |
 | `evidence` | claim key | evidence spans with sentence context and segment locators |
 | `find` | text | BM25 hits over segments (D3 §5) and alias hits over entities |
-| `unsupported` | cluster? | `unsupported` items and their clusters |
+| `unsupported` | — | `unsupported` items with their text, reason and evidence locators; clustering is the digest's (D7 §8.1) |
 
 ### 5.2 Statistics
 
@@ -260,9 +308,19 @@ class DomainQuery(Protocol):
 | T3 | What is the distribution of an affine transformation of a normal variable, and under what conditions? | `transformations_of(normal)` | C3 with conditions a ∈ ℝ, b ∈ ℝ ∖ {0} and premise C1, and C2 defining Y under the same restrictions. D1 from phase 2 |
 | T4 | How is the lognormal distribution defined, and what are its shape and scale parameters? | `statement(LogNormal#dfn)`, `family_profile(lognormal)` | C1–C17 in the statement (with the standard lognormal, C13–C17); profile: parameters mu, sigma and scale (C5, C6, C9) with domains ℝ and (0, ∞) (C11, C12), sigma's role shape (C8), scale = e^μ (C10), transformation of normal with its mapping (C7) |
 
-Expected answers are the trace's target claims; D9 §4 turns them into tests. For live runs the
-expectation is derived from the re-authored dev goldens instead, and the rows are aligned to it
-(D7 §9).
+Expected answers are the trace's target claims; D9 §4 turns them into tests.
+
+**The spike pages' typed questions** are `statement(locator)` for each core unit (`core12`, the
+trace units among them).
+
+**Live runs.** For the live `trace` and `spike-pages` runs the expectation comes from the
+re-authored dev goldens instead: evaluation submits the trace and core units' pass-C batches as the
+proposals of a golden-expectation run, through the acceptance test's submission path (D9 §4), and
+aligns each typed query's rows across the live run and that run (D7 §9). The expectation run names
+M24's configuration `agent.opus/expectation` through its run option `method_configs` (method to
+named configuration), so its input digests differ from every live task's, and its submissions
+never settle a live task or are reused by one (§2.1).
+> Status: **Proposed** (2026-10-28)
 
 ## 6. Exports
 
@@ -278,5 +336,5 @@ expectation is derived from the re-authored dev goldens instead, and the rows ar
 | ID | Question | Resolved by |
 |---|---|---|
 | OPEN-D8-1 | FastMCP 4.1 stdio server alongside the orchestrator's `LISTEN`/`NOTIFY`: one process or two | **Decided** (2026-10-28): two processes, the database the only shared state; the server only `NOTIFY`s (D6 §1) |
-| OPEN-D8-2 | Whether grouping several small units in one packet lowers agent quality (context interference) | Phase 0 comparison on `core12` |
+| OPEN-D8-2 | Whether grouping several small units in one packet lowers agent quality (context interference) | Phase 0 comparison on `core12`; until it decides, `queue_next` serves one unit (§3) |
 | OPEN-D8-3 | How the Claude Code session best launches blind golden passes (subagents with restricted tools) so that passes A and B are verifiably separate | Answered in practice by S0 and S0-R2 (2026-10-28): a fresh subagent per pass, given one input folder and one output folder, told what it may not read, and audited from its transcript (every tool call) rather than its own report; in phase 0 each golden subagent gets its own server process whose instance id is the session reference (§2.2) |

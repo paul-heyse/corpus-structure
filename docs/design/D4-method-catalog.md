@@ -22,19 +22,44 @@ class Method(Protocol):
     version: str                   # bump on any behaviour change
     family: str                    # D3 ops.method.family
     unit_type: str                 # 'rendition' | 'segment' | 'span' | 'entity' | 'claim' | 'alternative_group' | 'run'
-    Config: type[BaseModel]        # pydantic model of params; canonical JSON → config hash
+    Config: type[BaseModel]        # pydantic model of params; canonical JSON → config hash; declares its artifact references
     resources: Resources           # cpu | gpu(encoder) | gpu(llm) | agent; batch size; max concurrency
 
     def select(self, run: RunView, cfg: Config) -> Iterable[UnitRef]: ...      # default units, when no policy narrows them
-    def input_digest(self, unit: UnitView, cfg: Config) -> bytes: ...          # what the result depends on (D6 §4)
+    def input_digest(self, unit: UnitView, cfg: Config) -> Digest: ...         # what the result depends on (D6 §4)
     def run(self, units: Sequence[UnitView], cfg: Config, ctx: MethodContext) -> Sequence[UnitResult]: ...
+
+class Digest(NamedTuple):
+    bytes: bytes                   # enters the input hash (D6 §4)
+    packet_hash: str | None        # packet methods only (M24; M10 from phase 1); None for every other method
 ```
+
+**The digest carries the packet hash.** A packet method (§4.1) computes its digest from the
+assembled packet, so `input_digest` returns that packet's hash beside the digest bytes, from the
+same cached assembly; the orchestrator records it on the task when the task is created
+(`ops.task.packet_hash`, [D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks)), and
+`read_unit` serves that assembly (D8 §2.1). The packet is assembled once per task, and the hash the
+task records is the one the reuse decision used. Every other method returns `packet_hash = None`.
+> Status: **Proposed** (2026-10-28)
+
+**Artifact references.** A `Config` declares the compiled artifacts it reads by `(compiler, kind)`,
+for example `(json_schema, batch.model_facing)`, never by hash. The registry resolves each against
+the run's schema version (`meta.compiled_artifact`,
+[D3 §3](D3-database.md#3-meta-schema-guidelines-and-domain-declarations)) when it builds the run's
+method configurations, and the resolved hashes enter the input digest (rule 4), so one named
+configuration in `methods.yaml` serves every schema version and a schema change invalidates reuse
+without editing the pack.
+> Status: **Proposed** (2026-10-28)
+
+The objects in this block (the protocol, `RunView`, `UnitView`, `UnitRef`, `UnitResult`,
+`ObservationDraft`, `Resources`, `MethodContext`, `Digest`) and the registry interface are the
+method-contract types in `core/method.py` ([D9 §1](D9-repository-and-phase0.md#1-layout)).
 
 Rules every method follows:
 
 1. **Write observations, never knowledge.** A method returns `ObservationDraft`s (kind, span or
-   segment, payload, score). Only M01 and M03 also write evidence rows (renditions, their builds,
-   segments);
+   segment, payload, score). Only M01 (with M03, a step of its task) also writes evidence rows
+   (renditions, their builds, segments);
    spans are upserted by the repository layer for any writer; only consolidation (M17, M18)
    writes entities and claims.
 2. **Outcome per unit.** `produced` (at least one observation), `empty` (ran correctly, found
@@ -60,10 +85,12 @@ Rules every method follows:
    whose observations cite offsets inside a rendition digests the unit's canonical text with its
    segment key, which carries that digest; M24 and M10, whose stored form is derived per rendition
    from a citation frame (§4.3), read the unit only through their packet, and their digest holds
-   the hash of the assembled packet text (§4.1). Upstream task ids are provenance
+   the hash of the assembled packet text (§4.1), returned beside it as the `Digest`'s
+   `packet_hash`. Upstream task ids are provenance
    (`reused_task_id`), never a dependency, so re-running an upstream method with identical output
    leaves its consumers reused (P0CL-02; operator, 2026-10-28). Anything not in the digest must
-   not influence output.
+   not influence output. Methods of unit type `run` (M15, M17, M18, M23, and M19's step in each
+   consolidation pass) read the whole run, so their tasks are never reused (D6 §4).
    > Status: **Proposed** (2026-10-28); which form applies is per method, by whether its
    > observations carry rendition offsets
 5. **Small payloads.** Payloads carry offsets and references, not copies of segment text.
@@ -74,7 +101,8 @@ Rules every method follows:
 binder lexicon, alias head words, extraction patterns) live in the domain pack's
 `methods.yaml`, keyed by method name. Source profiles are not domain parameters: they live in
 `sources/<profile>.yaml` and a configuration names one (M01). The effective configuration is the
-merge, with a named profile resolved to its content, hashed as one canonical JSON document (`cfg:`
+merge, with a named profile and a named method configuration it embeds (M03's `segment.sentences/<name>`
+inside `ingest.html`'s) resolved to their content, hashed as one canonical JSON document (`cfg:`
 key, D1 §10).
 
 ## 2. Tiers
@@ -98,8 +126,8 @@ when a named measured gap calls for them (D6 §7, D0 "deliberately left out").
 | Id | Name | Family | Unit | Writes | Tier | Phase | Entry | Spike |
 |---|---|---|---|---|---|---|---|---|
 | M01 | `ingest.html` | ingest | document | rendition, segments, `author_markup` | det. | 0 | base | S1 |
-| M02 | `profile.segments` | profile | rendition | measurements | det. | 0 | base | S1 |
-| M03 | `segment.sentences` | ingest | rendition | `sentence` segments | det. | 0 | base | S1 |
+| M02 | `profile.segments` | profile | rendition | measurements (character and math features; token counts from phase 1) | det. | 0 | base | S1 |
+| M03 | `segment.sentences` | ingest | rendition (a step of M01's task) | `sentence` segments | det. | 0 | base | S1 |
 | M04 | `embed.segments` | profile | segment, entity (aliases) | embeddings | encoder | 1 | base | S7 |
 | M05 | `classify.segments` | extract | segment | `classification` | encoder | 1 | base | S2 |
 | M06 | `extract.gliner_schema` | extract | segment | `mention`, `attribute`, `record` | encoder | 1 | base | S2 |
@@ -120,7 +148,7 @@ when a named measured gap calls for them (D6 §7, D0 "deliberately left out").
 | M21 | `verify.statistics` | verify | claim | `verification` | det. | 4 | base | S5 |
 | M22 | `classify.cues` | extract | sentence | `classification` | det. | 1 | base | — |
 | M23 | `derive.claims` | consolidate | run | `claim_proposal` (derived) | det. | 2 | base | — |
-| M24 | `agent.opus` | agent | unit packet, alternative group | `claim_proposal`, `judgment` | agent | 0 | base | S0 |
+| M24 | `agent.opus` | agent | unit packet; alternative group (phase 1) | `claim_proposal`; `judgment` (phase 1) | agent | 0 | base | S0 |
 
 Not methods: metric computation (D6 §6), alignment and scoring (D7 §5), confidence estimation
 (a consolidation step, D5 §6).
@@ -159,15 +187,16 @@ content, M13's `scope` observations, the known entities of the run's recorded re
 the bootstrap list below), the prompt parts and the method's configuration. Nothing read when the
 packet is served enters it: not the order in which the session works the queue, not the live
 promoted pointer, not proposals made earlier in this run. So the packet is fixed when its task is
-created, where reuse is resolved; its text hash is in the input digest (§1 rule 4), and the task
-records the hash of the packet it served. M24's method definition (`select`, `input_digest`,
+created, where reuse is resolved: `input_digest` assembles it once (cached for the task), puts its
+text hash in the digest and returns that hash as the `Digest`'s `packet_hash`, which the task
+records, so the packet `read_unit` serves is the one the digest covered (§1). M24's method definition (`select`, `input_digest`,
 configuration) and the assembler belong to the agent interface; standing context and known
 entities are inputs it reads, not parts other components assemble (P0CL-05; operator,
 2026-10-28).
 > Status: **Proposed** (2026-10-28)
 
 ```text
-# Unit  <unit_key>  ·  <document title> › <section path>  ·  kind: <segment kind>[, statement kind: <label>]
+# Unit <unit_key>  ·  <document title> › <section path>  ·  the source marks it: <statement kind>
 ## Standing context
 [c1] <sentence that binds a symbol used in the unit, from M13 scope observations>
 [c2] …
@@ -188,14 +217,16 @@ A2: …
 - **Size caps** are part of each method's configuration, one authority in one stated unit: the
   agent tier's (M24, `packet_cap_chars`) in characters, the LLM tiers' (`packet_cap_tokens`,
   default 3,000) in tokens of the served model; the values live in
-  [D2 §12.1](D2-schema-and-guidelines.md#121-methodsyaml). The assembler applies the cap; the MCP
-  tool only paginates the parts the assembler produced (D8 §3). A unit larger than the cap is split
+  [D2 §12.1](D2-schema-and-guidelines.md#121-methodsyaml). Phase 0 has only the character cap: its
+  one packet method is M24, and token-counted caps arrive with M10 and M16 in phase 1. The assembler
+  applies the cap; the MCP tool only paginates the parts the assembler produced (D8 §3). A unit larger than the cap is split
   at sentence boundaries into numbered parts that share the standing context; the split is
   recorded in the task. The **output** budget is sized from
   batch size, not unit size: a batch runs two to nineteen times its unit's tokens (S0 core units:
   units at most 345 tokens, batches up to about 2,500; record s0.sizes, Measured).
-- **Counting tokens.** Agent packets (M24, golden passes) have no served tokenizer and are capped in
-  characters, by the assembler under the method's configuration. LLM-tier caps are counted with the served model's own `tokenizer.json` (tokenizers
+- **Counting tokens (phase 1).** Agent packets (M24, golden passes) have no served tokenizer and are capped in
+  characters, by the assembler under the method's configuration; phase 0 counts no tokens and does
+  not install `tokenizers`. From phase 1, LLM-tier caps are counted with the served model's own `tokenizer.json` (tokenizers
   0.23.3), loaded from the vLLM model snapshot or by `Tokenizer.from_pretrained(repo,
   revision=<sha>)`; the revision and the file's sha256 are recorded in the packet's and M02's
   configuration, because counts depend on them. Counting is `encode_batch_fast(texts,
@@ -209,16 +240,24 @@ A2: …
   > Status: **Measured** with the Qwen3.5-9B `tokenizer.json` at revision `c2022362…` (2026-10-28, [text-math note L-11](../design_review/evidence/2026-10-28_library-text-math/README.md)): `encode` adds 0 special tokens; on 433 paragraphs (20,095 tokens) `encode_batch_fast` gives ids identical to `encode_batch` in 2.2 ms against 3.9 ms; in 5 of 83 multi-sentence blocks the sentence counts sum to a different total than the joined text (worst 2.0%); 3.27 characters per token, so characters ÷ 4 underestimates. A vLLM `/tokenize` cross-check is not verified
 - **Standing context** is at most six sentences, chosen by M13: for each symbol the unit uses,
   the sentence holding the binding site M13 assigns it when that sentence lies outside the unit,
-  plus the site a "Suppose again" reopens; a sentence identical to one of the unit's is left out.
-  Each carries an id (`c1`, …) that evidence may cite (D2 §7.3). A self-contained unit has none;
-  without M13 output the packet has none. A positional rule ("the previous binding sentences in the
+  plus the site a "Suppose again" reopens. A sentence identical to one of the unit's is left out,
+  and when more than six remain, the six latest in page order are kept; they are listed in page
+  order. Each carries an id (`c1`, …) that evidence may cite (D2 §7.3). A self-contained unit has none;
+  without M13 output the packet has none. The standing-context function works per rendition over
+  its annotation units ([D1 §3.4](D1-knowledge-representation.md#34-locators): a `unit`, or a
+  paragraph outside units); a block outside every annotation unit (a top-level list, table or
+  figure) is returned as `uncovered`, and M13 reports such blocks the same way, so coverage can
+  name what no packet holds (D6 §1). A positional rule ("the previous binding sentences in the
   section") is not used: it handed one exercise another exercise's setup and missed a premise stated
   before the unit.
   > Status: **Tested** (S0-R2, 2026-10-28; records s0r2.inputs, s0r2.scores; `code/s0r2_sample.py`)
-- **Known entities** are the canonical labels of global entities in the run's recorded reference
-  run (`ops.run.reference_run_id`, [D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks)),
-  and only there, that are linked to the page (at most 30); proposals made earlier in this run
-  never enter, because they depend on queue order. At bootstrap, when the reference run is null,
+  > Status: the six-latest cut and `uncovered` blocks are **Proposed** (2026-10-28); phase 0 M13
+  > omits the paragraph rule, and its acceptance is the S0-R2 standing contexts (M13)
+- **Known entities** are the canonical labels of the global entities of the run's recorded
+  reference run (`ops.run.reference_run_id`, [D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks)),
+  and only there, that are linked to the page: those with a claim whose evidence lies on the page,
+  taken by entity key (in key order, at most 30, so the cut is deterministic); proposals made
+  earlier in this run never enter, because they depend on queue order. At bootstrap, when the reference run is null,
   the section lists a deterministic page-level list from the author markup M01 records: the page
   title and the `dfn` terms, as terms without a class. Proposals reuse the labels, so identity
   across units holds by label (D5 §3.3). Golden packets omit them (D7 §3.2).
@@ -239,6 +278,11 @@ A2: …
 | Packet | §4.1 | Unit |
 | Output instruction | "Return one ClaimProposalBatch" plus the JSON Schema for tiers that do not enforce it | Schema version |
 
+The agent tools serve these parts **by part**: `read_instructions` and `read_golden_unit` return
+one part per call, each paginated at 24,000 characters, so no single response approaches Claude
+Code's result limits (D8 §2.1, §2.2, §3).
+> Status: **Proposed** (2026-10-28)
+
 ### 4.3 Output form and post-processing
 
 Models cite evidence **by quote, not offset**: each evidence item is `{sentence: "s2", quote:
@@ -247,13 +291,24 @@ Models cite evidence **by quote, not offset**: each evidence item is `{sentence:
 [D1 §3.4](D1-knowledge-representation.md#34-locators), and text; D1 §10.3), is the authority for agent
 proposals as for golden passes and fixtures; the stored (offset) form is derived from it per
 rendition by the cascade below, so a proposal reused on a rendition with an edit elsewhere on the
-page cites that rendition's spans (P0CL-03; operator, 2026-10-28). Shared post-processing in
-`methods.llm.parse`:
+page cites that rendition's spans (P0CL-03; operator, 2026-10-28).
 
-1. **Validate** against the compiled JSON Schema (vLLM enforces it during decoding; agent
-   output is validated on submission, D8).
-2. **Locate quotes** by a cascade that never loses source offsets: exact in the cited sentence,
-   then in the unit; exact up to spacing (a `regex` pattern of the quote's non-space characters
+Post-processing has **two owners**. `validate`
+([D9 §1](D9-repository-and-phase0.md#1-layout)) owns the batch→candidate adapter, which turns a
+model-facing batch into the core keyed-candidate claims, and every check a batch must pass: steps
+1, 3 and 4 below, and the D1 §11 invariants a batch can violate (D5 §8.3). One implementation
+serves submission (M24's `propose_claims`, golden passes' `write_golden`), M10's post-processing
+from phase 1, and the fixtures. `methods.llm.parse` is the quote cascade only (step 2): it is
+schema-free, reading a citation frame and a rendition and returning spans, so it serves submission,
+the per-rendition derivation of the stored form on reuse, and evaluation's derivation of golden
+items (D7 §3.1) alike. The steps, in this order:
+> Status: **Proposed** (2026-10-28)
+
+1. **Validate** (`validate`) against the compiled models of the batch (vLLM enforces the JSON
+   Schema during decoding; agent output is validated on submission, D8 §2.1).
+2. **Locate quotes** (`methods.llm.parse`) by a cascade that never loses source offsets: exact in
+   the cited sentence, then in the frame's other sentences (the unit's sentences and its standing
+   context); exact up to spacing (a `regex` pattern of the quote's non-space characters
    joined by optional whitespace and spacing commands, matched in the original text, so no
    offset map is needed); the same after expanding the rendition's macros on both sides; then
    two fuzzy steps:
@@ -271,25 +326,33 @@ page cites that rendition's spans (P0CL-03; operator, 2026-10-28). Shared post-p
      only when the shorter input has at most 64 elements; beyond that its alignment is not
      necessarily the best one. No S0 quote exceeds 64 tokens, while many exceed 64 characters
      (status below), so the token step comes first.
-   - When the cited sentence fails, the best unit sentence is chosen by `process.extractOne(quote,
-     unit_sentences, scorer=fuzz.partial_ratio, score_cutoff=…)`; `process.cdist(...,
-     workers=-1)` serves only bulk re-anchoring between renditions.
+   - When the cited sentence fails, the best sentence of the frame (the unit's sentences and its
+     standing context) is chosen by `process.extractOne(quote, frame_sentences,
+     scorer=fuzz.partial_ratio, score_cutoff=…)`; `process.cdist(..., workers=-1)` serves only bulk
+     re-anchoring between renditions.
 
    Every regex step runs with a `timeout`, and a `TimeoutError` is a recorded step outcome. Every
    span is snapped outward to word boundaries; each result records its step and edit counts (for
    `BESTMATCH`, `fuzzy_counts`: `BESTMATCH` and `ENHANCEMATCH` select a match, they do not bound
    its errors). Several equal matches (a repeated phrase) are recorded as ambiguity, and a
    typo-level score is never identity. The result is a span (rendition offsets). An unlocated
-   quote leaves the item in the batch with `evidence_unlocated: true`; consolidation treats such
-   items as unsupported by evidence (D5).
+   quote keeps the item in the batch with a coarse span over the cited sentence (`coarse: true` in
+   the stored form, D2 §7.3), which consolidation records as `evidence_coarse` ([D5 §5.6](D5-consolidation-identity-confidence.md#56-evidence)).
+
+   **On reuse.** A reused proposal is located on the run's own rendition from its frame. When a
+   frame sentence's locator no longer resolves there, the sentence is re-located by the text the
+   frame recorded for it, by the same cascade over the rendition's sentences; failing that, its
+   items take D5 §5.6's fallback.
+   > Status: the frame-wide fallback and re-location on reuse are **Proposed** (2026-10-28)
    > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
    > Status: **Tested** in the spike instruments (2026-10-28): 733 of 735 S0 quotes exact, 2 after spacing, none fuzzy ([s0.stored](../design_review/evidence/2026-10-28_design-spikes/records/s0.stored.json))
    > Status: token-sequence step **Measured on synthetic perturbations only** (2026-10-28, [text-math note L-10](../design_review/evidence/2026-10-28_library-text-math/README.md)): on 527 seeded perturbations of 163 S0 quotes, after the same exact, spacing and macro steps, it finds 523 (spike cascade 504), 428 exact (392), 514 at IoU ≥ 0.9 (488), at most 9 ms per quote (214); dropped-word quotes 98 of 99 exact (spike 43); typos 111 of 132 exact (spike 130; 4 not found at cutoff 80, the cases the character-level fallback is for). 58 of the 163 quotes exceed 64 characters, none 64 tokens. The combined order (token step, then character fallback) is **Proposed**; real S0 quotes never reached a fuzzy step, so S3's local-LLM quotes are the real test
-3. **Check references and types**: local refs resolve; subject and object types match the
-   predicate's domain and range (entity-type side table, D2 §7.3).
-4. **Normalize math**: `$…$` and `\(…\)` are equivalent; values of type `formula` keep the LaTeX
-   as given and are parsed by M11 in consolidation.
-5. **Keep rejects.** Items failing 3 or 4 are kept in the observation payload under `rejected`
+3. **Check references and types** (`validate`): local refs resolve; subject and object types match
+   the predicate's domain and range (entity-type side table, D2 §7.3); the batch conformance checks
+   follow, the D1 §11 invariants a batch can violate (INV-06 is rejected at submission, D5 §8.3).
+4. **Normalize math** (`validate`'s adapter): `$…$` and `\(…\)` are equivalent; values of type
+   `formula` keep the LaTeX as given and are parsed by M11 in consolidation.
+5. **Keep rejects** (`validate`). Items failing 3 or 4 are kept in the observation payload under `rejected`
    with reasons; they count in metrics (malformed-output rate) but are not consolidated.
 
 A judge output is `{target, decision ∈ {accept, reject, choose, merge, split, unsure}, chosen?,
@@ -456,7 +519,10 @@ delimiters, the macro source, the encoding) are profile data, never adapter code
   Each delimited span is read by the math grammar (M11), whose result is the value's `parse`
   status, not the segment's. `regex` is the one pattern engine in the adapter, declared directly
   with an exact pin.
-- **Text.** `html.unescape`, `unicodedata.normalize("NFC")`.
+- **Text.** `unicodedata.normalize("NFC")` on the parser's text, with no `html.unescape`: the
+  parser has already decoded character references, so a second decode would turn a literal
+  `&amp;lt;` (text `&lt;`) into `<`.
+  > Status: **Proposed** (2026-10-28)
 - **Processes and caveats.** The html5lib parse is pure Python and holds the GIL, so documents are
   parallelized across processes, not threads. html5lib 1.1 (June 2020) installs from its wheel; its
   sdist does not build on Python 3.14. Its tree construction is not guaranteed to match current
@@ -480,16 +546,22 @@ rather than copied: without its namespace-rewriting pass, its mixed `re`/`regex`
 |---|---|---|---|
 | rendition | segments, `author_markup` | `ops.measurement` rows per segment | deterministic · 0 · base |
 
-Computes the features policies route on: length in characters and in tokens; inline and display
-math counts; math character share; presence of `dfn`; the statement-kind hint from block class or
-section title; nesting depth; whether the segment sits in a `details` block. Token counts are real
-counts with the served model's `tokenizer.json` (§4.1), never characters ÷ 4, per segment and per
-sentence; the per-sentence counts serve to plan the sentence-boundary split of an oversized unit,
-and the packet assembler still counts the assembled packet once, because counts are not additive.
-Pure function of the rendition and of the tokenizer file whose revision and sha256 its
-configuration records. No observations: these are measurements (D6 §6), because nothing
-consolidates them.
-> Status: **Measured** (2026-10-28, [text-math note L-11](../design_review/evidence/2026-10-28_library-text-math/README.md)): 3.27 characters per token on Siegrist text; sentence counts summed differ from the joined count in 5 of 83 multi-sentence blocks (§4.1)
+Computes the features policies route on: length in characters; inline and display math counts;
+math character share; presence of `dfn`; the statement-kind hint from block class or section
+title; nesting depth; whether the segment sits in a `details` block. **Phase 0 writes these
+character and math features only**: no phase 0 consumer reads token counts, because the one
+packet method, M24, is capped in characters (§4.1). From phase 1, with M10's token-counted caps,
+M02 adds token counts, real counts with the served model's `tokenizer.json` (§4.1), never
+characters ÷ 4, per segment and per sentence; the per-sentence counts serve to plan the
+sentence-boundary split of an oversized unit, and the packet assembler still counts the assembled
+packet once, because counts are not additive. Pure function of the rendition and, from phase 1,
+of the tokenizer file whose revision and sha256 its configuration records. No observations: these
+are measurements (D6 §6), because nothing consolidates them. Its `ops.measurement` rows carry the
+writing task's `task_id` and are read through reuse, as observations are (`kb.run_observation`,
+[D3 §8](D3-database.md#8-runs-snapshots-and-reads)): a run whose M02 task is `reused` reads the rows
+of the task it points at.
+> Status: phase 0 features and reading through reuse **Proposed** (2026-10-28)
+> Status: token counting **Measured** (2026-10-28, [text-math note L-11](../design_review/evidence/2026-10-28_library-text-math/README.md)): 3.27 characters per token on Siegrist text; sentence counts summed differ from the joined count in 5 of 83 multi-sentence blocks (§4.1)
 
 ### M03 segment.sentences
 
@@ -498,11 +570,14 @@ consolidates them.
 | rendition | canonical text, structural and math segments, reference markup | `sentence` segments | deterministic · 0 · base |
 
 **Behaviour.** Splits every `paragraph`, `list_item`, `table_cell` and `caption` into sentence
-segments; never splits inside math; never lets a sentence cross its parent block. Runs as part
-of rendition construction: its configuration is part of the build's adapter configuration
-(provenance), and its sentence segments are part of the rendition's content, so sentence
-segments are as stable as the other segments and a configuration change that leaves every
-sentence unchanged keeps the rendition (M01, P0CL-01).
+segments; never splits inside math; never lets a sentence cross its parent block. **M03 is a step
+of M01's task**, not a task of its own: `ingest.html`'s configuration names
+`segment.sentences/<name>`, and the registry resolves that named configuration into
+`ingest.html`'s configuration hash, so the build's adapter configuration (provenance) covers both.
+Its sentence segments are part of the rendition's content, so sentence segments are as stable as
+the other segments and a configuration change that leaves every sentence unchanged keeps the
+rendition (M01, P0CL-01).
+> Status: **Proposed** (2026-10-28)
 
 **Library realization (variant b′; `OPEN-D1-1` closed by S1).** spaCy 3.8 `en_core_web_sm` with
 the parser's sentence boundaries, on a `Doc` built from words and spaces. Using the math segments
@@ -529,9 +604,9 @@ markers and mid-clause.
 > Status: **Tested** and **Measured** on the four spike pages, 412 blocks (2026-10-28, [text-math note L-08](../design_review/evidence/2026-10-28_library-text-math/README.md)): 3 of 847 inline math spans straddle tokenizer boundaries, where expanding the span and merging it with `retokenize` takes prose into the math token (`mean\( \pm \)standard`), so the token's text is no longer the span; the words-and-spaces Doc reproduces the text of all 412 blocks, with sentence starts identical to the merge route on all 412; the preset `NNP` maps to `PROPN` on 843 of 844 math tokens; `nlp.pipe` with `ner` and `lemmatizer` excluded takes 0.38 s against 1.13 s for a per-block loop over the pipeline, with identical sentences
 > Status: **Measured** on a sentence gold of 85 blocks with 49 internal boundaries, marked identically by two independent markers (S1, 2026-10-28): boundary F1 1.00 for b′ against 0.80 for raw text, 20 of whose 24 false splits fall inside math, and 0.70 for an opaque mask; under b′ the rule-based sentencizer reaches 0.99 and the `trf` parser 0.98 ([s1.sentence-gold](../design_review/evidence/2026-10-28_design-spikes/records/s1.sentence-gold.json))
 
-**Configuration.** The model, the variant and the exclusions; M03's configuration hash includes
-the spaCy version, the model package name and version, and the excluded components, so changing
-any of them makes a new build, and a new rendition only where a sentence boundary moves.
+**Configuration.** The model, the variant and the exclusions; M03's named configuration includes
+the spaCy version, the model package name and version, and the excluded components, and through
+`ingest.html`'s configuration hash changing any of them makes a new build, and a new rendition only where a sentence boundary moves.
 `en_core_web_sm` 3.8.0 is installed as a wheel by URL in
 `[tool.uv.sources]` (its hash in `uv.lock`), never by `spacy download`; it requires spaCy
 `>=3.8.0,<3.9.0`.
@@ -633,16 +708,19 @@ formula as one token.
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| rendition: its `math_inline` and `math_display` segments | LaTeX source, the rendition's macro table | `mention` (label `symbol`), `relation` (`in_set`, `equals`), per math span | deterministic · 0 · base |
+| rendition: its `math_inline` and `math_display` segments | LaTeX source, the rendition's macro table | `mention` (label `symbol`), `relation` (`in_set`, `equals`, `compares`), per math span | deterministic · 0 · base |
 
 **Behaviour.** One task per rendition (§3, unit of work); its digest is the rendition's content
 digest, macro table included (M01), so a content-identical rendition reuses it.
 For each math span it tokenizes LaTeX into a node tree and emits a `symbol` mention for each identifier
 occurrence with its decoration (`X_1` keeps the subscript; `\sigma^2` records base `\sigma` and
-power 2), and math-internal relations a scoping or binding step needs: membership (`a \in \R`),
-equality (`Y = a + b X`), distribution statements written in notation (`X \sim
-N(\mu, \sigma^2)`) as `relation` with label `stat:has_distribution` when the domain pack maps
-the notation.
+power 2), and math-internal relations a scoping or binding step needs, under three labels:
+`in_set` for membership (`a \in \R`), `equals` for equality (`Y = a + b X`) and `compares` for
+comparisons (`x > 0`, `0 < p < 1`). Distribution statements written in notation (`X \sim
+N(\mu, \sigma^2)`) are not mapped to a domain predicate in phase 0, because nothing consumes such a
+relation before the encoder tier; a pack notation map decides that in phase 1. These observations, with M11's `value` observations, are M13's input for symbols and math
+relations (M13), so the grammar parses each span once per rendition.
+> Status: the three relation labels are **Proposed** (2026-10-28)
 
 **Library realization.** The math grammar of M11: symbol occurrences with offsets, sub- and
 superscripts as tree structure, relations and memberships as typed nodes; the page's macros
@@ -694,13 +772,19 @@ decision `unsure` leaves the unit for the agent tier if a policy routes it there
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| unit packet (mode `extract`) or judge packet (mode `adjudicate`) | packet via MCP `read_unit`, prompt parts via `read_instructions` (D8) | `claim_proposal` or `judgment`, plus an `ops.intervention` row that references it | agent · 0 · base |
+| unit packet (mode `extract`); judge packet (mode `adjudicate`, phase 1) | packet via MCP `read_unit`, prompt parts via `read_instructions` (D8) | `claim_proposal` or (phase 1) `judgment`, plus an `ops.intervention` row that references it | agent · 0 · base |
 
 **Behaviour.** The pipeline never calls Opus. A task for M24 is created with status
 `awaiting_agent`; the Claude Code session pulls it with `queue_next`, reads the packet, and
-submits through `propose_claims` or `adjudicate`; the submission is validated and parsed exactly
-as §4.3, M19's submission-time rules run over the batch inside the same call, and the
-submission completes the task. M24's input digest is the hash of the assembled packet text with
+submits through `propose_claims` (`adjudicate` joins in phase 1); the submission is validated and
+located exactly as §4.3, M19's submission-time rules run over the batch inside the same call, and a
+clean or second submission completes the task through the orchestration's agent completion
+primitive, in the tool's transaction (D6 §3.1). A first submission with errors leaves the task
+`awaiting_agent` for one corrected resubmission and keeps its result (rejected items with
+reasons) in `ops.task.error`, so the rejection is recorded even if no resubmission comes (D8 §2.1).
+> Status: **Proposed** (2026-10-28)
+
+M24's input digest is the hash of the assembled packet text with
 the prompt-part hashes and the model id and revision (§1 rule 4), so a guideline, schema or
 example change, or a change to anything the packet shows, requests new proposals, and an upstream
 re-run with identical output does not (D6 §4). The method definition and the packet assembler
@@ -755,9 +839,14 @@ Lark's `regex=True` is not needed.
   LALR, is a last resort only. Transformer failures are unwrapped from `VisitError.orig_exc`.
   Lark has no deadline: a `signal.setitimer` timer gives category `timeout`, and because such a
   timer works only in a process's main thread, grammar work runs in single-threaded worker
-  processes. The MCP and golden servers, whose FastMCP sync tools run on worker threads, therefore
-  never call the grammar: submission-time rules read formula symbols with `core/tex.py`'s TeX
-  tokenizer, and rules that need the parse run at finalize (M19; P0CL-14).
+  processes, and the grammar API raises when it is called off a process's main thread, so the rule
+  is enforced, not only followed. **No grammar or SymPy runs in an MCP worker thread.** The main
+  MCP server never imports the grammar: submission-time rules read formula symbols with
+  `core/tex.py`'s TeX tokenizer, and rules that need the parse run at finalize (M19; P0CL-14). The
+  golden server's pass-A/B diff and agreement (D7 §3.3) compare formula values, so it runs them in
+  one spawned single-worker process, on whose main thread the grammar runs; its tool threads only
+  hand that process the two passes and read the result.
+  > Status: **Proposed** (2026-10-28)
 - **Parser cache.** One parser per macro classification (which of the rendition's macros read as
   sets, operators or style wrappers, not the whole table), built lazily in a per-process dict.
   Earley parsers cannot be saved (`Lark.save` and `cache=True` are LALR only) or pickled, and
@@ -797,9 +886,11 @@ quantities (≈730 lines), with pint for units (D9 §7).
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| rendition | segment tree, sentences, `symbol` mentions (M09), math relations | `scope` | deterministic · 0 (packet standing context) · 1 (scope source for consolidation) · base |
+| rendition | segment tree, sentences; M09's observations (`symbol` mentions, `in_set`/`equals`/`compares` relations); M11's `value` observations (`math_kind`, which the bound-symbol rule needs) | `scope` | deterministic · 0 (packet standing context) · 1 (scope source for consolidation) · base |
 
-**Behaviour.** Finds binding sites and assigns every symbol mention to one:
+**Behaviour.** M13 reads the math through M09's and M11's observations, never through a second
+grammar parse, so its digest covers their payload hashes (§1 rule 4) and a re-run of either with
+identical output leaves M13 reused. It finds binding sites and assigns every symbol mention to one:
 
 1. A **binding site** is a symbol mention in a binder context: a sentence starting with a binder
    ("Suppose", "Let", "Assume", "Fix", "Define"), a `where`/`for` clause, a membership relation
@@ -828,19 +919,26 @@ and clause attachment:
   whitespace;
 - "again" reopens only within the binder's sentence: `[{"IS_SENT_START": True, "LOWER": {"IN":
   sentence_initial}}, {"OP": "{0,3}"}, {"LOWER": {"IN": reopen}}]`;
-- each math token (one per inline formula, M03) carries its kind from the math grammar (symbol,
-  relation, membership) and its symbol occurrences as a token extension, registered once per
+- each math token (one per inline formula, M03) carries its kind (symbol, relation, membership;
+  the `math_kind` of M11's `value` observation for that span) and its symbol occurrences (M09's
+  observations for that span) as a token extension, registered once per
   process (guarded by `has_extension`); the values live in `Doc.user_data` and are read in the
   same process, so no `DocBin` is involved;
 - `DependencyMatcher` only where clause attachment decides the binding (for example `where`, the
   clause head and a math dependent), behind the token patterns, because it inherits parser errors.
 
-A standalone claim-bearing paragraph is a statement extent; a section-wide binder takes
-precedence. Spike evidence: S0 annotators' scopes (`m13_probe.*.tsv`), S5. The spike's
-`m13_binders.py` builds phrase patterns by `phrase.split()` and accepts "again" anywhere in a
-sentence; the port follows the patterns above, not those two.
+**No paragraph rule in phase 0.** The spike probe added a paragraph rule (a standalone
+claim-bearing paragraph is a statement extent, a section-wide binder taking precedence), but
+applied it only to the sample's own parts, so its 20 of 20 does not carry over to whole pages.
+Phase 0 M13 omits it. Its acceptance is the S0-R2 standing contexts, 21 of 21, with the annotated
+scopes reported rather than required (18 of 20 without the rule); the paragraph extent is decided
+in phase 1, with S5-B's symbols-and-scoping figures (`OPEN-D4-5`, reopened, §12). Spike evidence:
+S0 annotators' scopes (`m13_probe.*.tsv`), S5. The spike's `m13_binders.py` builds phrase patterns
+by `phrase.split()` and accepts "again" anywhere in a sentence; the port follows the patterns
+above, not those two.
 > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
-> Status: **Measured** on the S0 reference (2026-10-28): 20 of 20 annotated symbol scopes reproduced, 18 of 20 without the paragraph rule ([s0.m13-probe-2](../design_review/evidence/2026-10-28_design-spikes/records/s0.m13-probe-2.json))
+> Status: **Measured** on the S0 reference (2026-10-28): 20 of 20 annotated symbol scopes reproduced with the paragraph rule, applied to the sample's own parts only; 18 of 20 without it ([s0.m13-probe-2](../design_review/evidence/2026-10-28_design-spikes/records/s0.m13-probe-2.json))
+> Status: phase 0 without the paragraph rule, its acceptance, and reading M09's observations are **Proposed** (2026-10-28)
 > Status: the `PhraseMatcher` phrases, the sentence-bound "again", the extension guard and the `DependencyMatcher` placement are **Proposed** (2026-10-28, [text-math note L-09](../design_review/evidence/2026-10-28_library-text-math/README.md)); not yet exercised
 
 ### M14 resolve.concept_link
@@ -894,13 +992,14 @@ assemble and finalize (§3, unit of work).
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| run: the candidate claims of a consolidation pass; at submission, a batch's items | claim view, rule context (D5 §8.2), compiled rules | `verification` with `verifier: rule:<id>` (at finalize); per-item warnings and errors in the submission result (at submission) | deterministic · 0 · base |
+| run: the candidate claims of a consolidation pass; at submission, a batch's items | claim view, rule context (D5 §8.2), compiled rules | `verification` with `verifier: rule:<id>` for failing outcomes only, and per-rule counts on the task (at finalize); per-item warnings and errors in the submission result (at submission) | deterministic · 0 · base |
 
 **Call sites.** At finalize, M19 is one run-level step inside the consolidation pass: the view
 builder reads the in-memory pool once, every rule runs over every claim view, and the
-`verification` observations are bulk-written, recorded as one M19 task of unit `run` per pass.
-At submission it runs inside the submitting call (`propose_claims` for M24, `write_golden` for
-golden passes; M10's parse) over the batch's own items (D5 §8.2; P0CL-13). Submission-time
+`verification` observations are bulk-written, recorded as one M19 task of unit `run` per pass,
+never reused (§1 rule 4). At submission it runs inside the submitting call (`propose_claims` for
+M24, `write_golden` for golden passes; M10's post-processing from phase 1) over the batch's own
+items (D5 §8.2; P0CL-13). Submission-time
 views read formula symbols with `core/tex.py`'s TeX tokenizer
 ([D1 §6.2](D1-knowledge-representation.md#62-canonical-form)), which is total and fast; a rule that depends on the grammar's parse declares `at: [finalize]`, so
 no grammar parse runs in an MCP worker thread (M11; P0CL-14; operator, 2026-10-28).
@@ -909,7 +1008,15 @@ no grammar parse runs in an MCP worker thread (M11; P0CL-14; operator, 2026-10-2
 **Library realization.** rule-engine 5.1 `Rule` objects compiled once per schema version under a
 typed `Context` (type resolver from the schema, registered functions for parameterized lookups;
 pool facts such as `family_params` are cached view attributes, declared by the pack's `views:`,
-D5 §8.2); evaluated per claim view; a rule whose `when` is false records nothing.
+D5 §8.2); evaluated per claim view.
+
+**What it records.** Only failing outcomes become observations: a `verification` with state
+`refuted` and detail `{rule, severity, message}`. A rule whose `when` is false, or that passes,
+records nothing per claim; instead the M19 task records, per rule, the count of claim views it
+evaluated (its `when` true), which is what verification coverage needs (D5 §8.1). At a few rules
+per claim over a run's claims, recording every pass would multiply rows without telling
+consolidation anything the counts do not.
+> Status: **Proposed** (2026-10-28)
 
 ### M20 validate.conditions
 
@@ -991,4 +1098,4 @@ canonical-form fusion only, status from agent proposals and M19 rules.
 | OPEN-D4-2 | Reasoning on or off for structured proposals on the local model (quality versus latency) | Spike S3 |
 | OPEN-D4-3 | SymPy LaTeX backend (lark or ANTLR) and the macro map that maximizes parse rate | Spike S5 |
 | OPEN-D4-4 | Unit of LLM work: whole `unit`, paragraph, or sentence group; set by S0 output sizes and S3 quality per packet size | Spikes S0, S3; **answered by S0 and S0-R2** for golden and agent packets (2026-10-28): the unit, with query-assembled standing context (§4.1); output budget from batch size; S3 measures local-LLM quality per packet size |
-| OPEN-D4-5 | Whether M13's rule-based scoping reaches the S0 annotators' scopes, or symbol scope must come from the LLM proposal | Spikes S0, S5; **answered by S0** (2026-10-28): 20 of 20 annotated scopes with two additions, sentence-initial "if" and paragraph statements (M13); S5 checks math-heavy symbols |
+| OPEN-D4-5 | Whether M13's rule-based scoping reaches the S0 annotators' scopes, or symbol scope must come from the LLM proposal; and what extent a binding in a standalone claim-bearing paragraph takes | Spike S5-B, then phase 1; **reopened** (2026-10-28): S0's 20 of 20 rested on a paragraph rule the probe applied only to the sample's own parts. Phase 0 M13 omits that rule (sentence-initial "if" stays) and is accepted on the S0-R2 standing contexts, 21 of 21, with scopes reported (18 of 20); S5-B's symbols-and-scoping figures and phase 1 decide the paragraph extent (M13) |

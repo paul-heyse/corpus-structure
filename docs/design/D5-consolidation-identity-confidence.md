@@ -38,7 +38,8 @@ across rebuilds. A finished run is never rebuilt.
 runs the steps as functions over it, and writes rows through one bulk writer. No step queries
 the database directly, so steps are testable on fixtures built from the trace. The M19 runner and
 the view builder live in `validate`, below `consolidate`, and consume the core keyed-candidate
-claim type that the pool's candidates and submitted batches both adapt into (D9 §1, P0CL-08).
+claim type that the pool's candidates and submitted batches both adapt into (D9 §1, P0CL-08);
+`validate` also owns the batch→candidate adapter and the batch checks (D4 §4.3).
 
 ## 2. The evidence pool
 
@@ -104,9 +105,19 @@ classes to §3.4, `Statement` to §3.5.
    preferring a `dfn` term or a page title. Ties break lexicographically, so the choice is
    deterministic.
 5. **Label normalization** (for matching, and for labels of classes without identity keys):
-   NFC, casefold, collapsed whitespace, leading articles removed, the class's head words removed
+   NFC, casefold, collapsed whitespace, leading articles removed, the class's head words removed as trailing whole words
    and its adverb rules applied (`methods.yaml`: "normally distributed" → "normal"). In phase 0,
-   without M14, clusters of one type with equal normalized labels are one entity.
+   without M14, clusters of one type with equal key parts are one entity: the normalized label, or
+   the identity attributes where the class declares `unique_keys` (D1 §10.1), so a
+   `FamilyParameter` that units label differently is still one entity. When the run's
+   reference run is non-null, phase 0 links such an entity to a global entity of the reference run
+   of exactly the same type that has an alias equal to its normalized label (aliases normalized the
+   same way); linking reuses that entity's key but not its canonical label (point 3). Without a
+   match the entity is new; if the label matches aliases of more than one reference-run entity of
+   that type, the entity is also new and the ambiguity is counted, so the outcome never depends on
+   the order in which candidates are seen. This is the phase 0 stand-in for M14's candidate ranking (point 2).
+   The normalization is one generic `core` function; head words and adverb rules are pack data.
+   > Status: **Proposed** (2026-10-28)
 
 ### 3.4 Local entities
 
@@ -152,6 +163,13 @@ statements, with `establishment: stated` and the declared evidence span. Siegris
 declares that a `proof` or `solution` block inside a unit yields `<block statement> core:proves
 unit-statement`, with the `details` summary span as evidence; a source without the convention
 declares nothing (P0CL-07; operator, 2026-10-28).
+
+**A structural claim carries its subject statement.** A claim of a structural predicate
+(`defines`, `proves`, `refers_to`, `follows_from`; D2 §10.3), whose subject is a statement, has
+that statement as its `statement` and no role; so does the synthesized `proves`. An author-stated
+`proves` (a proposal or golden that states it, as the S0-R2 batches do) and the synthesized one
+therefore have equal keys and fuse (§5.3) into one claim with both supports, instead of counting
+one relation twice.
 > Status: **Proposed** (2026-10-28)
 
 ### 3.6 Merges and cannot-links
@@ -212,7 +230,9 @@ standing context, from M09's symbol occurrences, and take the first rule that ap
 7. Otherwise **unresolved**, counted in the claim's `completeness.unresolved_symbols`.
 
 Bindings are part of the value, not of the claim key (D1 §6.2 keys formulas by their token form),
-so improving binding does not change claim identity.
+so improving binding does not change claim identity. They are meaning-bearing all the same: two
+candidates with equal keys whose bindings differ read the same formula differently, and they
+become alternatives, not one claim (§5.3).
 
 The rules read the predicates, qualifier and class they need from pack declarations
 ([D2 §3](D2-schema-and-guidelines.md#3-the-ci-annotation-vocabulary)), so consolidation names no
@@ -243,8 +263,12 @@ asserted in a theorem → conclusion), else none.
 ### 5.2 Normalization and keys
 
 Qualifier defaults are dropped (`modality: asserted`, `polarity: positive`); values take their
-canonical form (D1 §6.2); condition trees are canonicalized (flatten nested `and`/`or`, sort
-arguments by canonical JSON, replace claim refs by keys). Formula and set values enter keys in their normalized LaTeX form (D1 §6.2), never their SymPy
+canonical form (D1 §6.2); condition trees are canonicalized by the key rules of
+[D1 §10.1](D1-knowledge-representation.md#101-hashing): nested `and`/`or` are flattened, empty ones
+dropped and one-argument ones collapsed to their argument; `>` and `>=` are written as `<` and `<=`
+with the sides swapped; `and`/`or` arguments are sorted by canonical JSON, and `pred` arguments only
+for symmetric predicates; `phrase` and `unsupported` leaves are keyed by their text form; claim refs
+are replaced by keys. Formula and set values enter keys in their normalized LaTeX form (D1 §6.2), never their SymPy
 form. Keys are computed in dependency order:
 a claim's key depends on the keys of claims its conditions reference, so candidates are keyed in
 a topological order of condition references; a reference cycle is malformed and both candidates
@@ -260,17 +284,20 @@ identity qualifiers include `valid_time` and, under modality `cited`, the attrib
 intervals in one table statement stays two claims, and one fact reported from two sources stays
 two claims (P0CL-06; operator, 2026-10-28).
 
-**Disagreeing qualifiers are not fused.** Full candidates (§5.1) with equal keys that disagree on
-a meaning-bearing qualifier outside the key (`hedge`, `scope`, attribution phrasing) are kept
-apart as an alternative group (§5.4 point 3, `alternative_of` links), because fusing them would
-keep one reading and drop the other without a record. A qualifier one candidate leaves null and
-the other sets counts as a disagreement. Claim keys are unique within a run (D3 `kb.claim`), so
-each member is keyed by the claim's key parts plus its own canonical values of the disagreeing
-qualifiers; the group key is the hash of the sorted member keys, as for every group. Core
+**Disagreeing readings are not fused.** Full candidates (§5.1) with equal keys that disagree on a
+meaning-bearing part outside the key are kept apart as an alternative group (§5.4 point 3,
+`alternative_of` links), because fusing them would keep one reading and drop the other without a
+record. The meaning-bearing parts are the qualifiers outside the key (`hedge`, `scope`, attribution
+phrasing) and the binding maps of formula and set values (§4): candidates whose formulas key alike
+but bind a symbol differently (`param_of` against `free`) state different things. A qualifier or
+binding one candidate leaves null and the other sets counts as a disagreement. Claim keys are
+unique within a run (D3 `kb.claim`), so each member is keyed by the claim's key parts plus its own
+canonical values of the disagreeing qualifiers or bindings; the group key is the hash of the sorted
+member keys, as for every group. Core
 candidates carry no reading of their own and fuse as supports (§5.4 point 1) (P0CL-06; operator,
 2026-10-28).
 > Status: **Proposed** (2026-10-28); the member key extends D1 §10.1's claim parts for this case
-> only
+> only; bindings as a meaning-bearing part are **Proposed** (2026-10-28)
 
 Candidates in the same slot (§5.4) whose keys differ only in formula or set values that M11
 proves equivalent (`simplify(a - b) == 0`; set equality) are fused too, under the same
@@ -334,10 +361,15 @@ A proposal's evidence is located on the run's own rendition: the proposal keeps 
 batch and citation frame as the authority, and the stored form consolidation reads is derived per
 rendition by the production quote cascade ([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing)),
 so a proposal reused from another run never cites spans of a rendition this run did not select
-(P0CL-03). Every evidence item from a proposal with a located quote becomes a span with its role. An
-unlocated quote falls back to the cited sentence's span with role `primary` and
-`evidence_coarse: true` in the claim's `completeness`; without a cited sentence the item is
-dropped as malformed (counted). This keeps INV-01 without inventing precision.
+(P0CL-03). Every evidence item from a proposal with a located quote becomes a span with its role.
+The cascade looks for an unlocated quote across the frame's sentences, the unit's and its standing
+context (D4 §4.3); a quote it still cannot place gets a **coarse span** over the cited sentence,
+with role `primary` and `evidence_coarse: true` in the claim's `completeness`; without a cited
+sentence the item is dropped as malformed (counted). A reused proposal whose frame sentence no
+longer resolves on this run's rendition is first re-located by the text the frame recorded (D4
+§4.3); only when that fails does this fallback apply. This keeps INV-01 without inventing
+precision.
+> Status: the frame-wide search and re-location on reuse are **Proposed** (2026-10-28)
 
 ## 6. Confidence
 
@@ -361,7 +393,7 @@ Each claim has one discrete observation per **source** that could have produced 
 | Local LLM proposal (M10) | `supports_full`, `supports_core` (same core, different qualifiers), `silent`, `not_run` |
 | Agent proposal (M24 extract) | as M10 |
 | Local LLM judge (M16) | `accept`, `reject`, `unsure`, `not_run` |
-| Rule validation (M19) | `pass`, `warning`, `not_applicable` |
+| Rule validation (M19) | `warning`, `none` (no failing warning: passed or not applicable; M19 records failing outcomes only, §8.1) |
 | Verifiers (M20, M21) | `consistent`, `refuted`, `not_checkable` |
 | Author markup agreement | `agrees`, `disagrees`, `none` (for statement kinds and `dfn` terms) |
 
@@ -369,9 +401,10 @@ Each claim has one discrete observation per **source** that could have produced 
 `not_run` (no task of that source on the unit), and `not_run` is treated as unobserved. This is
 the reason D4 rule 2 records `empty` outcomes.
 
-### 6.3 Cold start (phases 0–1)
+### 6.3 Cold start (phase 1)
 
-Before enough goldens exist (fewer than 30 aligned claims per predicate group), confidence is a
+Phase 0 estimates no confidence: claim `confidence` is null, and status comes from the agent
+proposals and M19's rules alone (§11). From phase 1, before enough goldens exist (fewer than 30 aligned claims per predicate group), confidence is a
 fixed-weight noisy-OR over supporting sources with per-source priors from the policy's `priors:` block (D6 §7.1; defaults agent 0.9,
 local LLM full 0.6, core 0.4, encoders 0.4, patterns 0.5), multiplied by 0.7 per rule warning,
 by 0.2 for a `refuted` verification, and capped at 0.5 for claims with
@@ -446,21 +479,25 @@ Rules (M19) run inside the finalize pass: one run-level step over the in-memory 
 assembly and before confidence, that bulk-writes its `verification` observations as one M19 task
 per pass ([D4 M19](D4-method-catalog.md#m19-validaterules)). Per-claim tasks would cost more in
 task, digest and transaction machinery than the microseconds of rule evaluation, and caching
-them saves nothing because every pass rebuilds (P0CL-13; operator, 2026-10-28). The incremental
+them saves nothing because every pass rebuilds (P0CL-13; operator, 2026-10-28). M19 records
+**failing outcomes only**: a `verification` with state `refuted` and detail `{rule, severity,
+message}`, while the M19 task records, per rule, the count of claims the rule evaluated, which is
+the coverage the last row below counts. A claim without a failing M19 observation passed every rule
+that applied to it. The incremental
 pass (§9) runs M19 over the claims it assembles. Condition checks (M20) and verifiers (M21) are
 expensive and stay separate tasks, run between assemble and finalize on candidate claims by
 claim key. Finalize reads all of them:
 
 | Outcome | Effect |
 |---|---|
-| Rule `error` fails | `rejected`, reason the rule id (precedence 1, §7.1) |
-| Rule `warning` fails | Confidence source state `warning` |
+| Rule `error` fails (`refuted`, severity `error`) | `rejected`, reason the rule id (precedence 1, §7.1) |
+| Rule `warning` fails (`refuted`, severity `warning`) | Confidence source state `warning` (from phase 1, §6.3) |
 | z3: conditions unsatisfiable | `rejected`, reason `unsatisfiable_conditions` |
 | z3: overlapping conditions with a different object | `contradicts` link (§5.5) |
 | z3: one claim's conditions imply another's, same object | `refines` link |
 | Verifier `refuted` | Confidence source state `refuted`; routed to a judge by policy |
 | Verifier `consistent` | Confidence source state `consistent` |
-| `not_checkable`, `not_applicable` | Nothing; counted as verification coverage |
+| `not_checkable` (verifiers); a rule that passed or did not apply (no observation) | Nothing; counted as verification coverage, for M19 from the task's per-rule counts |
 
 ### 8.2 Rule context
 
@@ -476,8 +513,12 @@ keyed-candidate type, so one compiled rule serves both; each rule's `at:` names 
 tokenizer ([D1 §6.2](D1-knowledge-representation.md#62-canonical-form)), which is total and fast,
 and never the math grammar, because the submission runs in an MCP worker thread where the
 grammar's timeout cannot fire. A rule that needs the grammar's parse (slot typing, structure of
-sub- and superscripts) declares `at: [finalize]`, where M11's values are in the pool (P0CL-14;
-operator, 2026-10-28).
+sub- and superscripts) declares `at: [finalize]` (P0CL-14; operator, 2026-10-28). At finalize,
+consolidation parses each claim value once per pass with M11's grammar, on its process's main
+thread, and hands the view builder the result as data: per value its parse status, value kind and
+symbols. The view builder takes both readers' output as data, so `validate` never imports
+`methods/math` ([D9 §1](D9-repository-and-phase0.md#1-layout)) and one builder serves both call
+sites.
 > Status: **Proposed** (2026-10-28)
 
 Symbols available to `when` and `check`:
@@ -491,13 +532,27 @@ Symbols available to `when` and `check`:
 | `claim.value` | mapping | the D1 value for value objects (`t`, and `latex`/`v`) |
 | `claim.qualifiers` | mapping | qualifiers with defaults filled in |
 | `claim.statement` | mapping or null | `key`, `kind` |
+| `claim.statement_kind` | string or null | the kind of the claim's statement |
 | `claim.statement_role`, `claim.establishment` | string | |
+| `claim.groups` | list of strings | the predicate's group (`ci:group`) and the pack subsets that hold the predicate (`family_structure`, …), which `applies_to: subset:<name>` reads |
+| `claim.subject.symbol` | string or null | the subject entity's symbol (local entities) |
+| `claim.subject.identity` | mapping | the subject entity's identity attributes (`ci:identity_keys`) |
+| `claim.value.enum`, `claim.value.latex` | string or null | the object's enum value; the LaTeX of a formula or set object |
+| `claim.bindings` | mapping | symbol → binding, from the binding maps of the claim's formula and set values (§4) |
+| `claim.condition_nodes` | list of mappings | the claim's condition tree flattened to its nodes |
+| `claim.claim_refs` | list of strings | the claims its conditions reference (local refs at submission, keys at finalize) |
+| `claim.statement_premises` | list of strings | the premise claims of its statement |
+| `claim.gives_symbols` | list of strings | the symbols it gives as parameter values (entries of a `ci:param_map` qualifier, §4) |
+| `claim.given_by_others` | list of strings | its symbols that other claims give as parameter values |
 | `claim.evidence_count`, `claim.unresolved_symbols` | integer | |
+> Status: **Proposed** (2026-10-28): the domain-free attributes are those the guideline rules need; S4 (`s4.rules`) fixes their final names
 
 Facts about the claim pool are **cached attributes of the view**, computed once per claim by the
-view builder (OPEN-D2-3, answered 2026-10-28). The generic builder computes the domain-free ones:
-flattened condition nodes, statement premises and the "given as a parameter value elsewhere" map
-(over the pack's `ci:param_map` qualifiers, §4). Domain facts are pack data: `rules.yaml`'s
+view builder (OPEN-D2-3, answered 2026-10-28). The generic builder computes the domain-free ones
+in the table: `claim.groups`, the statement facts, `claim.bindings`, the flattened condition nodes
+and claim refs, and the "given as a parameter value" pair (`claim.gives_symbols`,
+`claim.given_by_others`, over the pack's `ci:param_map` qualifiers, §4); at submission they cover
+the batch only. Domain facts are pack data: `rules.yaml`'s
 declarative `views:` section ([D2 §7.4](D2-schema-and-guidelines.md#74-to-rule-engine-rules))
 names, for each projected field, a source predicate, a match and the field projected, and the
 generic builder compiles it, so a second domain's cross-claim rule needs no Python in the builder
@@ -511,8 +566,14 @@ reads the pool once.
 
 ### 8.3 Invariants
 
-INV-01 to INV-10 (D1 §11) are asserted when rows are written. A violation fails the
-consolidation task with the offending keys; it is a bug, never a claim status.
+INV-01 to INV-10 (D1 §11) are asserted when rows are written. The invariants a proposal can
+break are handled before writing, never left to the assertion: an offending item is dropped with
+a counted reason (a condition-reference cycle, §5.2; evidence without a cited sentence, §5.6), or
+a core rule makes it `rejected`. INV-06 (a `supposed` claim is referenced by a condition or has a
+`scope`) is rejected at submission by `validate`'s batch checks (D4 §4.3), so D2 §9's
+`stat.supposed_is_used` warning, which restated it, is dropped. A violation at write therefore
+fails the consolidation task with the offending keys; it is a bug, never a claim status.
+> Status: **Proposed** (2026-10-28)
 
 ## 9. Derived claims
 
@@ -548,7 +609,7 @@ Finalize assigns each claim the first status that applies:
 
 | Phase | Realization |
 |---|---|
-| 0 | Proposals from M24 only, for the units of the run's scope (the `phase0-golden` slice, D6 §7.4). Reference run: null until the first promotion, so every entity is new; once one exists, linking reuses its keys but not its canonical labels (§3.3 point 3). Entities: identity by type and normalized label (§3.3 point 5); local scopes from the proposals' `extent`, keyed by its locator (§3.4), not M13. Bindings as the proposals state them (local refs resolved to keys; §4 does not run). Statements: keyed by anchor locator and first-sentence ordinal (§3.5); kind from author markup, else the proposal's `kind` (M05 is phase 1); containment relations from the source profile's `details_kinds.synthesize` (§3.5). Claims: §5.1–§5.2 and §5.6, evidence located on the run's rendition from each proposal's citation frame; fusion by canonical form only, with `valid_time` and the cited source in the key and candidates that disagree on a meaning-bearing qualifier kept apart as alternatives (§5.3; SymPy equivalence is phase 1). A batch's `alternatives[]` keep every member claim with status `ambiguous` and `alternative_of` links; nothing resolves them until adjudication (phase 1). Status: M19 rules, run inside the finalize pass (§8.1; no `check` tasks); agent proposals `accepted` unless a rule error; no agent judgments. No derived claims (trace T3 D1 is phase 2) |
+| 0 | Proposals from M24 only, for the units of the run's scope (the `phase0-golden` slice, D6 §7.4). Reference run: null until the first promotion, so every entity is new; once one exists, an entity links to a reference-run entity of exactly its type with an alias equal to its normalized label, reusing that entity's key but not its canonical label (§3.3 points 3, 5). Entities: identity by type and key parts (normalized label, or identity attributes where the class declares `unique_keys`; §3.3 point 5); local scopes from the proposals' `extent`, keyed by its locator (§3.4), not M13. Bindings as the proposals state them (local refs resolved to keys; §4 does not run). Statements: keyed by anchor locator and first-sentence ordinal (§3.5); kind from author markup, else the proposal's `kind` (M05 is phase 1); containment relations from the source profile's `details_kinds.synthesize`, each structural claim carrying its subject statement, so an author-stated and a synthesized `proves` fuse (§3.5). Claims: §5.1–§5.2 and §5.6, evidence located on the run's rendition from each proposal's citation frame; fusion by canonical form only, with `valid_time` and the cited source in the key and candidates that disagree on a meaning-bearing qualifier or on bindings kept apart as alternatives (§5.3; SymPy equivalence is phase 1). A batch's `alternatives[]` keep every member claim with status `ambiguous` and `alternative_of` links; nothing resolves them until adjudication (phase 1). Status: M19 rules, run inside the finalize pass, recording failing outcomes only (§8.1; no `check` tasks); agent proposals `accepted` unless a rule error; no agent judgments. Confidence: null (no estimate; the cold start of §6.3 begins in phase 1). No derived claims (trace T3 D1 is phase 2) |
 | 1 | Encoder and local LLM candidates; slots and alternatives (§5.4); M13 scopes; M14 linking against the recorded reference run; cold-start confidence (§6.3) |
 | 2 | Latent-truth confidence and calibration (§6.4); M15 merges; M20 conflicts (the first `check` tasks); derived claims (§9); from the identity gate, linking reuses canonical labels too (§3.3 point 3) |
 | 4 | Verifiers as confidence sources |

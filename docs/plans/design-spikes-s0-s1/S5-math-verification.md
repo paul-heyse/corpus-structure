@@ -72,7 +72,7 @@ is used, because keys never depend on parse success (D1 §6.2).
 
 | Package | Scope | Outputs | Done when |
 |---|---|---|---|
-| S5-A | Steps 1, 2, 3, 5 (step 5 on the I-R2 revision) | `macros.tsv`, `parse.tsv`, `coverage.md`, `canonical.tsv`, the extended `extension.lark` | Coverage reported for V1 and V2; every kept extension listed with its gains; every token/tree disagreement has a cause and a fix on the tree side |
+| S5-A | Steps 1, 2, 3, 5 (step 5 on the I-R2 revision); records `s5.macros`, `s5.coverage` and `s5.keys-property` are finalized at its end, because the phase 0 `core/tex.py` freezes on them | `macros.tsv`, `parse.tsv`, `coverage.md`, `canonical.tsv`, the extended `extension.lark` | Coverage reported for V1 and V2; every kept extension listed with its gains; every token/tree disagreement has a cause and a fix on the tree side |
 | S5-B | Steps 7, 8 | `symbols.tsv`, `scope.tsv` | Agreement figures for V3 on the core, held-out and math-heavy units, each disagreement classified |
 | S5-C | Steps 6, 9 | `sets.tsv`, `equivalence.tsv` | Every pair decided by a named tier with its time; the expected answers met or each miss explained |
 | S5-D | Steps 4, 10, 11 | `antlr.tsv`, `z3.tsv`, `verify.tsv` | Each step run or `not_run` with the reason; lowest priority, may follow S2/S3 |

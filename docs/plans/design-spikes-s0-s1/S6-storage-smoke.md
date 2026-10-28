@@ -43,7 +43,7 @@ formula keys use the token form it revises.
 | 7 Volume | Binary COPY with `Copy.set_types` of 100,000 observations and 20,000 claims; the per-unit "why a method ran" query; no GIN timing (the index is gone) |
 | 7b Queue (new) | Two worker processes claiming from 10,000 `pending` tasks with the D6 §3 statement; one worker killed mid-batch; check no task is claimed twice, the expired lease is taken by the next claim, and the dead worker's late terminal write commits nothing (`attempt` fencing); `LISTEN`/`NOTIFY` wake-up with a timeout and re-query |
 | 8 Size | As the brief, including the BM25 index (OPEN-D3-3 is answered by mechanism; this gives the size) |
-| 9 Keys | As the brief, after I-R2 |
+| 9 Keys | As the brief, after I-R2, with statement keys computed as ADR-0019 states them (anchored by locators, not by segment keys); within one rendition the figures are comparable, and the report says so |
 | 10 Meaning key | As the brief, after I-R2 |
 
 ## 3. The joint dry run (S6-D)

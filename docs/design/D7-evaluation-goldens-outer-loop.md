@@ -72,13 +72,15 @@ meaningful beyond the annotators' own agreement on that predicate.
 ### 3.1 Units and sets
 
 A golden unit is one annotation unit (a `unit` segment, or a paragraph outside units) of a page,
-identified by its **unit key**, the unit's generated locator
-([D1 §3.4](D1-knowledge-representation.md#34-locators)), not by a rendition, so it survives a
-content-preserving ingest change and an edit elsewhere on its page that leaves its locator
-unique. Its authority is what its passes wrote: the model-facing batch of each pass with its
+identified by its **unit key**, fixed when the unit is created from the unit's generated locator
+([D1 §3.4](D1-knowledge-representation.md#34-locators)), not by a rendition. The key survives a
+content-preserving ingest change and any edit elsewhere on its page: when such an edit changes the
+unit's generated locator, re-location (§3.5) updates the unit's current locator, never its key.
+Its authority is what its passes wrote: the model-facing batch of each pass with its
 citation frame ([D1 §10.3](D1-knowledge-representation.md#103-stability-limits), D2 §7.3). Golden items (`eval.golden_item`) are a projection of pass C's batch,
 derived per rendition by the production quote cascade (D4 §4.3) and recording the rendition they
-were derived on (P0CL-03; operator, 2026-10-28).
+were derived on (P0CL-03; operator, 2026-10-28). Evaluation derives them, before it aligns a run on
+that rendition; `write_golden` never does.
 > Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
 > Status: **Proposed** (2026-10-28)
 
@@ -103,18 +105,27 @@ assigned before sampling:
 - **Forced to dev:** pages used to write or check guideline rules (the four spike pages, and
   `special/Pareto.html` and `special/ChiSquare.html`, the S0-R2 held-out pages).
 
-Assignments live in `eval.document_split` and change only by operator direction.
+The forced-dev pages and the split seed are pack data (`domains/<name>/eval/split.yaml`, D2 §2);
+the reserved pages are those the pack's `reference/` examples come from. Assignments live in
+`eval.document_split`, with the seed and the reason for each (D3 §7), and change only by operator
+direction.
 
-**Unit sampling** (`ci golden create --split S --size N --seed K`). Units are drawn from the
-split's pages; strata are statement kind (markup hint, else M05, else `narrative`) × math-share
+**Unit sampling** (`ci golden create --label L --split S --size N --run RUN --seed K`, D8 §4). The
+command creates the golden set, its units, a `golden` run (one per golden set, guideline version
+and authoring round; its parent `RUN` is the run whose renditions and M13 output the golden
+packets read) and every unit's pass A and B tasks
+(D8 §2.2), and records the sampling on the set: seed, size, strata, allocation, forced units and
+sampler version (D3 §7). Units are drawn from the split's pages; strata are statement kind (markup
+hint, else M05, else `narrative`) × math-share
 tercile (M02); allocation is proportional with at least one unit per non-empty stratum; within a
 stratum units are taken in order of `sha256(unit_key + seed)`, which the locator-based unit key
 keeps stable across content-preserving ingest changes. **Forced units** are taken
 before sampling: for dev, the trace units and the spike core units (the `trace` and `core12`
 slices, D2 §12.2), which the phase 0 gate's typed questions and the S0-R2 comparisons need. They
 count towards their strata, and sampling fills the remaining places (P0CL-10; operator,
-2026-10-28). Sampling the dev set also fills the golden-unit pages of the `phase0-golden` slice
-(D2 §12.2), which is declared by name and resolved from the set.
+2026-10-28). The `phase0-golden` slice takes the dev set's units by their unit locators through its
+`{golden_set: <label>}` selector, resolved when a run starts (D2 §12.2), so the slice is never
+hand-kept.
 > Status: **Proposed** (2026-10-28)
 
 ### 3.2 Pass A and pass B (blind)
@@ -130,7 +141,8 @@ Two fresh **Sonnet 5.5** subagent sessions, dispatched by the Claude Code sessio
   pipeline output** except one: its standing context is assembled by query from M13, a deterministic
   rule method over the text, whose version is recorded on the pass: for each symbol the unit uses, the
   sentence holding the binding site M13 assigns it, when that sentence lies outside the unit, plus
-  the site a "Suppose again" reopens. Each context sentence carries an id (`cN`) that evidence may cite;
+  the site a "Suppose again" reopens, without sentences identical to one of the unit's and at most
+  the six latest in page order (D4 §4.1). Each context sentence carries an id (`cN`) that evidence may cite;
 - the model-facing ClaimProposalBatch schema (D2 §7.3) and the validator, which reports format and
   invariant errors and guideline-rule warnings (D2 §7.4).
 
@@ -151,11 +163,23 @@ references it). At submission its quotes are located on the current rendition as
 check: a pass whose quotes cannot be located is returned to its author once with the failures
 listed.
 
+**Page-text variant** (`OPEN-D7-5`). Whether the page text still helps is tested through a profile
+variant of the golden server (`ci mcp serve --golden --variant page-text`, D8 §4) that serves the
+page's full text beside the golden packet. It leases nothing and stores no pass: its passes are a
+comparison's evidence record (ADR-0010), never goldens.
+> Status: **Proposed** (2026-10-28)
+
 ### 3.3 Agreement
 
 Passes A and B are aligned with the scorer of §5 (treating A as reference and B as prediction,
 then symmetrized). Per unit and predicate, agreement at the core, full and evidence tiers is
 stored in the unit's `agreement` record and aggregated per predicate as the **ceiling**.
+`write_golden` computes the alignment in the transaction that stores the second of the two passes
+and stores its whole result, the A/B diff included, as the unit's `agreement` record, which
+`read_golden_unit` serves to pass C. The alignment runs in the golden server's single-worker
+alignment process, because value equivalence needs the math grammar and SymPy, which never run in
+an MCP worker thread (D8 §2.2).
+> Status: **Proposed** (2026-10-28)
 
 ### 3.4 Adjudication (pass C)
 
@@ -168,8 +192,9 @@ A third fresh Sonnet session receives the guideline, the annotator reference, th
 keep A, keep B, keep both as a **faithful ambiguity** (golden alternatives), drop both, or
 rewrite; each decision has a one-line reason, and decisions that the guideline does not settle
 are marked `guideline_gap` with the rule they touch. The result is pass C's authored batch with
-its citation frame, from which the unit's golden items are derived per rendition (§3.1); the unit
-becomes `adjudicated`. `guideline_gap` marks feed the operator's digest
+its citation frame, from which evaluation derives the unit's golden items per rendition (§3.1); the
+unit becomes `adjudicated`. A golden run finishes when every unit of its set is `adjudicated`;
+evaluation owns that check. `guideline_gap` marks feed the operator's digest
 (§8). Adjudication decides contested items and finds guideline gaps; it is not expected to raise a
 unit above its better pass (S0-R2: a Sonnet adjudicator over a Sonnet and a Haiku pass scored 0.75
 against the Sonnet pass's 0.77; record s0r2.adjudication). Every `guideline_gap` decision is a
@@ -186,8 +211,10 @@ visible (items added, removed, changed).
 operator, 2026-10-28). When a run's rendition of the page refuses a frame locator, or the
 located sentence's text differs from the frame's (D1 §10.3), the unit is stale. It is first
 **re-located**: each cited sentence is found on the new rendition by its recorded text, the
-frame's locators are regenerated, and the golden items are derived again. Only if a cited
-sentence is no longer there is the unit re-authored by the full protocol. A content-preserving
+frame's locators and the unit's current locator are regenerated, and the golden items are derived
+again; the unit's key stays the one fixed at creation. Only if a cited sentence is no longer there
+is the unit re-authored by the full protocol, in a new authoring round and so a new golden run
+(§3.1). A content-preserving
 ingest change triggers nothing, because it keeps the rendition (D1 §3.1), and an edit elsewhere
 on the page leaves the unit's frame resolving.
 > Status: **Proposed** (2026-10-28)
@@ -247,14 +274,17 @@ curve over confidence.
 
 ### 5.2 Entity alignment
 
-Golden entities align to run entities per unit by type plus: normalized symbol and same scope
-segment for local entities; canonical label or alias for global ones; overlapping evidence as
-tie-breaker. Matching is one-to-one, maximizing summed similarity with
+Golden entities align to run entities per unit by type plus: normalized symbol for local
+entities, a shared scope segment raising the similarity but not required, so a local entity whose
+scope differs from the golden's still aligns and scope accuracy (§5.4) counts it as a scope error
+rather than as two unmatched entities; canonical label or alias for global ones; overlapping
+evidence as tie-breaker. Matching is one-to-one, maximizing summed similarity with
 `scipy.optimize.linear_sum_assignment(…, maximize=True)`. Pairs below a tier's similarity threshold
 are removed from the cost matrix **before** assignment, not discarded after it, so a weak pair cannot
 displace a strong one ([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) IE-6). Tier preferences combined into one
 matrix use weights derived from the candidate counts, not fixed powers of ten, which stay exact only
 below 1,000 candidates per unit.
+> Status: **Proposed** (2026-10-28) for local entities across a scope mismatch
 
 ### 5.3 Claim alignment tiers
 
@@ -266,9 +296,14 @@ below 1,000 candidates per unit.
 
 - **Value equivalence.** Formulas: SymPy `simplify(a - b) == 0` with macros expanded, falling
   back to numeric comparison at random points satisfying the claims' conditions when
-  simplification times out (`OPEN-D7-2`), the points drawn from a generator seeded by the two
-  claims' keys so a comparison repeats exactly; sets: SymPy set equality; numbers: equal after unit
-  conversion within 1e-9 relative; text: canonical form (D1 §6.2).
+  simplification times out (`OPEN-D7-2`), the points drawn from a generator seeded by the sorted
+  pair of the two values' canonical forms plus their canonical conditions (goldens carry no keys),
+  so a comparison repeats exactly; sets: SymPy set equality; numbers: in phase 0 equal canonical
+  decimals with units as written, and from phase 1, when pint arrives with M12, equal after unit
+  conversion within 1e-9 relative; text: canonical form (D1 §6.2). A comparison that no tier
+  decides (simplification and sampling both time out or fail) counts as unequal and is counted in
+  the result's detail; there is no manual tier.
+  > Status: **Proposed** (2026-10-28)
 - **Condition equivalence.** Both trees canonicalized; leaves matched one-to-one (values by
   equivalence, `claim` leaves by the alignment of the referenced claims, `phrase` leaves by
   span overlap). With M20 available, z3 equivalence of the translatable parts replaces leaf
@@ -321,7 +356,7 @@ registry in `evaluate/witnesses.py` declares, per witness, which method inputs d
 |---|---|---|
 | **Author markup** | `dfn` terms imply a definition statement defining that term: recall of `defines` claims for marked terms; block classes (`p.dfn`, `p.math`) and section titles imply statement kinds | Valid only in an ablation run (consolidation `use_markup_hints: false`, M08 off) that the experiment harness makes on dev units; never in ordinary runs, which use markup |
 | **Computation** | Correctness (not guideline compliance) of distribution, moment and support claims: M21 verifier outcomes over accepted claims | Reported separately from runs where verifiers were confidence sources (the experiment harness can mask verifier sources) |
-| **Reference facts** | A small reference pack in the domain (`domains/statistics/reference/`): supports, standard parameterizations, means and variances of common families, written from `sympy.stats` and `scipy.stats` definitions | Not readable by any method; consulted only by evaluation |
+| **Reference facts** | A small reference pack in the domain's evaluation data (`domains/statistics/eval/facts/`, beside `baselines.yaml`): supports, standard parameterizations, means and variances of common families, written from `sympy.stats` and `scipy.stats` definitions | Not readable by any method; consulted only by evaluation. The pack's `reference/` holds the annotator reference's worked examples, which every prompt reads (D2 §7.5), so the facts live apart from it |
 | **Cross-pass agreement** | Annotator agreement (§3.3) | Independent of the pipeline, not of the golden author |
 | **Spike reference (v1)** | Agreement between the re-authored dev goldens and the S0/S0-R2 v1 reference on the units both cover; disagreements are read as guideline gaps or golden errors | Independent of the golden author's passes; not of the guideline, which was written from it |
 
@@ -356,19 +391,26 @@ version, schema version or guideline version.
    no unresolved agent task, with `ci promote`, an operator act recorded as an intervention.
    Before the operator confirms, `ci promote` shows the **pre-registered readings**, fixed here
    before any phase 0 result is seen (P0CL-10; operator, 2026-10-28):
-   - dev full-tier F1 with its interval (§5.4), beside the S0-R2 figures (record s0r2.scores);
+   - micro full-tier F1 on the dev golden units, strict and lenient (§5.1), each with its interval
+     (§5.4), beside the S0-R2 comparison figures, which the pack's `eval/baselines.yaml` holds with
+     their record ids (record s0r2.scores);
    - identity quality: B-cubed precision and recall of the run's global entities against the
-     golden canonical labels (§5.4);
-   - the unlocated-quote rate: evidence items left `evidence_unlocated` (D4 §4.3);
-   - the rule-warning rate: claims with an M19 `warning`, the `guideline:` group included (D2 §7.4).
+     golden canonical labels (§5.4), new code rather than a spike port;
+   - the unlocated-quote rate: evidence items left `evidence_unlocated` (D4 §4.3) over all evidence
+     items of the in-scope M24 proposals;
+   - the rule-warning rate: claims in scope with any M19 `warning`, the `guideline:` section
+     included (D2 §7.4), over all claims in scope.
 
    The readings inform the operator's decision and set no automatic threshold, since phase 0 has
    nothing to compare with but the spike. The promoted run becomes the baseline for the first
    experiments and the reference run that later runs record (`ops.run.reference_run_id`, D3 §4)
    for known entities and linking (D4 §4.1, D5 §3.3). Until the phase 2 identity gate, linking to
    it reuses entity keys but not canonical labels, so phase 0's label choices do not persist
-   before identity is measured (D5 §3.3). The `trace` and `spike-pages` runs are debug slices and
-   are never promoted (D6 §8).
+   before identity is measured (D5 §3.3). The `trace` run is a debug slice and is never promoted
+   (D6 §8). The `spike-pages` run is a `complete` run of kind `full` over the `first-pass` corpus
+   scoped to `spike-pages`: ingest, normalize and scope run over the whole corpus and proposals only
+   within the scope, so it is the golden source run, whose M13 output the golden packets of units
+   on any dev page read (§3.1); it is not the run the operator promotes.
 > Status: **Proposed** (2026-10-28, design authority; readings P0CL-10)
 
 Gap proposals from policies (D6 §7.3), schema proposals and guideline rule changes all reach the
@@ -417,7 +459,7 @@ system proceeds under the current guideline.
 
 | Phase | Gate (D0) | Measured as |
 |---|---|---|
-| 0 | Trace units and spike pages answer their typed questions from the database; evaluation runs | Trace acceptance tests pass on fixture proposals (D9 §4). The live `trace` and `spike-pages` runs answer their typed questions: the typed-query rows (D8 §5) for the trace and core units align with expectations derived from their re-authored dev goldens, the golden items each query selects, at the §5.3 tiers. `ci eval` produces dev scores with intervals. Successive `complete` runs scoped to `phase0-golden` converge with no unresolved agent task, and the operator promotes one after reading the pre-registered readings (§7 item 5) |
+| 0 | Trace units and spike pages answer their typed questions from the database; evaluation runs | Trace acceptance tests pass on fixture proposals (D9 §4). The live `trace` and `spike-pages` runs answer their typed questions (D8 §5.3: the trace's questions, and `statement(locator)` for each core unit): evaluation submits the trace and core units' pass-C batches as the proposals of a golden-expectation run, through the acceptance test's submission path (D9 §4), and aligns each query's rows across the live run and that run with the claim alignment of §5, at the §5.3 tiers. The expectation run's `method_configs` option sets M24 to its own named configuration, `agent.opus/expectation`, so its submissions never settle or are reused by live agent tasks. `ci eval` produces dev scores with intervals. Successive `complete` runs scoped to `phase0-golden` converge with no unresolved agent task, and the operator promotes one after reading the pre-registered readings (§7 item 5) |
 | 1 | F1 and intervention share measured per type and stage | Dev and test scores per predicate; `intervention.share` per predicate group and stage |
 | 2 | Identity errors measured; confidence calibrated on goldens | B-cubed and merge/split counts; ECE ≤ 0.05 on dev |
 | 3 | Intervention share falls at equal or better F1 | Test full-tier F1 not worse (paired bootstrap) and `intervention.share` lower than at the phase 2 gate |
@@ -426,15 +468,22 @@ system proceeds under the current guideline.
 
 **Phase 0 freeze.** Phase 0 holds schema v0 (with S4's corrections) and guideline v1 fixed for
 everything it extracts and scores: the dev goldens and the `phase0-golden` runs. The
-`phase0-golden` slice (D2 §12.2, D6 §8) is the phase 0 extraction scope: the pages holding dev
-golden units (listed once the dev set is sampled, §3.1), the forced-dev pages, and the trace and
-core-unit pages, which is what the gate, the §7
-experiments on the dev golden units and the reference-run bootstrap need; every other eligible
-unit is recorded `skipped` with reason `scope` (D6 §7.4), and no test page is in it (P0CL-09;
-operator, 2026-10-28). The promoted run and the goldens it is scored against therefore share one
+`phase0-golden` slice (D2 §12.2, D6 §8) is the phase 0 extraction scope: the four spike pages
+whole (208 units, the trace and core units among them, already worked by the `spike-pages` run and
+reused from it) and every dev golden unit by its unit locator, resolved from the dev set when a run
+starts (§3.1), about 234 packets. That is what the gate, the §7 experiments on the dev golden units
+and the reference-run bootstrap need; whole golden pages would be about 1,655 packets, so the
+operator chose the unit-level scope (2026-10-28; figures from simulating the §3.1 sampler,
+[phase0-golden size](../design_review/evidence/2026-10-28_phase0-golden-size/README.md)). Every other eligible unit is recorded `skipped`
+with reason `scope` (D6 §7.4), and no test page is in it (P0CL-09; operator, 2026-10-28). The
+promoted run and the goldens it is scored against therefore share one
 version. The guideline v2 and schema v0.2 rows (D2 §11, OPEN-D2-7…20) land at the phase 0
 boundary through the §2 rule-change check, because claim keys and goldens move with them. The
 full first pass runs after them, in phase 1 with M10.
+
+**Phase 0 order.** The `trace` run (on fixture proposals, then live); the `spike-pages` run, the
+golden source run (§7 item 5); `ci golden create` from it (§3.1); the golden authoring of §3.2–§3.4;
+then the successive `phase0-golden` runs, whose scope resolves the dev set's units when each starts.
 > Status: **Proposed** (2026-10-28)
 
 ## 10. Open questions
@@ -442,7 +491,7 @@ full first pass runs after them, in phase 1 with M10.
 | ID | Question | Resolved by |
 |---|---|---|
 | OPEN-D7-1 | Golden set sizes that give useful intervals per predicate group at acceptable authoring time | Phase 1 interval widths |
-| OPEN-D7-2 | Formula equivalence: SymPy simplification versus numeric sampling under conditions, and timeouts | Spike S5; S0 evidence (2026-10-28): canonical form decided nearly every value comparison; SymPy and numeric tiers a handful of times; manual decisions recorded with reasons |
+| OPEN-D7-2 | Formula equivalence: SymPy simplification versus numeric sampling under conditions, and timeouts | Spike S5; S0 evidence (2026-10-28): canonical form decided nearly every value comparison; SymPy and numeric tiers a handful of times; manual decisions recorded with reasons. The product has no manual tier: an undecided comparison counts as unequal and is counted (§5.3) |
 | OPEN-D7-3 | Split granularity: page or chapter (pages within a chapter share running examples) | Phase 1: compare dev–test gaps |
 | OPEN-D7-4 | Whether `ppi_py` (and which version) fits the audit design, or a hand-written PPI mean estimator suffices | Phase 2 |
-| OPEN-D7-5 | Whether the page's full text still helps golden passes once standing context is assembled by query (S0-R2 ran packets only) | A paired run with and without page text on dev units |
+| OPEN-D7-5 | Whether the page's full text still helps golden passes once standing context is assembled by query (S0-R2 ran packets only) | A paired comparison on dev units through the golden server's `page-text` variant (§3.2); its results are an evidence record (ADR-0010), never goldens |

@@ -28,8 +28,11 @@ bindings as the agent's proposals state them ([D5 §11](D5-consolidation-identit
 From phase 1 the same scopes and bindings must also come from M13 and D5 §4.
 
 Notation in the tables: entities are given short local references (`X`, `S1`); `≔` introduces a
-formula value; symbol bindings are listed under each claim. Source text is quoted from Siegrist,
-*Random* (CC BY 2.0, <https://www.randomservices.org/random/>).
+formula value; symbol bindings are listed under each claim. A structural claim (`defines`,
+`proves`) belongs to its subject statement and takes no role, shown as `S1 · —`, as the v1
+reference batches record it. Source text is quoted from Siegrist, *Random* (CC BY 2.0,
+<https://www.randomservices.org/random/>).
+> Status: **Proposed** (2026-10-28) for the structural claims' statement
 
 ---
 
@@ -69,7 +72,7 @@ Unit `dfn1` (`<p class="dfn">`):
 |---|---|---|---|---|---|---|
 | C1 | Z | `takes_values_in` | set ≔ `\R` | supposed, scope `section` | S0 · premise | — |
 | C2 | X | `defined_as` | formula ≔ `a + b \, Z` | defined | S1 · definiens | `and(member(a, \R), member(b, (0, \infty)))` |
-| C3 | S1 | `defines` | LSF | asserted | — | — |
+| C3 | S1 | `defines` | LSF | asserted | S1 · — | — |
 | C4 | LSF | `construction_formula` | formula ≔ `a + b \, Z` (the generated variable is the subject's, not part of the formula); qualifiers `base_variable: Z`, `param_symbols: {location: a, scale: b}` | defined | S1 · definiens | as C2 |
 | C5 | LSF | `has_parameter` | LSF.loc | defined | S1 · definiens | — |
 | C6 | LSF | `has_parameter` | LSF.scale | defined | S1 · definiens | — |
@@ -151,7 +154,7 @@ followed by a `<details>` proof beginning "The MGF of \(a + b X\) is …".
 | C1 | X | `has_distribution` | N; `param_values {mean: ≔ \mu, variance: ≔ \sigma^2}` | supposed | S1 · premise | — |
 | C2 | Y | `defined_as` | formula ≔ `a + b X` | defined | S1 · definiens | `and(member(a, \R), member(b, \R \setminus \{0\}))` (restrictions stated with it on its own symbols, §10.7 rule 2) |
 | C3 | Y | `has_distribution` | N; `param_values {mean: ≔ a + b \mu, variance: ≔ b^2 \sigma^2}` | asserted | S1 · conclusion | `and(claim C1, member(a, \R), member(b, \R \setminus \{0\}))` |
-| C4 | S2 | `proves` | S1 | asserted | — | — |
+| C4 | S2 | `proves` | S1 | asserted | S2 · — | — |
 | D1 | Y | `has_distribution` | N; `param_values {mean: ≔ a + b \mu, standard_deviation: ≔ \lvert b \rvert \sigma}` | asserted, **establishment `derived`** | S1 · conclusion | as C3 |
 
 Symbol bindings:
@@ -161,6 +164,10 @@ Symbol bindings:
   bind `free`.
 - D1: as C3; `derived_from` C3, using the schema rule `variance = standard_deviation^2` with
   `standard_deviation > 0`.
+
+C4 is also synthesized from the containment of the `details` block in `rel1` (the source
+profile's `synthesize:`, [D5 §3.5](D5-consolidation-identity-confidence.md#35-statements));
+the synthesized claim and an author-stated one have equal keys and fuse into one claim.
 
 **Must not appear.** A standard deviation of `b\sigma` (wrong for negative b) or `b^2 \sigma^2`
 bound to standard deviation; C3 without the `claim C1` condition; C1 with modality `asserted`.
@@ -205,7 +212,7 @@ and the unit's second paragraph (part of `div.unit#dfn`; S0 found the trace had 
 | C1 | Y | `has_distribution` | N; `param_values {mean: ≔ \mu, standard_deviation: ≔ \sigma}` | supposed | S1 · premise | — |
 | C2 | X | `defined_as` | formula ≔ `e^Y` | defined | S1 · definiens | — |
 | C3 | X | `has_distribution` | LN; `param_values {mu: ≔ \mu, sigma: ≔ \sigma}` | defined | S1 · definiens | `and(claim C1, member(\mu, \R), member(\sigma, (0, \infty)))` |
-| C4 | S1 | `defines` | LN | asserted | — | — |
+| C4 | S1 | `defines` | LN | asserted | S1 · — | — |
 | C5 | LN | `has_parameter` | LN.mu | defined | S1 · definiens | — |
 | C6 | LN | `has_parameter` | LN.sigma | defined | S1 · definiens | — |
 | C7 | LN | `transformation_of` | N; qualifiers `transform: ≔ e^Y`, `param_mapping {mu: mean, sigma: standard_deviation}` (canonical names of N's parameters) | defined | S1 · definiens | — |
@@ -217,7 +224,7 @@ and the unit's second paragraph (part of `div.unit#dfn`; S0 found the trace had 
 | C13 | Z | `has_distribution` | SN | supposed | S1 · premise | — |
 | C14 | W | `defined_as` | formula ≔ `e^Z` | defined | S1 · definiens | — |
 | C15 | W | `has_distribution` | SLN | defined | S1 · definiens | `claim C13` |
-| C16 | S1 | `defines` | SLN | asserted | — | — |
+| C16 | S1 | `defines` | SLN | asserted | S1 · — | — |
 | C17 | SLN | `transformation_of` | SN; qualifier `transform: ≔ e^Z` | defined | S1 · definiens | — |
 
 Symbol bindings: C1 `\mu`, `\sigma` bind `free`; C3 `\mu` binds `param_of C1 mean`, `\sigma`

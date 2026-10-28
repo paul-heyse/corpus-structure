@@ -52,7 +52,7 @@ non-positive states. Here they are fields and statuses
 
 | # | Stage | Primary method | Escalation on a measured gap | Writes |
 |---|---|---|---|---|
-| 1 | Ingest and segment | html5lib through lxml, profile-driven math delimiting and one math grammar (HTML; ADR-0012), Docling (PDF), spaCy sentences with inline math merged | MinerU VLM for failed layouts | documents, renditions, segments, spans |
+| 1 | Ingest and segment | html5lib through lxml, profile-driven math delimiting and one math grammar (HTML; ADR-0012), Docling (PDF), spaCy sentences with each inline math span one word | MinerU VLM for failed layouts | documents, renditions, segments, spans |
 | 2 | Profile | GLiNER2 unit classification, term statistics, embeddings | Opus domain brief | profile observations |
 | 3 | Schema | LinkML domain pack | Opus schema proposals from coverage gaps | schema version |
 | 4 | Extract | GLiNER2 compiled from the schema; `JointIE`; spaCy patterns; math spans | LLM claim extraction (local, then Opus) | observations |
@@ -83,7 +83,7 @@ with those items explicitly unresolved.
 
 | Phase | Adds | Opus mainly | Gate |
 |---|---|---|---|
-| 0 · Skeleton | Meta-model in PostgreSQL, HTML ingest, Opus intervention tools, query API, evaluation harness | Extracts the claims of the `phase0-golden` slice: the pages holding dev golden units, the forced-dev pages, and the trace and core-unit pages ([D7 §9](D7-evaluation-goldens-outer-loop.md#9-phase-gates), D6 §7.4); drafts schema and guideline; dispatches Sonnet golden passes | The trace units and the spike pages answer their typed questions from the database; evaluation runs |
+| 0 · Skeleton | Meta-model in PostgreSQL, HTML ingest, Opus intervention tools, query API, evaluation harness | Extracts the claims of the `phase0-golden` scope: the four spike pages whole (208 units, the trace and core units among them) and every dev golden unit by its unit locator, about 234 packets ([D7 §9](D7-evaluation-goldens-outer-loop.md#9-phase-gates), D6 §7.4); drafts schema and guideline; dispatches Sonnet golden passes | The trace units and the spike pages answer their typed questions from the database; evaluation runs |
 | 1 · Baseline | Compiled GLiNER2 schemas, spaCy, math and table readers, the local LLM tier; the full first pass, run with M10 | Adjudicates what the local LLM could not settle | F1 and intervention share measured per type and stage |
 | 2 · Consolidation | Linking, claim fusion, pgmpy confidence, rule validation | Grey-zone identities and conflicts | Identity errors measured; confidence calibrated on goldens |
 | 3 · Distillation | Escalation ladders across tiers, GLiNER2 LoRA adapters, gepa prompt tuning | Golden units (Sonnet passes) for the errors metrics surface | Intervention share falls at equal or better F1 |
@@ -91,8 +91,11 @@ with those items explicitly unresolved.
 | 5 · Second corpus | A corpus chosen for where statistics struggled; later hosted models and tenants | New domain packs | A new pack built with bounded interventions |
 
 > Status: **Proposed** (2026-10-28, P0CL-09; operator, 2026-10-28): phase 0 extracts only a slice
-> the agent tier can carry. The whole non-test first pass, about 3,600 packets, is more than its
-> sessions should carry before a cheaper tier exists, so it waits for the local LLM tier
+> the agent tier can carry. The whole non-test first pass, about 3,800 packets, is more than its
+> sessions should carry before a cheaper tier exists, so it waits for the local LLM tier. Whole
+> golden pages would still be about 1,655 packets, against about 234 for the unit-level scope
+> (simulation of the D7 §3.1 sampler over 500 seeds, [phase0-golden size](../design_review/evidence/2026-10-28_phase0-golden-size/README.md), 2026-10-28), so
+> the slice takes the dev golden units by locator, not their pages.
 
 ## Decisions taken (2026-10-28)
 

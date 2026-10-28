@@ -123,9 +123,10 @@ CREATE TABLE meta.schema_slot (
   multivalued         boolean NOT NULL DEFAULT false,
   qualifiers          text[] NOT NULL DEFAULT '{}',
   identity_qualifiers text[] NOT NULL DEFAULT '{}',
+  subsets             text[] NOT NULL DEFAULT '{}',  -- the named predicate subsets the slot belongs to (e.g. 'family_structure'; rules' subset:<name>)
   extract             text,
   description         text,
-  annotations         jsonb NOT NULL DEFAULT '{}',
+  annotations         jsonb NOT NULL DEFAULT '{}',   -- the slot's scalar ci: annotations (ci:param_map, symmetric, ...)
   PRIMARY KEY (schema_version_id, name)
 );
 
@@ -140,12 +141,16 @@ CREATE TABLE meta.schema_enum (
 CREATE TABLE meta.schema_rule (
   schema_version_id bigint NOT NULL REFERENCES meta.schema_version ON DELETE CASCADE,
   rule_id     text NOT NULL,
-  applies_to  text NOT NULL,
-  severity    text NOT NULL CHECK (severity IN ('warning','error')),
-  when_expr   text NOT NULL,
-  check_expr  text NOT NULL,
+  grp         text NOT NULL CHECK (grp IN ('rules','guideline','derive')),   -- the rules.yaml section (D2 §7.4)
+  applies_to  text[] NOT NULL,                   -- the predicate set compiled from a predicate, a list, subset:<name> or any
+  at          text[] NOT NULL DEFAULT '{}',      -- call sites, 'batch' and 'finalize' (D5 §8.2); empty for derive rules
+  severity    text CHECK (severity IN ('warning','error')),   -- null for derive rules; always 'warning' in grp 'guideline'
+  when_expr   text NOT NULL,                     -- a derive rule's match condition
+  check_expr  text,                              -- null for derive rules, whose templates stay in the compiled rules artifact
   description text,
-  PRIMARY KEY (schema_version_id, rule_id)
+  PRIMARY KEY (schema_version_id, rule_id),
+  CHECK ((grp = 'derive') = (severity IS NULL)),
+  CHECK ((grp = 'derive') = (check_expr IS NULL))
 );
 
 CREATE TABLE meta.guideline_version (
@@ -168,10 +173,20 @@ CREATE TABLE meta.guideline_version (
 **Compiled artifacts** are identified by what produced them as well as by the sources: a
 schema version row holds sources only and never changes, and each compiler output is a
 `meta.compiled_artifact` row of (schema version, compiler, compiler version, kind). A compiler fix
-adds rows beside the old ones, so runs that used the old artifacts keep them; method
-configurations reference artifact hashes (`ops.method_config.params`), so a new artifact is a new
-configuration. Compilers are deterministic, so a lost or pruned artifact is rebuilt from the
-sources and its hash checked, never edited (P0CL-15; operator, 2026-10-28).
+adds rows beside the old ones, so runs that used the old artifacts keep them. A method
+configuration declares the artifacts it reads by (compiler, kind); the method registry resolves
+them against the run's schema version, and the resolved hashes are part of the configuration's
+canonical params (`ops.method_config.params`), so a new artifact is a new configuration.
+Compilers are deterministic, so a lost or pruned artifact is rebuilt from the sources and its
+hash checked, never edited (P0CL-15; operator, 2026-10-28).
+> Status: **Proposed** (2026-10-28)
+
+**The `meta.schema_*` tables are a projection** of the schema-table artifact (D2 §7.1). When a
+schema-table compiler version adds its `meta.compiled_artifact` row for a schema version, that
+version's `schema_class`, `schema_slot`, `schema_enum` and `schema_rule` rows are replaced from
+it. No run reads them as input: methods read compiled artifacts by hash, so replacing the
+projection changes nothing a run computed. They serve SQL joins from claims to their schema
+definitions and the grouping of metrics by class and predicate.
 > Status: **Proposed** (2026-10-28)
 
 ## 4. `ops`: methods, policies, runs and tasks
@@ -191,7 +206,7 @@ CREATE TABLE ops.method_config (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   method_id   bigint NOT NULL REFERENCES ops.method,
   name        text NOT NULL DEFAULT 'default',   -- named configuration from methods.yaml: '<method>/<name>'
-  params      jsonb NOT NULL,                    -- canonical JSON; includes compiled-artifact hashes it depends on
+  params      jsonb NOT NULL,                    -- canonical JSON; its (compiler, kind) artifact references resolved to hashes for one schema version (§3)
   config_hash text NOT NULL UNIQUE,              -- D1 §10.1 'cfg:' key
   tier        text CHECK (tier IN ('deterministic','encoder','local_llm','agent','hosted_llm','human')),
   created_at  timestamptz NOT NULL DEFAULT now()
@@ -217,7 +232,7 @@ CREATE TABLE ops.policy_rule (
   priority          integer NOT NULL,            -- position in the chain (D6 §7.1)
   unit_type         text NOT NULL,               -- the chain's default or the entry's own (D6 §7.1)
   condition         text NOT NULL,               -- rule-engine expression over the unit context
-  action            jsonb NOT NULL,              -- {"method_config": "cfg:…", "limit": 50, "then": "stop|continue"}
+  action            jsonb NOT NULL,              -- {"method": "<method>/<name>", "limit": 50, "then": "stop|continue"} (§6.3)
   enabled           boolean NOT NULL DEFAULT true,
   UNIQUE (policy_version_id, rule_key)
 );
@@ -226,7 +241,7 @@ CREATE TABLE ops.debug_slice (
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   project_id bigint NOT NULL REFERENCES meta.project,
   name       text NOT NULL,
-  selector   jsonb NOT NULL,                     -- {"locators": ["special/Normal.html#rel1", "special/Normal.html@p:Suppose again that", ...]}; resolved per rendition (D1 §3.4)
+  selector   jsonb NOT NULL,                     -- the slice as declared (D2 §12.2, D6 §8): locators ("special/Normal.html#rel1", ...), pages, includes, {"index": …}, {"golden_set": label}; resolved at run start, locators per rendition (D1 §3.4)
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, name)
 );
@@ -236,14 +251,14 @@ CREATE TABLE ops.run (
   project_id           bigint NOT NULL REFERENCES meta.project,
   kind                 text NOT NULL CHECK (kind IN ('ingest','full','slice','experiment','rescore','golden')),
   phase                smallint NOT NULL,        -- 0–5 (D0); policies read it
-  options              jsonb NOT NULL DEFAULT '{}',  -- agent_mode, agent_reuse, fresh methods, gpu mode, scope (a slice naming the units routed; the kind stays, so the run can be promoted) (D6 §2, §4, §5, §8)
+  options              jsonb NOT NULL DEFAULT '{}',  -- agent_mode, agent_reuse, fresh methods, gpu mode, corpus (a slice, default 'first-pass'), scope (a slice naming the units routed, with its resolved unit list and that list's hash; the kind stays, so the run can be promoted) (D6 §2, §4, §5, §8)
   debug_slice_id       bigint REFERENCES ops.debug_slice,
-  corpus_hash          text NOT NULL,            -- hash over selected rendition keys
+  corpus_hash          text NOT NULL,            -- over the corpus's (document key, content hash) set and the ingest config hash (below)
   schema_version_id    bigint NOT NULL REFERENCES meta.schema_version,
   guideline_version_id bigint REFERENCES meta.guideline_version,
   policy_version_id    bigint NOT NULL REFERENCES ops.policy_version,
   code_commit          text NOT NULL,
-  parent_run_id        bigint REFERENCES ops.run,
+  parent_run_id        bigint REFERENCES ops.run,    -- kind 'golden': the run whose renditions and M13 output the golden packets read (§8)
   reference_run_id     bigint REFERENCES ops.run,    -- the promoted run when this run was created; null at bootstrap; written at insert only (§8)
   iteration            integer NOT NULL DEFAULT 0,   -- current route iteration (D6 §2)
   iteration_limit      integer NOT NULL DEFAULT 3,
@@ -262,6 +277,14 @@ ALTER TABLE meta.project ADD FOREIGN KEY (promoted_run_id) REFERENCES ops.run;
 changes nothing the run computes, and a run re-executed over the same inputs reads the same
 reference (P0CL-05; operator, 2026-10-28). The repository sets it in the `INSERT` that creates the
 run and has no update path for it.
+> Status: **Proposed** (2026-10-28)
+
+**The corpus hash is computable at insert.** `ops.run.corpus_hash` is the SHA-256 of the
+canonical JSON (D1 §10.1) of the set of (document key, content hash) pairs of the documents the
+run's corpus selects (run option `corpus`, D6 §8), in document-key order, together with the hash
+of the run's ingest configuration. Both are known before ingest runs, so the hash does not wait
+for renditions; two runs with equal corpus hashes read the same bytes through the same adapter
+configuration.
 > Status: **Proposed** (2026-10-28)
 
 ## 5. `kb`: evidence, observations, entities and claims
@@ -304,9 +327,11 @@ CREATE TABLE kb.segment (
   start_offset integer NOT NULL,
   end_offset   integer NOT NULL,
   text         text NOT NULL,                    -- canonical_text[start:end], stored for search
-  ts_config    regconfig NOT NULL DEFAULT 'english',   -- the segment's language (source profile), selecting its BM25 index; not content
-  attrs        jsonb NOT NULL DEFAULT '{}',      -- author markup (D1 §3.2)
+  ts_config    regconfig NOT NULL DEFAULT 'english',   -- from the source profile's language (default 'english'), selecting its BM25 index; not content
+  attrs        jsonb NOT NULL DEFAULT '{}',      -- author markup (D1 §3.2); never diagnostics, which live in kb.rendition_build.parse_detail
   parse_status text NOT NULL DEFAULT 'ok' CHECK (parse_status IN ('ok','partial','failed')),
+  parse_reason text,                             -- why `partial`/`failed` (delimiting, D1 §3.1); content, inside the digest
+  CHECK ((parse_status = 'ok') = (parse_reason IS NULL)),
   CHECK (start_offset <= end_offset)
 );
 CREATE INDEX segment_range ON kb.segment (rendition_id, start_offset, end_offset);
@@ -347,8 +372,9 @@ combined M01 and M03 output before writing, then inserts the rendition with `ON 
 (document_id, content_digest) DO NOTHING`, writes segments only when the rendition row is new, and
 records its build either way. A content-preserving ingest change (a port, a spaCy bump, a profile
 fix that changes nothing) therefore keeps every rendition, segment and span row and every key;
-parser diagnostics and exclusion records, which depend on the configuration, live on the build
-(P0CL-01; operator, 2026-10-28).
+parser diagnostics (source lines, parse errors with positions) and exclusion records, which
+depend on the configuration, live on the build's `parse_detail`, and no segment carries them, so
+the digest covers whole segments (P0CL-01; operator, 2026-10-28).
 > Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
 > Status: **Proposed** (2026-10-28)
 
@@ -385,8 +411,9 @@ LIMIT :k;
 > note §6) and documented (overview §2–§3); the design is **Proposed**. S6 runs it on the corpus
 > with the partial index and checks with `EXPLAIN` that the planner uses it
 
-`ts_config` is the segment's language, set by ingest from the source profile when a rendition's
-segments are first written; it is search configuration, outside the content digest (D1 §3.2).
+`ts_config` is the segment's language, set by ingest from the source profile's `language` (default
+`english`, [D4 M01](D4-method-catalog.md#m01-ingesthtml)) when a rendition's segments are first
+written; it is search configuration, outside the content digest (D1 §3.2).
 Each configuration has its own partial BM25 index, whose `text_config` and `ts_config =` predicate
 agree, so a second language is an additive index over rows with another value, never a rewrite of
 the table or of the first index; a query chooses the index by the configuration it searches.
@@ -414,11 +441,11 @@ CREATE TABLE ops.task (
                         'alternative_group','identity_group','run','golden_unit')),
   unit_id          bigint,                       -- id in the table named by unit_type (eval.golden_unit for 'golden_unit'); null for groups and 'run'
   unit_key         text,                         -- stable key of the unit across renditions (D1 §3.4 unit key for annotation units; the group key for groups)
-  method_config_id bigint NOT NULL REFERENCES ops.method_config,
+  method_config_id bigint NOT NULL REFERENCES ops.method_config,   -- the configuration the run resolved for the stage or for the rule's '<method>/<name>' (§6.3)
   trigger_rule_id  bigint REFERENCES ops.policy_rule,  -- null for base-stage tasks
   trigger_metrics  jsonb NOT NULL DEFAULT '{}',  -- the metric values the rule saw
   input_hash       text NOT NULL,                -- D6 §4
-  packet_hash      text,                         -- M24/M10 tasks: hash of the packet text the assembler produced and the task served (D4 §4.1, D8 read_unit); null otherwise
+  packet_hash      text,                         -- the packet hash the method's input digest returns (D4 §1): for M24 and M10, the hash of the packet text the assembler produced and the task served (D4 §4.1, D8 read_unit); null otherwise
   reused_task_id   bigint REFERENCES ops.task,   -- set when status = 'reused'
   status           text NOT NULL CHECK (status IN ('pending','running','awaiting_agent','done',
                         'empty','failed','skipped','reused','cancelled')),
@@ -427,17 +454,17 @@ CREATE TABLE ops.task (
   claimed_by       text,                         -- worker id or agent session while running
   lease_until      timestamptz,                  -- 5 min for workers, 30 min for agent leases (D6 §3.2, D8 §2.1)
   cost             jsonb NOT NULL DEFAULT '{}',  -- {"wall_ms":…, "gpu_ms":…, "tokens_in":…, "tokens_out":…}
-  error            jsonb,
+  error            jsonb,                        -- failure detail; an agent task also keeps its first rejected submission result here while it stays awaiting_agent for its one resubmission (D8)
   reason           text,                         -- why skipped or cancelled: 'scope', 'limit', 'budget', 'prerequisite_failed', ...
   created_at       timestamptz NOT NULL DEFAULT now(),
   started_at       timestamptz,
-  finished_at      timestamptz
+  finished_at      timestamptz                   -- set by every terminal write, including creation as 'reused' or 'skipped'; fates are read against ops.run.finished_at (§8)
 );
 -- the queue (store note L-S1): what workers claim, what expires, what the agent leases
 CREATE INDEX task_pending ON ops.task (run_id, stage, method_config_id, priority DESC, id) WHERE status = 'pending';
 CREATE INDEX task_lease   ON ops.task (lease_until) WHERE status = 'running';
 CREATE INDEX task_agent   ON ops.task (run_id, priority DESC, id) WHERE status = 'awaiting_agent';
-CREATE INDEX task_cache ON ops.task (method_config_id, input_hash) WHERE status IN ('done','empty');
+CREATE INDEX task_cache ON ops.task (method_config_id, input_hash) WHERE status IN ('done','empty') AND unit_type <> 'run';   -- run-level tasks are never reused (§8)
 CREATE INDEX task_run   ON ops.task (run_id, stage);
 
 CREATE TABLE kb.rendition_build (                -- provenance: which adapter configurations produced a rendition
@@ -445,7 +472,7 @@ CREATE TABLE kb.rendition_build (                -- provenance: which adapter co
   method_config_id bigint NOT NULL REFERENCES ops.method_config,   -- the adapter configuration (M01 with M03)
   rendition_id     bigint NOT NULL REFERENCES kb.rendition,
   task_id          bigint NOT NULL REFERENCES ops.task,            -- the ingest task that first built it
-  parse_detail     jsonb NOT NULL DEFAULT '{}',  -- exclusions, warnings, parser diagnostics (D4 M01)
+  parse_detail     jsonb NOT NULL DEFAULT '{}',  -- exclusions, warnings, parser diagnostics: source lines, parse errors with positions (D4 M01); never on segments
   created_at       timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (document_id, method_config_id)    -- one configuration on one document's bytes yields one rendition
 );
@@ -478,10 +505,12 @@ CREATE TABLE kb.entity (
   label             text NOT NULL,
   scope             text NOT NULL CHECK (scope IN ('global','local')),
   scope_segment_id  bigint REFERENCES kb.segment,
-  attrs             jsonb NOT NULL DEFAULT '{}', -- identity attributes only (D1 §4.1)
+  attrs             jsonb NOT NULL DEFAULT '{}', -- identity attributes only (D1 §4.1); empty for statements, which key by anchor locator
+  kind              text,                        -- statements only: the StatementKind value (D1 §4.1, §4.3); a field like label, not identity
   confidence        real,
   UNIQUE (run_id, key),
-  CHECK ((scope = 'local') = (scope_segment_id IS NOT NULL))
+  CHECK ((scope = 'local') = (scope_segment_id IS NOT NULL)),
+  CHECK ((type = 'Statement') = (kind IS NOT NULL))
 );
 CREATE INDEX entity_type ON kb.entity (run_id, type);
 
@@ -500,7 +529,7 @@ CREATE TABLE kb.entity_anchor (                  -- statements and local entitie
   PRIMARY KEY (entity_id, segment_id)
 );
 
-CREATE TABLE kb.entity_mention (                 -- which mention observations resolved to the entity
+CREATE TABLE kb.entity_mention (                 -- which observations resolved to the entity: mentions, or (phase 0) proposals' entity items
   entity_id      bigint NOT NULL REFERENCES kb.entity ON DELETE CASCADE,
   observation_id bigint NOT NULL REFERENCES kb.observation,
   PRIMARY KEY (entity_id, observation_id)
@@ -565,18 +594,20 @@ Remaining `ops` tables:
 ```sql
 CREATE TABLE ops.measurement (
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  run_id     bigint NOT NULL REFERENCES ops.run ON DELETE CASCADE,
+  run_id     bigint NOT NULL REFERENCES ops.run ON DELETE CASCADE,   -- the run whose task or orchestrator wrote it
+  task_id    bigint REFERENCES ops.task,         -- the method task that wrote it; null for the orchestrator's run metrics (D6 §6); read through reuse (§8)
   iteration  integer NOT NULL,
   scope_type text NOT NULL CHECK (scope_type IN ('run','rendition','segment','entity','claim','predicate',
-                  'class','stage','method')),
+                  'class','stage','method','rule')),
   scope_id   bigint,
-  scope_key  text,                               -- predicate or class name, stage name, method name
-  metric     text NOT NULL,                      -- D6 §6 names
+  scope_key  text,                               -- predicate or class name, stage name, method name, rule id
+  metric     text NOT NULL,                      -- D6 §6 names; e.g. 'rules.evaluated' (scope a rule) from each M19 pass
   value      double precision,
   detail     jsonb NOT NULL DEFAULT '{}',
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX measurement_lookup ON ops.measurement (run_id, metric, scope_type, scope_id);
+CREATE INDEX measurement_task   ON ops.measurement (task_id) WHERE task_id IS NOT NULL;
 
 CREATE TABLE ops.intervention (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -587,7 +618,7 @@ CREATE TABLE ops.intervention (
   session_ref text,                              -- Claude Code session id or similar
   kind        text NOT NULL CHECK (kind IN ('extract','adjudicate','golden_write','golden_adjudicate',
                    'schema_proposal','guideline_change','policy_proposal','experiment_decision',
-                   'direction','ack','veto','audit')),
+                   'promotion','direction','ack','veto','audit')),   -- promotion: setting meta.project.promoted_run_id (D7 §7)
   target      jsonb NOT NULL,                    -- what it acts on (unit key, claim key, golden unit, ...)
   refs        jsonb NOT NULL DEFAULT '{}',       -- where the content is: {"observations": [...], "golden_pass": id,
                                                  --   "schema_version": id, "guideline_version": id, "policy_version": id, "experiment": id}
@@ -614,12 +645,39 @@ CREATE TABLE ops.experiment (
 );
 ```
 
+**Method-written measurements belong to their task.** A measurement a method writes carries its
+`task_id` and is read through reuse (`ops.run_measurement`, §8); the orchestrator's run metrics
+(D6 §6) carry none. Each M19 pass records its per-rule counts of evaluated (rule, claim) pairs
+as measurements of its own task (metric `rules.evaluated`, scope type `rule`, scope key the rule
+id), which coverage reads beside the `verification` observations that hold failing outcomes only
+(D4 M19). M19 tasks are of unit `run` and never reused (§8), so these rows always belong to the
+run that wrote them.
+> Status: **Proposed** (2026-10-28)
+
+**Writers.** The repository layer writes `ops.intervention`, `eval.golden_pass`, and a golden
+unit's `status` and `agreement` (§7), through primitives that their owners call: the agent
+interface's submission tools (`propose_claims`, `write_golden`) and the CLI commands record
+interventions, `write_golden` stores passes, and evaluation supplies the agreement and status it
+computes. No owner writes these rows with its own SQL.
+> Status: **Proposed** (2026-10-28)
+
 ## 6. JSONB contracts
 
-Keys and rendition content digests (D1 §10.1, §3.2) are computed in Python from canonical JSON, never from `jsonb::text`, whose key order and number formatting are PostgreSQL's. JSONB is validated once at the Pydantic boundary with the compiled per-version models, and `core/schemas/*.json` are generated from the same adapters ([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-10); defaults are filled for rules and omitted in storage through `Field(exclude_if=…)` (L-11).
+Keys and rendition content digests (D1 §10.1, §3.2) are computed in Python from canonical JSON, never from `jsonb::text`, whose key order and number formatting are PostgreSQL's.
 
-Each JSONB column has a JSON Schema in `corpus_structure/core/schemas/` ([D9 §1](D9-repository-and-phase0.md#1-layout)),
-validated on write by the repository layer. Summaries:
+JSONB is validated once, at the Pydantic boundary where it enters (a method's output, a
+submission, a loader), never again on write: the repository layer takes validated models. The
+domain-independent shapes (values, condition trees, the observation payloads by kind, the
+operations JSON, the citation frame and the generic stored items of D1 §10.3) are core models,
+and `corpus_structure/core/schemas/*.json` ([D9 §1](D9-repository-and-phase0.md#1-layout)) are
+generated from them and hold only those shapes. What a predicate contributes (its object value
+and its qualifiers, schema qualifiers included) is typed by the per-version models compiled from
+the run's schema version, which are compiled artifacts (§3), not files in `core/schemas`
+([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-10).
+Defaults are filled for rules and omitted in storage through `Field(exclude_if=…)` (L-11).
+> Status: **Proposed** (2026-10-28)
+
+Summaries of the shapes:
 
 ### 6.1 Values, qualifiers, conditions
 
@@ -638,28 +696,36 @@ validated on write by the repository layer. Summaries:
 | Kind | Required fields | Optional |
 |---|---|---|
 | `author_markup` | `markup` (`dfn`, `unit`, `details`, `link`, `class`), `value` | `target` (link target); `synthesize` (on a block whose kind the source profile's `details_kinds.synthesize` names: the claim its containment states, `{predicate, object, evidence}`, which consolidation turns into a claim; D4 M01, D5 §3.5; P0CL-07) |
-| `mention` | `label`, `text`, `start`, `end` | `attributes` {group: {label, score}}, `math_ref` |
+| `mention` | `label`, `text`, `start`, `end` | `attributes` {group: {label, score}}, `math_ref`; `math` (M09 `symbol` mentions: the occurrence's decoration, such as its base, subscript and power; D4 M09) |
 | `relation` | `label` (predicate), `head` {`start`,`end`,`label`}, `tail` {…} | `joint` (bool: from `JointIE`), `feasible` |
 | `record` | `structure`, `fields` {name: [{`text`,`start`,`end`,`score`}]} | `anchor` |
 | `attribute` | `mention_ref`, `group`, `value` | — |
 | `classification` | `task`, `labels` [{label, score}] | `feasible`, `violations` (constrained classifier) |
-| `value` | `value` (D1 §6) | `parse_error` |
-| `scope` | `mention_ref`, `binding_site` (a `mention_ref`), `scope_segment` (key), `extent` | `binding` (provisional kind, D4 M13) |
+| `value` | `value` (D1 §6) | `parse_error`; `math_kind` (the typed start symbol that read the span: formula, relation, membership or set; D4 M11) |
+| `scope` | `mention_ref` with the mention's `start`, `end`; `binding_site` (a `mention_ref`) with its `start`, `end`; `scope_segment` (key), `extent` | `binding` (provisional kind, D4 M13); `reopens` (for a "Suppose again" binding site: the `mention_ref` and offsets of the earlier binding site it reopens, D4 M13) |
 | `link` | `mention_ref` (M14) or `pair` of entity keys (M15), `candidate` (entity key, or `{"new": {type, label}}`), `score`, `features` | `rank` |
-| `claim_proposal` | `batch` (a stored-form `ClaimProposalBatch` on the observation's rendition, D2 §7.3); for authored proposals (M10, agent) also `authored` (the model-facing batch as submitted) and `citation_frame` (§7), which are the authority, `batch` being derived from them by the quote cascade (D4 §4.3) | `rationale`; `rejected` [{`item`, `reason`}] (D4 §4.3); `establishment: derived`, `derived_from` (claim keys) and `rule` for M23 |
+| `claim_proposal` | `batch` (a stored-form `ClaimProposalBatch` on the observation's rendition, D2 §7.3); for authored proposals (M10, agent) also `authored` (the model-facing batch as submitted) and `citation_frame` (D1 §10.3), which are the authority, `batch` being derived from them by the quote cascade (D4 §4.3) | `rationale`; `rejected` [{`item`, `reason`}] (D4 §4.3); `establishment: derived`, `derived_from` (claim keys) and `rule` for M23 |
 | `judgment` | `target` {`kind`: observation, claim, alternative_group, identity_group; `ref`}, `decision` (`accept`, `reject`, `choose`, `merge`, `split`, `unsure`), `rationale`, `guideline_version` | `chosen` (for `choose`), `faithful` (bool, with several chosen), `confidence` (`low`, `medium`, `high`) |
-| `verification` | `claim_key`, `verifier`, `verdict` (`consistent`, `refuted`, `not_checkable`) | `detail`, `counterexample` |
+| `verification` | `claim_key`, `verifier`, `verdict` (`consistent`, `refuted`, `not_checkable`) | `detail`, `counterexample`; M19 writes only failing outcomes, `verdict: refuted` with `detail {rule, severity, message}` (D5 §8.1) |
 
 ### 6.3 Operations JSON
 
 - **`mention_ref`** is `{"task": id, "ordinal": n}`, or `{"ordinal": n}` inside the same task,
-  because observation ids are assigned only when a task's observations are copied in.
+  because observation ids are assigned only when a task's observations are copied in. A payload
+  that refers to another task's mentions also records their offsets beside each ref (`scope`,
+  §6.2): a task reused by content digest (M13) keeps refs to the M09 task it first read, which
+  may be older than the run's own, and readers match by offsets on the rendition, which the
+  digest makes identical (**Proposed**, 2026-10-28).
 - `ops.task.trigger_metrics`: `{metric_name: value}` exactly as the policy rule evaluated them.
 - `ops.task.cost`: `wall_ms`, `gpu_ms`, `tokens_in`, `tokens_out`, `model`.
-- `ops.policy_rule.action`: `method_config` (config hash), `limit` (max tasks this rule may
-  create per iteration), `then` (`stop` ends the chain for the unit, `continue` evaluates the next
-  rule).
-- `ops.intervention.target`: `{"kind": "unit"|"claim"|"alternative_group"|"golden_unit"|"schema"|"guideline"|"policy", "ref": …}`.
+- `ops.policy_rule.action`: `method` (a named configuration, `<method>/<name>`, of the domain's
+  `methods.yaml`), `limit` (max tasks this rule may create per iteration), `then` (`stop` ends the
+  chain for the unit, `continue` evaluates the next rule). The name is resolved per run against
+  the run's method configurations (D6 §7.1), never stored as a config hash, so a policy version
+  is independent of the artifacts its methods read; the task a rule creates records the resolved
+  `method_config_id` beside `trigger_rule_id`.
+  > Status: **Proposed** (2026-10-28)
+- `ops.intervention.target`: `{"kind": "unit"|"claim"|"alternative_group"|"golden_unit"|"schema"|"guideline"|"policy"|"run", "ref": …}`; a `promotion` targets the run it promotes.
 
 ## 7. `eval`: goldens and results
 
@@ -668,6 +734,8 @@ CREATE TABLE eval.document_split (               -- page-level split assignment 
   project_id  bigint NOT NULL REFERENCES meta.project,
   document_id bigint NOT NULL REFERENCES kb.document,
   split       text NOT NULL CHECK (split IN ('dev','test','reserved')),  -- reserved: worked-example pages, never golden (D7 §3.1)
+  reason      text NOT NULL,                     -- why the page is in its split: the seeded order, reserved, forced to dev, or an operator direction (D7 §3.1)
+  seed        text,                              -- the split seed of an assignment by the seeded order; null otherwise
   assigned_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (project_id, document_id)
 );
@@ -679,6 +747,7 @@ CREATE TABLE eval.golden_set (
   split                text NOT NULL CHECK (split IN ('dev','test')),
   schema_version_id    bigint NOT NULL REFERENCES meta.schema_version,
   guideline_version_id bigint NOT NULL REFERENCES meta.guideline_version,
+  sampling             jsonb NOT NULL,           -- how the units were drawn (D7 §3.1): seed, size, strata, allocation, forced units, sampler version
   frozen_at            timestamptz,              -- test sets freeze at phase gates
   created_at           timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, label, split)
@@ -687,10 +756,11 @@ CREATE TABLE eval.golden_set (
 CREATE TABLE eval.golden_unit (
   id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   golden_set_id         bigint NOT NULL REFERENCES eval.golden_set,
-  unit_key              text NOT NULL,           -- identity: the annotation unit's locator-based unit key (D1 §3.4)
+  unit_key              text NOT NULL,           -- identity: the annotation unit's locator-based unit key at creation (D1 §3.4); never changes
+  current_locator       text NOT NULL,           -- the unit's locator on its latest resolving rendition; re-location updates this, not the key (D7 §3.5)
   authored_rendition_id bigint NOT NULL REFERENCES kb.rendition,  -- provenance: the rendition the passes' packets came from
   status                text NOT NULL CHECK (status IN ('draft','adjudicated','stale','retired')),
-  agreement             jsonb NOT NULL DEFAULT '{}',   -- A/B agreement by tier and predicate (D7 §3.3)
+  agreement             jsonb NOT NULL DEFAULT '{}',   -- evaluation's agreement result model (D7 §3.3): by tier and predicate, with the A/B diff; validated at the evaluation boundary
   created_at            timestamptz NOT NULL DEFAULT now(),
   UNIQUE (golden_set_id, unit_key)
 );
@@ -716,7 +786,7 @@ CREATE TABLE eval.golden_item (                  -- derived: one pass c batch lo
   rendition_id   bigint NOT NULL REFERENCES kb.rendition,
   item_type      text NOT NULL CHECK (item_type IN ('entity','statement','claim','alternative','unsupported')),
   local_ref      text NOT NULL,
-  payload        jsonb NOT NULL,                 -- stored-form ClaimProposalBatch element (D2 §7.3), offsets into rendition_id
+  payload        jsonb NOT NULL,                 -- a stored item: the core stored-form batch element (D1 §10.3, D2 §7.3), offsets into rendition_id
   context        boolean NOT NULL DEFAULT false, -- a context premise stated outside the unit: scored only through claim nodes here (D7 §5.1)
   UNIQUE (golden_pass_id, rendition_id, item_type, local_ref)
 );
@@ -756,13 +826,20 @@ packets came from is provenance. Each pass stores the batch in the model-facing 
 wrote, with its citation frame (D1 §10.3). `eval.golden_item` is a projection of one pass c batch
 onto one rendition: before a run is aligned, evaluation resolves the frame on the run's rendition
 (`kb.run_rendition`, §8) and, when items for that pair do not yet exist, derives them by the
-production quote cascade (D4 §4.3). A frame that does not resolve marks the unit `stale` and
-derives nothing. Re-location (D7 §3.5) rewrites only the frame's locators, keeping the batch and the
+production quote cascade (D4 §4.3); `write_golden` stores passes only and never derives items. A
+frame that does not resolve marks the unit `stale` and derives nothing. Re-location (D7 §3.5) rewrites only the frame's locators, keeping the batch and the
 recorded sentence texts; re-authoring adds a new pass c beside the old one. Items are never
 edited, only derived again for another rendition or pass. `eval.result` records
 the pass c ids it scored (`golden_snapshot`), so a result stays tied to the goldens it used after
 re-authoring (P0CL-03; operator, 2026-10-28).
 > Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+> Status: **Proposed** (2026-10-28)
+
+**Sampling and splits are recorded with their inputs.** `eval.golden_set.sampling` holds what
+drew the set's units (D7 §3.1): the seed, the size, the strata, the allocation, the forced units
+and the sampler's version, so a set can be redrawn and compared with a later sampler.
+`eval.document_split` records, per page, the reason for its assignment and, for pages assigned by
+the seeded order, the seed.
 > Status: **Proposed** (2026-10-28)
 
 ## 8. Runs, snapshots and reads
@@ -777,18 +854,27 @@ re-authoring (P0CL-03; operator, 2026-10-28).
   claims, links, alignments, results, by `run_id`); the `ops.run` row and its tasks stay, because
   later runs may reuse those tasks (D6 §4) and observations are kept while referenced (below)
   (store note L-S2). `eval.alignment` and `eval.result` are indexed by `run_id` for that delete.
-- **Golden passes are tasks** of a run of kind `golden` (one per golden set and guideline
-  version), with `unit_type = 'golden_unit'` and method `golden.pass` (configs `golden.pass/a`,
+- **Golden passes are tasks** of a run of kind `golden` (one per golden set, guideline
+  version and authoring round), with `unit_type = 'golden_unit'` and method `golden.pass` (configs `golden.pass/a`,
   `/b`, `/c`), so `golden_next` leases through the same queue and fencing as every other task
-  (D8 §2.2). The pass `c` task is created by `write_golden` in the transaction that stores the
-  second of passes `a` and `b` of its unit, so no other process watches for it (**Proposed**,
-  design authority, 2026-10-28).
+  (D8 §2.2). `ci golden create` (D7 §3.1) creates the golden set and its units, the golden run
+  and the pass `a` and `b` tasks; the run's `parent_run_id` is the run whose renditions and M13
+  output the golden packets read, and those renditions are the units' `authored_rendition_id`.
+  `write_golden` completes its task through the shared agent-completion step (D6 §3, D8 §2.1)
+  and writes through the repository's primitives (§5, Writers); when it stores the second of
+  passes `a` and `b` of a unit, evaluation's agreement result for the unit
+  (`eval.golden_unit.agreement`, D7 §3.3) is stored and the pass `c` task created in the same transaction,
+  so no other process watches for it. Golden items are derived by evaluation (§7), never by
+  `write_golden`, and evaluation finishes the golden run when every unit is adjudicated
+  (**Proposed**, design authority, 2026-10-28).
 - **Claiming and fencing** (store note L-S1). Workers claim with one
   `UPDATE … FROM (SELECT … FOR UPDATE SKIP LOCKED LIMIT n)` that also takes expired leases, so no
   reaper process exists. The claim increments `attempt`; every lease renewal and every terminal
   write is conditioned on that `attempt`, so a worker that lost its lease commits nothing. Agent
   leases keep status `awaiting_agent`, so their expiry needs no action. Reuse (D6 §4) is resolved at
-  task creation in one `INSERT … SELECT … LEFT JOIN LATERAL` over `task_cache`.
+  task creation in one `INSERT … SELECT … LEFT JOIN LATERAL` over `task_cache`. Tasks of
+  `unit_type 'run'` (an M19 pass, D4 M19) are never reused: their input is the run itself, and
+  `task_cache` leaves them out (**Proposed**, 2026-10-28).
 - **Promotion.** `meta.project.promoted_run_id` is set by the experiment decision
   ([D7 §7](D7-evaluation-goldens-outer-loop.md#7-experiments-and-promotion)). "Current
   knowledge" queries resolve it once per journey and then name the run by id (D8 §5; P0CL-11);
@@ -797,16 +883,48 @@ re-authoring (P0CL-03; operator, 2026-10-28).
   task with its `reason` (`scope` for a unit outside the run's declared scope, `limit`, `budget`,
   …), so coverage is a count over `ops.task`, never an absence (§9; P0CL-11; **Proposed**,
   2026-10-28).
+- **A finished run's fates are its tasks as of `ops.run.finished_at`.** A task the run still held
+  open when it finished (an agent task completed later, a twin settled later, a task cancelled
+  afterwards) counts as **unresolved** for that run, whatever its status now; nothing that
+  finishes later changes what the run reports. Every terminal write sets `ops.task.finished_at`,
+  including creation as `reused` or `skipped`, so the rule is one comparison. The orchestrator's
+  fate reader (D6), the coverage query (§9), `kb.run_observation` and `ops.run_measurement`
+  (below) and `ci promote`'s check (D7 §7) apply it; a per-run fate snapshot was considered and
+  not adopted (**Proposed**, design authority, 2026-10-28).
 - **Observations are never deleted** while a task that produced them is referenced by any kept
   run (directly or through `reused_task_id`).
-- **Effective observations of a run.** A view resolves reuse:
+- **Effective observations of a run.** A view resolves reuse and, for a finished run, the fate
+  rule above:
 
 ```sql
 CREATE VIEW kb.run_observation AS
 SELECT t.run_id, o.*
 FROM ops.task t
+JOIN ops.run r ON r.id = t.run_id
 JOIN kb.observation o ON o.task_id = COALESCE(t.reused_task_id, t.id)
-WHERE t.status IN ('done','empty','reused');
+WHERE t.status IN ('done','empty','reused')
+  AND (r.finished_at IS NULL OR t.finished_at <= r.finished_at);
+```
+
+- **Effective measurements of a run.** Method-written measurements carry their `task_id` and are
+  read through reuse like observations, so a reused task's measurements (M02's character and math
+  features, for example) count for the run that reuses it; the orchestrator's run metrics have no
+  task and are read by `run_id` (**Proposed**, 2026-10-28):
+
+```sql
+CREATE VIEW ops.run_measurement AS
+SELECT t.run_id, m.id, m.task_id, m.iteration, m.scope_type, m.scope_id, m.scope_key,
+       m.metric, m.value, m.detail
+FROM ops.task t
+JOIN ops.run r ON r.id = t.run_id
+JOIN ops.measurement m ON m.task_id = COALESCE(t.reused_task_id, t.id)
+WHERE t.status IN ('done','empty','reused')
+  AND (r.finished_at IS NULL OR t.finished_at <= r.finished_at)
+UNION ALL
+SELECT m.run_id, m.id, m.task_id, m.iteration, m.scope_type, m.scope_id, m.scope_key,
+       m.metric, m.value, m.detail
+FROM ops.measurement m
+WHERE m.task_id IS NULL;
 ```
 
 - **Selected renditions of a run.** A run selects one rendition per document through its ingest
@@ -826,7 +944,8 @@ WHERE t.stage = 'ingest' AND t.unit_type = 'document' AND t.status IN ('done','r
 
 These back the typed queries of [D8 §5](D8-agent-and-query-interfaces.md#5-typed-queries).
 `:run` is the run id the journey resolved once (§8), never `promoted_run_id` read again per call;
-each result carries it, with the coverage of its scope (below).
+each result carries it, with the coverage of its scope (below). A run that has not finished is
+refused before any of these runs (D8 §5).
 
 **Family profile** (everything stated about a family in the run):
 
@@ -867,17 +986,22 @@ JOIN kb.segment seg ON seg.id = sp.segment_id
 WHERE ce.claim_id = :claim_id;
 ```
 
-**Coverage of a scope** (units extracted, skipped by reason, failed), from the fates of §8, over
-the documents a query's scope names:
+**Coverage of a scope** (units extracted, skipped by reason, failed, unresolved), from the fates
+of §8 as of the run's `finished_at`, over the documents a query's scope names:
 
 ```sql
-SELECT t.status, t.reason, count(DISTINCT t.unit_key) AS units
-FROM ops.task t
+SELECT fate.status, fate.reason, count(DISTINCT t.unit_key) AS units
+FROM ops.run r
+JOIN ops.task t ON t.run_id = r.id
 JOIN kb.segment s ON s.id = t.unit_id
 JOIN kb.run_rendition rr ON rr.run_id = t.run_id AND rr.rendition_id = s.rendition_id
-WHERE t.run_id = :run AND t.stage = 'propose' AND t.unit_type = 'segment'
+CROSS JOIN LATERAL (
+  SELECT CASE WHEN t.finished_at <= r.finished_at THEN t.status ELSE 'unresolved' END AS status,
+         CASE WHEN t.finished_at <= r.finished_at THEN t.reason END AS reason
+) fate
+WHERE r.id = :run AND t.stage = 'propose' AND t.unit_type = 'segment'
   AND rr.document_id = ANY(:documents)
-GROUP BY t.status, t.reason;
+GROUP BY fate.status, fate.reason;
 ```
 > Status: **Proposed** (2026-10-28, P0CL-11). In phase 0 each unit has one `propose` task; once
 > several tiers propose (phase 1), a unit counts under each of its tasks' fates, and the query
@@ -911,15 +1035,17 @@ run (ids illustrative; keys abbreviated).
 
 `kb.entity`:
 
-| key | type | label | scope | scope segment |
-|---|---|---|---|---|
-| `stm:rel1` | `Statement` | theorem rel1 | local | `seg:n-rel1` |
-| `stm:rel1-proof` | `Statement` | proof of rel1 | local | `seg:n-rel1-d` |
-| `ent:X@rel1` | `RandomVariable` | X | local | `seg:n-rel1` |
-| `ent:Y@rel1` | `RandomVariable` | a + b X | local | `seg:n-rel1` |
-| `ent:normal` | `DistributionFamily` | normal distribution | global | — |
+| key | type | label | kind | scope | scope segment |
+|---|---|---|---|---|---|
+| `stm:rel1` | `Statement` | theorem rel1 | `theorem` | local | `seg:n-rel1` |
+| `stm:rel1-proof` | `Statement` | proof of rel1 | `proof` | local | `seg:n-rel1-d` |
+| `ent:X@rel1` | `RandomVariable` | X | — | local | `seg:n-rel1` |
+| `ent:Y@rel1` | `RandomVariable` | a + b X | — | local | `seg:n-rel1` |
+| `ent:normal` | `DistributionFamily` | normal distribution | — | global | — |
 
-`attrs` of statements hold `{"kind": "theorem"}` / `{"kind": "proof"}`.
+A statement's kind is its `kind` column, a field chosen by consolidation (D1 §4.1); its `attrs`
+are empty, because a statement is keyed by its anchor locator and first-sentence ordinal, not by
+identity attributes.
 
 The statement and local-entity keys hash locators, not segment keys (D1 §3.4, §10.1): `stm:rel1`
 is the document key, the anchor locator `#rel1` and first-sentence ordinal 1; `stm:rel1-proof`
@@ -929,7 +1055,9 @@ They survive any rendition change that leaves those locators unchanged. The scop
 names the segment row of the run's rendition, and the `seg:` keys above are physical, so they
 change with the rendition.
 
-`kb.claim` (`statement_id` = `stm:rel1` for C1–C3):
+`kb.claim` (`statement_id` = `stm:rel1` for C1–C3 and D1; for the structural claim C4 it is its
+subject statement, `stm:rel1-proof`, so the `proves` claim the Siegrist profile synthesizes from
+the `details` block and one the author states share a key, D1 §5.5):
 
 | key | subject | predicate | object | qualifiers (abridged) | role | status | establishment |
 |---|---|---|---|---|---|---|---|
@@ -961,4 +1089,4 @@ partitioning is needed until a project holds many corpora.
 | OPEN-D3-1 | Lexical search: index and query form | **Answered** (2026-10-28): BM25 through pg_textsearch 1.5.1, installed (§5): one partial `bm25` index per text-search configuration over one block level, queried by named index; syntax source-read (store note §6) and documented (overview); S6 runs it on the corpus and checks the planner uses the partial index |
 | OPEN-D3-2 | Embedding model and dimension (Qwen3-Embedding-0.6B at 1024, or 8B truncated by Matryoshka to 1024 or 2048) | Spike S7 |
 | OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | **Answered by mechanism** (2026-10-28): the BM25 index reads same-row text, and neither an index nor a generated column can read `kb.rendition`; the column stays |
-| OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | Spikes S6 and S0; phase 1 goldens if S0 has too few units; S0 evidence (2026-10-28): on 70 aligned claim pairs, meaning keys agreed for 41 (54 after the D1 §10.1 key-rule changes) against 21 (48) for claim keys; S6 decides storage |
+| OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | Spikes S6 and S0; phase 1 goldens if S0 has too few units; S0 evidence (2026-10-28): on 70 aligned claim pairs, meaning keys agreed for 41 (54 after the D1 §10.1 key-rule changes) against 21 (48) for claim keys. Migration 0001 has no meaning-key column; one is added only if an `s6.*` record calls for it (design authority, 2026-10-28) |
