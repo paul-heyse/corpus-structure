@@ -11,10 +11,14 @@ def test_inactive_reference_does_not_require_a_store(tmp_path: Path):
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     skills = tmp_path / ".claude/skills"
     skills.mkdir(parents=True)
-    (tmp_path / ".gitignore").write_text("/.claude/skills/*\n!/.claude/skills/README.md\n!/.claude/skills/process/\n")
+    (tmp_path / ".gitignore").write_text(
+        "/.claude/skills/*\n!/.claude/skills/README.md\n!/.claude/skills/process/\n"
+    )
     (skills / "README.md").write_text("[Former index](old-library/SKILL.md)\n")
     (skills / "process").mkdir()
-    (skills / "process/SKILL.md").write_text("---\nname: process\ndescription: Process fixture\n---\n")
+    (skills / "process/SKILL.md").write_text(
+        "---\nname: process\ndescription: Process fixture\n---\n"
+    )
     assert local_skill(tmp_path, skills / "old-library/SKILL.md")
     assert local_skill(tmp_path, skills / "old-library/references/capabilities.md")
     assert not local_skill(tmp_path, skills / "unknown/SKILL.md")

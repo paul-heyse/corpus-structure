@@ -16,10 +16,16 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 | Command | Outcome and scope |
 |---|---|
 | `just check` | `not_run`: record the first run here. |
+| `just turn-end` | `passed` (2026-10-28, after writing the S0/S1 plan series; it re-wrapped two lines in `tests/scripts/test_repo_paths.py`) |
 
 ## Known failures, blocks and decisions
 
-- None yet.
+- Two plans declare themselves active (design-phase and the S0/S1 execution plan). The operator
+  chose on 2026-10-28 to keep both for now; design-phase's findings table governs where the two
+  differ.
+- The pre-execution Siegrist HTML inventory found structures D1 §3 does not cover (bare `align`
+  math, unbalanced delimiters, JS-filled empty links, synthesized sections, misnested `<p>`):
+  rows HTML-01…07 in the S0/S1 plan, not yet in design-phase's table.
 
 ## Design phase (2026-10-28)
 
@@ -31,8 +37,14 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
   none has run.
 - The active plan is [design-phase_2026-10-28](docs/plans/design-phase_2026-10-28.md): lanes,
   queue, the library-leverage brief and the disposition of every `OPEN-Dn-k` item.
+- Its Q1 (S1) and Q2 (S0) are planned in detail by the
+  [S0/S1 execution plan](docs/plans/design-spikes-s0-s1_2026-10-28.md) and its supporting
+  documents (S1 ingest, S0 annotations, comparison instruments): HTML library selection, adapter
+  and sentence variants, blind passes under the D7 protocol, alignment by D7 §5. Written
+  2026-10-28; nothing executed.
 
 ## Next
 
-- Spike lane: S1, then S0; S4 and S6 alongside (plan Q1–Q3).
+- Spike lane: execute the S0/S1 plan from E0 (spike environment) and S1-A (adapter on the
+  four spike pages); S0-A packets follow S1-B. S4 and S6 alongside (design-phase Q3).
 - Library lane: pass 1 over D4 cards and D2 §7 compilers (plan Q4).
