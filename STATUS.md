@@ -44,7 +44,7 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 - S6 follow-ups (BM25 coverage on 78 pages, vector recall, two-branch claim at 10⁵ tasks, volume
   rerun on `18/corpus`) are listed in the S6 report.
-- Eight operator overviews in `docs/libraries/` are not yet committed (the operator's).
+- `docs/libraries/pgevector.md` → `pgvector.md` rename uncommitted: D9 and S7 links fail docs-check.
 - EVID-01 and APPARATUS-01 wait on the operator's evidence-system design.
 
 ## Next
@@ -53,8 +53,6 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
   - E4b environments as S5, S2, S3 and S7 start;
   - S5-A next, because `core/tex.py` freezes on `s5.keys-property` and the grammar port waits on it;
   - then C1, I-R3, S2, S3, S7.
-- **Build lane:**
-  - ready now: P0-F-3 (fixtures), P0-O-0 (method contract types) and P0-S-1 (pack, compilers,
-    on S4);
-  - after them: P0-F-4 (metadata, migration 0001 on S6's DDL fixes);
-  - see coordinator §7.
+- **Build lane** (phase 0 series revised for the alignment review, `b874e3e`; coordinator §7):
+  - ready now: P0-D-1 (ADR-0020–0023, design routes), P0-F-2c, P0-F-5, probes Q-1–Q-5, P0-F-3, P0-O-0;
+  - critical paths: D1 → M1 → F2d → F2e → S1, and M2 → M3 → M4 → F4 → S1b → O1.
