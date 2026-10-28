@@ -1,0 +1,212 @@
+{
+ "unit_key": "special/Normal.html@p:Suppose again",
+ "batch": {
+  "unit_ref": "special/Normal.html@p:Suppose again",
+  "statements": [
+   {
+    "local_ref": "st_remark",
+    "kind": "remark",
+    "anchor": [
+     "s1",
+     "s2"
+    ]
+   }
+  ],
+  "entities": [
+   {
+    "local_ref": "e_X",
+    "type": "RandomVariable",
+    "label": "X",
+    "scope": "local",
+    "extent": "section",
+    "symbol": "X",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "e_normal",
+    "type": "DistributionFamily",
+    "label": "normal distribution",
+    "scope": "global",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "e_n_loc",
+    "type": "FamilyParameter",
+    "label": "location parameter of the normal distribution",
+    "scope": "global",
+    "aliases": [
+     "location parameter",
+     "\\mu"
+    ],
+    "identity": {
+     "family": "e_normal",
+     "canonical_name": "location"
+    }
+   },
+   {
+    "local_ref": "e_n_scale",
+    "type": "FamilyParameter",
+    "label": "scale parameter of the normal distribution",
+    "scope": "global",
+    "aliases": [
+     "scale parameter",
+     "\\sigma"
+    ],
+    "identity": {
+     "family": "e_normal",
+     "canonical_name": "scale"
+    }
+   },
+   {
+    "local_ref": "e_n_mean",
+    "type": "FamilyParameter",
+    "label": "mean of the normal distribution",
+    "scope": "global",
+    "aliases": [
+     "mean"
+    ],
+    "identity": {
+     "family": "e_normal",
+     "canonical_name": "mean"
+    }
+   },
+   {
+    "local_ref": "e_n_sd",
+    "type": "FamilyParameter",
+    "label": "standard deviation of the normal distribution",
+    "scope": "global",
+    "aliases": [
+     "standard deviation"
+    ],
+    "identity": {
+     "family": "e_normal",
+     "canonical_name": "standard_deviation"
+    }
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "c_X_normal",
+    "predicate": "has_distribution",
+    "subject": "e_X",
+    "object": {
+     "ref": "e_normal"
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "scope": "section",
+     "param_values": {
+      "location": {
+       "t": "formula",
+       "latex": "\\mu",
+       "symbols": {
+        "mu": {
+         "bind": "free"
+        }
+       }
+      },
+      "scale": {
+       "t": "formula",
+       "latex": "\\sigma",
+       "symbols": {
+        "sigma": {
+         "bind": "free"
+        }
+       }
+      }
+     }
+    },
+    "statement": "st_remark",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "Suppose again that \\( X \\) has the normal distribution with location parameter \\( \\mu \\in \\R \\) and scale parameter \\( \\sigma \\in (0, \\infty) \\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\( \\mu \\in \\R \\)",
+      "role": "condition"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\( \\sigma \\in (0, \\infty) \\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_loc_is_mean",
+    "predicate": "identical_parameter",
+    "subject": "e_n_loc",
+    "object": {
+     "ref": "e_n_mean"
+    },
+    "qualifiers": {},
+    "statement": "st_remark",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "the location and scale parameters are also the mean and standard deviation, respectively",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_scale_is_sd",
+    "predicate": "identical_parameter",
+    "subject": "e_n_scale",
+    "object": {
+     "ref": "e_n_sd"
+    },
+    "qualifiers": {},
+    "statement": "st_remark",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "the location and scale parameters are also the mean and standard deviation, respectively",
+      "role": "primary"
+     }
+    ]
+   }
+  ],
+  "alternatives": [],
+  "unsupported": []
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/Normal.html@sentence:Suppose again",
+   "text": "Suppose again that \\( X \\) has the normal distribution with location parameter \\( \\mu \\in \\R \\) and scale parameter \\( \\sigma \\in (0, \\infty) \\)."
+  },
+  "s2": {
+   "locator": "special/Normal.html@sentence:As the",
+   "text": "As the notation suggests, the location and scale parameters are also the mean and standard deviation, respectively."
+  }
+ },
+ "provenance": {
+  "spike_unit": "T2",
+  "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T2.json",
+  "packet": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/T2.md",
+  "stored_reference": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_v1/T2.json",
+  "rendition": {
+   "page": "special/Normal.html",
+   "source_uri": "siegrist_random/random/special/Normal.html",
+   "spike_document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "spike_rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "built_from": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1",
+   "sentences": "results/s1/sentences/<page>.provisional.jsonl (provisional: P1 parser + b′ + rule c)"
+  },
+  "decisions": [
+   {
+    "item": "c_X_normal",
+    "decision": "§10.7 rule 1: a premise carries no restrictions; its conclusions are family-structure claims (rule 2), so the restrictions are not repeated"
+   }
+  ],
+  "migrations": []
+ }
+}

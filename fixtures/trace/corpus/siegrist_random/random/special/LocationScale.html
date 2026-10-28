@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>Location-Scale Families</title>
+	<meta name="author" content="Kyle Siegrist">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="keywords" content="probability, statistics, location-scale family, arcsine distribution, Cauchy distribution, exponential distribution, exponential-logarithmic distribution, extreme value distribution, gamma distribution, Gompertz distribution, half-normal distribution, hyperbolic secant distribution, Levy distribution, logistic distribution, log-logistic distribution, Maxwell distribution, normal distribution, Pareto distribution, Rayleigh distribution, semicircle distribution, triangle distribution, continuous uniform distribution, u-power distribution, Weibull distribution, Wald distribution">
+	<link rel="icon" href="../icons/Icon.svg" type="image/svg">
+	<link rel="stylesheet" href="../Screen.css" type="text/css" media="screen">
+	<script src="../Basic.js"></script>
+	<script src="../../MathJax/tex-svg.js" id="MathJax-script" async></script>
+</head>
+
+<body>
+
+<div class="latex">
+	\(\newcommand{\P}{\mathbb{P}}\)
+	\(\newcommand{\R}{\mathbb{R}}\)
+	\(\newcommand{\E}{\mathbb{E}}\)
+	\(\newcommand{\N}{\mathbb{N}}\)
+	\(\newcommand{\var}{\text{var}}\)
+	\(\newcommand{\sd}{\text{sd}}\)
+	\(\newcommand{\skw}{\text{skew}}\)
+	\(\newcommand{\kur}{\text{kurt}}\)
+	\(\newcommand{\ms}{\mathscr}\)
+</div>
+
+<header>
+	<ol class="map">
+		<li class="parent"><a href="../index.html">Random</a></li>
+		<li class="parent"><a href="index.html">4. Special Distributions</a></li>
+		<li class="child">Location-Scale Families</li>
+		<li class="details"><button type="button" title="Expand Details" onclick="expandDetails(true);"><img src="../icons/Plus.svg" alt="Expand"></button></li>
+		<li class="details"><button type="button" title="Contract Details" onclick="expandDetails(false);"><img src="../icons/Minus.svg" alt="Contract"></button></li>
+	</ol>
+	<h2>Location-Scale Families</h2>
+</header>
+
+<h3>General Theory</h3>
+
+<p>As usual, our starting point is a <a href="../prob/Experiments.html">random experiment</a>, modeled by a <a href="../prob/Probability2.html">probability space</a> \((\Omega, \ms F, \P)\). So \( \Omega \) is the set of outcomes, \( \ms F \) the collection of events, and \( \P \) the probability measure on the sample space \( (\Omega, \mathscr F) \). In this section, we assume that we fixed <a href="../prob/Events.html">random variable</a> \( Z \) defined on the probability space, with values in \( \R \).</p>
+
+<h4>Definition</h4>
+
+<div class="unit" id="dfn1">
+	<p class="dfn">For \(a \in \R\) and \(b \in (0, \infty) \), let \(X = a + b \, Z\). The two-parameter family of distributions associated with \(X\) is called the <dfn>location-scale family</dfn> associated with the given distribution of \(Z\). Specifically, \(a\) is the <dfn>location parameter</dfn> and \(b\) the <dfn>scale parameter</dfn>.</p>
+</div>
+
+<p>Thus a <em>linear transformation</em>, with positive slope, of the underlying random variable \(Z\) creates a <em>location-scale family</em> for the underlying distribution.  In the special case that \(b = 1\), the one-parameter family is called the <dfn>location family</dfn> associated with the given distribution, and in the special case that \(a = 0\), the one-parameter family is called the <dfn>scale family</dfn> associated with the given distribution. Scale transformations, as the name suggests, occur naturally when physical units are changed. For example, if a random variable represents the length of an object, then a change of units from meters to inches corresponds to a scale transformation. Location transformations often occur when the zero reference point is changed, in measuring distance or time, for example. Location-scale transformations can also occur with a change of physical units. For example, if a random variable represents the temperature of an object, then a change of units from Fahrenheit to Celsius corresponds to a location-scale transformation.</p>
+
+<h4>Distribution Functions</h4>
+
+<p>Our goal is to relate various functions that determine the distribution of \( X = a + b Z \) to the corresponding functions for \( Z \). First we consider the (cumulative) <a href="../dist/CDF.html">distribution function</a></p>
+
+<div class="unit" id="cdf">
+	<p class="math">If \(Z\) has distribution function \(G\) then \(X\) has distribution function \(F\) given by
+	\[  F(x) = G \left( \frac{x - a}{b} \right), \quad x \in \R\]</p>
+	<details>
+		<summary>Details:</summary>
+		<p>For \( x \in \R \)
+		\[ F(x) = \P(X \le x) = \P(a + b Z \le x) = \P\left(Z \le \frac{x - a}{b}\right) = G\left(\frac{x - a}{b}\right) \]</p>
+	</details>
+</div>
+
+<p>Next we consider the probability density function. The results are a bit different for <a href="../dist/Discrete.html">discrete distributions</a> and <a href="../dist/Continuous.html">continuous distribution</a>, not surprising since the density function has different meanings in these two cases.</p>
+
+<div class="unit" id="pdf1">
+	<p class="math">If \( Z \) has a discrete distribution with probability density function \( g \) then \( X \) also has a discrete distribution, with probability density function \( f \) given by
+	\[ f(x) = g\left(\frac{x - a}{b}\right), \quad x \in \R \]</p>
+	<details>
+		<summary>Details:</summary>
+		<p>If \( Z \) takes values in a countable subset \( S \subset \R \) then \( X \) takes values in \( T = \{a + b z: z \in S\} \), which is also countable. Moreover
+		\[ f(x) = \P(X = x) = \P\left(Z = \frac{x - a}{b}\right) = g\left(\frac{x - a}{b}\right), \quad x \in \R \]</p>
+	</details>
+</div>
+
+<div class="unit" id="pdf2">
+	<p class="math">If \(Z\) has a continuous distribution with probability density function \(g\), then \(X\) also has a continuous distribution, with probability density function \(f\) given by</p>
+	\[ f(x) = \frac{1}{b} \, g \left( \frac{x - a}{b} \right), \quad x \in \R\]
+	<ol class="sub">
+		<li>For the location family associated with \(g\), the graph of \(f\) is obtained by shifting the graph of \(g\), \(a\) units to the right if \(a \gt 0\) and \(-a\) units to the left if \(a \lt 0\).</li>
+		<li>For the scale family associated with \(g\), if \(b \gt 1\), the graph of \(f\) is obtained from the graph of \(g\) by stretching horizontally and compressing vertically, by a factor of \(b\). If \(0 \lt b \lt 1\), the graph of \(f\) is obtained from the graph of \(g\) by compressing horizontally and stretching vertically, by a factor of \(b\).</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>First note that \( \P(X = x) = \P\left(Z = \frac{x - a}{b}\right) = 0 \), so \( X \) has a continuous distribution. Typically, \( Z \) takes values in an interval of \( \R \) and thus so does \( X \). The formula for the density function follows by taking derivatives of the distribution function in <a href="#cdf" class="ref"></a>, since \( f = F^\prime \) and \( g = G^\prime \). </p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="math">If \(Z\) has a <a href="../dist/Introduction.html">mode</a> at \(z\), then \(X\) has a mode at \(x = a + b z\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>This follows from density function in <a href="#pdf1" class="ref"></a> in the discrete case or the density function in <a href="#pdf2" class="ref"></a> in the continuous case. If \( g \) has a maximum at \( z \) then \( f \) has a maximum at \( x = a + b z \)</p>
+	</details>
+</div>
+
+<p>Next we relate the <a href="../dist/CDF.html">quantile functions</a> of \(Z\) and \(X\).</p>
+
+<div class="unit">
+	<p class="math">If \(G\) and \(F\) are the distribution functions of \(Z\) and \(X\), respectively, then</p>
+	<ol class="sub">
+		<li>\(F^{-1}(p) = a + b \, G^{-1}(p)\) for \(p \in (0, 1)\)</li>
+		<li>If \(z\) is a quantile of order \(p\) for \(Z\) then \(x = a + b \, z\) is a quantile of order \(p\) for \(X\).</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>These results follow from the distribution function in <a href="#cdf" class="ref"></a>.</p>
+	</details>
+</div>
+
+<p>Suppose now that \( Z \) has a continuous distribution on \([0, \infty)\), and that we think of \(Z\) as the failure time of a device (or the time of death of an organism). Let \(X = b Z\) where \( b \in (0, \infty)\), so that the distribution of \(X\) is the scale family associated with the distribution of \(Z\).  Then \(X\) also has a continuous distribution on \([0, \infty)\) and can also be thought of as the failure time of a device (perhaps in different units).</p>
+
+<div class="unit" id="dst6">
+	<p class="math">Let \(G^c\) and \(F^c\) denote the reliability functions of \(Z\) and \(X\) respectively, and let \(r\) and \(s\) denote the failure rate functions of \(Z\) and \(X\), respectively. Then</p>
+	<ol class="sub">
+		<li>\(F^c(x) = G^c(x / b)\) for \(x \in [0, \infty)\)</li>
+		<li>\(s(x) = (1 / b)r(x / b)\) for \(x \in [0, \infty)\)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>Recall that \( G^c = 1 - G \), \( F^c = 1 - F \), \( r = g / \bar{G} \), and \( R = f / \bar{F} \). So the results follow from the distribution function in <a href="#cdf" class="ref"></a> and the density function in <a href="#pdf2" class="ref"></a>.</p>
+	</details>
+</div>
+
+<p>In particular, from part (b) note that the \(X\) has the same general failure rate features (increasing, decreasing, etc.) as \(Z\).</p>
+
+<div class="unit" id="dst7">
+	<p class="math">The entropy of \(X\) and \(Z\) are related by \(H(X) = H(Z) + \ln b\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>The result follows easily from the definition of entropy as an expected value:
+		\[ H(X) = -\E[\ln f(X)] = -\E[\ln f(b Z)] = -\E(\ln [ g(Z) / b]) = -\E[\ln g(Z) - \ln b] = H(Z) + \ln b \]
+		</p>
+	</details>
+</div>
+
+<h4>Moments</h4>
+
+<p>The following theorem relates the <a href="../expect/Properties.html">mean</a>, <a href="../expect/Variance.html">variance</a>, and standard deviation of \(Z\) and \(X\).</p>
+
+<div class="unit" id="mom">
+	<p class="math">As before, suppose that \(X = a + b \, Z\) with \(a \in \R\) and \(b \in (0, \infty)\). Then</p>
+	<ol class="sub">
+		<li>\(\E(X) = a + b \, \E(Z)\)</li>
+		<li>\(\var(X) = b^2 \, \var(Z)\)</li>
+		<li>\(\sd(X) = b \, \sd(Z)\)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>These result follow immediately from basic properties of expected value and variance.</p>
+	</details>
+</div>
+
+<p>Recall that the <a href="../expect/Variance.html#std">standard score</a> of a random variable is obtained by subtracting the mean and dividing by the standard deviation. The standard score is dimensionless (that is, has no physical units) and measures the directed distance from the mean to the random variable in standard deviations. Since location-scale familes essentially correspond to a change of units, it's not surprising that the standard score is unchanged by a location-scale transformation.</p>
+
+<div class="unit" id="std">
+	<p class="math">The standard scores of \(X\) and \(Z\) are the same:</p>
+	\[ \frac{X - \E(X)}{\sd(X)} = \frac{Z - \E(Z)}{\sd(Z)} \]
+	<details>
+		<summary>Details:</summary>
+		<p>From the mean and variance in <a href="#mom" class="ref"></a>:</p>
+		\[ \frac{X - \E(X)}{\sd(X)} = \frac{a + b Z - [a + b \E(Z)]}{b \sd(Z)} = \frac{Z - \E(Z)}{\sd(Z)} \]
+	</details>
+</div>
+
+<p>Recall that the <a href="../expect/Skew.html#skw">skewness</a> and <a href="../expect/Skew.html#kur">kurtosis</a> of a random variable are the third and fourth moments, respectively, of the standard score.  Thus it follows from <a href="#std" class="ref"></a> that skewness and kurtosis are unchanged by location-scale transformations: \(\skw(X) = \skw(Z)\), \(\kur(X) = \kur(Z)\). We can represent the moments of \( X \) about 0 (sometimes called <dfn>raw moments</dfn>) to those of \( Z \) by means of the <a href="../foundations/Structures.html">binomial theorem</a>:
+\[ \E\left(X^n\right) = \sum_{k=0}^n \binom{n}{k} b^k a^{n - k} \E\left(Z^k\right), \quad n \in \N \]
+Of course, the moments of \( X \) about the location parameter \( a \) have a simple representation in terms of the moments of \( Z \) about 0:
+\[ \E\left[(X - a)^n\right] = b^n \E\left(Z^n\right), \quad n \in \N \]
+The following exercise relates the moment generating functions of \(Z\) and \(X\).</p>
+
+<div class="unit">
+	<p class="math">If \(Z\) has moment generating function \(m\) then \(X\) has moment generating function \(M\) given by</p>
+	\[ M(t) = e^{a t} m(b t) \]
+	<details>
+		<summary>Details:</summary>
+		\[ M(t) = \E\left(e^{tX}\right) = \E\left[e^{t(a + bZ)}\right] = e^{ta} \E\left(e^{t b Z}\right) = e^{a t} m(b t) \]
+	</details>
+</div>
+
+<h4>Type</h4>
+
+<p>As we noted earlier, two probability distributions that are related by a location-scale transformation can be thought of as governing the same underlying random quantity, but in different physical units. This relationship is important enough to deserve a name.</p>
+
+<div class="unit">
+	<p class="dfn">Suppose that \( P \) and \( Q \) are probability distributions on \( \R \) with  distribution functions \(F\) and \(G\), respectively.  Then \( P \) and \( Q \) are of the same <dfn>type</dfn> if there exist constants \(a \in \R\) and \(b \in (0, \infty)\) such that
+	\[ F(x) = G \left( \frac{x - a}{b} \right), \quad x \in \R \]</p>
+</div>
+
+<div class="unit">
+	<p class="math"><em>Being of the same type</em> is an <a href="../foundations/Equivalence.html">equivalence relation</a> on the collection of probability distributions on \(\R\). That is, if \(P\), \(Q\), and \(R\) are probability distribution on \( \R \) then</p>
+	<ol class="sub">
+		<li>\(P\) is the same type as \(P\) (the <dfn>reflexive</dfn> property).</li>
+		<li>If \(P\) is the same type as \(Q\) then \(Q\) is the same type as \(P\) (the <dfn>symmetric</dfn> property).</li>
+		<li>If \(P\) is the same type as \(Q\), and \(Q\) is the same type as \(R\), then \(P\) is the same type as \(R\) (the <dfn>transitive</dfn> property).</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>Let \( F \), \( G \), and \( H \) denote the distribution functions of \( P \), \( Q \), and \( R \) respectively.</p>
+		<ol class="sub">
+			<li>This is trivial, of course, since we can take \( a = 0 \) and \( b = 1 \).</li>
+			<li>Suppose there exists \( a \in \R \) and \( b \in (0, \infty) \) such that \( F(x) = G\left(\frac{x - a}{b}\right) \) for \( x \in \R \). Then \( G(x) = F(a + b x) = F\left(\frac{x - (-a/b)}{1/b}\right) \) for \( x \in \R \).</li>
+			<li>Suppose there exists \( a, \, c \in \R \) and \( b, \, d \in (0, \infty) \) such that \( F(x) = G\left(\frac{x - a}{b}\right) \) and \( G(x) = H\left(\frac{x - c}{d}\right) \) for \( x \in \R \). Then \( F(x) = H\left(\frac{x - (a + bc)}{bd}\right)\) for \( x \in \R \).</li>
+		</ol>
+	</details>
+</div>
+
+<p>So, the collection of probability distributions on \( \R \) is partitioned into mutually exclusive equivalence classes, where the distributions in each class are all of the same type.</p>
+
+<h3>Examples and Applications</h3>
+
+<h4>Special Distributions</h4>
+
+<p>Many of the special parametric families of distributions studied in this chapter and elsewhere in this text are location and/or scale families.</p>
+
+<div class="unit">
+	<p class="math">The <a href="Arcsine.html">arcsine distribution</a> is a location-scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Cauchy.html">Cauchy distribution</a> is a location-scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="../poisson/Exponential.html">exponential distribution</a> is a scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="ExponentialLogarithmic.html">exponential-logarithmic</a> distribution is a scale family for each value of the shape parameter.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="ExtremeValue.html">extreme value distribution</a> is a location-scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Gamma.html">gamma distribution</a> is a scale family for each value of the shape parameter.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Gompertz.html">Gompertz distribution</a> is a scale family for each value of the shape parameter.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="FoldedNormal.html">half-normal distribution</a> is a scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="HyperbolicSecant.html">hyperbolic secant distribution</a> is a location-scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Levy.html">L&eacute;vy distribution</a> is a location scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Logistic.html">logistic distribution</a> is a location-scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="LogLogistic.html">log-logistic distribution</a> is a scale family for each value of the shape parameter.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Maxwell.html">Maxwell distribution</a> is a scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Normal.html">normal distribution</a> is a location-scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Pareto.html">Pareto distribution</a> is a scale family for each value of the shape parameter.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Rayleigh.html">Rayleigh distribution</a> is a scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Semicircle.html">semicircle distribution</a> is a location-scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Triangle.html">triangle distribution</a> is a location-scale family for each value of the shape parameter.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="UniformContinuous.html">uniform distribution on an interval</a> is a location-scale family.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="UPower.html">U-power distribution</a> is a location-scale family for each value of the shape parameter.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Weibull.html">Weibull distribution</a> is a scale family for each value of the shape parameter.</p>
+</div>
+
+<div class="unit">
+	<p class="math">The <a href="Wald.html">Wald distribution</a> is a scale family, although in the usual formulation, neither of the parameters is a scale parameter.</p>
+</div>
+
+<footer>
+	<ol class="map">
+		<li class="parent"><a href="../index.html">Random</a></li>
+		<li class="parent"><a href="index.html">4. Special Distributions</a></li>
+		<li class="child">Location-Scale Families</li>
+		<li class="details"><button type="button" title="Expand Details" onclick="expandDetails(true);"><img src="../icons/Plus.svg" alt="Expand"></button></li>
+		<li class="details"><button type="button" title="Contract Details" onclick="expandDetails(false);"><img src="../icons/Minus.svg" alt="Contract"></button></li>
+	</ol>
+	<ul class="map">
+		<li class="sister"><a href="JavaScript:openAncillary('../apps/index.html')" class="ancillary">Apps</a></li>
+		<li class="sister"><a href="JavaScript:openAncillary('../data/index.html')" class="ancillary">Data Sets</a></li>
+		<li class="child"><a href="JavaScript:openAncillary('../biographies/index.html')" class="ancillary"> Biographies</a></li>
+	</ul>
+</footer>
+
+<script>getReferences();</script>
+
+</body>
+</html>

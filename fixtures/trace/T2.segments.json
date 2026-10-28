@@ -1,0 +1,130 @@
+{
+ "trace_unit": "T2",
+ "page": "special/Normal.html",
+ "source_uri": "siegrist_random/random/special/Normal.html",
+ "unit_key": "special/Normal.html@p:Suppose again",
+ "ancestors": [
+  {
+   "kind": "document",
+   "locator": "special/Normal.html",
+   "start": 0,
+   "end": 21680,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/Normal.html@section:The General",
+   "start": 9029,
+   "end": 21071,
+   "attrs": {
+    "level": 3,
+    "heading_tag": "h3",
+    "title": "The General Normal Distribution"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/Normal.html@section:Moments Suppose again",
+   "start": 11556,
+   "end": 14045,
+   "attrs": {
+    "level": 4,
+    "heading_tag": "h4",
+    "title": "Moments"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "segments": [
+  {
+   "kind": "paragraph",
+   "locator": "special/Normal.html@p:Suppose again",
+   "start": 11565,
+   "end": 11826,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/Normal.html@sentence:Suppose again",
+   "start": 11565,
+   "end": 11710,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[5]:\\( X \\)",
+   "start": 11584,
+   "end": 11591,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[2]:\\( \\mu \\in",
+   "start": 11644,
+   "end": 11660,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[3]:\\( \\sigma \\in",
+   "start": 11681,
+   "end": 11709,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/Normal.html@sentence:As the",
+   "start": 11711,
+   "end": 11826,
+   "attrs": {},
+   "parse_status": "ok"
+  }
+ ],
+ "counts": {
+  "math_inline": 3,
+  "paragraph": 1,
+  "sentence": 2
+ },
+ "markup": [
+  {
+   "markup": "a",
+   "start": 11784,
+   "end": 11788,
+   "text": "mean"
+  },
+  {
+   "markup": "a",
+   "start": 11793,
+   "end": 11811,
+   "text": "standard deviation"
+  }
+ ],
+ "trace_md": {
+  "kind": "paragraph",
+  "counts": {
+   "math_inline": 3
+  }
+ },
+ "provenance": {
+  "kinds_counts_attributes": "docs/design/trace.md (asserted in build_segments.py)",
+  "offsets_texts_attributes": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1 (canonical, segments, sentences provisional, markup); diagnostic attributes tag, sid, sourceline, roles dropped",
+  "spike_rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "locators": "corpus_structure.core.locators.LocatorIndex.generate"
+ }
+}

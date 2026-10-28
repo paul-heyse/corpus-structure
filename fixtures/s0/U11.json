@@ -1,0 +1,345 @@
+{
+ "unit_key": "special/Gamma.html#rel2",
+ "batch": {
+  "unit_ref": "special/Gamma.html#rel2",
+  "statements": [
+   {
+    "local_ref": "st1",
+    "kind": "theorem",
+    "anchor": [
+     "s1",
+     "s2"
+    ]
+   },
+   {
+    "local_ref": "st2",
+    "kind": "proof",
+    "anchor": [
+     "s3"
+    ]
+   }
+  ],
+  "entities": [
+   {
+    "local_ref": "X1",
+    "type": "RandomVariable",
+    "label": "X_1",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X_1",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "X2",
+    "type": "RandomVariable",
+    "label": "X_2",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X_2",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "Xi",
+    "type": "RandomVariable",
+    "label": "X_i",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X_i",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "S",
+    "type": "RandomVariable",
+    "label": "X_1 + X_2",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X_1 + X_2",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "G",
+    "type": "DistributionFamily",
+    "label": "gamma distribution",
+    "scope": "global",
+    "aliases": [],
+    "identity": {}
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "c_Xi_gamma",
+    "predicate": "has_distribution",
+    "subject": "Xi",
+    "object": {
+     "ref": "G"
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "param_values": {
+      "shape": {
+       "t": "formula",
+       "latex": "k_i",
+       "symbols": {
+        "k_i": {
+         "bind": "free"
+        }
+       }
+      },
+      "scale": {
+       "t": "formula",
+       "latex": "b",
+       "symbols": {
+        "b": {
+         "bind": "free"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "member",
+      "x": {
+       "t": "formula",
+       "latex": "i",
+       "symbols": {
+        "i": {
+         "bind": "free"
+        }
+       }
+      },
+      "set": {
+       "t": "set",
+       "latex": "\\{1, 2\\}",
+       "symbols": {}
+      }
+     }
+    },
+    "statement": "st1",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "\\(X_i\\) has the gamma distribution with shape parameter \\(k_i \\in (0, \\infty)\\) and scale parameter \\(b \\in (0, \\infty)\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "for \\(i \\in \\{1, 2\\}\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_S_def",
+    "predicate": "defined_as",
+    "subject": "S",
+    "object": {
+     "t": "formula",
+     "latex": "X_1 + X_2",
+     "symbols": {
+      "X_1": {
+       "bind": "variable",
+       "entity": "X1"
+      },
+      "X_2": {
+       "bind": "variable",
+       "entity": "X2"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "st1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "Then \\(X_1 + X_2\\) has the gamma distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_S_gamma",
+    "predicate": "has_distribution",
+    "subject": "S",
+    "object": {
+     "ref": "G"
+    },
+    "qualifiers": {
+     "modality": "asserted",
+     "param_values": {
+      "shape": {
+       "t": "formula",
+       "latex": "k_1 + k_2",
+       "symbols": {
+        "k_1": {
+         "bind": "param_of",
+         "claim": "c_Xi_gamma",
+         "param": "shape"
+        },
+        "k_2": {
+         "bind": "param_of",
+         "claim": "c_Xi_gamma",
+         "param": "shape"
+        }
+       }
+      },
+      "scale": {
+       "t": "formula",
+       "latex": "b",
+       "symbols": {
+        "b": {
+         "bind": "param_of",
+         "claim": "c_Xi_gamma",
+         "param": "scale"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "c_Xi_gamma"
+       },
+       {
+        "op": "pred",
+        "name": "independent",
+        "args": [
+         {
+          "ref": "X1"
+         },
+         {
+          "ref": "X2"
+         }
+        ]
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "k_i",
+         "symbols": {
+          "k_i": {
+           "bind": "param_of",
+           "claim": "c_Xi_gamma",
+           "param": "shape"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "param_of",
+           "claim": "c_Xi_gamma",
+           "param": "scale"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st1",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "Then \\(X_1 + X_2\\) has the gamma distribution with shape parameter \\(k_1 + k_2\\) and scale parameter \\(b\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\(X_1\\) and \\(X_2\\) are independent random variables",
+      "role": "condition"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\(k_i \\in (0, \\infty)\\)",
+      "role": "condition"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\(b \\in (0, \\infty)\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_proves",
+    "predicate": "proves",
+    "subject": "st2",
+    "object": {
+     "ref": "st1"
+    },
+    "qualifiers": {
+     "modality": "asserted"
+    },
+    "statement": "st2",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "Recall that the MGF of \\( X = X_1 + X_2 \\) is the product of the MGFs of \\( X_1 \\) and \\( X_2 \\)",
+      "role": "primary"
+     }
+    ]
+   }
+  ],
+  "alternatives": [],
+  "unsupported": []
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/Gamma.html@sentence:Suppose that \\(X_1\\)",
+   "text": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_i\\) has the gamma distribution with shape parameter \\(k_i \\in (0, \\infty)\\) and scale parameter \\(b \\in (0, \\infty)\\) for \\(i \\in \\{1, 2\\}\\)."
+  },
+  "s2": {
+   "locator": "special/Gamma.html@sentence:Then \\(X_1",
+   "text": "Then \\(X_1 + X_2\\) has the gamma distribution with shape parameter \\(k_1 + k_2\\) and scale parameter \\(b\\)."
+  },
+  "s3": {
+   "locator": "special/Gamma.html@sentence:Recall that the MGF",
+   "text": "Recall that the MGF of \\( X = X_1 + X_2 \\) is the product of the MGFs of \\( X_1 \\) and \\( X_2 \\), so \\[ \\E\\left(e^{t X}\\right) = \\frac{1}{(1 - b t)^{k_1}} \\frac{1}{(1 - b t)^{k_2}} = \\frac{1}{(1 - b t)^{k_1 + k_2}}, \\quad t \\lt \\frac{1}{b} \\]"
+  }
+ },
+ "provenance": {
+  "spike_unit": "U11",
+  "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/U11.json",
+  "packet": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U11.md",
+  "stored_reference": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_v1/U11.json",
+  "rendition": {
+   "page": "special/Gamma.html",
+   "source_uri": "siegrist_random/random/special/Gamma.html",
+   "spike_document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+   "spike_rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+   "built_from": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1",
+   "sentences": "results/s1/sentences/<page>.provisional.jsonl (provisional: P1 parser + b′ + rule c)"
+  },
+  "decisions": [],
+  "migrations": [
+   "V1 /claims/2/qualifiers/conditions/args/1/args/0: {t: entity, ref} -> {ref}",
+   "V1 /claims/2/qualifiers/conditions/args/1/args/1: {t: entity, ref} -> {ref}"
+  ]
+ }
+}

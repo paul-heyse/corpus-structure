@@ -1,0 +1,284 @@
+{
+ "trace_unit": "T3",
+ "page": "special/Normal.html",
+ "source_uri": "siegrist_random/random/special/Normal.html",
+ "unit_key": "special/Normal.html#rel1",
+ "ancestors": [
+  {
+   "kind": "document",
+   "locator": "special/Normal.html",
+   "start": 0,
+   "end": 21680,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/Normal.html@section:The General",
+   "start": 9029,
+   "end": 21071,
+   "attrs": {
+    "level": 3,
+    "heading_tag": "h3",
+    "title": "The General Normal Distribution"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/Normal.html@section:Related",
+   "start": 14047,
+   "end": 19836,
+   "attrs": {
+    "level": 4,
+    "heading_tag": "h4",
+    "title": "Related Distributions"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "segments": [
+  {
+   "kind": "unit",
+   "locator": "special/Normal.html#rel1",
+   "start": 14382,
+   "end": 14925,
+   "attrs": {
+    "id": "rel1",
+    "classes": [
+     "unit"
+    ],
+    "hint": {
+     "selector": "p.math",
+     "statement_kind": "theorem"
+    }
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "paragraph",
+   "locator": "special/Normal.html@p:Suppose that \\(X\\)",
+   "start": 14382,
+   "end": 14615,
+   "attrs": {
+    "classes": [
+     "math"
+    ],
+    "hint": {
+     "selector": "p.math",
+     "statement_kind": "theorem"
+    }
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/Normal.html@sentence:Suppose that \\(X\\)",
+   "start": 14382,
+   "end": 14469,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[4]:\\(X\\)",
+   "start": 14395,
+   "end": 14400,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[2]:\\(\\mu\\)",
+   "start": 14435,
+   "end": 14442,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[1]:\\(\\sigma^2\\)",
+   "start": 14456,
+   "end": 14468,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/Normal.html@sentence:If \\(a",
+   "start": 14470,
+   "end": 14615,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline:\\(a \\in",
+   "start": 14473,
+   "end": 14485,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline:\\(b \\in",
+   "start": 14490,
+   "end": 14518,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[1]:\\(a + b X\\)",
+   "start": 14525,
+   "end": 14536,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[1]:\\(a + b \\mu\\)",
+   "start": 14571,
+   "end": 14584,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[1]:\\(b^2",
+   "start": 14598,
+   "end": 14614,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "details",
+   "locator": "special/Normal.html@details:Details: The MGF of \\(a",
+   "start": 14617,
+   "end": 14925,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "heading",
+   "locator": "special/Normal.html@heading[15]:Details:",
+   "start": 14617,
+   "end": 14625,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "paragraph",
+   "locator": "special/Normal.html@p:The MGF of \\(a",
+   "start": 14627,
+   "end": 14925,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/Normal.html@sentence:The MGF of \\(a",
+   "start": 14627,
+   "end": 14925,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[2]:\\(a + b X\\)",
+   "start": 14638,
+   "end": 14649,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_display",
+   "locator": "special/Normal.html@math_display:\\[ \\E\\left[e^{t",
+   "start": 14653,
+   "end": 14813,
+   "attrs": {
+    "open": "\\[",
+    "close": "\\]"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[2]:\\(a + b \\mu\\)",
+   "start": 14881,
+   "end": 14894,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/Normal.html@math_inline[2]:\\(b^2",
+   "start": 14908,
+   "end": 14924,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "counts": {
+  "details": 1,
+  "heading": 1,
+  "math_display": 1,
+  "math_inline": 11,
+  "paragraph": 2,
+  "sentence": 3,
+  "unit": 1
+ },
+ "markup": [],
+ "trace_md": {
+  "kind": "unit",
+  "id": "rel1",
+  "counts": {
+   "math_inline": 11,
+   "math_display": 1,
+   "details": 1
+  },
+  "statement_math_inline": 8,
+  "paragraph_classes": [
+   "math"
+  ]
+ },
+ "provenance": {
+  "kinds_counts_attributes": "docs/design/trace.md (asserted in build_segments.py)",
+  "offsets_texts_attributes": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1 (canonical, segments, sentences provisional, markup); diagnostic attributes tag, sid, sourceline, roles dropped",
+  "spike_rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "locators": "corpus_structure.core.locators.LocatorIndex.generate"
+ }
+}

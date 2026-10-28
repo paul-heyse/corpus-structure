@@ -1,0 +1,328 @@
+{
+ "trace_unit": "T4",
+ "page": "special/LogNormal.html",
+ "source_uri": "siegrist_random/random/special/LogNormal.html",
+ "unit_key": "special/LogNormal.html#dfn",
+ "ancestors": [
+  {
+   "kind": "document",
+   "locator": "special/LogNormal.html",
+   "start": 0,
+   "end": 12319,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/LogNormal.html@section:Basic",
+   "start": 28,
+   "end": 11716,
+   "attrs": {
+    "level": 3,
+    "heading_tag": "h3",
+    "title": "Basic Theory"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/LogNormal.html@section:Definition",
+   "start": 42,
+   "end": 841,
+   "attrs": {
+    "level": 4,
+    "heading_tag": "h4",
+    "title": "Definition"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "segments": [
+  {
+   "kind": "unit",
+   "locator": "special/LogNormal.html#dfn",
+   "start": 54,
+   "end": 518,
+   "attrs": {
+    "id": "dfn",
+    "classes": [
+     "unit"
+    ],
+    "hint": {
+     "selector": "p.dfn",
+     "statement_kind": "definition"
+    }
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "paragraph",
+   "locator": "special/LogNormal.html@p:Suppose that \\(Y\\)",
+   "start": 54,
+   "end": 264,
+   "attrs": {
+    "classes": [
+     "dfn"
+    ],
+    "hint": {
+     "selector": "p.dfn",
+     "statement_kind": "definition"
+    }
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LogNormal.html@sentence:Suppose that \\(Y\\)",
+   "start": 54,
+   "end": 176,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\(Y\\)",
+   "start": 67,
+   "end": 72,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\(\\mu \\in",
+   "start": 111,
+   "end": 125,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\(\\sigma \\in",
+   "start": 149,
+   "end": 175,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LogNormal.html@sentence:Then \\(X = e^Y\\)",
+   "start": 177,
+   "end": 264,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\(X = e^Y\\)",
+   "start": 182,
+   "end": 193,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\(\\mu\\)",
+   "start": 241,
+   "end": 248,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\(\\sigma\\)",
+   "start": 253,
+   "end": 263,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "list",
+   "locator": "special/LogNormal.html@list:(a) The",
+   "start": 266,
+   "end": 413,
+   "attrs": {
+    "classes": [
+     "sub"
+    ]
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "list_item",
+   "locator": "special/LogNormal.html@list_item:(a) The",
+   "start": 266,
+   "end": 340,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LogNormal.html@sentence:(a) The",
+   "start": 266,
+   "end": 340,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\( \\sigma \\)",
+   "start": 284,
+   "end": 296,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "list_item",
+   "locator": "special/LogNormal.html@list_item:(b) The",
+   "start": 341,
+   "end": 413,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LogNormal.html@sentence:(b) The",
+   "start": 341,
+   "end": 413,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline:\\( e^\\mu\\)",
+   "start": 359,
+   "end": 369,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "paragraph",
+   "locator": "special/LogNormal.html@p:If \\(Z\\)",
+   "start": 415,
+   "end": 518,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LogNormal.html@sentence:If \\(Z\\)",
+   "start": 415,
+   "end": 518,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\(Z\\)",
+   "start": 418,
+   "end": 423,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LogNormal.html@math_inline[1]:\\(W =",
+   "start": 466,
+   "end": 477,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "counts": {
+  "list": 1,
+  "list_item": 2,
+  "math_inline": 10,
+  "paragraph": 2,
+  "sentence": 5,
+  "unit": 1
+ },
+ "markup": [
+  {
+   "markup": "a",
+   "start": 81,
+   "end": 100,
+   "text": "normal distribution"
+  },
+  {
+   "markup": "dfn",
+   "start": 202,
+   "end": 224,
+   "text": "lognormal distribution"
+  },
+  {
+   "markup": "list_marker",
+   "start": 266,
+   "end": 270,
+   "text": "(a) "
+  },
+  {
+   "markup": "dfn",
+   "start": 304,
+   "end": 319,
+   "text": "shape parameter"
+  },
+  {
+   "markup": "list_marker",
+   "start": 341,
+   "end": 345,
+   "text": "(b) "
+  },
+  {
+   "markup": "dfn",
+   "start": 377,
+   "end": 392,
+   "text": "scale parameter"
+  },
+  {
+   "markup": "dfn",
+   "start": 486,
+   "end": 517,
+   "text": "standard lognormal distribution"
+  }
+ ],
+ "trace_md": {
+  "kind": "unit",
+  "id": "dfn",
+  "counts": {
+   "math_inline": 10,
+   "list_item": 2,
+   "paragraph": 2
+  }
+ },
+ "provenance": {
+  "kinds_counts_attributes": "docs/design/trace.md (asserted in build_segments.py)",
+  "offsets_texts_attributes": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1 (canonical, segments, sentences provisional, markup); diagnostic attributes tag, sid, sourceline, roles dropped",
+  "spike_rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+  "locators": "corpus_structure.core.locators.LocatorIndex.generate"
+ }
+}

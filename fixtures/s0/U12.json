@@ -1,0 +1,275 @@
+{
+ "unit_key": "special/Gamma.html#mom1",
+ "batch": {
+  "unit_ref": "special/Gamma.html#mom1",
+  "statements": [
+   {
+    "local_ref": "st0",
+    "kind": "assumption",
+    "anchor": [
+     "c1"
+    ]
+   },
+   {
+    "local_ref": "st1",
+    "kind": "theorem",
+    "anchor": [
+     "s1",
+     "s2",
+     "s3"
+    ]
+   },
+   {
+    "local_ref": "st2",
+    "kind": "proof",
+    "anchor": [
+     "s4",
+     "s5"
+    ]
+   }
+  ],
+  "entities": [
+   {
+    "local_ref": "X",
+    "type": "RandomVariable",
+    "label": "X",
+    "scope": "local",
+    "extent": "section",
+    "symbol": "X",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "SG",
+    "type": "DistributionFamily",
+    "label": "standard gamma distribution",
+    "scope": "global",
+    "aliases": [],
+    "identity": {}
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "c_X_stdgamma",
+    "predicate": "has_distribution",
+    "subject": "X",
+    "object": {
+     "ref": "SG"
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "param_values": {
+      "shape": {
+       "t": "formula",
+       "latex": "k",
+       "symbols": {
+        "k": {
+         "bind": "free"
+        }
+       }
+      }
+     }
+    },
+    "statement": "st0",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "c1",
+      "quote": "\\( X \\) has the standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_X_mean",
+    "predicate": "mean_value",
+    "subject": "X",
+    "object": {
+     "t": "formula",
+     "latex": "k",
+     "symbols": {
+      "k": {
+       "bind": "param_of",
+       "claim": "c_X_stdgamma",
+       "param": "shape"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "asserted",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "c_X_stdgamma"
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "k",
+         "symbols": {
+          "k": {
+           "bind": "param_of",
+           "claim": "c_X_stdgamma",
+           "param": "shape"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st1",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "\\(\\E(X) = k\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "The mean and variance of \\( X \\) are",
+      "role": "supporting"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_X_var",
+    "predicate": "variance_value",
+    "subject": "X",
+    "object": {
+     "t": "formula",
+     "latex": "k",
+     "symbols": {
+      "k": {
+       "bind": "param_of",
+       "claim": "c_X_stdgamma",
+       "param": "shape"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "asserted",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "c_X_stdgamma"
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "k",
+         "symbols": {
+          "k": {
+           "bind": "param_of",
+           "claim": "c_X_stdgamma",
+           "param": "shape"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st1",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "\\(\\var(X) = k\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "The mean and variance of \\( X \\) are",
+      "role": "supporting"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_proves",
+    "predicate": "proves",
+    "subject": "st2",
+    "object": {
+     "ref": "st1"
+    },
+    "qualifiers": {
+     "modality": "asserted"
+    },
+    "statement": "st2",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "(a) From [3]",
+      "role": "primary"
+     }
+    ]
+   }
+  ],
+  "alternatives": [],
+  "unsupported": []
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/Gamma.html@sentence[1]:The mean and variance of",
+   "text": "The mean and variance of \\( X \\) are"
+  },
+  "s2": {
+   "locator": "special/Gamma.html@sentence:(a) \\(\\E(X) = k\\)",
+   "text": "(a) \\(\\E(X) = k\\)"
+  },
+  "s3": {
+   "locator": "special/Gamma.html@sentence:(b) \\(\\var(X) = k\\)",
+   "text": "(b) \\(\\var(X) = k\\)"
+  },
+  "s4": {
+   "locator": "special/Gamma.html@sentence:(a) From",
+   "text": "(a) From [3], \\[ \\E(X) = \\int_0^\\infty x \\frac{1}{\\Gamma(k)} x^{k-1} e^{-x} \\, dx = \\frac{\\Gamma(k + 1)}{\\Gamma(k)} = k\\]"
+  },
+  "s5": {
+   "locator": "special/Gamma.html@sentence:(b) From",
+   "text": "(b) From [3] again \\[ \\E\\left(X^2\\right) = \\int_0^\\infty x^2 \\frac{1}{\\Gamma(k)} x^{k-1} e^{-x} \\, dx = \\frac{\\Gamma(k + 2)}{\\Gamma(k)} = (k + 1) k\\] and hence \\( \\var(X) = \\E\\left(X^2\\right) - [\\E(X)]^2 = k \\)"
+  },
+  "c1": {
+   "locator": "special/Gamma.html@sentence:Suppose that \\( X \\) has the standard",
+   "text": "Suppose that \\( X \\) has the standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\)."
+  }
+ },
+ "provenance": {
+  "spike_unit": "U12",
+  "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/U12.json",
+  "packet": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U12.md",
+  "stored_reference": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_v1/U12.json",
+  "rendition": {
+   "page": "special/Gamma.html",
+   "source_uri": "siegrist_random/random/special/Gamma.html",
+   "spike_document_key": "doc:aef1090d79b4b188e63566d90ccbf3ae",
+   "spike_rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+   "built_from": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1",
+   "sentences": "results/s1/sentences/<page>.provisional.jsonl (provisional: P1 parser + b′ + rule c)"
+  },
+  "decisions": [
+   {
+    "item": "c_X_stdgamma (new)",
+    "decision": "§10.2 context premise: the supposition in standing context c1 recorded once as an assumption statement; §10.7 rule 3: the conclusions reference it and repeat k ∈ (0, ∞); k binds param_of it"
+   }
+  ],
+  "migrations": []
+ }
+}

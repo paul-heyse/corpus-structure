@@ -1,0 +1,17 @@
+The four HTML pages under siegrist_random/random/special/ are unmodified copies of pages of
+
+  Kyle Siegrist, Random: Probability, Mathematical Statistics, Stochastic Processes
+  https://www.randomservices.org/random/
+
+licensed under the Creative Commons Attribution 2.0 license (CC BY 2.0,
+https://creativecommons.org/licenses/by/2.0/). Retrieved 2026-10-04 as recorded in
+docs/statistics_corpus/SOURCES.tsv (row siegrist_random); the bytes are those listed for the same
+paths in docs/statistics_corpus/MANIFEST.sha256:
+
+  special/LocationScale.html  Location-Scale Families
+  special/Normal.html         The Normal Distribution
+  special/LogNormal.html      The Lognormal Distribution
+  special/Gamma.html          The Gamma Distribution
+
+They are vendored as test fixtures (fixtures/trace/README.md) so that the trace tests run without
+the gitignored corpus. No changes were made.

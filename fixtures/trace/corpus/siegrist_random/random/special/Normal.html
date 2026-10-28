@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>The Normal Distribution</title>
+	<meta name="author" content="Kyle Siegrist">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="keywords" content="probability, statistics, normal distribution, location-scale family, exponential family, infintely divisible distribution">
+	<link rel="icon" href="../icons/Icon.svg" type="image/svg">
+	<link rel="stylesheet" href="../Screen.css" type="text/css" media="screen">
+	<script src="../Basic.js"></script>
+	<script src="../../MathJax/tex-svg.js" id="MathJax-script" async></script>
+</head>
+
+<body>
+
+<div class="latex">
+	\(\newcommand{\R}{\mathbb{R}}\)
+	\(\newcommand{\N}{\mathbb{N}}\)
+	\(\newcommand{\P}{\mathbb{P}}\)
+	\(\newcommand{\E}{\mathbb{E}}\)
+	\(\newcommand{\var}{\text{var}}\)
+	\(\newcommand{\sd}{\text{sd}}\)
+	\(\newcommand{\skw}{\text{skew}}\)
+	\(\newcommand{\kur}{\text{kurt}}\)
+</div>
+
+<header>
+	<ol class="map">
+		<li class="parent"><a href="../index.html">Random</a></li>
+		<li class="parent"><a href="index.html">4. Special Distributions</a></li>
+		<li class="child">The Normal Distribution</li>
+		<li class="details"><button type="button" title="Expand Details" onclick="expandDetails(true);"><img src="../icons/Plus.svg" alt="Expand"></button></li>
+		<li class="details"><button type="button" title="Contract Details" onclick="expandDetails(false);"><img src="../icons/Minus.svg" alt="Contract"></button></li>
+	</ol>
+	<h2>The Normal Distribution</h2>
+</header>
+
+<p>The normal distribution holds an honored role in probability and statistics, mostly because of the <a href="../sample/CLT.html">central limit theorem</a>, one of the fundamental theorems that forms a bridge between the two subjects. In addition, as we will see, the normal distribution has many nice mathematical properties. The normal distribution is also called the <dfn>Gaussian distribution</dfn>, in honor of <a href="JavaScript:openAncillary('../biographies/Gauss.html')" class="ancillary">Carl Friedrich Gauss</a>, who was among the first to use the distribution.</p>
+
+<h3>The Standard Normal Distribution</h3>
+
+<h4>Distribution Functions</h4>
+
+<div class="unit" id="pdf1">
+	<p class="dfm">The <dfn>standard normal distribution</dfn> is a continuous distribution on \( \R \) with <a href="../dist/Continuous.html">probability density function</a> \(\phi\) given by
+	\[ \phi(z) = \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2}, \quad z \in \R \]</p>
+	<details>
+		<summary>Details:</summary>
+		<p>Let \(c = \int_{-\infty}^{\infty} e^{-z^2 / 2} dz\). We need to show that \( c = \sqrt{2 \pi} \). That is, \(\sqrt{2 \pi}\) is the normalzing constant for the function \(z \mapsto e^{-z^2 / 2}\). The proof uses a nice trick:
+		\[ c^2 = \int_{-\infty}^\infty e^{-x^2 / 2} \, dx \int_{-\infty}^\infty e^{-y^2 / 2} \, dy = \int_{\R^2} e^{-(x^2 + y^2) / 2} \, d(x, y)\]
+		We now convert the double integral to polar coordinates: \( x = r \cos \theta \), \( y = r \sin \theta \) where \( r \in [0, \infty) \) and \( \theta \in [0, 2 \pi) \). So, \( x^2 + y^2 = r^2 \) and \( d(x, y) = r \, d(r, \theta) \). Thus, converting back to iterated integrals,
+		\[ c^2 = \int_0^{2 \pi} \int_0^\infty r e^{-r^2 / 2} \, dr \, d\theta \]
+		Substituting \( u = r^2 / 2 \) in the inner integral gives \( \int_0^\infty e^{-u} \, du = 1 \) and then the outer integral is \( \int_0^{2 \pi} 1 \, d\theta = 2 \pi \). Thus, \( c^2 = 2 \pi \) and so \( c = \sqrt{2 \pi} \).</p>
+	</details>
+</div>
+
+<p>The standard normal probability density function has the famous <q>bell shape</q> that is known to just about everyone.</p>
+
+<div class="unit" id="pdf2">
+	<p class="math">The standard normal density function \(\phi\) satisfies the following properties:</p>
+	<ol class="sub">
+		<li>\(\phi\) is symmetric about \(z = 0\).</li>
+		<li>\(\phi\) increases and then decreases, with mode \( z = 0 \).</li>
+		<li>\(\phi\) is concave upward and then downward and then upward again, with inflection points at \(z = \pm 1\).</li>
+		<li>\(\phi(z) \to 0\) as \(z \to \infty\) and as \(z \to -\infty\).</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>These results follow from standard calculus. Note that \(\phi^\prime(z) = - z \phi(z)\) (which gives (b)) and hence also \( \phi^{\prime \prime}(z) = (z^2 - 1) \phi(z) \) (which gives (c)).</p>
+	</details>
+</div>
+
+<div class="unit">
+<p class="app">In the <a href="JavaScript:openAncillary('../apps/SpecialSimulator.html');" class="ancillary">Special Distribution Simulator</a>, select the normal distribution and keep the default settings. Note the shape and location of the standard normal density function. Run the simulation 1000 times, and compare the empirical density function to the probability density function.</p>
+</div>
+
+<p>The standard normal <a href="../dist/CDF.html">distribution function</a> \(\Phi\), given by
+\[ \Phi(z) = \int_{-\infty}^z \phi(t) \, dt = \int_{-\infty}^z \frac{1}{\sqrt{2 \pi}} e^{-t^2 / 2} \, dt \]
+and its inverse, the quantile function \(\Phi^{-1}\), cannot be expressed in closed form in terms of elementary functions. However approximate values of these functions can be obtained from the <a href="JavaScript:openAncillary('../apps/QuantileApp.html')" class="ancillary">quantile app</a>, and from most mathematics and statistics software. Indeed these functions are so important that they are considered <em>special functions</em> of mathematics.</p>
+
+<div class="unit" id="cdf1">
+	<p class="math">The standard normal distribution function \(\Phi\) satisfies the following properties:</p>
+	<ol class="sub">
+		<li>\(\Phi(-z) = 1 - \Phi(z)\) for \(z \in \R\)</li>
+		<li>\(\Phi^{-1}(p) = -\Phi^{-1}(1 - p)\) for \(p \in (0, 1)\)</li>
+		<li>\(\Phi(0) = \frac{1}{2}\), so the median is 0.</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>Part (a) follows from the symmetry of \( \phi \). Part (b) follows from part (a). Part (c) follows from part (a) with \( z = 0 \).</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="app">In the <a href="JavaScript:openAncillary('../apps/QuantileApp.html')" class="ancillary">quantile app</a>, select the normal distribution and keep the default settings.</p>
+	<ol class="sub">
+		<li>Note the shape of the density function and the distribution function.</li>
+		<li>Find the first and third quartiles.</li>
+		<li>Compute the interquartile range.</li>
+	</ol>
+</div>
+
+<div class="unit">
+	<p class="app">In the <a href="JavaScript:openAncillary('../apps/QuantileApp.html')" class="ancillary">quantile app</a>, select the normal distribution and keep the default settings. Find the quantiles of the following orders for the standard normal distribution:</p>
+	<ol class="sub">
+		<li>\(q = 0.005\), \(q = 0.995\)</li>
+		<li>\(q = 0.05\), \(q = 0.95\)</li>
+		<li>\(q = 0.1\), \(q = 0.9\)</li>
+	</ol>
+</div>
+
+<h4>Moments</h4>
+
+<p>Suppose that random variable \( Z \) has the standard normal distribution.</p>
+
+<div class="unit" id="mom1">
+	<p class="math">The <a href="../expect/Properties.html">mean</a> and <a href="../expect/Variance.html">variance</a> of \( Z \) are</p>
+	<ol class="sub">
+		<li>\( \E(Z) = 0 \)</li>
+		<li>\( \var(Z) = 1 \)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<ol class="sub">
+			<li>Of course, by symmetry, if \( Z \) <em>has</em> a mean, the mean must be 0, but we have to argue that the mean exists. Actually it's not hard to compute the mean directly. Note that 
+			\[ \E(Z) = \int_{-\infty}^\infty z \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2} \, dz  = \int_{-\infty}^0 z \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2} \, dz  + \int_0^\infty z \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2} \, dz \]
+			The integrals on the right can be evaluated explicitly using the simple substitution \( u = z^2 / 2 \). The result is \( \E(Z) = -1/\sqrt{2 \pi} + 1/\sqrt{2 \pi} = 0 \).</li>
+			<li>By part (a), note that
+			\[ \var(Z) = \E(Z^2) = \int_{-\infty}^\infty z^2 \phi(z) \, dz \]
+			Integrate by parts, using the parts \( u = z \) and \( dv = z \phi(z) \, dz \). Thus \( du = dz \) and \( v = -\phi(z) \). Note that \( z \phi(z) \to 0 \) as \( z \to \infty \) and as \( z \to -\infty \). Thus, the integration by parts formula gives \( \var(Z) = \int_{-\infty}^\infty \phi(z) \, dz = 1 \).<li>
+		</ol>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="app">In the <a href="JavaScript:openAncillary('../apps/SpecialSimulator.html')" class="ancillary">Special Distribution Simulator</a>, select the normal distribution and keep the default settings. Note the shape and size of the mean \( \pm \) standard deviation bar.. Run the simulation 1000 times, and compare the empirical mean and standard deviation to the true mean and standard deviation.</p>
+</div>
+
+<p>More generally, we can compute all of the moments.  The key is the following recursion formula.</p>
+
+<div class="unit" id="mom2">
+	<p class="math">For \( n \in \N_+ \), \( \E\left(Z^{n+1}\right) = n \E\left(Z^{n-1}\right) \) </p>
+	<details>
+		<summary>Details:</summary>
+		<p>First we use the differential equation in the proof of <a href="#pdf2" class="ref"></a> above, namely \( \phi^\prime(z) = - z \phi(z) \). 
+		\[ \E\left(Z^{n+1}\right) = \int_{-\infty}^\infty z^{n+1} \phi(z) \, dz = \int_{-\infty}^\infty z^n z \phi(z) \, dz = - \int_{-\infty}^\infty z^n \phi^\prime(z) \, dz \]
+		Now we integrate by parts, with \( u = z^n \) and \( dv = \phi^\prime(z) \, dz \) to get
+		\[ \E\left(Z^{n+1}\right) = -z^n \phi(z) \bigg|_{-\infty}^\infty + \int_{-\infty}^\infty n z^{n-1} \phi(z) \, dz = 0 + n \E\left(Z^{n-1}\right) \]</p>
+	</details>
+</div>
+
+<p>The moments of the standard normal distribution are now easy to compute.</p>
+
+<div class="unit" id="mom3">
+	<p class="math">For \(n \in \N\),</p>
+	<ol class="sub">
+		<li> \(\E \left( Z^{2 n + 1} \right) = 0\) 
+		<li>\(\E \left( Z^{2 n} \right) = 1 \cdot 3 \cdots (2n - 1) = (2  n)! \big/ (n! 2^n) \)
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>The result follows from the mean and variance in <a href="#mom1" class="ref"></a> and recursion relation in <a href="#mom2" class="ref"></a>.</p>
+		<ol class="sub">
+			<li>Since \( \E(Z) = 0 \) it follows that \( \E\left(Z^n\right) = 0 \) for every odd \( n \in \N \).</li>
+			<li>Since \( \E\left(Z^2\right) = 1 \), it follows that \( \E\left(Z^4\right) = 1 \cdot 3 \) and then \( \E\left(Z^6\right) = 1 \cdot 3 \cdot 5  \), and so forth. You can use induction, if you like, for a more formal proof.</li>
+		</ol>
+	</details>
+</div>
+
+<p>Of course, the fact that the odd-order moments are 0 also follows from the symmetry of the distribution. The following theorem gives the <a href="../expect/Skew.html#skw">skewness</a> and <a href="../expect/Skew.html#kur">kurtosis</a> of the standard normal distribution.</p>
+
+<div class="unit" id="mom4">
+	<p class="math">The skewness and kurtosis of \( Z \) are</p>
+	<ol class="sub">
+		<li>\(\skw(Z) = 0\)</li>
+		<li>\(\kur(Z) = 3\)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<ol class="sub">
+			<li>This follows immediately from the symmetry of the distribution. Directly, since \( Z \) has mean 0 and variance 1, \( \skw(Z) = \E\left(Z^3\right) = 0 \).</li>
+			<li>Since \( \E(Z) = 0 \) and \( \var(Z) = 1 \), \( \kur(Z) = \E\left(Z^4\right) = 3\).</li>
+		</ol>
+	</details>
+</div>
+
+<p>Because of the last result, (and the use of the standard normal distribution literally as a <em>standard</em>), the <dfn>excess kurtosis</dfn> of a random variable is defined to be the ordinary kurtosis minus 3. Thus, the excess kurtosis of the normal distribution is 0.</p>
+
+<p>Many other important properties of the normal distribution are most easily obtained using the <a href="../expect/Generating.html#mgf">moment generating function</a> or the <a href="../expect/Generating.html#chf">characteristic function</a>.</p>
+
+<div class="unit" id="mgf1">
+	<p class="math">The moment generating function \( m \) and characteristic function \( \chi \) of \( Z \) are given by</p>
+	<ol class="sub">
+		<li>\(m(t) =  e^{t^2 / 2}\) for \( t \in \R\).</li>
+		<li>\(\chi(t) = e^{-t^2 / 2}\) for \( t \in \R \).</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<ol class="sub">
+			<li>Note that
+			\[ m(t) = \E(e^{t Z}) = \int_{-\infty}^\infty e^{t z} \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2} \, dz = \int_{-\infty}^\infty \frac{1}{2 \pi} \exp\left(-\frac{1}{2} z^2 + t z\right) \, dz \]
+			We complete the square in \( z \) to get \( -\frac{1}{2} z^2 + t z = -\frac{1}{2}(z - t)^2 + \frac{1}{2} \). Thus we have
+			\[ \E(e^{t Z}) = e^{\frac{1}{2} t^2} \int_{-\infty}^\infty \frac{1}{\sqrt{2 \pi}} \exp\left[-\frac{1}{2}(z - t)^2\right] \, dz \]
+			In the integral, if we use the simple substitution \(u = z - t\) then the integral becomes \(\int_{-\infty}^\infty \phi(u) \, du = 1\). Hence \( \E\left(e^{t Z}\right) = e^{\frac{1}{2} t^2} \),</li>
+			<li>This follows from (a) since \(\chi(t) = m(i t)\).</li>
+		</ol>
+	</details>
+</div>
+
+<p>Thus, the standard normal distribution has the curious property that the characteristic function is a multiple of the probability density function:
+\[ \chi = \sqrt{2 \pi} \phi \]
+The moment generating function can be used to give another derivation of the moments of \( Z \), since we know that \( \E\left(Z^n\right) = m^{(n)}(0) \).</p>
+
+<h3 id="gen">The General Normal Distribution</h3>
+
+<p>The general normal distribution is the <a href="LocationScale.html">location-scale family</a> associated with the standard normal distribution.</p>
+
+<div class="unit">
+	<p class="dfn">Suppose that \(\mu \in \R\) and  \( \sigma \in (0, \infty) \) and that \(Z\) has the standard normal distribution. Then \(X = \mu + \sigma Z\) has the <dfn>normal distribution</dfn> with location parameter \(\mu\) and scale parameter \(\sigma\).</p>
+</div>
+
+<h4>Distribution Functions</h4>
+ 
+<p>Suppose that \( X \) has the normal distribution with location parameter \( \mu \in \R \) and scale parameter \( \sigma \in (0, \infty) \). The basic properties of the density function and distribution function of \( X \) follow from general results for location scale families.</p>
+
+<div class="unit" id="pdf3">
+	<p class="math">The <a href="../dist/Continuous.html">probability density function</a> \(f\) of \( X \) is given by
+	\[ f(x) = \frac{1}{\sigma} \phi\left(\frac{x - \mu}{\sigma}\right) = \frac{1}{\sqrt{2 \, \pi} \, \sigma} \exp \left[ -\frac{1}{2} \left( \frac{x - \mu}{\sigma} \right)^2 \right], \quad x \in \R \]</p>
+	<details>
+		<summary>Details:</summary>
+		<p>This follows from the <a href="../dist/Transformations.html#cov1">change of variables</a> formula corresponding to the transformation \( x = \mu + \sigma z \).</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="math">The probability density function \(f\) satisfies the following properties:</p>
+	<ol class="sub">
+		<li>\(f\) is symmetric about \(x = \mu\).</li>
+		<li>\(f\) increases and then decreases with mode \( x = \mu \).</li>
+		<li>\(f\) is concave upward then downward then upward again, with inflection points at \( x = \mu \pm \sigma \).</li>
+		<li>\(f(x) \to 0\) as \(x \to \infty\) and as \(x \to -\infty\).</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>These properties follow from the corresponding properties of \( \phi \) in <a href="#pdf2" class="ref"></a>.</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="app">In the <a href="JavaScript:openAncillary('../apps/SpecialSimulator.html')" class="ancillary">special distribution simulator</a>, select the normal distribution. Vary the parameters and note the shape and location of the probability density function. With your choice of parameter settings, run the simulation 1000 times and compare the empirical density function to the true probability density function.</p>
+</div>
+
+<p>Let \(F\) denote the distribution function of \( X \), and as above, let \(\Phi\) denote the standard normal distribution function.</p>
+
+<div class="unit" id="cdf2">
+	<p class="math">The distribution function \(F\) and quantile function \( F^{-1} \) satsify the following properties:</p>
+	<ol class="sub">
+		<li>\(F(x) = \Phi \left( \frac{x - \mu}{\sigma} \right)\) for \(x \in \R\).</li>
+		<li>\(F^{-1}(p) = \mu + \sigma \, \Phi^{-1}(p)\) for \(p \in (0, 1)\).</li>
+		<li>\(F(\mu) = \frac{1}{2}\) so the median occurs at \(x = \mu\).</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>Part (a) follows since \( X = \mu + \sigma Z \). Parts (b) and (c) follow from (a).</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="app">In the <a href="JavaScript:openAncillary('../apps/QuantileApp.html')" class="ancillary">quantile app</a>, select the normal distribution. Vary the parameters and note the shape of the density function and the distribution function.</p>
+</div>
+
+<h4>Moments</h4>
+
+<p>Suppose again that \( X \) has the normal distribution with location parameter \( \mu \in \R \) and scale parameter \( \sigma \in (0, \infty) \). As the notation suggests, the location and scale parameters are also the <a href="../expect/Properties.html">mean</a> and <a href="../expect/Variance.html">standard deviation</a>, respectively.</p>
+
+<div class="unit">
+	<p class="math">The mean and variance of \( X \) are</p>
+	<ol class="sub">
+		<li>\(\E(X) = \mu\)</li>
+		<li>\(\var(X) = \sigma^2\)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>This follows from the representation \( X = \mu + \sigma Z \) and basic properties of expected value and variance.</p>
+	</details>
+</div>
+
+<p>So the parameters of the normal distribution are usually referred to as the <em>mean</em> and <em>standard deviation</em> rather than <em>location</em> and <em>scale</em>. The central moments of \(X\) can be computed easily from the moments of the standard normal distribution.  The ordinary (raw) moments of \(X\) can be computed from the central moments, but the formulas are a bit messy.</p>
+
+<div class="unit">
+	<p class="math">For \(n \in \N\),</p>
+	<ol class="sub">
+		<li>\(\E \left[ (X - \mu)^{2 n} \right] = 1 \cdot 3 \cdots (2n - 1) \sigma^{2n} = (2 n)! \sigma^{2n} \big/ (n! 2^n)\)</li>
+		<li>\(\E \left[ (X - \mu)^{2 \, n + 1} \right] = 0\)</li>
+	</ol>
+</div>
+
+<p>All of the odd central moments of \(X\) are 0, a fact that also follows from the symmetry of the probability density function.</p>
+
+<div class="unit">
+	<p class="app">In the <a href="JavaScript:openAncillary('../apps/SpecialSimulator.html')" class="ancillary"> special distribution simulator</a> select the normal distribution. Vary the mean and standard deviation and note the size and location of the mean \(\pm\) standard deviation bar. With your choice of parameter settings, run the simulation 1000 times and compare the empirical mean and standard deviation to the true mean and standard deviation.</p>
+</div>
+
+<p>The following result gives the <a href="../expect/Skew.html#skw">skewness</a> and <a href="../expect/Skew.html#kur">kurtosis</a>.</p>
+
+<div class="unit">
+	<p class="math">The skewness and kurtosis of \( X \) are</p>
+	<ol class="sub">
+		<li>\(\skw(X) = 0\)</li>
+		<li>\(\kur(X) = 3\)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>The skewness and kurtosis of a variable are defined in terms of the standard score, so these results follows from the corresponding result for \( Z \) in <a href="#mom4" class="ref"></a>.</p>
+	</details>
+</div>
+
+<div class="unit" id="mgf2">
+	<p class="math">The moment generating function \( M \) and characteristic function \( \chi \) of \( X \) are given by</p>
+	<ol class="sub">
+		<li>\(M(t) = \exp \left( \mu t + \frac{1}{2} \sigma^2 t^2 \right)\) for \(t \in \R \).</li>
+		<li>\( \chi(t) =\exp \left( i \mu t - \frac{1}{2} \sigma^2 t^2 \right)\) for \(t \in \R \)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<ol class="sub">
+			<li>This follows from the representation \( X = \mu + \sigma Z \), basic properties of expected value, and the MGF of \( Z \) in <a href="#mgf1" class="ref"></a>:
+			\[ \E\left(e^{t X}\right) = \E\left(e^{t \mu + t \sigma Z}\right) = e^{t \mu} \E\left(e^{t \sigma Z}\right) = e^{t \mu} e^{\frac{1}{2} t^2 \sigma^2} = e^{t \mu + \frac{1}{2} \sigma^2 t^2}  \]</li>
+			<li>This follows from (a) since \( \chi(t) = M(i t) \).</li>
+		</ol>
+	</details>
+</div>
+
+<h4>Related Distributions</h4>
+
+<p>The normal family of distributions satisfies two very important properties: invariance under linear transformations of the variable and invariance with respect to sums of independent variables. The first property is essentially a restatement of the fact that the normal distribution is a location-scale family.</p>
+
+<div class="unit" id="rel1">
+	<p class="math">Suppose that \(X\) is normally distributed with mean \(\mu\) and variance \(\sigma^2\). If \(a \in \R\) and \(b \in \R \setminus \{0\}\), then \(a + b X\) is normally distributed with mean \(a + b \mu\) and variance \(b^2 \sigma^2\).</p>
+	<details>
+	<summary>Details:</summary>
+		<p>The MGF of \(a + b X\) is
+		\[ \E\left[e^{t (a + b X)}\right] = e^{ta} \E\left[e^{(t b) X}\right] = e^{ta} e^{\mu (t b) + \sigma^2 (t b)^2 / 2} = e^{(a + b \mu)t + b^2 \sigma^2 t^2 / 2} \]
+		which we recognize as the MGF of the normal distribution with mean \(a + b \mu\) and variance \(b^2 \sigma^2\).</p>
+	</details>
+</div>
+
+<p>Recall that in general, if \(X\) is a random variable with mean \(\mu\) and standard deviation \(\sigma \gt 0\), then \(Z = (X - \mu) / \sigma\) is the <dfn>standard score</dfn> of \(X\). A corollary of the last result is that if \(X\) has a normal distribution then the standard score \(Z\) has a standard normal distribution. Conversely, any normally distributed variable can be constructed from a standard normal variable.</p>
+
+<div class="unit">
+	<p class="math">Standard score.</p>
+	<ol class="sub">
+		<li>If \(X\) has the normal distribution with mean \(\mu\) and standard deviation \(\sigma\) then \(Z = \frac{X - \mu}{\sigma}\) has the standard normal distribution.</li>
+		<li>If \(Z\) has the standard normal distribution and if \(\mu \in \R\) and \(\sigma \in (0, \infty)\), then \(X = \mu + \sigma Z\) has the normal distribution with mean \(\mu\) and standard deviation \(\sigma\).</li>
+	</ol>
+</div>
+
+<div class="unit" id="rel2">
+	<p class="math">Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) is normally distributed with mean \(\mu_i\) and variance \(\sigma_i^2\) for \(i \in \{1, 2\}\). Then \(X_1 + X_2\) is normally distributed with</p>
+	<ol class="sub">
+		<li>\(\E(X_1 + X_2) = \mu_1 + \mu_2\)</li>
+		<li>\(\var(X_1 + X_2) = \sigma_1^2 + \sigma_2^2\)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>The MGF of \(X_1 + X_2\) is the product of the MGFs, so
+		\[ \E\left(\exp\left[t (X_1 + X_2)\right]\right) = \exp\left(\mu_1 t + \sigma_1^2 t^2 / 2\right) \exp\left(\mu_2 t + \sigma_2^2 t^2 / 2\right) = \exp\left[\left(\mu_1 + \mu_2\right)t + \left(\sigma_1^2 + \sigma_2^2\right) t^2 / 2\right] \]
+		which we recognize as the MGF of the normal distribution with mean \(\mu_1 + \mu_2\) and variance \(\sigma_1^2 + \sigma_2^2\).</p>
+	</details>
+</div>
+
+<p>Theorem <a href="#rel2" class="ref"></a> generalizes to a sum of \(n\) independent, normal variables. The important part is that the sum is still normal; the expressions for the mean and variance are standard results that hold for the sum of independent variables generally. As a consequence of this result and the one for linear transformations <a href="#rel1" class="ref"></a>, it follows that the normal distribution is <a href="Stable.html">stable</a>.</p>
+
+<div class="unit">
+	<p class="math">The normal distribution is stable. Specifically, suppose that \( X \) has the normal distribution with mean \( \mu \in \R \) and variance \( \sigma^2 \in (0, \infty)\). If \( (X_1, X_2, \ldots, X_n) \) are independent copies of \( X \), then \( X_1 + X_2 + \cdots + X_n \) has the same distribution as \( \left(n - \sqrt{n}\right) \mu + \sqrt{n} X \), namely normal with mean \( n \mu \) and variance \( n \sigma^2 \).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>By <a href="#rel2" class="ref"></a> \( X_1 + X_2 + \cdots + X_n \) has the normal distribution with mean \( n \mu \) and variance \( n \sigma^2 \). By <a href="#rel1" class="ref"></a>, \( \left(n - \sqrt{n}\right) \mu + \sqrt{n} X \) has the normal distribution with mean \( \left(n - \sqrt{n}\right) \mu + \sqrt{n} \mu = n \mu \) and variance \( \left(\sqrt{n}\right)^2 \sigma^2 = n \sigma^2 \).</p>
+	</details>
+</div>
+
+<p>All stable distributions are <a href="Divisible.html">infinitely divisible</a>, so the normal distribution belongs to this family as well. For completeness, here is the explicit statement:</p>
+
+<div class="unit">
+	<p class="math">The normal distribution is infinitely divisible.  Specifically, if \( X \) has the normal distribution with mean \( \mu \in \R \) and variance \( \sigma^2 \in (0, \infty) \), then for \( n \in \N_+ \), \( X \) has the same distribution as \( X_1 + X_2 + \cdots + X_n\) where \( (X_1, X_2, \ldots, X_n) \) are independent, and each has the normal distribution with mean \( \mu / n \) and variance \( \sigma^2 / n \).</p>
+</div>
+
+<p>Finally, the normal distribution belongs to the family of <a href="GeneralExponential.html">general exponential distributions</a>.</p>
+
+<div class="unit">
+	<p class="math">The normal distribution with mean \(\mu\) and variance \(\sigma^2\) is a two-parameter exponential family with natural parameters \(\left( \frac{\mu}{\sigma^2}, -\frac{1}{2 \, \sigma^2} \right)\), and natural statistics \(\left(X, X^2\right)\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>Expanding the square, the normal PDF can be written in the form
+		\[ f(x) = \frac{1}{\sqrt{2 \pi} \sigma} \exp\left(-\frac{\mu^2}{2 \sigma^2}\right) \exp\left(\frac{\mu}{\sigma^2} x - \frac{1}{2 \sigma^2} x^2 \right), \quad x \in \R\]
+		so the result follows from the definition of the general exponential family.</p>
+	</details>
+</div>
+
+<p>A number of other special distributions studied in this chapter are constructed from normally distributed variables. These include</p>
+
+<ul>
+	<li>The <a href="LogNormal.html">lognormal distribution</a></li>
+	<li>The <a href="FoldedNormal.html">folded normal distribution</a>, which includes the half normal distribution as a special case</li>
+	<li>The <a href="Rayleigh.html">Rayleigh distribution</a></li>
+	<li>The <a href="Maxwell.html">Maxwell distribution</a></li>
+	<li>The <a href="Levy.html">L&eacute;vy distribution</a></li>
+</ul>
+
+<p>Also, as mentioned at the beginning of this section, the importance of the normal distribution stems in large part from the <a href="../sample/CLT.html">central limit theorem</a>, one of the fundamental theorems of probability. By virtue of this theorem, the normal distribution is connected to many other distributions, by means of limits and approximations, including the special distributions in the following list. Details are given in the individual sections.</p>
+
+<ul>
+	<li>The <a href="../bernoulli/Binomial.html">binomial distribution</a></li>
+	<li>The <a href="../bernoulli/NegativeBinomial.html">negative binomial distribution</a></li>
+	<li>The <a href="../poisson/Poisson.html">Poisson distribution</a></li>
+	<li>The <a href="Gamma.html">gamma distribution</a></li>
+	<li>The <a href="ChiSquare.html">chi-square distribution</a></li>
+	<li>The <a href="Student.html">student \( t \) distribution</a></li>
+	<li>The <a href="IrwinHall.html">Irwin-Hall distribution</a></li>
+</ul>
+
+<h4>Computational Exercises</h4>
+
+<div class="unit">
+	<p class="math">Suppose that the volume of beer in a bottle of a certain brand is normally distributed with mean 0.5 liter and standard deviation 0.01 liter. </p>
+	<ol class="sub">
+		<li>Find the probability that a bottle will contain at least 0.48 liter.</li>
+		<li>Find the volume that corresponds to the 95th percentile</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>Let \(X\) denote the volume of beer in liters</p>
+		<ol class="sub">
+			<li>\(\P(X \gt 0.48) = 0.9772\)</li>
+			<li>\(x_{0.95} = 0.51645\)</li>
+		</ol>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="math">A metal rod is designed to fit into a circular hole on a certain assembly. The radius of the rod is normally distributed with mean 1 cm and standard deviation 0.002 cm. The radius of the hole is normally distributed with mean 1.01 cm and standard deviation 0.003 cm. The machining processes that produce the rod and the hole are independent. Find the probability that the rod is to big for the hole. </p>
+	<details>
+		<summary>Details:</summary>
+		<p> Let \(X\) denote the radius of the rod and \(Y\) the radius of the hole. \(\P(Y - X \lt 0) = 0.0028\)</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="math">The weight of a peach from a certain orchard is normally distributed with mean 8 ounces and standard deviation 1 ounce. Find the probability that the combined weight of 5 peaches exceeds 45 ounces. </p>
+	<details>
+		<summary>Details:</summary>
+		<p> Let \(X\) denote the combined weight of the 5 peaches, in ounces. \(\P(X \gt 45) = 0.0127\)</p>
+	</details>
+</div>
+
+<h3>A Further Generlization</h3>
+
+<p>In some settings, it's convenient to consider a constant as having a normal distribution (with mean being the constant and variance 0, of course).  This convention simplifies the statements of theorems and definitions in these settings. Of course, the formulas for the probability density function <a href="#pdf3" class="ref"></a> and the distribution function <a href="#cdf2" class="ref"></a> do not hold for a constant, but the other results involving the moment generating function <a href="#mgf2" class="ref"></a>, linear transformations <a href="#rel1" class="ref"></a>, and sums <a href="#rel2" class="ref"></a> are still valid. Moreover, the result for linear transformations <a href="#rel1" class="ref"></a>  would hold for all \(a\) and \(b\). </p>
+
+<footer>
+	<ol class="map">
+		<li class="parent"><a href="../index.html">Random</a></li>
+		<li class="parent"><a href="index.html">4. Special Distributions</a></li>
+		<li class="child">The Normal Distribution</li>
+		<li class="details"><button type="button" title="Expand Details" onclick="expandDetails(true);"><img src="../icons/Plus.svg" alt="Expand"></button></li>
+		<li class="details"><button type="button" title="Contract Details" onclick="expandDetails(false);"><img src="../icons/Minus.svg" alt="Contract"></button></li>
+	</ol>
+</footer>
+
+<script>getReferences();</script>
+
+</body>
+</html>

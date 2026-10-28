@@ -1,0 +1,802 @@
+{
+ "trace_unit": "T4",
+ "page": "special/LogNormal.html",
+ "units": [
+  "special/LogNormal.html#dfn"
+ ],
+ "batch": {
+  "unit_ref": "special/LogNormal.html#dfn",
+  "entities": [
+   {
+    "local_ref": "Y",
+    "type": "RandomVariable",
+    "label": "Y",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "Y"
+   },
+   {
+    "local_ref": "X",
+    "type": "RandomVariable",
+    "label": "X",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X"
+   },
+   {
+    "local_ref": "Z",
+    "type": "RandomVariable",
+    "label": "Z",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "Z"
+   },
+   {
+    "local_ref": "W",
+    "type": "RandomVariable",
+    "label": "W",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "W"
+   },
+   {
+    "local_ref": "N",
+    "type": "DistributionFamily",
+    "label": "normal distribution",
+    "scope": "global",
+    "aliases": [
+     "normal",
+     "normally distributed"
+    ]
+   },
+   {
+    "local_ref": "LN",
+    "type": "DistributionFamily",
+    "label": "lognormal distribution",
+    "scope": "global"
+   },
+   {
+    "local_ref": "N.mean",
+    "type": "FamilyParameter",
+    "label": "mean",
+    "scope": "global",
+    "identity": {
+     "family": "N",
+     "canonical_name": "mean"
+    }
+   },
+   {
+    "local_ref": "N.sd",
+    "type": "FamilyParameter",
+    "label": "standard deviation",
+    "scope": "global",
+    "identity": {
+     "family": "N",
+     "canonical_name": "standard_deviation"
+    }
+   },
+   {
+    "local_ref": "LN.mu",
+    "type": "FamilyParameter",
+    "label": "\\mu",
+    "scope": "global",
+    "identity": {
+     "family": "LN",
+     "canonical_name": "mu"
+    }
+   },
+   {
+    "local_ref": "LN.sigma",
+    "type": "FamilyParameter",
+    "label": "\\sigma",
+    "scope": "global",
+    "identity": {
+     "family": "LN",
+     "canonical_name": "sigma"
+    }
+   },
+   {
+    "local_ref": "LN.scale",
+    "type": "FamilyParameter",
+    "label": "scale parameter",
+    "scope": "global",
+    "identity": {
+     "family": "LN",
+     "canonical_name": "scale"
+    }
+   },
+   {
+    "local_ref": "SN",
+    "type": "DistributionFamily",
+    "label": "standard normal distribution",
+    "scope": "global"
+   },
+   {
+    "local_ref": "SLN",
+    "type": "DistributionFamily",
+    "label": "standard lognormal distribution",
+    "scope": "global"
+   }
+  ],
+  "statements": [
+   {
+    "local_ref": "S1",
+    "kind": "definition",
+    "anchor": "unit"
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "C1",
+    "predicate": "has_distribution",
+    "subject": "Y",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "param_values": {
+      "mean": {
+       "t": "formula",
+       "latex": "\\mu",
+       "symbols": {
+        "mu": {
+         "bind": "free"
+        }
+       }
+      },
+      "standard_deviation": {
+       "t": "formula",
+       "latex": "\\sigma",
+       "symbols": {
+        "sigma": {
+         "bind": "free"
+        }
+       }
+      }
+     }
+    },
+    "statement": "S1",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "\\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in (0, \\infty)\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C2",
+    "predicate": "defined_as",
+    "subject": "X",
+    "object": {
+     "t": "formula",
+     "latex": "e^Y",
+     "symbols": {
+      "e": {
+       "bind": "constant"
+      },
+      "Y": {
+       "bind": "variable",
+       "entity": "Y"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "\\(X = e^Y\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C3",
+    "predicate": "has_distribution",
+    "subject": "X",
+    "object": {
+     "ref": "LN"
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "param_values": {
+      "mu": {
+       "t": "formula",
+       "latex": "\\mu",
+       "symbols": {
+        "mu": {
+         "bind": "param_of",
+         "claim": "C1",
+         "param": "mean"
+        }
+       }
+      },
+      "sigma": {
+       "t": "formula",
+       "latex": "\\sigma",
+       "symbols": {
+        "sigma": {
+         "bind": "param_of",
+         "claim": "C1",
+         "param": "standard_deviation"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "C1"
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "\\mu",
+         "symbols": {
+          "mu": {
+           "bind": "param_of",
+           "claim": "C1",
+           "param": "mean"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "\\sigma",
+         "symbols": {
+          "sigma": {
+           "bind": "param_of",
+           "claim": "C1",
+           "param": "standard_deviation"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "Then \\(X = e^Y\\) has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\(\\mu \\in \\R\\)",
+      "role": "condition"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\(\\sigma \\in (0, \\infty)\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "C4",
+    "predicate": "defines",
+    "subject": "S1",
+    "object": {
+     "ref": "LN"
+    },
+    "qualifiers": {},
+    "statement": "S1",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "has the lognormal distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C5",
+    "predicate": "has_parameter",
+    "subject": "LN",
+    "object": {
+     "ref": "LN.mu"
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "with parameters \\(\\mu\\) and \\(\\sigma\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C6",
+    "predicate": "has_parameter",
+    "subject": "LN",
+    "object": {
+     "ref": "LN.sigma"
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "with parameters \\(\\mu\\) and \\(\\sigma\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C7",
+    "predicate": "transformation_of",
+    "subject": "LN",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "transform": {
+      "t": "formula",
+      "latex": "e^Y",
+      "symbols": {
+       "e": {
+        "bind": "constant"
+       },
+       "Y": {
+        "bind": "variable",
+        "entity": "Y"
+       }
+      }
+     },
+     "param_mapping": {
+      "mu": "mean",
+      "sigma": "standard_deviation"
+     }
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "Then \\(X = e^Y\\) has the lognormal distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C8",
+    "predicate": "parameter_role",
+    "subject": "LN.sigma",
+    "object": {
+     "t": "enum",
+     "enum": "ParameterRole",
+     "v": "shape"
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "The parameter \\( \\sigma \\) is the shape parameter of the distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C9",
+    "predicate": "has_parameter",
+    "subject": "LN",
+    "object": {
+     "ref": "LN.scale"
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "is the scale parameter of the distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C10",
+    "predicate": "derived_parameter",
+    "subject": "LN.scale",
+    "object": {
+     "t": "formula",
+     "latex": "e^\\mu",
+     "symbols": {
+      "e": {
+       "bind": "constant"
+      },
+      "mu": {
+       "bind": "family_param",
+       "entity": "LN.mu"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "The parameter \\( e^\\mu\\) is the scale parameter of the distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C11",
+    "predicate": "parameter_domain",
+    "subject": "LN.mu",
+    "object": {
+     "t": "set",
+     "latex": "\\R",
+     "symbols": {}
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "\\(\\mu \\in \\R\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C12",
+    "predicate": "parameter_domain",
+    "subject": "LN.sigma",
+    "object": {
+     "t": "set",
+     "latex": "(0, \\infty)",
+     "symbols": {}
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "\\(\\sigma \\in (0, \\infty)\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C13",
+    "predicate": "has_distribution",
+    "subject": "Z",
+    "object": {
+     "ref": "SN"
+    },
+    "qualifiers": {
+     "modality": "supposed"
+    },
+    "statement": "S1",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s5",
+      "quote": "If \\(Z\\) has the standard normal distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C14",
+    "predicate": "defined_as",
+    "subject": "W",
+    "object": {
+     "t": "formula",
+     "latex": "e^Z",
+     "symbols": {
+      "e": {
+       "bind": "constant"
+      },
+      "Z": {
+       "bind": "variable",
+       "entity": "Z"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s5",
+      "quote": "\\(W = e^Z\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C15",
+    "predicate": "has_distribution",
+    "subject": "W",
+    "object": {
+     "ref": "SLN"
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "conditions": {
+      "op": "claim",
+      "ref": "C13"
+     }
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s5",
+      "quote": "then \\(W = e^Z\\) has the standard lognormal distribution",
+      "role": "primary"
+     },
+     {
+      "sentence": "s5",
+      "quote": "If \\(Z\\) has the standard normal distribution",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "C16",
+    "predicate": "defines",
+    "subject": "S1",
+    "object": {
+     "ref": "SLN"
+    },
+    "qualifiers": {},
+    "statement": "S1",
+    "evidence": [
+     {
+      "sentence": "s5",
+      "quote": "has the standard lognormal distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C17",
+    "predicate": "transformation_of",
+    "subject": "SLN",
+    "object": {
+     "ref": "SN"
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "transform": {
+      "t": "formula",
+      "latex": "e^Z",
+      "symbols": {
+       "e": {
+        "bind": "constant"
+       },
+       "Z": {
+        "bind": "variable",
+        "entity": "Z"
+       }
+      }
+     }
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s5",
+      "quote": "If \\(Z\\) has the standard normal distribution then \\(W = e^Z\\) has the standard lognormal distribution",
+      "role": "primary"
+     }
+    ]
+   }
+  ]
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/LogNormal.html@sentence:Suppose that \\(Y\\)",
+   "text": "Suppose that \\(Y\\) has the normal distribution with mean \\(\\mu \\in \\R\\) and standard deviation \\(\\sigma \\in (0, \\infty)\\)."
+  },
+  "s2": {
+   "locator": "special/LogNormal.html@sentence:Then \\(X = e^Y\\)",
+   "text": "Then \\(X = e^Y\\) has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\)."
+  },
+  "s3": {
+   "locator": "special/LogNormal.html@sentence:(a) The",
+   "text": "(a) The parameter \\( \\sigma \\) is the shape parameter of the distribution."
+  },
+  "s4": {
+   "locator": "special/LogNormal.html@sentence:(b) The",
+   "text": "(b) The parameter \\( e^\\mu\\) is the scale parameter of the distribution."
+  },
+  "s5": {
+   "locator": "special/LogNormal.html@sentence:If \\(Z\\)",
+   "text": "If \\(Z\\) has the standard normal distribution then \\(W = e^Z\\) has the standard lognormal distribution."
+  }
+ },
+ "must_not": [
+  {
+   "line": "`LN.sigma identical_parameter N.sd` as an asserted family identity",
+   "pattern": {
+    "kind": "claim",
+    "subject": {
+     "ref": "LN.sigma"
+    },
+    "predicate": "identical_parameter",
+    "object": {
+     "ref": "N.sd"
+    }
+   }
+  },
+  {
+   "line": "a lognormal `mean` parameter equal to `\\mu`",
+   "pattern": {
+    "kind": "claim",
+    "object": {
+     "ref": "LN"
+    },
+    "param_values": {
+     "mean": {
+      "latex": "\\mu"
+     }
+    }
+   }
+  },
+  {
+   "line": "a lognormal `mean` parameter equal to `\\mu`",
+   "pattern": {
+    "kind": "entity",
+    "type": "FamilyParameter",
+    "identity": {
+     "family": {
+      "ref": "LN"
+     },
+     "canonical_name": "mean"
+    }
+   }
+  }
+ ],
+ "questions": [
+  {
+   "question": "How is the lognormal distribution defined, and what are its shape and scale parameters?",
+   "query": "statement",
+   "params": {
+    "locator": "special/LogNormal.html#dfn"
+   },
+   "returns": [
+    "S1",
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8",
+    "C9",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17"
+   ],
+   "returns_with_suppositions": [
+    "S1",
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8",
+    "C9",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17"
+   ],
+   "note": "C1 and C13 are supposed and returned with the claims whose conditions reference them (C3, C15)"
+  },
+  {
+   "question": "How is the lognormal distribution defined, and what are its shape and scale parameters?",
+   "query": "family_profile",
+   "params": {
+    "family": "lognormal"
+   },
+   "returns": [
+    "C5",
+    "C6",
+    "C9",
+    "C11",
+    "C12",
+    "C8",
+    "C10",
+    "C7"
+   ],
+   "returns_with_suppositions": [
+    "C5",
+    "C6",
+    "C9",
+    "C11",
+    "C12",
+    "C8",
+    "C10",
+    "C7"
+   ],
+   "note": "parameters mu, sigma and scale (C5, C6, C9) with domains (C11, C12), sigma's role shape (C8), scale = e^μ (C10), transformation of normal (C7)"
+  }
+ ],
+ "phases": {
+  "default": 0,
+  "items": {}
+ },
+ "sources": {
+  "tables": "docs/design/trace.md",
+  "questions": "docs/design/D8-agent-and-query-interfaces.md §5.3",
+  "claims": {
+   "C1": "trace.md (param_values, free bindings)",
+   "C2": "trace.md (formula); the bindings of e and Y, which trace.md does not state: docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T4.json c_X_def",
+   "C3": "trace.md (param_values, bindings, conditions)",
+   "C7": "trace.md (transform, param_mapping); the bindings of e and Y: docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T4.json c_LN_transform",
+   "C8": "trace.md (enum ParameterRole.shape); enum value shape: docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T4.json c_role_sigma",
+   "C10": "trace.md (formula, mu family_param LN.mu); the binding of e: docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T4.json c_scale_derived",
+   "C14": "trace.md (formula); the bindings of e and Z: docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T4.json c_W_def",
+   "C15": "trace.md (condition `claim C13`, written as the bare node; `and` of one argument canonicalizes to it)",
+   "C17": "trace.md (transform); the bindings of e and Z: docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T4.json c_SLN_transform"
+  }
+ }
+}

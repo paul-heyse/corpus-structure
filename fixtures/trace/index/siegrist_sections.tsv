@@ -1,0 +1,5 @@
+chapter	dir	chapter_title	section	path	title	bytes	units	definition_units	dfn_terms	details_blocks	display_math	first_pass
+4	special	Special Distributions	1	special/LocationScale.html	Location-Scale Families	19436	35	2	10	11	13	yes
+4	special	Special Distributions	6	special/Normal.html	The Normal Distribution	30353	32	1	5	21	16	yes
+4	special	Special Distributions	8	special/Gamma.html	The Gamma Distribution	30189	38	5	12	21	28	yes
+4	special	Special Distributions	12	special/LogNormal.html	The Lognormal Distribution	18021	19	1	5	14	13	yes

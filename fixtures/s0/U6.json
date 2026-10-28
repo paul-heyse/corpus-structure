@@ -1,0 +1,423 @@
+{
+ "unit_key": "special/Normal.html@p:Recall",
+ "batch": {
+  "unit_ref": "special/Normal.html@p:Recall",
+  "statements": [
+   {
+    "local_ref": "st_recall",
+    "kind": "remark",
+    "anchor": [
+     "s1"
+    ]
+   },
+   {
+    "local_ref": "st_cor",
+    "kind": "corollary",
+    "anchor": [
+     "s2",
+     "s3"
+    ]
+   },
+   {
+    "local_ref": "e_last_result",
+    "kind": "theorem",
+    "anchor": "outside"
+   }
+  ],
+  "entities": [
+   {
+    "local_ref": "e_X",
+    "type": "RandomVariable",
+    "label": "X",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "e_Z",
+    "type": "RandomVariable",
+    "label": "Z",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "Z",
+    "aliases": [
+     "the standard score \\(Z\\)"
+    ],
+    "identity": {}
+   },
+   {
+    "local_ref": "e_std_score",
+    "type": "Concept",
+    "label": "standard score",
+    "scope": "global",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "e_normal",
+    "type": "DistributionFamily",
+    "label": "normal distribution",
+    "scope": "global",
+    "aliases": [
+     "normally distributed"
+    ],
+    "identity": {}
+   },
+   {
+    "local_ref": "e_std_normal",
+    "type": "DistributionFamily",
+    "label": "standard normal distribution",
+    "scope": "global",
+    "aliases": [
+     "standard normal variable"
+    ],
+    "identity": {}
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "c_refers_score",
+    "predicate": "refers_to",
+    "subject": "st_recall",
+    "object": {
+     "ref": "e_std_score"
+    },
+    "qualifiers": {},
+    "statement": "st_recall",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "Recall that in general",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "is the standard score of \\(X\\)",
+      "role": "supporting"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_X_mean",
+    "predicate": "mean_value",
+    "subject": "e_X",
+    "object": {
+     "t": "formula",
+     "latex": "\\mu",
+     "symbols": {
+      "mu": {
+       "bind": "free"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "scope": "statement"
+    },
+    "statement": "st_recall",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "if \\(X\\) is a random variable with mean \\(\\mu\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_score_formula",
+    "predicate": "definition_formula",
+    "subject": "e_std_score",
+    "object": {
+     "t": "formula",
+     "latex": "(X - \\mu) / \\sigma",
+     "symbols": {
+      "X": {
+       "bind": "variable",
+       "entity": "e_X"
+      },
+      "mu": {
+       "bind": "free"
+      },
+      "sigma": {
+       "bind": "free"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "unsupported",
+        "text": "standard deviation \\(\\sigma \\gt 0\\)",
+        "reason": "No predicate states the standard deviation of a random variable."
+       },
+       {
+        "op": "cmp",
+        "rel": ">",
+        "lhs": {
+         "t": "formula",
+         "latex": "\\sigma",
+         "symbols": {
+          "sigma": {
+           "bind": "free"
+          }
+         }
+        },
+        "rhs": {
+         "t": "formula",
+         "latex": "0",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st_recall",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "then \\(Z = (X - \\mu) / \\sigma\\) is the standard score of \\(X\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "if \\(X\\) is a random variable with mean \\(\\mu\\) and standard deviation \\(\\sigma \\gt 0\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_Z_def",
+    "predicate": "defined_as",
+    "subject": "e_Z",
+    "object": {
+     "t": "formula",
+     "latex": "(X - \\mu) / \\sigma",
+     "symbols": {
+      "X": {
+       "bind": "variable",
+       "entity": "e_X"
+      },
+      "mu": {
+       "bind": "free"
+      },
+      "sigma": {
+       "bind": "free"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "unsupported",
+        "text": "standard deviation \\(\\sigma \\gt 0\\)",
+        "reason": "No predicate states the standard deviation of a random variable."
+       },
+       {
+        "op": "cmp",
+        "rel": ">",
+        "lhs": {
+         "t": "formula",
+         "latex": "\\sigma",
+         "symbols": {
+          "sigma": {
+           "bind": "free"
+          }
+         }
+        },
+        "rhs": {
+         "t": "formula",
+         "latex": "0",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st_recall",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "\\(Z = (X - \\mu) / \\sigma\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "if \\(X\\) is a random variable with mean \\(\\mu\\) and standard deviation \\(\\sigma \\gt 0\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_follows",
+    "predicate": "follows_from",
+    "subject": "st_cor",
+    "object": {
+     "ref": "e_last_result"
+    },
+    "qualifiers": {},
+    "statement": "st_cor",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "A corollary of the last result",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_X_normal",
+    "predicate": "has_distribution",
+    "subject": "e_X",
+    "object": {
+     "ref": "e_normal"
+    },
+    "qualifiers": {
+     "modality": "supposed"
+    },
+    "statement": "st_cor",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "if \\(X\\) has a normal distribution",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_Z_stdnormal",
+    "predicate": "has_distribution",
+    "subject": "e_Z",
+    "object": {
+     "ref": "e_std_normal"
+    },
+    "qualifiers": {
+     "modality": "asserted",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "c_X_normal"
+       }
+      ]
+     }
+    },
+    "statement": "st_cor",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "then the standard score \\(Z\\) has a standard normal distribution",
+      "role": "primary"
+     },
+     {
+      "sentence": "s2",
+      "quote": "if \\(X\\) has a normal distribution",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_normal_from_std",
+    "predicate": "transformation_of",
+    "subject": "e_normal",
+    "object": {
+     "ref": "e_std_normal"
+    },
+    "qualifiers": {
+     "modality": "asserted"
+    },
+    "statement": "st_cor",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "any normally distributed variable can be constructed from a standard normal variable",
+      "role": "primary"
+     }
+    ]
+   }
+  ],
+  "alternatives": [],
+  "unsupported": [
+   {
+    "local_ref": "u_score_of",
+    "sentence": "s1",
+    "quote": "is the standard score of \\(X\\)",
+    "reason": "No predicate states that a random variable is the standard score of another variable; captured only as the concept's definition formula and Z's defined_as."
+   },
+   {
+    "local_ref": "u1",
+    "sentence": "s1",
+    "quote": "standard deviation \\(\\sigma \\gt 0\\)",
+    "reason": "No predicate for the standard deviation of a random variable; recorded as an unsupported condition leaf rather than derived into a variance."
+   }
+  ]
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/Normal.html@sentence:Recall",
+   "text": "Recall that in general, if \\(X\\) is a random variable with mean \\(\\mu\\) and standard deviation \\(\\sigma \\gt 0\\), then \\(Z = (X - \\mu) / \\sigma\\) is the standard score of \\(X\\)."
+  },
+  "s2": {
+   "locator": "special/Normal.html@sentence:A corollary",
+   "text": "A corollary of the last result is that if \\(X\\) has a normal distribution then the standard score \\(Z\\) has a standard normal distribution."
+  },
+  "s3": {
+   "locator": "special/Normal.html@sentence:Conversely,",
+   "text": "Conversely, any normally distributed variable can be constructed from a standard normal variable."
+  }
+ },
+ "external_references": {
+  "pending": "R04 / target model §7 T1 descriptor of an authored `outside` statement: the citing sentence and quote, and the author's link target when there is one. Held beside the batch because the current AuthoredStatement has no descriptor field; P0-F-2e validates it and decides its place (migrate this field then).",
+  "descriptors": {
+   "e_last_result": {
+    "sentence": "s2",
+    "quote": "the last result"
+   }
+  }
+ },
+ "provenance": {
+  "spike_unit": "U6",
+  "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/U6.json",
+  "packet": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U6.md",
+  "stored_reference": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_v1/U6.json",
+  "rendition": {
+   "page": "special/Normal.html",
+   "source_uri": "siegrist_random/random/special/Normal.html",
+   "spike_document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "spike_rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "built_from": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1",
+   "sentences": "results/s1/sentences/<page>.provisional.jsonl (provisional: P1 parser + b′ + rule c)"
+  },
+  "decisions": [
+   {
+    "item": "c_Z_def",
+    "decision": "§10.7 rule 2: a formula claim carries no claim nodes; its own restriction (σ > 0) stays"
+   },
+   {
+    "item": "c_score_formula",
+    "decision": "§10.7 rule 2, as c_Z_def"
+   },
+   {
+    "item": "c_X_mean",
+    "decision": "§10.7 rule 1: no condition references the premise any more, so it carries scope: statement"
+   }
+  ],
+  "migrations": [
+   "V2 entity e_last_result (Statement, 'the last result') -> statements[] anchor outside, kind theorem"
+  ]
+ }
+}

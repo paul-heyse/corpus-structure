@@ -1,0 +1,176 @@
+{
+ "trace_unit": "T1",
+ "page": "special/LocationScale.html",
+ "source_uri": "siegrist_random/random/special/LocationScale.html",
+ "unit_key": "special/LocationScale.html@p:As usual,",
+ "ancestors": [
+  {
+   "kind": "document",
+   "locator": "special/LocationScale.html",
+   "start": 0,
+   "end": 12169,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/LocationScale.html@section:General",
+   "start": 25,
+   "end": 10442,
+   "attrs": {
+    "level": 3,
+    "heading_tag": "h3",
+    "title": "General Theory"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "segments": [
+  {
+   "kind": "paragraph",
+   "locator": "special/LocationScale.html@p:As usual,",
+   "start": 41,
+   "end": 436,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LocationScale.html@sentence:As usual,",
+   "start": 41,
+   "end": 149,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline:\\((\\Omega,",
+   "start": 125,
+   "end": 148,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LocationScale.html@sentence:So \\(",
+   "start": 150,
+   "end": 312,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline:\\( \\Omega",
+   "start": 153,
+   "end": 165,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline:\\( \\ms",
+   "start": 190,
+   "end": 201,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline:\\( \\P \\)",
+   "start": 232,
+   "end": 240,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline:\\( (\\Omega,",
+   "start": 285,
+   "end": 311,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LocationScale.html@sentence:In this",
+   "start": 313,
+   "end": 436,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline[1]:\\( Z",
+   "start": 370,
+   "end": 377,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline[1]:\\( \\R",
+   "start": 427,
+   "end": 435,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "counts": {
+  "math_inline": 7,
+  "paragraph": 1,
+  "sentence": 3
+ },
+ "markup": [
+  {
+   "markup": "a",
+   "start": 75,
+   "end": 92,
+   "text": "random experiment"
+  },
+  {
+   "markup": "a",
+   "start": 107,
+   "end": 124,
+   "text": "probability space"
+  },
+  {
+   "markup": "a",
+   "start": 354,
+   "end": 369,
+   "text": "random variable"
+  }
+ ],
+ "trace_md": {
+  "kind": "paragraph",
+  "counts": {
+   "math_inline": 7
+  }
+ },
+ "provenance": {
+  "kinds_counts_attributes": "docs/design/trace.md (asserted in build_segments.py)",
+  "offsets_texts_attributes": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1 (canonical, segments, sentences provisional, markup); diagnostic attributes tag, sid, sourceline, roles dropped",
+  "spike_rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+  "locators": "corpus_structure.core.locators.LocatorIndex.generate"
+ }
+}

@@ -1,0 +1,223 @@
+{
+ "trace_unit": "T1",
+ "page": "special/LocationScale.html",
+ "source_uri": "siegrist_random/random/special/LocationScale.html",
+ "unit_key": "special/LocationScale.html#dfn1",
+ "ancestors": [
+  {
+   "kind": "document",
+   "locator": "special/LocationScale.html",
+   "start": 0,
+   "end": 12169,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/LocationScale.html@section:General",
+   "start": 25,
+   "end": 10442,
+   "attrs": {
+    "level": 3,
+    "heading_tag": "h3",
+    "title": "General Theory"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "section",
+   "locator": "special/LocationScale.html@section:Definition",
+   "start": 438,
+   "end": 1787,
+   "attrs": {
+    "level": 4,
+    "heading_tag": "h4",
+    "title": "Definition"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "segments": [
+  {
+   "kind": "unit",
+   "locator": "special/LocationScale.html#dfn1",
+   "start": 450,
+   "end": 744,
+   "attrs": {
+    "id": "dfn1",
+    "classes": [
+     "unit"
+    ],
+    "hint": {
+     "selector": "p.dfn",
+     "statement_kind": "definition"
+    }
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "paragraph",
+   "locator": "special/LocationScale.html@p:For \\(a",
+   "start": 450,
+   "end": 744,
+   "attrs": {
+    "classes": [
+     "dfn"
+    ],
+    "hint": {
+     "selector": "p.dfn",
+     "statement_kind": "definition"
+    }
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LocationScale.html@sentence:For \\(a",
+   "start": 450,
+   "end": 518,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline[1]:\\(a \\in",
+   "start": 454,
+   "end": 466,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline:\\(b \\in (0, \\infty) \\)",
+   "start": 471,
+   "end": 493,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline[1]:\\(X = a",
+   "start": 499,
+   "end": 517,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LocationScale.html@sentence:The two-parameter",
+   "start": 519,
+   "end": 667,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline[1]:\\(X\\)",
+   "start": 577,
+   "end": 582,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline[1]:\\(Z\\)",
+   "start": 661,
+   "end": 666,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "sentence",
+   "locator": "special/LocationScale.html@sentence:Specifically,",
+   "start": 668,
+   "end": 744,
+   "attrs": {},
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline[1]:\\(a\\)",
+   "start": 682,
+   "end": 687,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  },
+  {
+   "kind": "math_inline",
+   "locator": "special/LocationScale.html@math_inline[1]:\\(b\\)",
+   "start": 718,
+   "end": 723,
+   "attrs": {
+    "open": "\\(",
+    "close": "\\)"
+   },
+   "parse_status": "ok"
+  }
+ ],
+ "counts": {
+  "math_inline": 7,
+  "paragraph": 1,
+  "sentence": 3,
+  "unit": 1
+ },
+ "markup": [
+  {
+   "markup": "dfn",
+   "start": 597,
+   "end": 618,
+   "text": "location-scale family"
+  },
+  {
+   "markup": "dfn",
+   "start": 695,
+   "end": 713,
+   "text": "location parameter"
+  },
+  {
+   "markup": "dfn",
+   "start": 728,
+   "end": 743,
+   "text": "scale parameter"
+  }
+ ],
+ "trace_md": {
+  "kind": "unit",
+  "id": "dfn1",
+  "counts": {
+   "paragraph": 1,
+   "math_inline": 7,
+   "sentence": 3
+  },
+  "paragraph_classes": [
+   "dfn"
+  ],
+  "dfn_markup": [
+   "location-scale family"
+  ]
+ },
+ "provenance": {
+  "kinds_counts_attributes": "docs/design/trace.md (asserted in build_segments.py)",
+  "offsets_texts_attributes": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1 (canonical, segments, sentences provisional, markup); diagnostic attributes tag, sid, sourceline, roles dropped",
+  "spike_rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+  "locators": "corpus_structure.core.locators.LocatorIndex.generate"
+ }
+}

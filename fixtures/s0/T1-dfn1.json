@@ -1,0 +1,410 @@
+{
+ "unit_key": "special/LocationScale.html#dfn1",
+ "batch": {
+  "unit_ref": "special/LocationScale.html#dfn1",
+  "statements": [
+   {
+    "local_ref": "st2",
+    "kind": "definition",
+    "anchor": [
+     "s4",
+     "s5",
+     "s6"
+    ]
+   }
+  ],
+  "entities": [
+   {
+    "local_ref": "Z",
+    "type": "RandomVariable",
+    "label": "Z",
+    "scope": "local",
+    "extent": "section",
+    "symbol": "Z",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "X",
+    "type": "RandomVariable",
+    "label": "X",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "LS",
+    "type": "FamilyConstruction",
+    "label": "location-scale family",
+    "scope": "global",
+    "aliases": [
+     "location-scale family associated with the given distribution of Z"
+    ],
+    "identity": {}
+   },
+   {
+    "local_ref": "p_loc",
+    "type": "FamilyParameter",
+    "label": "location parameter",
+    "scope": "global",
+    "aliases": [
+     "a"
+    ],
+    "identity": {
+     "family": "LS",
+     "canonical_name": "location"
+    }
+   },
+   {
+    "local_ref": "p_scale",
+    "type": "FamilyParameter",
+    "label": "scale parameter",
+    "scope": "global",
+    "aliases": [
+     "b"
+    ],
+    "identity": {
+     "family": "LS",
+     "canonical_name": "scale"
+    }
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "c_defines",
+    "predicate": "defines",
+    "subject": "st2",
+    "object": {
+     "ref": "LS"
+    },
+    "qualifiers": {},
+    "statement": "st2",
+    "evidence": [
+     {
+      "sentence": "s5",
+      "quote": "is called the location-scale family associated with the given distribution of \\(Z\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_X_def",
+    "predicate": "defined_as",
+    "subject": "X",
+    "object": {
+     "t": "formula",
+     "latex": "a + b \\, Z",
+     "symbols": {
+      "a": {
+       "bind": "family_param",
+       "entity": "p_loc"
+      },
+      "b": {
+       "bind": "family_param",
+       "entity": "p_scale"
+      },
+      "Z": {
+       "bind": "variable",
+       "entity": "Z"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "family_param",
+           "entity": "p_loc"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "family_param",
+           "entity": "p_scale"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st2",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "let \\(X = a + b \\, Z\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s4",
+      "quote": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_constr",
+    "predicate": "construction_formula",
+    "subject": "LS",
+    "object": {
+     "t": "formula",
+     "latex": "a + b \\, Z",
+     "symbols": {
+      "a": {
+       "bind": "family_param",
+       "entity": "p_loc"
+      },
+      "b": {
+       "bind": "family_param",
+       "entity": "p_scale"
+      },
+      "Z": {
+       "bind": "variable",
+       "entity": "Z"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "base_variable": {
+      "ref": "Z"
+     },
+     "param_symbols": {
+      "location": {
+       "t": "formula",
+       "latex": "a",
+       "symbols": {
+        "a": {
+         "bind": "family_param",
+         "entity": "p_loc"
+        }
+       }
+      },
+      "scale": {
+       "t": "formula",
+       "latex": "b",
+       "symbols": {
+        "b": {
+         "bind": "family_param",
+         "entity": "p_scale"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "family_param",
+           "entity": "p_loc"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "family_param",
+           "entity": "p_scale"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st2",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "let \\(X = a + b \\, Z\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s5",
+      "quote": "The two-parameter family of distributions associated with \\(X\\) is called the location-scale family",
+      "role": "supporting"
+     },
+     {
+      "sentence": "s4",
+      "quote": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_hp_loc",
+    "predicate": "has_parameter",
+    "subject": "LS",
+    "object": {
+     "ref": "p_loc"
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "st2",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s6",
+      "quote": "\\(a\\) is the location parameter",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_hp_scale",
+    "predicate": "has_parameter",
+    "subject": "LS",
+    "object": {
+     "ref": "p_scale"
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "st2",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s6",
+      "quote": "\\(b\\) the scale parameter",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_dom_loc",
+    "predicate": "parameter_domain",
+    "subject": "p_loc",
+    "object": {
+     "t": "set",
+     "latex": "\\R",
+     "symbols": {}
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "st2",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "\\(a \\in \\R\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_dom_scale",
+    "predicate": "parameter_domain",
+    "subject": "p_scale",
+    "object": {
+     "t": "set",
+     "latex": "(0, \\infty)",
+     "symbols": {}
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "st2",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "\\(b \\in (0, \\infty) \\)",
+      "role": "primary"
+     }
+    ]
+   }
+  ],
+  "alternatives": [],
+  "unsupported": []
+ },
+ "frame": {
+  "s4": {
+   "locator": "special/LocationScale.html@sentence:For \\(a",
+   "text": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\), let \\(X = a + b \\, Z\\)."
+  },
+  "s5": {
+   "locator": "special/LocationScale.html@sentence:The two-parameter",
+   "text": "The two-parameter family of distributions associated with \\(X\\) is called the location-scale family associated with the given distribution of \\(Z\\)."
+  },
+  "s6": {
+   "locator": "special/LocationScale.html@sentence:Specifically,",
+   "text": "Specifically, \\(a\\) is the location parameter and \\(b\\) the scale parameter."
+  }
+ },
+ "provenance": {
+  "spike_unit": "T1",
+  "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T1.json",
+  "packet": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/T1.md",
+  "stored_reference": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_v1/T1.json",
+  "rendition": {
+   "page": "special/LocationScale.html",
+   "source_uri": "siegrist_random/random/special/LocationScale.html",
+   "spike_document_key": "doc:01e7737ec9188c4149789ee8bd19d56b",
+   "spike_rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+   "built_from": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1",
+   "sentences": "results/s1/sentences/<page>.provisional.jsonl (provisional: P1 parser + b′ + rule c)"
+  },
+  "decisions": [
+   {
+    "item": "c_role_loc, c_role_scale (removed)",
+    "decision": "§10.4: as T4 c_scale_role; the parameters are named location and scale"
+   }
+  ],
+  "migrations": [
+   "V1 /claims/3/qualifiers/base_variable: {t: entity, ref} -> {ref}"
+  ],
+  "split": "The spike's T1 is two annotation units. The lead-in file holds st1, Z, c_Z_values and the three unsupported items (all on s1-s3); the #dfn1 file holds st2 and the definition's claims and redeclares Z (local, extent section) because c_X_def and c_constr bind it. Sentence ids stay as authored (s4-s6 in the #dfn1 file); the frame makes them absolute."
+ }
+}

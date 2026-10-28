@@ -1,0 +1,518 @@
+{
+ "trace_unit": "T3",
+ "page": "special/Normal.html",
+ "units": [
+  "special/Normal.html#rel1"
+ ],
+ "batch": {
+  "unit_ref": "special/Normal.html#rel1",
+  "entities": [
+   {
+    "local_ref": "X",
+    "type": "RandomVariable",
+    "label": "X",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X"
+   },
+   {
+    "local_ref": "Y",
+    "type": "RandomVariable",
+    "label": "a + b X",
+    "scope": "local",
+    "extent": "statement"
+   },
+   {
+    "local_ref": "N",
+    "type": "DistributionFamily",
+    "label": "normal distribution",
+    "scope": "global",
+    "aliases": [
+     "normal",
+     "normally distributed"
+    ]
+   },
+   {
+    "local_ref": "N.mean",
+    "type": "FamilyParameter",
+    "label": "mean",
+    "scope": "global",
+    "identity": {
+     "family": "N",
+     "canonical_name": "mean"
+    }
+   },
+   {
+    "local_ref": "N.var",
+    "type": "FamilyParameter",
+    "label": "variance",
+    "scope": "global",
+    "identity": {
+     "family": "N",
+     "canonical_name": "variance"
+    }
+   }
+  ],
+  "statements": [
+   {
+    "local_ref": "S1",
+    "kind": "theorem",
+    "anchor": [
+     "s1",
+     "s2"
+    ]
+   },
+   {
+    "local_ref": "S2",
+    "kind": "proof",
+    "anchor": [
+     "s3"
+    ]
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "C1",
+    "predicate": "has_distribution",
+    "subject": "X",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "param_values": {
+      "mean": {
+       "t": "formula",
+       "latex": "\\mu",
+       "symbols": {
+        "mu": {
+         "bind": "free"
+        }
+       }
+      },
+      "variance": {
+       "t": "formula",
+       "latex": "\\sigma^2",
+       "symbols": {
+        "sigma": {
+         "bind": "free"
+        }
+       }
+      }
+     }
+    },
+    "statement": "S1",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "\\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C2",
+    "predicate": "defined_as",
+    "subject": "Y",
+    "object": {
+     "t": "formula",
+     "latex": "a + b X",
+     "symbols": {
+      "a": {
+       "bind": "free"
+      },
+      "b": {
+       "bind": "free"
+      },
+      "X": {
+       "bind": "variable",
+       "entity": "X"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R \\setminus \\{0\\}",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "\\(a + b X\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s2",
+      "quote": "If \\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "C3",
+    "predicate": "has_distribution",
+    "subject": "Y",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "param_values": {
+      "mean": {
+       "t": "formula",
+       "latex": "a + b \\mu",
+       "symbols": {
+        "a": {
+         "bind": "free"
+        },
+        "b": {
+         "bind": "free"
+        },
+        "mu": {
+         "bind": "param_of",
+         "claim": "C1",
+         "param": "mean"
+        }
+       }
+      },
+      "variance": {
+       "t": "formula",
+       "latex": "b^2 \\sigma^2",
+       "symbols": {
+        "b": {
+         "bind": "free"
+        },
+        "sigma": {
+         "bind": "param_expr_of",
+         "claim": "C1",
+         "param": "variance"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "C1"
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R \\setminus \\{0\\}",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "S1",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "\\(a + b X\\) is normally distributed with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s2",
+      "quote": "If \\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "C4",
+    "predicate": "proves",
+    "subject": "S2",
+    "object": {
+     "ref": "S1"
+    },
+    "qualifiers": {},
+    "statement": "S2",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "which we recognize as the MGF of the normal distribution",
+      "role": "primary"
+     }
+    ]
+   }
+  ]
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/Normal.html@sentence:Suppose that \\(X\\)",
+   "text": "Suppose that \\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\)."
+  },
+  "s2": {
+   "locator": "special/Normal.html@sentence:If \\(a",
+   "text": "If \\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\), then \\(a + b X\\) is normally distributed with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)."
+  },
+  "s3": {
+   "locator": "special/Normal.html@sentence:The MGF of \\(a",
+   "text": "The MGF of \\(a + b X\\) is \\[ \\E\\left[e^{t (a + b X)}\\right] = e^{ta} \\E\\left[e^{(t b) X}\\right] = e^{ta} e^{\\mu (t b) + \\sigma^2 (t b)^2 / 2} = e^{(a + b \\mu)t + b^2 \\sigma^2 t^2 / 2} \\] which we recognize as the MGF of the normal distribution with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)."
+  }
+ },
+ "deferred": {
+  "pending": "Phase 2 (D5 §9, derived claims): `establishment`, `derived_from` and `rule` are not fields of the current claim models (P0-F-2e adds them), so D1 is held here, outside the batch, in trace.md's terms. Migrate it into the batch when F2e lands.",
+  "claims": [
+   {
+    "local_ref": "D1",
+    "predicate": "has_distribution",
+    "subject": "Y",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "param_values": {
+      "mean": {
+       "t": "formula",
+       "latex": "a + b \\mu",
+       "symbols": {
+        "a": {
+         "bind": "free"
+        },
+        "b": {
+         "bind": "free"
+        },
+        "mu": {
+         "bind": "param_of",
+         "claim": "C1",
+         "param": "mean"
+        }
+       }
+      },
+      "standard_deviation": {
+       "t": "formula",
+       "latex": "\\lvert b \\rvert \\sigma",
+       "symbols": {
+        "b": {
+         "bind": "free"
+        },
+        "sigma": {
+         "bind": "param_expr_of",
+         "claim": "C1",
+         "param": "variance"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "C1"
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R \\setminus \\{0\\}",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "S1",
+    "statement_role": "conclusion",
+    "establishment": "derived",
+    "derived_from": [
+     "C3"
+    ],
+    "rule": "variance = standard_deviation^2 with standard_deviation > 0",
+    "phase": 2
+   }
+  ]
+ },
+ "must_not": [
+  {
+   "line": "A standard deviation of `b\\sigma` (wrong for negative b)",
+   "pattern": {
+    "kind": "claim",
+    "param_values": {
+     "standard_deviation": {
+      "latex": "b\\sigma"
+     }
+    }
+   }
+  },
+  {
+   "line": "`b^2 \\sigma^2` bound to standard deviation",
+   "pattern": {
+    "kind": "claim",
+    "param_values": {
+     "standard_deviation": {
+      "latex": "b^2 \\sigma^2"
+     }
+    }
+   }
+  },
+  {
+   "line": "C3 without the `claim C1` condition",
+   "pattern": {
+    "kind": "claim",
+    "subject": {
+     "ref": "Y"
+    },
+    "predicate": "has_distribution",
+    "object": {
+     "ref": "N"
+    },
+    "modality": "asserted",
+    "lacks_condition": {
+     "op": "claim",
+     "ref": "C1"
+    }
+   }
+  },
+  {
+   "line": "C1 with modality `asserted`",
+   "pattern": {
+    "kind": "claim",
+    "subject": {
+     "ref": "X"
+    },
+    "predicate": "has_distribution",
+    "object": {
+     "ref": "N"
+    },
+    "modality": "asserted"
+   }
+  }
+ ],
+ "questions": [
+  {
+   "question": "What is the distribution of an affine transformation of a normal variable, and under what conditions?",
+   "query": "transformations_of",
+   "params": {
+    "family": "normal"
+   },
+   "returns": [
+    "C3",
+    "C1",
+    "C2"
+   ],
+   "returns_with_suppositions": [
+    "C3",
+    "C1",
+    "C2"
+   ],
+   "returns_from_phase_2": [
+    "D1"
+   ],
+   "note": "C1 is the premise C3's conditions reference, so it is returned with C3 without include_suppositions (D8 §5)"
+  }
+ ],
+ "phases": {
+  "default": 0,
+  "items": {
+   "D1": 2
+  }
+ },
+ "sources": {
+  "tables": "docs/design/trace.md",
+  "questions": "docs/design/D8-agent-and-query-interfaces.md §5.3",
+  "claims": {
+   "C1": "trace.md (param_values); the free bindings of mu and sigma, which trace.md does not state for C1: docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T3.json c_X_normal",
+   "C2": "trace.md (formula, bindings, conditions)",
+   "C3": "trace.md (param_values, bindings, conditions)",
+   "C4": "trace.md; also synthesized from the details block's containment (D5 §3.5), with an equal key"
+  }
+ }
+}

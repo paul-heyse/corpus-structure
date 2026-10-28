@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>The Lognormal Distribution</title>
+	<meta name="author" content="Kyle Siegrist">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="keywords" content="probability, statistics, lognormal distribution, normal distribution, scale family, exponential family">
+	<link rel="icon" href="../icons/Icon.svg" type="image/svg">
+	<link rel="stylesheet" href="../Screen.css" type="text/css" media="screen">
+	<script src="../Basic.js"></script>
+	<script src="../../MathJax/tex-svg.js" id="MathJax-script" async></script>
+</head>
+
+<body>
+
+<div class="latex">
+	\(\newcommand{\R}{\mathbb{R}}\)
+	\(\newcommand{\N}{\mathbb{N}}\)
+	\(\newcommand{\E}{\mathbb{E}}\)
+	\(\newcommand{\P}{\mathbb{P}}\)
+	\(\newcommand{\var}{\text{var}}\)
+	\(\newcommand{\sd}{\text{sd}}\)
+	\(\newcommand{\cov}{\text{cov}}\)
+	\(\newcommand{\cor}{\text{cor}}\)
+	\(\newcommand{\skw}{\text{skew}}\)
+	\(\newcommand{\kur}{\text{kurt}}\)
+</div>
+
+<header>
+	<ol class="map">
+		<li class="parent"><a href="../index.html">Random</a></li>
+		<li class="parent"><a href="index.html">4. Special Distributions</a></li>
+		<li class="child">The Lognormal Distribution</li>
+		<li class="details"><button type="button" title="Expand Details" onclick="expandDetails(true);"><img src="../icons/Plus.svg" alt="Expand"></button></li>
+		<li class="details"><button type="button" title="Contract Details" onclick="expandDetails(false);"><img src="../icons/Minus.svg" alt="Contract"></button></li>
+	</ol>
+	<h2>The Lognormal Distribution</h2>
+</header>
+
+<h3>Basic Theory</h3>
+
+<h4>Definition</h4>
+
+<div class="unit" id="dfn">
+	<p class="dfn">Suppose that \(Y\) has the <a href="Normal.html">normal distribution</a> with mean \(\mu \in \R\) and standard deviation \(\sigma \in (0, \infty)\). Then \(X = e^Y\) has the <dfn>lognormal distribution</dfn> with parameters \(\mu\) and \(\sigma\).</p>
+	<ol class="sub">
+		<li>The parameter \( \sigma \) is the <dfn>shape parameter</dfn> of the distribution.</li>
+		<li>The parameter \( e^\mu\) is the <dfn>scale parameter</dfn> of the distribution.</li>
+	</ol>
+	<p>If \(Z\) has the standard normal distribution then \(W = e^Z\) has the <dfn>standard lognormal distribution</dfn>.
+</div>
+
+<p>So equivalently, if \(X\) has a lognormal distribution then \(\ln X\) has a normal distribution, hence the name. The lognormal distribution is a <a href="../dist/Continuous.html">continuous distribution</a> on \((0, \infty)\) and is used to model random quantities when the distribution is believed to be skewed, such as certain income and lifetime variables.</p>
+
+<h4>Distribution Functions</h4>
+
+<p>Suppose that \(X\) has the lognormal distribution with parameters \(\mu \in \R\) and \(\sigma \in (0, \infty)\).</p>
+
+<div class="unit" id="pdf">
+	<p class="math">The probability density function \(f\) of \(X\) is given by
+	\[ f(x) = \frac{1}{\sqrt{2 \pi} \sigma x} \exp \left[-\frac{\left(\ln x - \mu\right)^2}{2  \sigma^2} \right], \quad x \in (0, \infty) \]</p>
+	<ol class="sub">
+		<li>\( f \) increases and then decreases with mode at \( x = \exp\left(\mu - \sigma^2\right) \).</li>
+		<li>\( f \) is concave upward then downward then upward again, with inflection points at \( x = \exp\left(\mu - \frac{3}{2} \sigma^2 \pm \frac{1}{2} \sigma \sqrt{\sigma^2 + 4}\right) \)</li>
+		<li>\( f(x) \to 0 \) as \( x \downarrow 0 \) and as \( x \to \infty \).</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>The form of the PDF follows from the <a href="../dist/Transformations.html">change of variables theorem</a>. Let \( g \) denote the PDF of the normal distribution with mean \( \mu \) and standard deviation \( \sigma \), so that 
+		\[ g(y) = \frac{1}{\sqrt{2 \pi} \sigma} \exp\left[-\frac{1}{2}\left(\frac{y - \mu}{\sigma}\right)^2\right], \quad y \in \R \]
+		The mapping \( x = e^y \) maps \( \R \) one-to-one onto \( (0, \infty) \) with inverse \( y = \ln x \). Hence the PDF \( f \) of \( X = e^Y \) is
+		\[ f(x) = g(y) \frac{dy}{dx} = g\left(\ln x\right) \frac{1}{x} \]
+		Substituting gives the result. Parts (a)&ndash;(d) follow from standard calculus.</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="app">In the <a href="JavaScript:openAncillary('../apps/SpecialSimulator.html')" class="ancillary">special distribution simulator</a>, select the lognormal distribution. Vary the parameters and note the shape and location of the probability density function. For selected values of the parameters, run the simulation 1000 times and compare the empirical density function to the true probability density function.</p>
+</div>
+
+<p>Let \(\Phi\) denote the standard normal <a href="../dist/CDF.html">distribution function</a>, so that \(\Phi^{-1}\) is the standard normal quantile function. Recall that values of \(\Phi\) and \(\Phi^{-1}\) can be obtained from standard mathematical and statistical software packages, and in fact these functions are considered to be special functions in mathematics. The following two results show how to compute the lognormal distribution function and quantiles in terms of the standard normal distribution function and quantiles.</p>
+
+<div class="unit">
+	<p class="math">The distribution function \(F\) of \(X\) is given by
+	\[ F(x) = \Phi \left( \frac{\ln x - \mu}{\sigma} \right), \quad x \in (0, \infty) \]</p>
+	<details>
+		<summary>Details:</summary>
+		<p>Once again, write \( X = e^{\mu + \sigma Z} \) where \( Z \) has the standard normal distribution. For \( x \gt 0 \),
+		\[ F(x) = \P(X \le x) = \P\left(Z \le \frac{\ln x - \mu}{\sigma}\right) = \Phi \left( \frac{\ln x - \mu}{\sigma} \right) \]</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="math">The quantile function of \(X\) is given by
+	\[ F^{-1}(p) = \exp\left[\mu + \sigma \Phi^{-1}(p)\right], \quad p \in (0, 1) \]</p>
+	<details>
+		<summary>Details:</summary>
+		<p>This follows by solving \( p = F(x) \) for \( x \) in terms of \( p \).</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="app">In the <a href="JavaScript:openAncillary('../apps/QuantileApp.html')" class="ancillary">quantile app</a>, select the lognormal distribution. Vary the parameters and note the shape and location of the probability density function and the distribution function. With \(\mu = 0\) and \(\sigma = 1\), find the median and the first and third quartiles. </p>
+</div>
+
+<h4>Moments</h4>
+
+<p>The <a href="../expect/Properties.html#mom">moments</a> of the lognormal distribution can be computed from the <a href="../expect/Generating.html#mgf">moment generating function</a> of the normal distribution. Once again, we assume that \(X\) has the lognormal distribution with parameters \(\mu \in \R\) and \(\sigma \in (0, \infty)\).</p>
+
+<div class="unit" id="mom">
+	<p class="math">For \( t \in \R \),
+	\[ \E\left(X^t\right) = \exp \left( \mu t + \frac{1}{2} \sigma^2 t^2 \right) \]</p>
+	<details>
+		<summary>Details:</summary>
+		<p>Recall that if \( Y \) has the normal distribution with mean \( \mu \in \R \) and standard deviation \( \sigma \in (0, \infty) \), then \( Y \) has moment generating function given by
+		\[ \E\left(e^{t Y}\right) = \exp\left(\mu t + \frac{1}{2} \sigma^2 t^2\right), \quad t \in \R \]
+		Hence the result follows immediately since \( \E\left(X^t\right) = \E\left(e^{t Y}\right) \).</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="math">In particular, the <a href="../expect/Properties.html">mean</a> and <a href="../expect/Variance.html">variance</a> of \(X\) are</p>
+	<ol class="sub">
+		<li>\(\E(X) = \exp\left(\mu + \frac{1}{2} \sigma^2\right)\)</li>
+		<li>\(\var(X) = \exp\left[2 (\mu + \sigma^2)\right] - \exp\left(2 \mu + \sigma^2\right)\)</li>
+	</ol>
+</div>
+
+<div class="unit">
+	<p class="app">In the simulation of the <a href="JavaScript:openAncillary('../apps/SpecialSimulator.html')" class="ancillary">special distribution simulator</a>, select the lognormal distribution. Vary the parameters and note the shape and location of the mean\( \pm \)standard deviation bar. For selected values of the parameters, run the simulation 1000 times and compare the empirical moments to the true moments.</p>
+</div>
+
+<p>From the general formula for the moments, we can also compute the <a href="../expect/Skew.html#skw">skewness</a> and <a href="../expect/Skew.html#kur">kurtosis</a> of the lognormal distribution.</p>
+
+<div class="unit">
+	<p class="math">The skewness and kurtosis of \(X\) are</p>
+	<ol class="sub">
+		<li>\( \skw(X) = \left(e^{\sigma^2} + 2\right) \sqrt{e^{\sigma^2} - 1} \)</li>
+		<li>\(\kur(X) = e^{4 \sigma^2} + 2 e^{3 \sigma^2} + 3 e^{2 \sigma^2} - 3\)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>These result follow from the first four moments of the lognormal distribution in <a href="#mom" class="ref"></a> and the standard computational formulas for skewness and kurtosis.</p>
+	</details>
+</div>
+
+<p>The fact that the skewness and kurtosis do not depend on \( \mu \) is due to the fact that \( \mu \) is a scale parameter. Recall that skewness and kurtosis are defined in terms of the standard score and so are independent of location and scale parameters. Naturally, the lognormal distribution is positively skewed.  Finally, note that the <dfn>excess kurtosis</dfn> is
+\[ \kur(X) - 3 = e^{4 \sigma^2} + 2 e^{3 \sigma^2} + 3 e^{2 \sigma^2} - 6 \]</p>
+
+<p>Even though the lognormal distribution has finite moments of all orders, the <a href="../expect/Generating.html#mgf">moment generating function</a> is infinite at any positive number. This property is one of the reasons for the fame of the lognormal distribution.</p>
+
+<div class="unit">
+	<p class="math">\(\E\left(e^{t X}\right) = \infty\) for every \(t \gt 0\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>By definition, \(X = e^Y\) where \(Y\) has the normal distribution with mean \(\mu\) and standard deviation \(\sigma\). Using the <a href="../expect/Properties.html#cov">change of variables formula</a> for expected value we have
+		\[\E\left(e^{t X}\right) = \E\left(e^{t e^Y}\right) = \int_{-\infty}^\infty \exp(t e^y) \frac{1}{\sqrt{2 \pi} \sigma} \exp\left[-\frac{1}{2}\left(\frac{y - \mu}{\sigma}\right)^2\right] dy = \frac{1}{\sqrt{2 \pi} \sigma} \int_{-\infty}^\infty \exp\left[t e^y - \frac{1}{2} \left(\frac{y - \mu}{\sigma}\right)^2\right] dy\]
+		If \(t \gt 0\) the integrand in the last integral diverges to \(\infty\) as \(y \to \infty\), so there is no hope that the integral converges.</p>
+	</details>
+</div>
+
+<h4>Related Distributions</h4>
+
+<p>The most important relations are the ones between the lognormal and normal distributions in the definition: if \(X\) has a lognormal distribution then \(\ln X\) has a normal distribution; conversely if \(Y\) has a normal distribution then \(e^Y\) has a lognormal distribution. It's easy to write a general lognormal variable in terms of a standard lognormal variable.</p>
+	
+<div class="unit">
+	<p class="math">Suppose that \(W\) has the standard lognormal distribution and that \(\mu \in \R\) and \(\sigma \in (0, \infty)\). Then \(X = e^\mu W^\sigma\) has the lognormal distribution with parameters \(\mu\) and \(\sigma\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>Suppose that \(Z\) has the standard normal distribution and let \(W = e^Z\) so that \(W\) has the standard lognormal distribution. If \(\mu \in \R\) and \(\sigma \in (0, \infty)\) then \(Y = \mu + \sigma Z\) has the normal distribution with mean \(\mu\) and standard deviation \(\sigma\) and hence \(X = e^Y\) has the lognormal distribution with parameters \(\mu\) and \(\sigma\). But
+		\[X = e^Y = e^{\mu + \sigma Z} = e^\mu \left(e^Z\right)^\sigma = e^\mu W^\sigma\]</p>
+	</details>
+	</div>
+	
+<p>As noted earlier, the lognormal distribution is also a <a href="LocationScale.html">scale family</a>.</p>
+
+<div class="unit" id="rel1">
+	<p class="math">Suppose that \( X \) has the lognormal distribution with parameters \( \mu \in \R \) and \( \sigma \in (0, \infty) \) and that \( c \in (0, \infty) \). Then \( c X \) has the lognormal distribution with parameters \( \mu + \ln c\) and \( \sigma \).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>From definition <a href="#dfn" class="ref"></a>, we can write \( X = e^Y \) where \( Y \) has the normal distribution with mean \( \mu \) and standard deviation \( \sigma \). Hence
+		\[ c X = c e^Y = e^{\ln c} e^Y = e^{\ln c + Y} \]
+		But \( \ln c + Y \) has the normal distribution with mean \( \ln c + \mu \) and standard deviation \( \sigma \).</p>
+	</details>
+</div>
+
+<p>The reciprocal of a lognormal variable is also lognormal.</p>
+
+<div class="unit" id="rel2">
+	<p class="math">If \(X\) has the lognormal distribution with parameters \(\mu \in \R\) and \(\sigma \in (0, \infty)\) then \(1 / X\) has the lognormal distribution with parameters \(-\mu\) and \(\sigma\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>Again from definition <a href="#dfn" class="ref"></a>, we can write \( X = e^Y \) where \(Y\) has the normal distribution with mean \(\mu\) and standard deviation \(\sigma\). Hence \(1 / X = e^{-Y}\). But \(-Y\) has the normal distribution with mean \(-\mu\) and standard deviation \(\sigma\).</p>
+	</details>
+</div>
+
+<p>The lognormal distribution is closed under non-zero powers of the underlying variable. In particular, this generalizes <a href="#rel2" class="ref"></a>.</p>
+
+<div class="unit">
+	<p class="math">Suppose that \(X\) has the lognormal distribution with parameters \(\mu \in \R\) and \(\sigma \in (0, \infty)\) and that \(a \in \R \setminus \{0\}\). Then \(X^a\) has the lognormal distribution with parameters with parameters \(a \mu\) and \(|a| \sigma\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>Again from definition <a href="#dfn" class="ref"></a>, we can write \( X = e^Y \) where \(Y\) has the normal distribution with mean \(\mu\) and standard deviation \(\sigma\). Hence \(X^a = e^{a Y}\). But \(a Y\) has the normal distribution with mean \(a \mu\) and standard deviation \(|a| \sigma\).</p>
+	</details>
+</div>
+
+<p>Since the normal distribution is closed under sums of independent variables, it's not surprising that the lognormal distribution is closed under products of independent variables.</p>
+
+<div class="unit">
+	<p class="math">Suppose that \(n \in \N_+\) and that \((X_1, X_2, \ldots, X_n)\) is a sequence of independent variables, where \(X_i\) has the lognormal distribution with parameters \(\mu_i \in \R\) and \(\sigma_i \in (0, \infty)\) for \(i \in \{1, 2, \ldots, n\}\). Then \(\prod_{i=1}^n X_i\) has the lognormal distribution with parameters \(\mu\) and \(\sigma\) where \(\mu = \sum_{i=1}^n \mu_i\) and \(\sigma^2 = \sum_{i=1}^n \sigma_i^2\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p>Again from definition <a href="#dfn" class="ref"></a>, we can write \( X_i = e^{Y_i} \) where \(Y_i\) has the normal distribution with mean \(\mu_i\) and standard deviation \(\sigma_i\) for \(i \in \{1, 2, \ldots, n\}\) and where \((Y_1, Y_2, \ldots, Y_n)\) is an independent sequence. Hence \(\prod_{i=1}^n X_i = \exp\left(\sum_{i=1}^n Y_i\right)\). But \(\sum_{i=1}^n Y_i\) has the normal distribution with mean \(\sum_{i=1}^n \mu_i\) and variance \(\sum_{i=1}^n \sigma_i^2\).</p>
+	</details>
+</div>
+
+<p>Finally, the lognormal distribution belongs to the family of <a href="GeneralExponential.html">general exponential distributions</a>.</p>
+
+<div class="unit">
+	<p class="math">Suppose that \( X \) has the lognormal distribution with parameters \( \mu \in \R \) and \( \sigma \in (0, \infty) \). The distribution of \( X \) is a 2-parameter exponential family with natural parameters and natural statistics, respectively, given by</p>
+	<ol class="sub">
+		<li>\(\left( -1 / 2 \sigma^2, \mu / \sigma^2 \right)\)</li>
+		<li>\(\left(\ln^2(X), \ln X\right)\)	</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<p>This follows from the definition of the general exponential family, since we can write the lognormal PDF in <a href="#pdf" class="ref"></a> in the form
+		\[ f(x) = \frac{1}{\sqrt{2 \pi} \sigma} \exp\left(-\frac{\mu^2}{2 \sigma^2}\right) \frac{1}{x} \exp\left[-\frac{1}{2 \sigma^2} \ln^2(x) + \frac{\mu}{\sigma^2} \ln x\right], \quad x \in (0, \infty) \]</p>
+	</details>
+</div>
+
+<h3>Computational Exercises</h3>
+
+<div class="unit">
+	<p class="math">Suppose that the income \(X\) of a randomly chosen person in a certain population (in $1000 units) has the lognormal distribution with parameters \(\mu = 2\) and \(\sigma = 1\). Find \(\P(X \gt 20)\).</p>
+	<details>
+		<summary>Details:</summary>
+		<p> \(\P(X \gt 20) = 0.1597\)</p>
+	</details>
+</div>
+
+<div class="unit">
+	<p class="math">Suppose that the income \(X\) of a randomly chosen person in a certain population (in $1000 units) has the lognormal distribution with parameters \(\mu = 2\) and \(\sigma = 1\). Find each of the following: </p>
+	<ol class="sub">
+		<li>\(\E(X)\)</li>
+		<li>\(\var(X)\)</li>
+	</ol>
+	<details>
+		<summary>Details:</summary>
+		<ol class="sub">
+			<li>\(\E(X) = e^{5/2} \approx 12.1825\)</li>
+			<li>\(\sd(X) = \sqrt{e^6 - e^5} \approx 15.9629\)</li>
+		</ol>
+	</details>
+</div>
+
+<footer>
+	<ol class="map">
+		<li class="parent"><a href="../index.html">Random</a></li>
+		<li class="parent"><a href="index.html">4. Special Distributions</a></li>
+		<li class="child">The Lognormal Distribution</li>
+		<li class="details"><button type="button" title="Expand Details" onclick="expandDetails(true);"><img src="../icons/Plus.svg" alt="Expand"></button></li>
+		<li class="details"><button type="button" title="Contract Details" onclick="expandDetails(false);"><img src="../icons/Minus.svg" alt="Contract"></button></li>
+	</ol>
+	<ul class="map">
+		<li class="sister"><a href="JavaScript:openAncillary('../apps/index.html')" class="ancillary">Apps</a></li>
+		<li class="sister"><a href="JavaScript:openAncillary('../data/index.html')" class="ancillary">Data Sets</a></li>
+		<li class="child"><a href="JavaScript:openAncillary('../biographies/index.html')" class="ancillary"> Biographies</a></li>
+	</ul>
+</footer>
+
+<script>getReferences();</script>
+
+</body>
+</html>

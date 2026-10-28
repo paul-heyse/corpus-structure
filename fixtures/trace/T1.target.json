@@ -1,0 +1,565 @@
+{
+ "trace_unit": "T1",
+ "page": "special/LocationScale.html",
+ "units": [
+  "special/LocationScale.html@p:As usual,",
+  "special/LocationScale.html#dfn1"
+ ],
+ "batch": {
+  "unit_ref": "special/LocationScale.html#dfn1",
+  "entities": [
+   {
+    "local_ref": "Z",
+    "type": "RandomVariable",
+    "label": "Z",
+    "scope": "local",
+    "extent": "section",
+    "symbol": "Z"
+   },
+   {
+    "local_ref": "X",
+    "type": "RandomVariable",
+    "label": "X",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X"
+   },
+   {
+    "local_ref": "LSF",
+    "type": "FamilyConstruction",
+    "label": "location-scale family",
+    "scope": "global"
+   },
+   {
+    "local_ref": "LSF.loc",
+    "type": "FamilyParameter",
+    "label": "location parameter",
+    "scope": "global",
+    "identity": {
+     "family": "LSF",
+     "canonical_name": "location"
+    }
+   },
+   {
+    "local_ref": "LSF.scale",
+    "type": "FamilyParameter",
+    "label": "scale parameter",
+    "scope": "global",
+    "identity": {
+     "family": "LSF",
+     "canonical_name": "scale"
+    }
+   }
+  ],
+  "statements": [
+   {
+    "local_ref": "S0",
+    "kind": "assumption",
+    "anchor": [
+     "s1",
+     "s2",
+     "s3"
+    ]
+   },
+   {
+    "local_ref": "S1",
+    "kind": "definition",
+    "anchor": [
+     "s4",
+     "s5",
+     "s6"
+    ]
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "C1",
+    "predicate": "takes_values_in",
+    "subject": "Z",
+    "object": {
+     "t": "set",
+     "latex": "\\R",
+     "symbols": {}
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "scope": "section"
+    },
+    "statement": "S0",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "we assume that we fixed random variable \\( Z \\) defined on the probability space, with values in \\( \\R \\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C2",
+    "predicate": "defined_as",
+    "subject": "X",
+    "object": {
+     "t": "formula",
+     "latex": "a + b \\, Z",
+     "symbols": {
+      "a": {
+       "bind": "family_param",
+       "entity": "LSF.loc"
+      },
+      "b": {
+       "bind": "family_param",
+       "entity": "LSF.scale"
+      },
+      "Z": {
+       "bind": "variable",
+       "entity": "Z"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "family_param",
+           "entity": "LSF.loc"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "family_param",
+           "entity": "LSF.scale"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "let \\(X = a + b \\, Z\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s4",
+      "quote": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "C3",
+    "predicate": "defines",
+    "subject": "S1",
+    "object": {
+     "ref": "LSF"
+    },
+    "qualifiers": {},
+    "statement": "S1",
+    "evidence": [
+     {
+      "sentence": "s5",
+      "quote": "is called the location-scale family",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C4",
+    "predicate": "construction_formula",
+    "subject": "LSF",
+    "object": {
+     "t": "formula",
+     "latex": "a + b \\, Z",
+     "symbols": {
+      "a": {
+       "bind": "family_param",
+       "entity": "LSF.loc"
+      },
+      "b": {
+       "bind": "family_param",
+       "entity": "LSF.scale"
+      },
+      "Z": {
+       "bind": "variable",
+       "entity": "Z"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "base_variable": {
+      "ref": "Z"
+     },
+     "param_symbols": {
+      "location": {
+       "t": "formula",
+       "latex": "a",
+       "symbols": {
+        "a": {
+         "bind": "family_param",
+         "entity": "LSF.loc"
+        }
+       }
+      },
+      "scale": {
+       "t": "formula",
+       "latex": "b",
+       "symbols": {
+        "b": {
+         "bind": "family_param",
+         "entity": "LSF.scale"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "family_param",
+           "entity": "LSF.loc"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "family_param",
+           "entity": "LSF.scale"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "(0, \\infty)",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "let \\(X = a + b \\, Z\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s5",
+      "quote": "The two-parameter family of distributions associated with \\(X\\) is called the location-scale family",
+      "role": "supporting"
+     },
+     {
+      "sentence": "s4",
+      "quote": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "C5",
+    "predicate": "has_parameter",
+    "subject": "LSF",
+    "object": {
+     "ref": "LSF.loc"
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s6",
+      "quote": "\\(a\\) is the location parameter",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C6",
+    "predicate": "has_parameter",
+    "subject": "LSF",
+    "object": {
+     "ref": "LSF.scale"
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s6",
+      "quote": "\\(b\\) the scale parameter",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "C7",
+    "predicate": "parameter_domain",
+    "subject": "LSF.loc",
+    "object": {
+     "t": "set",
+     "latex": "\\R",
+     "symbols": {}
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s6",
+      "quote": "\\(a\\) is the location parameter",
+      "role": "primary"
+     },
+     {
+      "sentence": "s4",
+      "quote": "\\(a \\in \\R\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "C8",
+    "predicate": "parameter_domain",
+    "subject": "LSF.scale",
+    "object": {
+     "t": "set",
+     "latex": "(0, \\infty)",
+     "symbols": {}
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "S1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s6",
+      "quote": "\\(b\\) the scale parameter",
+      "role": "primary"
+     },
+     {
+      "sentence": "s4",
+      "quote": "\\(b \\in (0, \\infty) \\)",
+      "role": "condition"
+     }
+    ]
+   }
+  ]
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/LocationScale.html@sentence:As usual,",
+   "text": "As usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P)\\)."
+  },
+  "s2": {
+   "locator": "special/LocationScale.html@sentence:So \\(",
+   "text": "So \\( \\Omega \\) is the set of outcomes, \\( \\ms F \\) the collection of events, and \\( \\P \\) the probability measure on the sample space \\( (\\Omega, \\mathscr F) \\)."
+  },
+  "s3": {
+   "locator": "special/LocationScale.html@sentence:In this",
+   "text": "In this section, we assume that we fixed random variable \\( Z \\) defined on the probability space, with values in \\( \\R \\)."
+  },
+  "s4": {
+   "locator": "special/LocationScale.html@sentence:For \\(a",
+   "text": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\), let \\(X = a + b \\, Z\\)."
+  },
+  "s5": {
+   "locator": "special/LocationScale.html@sentence:The two-parameter",
+   "text": "The two-parameter family of distributions associated with \\(X\\) is called the location-scale family associated with the given distribution of \\(Z\\)."
+  },
+  "s6": {
+   "locator": "special/LocationScale.html@sentence:Specifically,",
+   "text": "Specifically, \\(a\\) is the location parameter and \\(b\\) the scale parameter."
+  }
+ },
+ "unit_ref_note": "T1 spans two annotation units and anchors its statements by sentence ids, so unit_ref (the #dfn1 unit key, the unit of S1) is not consulted; `units` lists both",
+ "must_not": [
+  {
+   "line": "A `DistributionFamily` named \"location-scale family\"",
+   "pattern": {
+    "kind": "entity",
+    "type": "DistributionFamily",
+    "label": "location-scale family"
+   }
+  },
+  {
+   "line": "a link from LSF to any specific distribution",
+   "pattern": {
+    "kind": "claim",
+    "subject": {
+     "ref": "LSF"
+    },
+    "object": {
+     "kind": "entity",
+     "type": "DistributionFamily"
+    }
+   }
+  },
+  {
+   "line": "`b ∈ ℝ` (the source restricts b to (0, ∞))",
+   "pattern": {
+    "kind": "claim",
+    "subject": {
+     "ref": "LSF.scale"
+    },
+    "predicate": "parameter_domain",
+    "object": {
+     "t": "set",
+     "latex": "\\R"
+    }
+   }
+  },
+  {
+   "line": "`b ∈ ℝ` (the source restricts b to (0, ∞))",
+   "pattern": {
+    "kind": "claim",
+    "condition": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "b"
+     },
+     "set": {
+      "t": "set",
+      "latex": "\\R"
+     }
+    }
+   }
+  }
+ ],
+ "questions": [
+  {
+   "question": "What is a location-scale family, and what are its parameters?",
+   "query": "statement",
+   "params": {
+    "locator": "special/LocationScale.html#dfn1"
+   },
+   "returns": [
+    "S1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+   ],
+   "returns_with_suppositions": [
+    "S1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+   ],
+   "note": "the unit locator #dfn1 cannot reach C1: it sits in the lead-in paragraph and no condition of S1's claims references it"
+  },
+  {
+   "question": "What is a location-scale family, and what are its parameters?",
+   "query": "statement",
+   "params": {
+    "locator": "special/LocationScale.html@p:As usual, our starting point"
+   },
+   "returns": [
+    "S0"
+   ],
+   "returns_with_suppositions": [
+    "S0",
+    "C1"
+   ]
+  },
+  {
+   "question": "What is a location-scale family, and what are its parameters?",
+   "query": "construction_profile",
+   "params": {
+    "construction": "location-scale family"
+   },
+   "returns": [
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+   ],
+   "returns_with_suppositions": [
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+   ],
+   "note": "C4 with base variable Z and parameter symbols; parameters location and scale (C5, C6) with domains ℝ and (0, ∞) (C7, C8)"
+  }
+ ],
+ "phases": {
+  "default": 0,
+  "items": {}
+ },
+ "sources": {
+  "tables": "docs/design/trace.md",
+  "questions": "docs/design/D8-agent-and-query-interfaces.md §5.3",
+  "claims": {
+   "C1": "trace.md",
+   "C2": "trace.md (formula, bindings, conditions)",
+   "C4": "trace.md (formula, bindings, base_variable); param_symbols value shape (formula values with family_param bindings): docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T1.json c_constr",
+   "C7": "trace.md; evidence per trace.md's Evidence line (restriction span as condition)",
+   "C8": "trace.md; evidence per trace.md's Evidence line (restriction span as condition)"
+  }
+ }
+}

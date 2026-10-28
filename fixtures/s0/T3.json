@@ -1,0 +1,326 @@
+{
+ "unit_key": "special/Normal.html#rel1",
+ "batch": {
+  "unit_ref": "special/Normal.html#rel1",
+  "statements": [
+   {
+    "local_ref": "st1",
+    "kind": "theorem",
+    "anchor": [
+     "s1",
+     "s2"
+    ]
+   },
+   {
+    "local_ref": "st2",
+    "kind": "proof",
+    "anchor": [
+     "s3"
+    ]
+   }
+  ],
+  "entities": [
+   {
+    "local_ref": "X",
+    "type": "RandomVariable",
+    "label": "X",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "aX",
+    "type": "RandomVariable",
+    "label": "a + b X",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "a + b X",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "N",
+    "type": "DistributionFamily",
+    "label": "normal distribution",
+    "scope": "global",
+    "aliases": [
+     "normally distributed"
+    ],
+    "identity": {}
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "c_X_normal",
+    "predicate": "has_distribution",
+    "subject": "X",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "param_values": {
+      "mean": {
+       "t": "formula",
+       "latex": "\\mu",
+       "symbols": {
+        "mu": {
+         "bind": "free"
+        }
+       }
+      },
+      "variance": {
+       "t": "formula",
+       "latex": "\\sigma^2",
+       "symbols": {
+        "sigma": {
+         "bind": "free"
+        }
+       }
+      }
+     }
+    },
+    "statement": "st1",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "\\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\)",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_aX_def",
+    "predicate": "defined_as",
+    "subject": "aX",
+    "object": {
+     "t": "formula",
+     "latex": "a + b X",
+     "symbols": {
+      "a": {
+       "bind": "free"
+      },
+      "b": {
+       "bind": "free"
+      },
+      "X": {
+       "bind": "variable",
+       "entity": "X"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R \\setminus \\{0\\}",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "then \\(a + b X\\) is normally distributed",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_aX_normal",
+    "predicate": "has_distribution",
+    "subject": "aX",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "modality": "asserted",
+     "param_values": {
+      "mean": {
+       "t": "formula",
+       "latex": "a + b \\mu",
+       "symbols": {
+        "a": {
+         "bind": "free"
+        },
+        "b": {
+         "bind": "free"
+        },
+        "mu": {
+         "bind": "param_of",
+         "claim": "c_X_normal",
+         "param": "mean"
+        }
+       }
+      },
+      "variance": {
+       "t": "formula",
+       "latex": "b^2 \\sigma^2",
+       "symbols": {
+        "b": {
+         "bind": "free"
+        },
+        "sigma": {
+         "bind": "param_expr_of",
+         "claim": "c_X_normal",
+         "param": "variance"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "c_X_normal"
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "a",
+         "symbols": {
+          "a": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R",
+         "symbols": {}
+        }
+       },
+       {
+        "op": "member",
+        "x": {
+         "t": "formula",
+         "latex": "b",
+         "symbols": {
+          "b": {
+           "bind": "free"
+          }
+         }
+        },
+        "set": {
+         "t": "set",
+         "latex": "\\R \\setminus \\{0\\}",
+         "symbols": {}
+        }
+       }
+      ]
+     }
+    },
+    "statement": "st1",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "\\(a + b X\\) is normally distributed with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s2",
+      "quote": "If \\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_proves",
+    "predicate": "proves",
+    "subject": "st2",
+    "object": {
+     "ref": "st1"
+    },
+    "qualifiers": {
+     "modality": "asserted"
+    },
+    "statement": "st2",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "which we recognize as the MGF of the normal distribution with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)",
+      "role": "primary"
+     }
+    ]
+   }
+  ],
+  "alternatives": [],
+  "unsupported": []
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/Normal.html@sentence:Suppose that \\(X\\)",
+   "text": "Suppose that \\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\)."
+  },
+  "s2": {
+   "locator": "special/Normal.html@sentence:If \\(a",
+   "text": "If \\(a \\in \\R\\) and \\(b \\in \\R \\setminus \\{0\\}\\), then \\(a + b X\\) is normally distributed with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)."
+  },
+  "s3": {
+   "locator": "special/Normal.html@sentence:The MGF of \\(a",
+   "text": "The MGF of \\(a + b X\\) is \\[ \\E\\left[e^{t (a + b X)}\\right] = e^{ta} \\E\\left[e^{(t b) X}\\right] = e^{ta} e^{\\mu (t b) + \\sigma^2 (t b)^2 / 2} = e^{(a + b \\mu)t + b^2 \\sigma^2 t^2 / 2} \\] which we recognize as the MGF of the normal distribution with mean \\(a + b \\mu\\) and variance \\(b^2 \\sigma^2\\)."
+  }
+ },
+ "provenance": {
+  "spike_unit": "T3",
+  "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T3.json",
+  "packet": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/T3.md",
+  "stored_reference": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_v1/T3.json",
+  "rendition": {
+   "page": "special/Normal.html",
+   "source_uri": "siegrist_random/random/special/Normal.html",
+   "spike_document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "spike_rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "built_from": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1",
+   "sentences": "results/s1/sentences/<page>.provisional.jsonl (provisional: P1 parser + b′ + rule c)"
+  },
+  "decisions": [
+   {
+    "item": "c_aX_def",
+    "decision": "§10.7 rule 2: a formula claim keeps the restrictions stated with it on its own symbols (a ∈ ℝ, b ∈ ℝ ∖ {0}); added after the v1 passes were scored, found by comparing pass SV"
+   }
+  ],
+  "migrations": []
+ }
+}

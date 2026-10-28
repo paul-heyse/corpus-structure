@@ -1,0 +1,113 @@
+{
+ "unit_key": "special/LocationScale.html@p:As usual,",
+ "batch": {
+  "unit_ref": "special/LocationScale.html@p:As usual,",
+  "statements": [
+   {
+    "local_ref": "st1",
+    "kind": "assumption",
+    "anchor": [
+     "s1",
+     "s2",
+     "s3"
+    ]
+   }
+  ],
+  "entities": [
+   {
+    "local_ref": "Z",
+    "type": "RandomVariable",
+    "label": "Z",
+    "scope": "local",
+    "extent": "section",
+    "symbol": "Z",
+    "aliases": [],
+    "identity": {}
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "c_Z_values",
+    "predicate": "takes_values_in",
+    "subject": "Z",
+    "object": {
+     "t": "set",
+     "latex": "\\R",
+     "symbols": {}
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "scope": "section"
+    },
+    "statement": "st1",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "we assume that we fixed random variable \\( Z \\) defined on the probability space, with values in \\( \\R \\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s3",
+      "quote": "In this section",
+      "role": "supporting"
+     }
+    ]
+   }
+  ],
+  "alternatives": [],
+  "unsupported": [
+   {
+    "local_ref": "u_prob_space",
+    "sentence": "s1",
+    "quote": "a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P)\\)",
+    "reason": "No class or predicate for random experiments or probability spaces."
+   },
+   {
+    "local_ref": "u_components",
+    "sentence": "s2",
+    "quote": "\\( \\Omega \\) is the set of outcomes, \\( \\ms F \\) the collection of events, and \\( \\P \\) the probability measure on the sample space \\( (\\Omega, \\mathscr F) \\)",
+    "reason": "Notation for the components of a probability space; no class for outcome sets, event collections or probability measures."
+   },
+   {
+    "local_ref": "u_Z_on_space",
+    "sentence": "s3",
+    "quote": "random variable \\( Z \\) defined on the probability space",
+    "reason": "No predicate relating a random variable to the probability space it is defined on."
+   }
+  ]
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/LocationScale.html@sentence:As usual,",
+   "text": "As usual, our starting point is a random experiment, modeled by a probability space \\((\\Omega, \\ms F, \\P)\\)."
+  },
+  "s2": {
+   "locator": "special/LocationScale.html@sentence:So \\(",
+   "text": "So \\( \\Omega \\) is the set of outcomes, \\( \\ms F \\) the collection of events, and \\( \\P \\) the probability measure on the sample space \\( (\\Omega, \\mathscr F) \\)."
+  },
+  "s3": {
+   "locator": "special/LocationScale.html@sentence:In this",
+   "text": "In this section, we assume that we fixed random variable \\( Z \\) defined on the probability space, with values in \\( \\R \\)."
+  }
+ },
+ "provenance": {
+  "spike_unit": "T1",
+  "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T1.json",
+  "packet": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/T1.md",
+  "stored_reference": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_v1/T1.json",
+  "rendition": {
+   "page": "special/LocationScale.html",
+   "source_uri": "siegrist_random/random/special/LocationScale.html",
+   "spike_document_key": "doc:01e7737ec9188c4149789ee8bd19d56b",
+   "spike_rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+   "built_from": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1",
+   "sentences": "results/s1/sentences/<page>.provisional.jsonl (provisional: P1 parser + b′ + rule c)"
+  },
+  "decisions": [],
+  "migrations": [
+   "V1 /claims/3/qualifiers/base_variable: {t: entity, ref} -> {ref}"
+  ],
+  "split": "The spike's T1 is two annotation units. The lead-in file holds st1, Z, c_Z_values and the three unsupported items (all on s1-s3); the #dfn1 file holds st2 and the definition's claims and redeclares Z (local, extent section) because c_X_def and c_constr bind it. Sentence ids stay as authored (s4-s6 in the #dfn1 file); the frame makes them absolute."
+ }
+}

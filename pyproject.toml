@@ -42,7 +42,7 @@ src = ["scripts", "tools/evidence/src", "python/corpus-structure/src"]
 target-version = "py314"
 # Fixtures are analyzer input; docs may contain illustrative code fences. A subdirectory that is a
 # separate Python project with its own environment (conventionally under `services/`) is excluded.
-extend-exclude = ["fixtures", ".claude/skills", "target", "docs", "services"]
+extend-exclude = [".claude/skills", "target", "docs", "services"]
 force-exclude = true
 
 [tool.ruff.lint]

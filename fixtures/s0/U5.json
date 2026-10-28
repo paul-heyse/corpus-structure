@@ -1,0 +1,446 @@
+{
+ "unit_key": "special/Normal.html#rel2",
+ "batch": {
+  "unit_ref": "special/Normal.html#rel2",
+  "statements": [
+   {
+    "local_ref": "st1",
+    "kind": "theorem",
+    "anchor": [
+     "s1",
+     "s2",
+     "s3",
+     "s4"
+    ]
+   },
+   {
+    "local_ref": "st2",
+    "kind": "proof",
+    "anchor": [
+     "s5"
+    ]
+   }
+  ],
+  "entities": [
+   {
+    "local_ref": "X1",
+    "type": "RandomVariable",
+    "label": "X_1",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X_1",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "X2",
+    "type": "RandomVariable",
+    "label": "X_2",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X_2",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "Xi",
+    "type": "RandomVariable",
+    "label": "X_i",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X_i",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "S",
+    "type": "RandomVariable",
+    "label": "X_1 + X_2",
+    "scope": "local",
+    "extent": "statement",
+    "symbol": "X_1 + X_2",
+    "aliases": [],
+    "identity": {}
+   },
+   {
+    "local_ref": "N",
+    "type": "DistributionFamily",
+    "label": "normal distribution",
+    "scope": "global",
+    "aliases": [
+     "normally distributed"
+    ],
+    "identity": {}
+   }
+  ],
+  "claims": [
+   {
+    "local_ref": "c_Xi_normal",
+    "predicate": "has_distribution",
+    "subject": "Xi",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "modality": "supposed",
+     "param_values": {
+      "mean": {
+       "t": "formula",
+       "latex": "\\mu_i",
+       "symbols": {
+        "mu_i": {
+         "bind": "free"
+        }
+       }
+      },
+      "variance": {
+       "t": "formula",
+       "latex": "\\sigma_i^2",
+       "symbols": {
+        "sigma_i": {
+         "bind": "free"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "member",
+      "x": {
+       "t": "formula",
+       "latex": "i",
+       "symbols": {
+        "i": {
+         "bind": "free"
+        }
+       }
+      },
+      "set": {
+       "t": "set",
+       "latex": "\\{1, 2\\}",
+       "symbols": {}
+      }
+     }
+    },
+    "statement": "st1",
+    "statement_role": "premise",
+    "evidence": [
+     {
+      "sentence": "s1",
+      "quote": "\\(X_i\\) is normally distributed with mean \\(\\mu_i\\) and variance \\(\\sigma_i^2\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "for \\(i \\in \\{1, 2\\}\\)",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_S_def",
+    "predicate": "defined_as",
+    "subject": "S",
+    "object": {
+     "t": "formula",
+     "latex": "X_1 + X_2",
+     "symbols": {
+      "X_1": {
+       "bind": "variable",
+       "entity": "X1"
+      },
+      "X_2": {
+       "bind": "variable",
+       "entity": "X2"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "defined"
+    },
+    "statement": "st1",
+    "statement_role": "definiens",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "Then \\(X_1 + X_2\\) is normally distributed with",
+      "role": "primary"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_S_normal",
+    "predicate": "has_distribution",
+    "subject": "S",
+    "object": {
+     "ref": "N"
+    },
+    "qualifiers": {
+     "modality": "asserted",
+     "param_values": {
+      "mean": {
+       "t": "formula",
+       "latex": "\\mu_1 + \\mu_2",
+       "symbols": {
+        "mu_1": {
+         "bind": "param_of",
+         "claim": "c_Xi_normal",
+         "param": "mean"
+        },
+        "mu_2": {
+         "bind": "param_of",
+         "claim": "c_Xi_normal",
+         "param": "mean"
+        }
+       }
+      },
+      "variance": {
+       "t": "formula",
+       "latex": "\\sigma_1^2 + \\sigma_2^2",
+       "symbols": {
+        "sigma_1": {
+         "bind": "param_expr_of",
+         "claim": "c_Xi_normal",
+         "param": "variance"
+        },
+        "sigma_2": {
+         "bind": "param_expr_of",
+         "claim": "c_Xi_normal",
+         "param": "variance"
+        }
+       }
+      }
+     },
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "c_Xi_normal"
+       },
+       {
+        "op": "pred",
+        "name": "independent",
+        "args": [
+         {
+          "ref": "X1"
+         },
+         {
+          "ref": "X2"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    "statement": "st1",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s2",
+      "quote": "Then \\(X_1 + X_2\\) is normally distributed with",
+      "role": "primary"
+     },
+     {
+      "sentence": "s3",
+      "quote": "\\(\\E(X_1 + X_2) = \\mu_1 + \\mu_2\\)",
+      "role": "supporting"
+     },
+     {
+      "sentence": "s4",
+      "quote": "\\(\\var(X_1 + X_2) = \\sigma_1^2 + \\sigma_2^2\\)",
+      "role": "supporting"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\(X_1\\) and \\(X_2\\) are independent random variables",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_S_mean",
+    "predicate": "mean_value",
+    "subject": "S",
+    "object": {
+     "t": "formula",
+     "latex": "\\mu_1 + \\mu_2",
+     "symbols": {
+      "mu_1": {
+       "bind": "param_of",
+       "claim": "c_Xi_normal",
+       "param": "mean"
+      },
+      "mu_2": {
+       "bind": "param_of",
+       "claim": "c_Xi_normal",
+       "param": "mean"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "asserted",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "c_Xi_normal"
+       },
+       {
+        "op": "pred",
+        "name": "independent",
+        "args": [
+         {
+          "ref": "X1"
+         },
+         {
+          "ref": "X2"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    "statement": "st1",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s3",
+      "quote": "\\(\\E(X_1 + X_2) = \\mu_1 + \\mu_2\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\(X_1\\) and \\(X_2\\) are independent random variables",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_S_var",
+    "predicate": "variance_value",
+    "subject": "S",
+    "object": {
+     "t": "formula",
+     "latex": "\\sigma_1^2 + \\sigma_2^2",
+     "symbols": {
+      "sigma_1": {
+       "bind": "param_expr_of",
+       "claim": "c_Xi_normal",
+       "param": "variance"
+      },
+      "sigma_2": {
+       "bind": "param_expr_of",
+       "claim": "c_Xi_normal",
+       "param": "variance"
+      }
+     }
+    },
+    "qualifiers": {
+     "modality": "asserted",
+     "conditions": {
+      "op": "and",
+      "args": [
+       {
+        "op": "claim",
+        "ref": "c_Xi_normal"
+       },
+       {
+        "op": "pred",
+        "name": "independent",
+        "args": [
+         {
+          "ref": "X1"
+         },
+         {
+          "ref": "X2"
+         }
+        ]
+       }
+      ]
+     }
+    },
+    "statement": "st1",
+    "statement_role": "conclusion",
+    "evidence": [
+     {
+      "sentence": "s4",
+      "quote": "\\(\\var(X_1 + X_2) = \\sigma_1^2 + \\sigma_2^2\\)",
+      "role": "primary"
+     },
+     {
+      "sentence": "s1",
+      "quote": "\\(X_1\\) and \\(X_2\\) are independent random variables",
+      "role": "condition"
+     }
+    ]
+   },
+   {
+    "local_ref": "c_proves",
+    "predicate": "proves",
+    "subject": "st2",
+    "object": {
+     "ref": "st1"
+    },
+    "qualifiers": {
+     "modality": "asserted"
+    },
+    "statement": "st2",
+    "evidence": [
+     {
+      "sentence": "s5",
+      "quote": "which we recognize as the MGF of the normal distribution with mean \\(\\mu_1 + \\mu_2\\) and variance \\(\\sigma_1^2 + \\sigma_2^2\\)",
+      "role": "primary"
+     }
+    ]
+   }
+  ],
+  "alternatives": [],
+  "unsupported": []
+ },
+ "frame": {
+  "s1": {
+   "locator": "special/Normal.html@sentence:Suppose that \\(X_1\\)",
+   "text": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables, and that \\(X_i\\) is normally distributed with mean \\(\\mu_i\\) and variance \\(\\sigma_i^2\\) for \\(i \\in \\{1, 2\\}\\)."
+  },
+  "s2": {
+   "locator": "special/Normal.html@sentence:Then \\(X_1",
+   "text": "Then \\(X_1 + X_2\\) is normally distributed with"
+  },
+  "s3": {
+   "locator": "special/Normal.html@sentence:(a) \\(\\E(X_1",
+   "text": "(a) \\(\\E(X_1 + X_2) = \\mu_1 + \\mu_2\\)"
+  },
+  "s4": {
+   "locator": "special/Normal.html@sentence:(b) \\(\\var(X_1",
+   "text": "(b) \\(\\var(X_1 + X_2) = \\sigma_1^2 + \\sigma_2^2\\)"
+  },
+  "s5": {
+   "locator": "special/Normal.html@sentence:The MGF of \\(X_1",
+   "text": "The MGF of \\(X_1 + X_2\\) is the product of the MGFs, so \\[ \\E\\left(\\exp\\left[t (X_1 + X_2)\\right]\\right) = \\exp\\left(\\mu_1 t + \\sigma_1^2 t^2 / 2\\right) \\exp\\left(\\mu_2 t + \\sigma_2^2 t^2 / 2\\right) = \\exp\\left[\\left(\\mu_1 + \\mu_2\\right)t + \\left(\\sigma_1^2 + \\sigma_2^2\\right) t^2 / 2\\right] \\] which we recognize as the MGF of the normal distribution with mean \\(\\mu_1 + \\mu_2\\) and variance \\(\\sigma_1^2 + \\sigma_2^2\\)."
+  }
+ },
+ "provenance": {
+  "spike_unit": "U5",
+  "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/U5.json",
+  "packet": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1/units/U5.md",
+  "stored_reference": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_v1/U5.json",
+  "rendition": {
+   "page": "special/Normal.html",
+   "source_uri": "siegrist_random/random/special/Normal.html",
+   "spike_document_key": "doc:9dfeb823b6405214643a9648ba7ee5a9",
+   "spike_rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "built_from": "docs/design_review/evidence/2026-10-28_design-spikes/results/s1",
+   "sentences": "results/s1/sentences/<page>.provisional.jsonl (provisional: P1 parser + b′ + rule c)"
+  },
+  "decisions": [],
+  "migrations": [
+   "V1 /claims/2/qualifiers/conditions/args/1/args/0: {t: entity, ref} -> {ref}",
+   "V1 /claims/2/qualifiers/conditions/args/1/args/1: {t: entity, ref} -> {ref}",
+   "V1 /claims/3/qualifiers/conditions/args/1/args/0: {t: entity, ref} -> {ref}",
+   "V1 /claims/3/qualifiers/conditions/args/1/args/1: {t: entity, ref} -> {ref}",
+   "V1 /claims/4/qualifiers/conditions/args/1/args/0: {t: entity, ref} -> {ref}",
+   "V1 /claims/4/qualifiers/conditions/args/1/args/1: {t: entity, ref} -> {ref}"
+  ]
+ }
+}
