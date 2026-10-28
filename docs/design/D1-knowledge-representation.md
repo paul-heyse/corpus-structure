@@ -70,7 +70,7 @@ a canonical text. Rules for the canonical text:
   next opener, closed by the other kind's closer); delimiting resumes at the next opener, so
   one source error never swallows the text after it. A delimited span the math grammar cannot
   read leaves the segment `ok`: the failure is the value's `parse` status (§6.2), kept with its
-  category (ADR-0009).
+  category (ADR-0012).
   > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): 8 of 28,956 math spans are `partial`, each at an unbalanced delimiter in the source, with its reason recorded ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the profile-generated pattern reproduces the result unchanged ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json))
 - HTML entities are decoded; whitespace inside a block, outside math, collapses to one space;
   the result is NFC-normalized.
@@ -122,6 +122,15 @@ a parent. Segments form a tree rooted at the document segment. Kinds:
 Text placed directly in a container, outside any block element (most often a display formula
 put bare in a `unit` or `details`), is a `paragraph` segment with `attrs.orphan: true` and the
 container's kind, so no content is lost for want of a block element.
+
+Attributes that record where an element sat in the source file (`attrs.sourceline`) are
+diagnostics: they depend on the parser, and they are never part of a key, of the rendition
+contract or of an identity comparison between renditions. Two renditions of one document are
+content-identical when their canonical text, their segments' kinds, offsets, other attributes
+and tree, and their sentences are identical. Their keys still differ when their adapter
+configurations do (§10.1).
+> Status: **Tested** (2026-10-28): libxml2 and html5lib renditions of the seven pages S0 and S0-R2
+> use are content-identical in this sense ([s1.rendition-identity](../design_review/evidence/2026-10-28_design-spikes/records/s1.rendition-identity.json))
 
 > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): 44 orphan runs (18 in `details`, 17 in units, 9 at section level), the same under both HTML parsers; no block is left unclassified ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
 
@@ -238,7 +247,7 @@ Modalities:
 | `defined` | A stipulation that makes something true by definition | "Then X = e^Y has the lognormal distribution" in a definition |
 | `conventional` | An author convention, explicitly optional | "it's convenient to consider a constant as having a normal distribution" |
 | `exemplified` | Values given in an example or exercise setup | "The radius of the rod is normally distributed with mean 1 cm" |
-| `posed` | A quantity or question an exercise asks for | "Find the probability that…" |
+| `posed` | A quantity or question an exercise asks for. **Reserved** until the `asks_for` predicate exists (D2 §9, OPEN-D2-15); guideline v1 records asked quantities as `unsupported` meanwhile | "Find the probability that…" |
 | `cited` | Reported from another source | "Smith (1990) showed…" |
 
 `supposed` is what keeps hypothetical premises from becoming facts: a query for "what is
@@ -344,13 +353,23 @@ keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5
 collapsed whitespace. Formula equivalence for evaluation uses SymPy simplification
 ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)), not canonical form.
 
-Canonical form is written from the parse tree of the one math grammar (D4 M11), not by string
-rewriting: macros expand by whole command name (`\P` never matches inside `\Phi`), and a value
-that does not parse keeps its verbatim LaTeX, whitespace-collapsed, with `parse: partial` or
-`failed`. A value must parse under its slot's declared range (formula, set, relation, membership);
-a mismatch is a validation issue, not a silent coercion.
+Canonical form for keys is the **token form, for every value**: token normalization over the
+rendition's macro table, by whole command name (`\P` never matches inside `\Phi`), with spacing
+and sizing commands removed (`\big`, `\Big`, `\bigg`, `\Bigg` and their `l`/`r`/`m` forms, beside
+those above). It is total and does not depend on whether the value parses, so extending the
+grammar never changes a key. The parse tree of the one math grammar (D4 M11) serves validation,
+slot typing, SymPy conversion and equivalence fusion. A property test holds the two together:
+for every parsed value the tree printer and the token form agree, and where they cannot, the
+token form is the key and the case is reported. A value that does not parse keeps its verbatim
+LaTeX with `parse: partial` or `failed`. A value must parse under its slot's declared range
+(formula, set, relation, membership); a mismatch is a validation issue, not a silent coercion.
 
-> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
+> Status: **Measured** on the spike pages (2026-10-28): 881 of 918 math spans parse; the tree and
+> token forms differ on 4, all at `\big/`, which the sizing rule removes. The property test is
+> Proposed (S5, phase 0)
+
+> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Tested** in the spike instruments (2026-10-28): 86 of 86 S0 values read, canonical forms decided all but a handful of value comparisons ([s0.instruments](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments.json)); production code not written
 
 ## 7. Conditions
@@ -457,18 +476,26 @@ keys, uses no insignificant whitespace, encodes UTF-8 and NFC-normalizes strings
 | Span | — | natural key `(rendition, start, end)` |
 | Global entity | `ent` | type and identity attributes; the normalized canonical label only when the type's identity attributes are incomplete (a `FamilyParameter` keys by family and canonical name alone) |
 | Local entity | `ent` | type, scope segment key, normalized symbol or label |
-| Statement | `stm` | the key of the smallest segment covering the anchor (so "the unit" and "its sentences" key alike) |
+| Statement | `stm` | the statement's anchor segment key and the ordinal, within that segment, of the statement's first sentence. The anchor segment is the `unit` for a statement inside a unit, the `details` block for a proof or solution, and the `paragraph` outside units; so "the unit" and "its first sentences" key alike, and two statements in one block do not collide |
 | Claim | `clm` | subject key, predicate, object key or canonical value, identity qualifiers |
 | Method config | `cfg` | method name, method version, canonical params |
+
+A supposition recorded as a context premise (D2 §7.3, statement kind `assumption`) whose
+sentences fall inside another statement's anchor segment is that statement: its claims join that
+statement, and no second statement is keyed. Statement kind is an attribute, not identity.
+
+> Status: **Proposed** (2026-10-28, design owner's review B3). The previous rule, keying by the
+> smallest segment covering the anchor, is measured below; S6 recomputes the S0 figures under this
+> rule.
 
 A key is computed when an entity is first created. A global entity that consolidation links
 to an entity of the reference run keeps that entity's key and canonical label
 ([D5 §3.3](D5-consolidation-identity-confidence.md#33-global-entities)), so keys are stable
 across runs. A statement's `kind` and label are attributes, not identity.
 
-> Status: **Measured** on the S0 passes (2026-10-28): with the earlier rules (sorted anchor keys;
-> label always in the key) 21 of 70 aligned claim pairs had equal claim keys; with these two rules
-> 48 did, and the rest are real differences (../design_review/evidence/2026-10-28_design-spikes/results/s0/key_variants/, record s0.agreement).
+> Status: **Measured** on the S0 passes (2026-10-28): with the earliest rules (sorted anchor keys;
+> label always in the key) 21 of 70 aligned claim pairs had equal claim keys; with the covering-
+> segment statement key and the label rule 48 did, and the rest are real differences (../design_review/evidence/2026-10-28_design-spikes/results/s0/key_variants/, record s0.agreement).
 
 **Identity qualifiers** are those that change meaning: `modality`, `polarity`, `statement`,
 canonical `conditions`, and every schema qualifier the schema lists in `ci:identity_qualifiers`
@@ -517,12 +544,13 @@ then a + bX is normally distributed with mean a + bμ and variance b²σ²."
 | Ref | Claim | Modality | Conditions |
 |---|---|---|---|
 | C1 | `X` `has_distribution` Normal, `param_values {mean: μ, variance: σ²}` | supposed | — |
-| C2 | `Y` `defined_as` `a + b X` | defined | — |
+| C2 | `Y` `defined_as` `a + b X` | defined | `and(member(a, ℝ), member(b, ℝ∖{0}))` |
 | C3 | `Y` `has_distribution` Normal, `param_values {mean: a + bμ, variance: b²σ²}` | asserted | `and(claim C1, member(a, ℝ), member(b, ℝ∖{0}))` |
 
 `X` and `Y` are local `RandomVariable` entities scoped to the unit; C1 is the premise and C3 the
 conclusion of statement `S1` (kind `theorem`); the proof in `<details>` is statement `S2` with a
-claim `S2 proves S1`. In C3, `μ` binds `param_of C1 mean` and `σ` binds `param_expr_of C1
+claim `S2 proves S1`. C2 carries the restrictions stated with it on its own symbols, and no
+`claim` node: a formula claim holds by stipulation (D2 guideline §10.7, rules 2–3). In C3, `μ` binds `param_of C1 mean` and `σ` binds `param_expr_of C1
 variance`. The standard deviation `|b|σ` is a `derived` claim, never stated as `bσ`.
 
 ## 13. Open questions
@@ -531,5 +559,9 @@ variance`. The standard deviation `|b|σ` is a `derived` claim, never stated as 
 |---|---|---|
 | OPEN-D1-1 | Is spaCy sentence segmentation reliable on math-dense paragraphs, or should sentences be split with math spans masked? | Spike S1. **Answered** (2026-10-28): not on raw text (boundary F1 0.80, most false splits inside math), nor with an opaque mask (0.70); reliable with each inline formula merged into one token before the parser (b′, F1 1.00 on an 85-block gold two markers produced identically), adopted in [D4 M03](D4-method-catalog.md#m03-segmentsentences). **Measured** ([s1.sentence-gold](../design_review/evidence/2026-10-28_design-spikes/records/s1.sentence-gold.json)) |
 | OPEN-D1-2 | Do variable scopes need a `section` extent in practice, or does `statement` scope plus "Suppose again" resolution suffice? | Spike S0 reference annotations; **answered by S0** (2026-10-28): yes; T1's "In this section", T2's "Suppose again" and U12 are section-scoped in every pass, and M13 reproduces them with section-wide and reopen binders (D4 M13) |
-| OPEN-D1-3 | Should `FamilyParameter` identity use role names or source symbols when a source names no role ("parameters μ and σ")? Current proposal: canonical name = role if stated, else symbol; later `parameter_role` claims add roles | Spike S0, D2 review; **answered by S0** (2026-10-28): the role word when the unit states one, else the symbol (guideline v1 §10.4, D2); names across units are OPEN-D2-9 |
+| OPEN-D1-3 | Should `FamilyParameter` identity use role names or source symbols when a source names no role ("parameters μ and σ")? Current proposal: canonical name = role if stated, else symbol; later `parameter_role` claims add roles | Spike S0, D2 review; **answered by S0** (2026-10-28): the role word when the unit states one, else the symbol (guideline v1 §10.4, D2); reworded 2026-10-28 to the phrase that first names the parameter (design owner's review B2), so names hold across units; parameterizations are OPEN-D2-18; confirmed at the next guideline-revision check (D7 §2) |
 | OPEN-D1-4 | Is `section` the right scope extent for Siegrist's page-level standing assumptions (the lead-in "we fixed random variable Z")? | Spike S0; **answered by S0** (2026-10-28): `section`, under nested h3/h4 synthesis; `document` was never needed |
+| OPEN-D1-5 | References outside the batch ("the last result", "definition [1]", author `[n]` links): a value `{t: "extref", target}` whose target is a source-profile locator or an author link target, usable as a `refers_to`/`follows_from` object, a `claim` node target and a binding target; consolidation resolves it to a key and reports unresolved ones; INV-09 counts a claim with an unresolved external premise as conditional (S0 gap RG-1, rank 1). Until then such references are `unsupported` | Decided early in phase 0, before consolidation (D5) is built |
+| OPEN-D1-6 | A `bound` binding kind for symbols bound inside a formula (Σ, ∏, ∫, set-builder), excluded from completeness counts (S0 gap RG-3) | D1 §6.1 and `BindKind` in core.yaml, next schema revision |
+| OPEN-D1-7 | `param_of` targeting a premise claim other than `has_distribution` (a mean stated by `mean_value`, RG-5) | Next schema revision |
+| OPEN-D1-8 | An extent covering a run of sibling statements (RG-6) | Next schema revision |

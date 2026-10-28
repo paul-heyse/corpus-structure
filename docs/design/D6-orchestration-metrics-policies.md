@@ -51,6 +51,12 @@ ingest ─► embed ─► extract ─► normalize ─► scope ─► link ─
 
 A run of kind `ingest` (created by `ci ingest`) has only the `ingest` stage.
 
+**In phase 0** the graph is `ingest → normalize → scope → propose → assemble → check → finalize →
+measure → evaluate`. `normalize` runs the math grammar's part of M11 (validation, canonical form)
+and M09's symbol occurrences; `scope` runs M13, whose binding sites assemble the packets' standing
+context (D4 §4.1, ADR-0011); `propose` is M24. Consolidation still takes local scopes from the
+proposals in phase 0 (D5 §11). M13 is the only scope source from phase 1.
+
 **Iterations.** `route` runs after each `measure`. If it creates tasks and `run.iteration <
 run.iteration_limit` (default 3), they run in `escalate` and the loop returns to `assemble`.
 Each iteration's measurements are stored with its number, so the effect of escalation is

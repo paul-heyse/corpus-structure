@@ -55,6 +55,17 @@ meaningful beyond the annotators' own agreement on that predicate.
   computes them, and the larger set is used.
 - **Direction log.** Each operator direction is appended to the guideline's direction log
   (D2 §10.11) with the changes and re-authorings it caused.
+- **Checking a rule change.** A change of the rule class is checked before it is adopted, by the
+  procedure S0-R2 used:
+  - one Sonnet pass and one Haiku pass from packets, under the changed guideline; Haiku serves as a
+    clarity probe here, not as an author;
+  - over the units used to write the change, plus held-out dev units from pages not used for it.
+    The held-out units are fresh each time, since units once used become rule-writing units;
+  - against a reference conformed to the changed rule, with the conformance decisions recorded;
+  - pass against pass reported beside pass against reference;
+  - any reference correction made after seeing a pass reported with the figures before it.
+
+  The result is an evidence record (ADR-0010). Clarifications need no check.
 
 ## 3. Golden authoring protocol
 
@@ -67,8 +78,15 @@ by statement kind, chapter and math share; growing to about 150 each by phase 2 
 The trace units T1–T4 are in dev; the spike core units are in dev.
 
 **Split assignment** (`ci golden split`). Within each chapter, pages are ordered by
-`sha256(source_uri + seed)` and every fifth goes to test (about 20%); the four spike pages are
-forced to dev. Assignments live in `eval.document_split` and change only by operator direction.
+`sha256(source_uri + seed)` and every fifth goes to test (about 20%). Two kinds of page are
+assigned before sampling:
+- **Reserved:** pages that supply the annotator reference's worked examples (D2 §10.10; for
+  statistics v1, `special/Weibull.html`). They are in no split and never golden units, so the
+  examples every prompt carries never sit in an evaluated set.
+- **Forced to dev:** pages used to write or check guideline rules (the four spike pages, and
+  `special/Pareto.html` and `special/ChiSquare.html`, the S0-R2 held-out pages).
+
+Assignments live in `eval.document_split` and change only by operator direction.
 
 **Unit sampling** (`ci golden create --split S --size N --seed K`). Units are drawn from the
 split's pages; strata are statement kind (markup hint, else M05, else `narrative`) × math-share
@@ -85,7 +103,8 @@ Two fresh **Sonnet 5.5** subagent sessions, dispatched by the Claude Code sessio
   enums; exact value and condition-node shapes; and complete worked examples taken from pages outside
   every golden split (§4);
 - the unit packet in golden mode: the D4 §4.1 packet **without hints, known entities, alternatives or any
-  pipeline output**. Its standing context is assembled by query: for each symbol the unit uses, the
+  pipeline output** except one: its standing context is assembled by query from M13, a deterministic
+  rule method over the text, whose version is recorded on the pass: for each symbol the unit uses, the
   sentence holding the binding site M13 assigns it, when that sentence lies outside the unit, plus
   the site a "Suppose again" reopens. Each context sentence carries an id (`cN`) that evidence may cite;
 - the model-facing ClaimProposalBatch schema (D2 §7.3) and the validator, which reports format and
@@ -161,7 +180,15 @@ entities carry canonical labels for cross-unit identity.
 ### 5.1 What is compared
 
 For a golden unit, the run's **predicted set** is the claims whose primary evidence lies in the
-unit's segment or whose statement is anchored there. Two readings are reported: *strict*
+unit's segment or whose statement is anchored there.
+
+**Context premises are scored once.** A golden item recorded as a context premise (D2 §7.3; its
+evidence cites `cN` sentences outside the unit) is scored as an item only in the golden unit
+whose own text states it. In every other unit it is scored only through the `claim` nodes that
+reference it, at full tier, which matches because the premise's statement keys the same in every
+unit (D1 §10.1). Such items carry the `context` flag (D3 `eval.golden_item`). Counting them as
+items in each dependent unit would make them false negatives there; widening the predicted set
+would count them twice. Two readings are reported: *strict*
 (status `accepted`) and *lenient* (`accepted`, `candidate`, `ambiguous`); also a precision–recall
 curve over confidence.
 
@@ -199,7 +226,7 @@ tie-breaker. Matching is one-to-one, maximizing summed similarity with
 | Precision, recall, F1 | Per tier; per predicate, statement kind, chapter; micro and macro |
 | Unsupported recall | Share of golden `unsupported` items the run also records as `unsupported` (span overlap) |
 | Binding accuracy | Over symbols of aligned formula values: run binding kind and target equal to golden |
-| Scope accuracy | Share of aligned local entities with the golden scope segment |
+| Scope accuracy | Share of aligned local entities with the golden scope segment. Against goldens it is not fully independent of M13: golden extents are written from the context M13 chose (§3.2) |
 | Identity quality | B-cubed precision and recall of run global entities against golden canonical labels across units; merge and split error counts |
 | Derived correctness | Derived claims are excluded from precision; scored separately as share `consistent` under M21 or aligned to a golden item |
 | Calibration | Expected calibration error of confidence on dev (D5 §6.4) |

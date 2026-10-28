@@ -13,8 +13,14 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0006](0006-task-sensitive-agent-coordination.md) | Delegate by task and strengthen evidence and review defaults within bounded workflows | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented | ADR-0005 |
 | [ADR-0007](0007-audit-led-review-and-completion.md) | Separate diagnostic audit, solution review and independent completion assessment | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
 | [ADR-0008](0008-codebase-first-library-leverage.md) | Discover library leverage through three evergreen assessment stages | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
-| [ADR-0009](0009-math-grammar-authority.md) | Read math through one extended Lark grammar; source facts as profile data; offset-preserving quote location | 2026-10-28 |  | Tested |  |
 | [ADR-0010](0010-evidence-records.md) | Record finalized evidence as typed records with generated indexes, a rebuildable catalog and generated report figures | 2026-10-28 | [§2](../design/DESIGN.md#section-2) | Implemented |  |
 | [ADR-0011](0011-golden-author-and-annotator-inputs.md) | Author goldens with Sonnet from generated annotator inputs and query-assembled context | 2026-10-28 |  | Measured |  |
+| [ADR-0012](0012-math-grammar-token-keys.md) | Read math through one extended Lark grammar, key values by the token form, keep source facts as profile data, locate quotes with source offsets | 2026-10-28 |  | Tested | [ADR-0009](0009-math-grammar-authority.md) |
+
+## Superseded, still in the tree
+
+| ADR | Title | Date | Governs | Evidence | Replaces |
+|---|---|---|---|---|---|
+| [ADR-0009](0009-math-grammar-authority.md) | Read math through one extended Lark grammar; source facts as profile data; offset-preserving quote location | 2026-10-28 |  | Tested |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

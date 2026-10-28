@@ -84,11 +84,11 @@ when a named measured gap calls for them (D6 §7, D0 "deliberately left out").
 | M06 | `extract.gliner_schema` | extract | segment | `mention`, `attribute`, `record` | encoder | 1 | base | S2 |
 | M07 | `extract.gliner_joint` | extract | segment | `mention`, `relation` | encoder | 1 | base | S2 |
 | M08 | `extract.patterns` | extract | sentence | `mention`, `relation` | det. | 1 | conditional | — |
-| M09 | `extract.math` | extract | math segment | `mention`, `relation` | det. | 1 | base | S5 |
+| M09 | `extract.math` | extract | math segment | `mention`, `relation` | det. | 0 | base | S0, S5 |
 | M10 | `llm.propose_claims` | llm | unit packet | `claim_proposal` | local LLM | 1 | base | S3 |
-| M11 | `normalize.formula` | normalize | math segment | `value` | det. | 1 | base | S5 |
+| M11 | `normalize.formula` | normalize | math segment | `value` | det. | 0 (grammar: validation, slot typing, canonical form); 1 (SymPy conversion) | base | S5 |
 | M12 | `normalize.quantity` | normalize | span | `value` | det. | 1 | base | — |
-| M13 | `resolve.symbol_scope` | resolve | rendition | `scope` | det. | 1 | base | S0, S5 |
+| M13 | `resolve.symbol_scope` | resolve | rendition | `scope` | det. | 0 (packet standing context) | base | S0, S5 |
 | M14 | `resolve.concept_link` | resolve | observation (mention) | `link` | det. + encoder | 1 (vectors 2) | base | S7 |
 | M15 | `resolve.record_link` | resolve | run | `link` | det. (Splink) | 2 | conditional | — |
 | M16 | `llm.judge` | llm | alternative group, claim, identity group | `judgment` | local LLM | 1 | base | S3 |
@@ -180,7 +180,7 @@ Models cite evidence **by quote, not offset**: each evidence item is `{sentence:
    is snapped outward to word boundaries; each result records its step and edit counts. The
    result is a span (rendition offsets). An unlocated quote leaves the item in the batch with
    `evidence_unlocated: true`; consolidation treats such items as unsupported by evidence (D5).
-   > Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+   > Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
    > Status: **Tested** in the spike instruments (2026-10-28): 733 of 735 S0 quotes exact, 2 after spacing, none fuzzy ([s0.stored](../design_review/evidence/2026-10-28_design-spikes/records/s0.stored.json))
 3. **Check references and types**: local refs resolve; subject and object types match the
    predicate's domain and range (entity-type side table, D2 §7.3).
@@ -236,6 +236,28 @@ layout), section rules with a heading source (NIST's subsections are layout-tabl
 `verbatim` role (`pre` keeps its line breaks), per-selector list markers, and per-selector
 rendering of reference links and `img[alt]`. Generic defaults: `pre` keeps whitespace, an
 `img` with `alt` text is never silently dropped, and a list without items is a block.
+
+**Profile vocabulary.** Every key a source profile may set, with the default when it is absent;
+the adapter reads no source fact from anywhere else (ADR-0012):
+
+| Key | Value | Default |
+|---|---|---|
+| `applies_to` | glob of source paths | required |
+| `exclude` | named CSS selectors; excluded text recorded per rule | scripts and `noscript` only |
+| `title` | selector | the first `h1` |
+| `sections` | heading selectors, outermost first, each opening a nested section | `h1`…`h6` |
+| `section_source` | where headings come from: `body` headings, or a `layout` row selector | `body` |
+| `unit` | selector of numbered units | none: paragraphs only |
+| `block_hints`, `section_hints` | selector or section title → statement-kind hint, `claim_bearing` | none |
+| `details_kinds` | statement kind of `details` blocks, by context and summary text | `proof` |
+| `math` | `inline` and `display` delimiters, `display_environments`, `page_macros` (the macro source selector) | `\(…\)`, `\[…\]`, no environments, no page macros |
+| `references` | selector of in-text reference links, and their rendering (`browser` "[n]", `placeholder`, `empty`) | links rendered as their text |
+| `render` | rendering conventions for script- or style-produced text: `q` (`quotes`, `bare`), `list_markers` per list selector (`parenthesized`, `browser`, `none`), `summary` (`heading`, `drop`), `figure` (`caption`, `drop`) | `bare`, `none`, `heading`, `caption` |
+| `layout` | selectors of tables used for layout (read as blocks, not tables) | none |
+| `verbatim` | selectors whose whitespace is kept (`pre`) | `pre` |
+| `img_alt` | whether `img[alt]` text is rendered as text | `true` |
+| `orphan_text` | how text outside any block is kept | a `paragraph` with `orphan: true` |
+> Status: **Proposed** (2026-10-28): the keys Siegrist uses are Tested on 78 pages (S1); `section_source`, `layout`, `verbatim` and `img_alt` come from the NIST probe
 > Status: **Proposed**, from the NIST probe on 8 pages (S1, 2026-10-28), where only the Siegrist `scripts` and `images` rules matched anything ([s1.nist](../design_review/evidence/2026-10-28_design-spikes/records/s1.nist.json))
 
 **Parser.** html5lib through `lxml.html.html5parser`, whose HTML5 tree construction closes an
@@ -258,7 +280,7 @@ delimiter, so an unclosed one is `partial` and the scan resynchronizes); each sp
 the math grammar (M11); `html.unescape`, `unicodedata.normalize("NFC")`. Source-specific facts
 (unit, reference, section and layout selectors, delimiters, the macro source) are profile data,
 never adapter code.
-> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Tested** in the S1 adapter (2026-10-28): the generated pattern delimits identically to the scanner on 517 blocks ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json))
 
 **Measured by.** `parse_status` per rendition and segment; excluded-character share; segment
@@ -411,7 +433,7 @@ the notation.
 **Library realization.** The math grammar of M11: symbol occurrences with offsets, sub- and
 superscripts as tree structure, relations and memberships as typed nodes; the page's macros
 recorded by M01, then the pack's fallback macro map (D2 §12.1). No SymPy conversion here.
-> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Implemented** in the spike instruments (2026-10-28), exercised by the M13 probe; production code not written
 
 ## 7. LLM proposals and judgments
@@ -484,7 +506,7 @@ carry Lark's error class, position and a category; a subclass of SymPy's `Transf
 for the extended rules; canonical form (D1 §6.2) written from the tree; one parser cached per
 macro table; SymPy pinned as a hold. The ANTLR backend remains the comparison for `OPEN-D4-3`;
 `sympy.srepr` for storage.
-> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Measured** in the spike instruments (2026-10-28): 976 of 1,532 spans parse on a 78-page sample, the rest ambiguous or failed by recorded category ([s0.instruments](../design_review/evidence/2026-10-28_design-spikes/records/s0.instruments.json)); coverage is S5's question
 
 **Measured by.** Parse rate by math kind and page; failure categories (S5).
@@ -528,7 +550,7 @@ token carrying its kind from the math grammar (symbol, relation, membership) and
 occurrences; `DependencyMatcher` only where clause attachment decides the binding. A standalone
 claim-bearing paragraph is a statement extent; a section-wide binder takes precedence. Spike
 evidence: S0 annotators' scopes (`m13_probe.*.tsv`), S5.
-> Decision: [ADR-0009](../adr/0009-math-grammar-authority.md)
+> Decision: [ADR-0012](../adr/0012-math-grammar-token-keys.md)
 > Status: **Measured** on the S0 reference (2026-10-28): 20 of 20 annotated symbol scopes reproduced, 18 of 20 without the paragraph rule ([s0.m13-probe-2](../design_review/evidence/2026-10-28_design-spikes/records/s0.m13-probe-2.json))
 
 ### M14 resolve.concept_link

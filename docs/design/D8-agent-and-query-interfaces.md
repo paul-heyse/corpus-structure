@@ -26,7 +26,7 @@ validation messages shaped for an agent and size caps.
 | `queue_status` | `run?` | counts of `awaiting_agent` tasks by mode and stage; budgets left | — |
 | `queue_next` | `mode?` (`extract`, `adjudicate`), `run?`, `max_units?` (default 1, at most 5) | task ids, unit keys, packet sizes | Leases the tasks to the session (30 minutes, renewed by any call on the task) |
 | `read_unit` | `task_id`, `part?` | the packet (D4 §4.1) as text, one part at a time | — |
-| `read_instructions` | `task_id` | the prompt parts for the task's mode (D4 §4.2: system instructions, guideline core, schema inventory, examples, model-facing JSON Schema) with their hashes; identical for all tasks of one run and mode, so read once per session | — |
+| `read_instructions` | `task_id` | the prompt parts for the task's mode (D4 §4.2: system instructions, guideline core, the generated annotator reference, examples, model-facing JSON Schema) with their hashes; identical for all tasks of one run and mode, so read once per session | — |
 | `propose_claims` | `task_id`, `batch` (model-facing ClaimProposalBatch) | accepted item count; rejected items with reasons; unlocated quotes | First submission with errors keeps the task open for one corrected resubmission; a clean or second submission completes it (`claim_proposal` observation; an intervention row referencing it) |
 | `adjudicate` | `task_id`, `judgment` (D4 §4.3 judge form) | confirmation | Completes the task (`judgment` observation; an intervention row referencing it). Used from phase 1 |
 | `release` | `task_id`, `reason` | — | Returns the task to `awaiting_agent` |
@@ -48,8 +48,10 @@ session (D7 §3, ADR-0011); the session itself (Opus) does not author goldens. P
 come from separate subagent sessions; the tool records the session reference and model and refuses
 a pass `b` from the session that wrote pass `a` for the same unit.
 
-> Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md) Test-split units
-are served only to golden passes, never to `read_unit` or `query` item views (D7 §4).
+> Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md)
+
+Test-split units are served only to golden passes, never to `read_unit` or `query` item views
+(D7 §4).
 
 ### 2.3 Knowledge-level proposals and decisions
 
@@ -78,6 +80,7 @@ beyond it:
 | Item | Cap |
 |---|---|
 | Extraction packet text and context (`read_unit` part) | 6,000 tokens; larger units are split at sentence boundaries into parts sharing the standing context (D4 §4.1) |
+| Extraction output (one ClaimProposalBatch) | sized from batches, not units: S0 batches reached about 2,500 tokens on units of at most 345 (record s0.sizes); the cap is set from S3's p99, and 8,000 for the agent until then |
 | Judge packet | 3,000 tokens; at most 6 alternatives |
 | Units per `queue_next` | 5, and only units of one page, grouped when their packets together fit one cap |
 | Any inspection response | 2,000 tokens, with a page token and a truncation marker |
@@ -146,7 +149,7 @@ port is a reimplementation over claims (D9 §7).
 
 | Query | Answers |
 |---|---|
-| `family_profile(family)` | Parameters with roles and domains; support; pdf, cdf, mgf; mean and variance; constructions it belongs to; special cases; transformations and limits |
+| `family_profile(family)` | Parameters with roles and domains (from `has_parameter` claims and from the `FamilyParameter` entities whose identity names the family); support; pdf, cdf, mgf; mean and variance; constructions it belongs to; special cases; transformations and limits |
 | `families_where(predicate, value?)` | Families with a scale parameter; families whose support is `(0, \infty)` |
 | `relations_between(a, b)` | `special_case_of`, `transformation_of`, `limit_of` paths between two families (recursive CTE, depth ≤ 4) |
 | `transformations_of(family)` | Theorems whose premise has the family and whose conclusion gives the distribution of a transform, with conditions (T3 answers "a + bX for b ≠ 0 is normal with mean a + bμ and variance b²σ²") |
@@ -157,10 +160,10 @@ port is a reimplementation over claims (D9 §7).
 
 | Unit | Question | Query | Expected rows (trace claim refs) |
 |---|---|---|---|
-| T1 | What is a location-scale family, and what are its parameters? | `statement(LocationScale#dfn1)`, `construction_profile(location-scale family)` | Statement S1 (definition) with C2 (definiens, conditions), C3, C4–C8; profile: C4 with base variable Z and parameter symbols, parameters location and scale (C5, C6) with domains ℝ and (0, ∞) (C7, C8). C1 only with `include_suppositions` |
-| T2 | What are the location and scale parameters of the normal distribution? | `family_profile(normal)` | Parameters location and scale (C2, C3), identical to mean and standard deviation (C4, C5). C1 only with `include_suppositions` |
-| T3 | What is the distribution of an affine transformation of a normal variable, and under what conditions? | `transformations_of(normal)` | C3 with conditions a ∈ ℝ, b ∈ ℝ ∖ {0} and premise C1, and C2 defining Y. D1 from phase 2 |
-| T4 | How is the lognormal distribution defined, and what are its shape and scale parameters? | `statement(LogNormal#dfn)`, `family_profile(lognormal)` | C1–C10 in the statement; profile: parameters mu, sigma and scale (C5, C6, C9), sigma's role shape (C8), scale = e^μ (C10), transformation of normal with its mapping (C7) |
+| T1 | What is a location-scale family, and what are its parameters? | `statement(LocationScale#dfn1)`, `construction_profile(location-scale family)` | Statement S1 (definition) with C2 (definiens, conditions), C3, C4–C8 (all definiens except C3); profile: C4 with base variable Z and parameter symbols, parameters location and scale (C5, C6) with domains ℝ and (0, ∞) (C7, C8). C1 only with `include_suppositions` |
+| T2 | What are the location and scale parameters of the normal distribution? | `family_profile(normal)` | Parameters location and scale (the `FamilyParameter` entities N.loc and N.scale, whose identity names the family), identical to mean and standard deviation (C4, C5). The trace slice holds no `has_parameter` claim for the normal family: guideline v1 states those only in a family's definition, which T2 is not. C1 only with `include_suppositions` |
+| T3 | What is the distribution of an affine transformation of a normal variable, and under what conditions? | `transformations_of(normal)` | C3 with conditions a ∈ ℝ, b ∈ ℝ ∖ {0} and premise C1, and C2 defining Y under the same restrictions. D1 from phase 2 |
+| T4 | How is the lognormal distribution defined, and what are its shape and scale parameters? | `statement(LogNormal#dfn)`, `family_profile(lognormal)` | C1–C17 in the statement (with the standard lognormal, C13–C17); profile: parameters mu, sigma and scale (C5, C6, C9) with domains ℝ and (0, ∞) (C11, C12), sigma's role shape (C8), scale = e^μ (C10), transformation of normal with its mapping (C7) |
 
 Expected answers are the trace's target claims; D9 §4 turns them into tests.
 

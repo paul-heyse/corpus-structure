@@ -52,7 +52,7 @@ non-positive states. Here they are fields and statuses
 
 | # | Stage | Primary method | Escalation on a measured gap | Writes |
 |---|---|---|---|---|
-| 1 | Ingest and segment | html5lib through lxml, profile-driven math delimiting and one math grammar (HTML; ADR-0009), Docling (PDF), spaCy sentences with inline math merged | MinerU VLM for failed layouts | documents, renditions, segments, spans |
+| 1 | Ingest and segment | html5lib through lxml, profile-driven math delimiting and one math grammar (HTML; ADR-0012), Docling (PDF), spaCy sentences with inline math merged | MinerU VLM for failed layouts | documents, renditions, segments, spans |
 | 2 | Profile | GLiNER2 unit classification, term statistics, embeddings | Opus domain brief | profile observations |
 | 3 | Schema | LinkML domain pack | Opus schema proposals from coverage gaps | schema version |
 | 4 | Extract | GLiNER2 compiled from the schema; `JointIE`; spaCy patterns; math spans | LLM claim extraction (local, then Opus) | observations |

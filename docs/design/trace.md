@@ -243,7 +243,7 @@ method design, not a gold: methods are scored on claims ([D7](D7-evaluation-gold
 | M01 ingest | `dfn1` unit and `dfn` markup "location-scale family" | paragraph | unit `rel1`, `details` | unit `dfn`, list items |
 | M06 GLiNER2 entities | "location-scale family", "location parameter", "scale parameter", `Z`, `X` | `X`, "normal distribution", "location parameter", "mean", "standard deviation" | `X`, "normally distributed", "mean", "variance" | `Y`, `X`, "normal distribution", "lognormal distribution", "shape parameter", "scale parameter" |
 | M07 `JointIE` relations | — | `has_distribution(X, normal distribution)` | `has_distribution(X, normally distributed)` | `has_distribution(Y, normal)`, `has_distribution(X, lognormal)` |
-| M09 math spans (S1 confirms) | 8 inline (lead-in 1, `dfn1` 7) | 3 | 8 | 8 (unit 6, list items 2) |
+| M09 math spans (S1, measured 2026-10-28, `sample.json`) | 14 inline (lead-in paragraph 7, `dfn1` 7) | 3 inline | 12 (11 inline, 1 display; 8 inline in the statement, the rest in the proof) | 10 inline (both paragraphs and the list items) |
 | M11 SymPy parse | all except `\R` without a macro map | all | all; `\R \setminus \{0\}` as a set | all |
-| M13 symbol scope | Z → section; X → S1 | X → section ("again") | X, Y → S1 | Y, X → S1 |
-| M10 LLM claims | C1–C8 | C1–C5 | C1–C4 | C1–C10 |
+| M13 symbol scope | Z → section; X → S1 | X → section ("again") | X, Y → S1 | Y, X, Z, W → S1 |
+| M10 LLM claims | C1–C8 | C1, C4, C5 | C1–C4 | C1–C17 |

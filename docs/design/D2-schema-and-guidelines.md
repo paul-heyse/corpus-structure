@@ -848,7 +848,7 @@ steers it ([D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-lo
 > reference, from 0.37 and 0.35 under v0, and agreed at 0.76 on six held-out units
 > ([S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md)). Every rule states a choice that v0 left to inference
 > and the S0 gap analysis found contested (../design_review/evidence/2026-10-28_design-spikes/results/s0/gaps.md, GG-1…17). Its open points are
-> OPEN-D2-7 … OPEN-D2-10 (§11).
+> OPEN-D2-7 … OPEN-D2-20 (§11).
 
 ### 10.1 Purpose
 
@@ -905,10 +905,17 @@ Structural claims — `defines`, `proves`, `refers_to`, `follows_from` — take 
   the indexed form (`X_i`); claims about every member are stated once, about `X_i`, with the index
   range as a `member` node in their conditions. Do not expand it into `X_1`, `X_2`.
 - **Parameters** are global `FamilyParameter` entities identified by family and canonical name. The
-  canonical name is the role word if the unit states one for that parameter anywhere ("shape
-  parameter k" gives `shape`; "mean μ" gives `mean`), spelled as the `ParameterRole` value
-  (`standard_deviation`, `degrees_of_freedom`); otherwise the symbol without backslash (`mu`). Add a
-  `parameter_role` claim only when the role is stated and differs from the canonical name.
+  canonical name comes from the phrase that **first names the symbol as a parameter of the
+  family**: its role word if it has one ("shape parameter k" gives `shape`; "mean μ" gives `mean`),
+  spelled as the `ParameterRole` value (`standard_deviation`, `degrees_of_freedom`); otherwise the
+  symbol without backslash ("parameters μ and σ" gives `mu`, `sigma`). A role stated later ("σ is
+  the shape parameter") is a `parameter_role` claim, not a rename. Add a `parameter_role` claim only
+  when the role is stated and differs from the canonical name. Fixing the name at first naming
+  keeps a parameter's identity the same across units that name its role differently or not at all.
+  > Status: **Proposed** (2026-10-28, design owner's review B2). It replaces v1's "the role word
+  > stated anywhere in the unit", which contradicted the v1 reference and trace T4 (`sigma` with a
+  > `parameter_role` shape). Pass SV, pass HV and the S0-R2 adjudicator followed the earlier wording
+  > on T4 (`shape`), so part of their T4 loss was the rule's defect, not theirs.
 - `has_parameter`, `parameter_domain` and `parameter_role` are stated only in a definition of the
   family; elsewhere "F with shape parameter k" supplies `param_values` only.
 
@@ -1032,12 +1039,22 @@ change it produced, the golden units re-authored.)*
 | OPEN-D2-1 | Exact `Schema.from_dict` keys for structures, attributes and per-type thresholds in gliner2 2.1.0 | Spike S4 |
 | OPEN-D2-2 | Raw LaTeX or masked math placeholders in GLiNER2 input | Spike S2 |
 | OPEN-D2-3 | rule-engine syntax for the `rules.yaml` checks, and whether custom functions such as `family_params` are better as resolver-backed symbols | Spike S4 |
-| OPEN-D2-4 | Whether property predicates (`mean_value`, `pdf`, …) should be one `has_property` predicate with a `property` qualifier instead | Spike S0 annotations: count how many distinct properties appear; **answered by S0** (2026-10-28): keep separate property predicates (only `mean_value` and `variance_value` were needed); add a standard-deviation property, now in OPEN-D2-9 |
+| OPEN-D2-4 | Whether property predicates (`mean_value`, `pdf`, …) should be one `has_property` predicate with a `property` qualifier instead | Spike S0 annotations: count how many distinct properties appear; **answered by S0** (2026-10-28): keep separate property predicates (only `mean_value` and `variance_value` were needed); add a standard-deviation property, now OPEN-D2-17 |
 | OPEN-D2-5 | Whether "standard normal" is better a family with `special_case_of` or a parameterization of the normal family | Spike S0 and outer-loop direction; **answered by S0** (2026-10-28): standardized families as families of their own worked in every pass; `special_case_of` only when the source states the constraint; guideline v1 §10.4 |
 | OPEN-D2-6 | Whether LinkML annotation values that are lists (`ci:examples`, `ci:qualifiers`) round-trip through `SchemaView` unchanged | Spike S4 |
 | OPEN-D2-7 | Members of an indexed family as condition arguments: v1 makes `X_i` one entity but lists independence over `X_1, X_2, X_n`; needs an indexed-set argument (base, index, range) and a `forall` over claims (S0 gap RG-2) | Schema change with D1 §7; then a guideline rule |
 | OPEN-D2-8 | Which premises a claim depends on: "every premise of its statement" over-references when a statement holds independent results; candidate rule "the premises whose entities or symbols the claim uses" | Next guideline revision, checked on held-out units |
-| OPEN-D2-9 | Guideline points v1 leaves open: section-level suppositions nothing references (`scope: statement` or `section`), restricting phrases ("In some settings", GG-16), recalled definitions (GG-12), local definitions "where μ = …" (RG-4), what an exercise asks for (`asks_for`, SG-1), numbers with units as parameter values (SG-3), a standard-deviation property (SG-4), a family's canonical parameter names across units, fixed by its defining unit (RG-7) | Next guideline and schema revision |
+| OPEN-D2-9 | Scope of a section-level supposition that no condition references: `scope: statement` or `section` when the source says "In this section" | Guideline v2 |
+| OPEN-D2-11 | Restricting phrases ("In some settings", S0 gap GG-16): a `phrase` condition or a `hedge` | Guideline v2 |
+| OPEN-D2-12 | Recalled definitions ("Recall that …", GG-12): kind, modality, `refers_to` or `defines` | Guideline v2 |
+| OPEN-D2-13 | What counts as an explicit claim in framing text (GG-8), and the same fact in two predicate forms (GG-10) | Guideline v2 |
+| OPEN-D2-14 | Local definitions "where μ = …" (RG-4): a `defined_by` binding | Schema revision with D1 §6.1 |
+| OPEN-D2-15 | What an exercise asks for: an `asks_for` predicate (SG-1); `posed` is reserved until it lands (D1 §5.2) | Schema v0.2 |
+| OPEN-D2-16 | Numbers with units as parameter values: `ParamValue.value` widened to the D1 value union (SG-3) | Schema v0.2 |
+| OPEN-D2-17 | A standard-deviation property predicate, with skewness and kurtosis decided together (SG-4, OPEN-D2-4) | Schema v0.2 |
+| OPEN-D2-18 | A family's parameterizations, so canonical parameter names stay stable across units (RG-7, with §10.4) | Schema revision |
+| OPEN-D2-19 | Independence stated as a setup fact (SG-2) against guideline v1's "independence is a condition only"; decided with OPEN-D2-7 | Schema revision |
+| OPEN-D2-20 | Concept-of ("Y is the standard score of X", SG-5) and notation ("Ω is the set of outcomes", SG-8) predicates, or out of scope; a standard member without a stated constraint (SG-9); a `RandomVariable` without a symbol (SG-10) | Schema revision |
 | OPEN-D2-10 | Documented shapes for `param_mapping`, `param_symbols` and `param_constraints` (SG-11), so the generated reference can state them | Schema description update |
 
 
@@ -1077,6 +1094,7 @@ source_profiles:
       navigation: "header ol.map, footer"
       controls: "button"
       images: "img"                                    # figure captions stay, as `caption` segments
+      chapter_lists: "ul.map"                          # S1: 75 chapter-index lists
     title: "header h2"
     sections: ["h3", "h4"]                             # each heading opens a section nested by level
     unit: "div.unit"
@@ -1088,6 +1106,8 @@ source_profiles:
       "p.exercise": {statement_kind: exercise}
       "p.exericse": {statement_kind: exercise}         # sic, as in the source
       "p.app": {statement_kind: remark, claim_bearing: false}
+      "p.stat": {statement_kind: theorem}              # S1: 10 units open with p.stat
+      "p.Proof": {statement_kind: proof}               # S1: 1 (special/Divisible.html)
     section_hints:                                     # units under these h3 titles
       "Examples and Applications": example
       "Examples and Special Cases": example
@@ -1097,7 +1117,19 @@ source_profiles:
       default: proof
       inside_example_or_exercise: solution
       by_summary: {"Answer": solution, "Answwer:": solution, "Notes:": remark}
-    math: {inline: ["\\(", "\\)"], display: ["\\[", "\\]"], page_macros: true}
+    math:
+      inline: ["\\(", "\\)"]
+      display: ["\\[", "\\]"]
+      display_environments: ["align", "align*"]       # S1: 106 bare align blocks without \[
+      page_macros: "div.latex"                         # per-rendition macro table; the pack map is only a fallback
+    references: {selector: "a.ref", render: browser}  # "[n]" as the page's Basic.js renders it
+    render:
+      q: quotes                                        # <q> text in “ ”
+      list_markers: {"ol.sub": parenthesized}          # "(a) "
+      summary: heading                                 # a details summary is a heading segment
+      figure: caption
+    orphan_text: paragraph                             # with attrs.orphan: true (S1: 44 runs)
+    # S1 merged (2026-10-28): every value above Tested on 78 pages (record s1.corpus); vocabulary in D4 M01
 
 math:
   macros:                                              # fallback when a page does not define a macro
@@ -1120,7 +1152,7 @@ math:
   constants: ['e', '\pi']
 
 binders:                                               # M13 binder lexicon
-  sentence_initial: [suppose, let, assume, fix, define, consider, recall, if]   # "if": Measured by the S0 M13 probe (2026-10-28, record s0.m13-probe-2), ADR-0009
+  sentence_initial: [suppose, let, assume, fix, define, consider, recall, if]   # "if": Measured by the S0 M13 probe (2026-10-28, record s0.m13-probe-2), ADR-0012
   clause: [where, for]
   reopen: [again]                                      # "Suppose again …" re-opens the section's earlier binding
   section_wide: ["in this section", "throughout this section"]

@@ -528,7 +528,7 @@ validated on write by the repository layer. Summaries:
 CREATE TABLE eval.document_split (               -- page-level split assignment (D7 §3.1, §4)
   project_id  bigint NOT NULL REFERENCES meta.project,
   document_id bigint NOT NULL REFERENCES kb.document,
-  split       text NOT NULL CHECK (split IN ('dev','test')),
+  split       text NOT NULL CHECK (split IN ('dev','test','reserved')),  -- reserved: worked-example pages, never golden (D7 §3.1)
   assigned_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (project_id, document_id)
 );
@@ -565,6 +565,8 @@ CREATE TABLE eval.golden_pass (                  -- the single store of authored
   batch                jsonb NOT NULL,           -- stored-form ClaimProposalBatch (pass c: the adjudicated batch)
   decisions            jsonb,                    -- pass c: per-difference decision, reason, guideline_gap marks
   session_ref          text NOT NULL,            -- authoring session; passes a and b of a unit must differ
+  model                text NOT NULL,            -- authoring model (ADR-0011: Sonnet 5.5)
+  inputs               jsonb NOT NULL,           -- guideline version, annotator-reference hash, packet hash, M13 version that chose the context
   created_at           timestamptz NOT NULL DEFAULT now(),
   UNIQUE (golden_unit_id, pass, guideline_version_id)
 );
@@ -575,6 +577,7 @@ CREATE TABLE eval.golden_item (
   item_type      text NOT NULL CHECK (item_type IN ('entity','statement','claim','alternative','unsupported')),
   local_ref      text NOT NULL,
   payload        jsonb NOT NULL,                 -- ClaimProposalBatch element (D2 §7.3), offsets into the rendition
+  context        boolean NOT NULL DEFAULT false, -- a context premise stated outside the unit: scored only through claim nodes here (D7 §5.1)
   UNIQUE (golden_unit_id, item_type, local_ref)
 );
 
@@ -713,7 +716,7 @@ run (ids illustrative; keys abbreviated).
 | key | subject | predicate | object | qualifiers (abridged) | role | status | establishment |
 |---|---|---|---|---|---|---|---|
 | `clm:C1` | `ent:X@rel1` | `stat:has_distribution` | `ent:normal` | `{"modality":"supposed","param_values":{"mean":{"t":"formula","latex":"\\mu",…},"variance":{"t":"formula","latex":"\\sigma^2",…}}}` | premise | accepted | stated |
-| `clm:C2` | `ent:Y@rel1` | `stat:defined_as` | value `{"t":"formula","latex":"a + b X",…}` | `{"modality":"defined"}` | definiens | accepted | stated |
+| `clm:C2` | `ent:Y@rel1` | `stat:defined_as` | value `{"t":"formula","latex":"a + b X",…}` | `{"modality":"defined","conditions":{"op":"and","args":[member(a, ℝ), member(b, ℝ∖{0})]}}` | definiens | accepted | stated |
 | `clm:C3` | `ent:Y@rel1` | `stat:has_distribution` | `ent:normal` | `{"param_values":{"mean":{…"latex":"a + b \\mu","symbols":{"mu":{"bind":"param_of","claim":"clm:C1","param":"mean"}}},"variance":{…}},"conditions":{"op":"and","args":[{"op":"claim","ref":"clm:C1"},{"op":"member","x":{…"a"},"set":{…"\\R"}},{"op":"member","x":{…"b"},"set":{…"\\R \\setminus \\{0\\}"}}]}}` | conclusion | accepted | stated |
 | `clm:C4` | `stm:rel1-proof` | `core:proves` | `stm:rel1` | `{}` | — | accepted | stated |
 | `clm:D1` | `ent:Y@rel1` | `stat:has_distribution` | `ent:normal` | `{"param_values":{"mean":…,"standard_deviation":{…"latex":"\\lvert b \\rvert \\sigma"}}, "conditions": …}` | conclusion | accepted | derived |

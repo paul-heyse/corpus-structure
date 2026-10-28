@@ -13,7 +13,7 @@ ADRs, and replace this plan with the phase 0 build plan of [D9 §5](../design/D9
 
 | Item | State |
 |---|---|
-| D0–D9, trace | Written; **Proposed**, with S0/S1/S0-R2 results folded in (2026-10-28, ADR-0009–0011): labels mark what is Tested or Measured |
+| D0–D9, trace | Written; **Proposed**, with S0/S1/S0-R2 results folded in (2026-10-28, ADR-0012–0011): labels mark what is Tested or Measured |
 | Spike briefs S0–S7 | Written ([spike README](../design_review/evidence/2026-10-28_design-spikes/README.md)); S0, S1 and the S0-R2 revisit run and folded in (Q1, Q2, the S0/S1 part of Q5) |
 | Library realization in D4 | First-pass realizations written by the design owner; not yet deepened against the library overviews |
 | Code | None. The template's scripts and tests only |
@@ -26,7 +26,7 @@ ADRs, and replace this plan with the phase 0 build plan of [D9 §5](../design/D9
 |---|---|---|---|
 | Spikes | In-repo agent | `docs/design_review/evidence/2026-10-28_design-spikes/` (code, results, reports) | Edit D-documents or the trace; write under `python/` or `domains/` |
 | Library leverage | Parallel in-repo agent | **Library realization** subsections of D4 cards; `> Library proposal (L-nn):` blocks; `docs/library_leverage/` accounts (§Library lane brief) | Change a contract (unit, inputs, outputs, configuration semantics) except through a proposal block |
-| Design owner | Claude (project conversation) | D-documents, trace, this plan's findings and dispositions | Write spike results or library accounts |
+| Design owner | The in-repo agent (primary design authority, operator direction 2026-10-28); the project-conversation Claude reviews for missing design reasoning | D-documents, trace, ADRs, this plan's findings and dispositions | — |
 | Operator | Paul | Directions; approval of this plan's closure | — |
 
 Handoffs: a spike report or a library proposal is input; the design owner folds it into the
@@ -44,7 +44,7 @@ or proposal id.
 | Q5 | Fold-in 1: S1, S0, S4, S6, library pass 1 → D1, D2, D3, D4, trace | Design owner | Q1–Q4 | Findings rows for those OPEN items closed or re-scoped |
 | Q6 | S2 GLiNER2.5; S3 local LLM; S5 math and verification | Spikes | Q1, Q2 | Three reports |
 | Q7 | S7 embeddings and linking | Spikes | Q6 (S2) | Report |
-| Q8 | Fold-in 2 → D4–D7; ADRs for the binding decisions; DESIGN §1 and §2; completeness review by a fresh reviewer | Design owner | Q5–Q7 | Every OPEN row disposed; ADRs accepted by the operator |
+| Q8 | Fold-in 2 → D4–D7; ADRs for the binding decisions (owed, after S4 and S6: methods write observations and only consolidation writes knowledge; PostgreSQL is the single authority; domains are LinkML packs compiled to every consumer; the pipeline never calls Opus, which works a queue through MCP; escalation is routed by policies on measurements); DESIGN §1 and §2; completeness review by a fresh reviewer | Design owner (the in-repo agent holds primary design authority from 2026-10-28) | Q5–Q7 | Every OPEN row disposed; ADRs accepted |
 | Q9 | Replace this plan with the phase 0 build plan (D9 §5) | Design owner | Q8 | This file deleted; the new plan active |
 
 Q1–Q4 run in parallel where their dependencies allow. Q5 may start per spike as reports land.
@@ -116,13 +116,13 @@ Library proposals join as `L-nn` rows.
 | Item | Component | Consequence and intended correction | Disposition · dependency | Closure check |
 |---|---|---|---|---|
 | OPEN-D1-1 | M03 sentences | Sentence splitting on math-dense prose; choose variant | closed · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md): b′ (inline math merged into one token), F1 1.0 vs 0.80; D4 M03 states it (2026-10-28) | D4 M03 states the chosen variant |
-| OPEN-D1-2 | M13, D1 §4.2 | Section extent for variable scope | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): a `section` extent is needed (T1, T2, U12); D4 M13 binds section-wide and reopen phrases (ADR-0009 edit) (2026-10-28) | D1 §4.2 and D4 M13 updated |
-| OPEN-D1-3 | D2 §9 FamilyParameter | Role names or symbols for parameter identity | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md), guideline v1 §10.4: role word when the unit states one, else the symbol; cross-unit naming by the family's defining unit carried in OPEN-D2-9 (2026-10-28) | D2 §9, §10.4 updated |
+| OPEN-D1-2 | M13, D1 §4.2 | Section extent for variable scope | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): a `section` extent is needed (T1, T2, U12); D4 M13 binds section-wide and reopen phrases (ADR-0012 edit) (2026-10-28) | D1 §4.2 and D4 M13 updated |
+| OPEN-D1-3 | D2 §9 FamilyParameter | Role names or symbols for parameter identity | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md), guideline v1 §10.4: role word when the unit states one, else the symbol; rule reworded 2026-10-28 to the phrase that first names the parameter (review B2); parameterizations are OPEN-D2-18; confirmed at the next guideline-revision check | D2 §9, §10.4 updated |
 | OPEN-D1-4 | D1 §5.2 `scope` qualifier | Section extent for standing assumptions | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): `section` under nested h3/h4 synthesis; `document` never needed (2026-10-28) | D1 §5.2 updated |
 | OPEN-D2-1 | D2 §7.2 | `Schema.from_dict` keys | open · S4 | D2 §7.2 example corrected |
 | OPEN-D2-2 | M06, M07 | Raw or masked math | open · S2 | D4 M06 configuration fixed |
 | OPEN-D2-3 | D2 §7.4, D5 §8.2 | rule-engine syntax; functions or resolver attributes | open · S4 | D2 §7.4 and D5 §8.2 updated |
-| OPEN-D2-4 | D2 §9 | Property predicates or `has_property` | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): keep property predicates; standard-deviation property added to OPEN-D2-9 (2026-10-28) | D2 §9 decided |
+| OPEN-D2-4 | D2 §9 | Property predicates or `has_property` | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): keep property predicates; standard-deviation property is OPEN-D2-17 (2026-10-28) | D2 §9 decided |
 | OPEN-D2-5 | D2 §9, §10.4 | Standard normal as family or parameterization | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): standardized families as families; guideline v1 §10.4 (2026-10-28) | D2 decided; direction logged if the operator chooses |
 | OPEN-D2-6 | D2 §3 | List annotations round-trip | open · S4 | D2 §3 notes the representation |
 | OPEN-D3-1 | D3 §5 | pg_textsearch syntax | open · S6 | D3 DDL corrected |
@@ -151,10 +151,19 @@ Library proposals join as `L-nn` rows.
 | OPEN-D9-1 | D9 §2 | Python 3.14 wheels | open · S2, S4, S5 for gliner2, z3, pgmpy, splink; the S0/S1 set resolved on 3.14.10 (D9 §2, 2026-10-28) | D9 §2 updated with resolutions |
 | OPEN-D9-2 | D9 §1 | MCP and orchestrator in one process | open · P0.7 | Same as OPEN-D8-1 |
 | GOLD-01 | D7 §3, D2 §7.5/§10, D4 §4.1, D8 §2.2 | Golden author and annotator inputs: Sonnet passes and adjudication from a generated annotator reference, guideline v1 and query-assembled context | decided · ADR-0011 (operator direction 2026-10-28, [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md)); design amended; production tools phase 0 (P0.7) | `write_golden` records the model; reference generator built |
-| OPEN-D2-7 … OPEN-D2-10 | D2 §11 | Guideline v1's open points: indexed-family arguments (schema), which premises a claim depends on, the remaining smaller gaps, qualifier shape documentation | open · next guideline/schema revision, checked on held-out units | D2 §10/§9 updated |
+| OPEN-D2-7 … OPEN-D2-20 | D2 §11 | Guideline v1's open points and the S0 schema gaps, one row each in D2 §11: indexed-family arguments (schema, with D1 §7), which premises a claim depends on, section-level suppositions, restricting phrases, recalled definitions, explicit-claim threshold, local definitions, `asks_for`, numbers with units, a standard-deviation property, parameterizations, independence as a fact, concept-of and notation predicates, qualifier shape documentation | open · guideline v2 and schema v0.2, each checked by the D7 §2 rule-change procedure; `asks_for` (OPEN-D2-15) and numbers with units (OPEN-D2-16) first | D2 §9/§10 updated per row |
+| OPEN-D1-5 | D1 §6, §7 | References outside the batch (`extref`, S0 gap RG-1, rank 1) | open · decided early in phase 0, before consolidation is built; until then `unsupported` | D1 states the value and its resolution |
+| OPEN-D1-6 … OPEN-D1-8 | D1 §6.1, §4.2 | `bound` binding kind; `param_of` to non-`has_distribution` premises; extent over sibling statements (RG-3, RG-5, RG-6) | open · next schema revision | D1 updated per row |
+| KEYS-01 | D1 §6.2, ADR-0012 | Keys depended on grammar coverage (tree form when a value parsed) | decided · ADR-0012 (2026-10-28, [design owner's review](../design_review/evidence/2026-10-28_design-spikes/design-owner-review-S0-S1.md) B1): keys use the token form for every value, with sizing commands removed; property test in P0.5b and S5 | property test passes in P0.5b |
+| STMT-01 | D1 §10.1, D5 §3.5 | Statement identity: statements in one block collided; unit and sentence anchors keyed apart; context-premise assumptions (S0 gap GG-11, [design owner's review](../design_review/evidence/2026-10-28_design-spikes/design-owner-review-S0-S1.md) B3) | decided · anchor segment plus first-sentence ordinal; a context premise joins the statement whose anchor holds it (Proposed); S6 recomputes the S0 key figures | S6 figures recorded |
+| PARAM-01 | D2 §10.4 | Parameter naming: "role word anywhere" contradicted the reference and trace ([design owner's review](../design_review/evidence/2026-10-28_design-spikes/design-owner-review-S0-S1.md) B2) | decided · the phrase that first names the parameter; passes SV and HV had followed the earlier wording on T4 | confirmed at the next D7 §2 check |
+| BIND-01 | D5 §4, §9 | Consolidation's binding and derived-condition rules predated guideline v1 ([design owner's review](../design_review/evidence/2026-10-28_design-spikes/design-owner-review-S0-S1.md) A9) | decided · D5 §4 restates guideline §10.7's rows by first appearance; D5 §9 applies rules 1–4 (Proposed) | phase 1 binding run reproduces golden bindings |
+| RENDITION-01 | D4 M01, D9 P0.5 | The S1 corpus and every S0 rendition used libxml2; M01 names html5lib ([design owner's review](../design_review/evidence/2026-10-28_design-spikes/design-owner-review-S0-S1.md) A12) | closed · html5lib rerun (record s1.corpus-html5lib): counts, invariants and locators unchanged; the seven reference pages content-identical, `sourceline` ruled a diagnostic outside the contract (D1 §3.2; record s1.rendition-identity). Spikes keep the libxml2 renditions; phase 0 re-stores references from model-facing batches | — |
+| APPARATUS-01 | D9 §7 | Where the spike instruments (alignment, scoring) live long-term ([design owner's review](../design_review/evidence/2026-10-28_design-spikes/design-owner-review-S0-S1.md) A3) | open · waits on the operator's design of the evidence system and its reusable apparatus | — |
+| EVID-01 | ADR-0001, ADR-0010, DESIGN §2 | Plans and evidence are never deleted (operator direction), against ADR-0001's retirement clause and ADR-0010's "records retire with their folder" ([design owner's review](../design_review/evidence/2026-10-28_design-spikes/design-owner-review-S0-S1.md) B9) | open · the operator's revised evidence process; the AGENTS.md override is in force meanwhile | superseding ADR accepted |
 | OPEN-D7-5 | D7 §3.2 | Whether page text still helps golden passes with query context | open · phase 0 dev comparison | D7 §3.2 confirmed or changed |
-| HTML-01 … HTML-07 | D1 §3, D4 M01–M03 | Seven HTML rules S1 found D1/D4 did not state | closed · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md); folded into D1 §3 and D4 M01–M03 (2026-10-28) | D1 §3, D4 M01–M03 state them |
-| PARSE-01 | D1 §6.2, D4 §4.3, M01, M09, M11, M13 | One math grammar; profile-driven delimiting; offset-preserving quote location | decided · ADR-0009; implemented in the spike instruments; production with D4's methods | D4 cards realized in phase 0 |
+| HTML-01 … HTML-07 | D1 §3, D4 M01–M03 | Seven HTML rules S1 found D1/D4 did not state | closed · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md); folded into D1 §3 and D4 M01–M03; HTML-07's profile additions and rendering conventions merged into D2 §12.1 with the profile vocabulary in D4 M01 (2026-10-28, review A5/B13); the adapter port reads them in P0.5 | D1 §3, D4 M01–M03 state them |
+| PARSE-01 | D1 §6.2, D4 §4.3, M01, M09, M11, M13 | One math grammar; profile-driven delimiting; offset-preserving quote location | decided · ADR-0012; implemented in the spike instruments; production with D4's methods | D4 cards realized in phase 0 |
 
 ## Deferred, each with a trigger
 
@@ -165,6 +174,7 @@ Library proposals join as `L-nn` rows.
 | RDF / JSON-LD export | A consumer that needs it |
 | Product Rust | A measured hot path |
 | Second corpus | Phase 4 gate, or math density stalling statistics progress (D0) |
+| Non-LaTeX math notation (`attrs.notation` ∈ latex, html, image, plain; `img alt` for image math; S1-F) | A second source with image or HTML math (design owner's review A14) |
 
 ## Risks
 

@@ -110,9 +110,15 @@ formula.
 
 ### 3.5 Statements
 
-One `Statement` per anchor segment: each `unit` segment, each `details` block (kind `proof` or
-`solution` by its summary text and markup), and each paragraph outside units that a claim
-proposal or a claim-bearing classification places in a statement. Kind: author-markup hint
+Statements are identified as D1 §10.1 keys them: the anchor segment (the `unit` for a statement
+inside a unit, each `details` block, a paragraph outside units) plus the ordinal of the
+statement's first sentence in it. A segment holds one statement by default. It holds several when
+proposals or goldens split it by kind, as guideline §10.3 does for a unit that mixes kinds ("A
+corollary of …", "Recall that …"). A context-premise `assumption` statement (D2 §7.3) whose
+sentences lie inside another statement's anchor segment joins that statement; its claims become
+that statement's claims. Each `details` block is kind `proof` or `solution` by its summary text
+and markup. A paragraph outside units holds a statement when a claim proposal or a claim-bearing
+classification places one there. Kind: author-markup hint
 (highest weight), M05 classification, proposal `kind`, in that order of precedence until the
 confidence model learns weights. Markup hints are skipped when the consolidation configuration
 sets `use_markup_hints: false` (witness ablations, D7 §6). The label is `<kind> <unit id>`, `<kind>
@@ -150,27 +156,34 @@ estimated on claims, §6).
 ## 4. Symbol binding
 
 Every formula or set value in a candidate claim (objects, `param_values`, condition leaves) gets
-its binding map (D1 §6.1). For each free symbol of the parsed value (or each `symbol` token of
-M09 when parsing failed):
+its binding map (D1 §6.1). The rules are the guideline's (D2 §10.7), so the pipeline produces
+what the goldens encode. For each symbol, find its **first appearance** in the unit or its
+standing context, from M09's symbol occurrences, and take the first rule that applies:
 
-1. **Constant** if it is a known constant (`e`, `\pi`, and those in the pack's macro map) and
-   not bound in scope.
-2. Locate the symbol's mention in the claim's evidence spans and read its M13 `scope`
-   observation; the binding site is that mention's binding site.
-3. **Variable** if the binding site is a mention in a cluster resolved to a local entity:
-   `{"bind": "variable", "entity": key}`.
-4. **Parameter of a premise** if the binding site lies inside the value of a `param_values`
-   entry of a `has_distribution` claim with modality `supposed` in the same statement or scope:
-   `param_of` when the value is exactly the symbol (`\mu` for mean), `param_expr_of` when the
-   symbol occurs inside it (`\sigma` in `\sigma^2`), with `claim` and `param`.
-5. **Family parameter** if the symbol is an alias of a `FamilyParameter` entity of the family
-   the claim is about and no closer binding exists.
-6. **Free** if the statement restricts it by a condition (`member`, `cmp`) and nothing above
-   applies.
+1. **Variable** if M13's binding site for the mention is a mention in a cluster resolved to a
+   local entity: `{"bind": "variable", "entity": key}`.
+2. **Family parameter, in a family-structure claim** (`has_parameter`, `parameter_domain`,
+   `parameter_role`, `derived_parameter`, `identical_parameter`, `construction_formula`,
+   `transformation_of`, `special_case_of`), if the symbol is an alias of a `FamilyParameter` of the
+   family the claim is about.
+3. **Parameter of a claim** if the first appearance lies inside the value a `has_distribution`
+   claim, other than this one, gives to a parameter: `param_of` when the value is exactly the
+   symbol (`\mu` for mean), `param_expr_of` when the symbol occurs inside it (`\sigma` in
+   `\sigma^2`), with `claim` and `param`.
+4. **Family parameter** if the unit names the symbol a parameter of a family it defines or
+   describes (an alias of that `FamilyParameter`) and rule 3 does not apply.
+5. **Free** if the symbol is introduced in this claim's value, by a restriction ("If c ∈ (0, ∞)"),
+   as an index, or as a dummy variable bound inside the formula.
+6. **Constant** if it is a known constant (`e`, `\pi`, and those in the pack's macro map); such
+   symbols are never introduced, so rules 1–5 do not catch them.
 7. Otherwise **unresolved**, counted in the claim's `completeness.unresolved_symbols`.
 
-Bindings are part of the value, not of the claim key (D1 §6.2 keys formulas by their SymPy
-form), so improving binding does not change claim identity.
+Bindings are part of the value, not of the claim key (D1 §6.2 keys formulas by their token form),
+so improving binding does not change claim identity.
+
+> Status: **Proposed** (2026-10-28). It restates guideline v1's binding table, which is Tested on
+> annotators (S0-R2, binding accuracy 0.94 for Sonnet). The earlier order made T1's `a` and `b`
+> `free`, where guideline v1 and the trace make them `family_param`.
 
 ## 5. Claims
 
@@ -411,7 +424,10 @@ M23's proposals enter an incremental assemble and finalize (§1). A derived clai
 
 - has `establishment: derived`, `derived_from` links to its sources and the rule id in the link
   detail;
-- has the conjunction of its sources' conditions;
+- has the conditions guideline §10.7 gives a claim of its predicate, built from its sources'
+  conditions: a derived formula or family-structure claim keeps only the restrictions on its own
+  symbols and no `claim` nodes (rule 2); any other derived claim has the conjunction of its
+  sources' conditions (rule 3);
 - is `accepted` when every source is `accepted` and validation passes; `candidate` otherwise;
   confidence is the product of its sources' confidences;
 - becomes `rejected` (reason `source_rejected`) when a source is rejected at a later finalize.
