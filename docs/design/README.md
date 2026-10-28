@@ -29,6 +29,7 @@ that test the design are in
 | [D8 Agent and query interfaces](D8-agent-and-query-interfaces.md) | MCP tools for Opus, work packets, CLI, typed queries | Contracts |
 | [D9 Repository and phase 0 plan](D9-repository-and-phase0.md) | Code layout, dependencies, lanes, phase 0 tasks and acceptance | Plan |
 | [Worked trace](trace.md) | Four Siegrist units: source, segments, target entities and claims, expected observations | Data |
+| [Design rationale](rationale.md) | Why: the operator's intent and constraints, the diagnosis of the old repository, the principles, the alternatives weighed for each area, judgment calls and open concerns | Reasoning (not an authority; D-documents and ADRs win) |
 
 The library-leverage lane deepens D4's **Library realization** subsections; contract changes
 arrive as `> Library proposal (L-nn):` blocks, disposed in the [active plan](../plans/design-phase_2026-10-28.md).
