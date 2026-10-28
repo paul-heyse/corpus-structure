@@ -25,7 +25,9 @@ permission, concurrent-work and testing constraints, and follow discovered depen
    execution queue and findings table). Three plans are active, each owning its own scope
    (operator decision, 2026-10-28): the **design-phase plan** owns design findings and the
    disposition of OPEN items; the **design-spikes series** owns spike execution and its evidence;
-   the **phase 0 series** owns the production build. Cross-references between them cite package
+   the **phase 0 series** owns the production build. Exception (operator, 2026-10-28): the phase 0
+   coordinator §11 owns every finding and probe of the domain-model alignment review (DA-001…025,
+   F01–F04, Q-1…Q-7), design findings included. Cross-references between them cite package
    ids and evidence record ids, never copied status.
 3. For design questions, follow **owner → decision → open work**:
    - start at the architecture map `docs/design/README.md` and read the owning section in
