@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "id": "s0.agreement",
+  "title": "Agreement between the blind passes, with keys and trace comparisons",
+  "group": "S0 Reference annotations",
+  "package": "S0-D, S0-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How determinate is guideline v0: do two blind Opus passes produce the same claims, at which tier, and do their claim keys agree?",
+  "answers": [
+    "D7 §3.3",
+    "D7 §5",
+    "OPEN-D3-4",
+    "D1 §10.1"
+  ],
+  "method": "D7 §5 alignment, A as reference then symmetrized; bootstrap over units; key agreement raw and with statement anchors and global labels normalized.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/stored/pass_a results/s0/stored/pass_b a_vs_b --symmetric",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_key_variants.py … --anchors --labels",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/trace_stored results/s0/stored/pass_a trace_vs_a"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/compare/a_vs_b",
+      "role": null,
+      "sha256": "06da9a17d7123cbe4a9c49e34d08839cbb296ea83ab384644ba3e5ba234b5b09"
+    },
+    {
+      "path": "results/s0/compare/a_vs_b.keys_anchors",
+      "role": null,
+      "sha256": "3be716a527ad34d63b2446b191dae1f4bb584ef930afc9f264c562107e4739cc"
+    },
+    {
+      "path": "results/s0/compare/a_vs_b.keys_labels",
+      "role": null,
+      "sha256": "f3c20a2464305860ce06042b22043e0f0ca267f93bfe49ab58944ad62843213a"
+    },
+    {
+      "path": "results/s0/compare/a_vs_b.keys_both",
+      "role": null,
+      "sha256": "dac55db2baa23d4a9bbcf22be70154fd80cbad102adbd28a675d9098c867372e"
+    },
+    {
+      "path": "results/s0/key_variants",
+      "role": null,
+      "sha256": "cad6bab92321dcb21e6cc2d19f72dd9cc8a3437eb91a93176b8709046f78e052"
+    },
+    {
+      "path": "results/s0/compare/trace_vs_a",
+      "role": null,
+      "sha256": "14936a48386537aef1c2b747dd6c5b238ba3b5be53a3aaa348a7407247dedd53"
+    },
+    {
+      "path": "results/s0/compare/trace_vs_b",
+      "role": null,
+      "sha256": "1c408cf7cbc907df81dc49371668118a5a5e904e03a1d478ca1ebff27ab5185c"
+    },
+    {
+      "path": "results/s0/compare/ref_vs_trace",
+      "role": null,
+      "sha256": "6adb66c9c1fa20c326b74a077c838177e904aaa7fdc3cdf97eb78515db11076f"
+    }
+  ],
+  "depends_on": [
+    "s0.stored"
+  ],
+  "results": [
+    {
+      "name": "ab_core_f1",
+      "value": 0.933,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ab_full_f1",
+      "value": 0.627,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ab_evidence_f1",
+      "value": 0.6,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "binding_accuracy",
+      "value": 1.0,
+      "of": 76,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "claim_keys_equal_raw",
+      "value": 21,
+      "of": 70,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "claim_keys_equal_normalized",
+      "value": 48,
+      "of": 70,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Core 0.93, full 0.63: annotators agree on what is claimed and differ on qualifiers, conditions and roles (guideline rules); two key rules cause most key disagreement.",
+  "consumed_by": [
+    "S0-report.md",
+    "OPEN-D3-4"
+  ]
+}

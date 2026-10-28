@@ -4,7 +4,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 19
+    "exact_sentence": 19
    },
    "problems": [],
    "records": [
@@ -21,7 +21,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.011
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -36,7 +39,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.005
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -51,7 +57,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.003
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -66,7 +75,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[1]",
@@ -81,7 +93,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -96,7 +111,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[1]",
@@ -111,7 +129,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[2]",
@@ -126,7 +147,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[4].evidence[0]",
@@ -141,7 +165,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[4].evidence[1]",
@@ -156,7 +183,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[5].evidence[0]",
@@ -171,7 +201,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[5].evidence[1]",
@@ -186,7 +219,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[6].evidence[0]",
@@ -201,7 +237,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[7].evidence[0]",
@@ -216,7 +255,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[8].evidence[0]",
@@ -231,7 +273,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[9].evidence[0]",
@@ -246,7 +291,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "unsupported[0]",
@@ -261,7 +309,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "unsupported[1]",
@@ -276,7 +327,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "unsupported[2]",
@@ -291,7 +345,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     }
    ]
   }
@@ -301,7 +358,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 5
+    "exact_sentence": 5
    },
    "problems": [],
    "records": [
@@ -318,7 +375,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.005
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -333,7 +393,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[0].evidence[2]",
@@ -348,7 +411,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.004
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -363,7 +429,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -378,7 +447,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     }
    ]
   }
@@ -388,7 +460,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 5
+    "exact_sentence": 5
    },
    "problems": [],
    "records": [
@@ -405,7 +477,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.005
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -420,7 +495,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -435,7 +513,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[1]",
@@ -450,7 +531,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -465,7 +549,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     }
    ]
   }
@@ -475,7 +562,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 24
+    "exact_sentence": 24
    },
    "problems": [],
    "records": [
@@ -492,7 +579,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.007
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -507,7 +597,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.003
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -522,7 +615,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -537,7 +633,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[4].evidence[0]",
@@ -552,7 +651,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[4].evidence[1]",
@@ -567,7 +669,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[4].evidence[2]",
@@ -582,7 +687,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[5].evidence[0]",
@@ -597,7 +705,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.005
     },
     {
      "loc": "claims[5].evidence[1]",
@@ -612,7 +723,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[6].evidence[0]",
@@ -627,7 +741,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[7].evidence[0]",
@@ -642,7 +759,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[8].evidence[0]",
@@ -657,7 +777,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[8].evidence[1]",
@@ -672,7 +795,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[9].evidence[0]",
@@ -687,7 +813,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[9].evidence[1]",
@@ -702,7 +831,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[10].evidence[0]",
@@ -717,7 +849,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[11].evidence[0]",
@@ -732,7 +867,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[12].evidence[0]",
@@ -747,7 +885,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[13].evidence[0]",
@@ -762,7 +903,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[14].evidence[0]",
@@ -777,7 +921,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[15].evidence[0]",
@@ -792,7 +939,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[16].evidence[0]",
@@ -807,7 +957,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[16].evidence[1]",
@@ -822,7 +975,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[17].evidence[0]",
@@ -837,7 +993,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     }
    ]
   }
@@ -847,7 +1006,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 13
+    "exact_sentence": 13
    },
    "problems": [],
    "records": [
@@ -864,7 +1023,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.005
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -879,7 +1041,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -894,7 +1059,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -909,7 +1077,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[1]",
@@ -924,7 +1095,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[2]",
@@ -939,7 +1113,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[4].evidence[0]",
@@ -954,7 +1131,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.005
     },
     {
      "loc": "claims[5].evidence[0]",
@@ -969,7 +1149,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[6].evidence[0]",
@@ -984,7 +1167,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[7].evidence[0]",
@@ -999,7 +1185,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[7].evidence[1]",
@@ -1014,7 +1203,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[8].evidence[0]",
@@ -1029,7 +1221,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[8].evidence[1]",
@@ -1044,7 +1239,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     }
    ]
   }
@@ -1054,7 +1252,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 8
+    "exact_sentence": 8
    },
    "problems": [],
    "records": [
@@ -1071,7 +1269,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.009
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -1086,7 +1287,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -1101,7 +1305,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[1]",
@@ -1116,7 +1323,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[2]",
@@ -1131,7 +1341,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[3]",
@@ -1146,7 +1359,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[4]",
@@ -1161,7 +1377,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -1176,7 +1395,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     }
    ]
   }
@@ -1186,7 +1408,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 5
+    "exact_sentence": 5
    },
    "problems": [],
    "records": [
@@ -1203,7 +1425,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.004
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -1218,7 +1443,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -1233,7 +1461,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[1].evidence[1]",
@@ -1248,7 +1479,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -1263,7 +1497,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     }
    ]
   }
@@ -1273,7 +1510,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 13
+    "exact_sentence": 13
    },
    "problems": [],
    "records": [
@@ -1290,7 +1527,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.007
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -1305,7 +1545,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -1320,7 +1563,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -1335,7 +1581,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[1]",
@@ -1350,7 +1599,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[2]",
@@ -1365,7 +1617,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[3]",
@@ -1380,7 +1635,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[4]",
@@ -1395,7 +1653,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -1410,7 +1671,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[1]",
@@ -1425,7 +1689,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[4].evidence[0]",
@@ -1440,7 +1707,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[4].evidence[1]",
@@ -1455,7 +1725,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[5].evidence[0]",
@@ -1470,7 +1743,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     }
    ]
   }
@@ -1480,8 +1756,8 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 13,
-    "tier2": 2
+    "exact_sentence": 13,
+    "exact_unit": 2
    },
    "problems": [],
    "records": [
@@ -1498,7 +1774,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.006
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -1513,7 +1792,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -1528,7 +1810,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -1543,7 +1828,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[1]",
@@ -1558,7 +1846,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].qualifiers.conditions.args[1]",
@@ -1573,7 +1864,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_unit",
+     "fuzzy_counts": null,
+     "ms": 0.006
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -1588,7 +1882,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[1]",
@@ -1603,7 +1900,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].qualifiers.conditions.args[1]",
@@ -1618,7 +1918,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_unit",
+     "fuzzy_counts": null,
+     "ms": 0.003
     },
     {
      "loc": "claims[4].evidence[0]",
@@ -1633,7 +1936,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[5].evidence[0]",
@@ -1648,7 +1954,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[6].evidence[0]",
@@ -1663,7 +1972,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[6].evidence[1]",
@@ -1678,7 +1990,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[7].evidence[0]",
@@ -1693,7 +2008,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "unsupported[0]",
@@ -1708,7 +2026,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     }
    ]
   }
@@ -1718,8 +2039,8 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 6,
-    "tier2": 1
+    "exact_sentence": 6,
+    "exact_unit": 1
    },
    "problems": [],
    "records": [
@@ -1736,7 +2057,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.006
     },
     {
      "loc": "claims[0].evidence[1]",
@@ -1751,7 +2075,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.003
     },
     {
      "loc": "claims[0].qualifiers.conditions.args[0]",
@@ -1766,7 +2093,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_unit",
+     "fuzzy_counts": null,
+     "ms": 0.005
     },
     {
      "loc": "unsupported[0]",
@@ -1781,7 +2111,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "unsupported[1]",
@@ -1796,7 +2129,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "unsupported[2]",
@@ -1811,7 +2147,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "unsupported[3]",
@@ -1826,7 +2165,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     }
    ]
   }
@@ -1836,7 +2178,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 8
+    "exact_sentence": 8
    },
    "problems": [],
    "records": [
@@ -1853,7 +2195,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.006
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -1868,7 +2213,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -1883,7 +2231,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "unsupported[0]",
@@ -1898,7 +2249,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "unsupported[1]",
@@ -1913,7 +2267,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "unsupported[2]",
@@ -1928,7 +2285,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "unsupported[3]",
@@ -1943,7 +2303,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "unsupported[4]",
@@ -1958,7 +2321,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     }
    ]
   }
@@ -1968,7 +2334,7 @@
   "stored_issues": [],
   "locate": {
    "by_tier": {
-    "tier1": 8
+    "exact_sentence": 8
    },
    "problems": [],
    "records": [
@@ -1985,7 +2351,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.009
     },
     {
      "loc": "claims[1].evidence[0]",
@@ -2000,7 +2369,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[0]",
@@ -2015,7 +2387,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     },
     {
      "loc": "claims[2].evidence[1]",
@@ -2030,7 +2405,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[2]",
@@ -2045,7 +2423,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[3]",
@@ -2060,7 +2441,10 @@
      "long_quote": true,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[2].evidence[4]",
@@ -2075,7 +2459,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.001
     },
     {
      "loc": "claims[3].evidence[0]",
@@ -2090,7 +2477,10 @@
      "long_quote": false,
      "coarse": false,
      "dropped": false,
-     "note": ""
+     "note": "",
+     "step": "exact_sentence",
+     "fuzzy_counts": null,
+     "ms": 0.002
     }
    ]
   }

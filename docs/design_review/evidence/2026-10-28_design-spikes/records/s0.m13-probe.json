@@ -5,9 +5,9 @@
   "group": "S0 Reference annotations",
   "package": "S0-E, S0-R1",
   "finalized": "2026-10-28",
-  "status": "current",
+  "status": "superseded",
   "supersedes": [],
-  "superseded_by": null,
+  "superseded_by": "s0.m13-probe-2",
   "question": "How many annotated variable scopes do D4 M13's rules reproduce, under both section syntheses (OPEN-D4-5, OPEN-D1-2)?",
   "answers": [
     "OPEN-D4-5",

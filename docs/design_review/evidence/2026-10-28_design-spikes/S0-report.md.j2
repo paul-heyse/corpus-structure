@@ -1,0 +1,269 @@
+{#- S0 report. Figures come from the evidence catalog (ADR-0010); prose is written by hand.
+    Render: `just evidence catalog`, then `just evidence render docs/design_review/evidence/2026-10-28_design-spikes/S0-report.md.j2`. -#}
+{% set S = 'f_2026_10_28_design_spikes' %}
+{% set F = '2026-10-28_design-spikes/' %}
+{% macro f1(cmp, tier) -%}
+{%- set r = query("SELECT f1, f1_lo, f1_hi FROM " ~ S ~ ".comparison_scores WHERE comparison = $c AND tier = $t", c=cmp, t=tier)[0] -%}
+{{ num(r.f1) }} [{{ num(r.f1_lo) }}, {{ num(r.f1_hi) }}]
+{%- endmacro %}
+{% macro res(rid, name) -%}
+{%- set r = query("SELECT value_num, value_text, \"of\" FROM record_results WHERE gid = $g AND name = $n", g=F ~ rid, n=name)[0] -%}
+{%- if r.value_num is not none -%}{%- if r.value_num == r.value_num | int -%}{{ r.value_num | int }}{%- else -%}{{ num(r.value_num) }}{%- endif -%}{%- else -%}{{ r.value_text }}{%- endif -%}
+{%- if r.of is not none %} of {{ r.of }}{% endif -%}
+{%- endmacro %}
+{% set _ = record(F ~ 's0.agreement') %}{% set _ = record(F ~ 's0.pass-scores') %}{% set _ = record(F ~ 's0.adjudication-determinacy') %}
+{% set _ = record(F ~ 's0.m13-probe-2') %}{% set _ = record(F ~ 's0.stored') %}{% set _ = record(F ~ 's0.gaps') %}{% set _ = record(F ~ 's0.sizes') %}
+{% set _ = record(F ~ 's0.trace-diff') %}{% set _ = record(F ~ 's0.instruments') %}{% set _ = record(F ~ 's0.offset-probe') %}
+# S0 · Reference annotations — report
+
+**Run:** 2026-10-28, by Claude Opus 5.5 (root) with fresh subagents for every annotation, adjudication
+and analysis pass (models below). **Brief:** [S0](S0-reference-annotations.md); **plan:**
+[S0 plan](../../../plans/design-spikes-s0-s1/S0-reference-annotations.md). **Status:** passed.
+Every figure below is rendered from the evidence catalog; each table names the record it comes from
+(`records/`).
+
+## Answer
+
+Yes, with guideline rules still to write. D1's claim model and the statistics schema v0 express
+what the twelve core units state, except for a small set of constructs (units on parameter values,
+independence as a stated fact, what an exercise asks for, indexed independence, references outside
+the unit). Two blind Opus passes agree on *what* is claimed — core F1 {{ f1('a_vs_b', 'core') }} —
+and much less on *how* — full F1 {{ f1('a_vs_b', 'full') }}: the disagreement is conditions,
+statement roles and modality, which are guideline rules, not schema gaps. An independent
+adjudicator agrees with the root's reference at core {{ f1('ref_vs_d7', 'core') }} but full
+{{ f1('ref_vs_d7', 'full') }}, so adjudication is not yet determinate under guideline v0. Haiku 5.5
+passes score below Opus on the reference; holding the model fixed, the packet-only input loses
+nothing measurable. M13's scope rules reproduce every annotated symbol scope once two rules are
+added. Claim keys are unstable for two reasons in D1 §10.1, both fixable.
+
+## What was run
+
+| Record | Package | Outcome | What |
+|---|---|---|---|
+{% for r in query("SELECT id, title, package, outcome FROM records WHERE folder = '2026-10-28_design-spikes' AND status = 'current' AND (id LIKE 's0.%') ORDER BY package, id") %}
+| [{{ r.id }}](records/{{ r.id }}.json) | {{ r.package }} | {{ r.outcome }} | {{ r.title }} |
+{% endfor %}
+
+Commands are in each record (`commands`); all run from this folder with
+`UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python …`. Environment: [e0.environment](records/e0.environment.json)
+(Python 3.14.10; spaCy 3.8.18; pylatexenc 3.0b2; sympy 1.14.0; lark 1.3.1; regex 2026.9.29; rapidfuzz;
+pint 0.26.2). The instruments ([s0.instruments](records/s0.instruments.json)) passed their own
+suite and an independent implementation review, whose blocking finding (F1, the core matching's
+dependence on ties) was fixed before any figure here was computed; the aligner reproduced the root's
+hand classification of T1–T4 exactly ([aligner_verification](results/s0/aligner_verification.md)).
+
+## Results
+
+### Separation of blind passes (OPEN-D8-3)
+
+| Agent | Model | Separation |
+|---|---|---|
+{% for a in query("SELECT a.role, a.model, a.separation FROM record_agents a JOIN records r USING (gid) WHERE r.folder = '2026-10-28_design-spikes' AND r.id LIKE 's0.%' AND r.status = 'current' AND a.separation IS NOT NULL ORDER BY a.model, a.role") %}
+| {{ a.role }} | {{ a.model }} | {{ a.separation }} |
+{% endfor %}
+
+Each pass was a fresh subagent given one self-contained input folder (guideline, schema, model,
+format, packets, pages) and one output folder, told what it may not read, and audited afterwards from
+its transcript (every file opened), not from its own report. No pass read outside its folders, so
+none was rerun. Same-model annotators remain a limit on independence (below).
+
+### Agreement between the two Opus passes
+
+Record [s0.agreement](records/s0.agreement.json). F1 with 95% bootstrap intervals over the twelve units.
+
+| Comparison | Core | Full | Evidence |
+|---|---|---|---|
+| A vs B (symmetrized) | {{ f1('a_vs_b', 'core') }} | {{ f1('a_vs_b', 'full') }} | {{ f1('a_vs_b', 'evidence') }} |
+| Trace vs A (T1–T4) | {{ f1('trace_vs_a', 'core') }} | {{ f1('trace_vs_a', 'full') }} | {{ f1('trace_vs_a', 'evidence') }} |
+| Trace vs B (T1–T4) | {{ f1('trace_vs_b', 'core') }} | {{ f1('trace_vs_b', 'full') }} | {{ f1('trace_vs_b', 'evidence') }} |
+
+{% set acc = query("SELECT * FROM " ~ S ~ ".comparison_accuracy WHERE comparison = 'a_vs_b'")[0] %}
+On the {{ acc.core_matched }} core-matched pairs: binding accuracy {{ num(acc.binding_accuracy) }}
+({{ acc.bindings }} bindings), scope accuracy {{ num(acc.scope_accuracy) }} ({{ acc.scopes }} local
+entities), Cohen's kappa {{ num(acc.kappa_modality) }} on modality and {{ num(acc.kappa_statement_role) }}
+on statement role; {{ acc.cascaded }} full-tier failures cascaded from a failed premise. Full-tier
+failures by field:
+
+| Field | Failures |
+|---|---|
+{% for r in query("SELECT field, failures FROM " ~ S ~ ".comparison_field_failures WHERE comparison = 'a_vs_b' ORDER BY failures DESC, field") %}
+| {{ r.field }} | {{ r.failures }} |
+{% endfor %}
+
+By predicate (reference side A; agreed at core and at full):
+
+| Predicate | Claims in A | Core | Full |
+|---|---|---|---|
+{% for r in query("SELECT predicate, sum(n_ref) FILTER (WHERE tier='core') AS n, sum(matched) FILTER (WHERE tier='core') AS core, sum(matched) FILTER (WHERE tier='full') AS full FROM " ~ S ~ ".agreement_rows WHERE comparison = 'a_vs_b' GROUP BY predicate ORDER BY n DESC, predicate") %}
+| `{{ r.predicate }}` | {{ r.n }} | {{ r.core }} | {{ r.full }} |
+{% endfor %}
+
+Reading (S0 plan §4.3): high core and low full agreement locates the disagreement in guideline rules
+for qualifiers, conditions and roles, not in the schema. `refers_to` and `defines` are the two
+predicates whose use itself is unsettled (A recorded cross-references to bracketed statements, B did
+not; `defines` modality split). The trace's comparisons are low at full mainly because 22 of its 26
+differences with the passes are readings v0 does not decide ([trace_diff](results/s0/trace_diff.md)).
+
+### Each pass against the reference; packet versus model
+
+Record [s0.pass-scores](records/s0.pass-scores.json). The reference is the root's adjudication of A and B.
+
+| Pass | Model | Inputs | Core | Full | Evidence | Binding accuracy |
+|---|---|---|---|---|---|---|
+{% for c, label, model, inputs in [('ref_vs_a', 'A', 'Opus 5.5', 'golden'), ('ref_vs_b', 'B', 'Opus 5.5', 'golden'), ('ref_vs_h', 'H', 'Haiku 5.5', 'golden'), ('ref_vs_p', 'P', 'Haiku 5.5', 'packet only')] %}
+{% set a = query("SELECT binding_accuracy FROM " ~ S ~ ".comparison_accuracy WHERE comparison = $c", c=c)[0] %}
+| {{ label }} | {{ model }} | {{ inputs }} | {{ f1(c, 'core') }} | {{ f1(c, 'full') }} | {{ f1(c, 'evidence') }} | {{ num(a.binding_accuracy) }} |
+{% endfor %}
+| H vs P (symmetrized) | Haiku 5.5 | — | {{ f1('h_vs_p', 'core') }} | {{ f1('h_vs_p', 'full') }} | {{ f1('h_vs_p', 'evidence') }} | — |
+
+B scores 1.00 at core by construction: every core-level difference was adjudicated in B's favour.
+The comparison that answers the packet question is H against P: the same model with and without the
+page context. H is not better than P at core or full, so the packet design loses nothing measurable
+on these units (OPEN-D4-4); the gap between the Haiku and Opus passes is the model's. Full page
+context helps Haiku only on symbol bindings. Haiku's first drafts also needed far more format
+repair (aliases as objects, parameter values as lists, unbound parameters), which the validator
+caught. One value comparison needed a manual decision ([manual_equivalence](results/s0/manual_equivalence.tsv)).
+
+### Adjudication determinacy (D7 §3.4)
+
+Record [s0.adjudication-determinacy](records/s0.adjudication-determinacy.json): the root's
+reference against a fresh Haiku 5.5 adjudicator given what D7 §3.4 gives an adjudicator (guideline,
+packets, both passes, their alignment diff): core {{ f1('ref_vs_d7', 'core') }}, full
+{{ f1('ref_vs_d7', 'full') }}. The D7 session marked {{ res('s0.adjudication-d7', 'guideline_gap_decisions') }}
+decisions as guideline gaps; the root marked {{ res('s0.adjudication', 'guideline_gap_decisions') }}. They decided three points oppositely while each believed the guideline settled
+them: the modality of `defines`, the role of a variable a theorem derives, and the form of an indexed
+premise ([gaps](results/s0/gaps.md)).
+
+### Trace and old-repository witness (S0-C)
+
+Record [s0.trace-diff](records/s0.trace-diff.json): {{ res('s0.trace-diff', 'differences') }}
+differences on T1–T4; the trace was wrong or incomplete in {{ res('s0.trace-diff', 'trace_wrong') }}, a
+pass in {{ res('s0.trace-diff', 'pass_wrong') }}, and {{ res('s0.trace-diff', 'guideline_gaps') }} are
+defensible readings grouped under five proposed rules G1–G5. The old repository's independently
+settled targets agree with both passes on every core-unit distinction, except four representation
+limits ([witness_diff](results/s0/witness_diff.md)). Trace corrections for the closing package: T1
+gains `parameter_role` claims (§10.3 asks for roles); T4's unit includes its second paragraph (the
+standard lognormal), which the trace omits.
+
+### Claim and meaning keys (OPEN-D3-4)
+
+| Variant | Aligned pairs | Claim keys equal | Meaning keys equal |
+|---|---|---|---|
+{% for c, label in [('a_vs_b', 'as D1 §10.1 defines them'), ('a_vs_b.keys_anchors', 'statement keyed by its covering segment'), ('a_vs_b.keys_labels', 'global label dropped when identity is complete'), ('a_vs_b.keys_both', 'both')] %}
+{% set k = query("SELECT * FROM " ~ S ~ ".key_agreement WHERE comparison = $c AND tier = 'core'", c=c)[0] %}
+| {{ label }} | {{ k.pairs }} | {{ k.claim_key_equal }} | {{ k.meaning_key_equal }} |
+{% endfor %}
+
+A statement's key is its sorted anchor segment keys, so "the unit" and "its sentences" key
+differently for the same span; a global entity's key includes its label even when family and
+canonical name identify it. With both normalized, the remaining key differences are real
+disagreements (conditions, modality). The meaning key (claim key without the statement) is the more
+stable of the two, which is evidence for OPEN-D3-4, decided with D7.
+
+### Evidence form: quotes and offsets (D2 §7.3, D4 §4.3)
+
+Record [s0.stored](records/s0.stored.json): {{ res('s0.stored', 'quotes_exact') }} quotes located exactly and
+{{ res('s0.stored', 'quotes_spacing') }} after spacing normalization; none needed the fuzzy step or fell back to
+the cited sentence. Citing by quote works for capable annotators. The offset probe
+([s0.offset-probe](records/s0.offset-probe.json)) did not test what it meant to: the annotator computed
+offsets with tool scripts, so it shows only that tool-assisted conversion works; whether a model
+without tools can count offsets moves to S3.
+
+### Sizes (OPEN-D4-4, D8 packets)
+
+{% set sz = query("SELECT max(unit_tokens) AS u, max(golden_packet_tokens) AS g, max(packet_only_tokens) AS p, median(batch_tokens) AS bm, max(batch_tokens) AS bx, count(*) FILTER (WHERE packet_only_tokens + batch_tokens > 3000) AS over FROM " ~ S ~ ".sizes")[0] %}
+Record [s0.sizes](records/s0.sizes.json), Qwen3.5-9B tokens: units at most {{ sz.u }}, golden packets at most
+{{ sz.g }}, packet-only packets at most {{ sz.p }}; batches median {{ sz.bm | int }} and at most {{ sz.bx }};
+{{ sz.over }} packet-plus-batch pairs exceed D4 §4.1's 3,000-token local cap. Output, not input, sets
+the local LLM's budget: a batch is two to nineteen times its unit.
+
+### M13 rule scoping (OPEN-D4-5, OPEN-D1-2)
+
+Record [s0.m13-probe-2](records/s0.m13-probe-2.json), symbol extents of local entities in the reference
+reproduced by the rules (expression entities such as `a + b X` are outside M13):
+
+| Engine and rules | Nested h3/h4 sections | h3 only |
+|---|---|---|
+{% for label, a, b in [('regex, D2 §12.1 lexicon (with "if")', 'h3h4', 'h3'), ('regex, plus paragraph statements', 'h3h4.if.para', 'h3.if.para'), ('spaCy patterns, plus paragraph statements', 'patterns.h3h4.para', 'patterns.h3.para')] %}
+{% set ra = query("SELECT count(*) FILTER (WHERE \"match\" = 'True') AS m, count(*) AS n FROM " ~ S ~ ".m13_rows WHERE input = 'reference' AND variant = $v AND expression = 'False'", v=a)[0] %}
+{% set rb = query("SELECT count(*) FILTER (WHERE \"match\" = 'True') AS m, count(*) AS n FROM " ~ S ~ ".m13_rows WHERE input = 'reference' AND variant = $v AND expression = 'False'", v=b)[0] %}
+| {{ label }} | {{ ra.m }} of {{ ra.n }} | {{ rb.m }} of {{ rb.n }} |
+{% endfor %}
+
+Section synthesis makes no difference on these units. The missing rule was that a claim-bearing
+paragraph outside any unit (U6) is a statement extent, with section-wide binders ("In this
+section", "Suppose again") taking precedence.
+
+### Value equivalence (OPEN-D7-2)
+
+{% set vd = query("SELECT tier, count(DISTINCT (a, b)) AS n FROM " ~ S ~ ".value_decisions WHERE comparison IN ('a_vs_b', 'ref_vs_a', 'ref_vs_b', 'ref_vs_p', 'ref_vs_h', 'ref_vs_d7', 'h_vs_p') GROUP BY tier ORDER BY tier") %}
+Across the main comparisons, every value pair was decided by canonical form except these distinct
+pairs, all judged unequal: {% for r in vd %}{{ r.n }} by the {{ r.tier }} tier{% if not loop.last %}, {% endif %}{% endfor %}. Canonical forms now come from the math grammar ([s0.instruments](records/s0.instruments.json)):
+{{ res('s0.instruments', 'grammar_values_read') }} S0 values read; on a 78-page sample
+{{ res('s0.instruments', 'grammar_spans_ok') }} spans parse, the rest ambiguous (never resolved silently)
+or failed by recorded category, for S5.
+
+### Gaps
+
+Record [s0.gaps](records/s0.gaps.json): {{ res('s0.gaps', 'schema_gaps') }} schema, {{ res('s0.gaps', 'guideline_gaps') }}
+guideline and {{ res('s0.gaps', 'representation_gaps') }} representation gaps, each stated as the general rule or
+construct missing ([gaps](results/s0/gaps.md), with a ranked top ten). The five most consequential:
+references to statements outside the unit (RG-1); a statement-role table by statement kind (GG-3);
+indexed families and independence over a sequence (RG-2); parameter naming (GG-5, OPEN-D1-3) with
+a family's parameterizations (RG-7); modality of structural claims (GG-2).
+
+## Answers to the open items
+
+| Item | Answer | Evidence |
+|---|---|---|
+| OPEN-D1-2 | A `section` extent is needed: T1's Z ("In this section") and T2's X ("Suppose again") are section-scoped in every pass, the D7 adjudication and the reference, and U12's X in all but pass P, which had no page context and so could not see the binding outside its unit; statement scope cannot express them, and M13 reproduces them with section-wide and reopen binders | m13 table; [s0.agreement](records/s0.agreement.json) scope accuracy 1.00 |
+| OPEN-D1-3 | Unsettled by v0: A, B and the trace name the lognormal σ `sigma`, P and H `shape`; the normal's parameter keys vary by unit. Rule proposed (GG-5): name by the role the source states, else the symbol, and record the role as a claim | [gaps](results/s0/gaps.md) |
+| OPEN-D1-4 | `section` (under nested h3/h4 synthesis) is the extent both annotators and the trace use for T1's page-level assumption; `document` was never needed | trace diff; reference |
+| OPEN-D2-4 | Keep separate property predicates: only `mean_value` and `variance_value` were used, both present; add a standard-deviation property (missing in U6) | [gaps](results/s0/gaps.md) |
+| OPEN-D2-5 | Standardized families as families of their own worked in every pass; no unit states the constraint, so `special_case_of` was never written; "standard" does not mean parameter-free (standard gamma keeps its shape) | [gaps](results/s0/gaps.md) |
+| OPEN-D5-1 | Not tested: no unit states one formula predicate twice for a subject; the four multi-object cases are entity-valued | [gaps](results/s0/gaps.md) |
+| OPEN-D8-3 | Fresh subagents, one input and one output folder each, read restrictions, transcript audit of opened files; no rerun needed | separation table |
+| OPEN-D4-4 | The unit is the right packet: every packet fits the local cap, and at a fixed model the packet loses nothing measurable in aggregate against full page context. The one context loss is a binding outside the unit (U12's X in pass P), which is what the standing context must carry (D7 §3.2 rule below); size the output budget from batch size | P/H table; sizes |
+| OPEN-D4-5 | Rules reproduce every annotated symbol scope with two additions (sentence-initial "if", paragraph statements) | m13 table |
+| OPEN-D3-4 | Evidence: meaning keys are more stable than claim keys; two D1 §10.1 rules cause most key differences | keys table |
+| OPEN-D7-2 | Evidence: canonical form decided nearly every comparison; SymPy and numeric tiers were needed a handful of times, one manual | value equivalence |
+
+## Assumptions
+
+- The reference is the root's adjudication of A and B, informed by the trace (the root read it);
+  it is a spike reference, not a D7 golden.
+- Guideline-gap decisions follow the proposed rules G1–G5 ([adjudication](results/s0/adjudication.md)).
+- Passes A and B, the offset probe and the sentence-gold markers ran on Opus 5.5; from then on golden
+  work ran on Haiku 5.5 by operator direction (passes P and H, the D7 adjudicator).
+- U8's packet header read "theorem" for passes A and B (a section-hint bug fixed afterwards); every
+  pass annotated it as an exercise regardless.
+
+## Design implications
+
+| Design item | Proposed change or answer | Evidence |
+|---|---|---|
+| D2 §10 guideline | Write rules G1–G5 and the top-ten gaps: binding of symbols named as parameters later; modality inside definitions; restrictions in premises; structural claims asserted and anchored; formulas without the generated variable; a statement-role table by kind; references outside the unit | trace diff, adjudication, gaps |
+| D2 §9 schema | Number values with units in `param_values`; an independence claim predicate; a `posed` claim for what an exercise asks; a standard-deviation property | witness diff, gaps SG-1, SG-3 |
+| D1 §7 | An indexed-set argument for `independent` (base, index, range) | witness diff, gaps RG-2 |
+| D1 §10.1 keys | Key a statement by the segment its anchor covers; drop the label from a global entity's key when its identity is complete | keys table |
+| D4 M13 | Sentence-initial "if" in the binder lexicon (done in D2 §12.1); a standalone claim-bearing paragraph is a statement extent | m13 table |
+| D7 §3 golden protocol | Golden author: Opus quality is materially higher than Haiku's on this guideline; if Haiku authors goldens, budget for format repair and a stronger adjudication step. Adjudication is not determinate under v0: adjudicate after the guideline rules above, and keep an independent adjudicator pass | P/H table; adjudication determinacy |
+| D7 §3.2 standing context | The innermost-section rule misses parent-section bindings (T2's empty standing context) and picks unrelated sentences (U5, U8, U9, U11); select binding sentences of symbols the unit uses (M13) | packets; pass notes |
+| D4 §4.1, M10 | Size the output budget from batches (up to ~2,500 tokens here), not from units | sizes |
+| D2 §7.3 evidence form | Keep quotes; offsets untested without tools (S3) | quote location; offset probe |
+| trace.md | T1 gains `parameter_role` claims; T4 includes its second paragraph | trace diff |
+
+## Independence limits
+
+Same-model annotators (A and B are both Opus 5.5; P and H both Haiku 5.5) share biases that blind
+separation cannot remove; blindness was instructed and audited, not enforced by the environment;
+the reference is root-adjudicated and informed by the trace; the guideline under test was written
+by the same design process as the trace.
+
+## Follow-ups
+
+- S2/S3 score GLiNER2 and the local LLM against this reference, with and without contested items.
+- S3: offsets without tools; output budgets from the sizes above.
+- S5: the math grammar's failure categories; formula equivalence tiers.
+- After the guideline rules are written: a second pair of blind passes and an adjudicator pass to
+  measure whether full-tier agreement and adjudication determinacy rise.

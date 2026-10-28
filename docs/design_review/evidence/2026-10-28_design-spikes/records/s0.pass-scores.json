@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "id": "s0.pass-scores",
+  "title": "Every pass against the reference; packet versus model effect",
+  "group": "S0 Reference annotations",
+  "package": "S0-E, S0-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How close is each pass to the reference, and does the packet-only input (pass P) lose anything once the model is held fixed (pass H)?",
+  "answers": [
+    "OPEN-D4-4",
+    "OPEN-D1-2",
+    "D7 §3"
+  ],
+  "method": "Reference against A, B, P (Haiku, packet only), H (Haiku, golden inputs); H against P; one manual value decision.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/reference results/s0/stored/pass_<x> ref_vs_<x>",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/stored/pass_h results/s0/stored/pass_p h_vs_p --symmetric"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/s0/manual_equivalence.tsv",
+      "role": "manual value decisions",
+      "sha256": "e35e4569e2962d2ef70662179ed41b1a2d2d99eac4d5ae8d9c9157b951647bfa"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/compare/ref_vs_a",
+      "role": null,
+      "sha256": "b162fd218e7c6159f449516d37884fa578dc8591eeae0fe62c58e17ffb99cc03"
+    },
+    {
+      "path": "results/s0/compare/ref_vs_b",
+      "role": null,
+      "sha256": "f29bfeac54d5e86e6229e418166146bc5f289988297f7b838d58f692f6504b76"
+    },
+    {
+      "path": "results/s0/compare/ref_vs_p",
+      "role": null,
+      "sha256": "6d7a787f1fe2c6fcba676609d482134e24aafc3490683ff107bb69b562ed7d2b"
+    },
+    {
+      "path": "results/s0/compare/ref_vs_h",
+      "role": null,
+      "sha256": "2d3cbc351dd976d893f8d24d3f624749c651294c3802e35f6be1b15ac0416fb5"
+    },
+    {
+      "path": "results/s0/compare/h_vs_p",
+      "role": null,
+      "sha256": "45973eb828029ee7f34d4dec1d49b39e944049d2cba06f7695dad439e6fedf54"
+    }
+  ],
+  "depends_on": [
+    "s0.stored"
+  ],
+  "results": [
+    {
+      "name": "ref_a_core_f1",
+      "value": 0.933,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_a_full_f1",
+      "value": 0.8,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_p_core_f1",
+      "value": 0.785,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_p_full_f1",
+      "value": 0.43,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_h_core_f1",
+      "value": 0.737,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_h_full_f1",
+      "value": 0.376,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Haiku with full inputs (H) scores no better than Haiku with the packet only (P): the packet loses nothing measurable; the gap to the Opus passes is the model's.",
+  "consumed_by": [
+    "S0-report.md",
+    "OPEN-D4-4",
+    "D7 golden author"
+  ]
+}

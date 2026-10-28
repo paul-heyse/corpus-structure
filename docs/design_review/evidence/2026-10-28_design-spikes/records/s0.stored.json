@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "id": "s0.stored",
+  "title": "Stored forms of every batch set (revised quote cascade)",
+  "group": "S0 Reference annotations",
+  "package": "S0-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Where in canonical text does every quote of every pass, the reference, the trace and the D7 adjudication lie, under ADR-0009's cascade?",
+  "answers": [
+    "D4 §4.3",
+    "ADR-0009"
+  ],
+  "method": "code/s0_check.py --out for each batch set; page macros passed through.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0/<set> --out results/s0/<stored set>"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/s0/pass_a",
+      "role": null,
+      "sha256": "fd7487aeb3123778adbb274c55be75e6b86f804c33214f4325e8a610e0ef4a92"
+    },
+    {
+      "path": "results/s0/pass_b",
+      "role": null,
+      "sha256": "23ed44183eda9ba66d65f4ba6a56712ab76b010f1baa8b2b74007b73c73f6eb4"
+    },
+    {
+      "path": "results/s0/pass_p",
+      "role": null,
+      "sha256": "4fdfd16cb9c48decfffa07fdb13e38b2c4391d7e8d8caf80364d1b3082781b05"
+    },
+    {
+      "path": "results/s0/pass_h",
+      "role": null,
+      "sha256": "2fb99d28e3190bdaf0442e730d5d772403ecd870b88cb36a1f1e4d16a0f43063"
+    },
+    {
+      "path": "results/s0/adjudication_d7",
+      "role": null,
+      "sha256": "60edc844781041f6994686d7d4681a93a2cb24d2baea2211ca01abb99753e525"
+    },
+    {
+      "path": "results/s0/trace_batches",
+      "role": null,
+      "sha256": "9291f258d870f5e3b32e4d079d7fd59d3a5c30242efbd5a11794c2cfadb75e7a"
+    },
+    {
+      "path": "results/s0/reference_model",
+      "role": null,
+      "sha256": "63bd3461c57ba0bf56c274534045760e2cae2faface271b4fdbb2372d2c011ab"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/stored/pass_a",
+      "role": null,
+      "sha256": "9f7ff580ce153e82808cfeb45f1116524b3e2ff933f230766c67945935893f10"
+    },
+    {
+      "path": "results/s0/stored/pass_b",
+      "role": null,
+      "sha256": "70e57b182007a3fe916222d77ce2f0780e54ca4aaa1d572aae5b9ad31508e2d1"
+    },
+    {
+      "path": "results/s0/stored/pass_p",
+      "role": null,
+      "sha256": "eaca3e360e1254d4be762e790329f794d0fff5118d98c2fc57d6681f635edf64"
+    },
+    {
+      "path": "results/s0/stored/pass_h",
+      "role": null,
+      "sha256": "bba8f59fb145dcacd7c1e9ddc0d1f98c8e10ba824c759b4aa10a95c13e6acca3"
+    },
+    {
+      "path": "results/s0/stored/adjudication_d7",
+      "role": null,
+      "sha256": "5b5cef57d1aff4c4721b3b590ecc944ba38202de034027f3ba443368a3963429"
+    },
+    {
+      "path": "results/s0/trace_stored",
+      "role": null,
+      "sha256": "6d805dedb68771b2d6ea2b58893738c46c60845d4c2f2579947851a722512ac7"
+    },
+    {
+      "path": "results/s0/reference",
+      "role": null,
+      "sha256": "11f7c32221741b140ba18335df2c4f0a7c1b1e99bb16db5ab126aab5cd9aa1dc"
+    }
+  ],
+  "depends_on": [
+    "s0.pass-a",
+    "s0.pass-b",
+    "s0.pass-p",
+    "s0.pass-h",
+    "s0.adjudication",
+    "s0.adjudication-d7",
+    "s0.trace-batches",
+    "s0.instruments"
+  ],
+  "results": [
+    {
+      "name": "quotes_exact",
+      "value": 733,
+      "of": 735,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "quotes_spacing",
+      "value": 2,
+      "of": 735,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "quotes_fuzzy",
+      "value": 0,
+      "of": 735,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "bare_unit_issues_pass_a_u8",
+      "value": 4,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Every quote locates exactly or after spacing normalization; pass A's U8 writes '1 cm' as a formula, which the validator now flags.",
+  "consumed_by": [
+    "S0-report.md"
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "s0.report",
+  "title": "S0 report",
+  "group": "S0 Reference annotations",
+  "package": "S0-F",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can D1's claim model and schema and guideline v0 express what the core units state, and how determinate is annotation and adjudication?",
+  "answers": [
+    "OPEN-D1-2",
+    "OPEN-D1-3",
+    "OPEN-D1-4",
+    "OPEN-D2-4",
+    "OPEN-D2-5",
+    "OPEN-D5-1",
+    "OPEN-D8-3",
+    "OPEN-D4-4",
+    "OPEN-D4-5",
+    "OPEN-D3-4",
+    "OPEN-D7-2"
+  ],
+  "method": "Report rendered from the evidence catalog (ADR-0010): figures are queries over the S0 records' outputs; prose by the root.",
+  "commands": [
+    "just evidence catalog",
+    "just evidence render docs/design_review/evidence/2026-10-28_design-spikes/S0-report.md.j2"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "S0-report.md.j2",
+      "role": "template",
+      "sha256": "a5b5b3589ed0a1d5812ee743594e26924c4f6af7ec468b5d5aa4c635fa07d748"
+    },
+    {
+      "path": "catalog.sql",
+      "role": "catalog views",
+      "sha256": "0cc58e3952be182213b17a60b77f76b8eab265c986a293c9418215daa52b563b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "S0-report.md",
+      "role": "report",
+      "sha256": "a52992ec6a98d821dae290587b26c380a5ae0a4d1d442b8681a4a4c7ed1021c1"
+    }
+  ],
+  "depends_on": [
+    "s0.agreement",
+    "s0.pass-scores",
+    "s0.adjudication-determinacy",
+    "s0.m13-probe-2",
+    "s0.stored",
+    "s0.gaps",
+    "s0.sizes",
+    "s0.trace-diff",
+    "s0.instruments",
+    "s0.offset-probe"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "The claim model fits with a few constructs missing; annotators agree on content (core 0.93) far more than on qualifiers (full 0.63), which locates the work in guideline rules; adjudication is not yet determinate; Opus outperforms Haiku as annotator; the packet loses nothing at a fixed model; two key rules and two scope rules to change.",
+  "consumed_by": [
+    "design-phase plan Q2",
+    "X1 fold-in",
+    "S2",
+    "S3"
+  ]
+}

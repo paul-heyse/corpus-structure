@@ -1,0 +1,2 @@
+kind	a	b	decision	reason
+formula	\mu	\sum_{i=1}^n\mu_i	unequal	U9: the reference states \mu and the where-equality \mu = \sum \mu_i as a condition; the pass substituted the sum into the value. Values are compared as values; the equality is a condition, not an identity of the two formulas (root, 2026-10-28)

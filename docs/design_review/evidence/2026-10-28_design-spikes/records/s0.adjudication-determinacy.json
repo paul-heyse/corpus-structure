@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "s0.adjudication-determinacy",
+  "title": "Root adjudication against the D7 adjudicator session",
+  "group": "S0 Reference annotations",
+  "package": "S0-D, S0-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Is adjudication determinate under guideline v0 (D7 §3.4)?",
+  "answers": [
+    "D7 §3.4"
+  ],
+  "method": "The root's reference aligned with the Haiku D7 adjudicator's batches, symmetrized.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_compare.py results/s0/reference results/s0/stored/adjudication_d7 ref_vs_d7 --symmetric"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/compare/ref_vs_d7",
+      "role": null,
+      "sha256": "17fd47574390f40752bca3d6f132d4008f6435011e5a97a587f10602401e9d85"
+    }
+  ],
+  "depends_on": [
+    "s0.stored"
+  ],
+  "results": [
+    {
+      "name": "core_f1",
+      "value": 0.967,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "full_f1",
+      "value": 0.742,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Adjudicators agree on content (core 0.97) but not on qualifiers and roles (full 0.74); three points were decided oppositely, each believed settled by the guideline.",
+  "consumed_by": [
+    "S0-report.md",
+    "D7 §3.4"
+  ]
+}

@@ -6,9 +6,9 @@ T3	X	RandomVariable	False	statement	statement	True	Suppose that \(X\) is normall
 T3	a + b X	RandomVariable	True	statement	unresolved	False		
 T4	Y	RandomVariable	False	statement	statement	True	Suppose that \(Y\) has the normal distribution with mean \(\mu \in \R\) and standard devia	
 T4	X	RandomVariable	False	statement	statement	True	Then \(X = e^Y\) has the lognormal distribution with parameters \(\mu\) and \(\sigma\).	
-T4	Z	RandomVariable	False	statement	unresolved	False		
+T4	Z	RandomVariable	False	statement	statement	True	If \(Z\) has the standard normal distribution then \(W = e^Z\) has the standard lognormal 	
 T4	W	RandomVariable	False	statement	statement	True	If \(Z\) has the standard normal distribution then \(W = e^Z\) has the standard lognormal 	
-U10	Z	RandomVariable	False	statement	unresolved	False		
+U10	Z	RandomVariable	False	statement	statement	True	If \(Z\) has the standard gamma distribution with shape parameter \(k \in (0, \infty)\) an	
 U10	X	RandomVariable	False	statement	statement	True	If \(Z\) has the standard gamma distribution with shape parameter \(k \in (0, \infty)\) an	
 U11	X_1	RandomVariable	False	statement	statement	True	Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) has th	
 U11	X_2	RandomVariable	False	statement	statement	True	Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) has th	

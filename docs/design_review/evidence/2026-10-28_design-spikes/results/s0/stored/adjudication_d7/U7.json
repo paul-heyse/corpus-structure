@@ -1,0 +1,278 @@
+{
+ "envelope": {
+  "unit": "U7",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/adjudication_d7/U7.json"
+ },
+ "unit_ref": "U7",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "convention",
+   "anchor": [
+    "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1",
+    "seg:a92e794aa544c8922ed156fee2a14236",
+    "seg:c4c8c220064b7baae0c9dd5163d76845",
+    "seg:40928ef040f210259852048694d4901f"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "K",
+   "type": "RandomVariable",
+   "label": "a constant",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [
+    "the constant"
+   ],
+   "identity": {},
+   "scope_segment": "seg:56cd22bafd1c152d7f14817bf7521324"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "r14",
+   "type": "Statement",
+   "label": "result [14]",
+   "scope": "local",
+   "extent": "section",
+   "aliases": [
+    "[14]",
+    "the probability density function [14]"
+   ],
+   "identity": {},
+   "scope_segment": "seg:b3053162a2594092761fc5169c24901f"
+  },
+  {
+   "local_ref": "r17",
+   "type": "Statement",
+   "label": "result [17]",
+   "scope": "local",
+   "extent": "section",
+   "aliases": [
+    "[17]",
+    "the distribution function [17]"
+   ],
+   "identity": {},
+   "scope_segment": "seg:b3053162a2594092761fc5169c24901f"
+  },
+  {
+   "local_ref": "r23",
+   "type": "Statement",
+   "label": "result [23]",
+   "scope": "local",
+   "extent": "section",
+   "aliases": [
+    "[23]",
+    "the moment generating function [23]"
+   ],
+   "identity": {},
+   "scope_segment": "seg:b3053162a2594092761fc5169c24901f"
+  },
+  {
+   "local_ref": "r24",
+   "type": "Statement",
+   "label": "result [24]",
+   "scope": "local",
+   "extent": "section",
+   "aliases": [
+    "[24]",
+    "linear transformations [24]"
+   ],
+   "identity": {},
+   "scope_segment": "seg:b3053162a2594092761fc5169c24901f"
+  },
+  {
+   "local_ref": "r26",
+   "type": "Statement",
+   "label": "result [26]",
+   "scope": "local",
+   "extent": "section",
+   "aliases": [
+    "[26]",
+    "sums [26]"
+   ],
+   "identity": {},
+   "scope_segment": "seg:b3053162a2594092761fc5169c24901f"
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_const_normal",
+   "predicate": "has_distribution",
+   "subject": "K",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "conventional",
+    "param_values": {
+     "variance": {
+      "t": "formula",
+      "latex": "0",
+      "symbols": {}
+     }
+    },
+    "conditions": {
+     "op": "phrase",
+     "text": "In some settings",
+     "start": 21098,
+     "end": 21114
+    }
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 21116,
+     "end": 21186,
+     "role": "primary"
+    },
+    {
+     "start": 21221,
+     "end": 21231,
+     "role": "primary"
+    },
+    {
+     "start": 21098,
+     "end": 21114,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_ref14",
+   "predicate": "refers_to",
+   "subject": "st1",
+   "object": {
+    "ref": "r14"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 21345,
+     "end": 21399,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_ref17",
+   "predicate": "refers_to",
+   "subject": "st1",
+   "object": {
+    "ref": "r17"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 21404,
+     "end": 21434,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_ref23",
+   "predicate": "refers_to",
+   "subject": "st1",
+   "object": {
+    "ref": "r23"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 21495,
+     "end": 21530,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_ref24",
+   "predicate": "refers_to",
+   "subject": "st1",
+   "object": {
+    "ref": "r24"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 21532,
+     "end": 21559,
+     "role": "primary"
+    },
+    {
+     "start": 21602,
+     "end": 21644,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_ref26",
+   "predicate": "refers_to",
+   "subject": "st1",
+   "object": {
+    "ref": "r26"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 21565,
+     "end": 21574,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "The mean equals the constant itself, which the source names only in words; no formula or symbol to give as the mean parameter value.",
+   "start": 21188,
+   "end": 21216
+  },
+  {
+   "local_ref": "u2",
+   "reason": "A claim about which other statements remain valid under the convention; no predicate relates a convention to the validity of statements.",
+   "start": 21345,
+   "end": 21461
+  },
+  {
+   "local_ref": "u3",
+   "reason": "A claim that other statements remain valid under the convention; no predicate expresses statement validity under a convention.",
+   "start": 21467,
+   "end": 21590
+  },
+  {
+   "local_ref": "u4",
+   "reason": "Extends the restriction of another statement (b nonzero) under the convention; no predicate expresses a change to another statement's conditions.",
+   "start": 21602,
+   "end": 21679
+  }
+ ]
+}

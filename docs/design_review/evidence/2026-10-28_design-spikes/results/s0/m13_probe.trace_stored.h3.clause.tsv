@@ -1,7 +1,0 @@
-unit	symbol	type	annotated_extent	probe	match	probe_site	reopens
-T1	Z	RandomVariable	section	section	True	In this section, we assume that we fixed random variable \( Z \) defined on the probabilit	
-T1	X	RandomVariable	statement	statement	True	For \(a \in \R\) and \(b \in (0, \infty) \), let \(X = a + b \, Z\).	
-T2	X	RandomVariable	section	section	True	Suppose again that \( X \) has the normal distribution with location parameter \( \mu \in 	Let \(F\) denote the distribution function of \( X \), and a
-T3	X	RandomVariable	statement	statement	True	Suppose that \(X\) is normally distributed with mean \(\mu\) and variance \(\sigma^2\).	
-T4	Y	RandomVariable	statement	statement	True	Suppose that \(Y\) has the normal distribution with mean \(\mu \in \R\) and standard devia	
-T4	X	RandomVariable	statement	statement	True	Then \(X = e^Y\) has the lognormal distribution with parameters \(\mu\) and \(\sigma\).	
