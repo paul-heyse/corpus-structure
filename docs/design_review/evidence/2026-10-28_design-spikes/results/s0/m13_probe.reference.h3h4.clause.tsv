@@ -1,0 +1,25 @@
+unit	symbol	type	expression	annotated_extent	probe	match	probe_site	reopens
+T1	Z	RandomVariable	False	section	section	True	In this section, we assume that we fixed random variable \( Z \) defined on the probabilit	
+T1	X	RandomVariable	False	statement	statement	True	For \(a \in \R\) and \(b \in (0, \infty) \), let \(X = a + b \, Z\).	
+T2	X	RandomVariable	False	section	section	True	Suppose again that \( X \) has the normal distribution with location parameter \( \mu \in 	Let \(F\) denote the distribution function of \( X \), and a
+T3	X	RandomVariable	False	statement	statement	True	Suppose that \(X\) is normally distributed with mean \(\mu\) and variance \(\sigma^2\).	
+T3	a + b X	RandomVariable	True	statement	unresolved	False		
+T4	Y	RandomVariable	False	statement	statement	True	Suppose that \(Y\) has the normal distribution with mean \(\mu \in \R\) and standard devia	
+T4	X	RandomVariable	False	statement	statement	True	Then \(X = e^Y\) has the lognormal distribution with parameters \(\mu\) and \(\sigma\).	
+T4	Z	RandomVariable	False	statement	unresolved	False		
+T4	W	RandomVariable	False	statement	statement	True	If \(Z\) has the standard normal distribution then \(W = e^Z\) has the standard lognormal 	
+U10	Z	RandomVariable	False	statement	unresolved	False		
+U10	X	RandomVariable	False	statement	statement	True	If \(Z\) has the standard gamma distribution with shape parameter \(k \in (0, \infty)\) an	
+U11	X_1	RandomVariable	False	statement	statement	True	Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) has th	
+U11	X_2	RandomVariable	False	statement	statement	True	Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) has th	
+U11	X_i	RandomVariable	False	statement	statement	True	Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) has th	
+U11	X_1 + X_2	RandomVariable	True	statement	unresolved	False		
+U12	X	RandomVariable	False	section	section	True	Suppose that \( X \) has the standard gamma distribution with shape parameter \( k \in (0,	
+U5	X_1	RandomVariable	False	statement	statement	True	Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) is nor	
+U5	X_2	RandomVariable	False	statement	statement	True	Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) is nor	
+U5	X_i	RandomVariable	False	statement	statement	True	Suppose that \(X_1\) and \(X_2\) are independent random variables, and that \(X_i\) is nor	
+U5	X_1 + X_2	RandomVariable	True	statement	unresolved	False		
+U6	X	RandomVariable	False	statement	section	False	Recall that in general, if \(X\) is a random variable with mean \(\mu\) and standard devia	
+U6	Z	RandomVariable	False	statement	section	False	Recall that in general, if \(X\) is a random variable with mean \(\mu\) and standard devia	
+U9	X_i	RandomVariable	False	statement	statement	True	Suppose that \(n \in \N_+\) and that \((X_1, X_2, \ldots, X_n)\) is a sequence of independ	
+U9	\prod_{i=1}^n X_i	RandomVariable	True	statement	unresolved	False		

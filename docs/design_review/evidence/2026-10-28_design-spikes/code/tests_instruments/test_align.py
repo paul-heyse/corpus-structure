@@ -16,7 +16,8 @@ from fixtures import (SEGMENTS, SENTENCES_T2, SENTENCES_T3, ctx_t2, ctx_t3, stor
 
 from instruments.align import Side, align_unit, alias_norm, describe
 from instruments.keys import compute_keys, mismatch_causes
-from instruments.scores import agreement_rows, field_breakdown, kappas, key_agreement, prf, score, symmetrized
+from instruments.scores import (agreement_rows, binding_accuracy, field_breakdown, kappas, key_agreement, prf, score,
+                                symmetrized)
 from instruments.values import ValueComparator
 
 T2 = stored(t2_model(), ctx_t2())
@@ -163,6 +164,10 @@ class TestEntities(unittest.TestCase):
         self.assertTrue(any(nm[0] == "N.loc" for nm in ua.identity_near_misses), ua.identity_near_misses)
         self.assertNotIn(("C2", "C2"), set(ua.matches["core"]))
 
+    def test_symbolless_local_labels_drop_leading_article(self):
+        self.assertEqual(alias_norm("The radius of the rod", ""), alias_norm("radius of the rod", ""))
+        self.assertNotEqual(alias_norm("radius of the rod", ""), alias_norm("radius of the hole", ""))
+
     def test_scope_mismatch_aligned_and_measured(self):
         b = copy.deepcopy(T2)
         x = ent(b, "X")
@@ -266,7 +271,7 @@ class TestScores(unittest.TestCase):
         s = prf(units)
         tot = s["core"]["totals"]
         # by hand from the expectation table: core matches 5+4+3+4+4+4+1+4+4 = 33 of 5+4+5+4+4+4+4+4+4 = 38 per side
-        self.assertEqual(tot, {"n_ref": 38, "n_pred": 38, "matched": 33})
+        self.assertEqual(tot, {"n_ref": 38, "n_pred": 38, "matched_ref": 33, "matched_pred": 33, "matched": 33})
         self.assertAlmostEqual(s["core"]["f1"]["value"], 33 / 38)
         lo, hi = s["core"]["f1"]["ci95"]
         self.assertTrue(0 <= lo <= 33 / 38 <= hi <= 1, (lo, hi))
@@ -287,6 +292,114 @@ class TestScores(unittest.TestCase):
         sym = symmetrized(ab, ba)
         self.assertAlmostEqual(sym["core"]["agreement"], 0.6)
         self.assertFalse(sym["core"]["asymmetric"])
+
+
+# ------------------------------------------------------------------ review findings (2026-10-28)
+
+
+def _two_premises():
+    """T3 plus a second premise X ~ N(0, 1) and a second conclusion citing it (reviewer's e1)."""
+    b = copy.deepcopy(T3)
+    c1b = copy.deepcopy(claim(b, "C1"))
+    c1b["local_ref"] = "C1b"
+    c1b["qualifiers"]["param_values"] = {"mean": {"t": "formula", "latex": "0", "symbols": {}},
+                                         "variance": {"t": "formula", "latex": "1", "symbols": {}}}
+    c3b = copy.deepcopy(claim(b, "C3"))
+    c3b["local_ref"] = "C3b"
+    c3b["qualifiers"]["conditions"]["args"][0]["ref"] = "C1b"
+    pv = c3b["qualifiers"]["param_values"]
+    pv["mean"] = {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "free"}}}
+    pv["variance"] = {"t": "formula", "latex": "b^2", "symbols": {"b": {"bind": "free"}}}
+    b["claims"] += [c1b, c3b]
+    return b
+
+
+def _renamed(b, reverse=True, widen=False):
+    p = copy.deepcopy(b)
+    ren = {c["local_ref"]: "p_" + c["local_ref"] for c in p["claims"]}
+    for c in p["claims"]:
+        c["local_ref"] = ren[c["local_ref"]]
+        for a in ((c.get("qualifiers") or {}).get("conditions") or {}).get("args", []):
+            if a.get("op") == "claim":
+                a["ref"] = ren[a["ref"]]
+        for v in ((c.get("qualifiers") or {}).get("param_values") or {}).values():
+            for sym in v.get("symbols", {}).values():
+                if "claim" in sym:
+                    sym["claim"] = ren[sym["claim"]]
+    if widen:  # B quotes the special-case premise's span and shortens the general one
+        g = {c["local_ref"]: c for c in p["claims"]}
+        g["p_C1b"]["evidence"][0]["start"] = g["p_C1"]["evidence"][0]["start"]
+        g["p_C1"]["evidence"][0]["end"] -= 40
+    if reverse:
+        p["claims"].reverse()
+    return p
+
+
+class TestReviewFindings(unittest.TestCase):
+    def test_f1_core_matching_prefers_full_compatible_pairs(self):
+        ref = _two_premises()
+        for reverse in (True, False):
+            for widen in (False, True):
+                with self.subTest(reverse=reverse, widen=widen):
+                    ua = align(ref, _renamed(ref, reverse, widen))
+                    want = {(r, "p_" + r) for r in ("C1", "C1b", "C2", "C3", "C3b", "C4")}
+                    self.assertEqual(set(ua.matches["core"]), want, describe(ua))
+                    self.assertEqual(set(ua.matches["full"]), want, describe(ua))
+                    if not widen:
+                        self.assertEqual(set(ua.matches["evidence"]), want, describe(ua))
+                    self.assertEqual(field_breakdown([ua])["failures"], {})
+                    self.assertEqual(binding_accuracy([ua])["totals"], [12, 12])
+
+    def test_f4_named_families_need_alias_equality(self):
+        for ra, rb in (("normal distribution", "lognormal distribution"), ("standard normal", "standard lognormal")):
+            with self.subTest(ra=ra, rb=rb):
+                a, b = copy.deepcopy(T2), copy.deepcopy(T2)
+                ent(a, "N")["label"], ent(a, "N")["aliases"] = ra, []
+                ent(b, "N")["label"], ent(b, "N")["aliases"] = rb, []
+                ua = align(a, b)
+                self.assertIn("N", ua.entity_unmatched_ref)
+                self.assertEqual([m[:2] for m in ua.label_near_misses], [("N", "N")], ua.label_near_misses)
+                self.assertEqual(ua.fuzzy_pairs, [])
+
+    def test_f5c_alternative_group_is_one_item(self):
+        ref = TestAlternativesUnsupportedBindings()._with_alternatives()
+        ua = align(ref, T2)  # one reading of each group predicted
+        s = prf([ua])
+        self.assertEqual(s["core"]["totals"], {"n_ref": 5, "n_pred": 5, "matched_ref": 5, "matched_pred": 5, "matched": 5})
+        self.assertEqual(s["core"]["recall"]["value"], 1.0)
+        # the other reading predicted instead (N.loc ~ N.sd): still the group matched once
+        p = perturbed(T2, p_swap_respectively)
+        s = prf([align(ref, p)])
+        self.assertEqual(s["core"]["totals"]["matched_ref"], 5)
+        # symmetric: groups on the prediction side
+        s = prf([align(T2, ref)])
+        self.assertEqual(s["core"]["totals"], {"n_ref": 5, "n_pred": 5, "matched_ref": 5, "matched_pred": 5, "matched": 5})
+        self.assertEqual(s["core"]["precision"]["value"], 1.0)
+
+    def test_f5d_unsupported_max_count(self):
+        a, b = copy.deepcopy(T2), copy.deepcopy(T2)
+        base = SEGMENTS["seg:t2para"][0]
+        a["unsupported"] = [{"local_ref": "U1", "start": base, "end": base + 100, "reason": "r"},
+                            {"local_ref": "U2", "start": base + 90, "end": base + 110, "reason": "r"}]
+        b["unsupported"] = [{"local_ref": "V1", "start": base, "end": base + 100, "reason": "r"},
+                            {"local_ref": "V2", "start": base + 50, "end": base + 60, "reason": "r"}]
+        ua = align(a, b)
+        self.assertEqual(sorted(ua.unsupported_pairs), [("U1", "V2"), ("U2", "V1")])
+
+    def test_f5e_cascade_counted(self):
+        b = copy.deepcopy(T3)
+        b["entities"].append({"local_ref": "LN", "type": "DistributionFamily", "label": "lognormal distribution", "scope": "global"})
+        claim(b, "C1")["object"] = {"ref": "LN"}  # the premise now fails the core tier
+        ua = align(T3, b)
+        self.assertNotIn(("C1", "C1"), set(ua.matches["core"]))
+        self.assertEqual(ua.field_failures[("C3", "C3")], ["conditions"])
+        self.assertEqual(ua.cascaded, [("C3", "C3")])
+        self.assertIn(("C3", "C3"), set(ua.matches["full_nocascade"]))
+        self.assertNotIn(("C3", "C3"), set(ua.matches["full"]))
+        self.assertEqual(score([ua])["cascade"]["cascaded"], 1)
+        # a genuine condition difference is not a cascade
+        ub = align(T3, perturbed(T3, p_drop_claim_condition))
+        self.assertEqual(ub.cascaded, [])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,83 @@
+{
+ "T1": {
+  "a_core_not_full": [
+   "c_X_def",
+   "c_constr",
+   "c_defines"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "T2": {
+  "a_core_not_full": [
+   "c_loc_mean",
+   "c_scale_sd"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "T3": {
+  "a_core_not_full": [
+   "c_aX_def"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "T4": {
+  "a_core_not_full": [
+   "c_defines_LN",
+   "c_defines_SLN"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "U5": {
+  "a_core_not_full": [
+   "c_S_def",
+   "c_S_mean",
+   "c_S_normal",
+   "c_S_var",
+   "c_Xi_normal"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "U6": {
+  "a_core_not_full": [
+   "c_N_from_SN"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "U7": {
+  "a_core_not_full": [],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "U8": {
+  "a_core_not_full": [
+   "c_hole_normal",
+   "c_rod_normal"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "U9": {
+  "a_core_not_full": [
+   "c_P_def",
+   "c_P_lognormal",
+   "c_Xi_lognormal"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "U10": {
+  "a_core_not_full": [
+   "c_defines"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "U11": {
+  "a_core_not_full": [
+   "c_S_def",
+   "c_S_gamma",
+   "c_Xi_gamma"
+  ],
+  "note": "plus every claim that one pass has and the other lacks"
+ },
+ "U12": {
+  "a_core_not_full": [],
+  "note": "plus every claim that one pass has and the other lacks"
+ }
+}

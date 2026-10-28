@@ -3,7 +3,7 @@
 **2026-10-28.** Implements packages I-A and I-B of
 [comparison-instruments.md](../../../../../plans/design-spikes-s0-s1/comparison-instruments.md)
 (§2–§9) against D1 §6–§7, §10–§11, D2 §6, §7.3, §9, §12.1, D4 §4.3, D5 §5.2, §5.6 and D7 §5.
-Baseline: HEAD `60ac9e5`. Spike env: Python 3.14.10, pydantic 2.14.1, linkml-runtime 1.12.1,
+Baseline: HEAD `60ac9e5`; review fixes on `249b0c2` (2026-10-28). Spike env: Python 3.14.10, pydantic 2.14.1, linkml-runtime 1.12.1, pint 0.26.2,
 rapidfuzz 3.14.6, scipy 1.18.1, statsmodels 0.15.0, sympy 1.14.0 + lark 1.3.1 (pylatexenc is not
 used by the instruments). Claims below are **Tested** on synthetic and S1 text unless marked.
 
@@ -11,8 +11,10 @@ used by the instruments). Claims below are **Tested** on synthetic and S1 text u
 
 | Command (from `code/tests_instruments/`) | Outcome |
 |---|---|
-| `UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python run_all.py --logs` | **passed**: 40 tests (37 invalid-batch cases and 20 planted locator cases run as subtests), exit 0, 2026-10-28 |
-| `… uv run python -m unittest test_locate_real` (S1 canonical text, `provisional` sentences) | **passed**: 11 real-text cases, 2026-10-28 |
+| `UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python run_all.py --logs` | **passed**: 50 tests (37 invalid-batch cases and 20 planted locator cases run as subtests), exit 0, 2026-10-28, after the review fixes below (first run: 40 tests, passed) |
+| `… uv run python -m unittest test_locate_real` (S1 canonical text, `provisional` sentences) | **passed**: 11 real-text cases, 2026-10-28 (rerun after the review fixes) |
+| The 10 review regression tests (`test_align.TestReviewFindings`, `test_values.TestTiers.test_f*`) against the pre-fix instruments of `de5bd4c` (copied to a scratch tree) | **failed** as intended: 17 failures, 3 errors; every new test discriminates |
+| Reviewer probes `e1` (both orders, `diff_ev`), `e2`, `e3`, `sym`, `keysreal`, `ents trace|ab`, `run_real trace_a|a_b` on the real trace and pass batches | **passed**: no exceptions; `e1` 6/6 at all tiers, bindings 12/12; `sym` symmetric on all 12 units. No agreement figures computed or reported here |
 | `… uv run python ../s0_locate.py t3.json --context ctx.json --out … --report …` (CLI smoke, scratch files) | **passed**: 5 quotes tier 1, envelope carried, scope segments set |
 
 Done-when, I-A: every deliberately invalid batch is reported in its category (exclusively in it,
@@ -168,13 +170,20 @@ Symmetrized T2 swap agreement 0.6 in both directions.
 | `extent: section` | `section_of(earliest evidence start of those claims)` |
 | Stored `scope` qualifier | `{extent, segment}` (D1 §5.2); `section` → section of the claim's first evidence, `statement` → statement scope, `document` → document key |
 | Canonical LaTeX | D1 §6.2, except a space is kept after a control word followed by a letter (`\mu x` ≠ `\mux`); outer math delimiters stripped |
-| Numbers | pint is not installed (**blocked** for exact D1 §6.2 base units): fallback table (m, cm, mm, km, in, ft, kg, g, s, min, h, %) |
-| SymPy tier | Raw `parse_latex(expanded, backend="lark")` first; on failure a shim (unsupported Greek → `\mathit{name}`, `\lvert`/`\rvert` → `|`, `\cdot` inserted after a power, a closing `|` or a closing argument group), recorded with `shim=True` and in `PARSE_LOG`. `simplify(a − b) == 0` → equal; nonzero constant → unequal; equations compared as `lhs − rhs` up to sign; `e` → E, `\pi` → π |
+| Numbers | pint 0.26.2 (in the spike env since `de5bd4c`) converts to base units; its float factors are rounded to 15 significant digits so canonical strings carry no float noise. The fallback table (m, cm, mm, km, in, ft, kg, g, s, min, h, %) applies only when pint is absent or does not know the unit; an unknown unit is kept as written with factor 1 |
+| SymPy tier | Raw `parse_latex(expanded, backend="lark")` first; on failure a shim (unsupported Greek → `\mathit{name}`, with any subscript token or group kept in the placeholder through an injective letters-only encoding and restored as `name_{sub}`; `\lvert`/`\rvert` → `|`; `\cdot` inserted after a power, a closing `|` or a closing argument group), recorded with `shim=True` and in `PARSE_LOG`. `simplify(a − b) == 0` → equal; nonzero constant → unequal; equations compared as `lhs − rhs` up to sign; `e` → E, `\pi` → π |
+| Function application | A symbol (Latin letter, Greek letter, subscripted symbol) directly followed by `(` reads as application or product (`\Phi(-x)`, `f(x) y`, `\Gamma(k)`, `X_1(t)`); lark either returns an unresolved ambiguity or silently multiplies. Such formulas are not parsed: they go to manual with the reason. Undefined SymPy functions were not used because their equivalence would need the numeric tier, which cannot evaluate them |
+| Relations | `x < 1`, `X \le x`: kind `relation`. `>`/`>=` rewritten as `<`/`<=`; same operator and `lhs − rhs` simplifying to the same expression → equal; differing by a nonzero constant → unequal; relation against an expression or equation → unequal; different operators or anything else → manual |
 | Simplify time limit | 5 s (SIGALRM; main thread only) |
-| Numeric sampling | Seed 20261028; 12 accepted points, at most 4,000 draws; reals uniform in [−5, 5], integers in [−10, 10] for symbols in integer sets; top-level conjunctive `member`/`cmp` leaves of both claims' conditions; `isclose(rel 1e-9, abs 1e-12)`; at least 3 valid points to decide; any disagreeing point → unequal |
+| Numeric sampling | Seed 20261028; up to 12 **distinct** accepted points, at most 4,000 draws; reals half uniform in [−5, 5], half of magnitude 10⁻²…10³ with random sign (so `\min(x, 10)` is exercised), shifted or bounded by numeric bounds read from `member` sets and `symbol <rel> number` leaves; integers (symbols in integer sets) uniform over [lower bound, lower bound + 200], default [−100, 100]; top-level conjunctive `member`/`cmp` leaves of both claims' conditions; `isclose(rel 1e-9, abs 1e-12)`; at least **6 distinct** valid points to decide, else manual; any disagreeing point → unequal |
 | Tree matching | Canonical-only pass first, then the tiered comparison (so cross pairs such as `member(a,…)`/`member(b,…)` do not reach the numeric tier and pad the OPEN-D7-2 tally) |
-| Entity weights and threshold | See `align.py` docstring: local symbol 0.7 + scope 0.2; global label/alias 1.0, D2 §12.1 alias rules 0.9, `token_sort_ratio` ≥ 90 → 0.6–0.8; `FamilyParameter` identity 1.0 or not aligned (near miss recorded); statements by anchor overlap 0.6–1.0; evidence tie-break +0.05; threshold 0.5 |
-| Claim leaves in full-tier conditions | Matched through the core-tier claim matching (no cascade of a premise's own full-tier failure) |
+| Entity weights and threshold | See `align.py` docstring: local symbol 0.7 + scope 0.2; global label/alias 1.0, D2 §12.1 alias rules 0.9; `FamilyParameter` identity 1.0 or not aligned (near miss recorded); statements by anchor overlap 0.6–1.0; evidence tie-break +0.05; threshold 0.5 |
+| Fuzzy label matching | `token_sort_ratio` ≥ 90 aligns only classes in `FUZZY_TYPES`, **empty for v0**. Every v0 global class (DistributionFamily, FamilyConstruction, Concept, FamilyParameter) names a mathematical object whose identity turns on a prefix or one word ("normal"/"lognormal" 92.7, "standard normal"/"standard lognormal" 94.9, "scale"/"shape"), which an edit-distance ratio cannot tell from a typo; so no class qualifies. A fuzzy-only candidate is recorded in `label_near_misses` (shown by `describe`) for hand checking; aligned fuzzy-basis pairs would be listed in `fuzzy_pairs` (none possible in v0). A class is added only with an argument that small label edits never change its identity |
+| Core claim matching | Lexicographic: most core pairs, then most full-compatible, then most evidence-compatible pairs, then evidence overlap (weights 1e6 / 1e3 / 1 / 1e-3; at most 999 claims a side) |
+| Claim leaves in full-tier conditions | Fixed point: pass 0 accepts a leaf pair when the premises are core-compatible (any core edge); each later pass judges leaves through the current core matching and re-chooses the matching; stop when stable (at most 8 passes; 2 in every test and probe). Full, evidence, field failures, bindings, kappa and key agreement all use the final matching |
+| Cascade | A premise that fails the core tier makes each conclusion citing it fail the full tier (its `claim` leaf has no counterpart). Such pairs are listed in `UnitAlignment.cascaded` and counted by `field_breakdown` and `score()["cascade"]`; tiers `full_nocascade` / `evidence_nocascade` repeat the matching with leaves accepted when neither side's premise is core-matched (`prf(alignments, ("full_nocascade", "evidence_nocascade"))`), so figures can be given with and without the cascade. A premise's own full-tier failure does not cascade |
+| Alternatives scoring | D7 §5.3: an alternatives group is **one item** on its side (overlapping groups merged), matched at a tier when any of its readings is matched there; its other readings are neither misses nor extra matches. Symmetric for prediction groups. Precision = matched prediction items / prediction items, recall = matched reference items / reference items, F1 their harmonic mean (equal to 2m/(n_ref + n_pred) without groups). Item predicate: the group's first listed reading. Totals report `matched_ref`, `matched_pred` (and `matched` = `matched_ref`) |
+| Unsupported items | Paired by maximum count (any span overlap qualifies); total overlap share breaks ties only |
 | Bindings, extent | Per-field *diagnostics* on core-matched pairs, not full-tier criteria (D7 §5.3 does not list them) |
 | Keys | Part layout in `keys.py`; defaults dropped; meaning key uses the referenced claims' meaning keys inside conditions; cycles drop the claims on or behind them |
 | Symmetrization | Mean of the two directions' F1 per tier; a difference is flagged `asymmetric` |
@@ -196,7 +205,9 @@ Symmetrized T2 swap agreement 0.6 in both directions.
 4. **D7 §5.2 vs §5.4.** "Normalized symbol and same scope segment" as an alignment *condition*
    makes scope accuracy over aligned local entities 1 by construction; implemented as a weight.
 5. **D7 §5.3 claim leaves.** "By the alignment of the referenced claims" does not say which
-   tier's alignment; core chosen.
+   tier's alignment (core chosen), nor that the alignment and the full-tier judgment depend on
+   each other (resolved by fixed-point iteration). It also implies the cascade: a premise
+   failing core fails every conclusion citing it at the full tier.
 6. **D1 §7 / D2 §7.3 phrase anchoring.** `phrase` and `unsupported` nodes have a `span`, which
    the model-facing form cannot carry; D2 §7.3 does not say how phrase values and leaves are
    cited (chosen: `text` + `sentence`). Phrase-valued qualifiers (`hedge`, `limit`) likewise.
@@ -237,6 +248,21 @@ Symmetrized T2 swap agreement 0.6 in both directions.
 - 19 classes, 62 slots, 9 enums, 25 predicates; `class_ancestors('RandomVariable')` includes the
   mixin `Distributed`.
 
+## Independent review findings (2026-10-28), fixed
+
+| Id | Defect (pre-fix) | Fix | Test |
+|---|---|---|---|
+| F1 | The core matching was arbitrary among equally large ones, and premise leaves were judged through that one map: T3 plus a second premise X ~ N(0, 1) and its conclusion against a renamed, reordered copy gave full and evidence 4/6, bindings 7/12 | Lexicographic core matching and fixed-point leaf judgment (Decisions) | `TestReviewFindings.test_f1_*`: 6/6 at every tier, no field failures, bindings 12/12, both claim orders, and with B's premise spans shifted |
+| F2 | Shim dropped non-alphanumeric subscripts: `\sigma_{X_1}^2` = `\sigma_{X_2}^2`, `\sigma_{\mu}` = `\sigma`, `\sigma_{X_1}+\sigma_{X_2}` = `2\sigma` | Subscript kept in the placeholder | `test_f2_*`: these and `\sigma_{1,2}`/`\sigma_{2,1}`, `\Sigma_1`/`\Sigma_2` not equal; `\sigma_{X_1}\sigma_{X_2}` still equal to its reorder |
+| F3 | `\Phi(x)` became `Phi·x`, so `\Phi(-x)` = `-\Phi(x)` | Application ambiguity → manual | `test_f3_*`: `\Phi(-x)`/`-\Phi(x)` pending, `\Gamma(2a)`, `\Gamma(a+1)`, `f(x) y`, `\phi(2x)` not equal |
+| F4 | Fuzzy matching aligned "normal distribution" with "lognormal distribution" (92.7) and "standard normal" with "standard lognormal" (94.9) | `FUZZY_TYPES` empty; near misses recorded | `test_f4_*`: unaligned, near miss listed, no fuzzy pairs |
+| F5a | A relation (`x < 1`) raised `TypeError` | Relation comparison | `test_f5a_*` |
+| F5b | Duplicate points counted; integers only in [−10, 10], reals in [−5, 5]: `n^2` = `19n − 90` for n ∈ ℕ, n > 8 (only 9 and 10 admissible) and `\min(x, 10)` = `x` | Distinct points, bound-aware ranges, large-magnitude reals, 6 distinct points needed | `test_f5b_*`: both unequal; with only two admissible integers → manual |
+| F5c | Every reading of an alternatives group counted as a separate item | Group = one item, both sides | `test_f5c_*`: recall 1 with one reading predicted, either reading; precision 1 with groups on the prediction side |
+| F5d | Unsupported pairs maximized total overlap, not count | Maximum count, overlap breaks ties | `test_f5d_*`: 2 pairs where the old rule gave 1 |
+| F5e | Cascade not reported | `cascaded`, `*_nocascade` tiers, counts | `test_f5e_*`: premise failing core → conclusion cascaded and matched in `full_nocascade`; a genuinely dropped condition is not a cascade |
+| F5f | Record said pint was not installed | Record and `number_base` updated; pint errors on unknown units fall back instead of raising | `test_f5f_*` |
+
 ## Defects found and fixed while testing
 
 - Numeric tier sampled only the symbols of `a − b`, so the relative scale (needs all symbols of
@@ -253,6 +279,8 @@ Symmetrized T2 swap agreement 0.6 in both directions.
 - Create `results/s0/manual_equivalence.tsv` from `ValueComparator.pending_tsv()` and decide it.
 - Add T1–T4 real-text locator cases to `real_text_cases.py` once the adopted sentence variant
   exists; rerun with `S0_SENTENCE_VARIANT`.
+- Report full and evidence figures with and without the cascade (`full_nocascade`), and check
+  every `label_near_misses` entry by hand.
 - Not implemented (outside instruments §5.3's list): D7 §5.4 breakdowns by statement kind and
   chapter, identity quality (B-cubed across units), the S2 span-overlap entity alignment of §7.
 - Typing/lint of the spike code was not run (`not_run`); `just turn-end` is the root's.

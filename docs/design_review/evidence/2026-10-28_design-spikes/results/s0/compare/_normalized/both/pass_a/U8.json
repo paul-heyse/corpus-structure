@@ -1,0 +1,156 @@
+{
+ "envelope": {
+  "unit": "U8",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_a/U8.json"
+ },
+ "unit_ref": "U8",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "exercise",
+   "anchor": [
+    "seg:2b4a4fa4f207a5e243726ad1156c5463"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "solution",
+   "anchor": [
+    "seg:6bc892d274779d7b065f2d33d420c4c6"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "R_rod",
+   "type": "RandomVariable",
+   "label": "the radius of the rod",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:2b4a4fa4f207a5e243726ad1156c5463"
+  },
+  {
+   "local_ref": "R_hole",
+   "type": "RandomVariable",
+   "label": "the radius of the hole",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:2b4a4fa4f207a5e243726ad1156c5463"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [
+    "normally distributed"
+   ],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_rod_normal",
+   "predicate": "has_distribution",
+   "subject": "R_rod",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "1 cm",
+      "symbols": {}
+     },
+     "standard_deviation": {
+      "t": "formula",
+      "latex": "0.002 cm",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "example_value",
+   "evidence": [
+    {
+     "start": 20332,
+     "end": 20424,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_hole_normal",
+   "predicate": "has_distribution",
+   "subject": "R_hole",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "exemplified",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "1.01 cm",
+      "symbols": {}
+     },
+     "standard_deviation": {
+      "t": "formula",
+      "latex": "0.003 cm",
+      "symbols": {}
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "example_value",
+   "evidence": [
+    {
+     "start": 20426,
+     "end": 20522,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 20668,
+     "end": 20739,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "Independence exists only as a condition predicate, not a claim predicate, and the text states it of the machining processes rather than the two radii.",
+   "start": 20524,
+   "end": 20597
+  },
+  {
+   "local_ref": "u2",
+   "reason": "The posed quantity is the probability of an event (radius of rod > radius of hole); no predicate states a posed probability.",
+   "start": 20599,
+   "end": 20655
+  }
+ ]
+}

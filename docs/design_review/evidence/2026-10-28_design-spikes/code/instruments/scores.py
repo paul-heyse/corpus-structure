@@ -28,31 +28,70 @@ def _bare(p: str) -> str:
 @dataclass
 class UnitCounts:
     unit: str
-    by_pred: dict  # (predicate, tier) -> [n_ref, n_pred, matched]
+    by_pred: dict  # (predicate, tier) -> [n_ref, n_pred, matched_ref, matched_pred]
 
 
-def unit_counts(ua: UnitAlignment) -> UnitCounts:
-    out: dict = defaultdict(lambda: [0, 0, 0])
-    preds = {_bare(c["predicate"]) for c in ua.ref_claims.values()} | {_bare(c["predicate"]) for c in ua.pred_claims.values()}
-    for t in TIERS:
+def _items(claims: dict[str, dict], groups: list[list[str]]) -> list[tuple[str, set[str]]]:
+    """Scoring items of one side: each alternatives group is one item (D7 §5.3; overlapping
+    groups are merged), every other claim is its own item. Item predicate: that of the group's
+    first listed reading."""
+    parent = {r: r for r in claims}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    first: dict[str, str] = {}
+    for g in groups:
+        g = [r for r in g if r in claims]
+        for r in g[1:]:
+            ra, rb = find(g[0]), find(r)
+            if ra != rb:
+                parent[rb] = ra
+        if g:
+            first.setdefault(find(g[0]), g[0])
+    members: dict[str, set[str]] = defaultdict(set)
+    for r in claims:
+        members[find(r)].add(r)
+    out = []
+    for root, ms in members.items():
+        head = first.get(root, root) if len(ms) > 1 else next(iter(ms))
+        out.append((_bare(claims[head]["predicate"]), ms))
+    return out
+
+
+def unit_counts(ua: UnitAlignment, tiers: Iterable[str] = TIERS) -> UnitCounts:
+    """Counts by predicate and tier. An alternatives group counts once on its side and is
+    matched when any of its readings is matched at the tier; its other readings are neither
+    misses nor extra matches (D7 §5.3, symmetric for prediction groups). Without groups,
+    matched_ref == matched_pred == the number of matched pairs."""
+    out: dict = defaultdict(lambda: [0, 0, 0, 0])
+    ref_items = _items(ua.ref_claims, [g for g, _ in ua.alternatives_ref])
+    pred_items = _items(ua.pred_claims, [g for g, _ in ua.alternatives_pred])
+    preds = {p for p, _ in ref_items} | {p for p, _ in pred_items}
+    for t in tiers:
+        mr = {a for a, _ in ua.matches.get(t, [])}
+        mp = {b for _, b in ua.matches.get(t, [])}
         for p in preds:
             out[(p, t)]
-        for c in ua.ref_claims.values():
-            out[(_bare(c["predicate"]), t)][0] += 1
-        for c in ua.pred_claims.values():
-            out[(_bare(c["predicate"]), t)][1] += 1
-        for a, _ in ua.matches.get(t, []):
-            out[(_bare(ua.ref_claims[a]["predicate"]), t)][2] += 1
+        for p, ms in ref_items:
+            out[(p, t)][0] += 1
+            out[(p, t)][2] += bool(ms & mr)
+        for p, ms in pred_items:
+            out[(p, t)][1] += 1
+            out[(p, t)][3] += bool(ms & mp)
     return UnitCounts(ua.unit, dict(out))
 
 
-def agreement_rows(alignments: Iterable[UnitAlignment]) -> list[dict]:
-    """Rows of ``agreement.tsv``: unit x predicate x tier."""
+def agreement_rows(alignments: Iterable[UnitAlignment], tiers: Iterable[str] = TIERS) -> list[dict]:
+    """Rows of ``agreement.tsv``: unit x predicate x tier (items: an alternatives group is one)."""
     rows = []
     for ua in alignments:
-        for (p, t), (nr, np_, m) in sorted(unit_counts(ua).by_pred.items()):
+        for (p, t), (nr, np_, mr, mp) in sorted(unit_counts(ua, tiers).by_pred.items()):
             rows.append({"unit": ua.unit, "predicate": p, "tier": t, "n_ref": nr, "n_pred": np_,
-                         "matched": m, "ref_only": nr - m, "pred_only": np_ - m})
+                         "matched": mr, "matched_pred": mp, "ref_only": nr - mr, "pred_only": np_ - mp})
     return rows
 
 
@@ -89,44 +128,59 @@ def _est(values: np.ndarray, fn) -> dict:
     return {"value": point, "ci95": [lo, hi], "n_units": n}
 
 
-def prf(alignments: list[UnitAlignment]) -> dict:
-    """Precision, recall, F1 per tier: micro, macro over predicates, per predicate."""
-    counts = [unit_counts(ua) for ua in alignments]
+def _prf_from(s) -> tuple[float, float, float]:
+    """(precision, recall, F1) from summed [n_ref, n_pred, matched_ref, matched_pred]."""
+    p, r = _ratio(s[3], s[1]), _ratio(s[2], s[0])
+    if math.isnan(p) or math.isnan(r):
+        return p, r, float("nan")
+    return p, r, (2 * p * r / (p + r) if p + r else 0.0)
+
+
+_KEYS = ("n_ref", "n_pred", "matched_ref", "matched_pred")
+
+
+def _totals(a) -> dict:
+    d = dict(zip(_KEYS, map(int, a)))
+    d["matched"] = d["matched_ref"]
+    return d
+
+
+def prf(alignments: list[UnitAlignment], tiers: Iterable[str] = TIERS) -> dict:
+    """Precision, recall, F1 per tier: micro, macro over predicates, per predicate.
+
+    ``tiers`` may add ``full_nocascade`` / ``evidence_nocascade`` (see ``align``)."""
+    tiers = tuple(tiers)
+    counts = [unit_counts(ua, tiers) for ua in alignments]
     preds = sorted({p for uc in counts for (p, _) in uc.by_pred})
     out: dict = {}
-    for t in TIERS:
-        arr = np.array([[sum(v[k] for (p, tt), v in uc.by_pred.items() if tt == t) for k in range(3)] for uc in counts], dtype=float).reshape(-1, 3)
-        per = np.array([[[uc.by_pred.get((p, t), [0, 0, 0])[k] for k in range(3)] for p in preds] for uc in counts], dtype=float).reshape(len(counts), len(preds), 3)
-        nr, npd, m = 0, 1, 2
+    for t in tiers:
+        arr = np.array([[sum(v[k] for (p, tt), v in uc.by_pred.items() if tt == t) for k in range(4)] for uc in counts], dtype=float).reshape(-1, 4)
+        per = np.array([[[uc.by_pred.get((p, t), [0, 0, 0, 0])[k] for k in range(4)] for p in preds] for uc in counts], dtype=float).reshape(len(counts), len(preds), 4)
 
-        def P(idx, a=arr):
-            s = a[idx].sum(0)
-            return _ratio(s[m], s[npd])
-
-        def R(idx, a=arr):
-            s = a[idx].sum(0)
-            return _ratio(s[m], s[nr])
-
-        def F(idx, a=arr):
-            s = a[idx].sum(0)
-            return _ratio(2 * s[m], s[nr] + s[npd])
+        def stat(i, a=arr):
+            return lambda idx: _prf_from(a[idx].sum(0))[i]
 
         def macro(idx, a=per):
             s = a[idx].sum(0)
-            f = [2 * x[m] / (x[nr] + x[npd]) for x in s if x[nr] + x[npd] > 0]
+            f = [_prf_from(x)[2] for x in s if x[0] + x[1] > 0]
+            f = [x for x in f if not math.isnan(x)] or ([0.0] * len(f))
             return float(np.mean(f)) if f else float("nan")
 
-        tier = {"precision": _est(arr, P), "recall": _est(arr, R), "f1": _est(arr, F), "macro_f1": _est(per, macro),
-                "totals": dict(zip(("n_ref", "n_pred", "matched"), map(int, arr.sum(0))))}
+        tier = {"precision": _est(arr, stat(0)), "recall": _est(arr, stat(1)), "f1": _est(arr, stat(2)),
+                "macro_f1": _est(per, macro), "totals": _totals(arr.sum(0))}
         tier["per_predicate"] = {}
         for k, p in enumerate(preds):
             sub = per[:, k, :]
-            tier["per_predicate"][p] = {
-                "totals": dict(zip(("n_ref", "n_pred", "matched"), map(int, sub.sum(0)))),
-                "f1": _est(sub, lambda idx, a=sub: _ratio(2 * a[idx].sum(0)[m], a[idx].sum(0)[nr] + a[idx].sum(0)[npd])),
-            }
+            tier["per_predicate"][p] = {"totals": _totals(sub.sum(0)),
+                                        "f1": _est(sub, lambda idx, a=sub: _prf_from(a[idx].sum(0))[2])}
         out[t] = tier
     return out
+
+
+def cascade_summary(alignments: list[UnitAlignment]) -> dict:
+    """Core-matched pairs failing the full tier only because a cited premise failed core."""
+    return {"cascaded": sum(len(ua.cascaded) for ua in alignments),
+            "by_unit": {ua.unit: ua.cascaded for ua in alignments if ua.cascaded}}
 
 
 def _share(per_unit: list[tuple[int, int]]) -> dict:
@@ -175,7 +229,8 @@ def field_breakdown(alignments: list[UnitAlignment]) -> dict:
                 out[x] += 1
             for x in ua.diagnostics.get(e, []):
                 out[f"diag:{x}"] += 1
-    return {"core_matched": n, "failures": dict(sorted(out.items()))}
+    return {"core_matched": n, "failures": dict(sorted(out.items())),
+            "cascaded": sum(len(ua.cascaded) for ua in alignments)}
 
 
 def kappas(alignments: list[UnitAlignment]) -> dict:
@@ -251,4 +306,6 @@ def score(alignments: list[UnitAlignment]) -> dict:
         "alternatives": alternatives_summary(alignments),
         "field_breakdown": field_breakdown(alignments),
         "kappa": kappas(alignments),
+        "cascade": cascade_summary(alignments),
+        "nocascade_tiers": prf(alignments, ("full_nocascade", "evidence_nocascade")),
     }

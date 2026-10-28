@@ -1,0 +1,110 @@
+{
+ "envelope": {
+  "unit": "U7",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_b/U7.json"
+ },
+ "unit_ref": "U7",
+ "statements": [
+  {
+   "local_ref": "st_conv",
+   "kind": "convention",
+   "anchor": [
+    "seg:56cd22bafd1c152d7f14817bf7521324"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "e_const",
+   "type": "RandomVariable",
+   "label": "a constant",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [
+    "a constant"
+   ],
+   "identity": {},
+   "scope_segment": "seg:56cd22bafd1c152d7f14817bf7521324"
+  },
+  {
+   "local_ref": "e_normal",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_const_normal",
+   "predicate": "has_distribution",
+   "subject": "e_const",
+   "object": {
+    "ref": "e_normal"
+   },
+   "qualifiers": {
+    "modality": "conventional",
+    "param_values": {
+     "variance": {
+      "t": "formula",
+      "latex": "0",
+      "symbols": {}
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "phrase",
+       "text": "In some settings",
+       "start": 21098,
+       "end": 21114
+      }
+     ]
+    }
+   },
+   "statement": "st_conv",
+   "evidence": [
+    {
+     "start": 21116,
+     "end": 21243,
+     "role": "primary"
+    },
+    {
+     "start": 21098,
+     "end": 21114,
+     "role": "condition"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u_mean_constant",
+   "reason": "The mean equals the constant itself, which the source names only in words; no formula or symbol to give as the mean parameter value.",
+   "start": 21188,
+   "end": 21216
+  },
+  {
+   "local_ref": "u_not_hold",
+   "reason": "A claim about which other statements remain valid under the convention; no predicate relates a convention to the validity of statements.",
+   "start": 21345,
+   "end": 21461
+  },
+  {
+   "local_ref": "u_still_valid",
+   "reason": "A claim that other statements remain valid under the convention; no predicate expresses statement validity under a convention.",
+   "start": 21467,
+   "end": 21590
+  },
+  {
+   "local_ref": "u_all_a_b",
+   "reason": "Extends the restriction of another statement (b nonzero) under the convention; no predicate expresses a change to another statement's conditions.",
+   "start": 21602,
+   "end": 21679
+  }
+ ]
+}

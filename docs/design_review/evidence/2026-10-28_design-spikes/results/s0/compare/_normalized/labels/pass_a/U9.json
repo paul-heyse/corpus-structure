@@ -1,0 +1,409 @@
+{
+ "envelope": {
+  "unit": "U9",
+  "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+  "source": "results/s0/pass_a/U9.json"
+ },
+ "unit_ref": "U9",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "seg:c8858445283cc4b3aeebf62b43bc2380",
+    "seg:d4d15a5c15b937f230d666afa222625c"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "seg:ae936ca6dd75a6556c16350058871c9a",
+    "seg:f5bda7a82a6394d9651a5a2520b503bb",
+    "seg:cc5662bf909023b827077c3ccad88c2a"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "Xi",
+   "type": "RandomVariable",
+   "label": "X_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X_i",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:680f3eb3f2fdb65fe5886ea06547a38c"
+  },
+  {
+   "local_ref": "P",
+   "type": "RandomVariable",
+   "label": "\\prod_{i=1}^n X_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "\\prod_{i=1}^n X_i",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:680f3eb3f2fdb65fe5886ea06547a38c"
+  },
+  {
+   "local_ref": "LN",
+   "type": "DistributionFamily",
+   "label": "lognormal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_Xi_lognormal",
+   "predicate": "has_distribution",
+   "subject": "Xi",
+   "object": {
+    "ref": "LN"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "mu": {
+      "t": "formula",
+      "latex": "\\mu_i",
+      "symbols": {
+       "mu_i": {
+        "bind": "free"
+       }
+      }
+     },
+     "sigma": {
+      "t": "formula",
+      "latex": "\\sigma_i",
+      "symbols": {
+       "sigma_i": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "member",
+     "x": {
+      "t": "formula",
+      "latex": "i",
+      "symbols": {
+       "i": {
+        "bind": "free"
+       }
+      }
+     },
+     "set": {
+      "t": "set",
+      "latex": "\\{1, 2, \\ldots, n\\}",
+      "symbols": {
+       "n": {
+        "bind": "free"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 10159,
+     "end": 10263,
+     "role": "primary"
+    },
+    {
+     "start": 10264,
+     "end": 10297,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_P_def",
+   "predicate": "defined_as",
+   "subject": "P",
+   "object": {
+    "t": "formula",
+    "latex": "\\prod_{i=1}^n X_i",
+    "symbols": {
+     "i": {
+      "bind": "free"
+     },
+     "n": {
+      "bind": "free"
+     },
+     "X_i": {
+      "bind": "variable",
+      "entity": "Xi"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st1",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 10299,
+     "end": 10356,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_P_lognormal",
+   "predicate": "has_distribution",
+   "subject": "P",
+   "object": {
+    "ref": "LN"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {
+     "mu": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "free"
+       }
+      }
+     },
+     "sigma": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c_Xi_lognormal"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "n",
+        "symbols": {
+         "n": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\N_+",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "pred",
+       "name": "independent",
+       "args": [
+        {
+         "t": "formula",
+         "latex": "X_1",
+         "symbols": {
+          "X_1": {
+           "bind": "variable",
+           "entity": "Xi"
+          }
+         }
+        },
+        {
+         "t": "formula",
+         "latex": "X_2",
+         "symbols": {
+          "X_2": {
+           "bind": "variable",
+           "entity": "Xi"
+          }
+         }
+        },
+        {
+         "t": "formula",
+         "latex": "X_n",
+         "symbols": {
+          "X_n": {
+           "bind": "variable",
+           "entity": "Xi"
+          },
+          "n": {
+           "bind": "free"
+          }
+         }
+        }
+       ]
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\mu_i",
+        "symbols": {
+         "mu_i": {
+          "bind": "param_of",
+          "claim": "c_Xi_lognormal",
+          "param": "mu"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\sigma_i",
+        "symbols": {
+         "sigma_i": {
+          "bind": "param_of",
+          "claim": "c_Xi_lognormal",
+          "param": "sigma"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "cmp",
+       "rel": "=",
+       "lhs": {
+        "t": "formula",
+        "latex": "\\mu",
+        "symbols": {
+         "mu": {
+          "bind": "free"
+         }
+        }
+       },
+       "rhs": {
+        "t": "formula",
+        "latex": "\\sum_{i=1}^n \\mu_i",
+        "symbols": {
+         "i": {
+          "bind": "free"
+         },
+         "n": {
+          "bind": "free"
+         },
+         "mu_i": {
+          "bind": "param_of",
+          "claim": "c_Xi_lognormal",
+          "param": "mu"
+         }
+        }
+       }
+      },
+      {
+       "op": "cmp",
+       "rel": "=",
+       "lhs": {
+        "t": "formula",
+        "latex": "\\sigma^2",
+        "symbols": {
+         "sigma": {
+          "bind": "free"
+         }
+        }
+       },
+       "rhs": {
+        "t": "formula",
+        "latex": "\\sum_{i=1}^n \\sigma_i^2",
+        "symbols": {
+         "i": {
+          "bind": "free"
+         },
+         "n": {
+          "bind": "free"
+         },
+         "sigma_i": {
+          "bind": "param_of",
+          "claim": "c_Xi_lognormal",
+          "param": "sigma"
+         }
+        }
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 10299,
+     "end": 10395,
+     "role": "primary"
+    },
+    {
+     "start": 10396,
+     "end": 10473,
+     "role": "condition"
+    },
+    {
+     "start": 10048,
+     "end": 10075,
+     "role": "condition"
+    },
+    {
+     "start": 10085,
+     "end": 10151,
+     "role": "condition"
+    },
+    {
+     "start": 10214,
+     "end": 10230,
+     "role": "condition"
+    },
+    {
+     "start": 10235,
+     "end": 10263,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st2",
+   "evidence": [
+    {
+     "start": 10744,
+     "end": 10807,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

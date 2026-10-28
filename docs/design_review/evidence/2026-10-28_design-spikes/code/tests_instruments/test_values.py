@@ -91,6 +91,44 @@ class TestTiers(unittest.TestCase):
         e2 = c2.compare(F("\\var(X)"), F("\\sigma^2"))
         self.assertEqual((e2.equal, e2.tier), (True, "manual"))
 
+    # ---- review findings (2026-10-28)
+    def test_f2_subscripts_kept_in_shim(self):
+        for a, b in (("\\sigma_{X_1}^2", "\\sigma_{X_2}^2"), ("\\sigma_{\\mu}", "\\sigma"), ("\\sigma_{\\mu}", "\\sigma_{\\nu}"),
+                     ("\\sigma_{X_1} + \\sigma_{X_2}", "2 \\sigma"), ("\\sigma_{1,2}", "\\sigma_{2,1}"), ("\\Sigma_1", "\\Sigma_2")):
+            with self.subTest(a=a, b=b):
+                self.assertIsNot(self.c.compare(F(a), F(b)).equal, True)
+        self.assertEqual(self.tier(F("\\sigma_{X_1} \\sigma_{X_2}"), F("\\sigma_{X_2}\\sigma_{X_1}")), (True, "sympy"))
+
+    def test_f3_application_is_not_multiplication(self):
+        for a, b in (("\\Phi(-x)", "-\\Phi(x)"), ("\\Phi(z)", "z \\Phi"), ("\\Gamma(2 a)", "2 \\Gamma(a)"),
+                     ("\\Gamma(a+1)", "a \\Gamma(a)"), ("f(x) y", "f x y"), ("\\phi(2x)", "2\\phi(x)")):
+            with self.subTest(a=a, b=b):
+                e = self.c.compare(F(a), F(b))
+                self.assertIsNot(e.equal, True, e)
+        self.assertEqual(self.tier(F("\\Phi(-x)"), F("-\\Phi(x)"))[1], "pending")
+
+    def test_f5a_relations(self):
+        self.assertEqual(self.tier(F("x < 1"), F("x < 2")), (False, "sympy"))
+        self.assertEqual(self.tier(F("X \\le x"), F("X \\leq x")), (True, "sympy"))
+        self.assertEqual(self.tier(F("x > 1"), F("1 < x")), (True, "sympy"))
+        self.assertEqual(self.tier(F("x < 1"), F("x - 1")), (False, "sympy"))
+        self.assertEqual(self.c.compare(F("x < 1"), F("x \\le 1")).tier, "pending")
+        self.assertEqual(self.c.compare(F("x < 1"), F("x < 2")).kind, "relation")
+
+    def test_f5b_distinct_points_and_range(self):
+        nat = [{"op": "member", "x": "n", "set": "\\N"}, {"op": "cmp", "rel": ">", "lhs": "n", "rhs": "8"}]
+        self.assertEqual(self.tier(F("n^2"), F("19 n - 90"), nat), (False, "numeric"))
+        self.assertEqual(self.tier(F("\\min(x, 10)"), F("x")), (False, "numeric"))
+        # only two admissible integers: too few distinct points to decide
+        two = [{"op": "member", "x": "n", "set": "\\N"}, {"op": "cmp", "rel": ">", "lhs": "n", "rhs": "8"},
+               {"op": "cmp", "rel": "<", "lhs": "n", "rhs": "11"}]
+        self.assertEqual(self.c.compare(F("n^2"), F("19 n - 90"), two).tier, "pending")
+
+    def test_f5f_pint_units(self):
+        self.assertIsNotNone(V._UREG)
+        self.assertEqual(canonical_value({"t": "number", "v": "1", "unit": "cm"}), {"t": "number", "v": "0.01", "unit": "meter"})
+        self.assertEqual(canonical_value({"t": "number", "v": "7", "unit": "widgets"})["unit"], "widgets")  # unknown: kept
+
     def test_parse_log_records_raw_failures(self):
         V.parse_formula("\\tau^2 \\kappa^2")  # lark lacks implicit multiplication after a power
         rec = [r for r in V.PARSE_LOG if r.get("latex") == "\\tau^2 \\kappa^2"]

@@ -1,0 +1,119 @@
+{
+ "unit_ref": "U12",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "theorem",
+   "anchor": [
+    "s1",
+    "s2",
+    "s3"
+   ]
+  },
+  {
+   "local_ref": "st2",
+   "kind": "proof",
+   "anchor": [
+    "s4",
+    "s5"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {}
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_mean",
+   "predicate": "mean_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "k",
+    "symbols": {
+     "k": {
+      "bind": "unresolved"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "sentence": "s2",
+     "quote": "\\(\\E(X) = k\\)",
+     "role": "primary"
+    },
+    {
+     "sentence": "s1",
+     "quote": "The mean and variance of \\( X \\) are",
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_X_var",
+   "predicate": "variance_value",
+   "subject": "X",
+   "object": {
+    "t": "formula",
+    "latex": "k",
+    "symbols": {
+     "k": {
+      "bind": "unresolved"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "sentence": "s3",
+     "quote": "\\(\\var(X) = k\\)",
+     "role": "primary"
+    },
+    {
+     "sentence": "s1",
+     "quote": "The mean and variance of \\( X \\) are",
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st2",
+   "object": {
+    "ref": "st1"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st2",
+   "evidence": [
+    {
+     "sentence": "s4",
+     "quote": "(a) From [3]",
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

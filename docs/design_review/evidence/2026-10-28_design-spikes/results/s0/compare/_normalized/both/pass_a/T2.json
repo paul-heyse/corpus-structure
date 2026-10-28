@@ -1,0 +1,226 @@
+{
+ "envelope": {
+  "unit": "T2",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_a/T2.json"
+ },
+ "unit_ref": "T2",
+ "statements": [
+  {
+   "local_ref": "st1",
+   "kind": "narrative",
+   "anchor": [
+    "seg:a3c88aa2d5cdbd70f8a179347967faa2"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:7271b23dccb8434265edcd0e4daeadcb"
+  },
+  {
+   "local_ref": "N",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [],
+   "identity": {}
+  },
+  {
+   "local_ref": "p_loc",
+   "type": "FamilyParameter",
+   "label": "FamilyParameter:canonical_name=location",
+   "scope": "global",
+   "aliases": [
+    "\\mu"
+   ],
+   "identity": {
+    "family": "N",
+    "canonical_name": "location"
+   }
+  },
+  {
+   "local_ref": "p_scale",
+   "type": "FamilyParameter",
+   "label": "FamilyParameter:canonical_name=scale",
+   "scope": "global",
+   "aliases": [
+    "\\sigma"
+   ],
+   "identity": {
+    "family": "N",
+    "canonical_name": "scale"
+   }
+  },
+  {
+   "local_ref": "p_mean",
+   "type": "FamilyParameter",
+   "label": "FamilyParameter:canonical_name=mean",
+   "scope": "global",
+   "aliases": [],
+   "identity": {
+    "family": "N",
+    "canonical_name": "mean"
+   }
+  },
+  {
+   "local_ref": "p_sd",
+   "type": "FamilyParameter",
+   "label": "FamilyParameter:canonical_name=standard_deviation",
+   "scope": "global",
+   "aliases": [],
+   "identity": {
+    "family": "N",
+    "canonical_name": "standard_deviation"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_X_normal",
+   "predicate": "has_distribution",
+   "subject": "X",
+   "object": {
+    "ref": "N"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "scope": {
+     "extent": "section",
+     "segment": "seg:7271b23dccb8434265edcd0e4daeadcb"
+    },
+    "param_values": {
+     "location": {
+      "t": "formula",
+      "latex": "\\mu",
+      "symbols": {
+       "mu": {
+        "bind": "free"
+       }
+      }
+     },
+     "scale": {
+      "t": "formula",
+      "latex": "\\sigma",
+      "symbols": {
+       "sigma": {
+        "bind": "free"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\mu",
+        "symbols": {
+         "mu": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R",
+        "symbols": {}
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "\\sigma",
+        "symbols": {
+         "sigma": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)",
+        "symbols": {}
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st1",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 11584,
+     "end": 11709,
+     "role": "primary"
+    },
+    {
+     "start": 11565,
+     "end": 11578,
+     "role": "supporting"
+    },
+    {
+     "start": 11644,
+     "end": 11660,
+     "role": "condition"
+    },
+    {
+     "start": 11681,
+     "end": 11709,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_loc_mean",
+   "predicate": "identical_parameter",
+   "subject": "p_loc",
+   "object": {
+    "ref": "p_mean"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 11737,
+     "end": 11825,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_scale_sd",
+   "predicate": "identical_parameter",
+   "subject": "p_scale",
+   "object": {
+    "ref": "p_sd"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st1",
+   "evidence": [
+    {
+     "start": 11737,
+     "end": 11825,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

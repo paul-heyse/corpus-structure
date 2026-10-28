@@ -10,9 +10,16 @@ Entity similarity (weights and threshold are instrument choices; D7 leaves them 
   plus 0.2 when the scope segments are equal (scope mismatches stay alignable so that scope
   accuracy can be measured);
 - global entities: a label or alias equal after D1 §6.2 text normalization -> 1.0; equal after
-  the D2 §12.1 alias rules (rewrites, articles, head words; D5 §3.3) -> 0.9; else RapidFuzz
-  ``token_sort_ratio`` >= 90 over label/alias pairs -> 0.6 + 0.2 * (ratio - 90) / 10
-  (``token_set_ratio`` is not used, instruments §5.1);
+  the D2 §12.1 alias rules (rewrites, articles, head words; D5 §3.3) -> 0.9. RapidFuzz
+  ``token_sort_ratio`` >= 90 (-> 0.6 + 0.2 * (ratio - 90) / 10) is applied only to classes in
+  ``FUZZY_TYPES``, which is **empty for v0**: every v0 global class (DistributionFamily,
+  FamilyConstruction, Concept, FamilyParameter) is a named mathematical object whose identity
+  can turn on a prefix or one word ("normal" / "lognormal" 92.7, "standard normal" / "standard
+  lognormal" 94.9, "scale" / "shape"), which an edit-distance ratio cannot tell from a typo. A
+  fuzzy-only candidate (ratio >= 90) is not aligned and is recorded in ``label_near_misses`` for
+  hand checking; a class is added to ``FUZZY_TYPES`` only with an argument that its labels are
+  free text where small edits do not change identity (``token_set_ratio`` is never used,
+  instruments §5.1). Aligned pairs with a fuzzy basis are listed in ``fuzzy_pairs``;
 - ``FamilyParameter`` (second pass, after families are aligned): family aligned and canonical
   name equal after text normalization -> 1.0; family aligned and names differing -> not aligned,
   recorded as an identity near miss; identity missing on either side -> the global label rule;
@@ -22,10 +29,20 @@ Entity similarity (weights and threshold are instrument choices; D7 leaves them 
 
 Pairs below ``ENTITY_THRESHOLD`` (0.5) are reported unmatched.
 
-Claims: per tier a maximum-cardinality one-to-one matching (``linear_sum_assignment`` on
-1 + 0.001 * evidence overlap). Full-tier ``claim`` condition leaves are matched through the
-**core-tier** claim matching, so a premise's own full-tier failure does not cascade into the
-conclusions that reference it.
+Claims (D7 §5.3): per tier a maximum-cardinality one-to-one matching. The **core** matching is
+chosen lexicographically: most core pairs, then most full-compatible pairs, then most
+evidence-compatible pairs, then evidence overlap (weights 1e6 / 1e3 / 1 / 1e-3). Full-tier
+``claim`` condition leaves need the premises' alignment, which depends on the matching; it is
+found by fixed-point iteration: pass 0 accepts a leaf pair when the two premises are
+core-compatible (any core edge), each later pass judges leaves strictly through the current
+core matching and re-chooses it, until the matching is stable (at most ``MAX_ITER``). Full and
+evidence tiers, field failures, bindings and everything downstream use the final matching.
+
+Cascade: a premise that fails the core tier makes every conclusion citing it fail the full
+tier (its ``claim`` leaf has no aligned counterpart). Those pairs are listed in ``cascaded``,
+and the tiers ``full_nocascade`` / ``evidence_nocascade`` repeat the matching with such leaves
+accepted when neither side's premise is core-matched, so figures can be given with and
+without the cascade. A premise's own *full*-tier failure does not cascade (leaves use core).
 """
 
 from __future__ import annotations
@@ -44,6 +61,9 @@ from .schema_lookup import SchemaLookup
 from .values import ValueComparator, canonical_symbol, text_norm
 
 ENTITY_THRESHOLD = 0.5
+FUZZY_TYPES: frozenset[str] = frozenset()  # see module docstring: none in v0
+MAX_ITER = 8
+W_CORE, W_FULL, W_EV, W_TIE = 1e6, 1e3, 1.0, 1e-3
 W_SYMBOL, W_SCOPE, W_EVIDENCE = 0.7, 0.2, 0.05
 TIERS = ("core", "full", "evidence")
 
@@ -91,6 +111,8 @@ class UnitAlignment:
     entity_unmatched_ref: list[str] = field(default_factory=list)
     entity_unmatched_pred: list[str] = field(default_factory=list)
     identity_near_misses: list[tuple[str, str, str]] = field(default_factory=list)
+    label_near_misses: list[tuple[str, str, str]] = field(default_factory=list)  # fuzzy-only, not aligned
+    fuzzy_pairs: list[tuple[str, str, str]] = field(default_factory=list)  # aligned on a fuzzy basis
     ref_claims: dict[str, dict] = field(default_factory=dict)
     pred_claims: dict[str, dict] = field(default_factory=dict)
     ref_entities: dict[str, dict] = field(default_factory=dict)
@@ -104,6 +126,8 @@ class UnitAlignment:
     unsupported_n: tuple[int, int] = (0, 0)
     bindings: list[dict] = field(default_factory=list)
     scopes: list[dict] = field(default_factory=list)
+    cascaded: list[tuple[str, str]] = field(default_factory=list)  # core-matched, full fails only by cascade
+    iterations: int = 0  # fixed-point passes used for the core matching
 
     @property
     def emap(self) -> dict[str, str]:
@@ -168,9 +192,11 @@ class _Aligner:
             return 1.0, "label"
         if {alias_norm(x, t) for x in la} & {alias_norm(x, t) for x in lb}:
             return 0.9, "alias_rule"
-        best = max((fuzz.token_sort_ratio(x, y) for x in la for y in lb), default=0)
+        best, pair = max(((fuzz.token_sort_ratio(x, y), (x, y)) for x in la for y in lb), default=(0, None))
         if best >= 90:
-            return 0.6 + 0.2 * (best - 90) / 10, f"fuzzy:{best:.0f}"
+            if t in FUZZY_TYPES:
+                return 0.6 + 0.2 * (best - 90) / 10, f"fuzzy:{best:.0f}"
+            self.ua.label_near_misses.append((a["local_ref"], b["local_ref"], f"token_sort_ratio {best:.1f}: {pair[0]!r} / {pair[1]!r}"))
         return 0.0, ""
 
     def _sim(self, a, b, family_pass: bool) -> tuple[float, str]:
@@ -182,7 +208,12 @@ class _Aligner:
             sa = canonical_symbol(a.get("symbol") or a.get("label"))
             sb = canonical_symbol(b.get("symbol") or b.get("label"))
             if not sa or sa != sb:
-                return 0.0, ""
+                # neither has a symbol: labels after D2 §12.1's article rule ("the radius of the rod")
+                if a.get("symbol") or b.get("symbol"):
+                    return 0.0, ""
+                la, lb = alias_norm(a.get("label", ""), ""), alias_norm(b.get("label", ""), "")
+                if not la or la != lb:
+                    return 0.0, ""
             same = a.get("scope_segment") is not None and a.get("scope_segment") == b.get("scope_segment")
             return W_SYMBOL + (W_SCOPE if same else 0.0) + ev, "symbol" + ("+scope" if same else "")
         if a.get("scope") != b.get("scope"):
@@ -239,8 +270,10 @@ class _Aligner:
         matched_p = set(self.emap.values())
         self.ua.entity_unmatched_ref = [x["local_ref"] for x in re_ + rs if x["local_ref"] not in matched_r]
         self.ua.entity_unmatched_pred = [x["local_ref"] for x in pe + ps if x["local_ref"] not in matched_p]
-        # near misses are recorded during scoring of every candidate; keep only unaligned ones
-        self.ua.identity_near_misses = sorted({nm for nm in self.ua.identity_near_misses if nm[0] not in matched_r})
+        # near misses are recorded while scoring every candidate; keep pairs with both sides unaligned
+        self.ua.identity_near_misses = sorted({nm for nm in self.ua.identity_near_misses if nm[0] not in matched_r and nm[1] not in matched_p})
+        self.ua.label_near_misses = sorted({nm for nm in self.ua.label_near_misses if nm[0] not in matched_r and nm[1] not in matched_p})
+        self.ua.fuzzy_pairs = [(p.ref, p.pred, p.basis) for p in self.ua.entity_pairs if p.basis.startswith("fuzzy")]
 
     # ------------------------------------------------------------------ claims
 
@@ -269,16 +302,17 @@ class _Aligner:
             return text_norm(x.get("text", "")) == text_norm(y.get("text", ""))
         return _overlap((x["start"], x["end"]), (y["start"], y["end"])) > 0
 
-    def tree_eq(self, ta, tb, conds, core_map) -> bool:
+    def tree_eq(self, ta, tb, conds, leaf_eq) -> bool:
         return trees_equivalent(
             ta, tb,
             value_eq=lambda x, y: self._value_eq(x, y, conds),
-            claim_eq=lambda x, y: core_map.get(x) == y,
+            claim_eq=leaf_eq,
             ref_eq=self.ref_eq,
             span_eq=self._span_eq,
         )
 
-    def full_failures(self, a, b, core_map) -> list[str]:
+    def full_failures(self, a, b, leaf_eq) -> list[str]:
+        """Fields failing the full tier; ``leaf_eq(ref_claim, pred_claim)`` judges ``claim`` leaves."""
         fails = []
         qa, qb = a.get("qualifiers") or {}, b.get("qualifiers") or {}
         if qa.get("modality", "asserted") != qb.get("modality", "asserted"):
@@ -311,7 +345,7 @@ class _Aligner:
                         fails.append(f"{name}.values")
                         break
             elif kind == "condition":
-                if not self.tree_eq(va, vb, conds, core_map):
+                if not self.tree_eq(va, vb, conds, leaf_eq):
                     fails.append(name)
             elif kind == "entity":
                 if not self.ref_eq(ref_of(va), ref_of(vb)):
@@ -323,7 +357,7 @@ class _Aligner:
                 fails.append(name)
         ca, cb = qa.get("conditions"), qb.get("conditions")
         if normalize_tree(ca) is not None or normalize_tree(cb) is not None:
-            if not self.tree_eq(ca, cb, conds, core_map):
+            if not self.tree_eq(ca, cb, conds, leaf_eq):
                 fails.append("conditions")
         return fails
 
@@ -336,32 +370,63 @@ class _Aligner:
                 return True
         return False
 
-    def _match(self, refs, preds, edge) -> list[tuple[str, str]]:
-        if not refs or not preds:
+    def _overlap_ratio(self, a, b) -> float:
+        ov = sum(_overlap(x, y) for x in _all_spans(a) for y in _all_spans(b))
+        tot = sum(e - s for s, e in _all_spans(a)) + sum(e - s for s, e in _all_spans(b))
+        return ov / tot if tot else 0.0
+
+    def _match(self, rc, pc, weight) -> list[tuple[str, str]]:
+        """Maximum-weight one-to-one matching; ``weight((r, p))`` is 0 for a non-edge."""
+        if not rc or not pc:
             return []
-        m = np.zeros((len(refs), len(preds)))
-        for i, a in enumerate(refs):
-            for j, b in enumerate(preds):
-                if edge(a, b):
-                    ov = sum(_overlap(x, y) for x in _all_spans(a) for y in _all_spans(b))
-                    tot = sum(e - s for s, e in _all_spans(a)) + sum(e - s for s, e in _all_spans(b))
-                    m[i, j] = 1.0 + 0.001 * (ov / tot if tot else 0.0)
+        m = np.zeros((len(rc), len(pc)))
+        for i, a in enumerate(rc):
+            for j, b in enumerate(pc):
+                m[i, j] = weight((a["local_ref"], b["local_ref"]))
         r, c = linear_sum_assignment(-m)
-        return [(refs[i]["local_ref"], preds[j]["local_ref"]) for i, j in zip(r, c) if m[i, j] > 0]
+        return sorted((rc[i]["local_ref"], pc[j]["local_ref"]) for i, j in zip(r, c) if m[i, j] > 0)
+
+    def _tiers(self, core_edges, leaf_eq):
+        R, P = self.ua.ref_claims, self.ua.pred_claims
+        fails = {e: self.full_failures(R[e[0]], P[e[1]], leaf_eq) for e in core_edges}
+        full_e = {e for e, f in fails.items() if not f}
+        ev_e = {e for e in full_e if self.evidence_ok(R[e[0]], P[e[1]])}
+        return fails, full_e, ev_e
 
     def claims(self):
-        rc, pc = list(self.ua.ref_claims.values()), list(self.ua.pred_claims.values())
+        R, P = self.ua.ref_claims, self.ua.pred_claims
+        rc, pc = list(R.values()), list(P.values())
         core_edges = {(a["local_ref"], b["local_ref"]) for a in rc for b in pc if self.core(a, b)}
-        self.ua.matches["core"] = self._match(rc, pc, lambda a, b: (a["local_ref"], b["local_ref"]) in core_edges)
-        core_map = dict(self.ua.matches["core"])
-        fails = {e: self.full_failures(self.ua.ref_claims[e[0]], self.ua.pred_claims[e[1]], core_map) for e in core_edges}
-        full_edges = {e for e, f in fails.items() if not f}
-        self.ua.matches["full"] = self._match(rc, pc, lambda a, b: (a["local_ref"], b["local_ref"]) in full_edges)
-        ev_edges = {e for e in full_edges if self.evidence_ok(self.ua.ref_claims[e[0]], self.ua.pred_claims[e[1]])}
-        self.ua.matches["evidence"] = self._match(rc, pc, lambda a, b: (a["local_ref"], b["local_ref"]) in ev_edges)
-        for e in self.ua.matches["core"]:
+        ov = {e: self._overlap_ratio(R[e[0]], P[e[1]]) for e in core_edges}
+        leaf_eq = lambda x, y: (x, y) in core_edges  # noqa: E731  pass 0: any core-compatible premise pair
+        core_map: dict | None = None
+        for it in range(1, MAX_ITER + 1):
+            fails, full_e, ev_e = self._tiers(core_edges, leaf_eq)
+            core = self._match(rc, pc, lambda e: (W_CORE + W_FULL * (e in full_e) + W_EV * (e in ev_e) + W_TIE * ov[e]) if e in core_edges else 0.0)
+            new_map = dict(core)
+            self.ua.iterations = it
+            stable = new_map == core_map
+            core_map = new_map
+            leaf_eq = lambda x, y, m=core_map: m.get(x) == y  # noqa: E731
+            if stable:
+                break
+        fails, full_e, ev_e = self._tiers(core_edges, leaf_eq)  # strict, through the final matching
+        core_set = set(core)
+        self.ua.matches["core"] = core
+        self.ua.matches["full"] = self._match(rc, pc, lambda e: (1.0 + W_TIE * (e in core_set) + W_TIE * W_TIE * (e in ev_e)) if e in full_e else 0.0)
+        full_set = set(self.ua.matches["full"])
+        self.ua.matches["evidence"] = self._match(rc, pc, lambda e: (1.0 + W_TIE * (e in full_set)) if e in ev_e else 0.0)
+        for e in core:
             self.ua.field_failures[e] = fails[e]
-            self.ua.diagnostics[e] = self.diagnose(self.ua.ref_claims[e[0]], self.ua.pred_claims[e[1]], core_map)
+            self.ua.diagnostics[e] = self.diagnose(R[e[0]], P[e[1]], core_map)
+        # cascade: leaves whose premises are core-unmatched on both sides accepted
+        matched_r, matched_p = set(core_map), set(core_map.values())
+        lenient = lambda x, y: core_map.get(x) == y or (x not in matched_r and y not in matched_p and x in R and y in P)  # noqa: E731
+        lfails, lfull, lev = self._tiers(core_edges, lenient)
+        self.ua.cascaded = sorted(e for e in core if fails[e] and not lfails[e])
+        self.ua.matches["full_nocascade"] = self._match(rc, pc, lambda e: (1.0 + W_TIE * (e in core_set)) if e in lfull else 0.0)
+        nc = set(self.ua.matches["full_nocascade"])
+        self.ua.matches["evidence_nocascade"] = self._match(rc, pc, lambda e: (1.0 + W_TIE * (e in nc)) if e in lev else 0.0)
 
     # ------------------------------------------------------------------ diagnostics
 
@@ -438,7 +503,13 @@ class _Aligner:
         self.ua.unsupported_n = (len(ru), len(pu))
         if not ru or not pu:
             return
-        m = np.array([[float(_overlap((a["start"], a["end"]), (b["start"], b["end"]))) for b in pu] for a in ru])
+        # maximum number of overlapping pairs; total overlap (as a share) only breaks ties
+        m = np.zeros((len(ru), len(pu)))
+        for i, a in enumerate(ru):
+            for j, b in enumerate(pu):
+                ov = _overlap((a["start"], a["end"]), (b["start"], b["end"]))
+                if ov > 0:
+                    m[i, j] = 1.0 + W_TIE * ov / ((a["end"] - a["start"]) + (b["end"] - b["start"]))
         r, c = linear_sum_assignment(-m)
         self.ua.unsupported_pairs = [(ru[i]["local_ref"], pu[j]["local_ref"]) for i, j in zip(r, c) if m[i, j] > 0]
 
@@ -467,8 +538,15 @@ def describe(ua: UnitAlignment) -> str:
     lines.append(f"  ref only: {ua.entity_unmatched_ref}  pred only: {ua.entity_unmatched_pred}")
     if ua.identity_near_misses:
         lines.append(f"  identity near misses: {ua.identity_near_misses}")
+    if ua.label_near_misses:
+        lines.append(f"  label near misses (fuzzy only, not aligned): {ua.label_near_misses}")
+    if ua.fuzzy_pairs:
+        lines.append(f"  FUZZY-BASIS PAIRS (check by hand): {ua.fuzzy_pairs}")
     for t in TIERS:
         lines.append(f"{t}: {sorted(ua.matches.get(t, []))}")
+    if ua.cascaded:
+        lines.append(f"  cascaded full-tier failures: {ua.cascaded}")
+    lines.append(f"  core matching fixed point after {ua.iterations} pass(es)")
     for e, f in sorted(ua.field_failures.items()):
         if f or ua.diagnostics.get(e):
             lines.append(f"  {e[0]}~{e[1]} full-tier failures {f} diagnostics {ua.diagnostics.get(e)}")

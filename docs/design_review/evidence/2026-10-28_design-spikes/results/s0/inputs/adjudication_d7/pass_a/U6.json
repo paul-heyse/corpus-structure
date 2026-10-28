@@ -1,0 +1,134 @@
+{
+  "unit_ref": "U6",
+  "statements": [
+    {"local_ref": "st1", "kind": "narrative", "anchor": "unit"}
+  ],
+  "entities": [
+    {"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [], "identity": {}},
+    {"local_ref": "Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "statement", "symbol": "Z", "aliases": ["the standard score Z"], "identity": {}},
+    {"local_ref": "SS", "type": "Concept", "label": "standard score", "scope": "global", "aliases": [], "identity": {}},
+    {"local_ref": "N", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normally distributed"], "identity": {}},
+    {"local_ref": "SN", "type": "DistributionFamily", "label": "standard normal distribution", "scope": "global", "aliases": ["standard normal variable"], "identity": {}},
+    {"local_ref": "st_last", "type": "Statement", "label": "the last result (linear transformation theorem, outside this unit)", "scope": "local", "extent": "section", "aliases": ["the last result"], "identity": {}}
+  ],
+  "claims": [
+    {
+      "local_ref": "c_refers_SS",
+      "predicate": "refers_to",
+      "subject": "st1",
+      "object": {"ref": "SS"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st1",
+      "evidence": [
+        {"sentence": "s1", "quote": "Recall that in general", "role": "primary"},
+        {"sentence": "s1", "quote": "is the standard score of \\(X\\)", "role": "supporting"}
+      ]
+    },
+    {
+      "local_ref": "c_X_mean",
+      "predicate": "mean_value",
+      "subject": "X",
+      "object": {"t": "formula", "latex": "\\mu", "symbols": {"mu": {"bind": "free"}}},
+      "qualifiers": {"modality": "supposed"},
+      "statement": "st1",
+      "statement_role": "premise",
+      "evidence": [{"sentence": "s1", "quote": "\\(X\\) is a random variable with mean \\(\\mu\\)", "role": "primary"}]
+    },
+    {
+      "local_ref": "c_Z_def",
+      "predicate": "defined_as",
+      "subject": "Z",
+      "object": {"t": "formula", "latex": "(X - \\mu) / \\sigma", "symbols": {
+        "X": {"bind": "variable", "entity": "X"},
+        "mu": {"bind": "free"},
+        "sigma": {"bind": "free"}
+      }},
+      "qualifiers": {
+        "modality": "defined",
+        "conditions": {"op": "and", "args": [
+          {"op": "claim", "ref": "c_X_mean"},
+          {"op": "unsupported", "text": "standard deviation \\(\\sigma \\gt 0\\)", "reason": "No predicate states the standard deviation of a random variable (only mean_value and variance_value)."},
+          {"op": "cmp", "rel": ">", "lhs": {"t": "formula", "latex": "\\sigma", "symbols": {"sigma": {"bind": "free"}}}, "rhs": {"t": "formula", "latex": "0", "symbols": {}}}
+        ]}
+      },
+      "statement": "st1",
+      "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s1", "quote": "\\(Z = (X - \\mu) / \\sigma\\) is the standard score of \\(X\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "if \\(X\\) is a random variable with mean \\(\\mu\\) and standard deviation \\(\\sigma \\gt 0\\)", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_SS_formula",
+      "predicate": "definition_formula",
+      "subject": "SS",
+      "object": {"t": "formula", "latex": "(X - \\mu) / \\sigma", "symbols": {
+        "X": {"bind": "variable", "entity": "X"},
+        "mu": {"bind": "free"},
+        "sigma": {"bind": "free"}
+      }},
+      "qualifiers": {
+        "modality": "defined",
+        "conditions": {"op": "and", "args": [
+          {"op": "claim", "ref": "c_X_mean"},
+          {"op": "unsupported", "text": "standard deviation \\(\\sigma \\gt 0\\)", "reason": "No predicate states the standard deviation of a random variable (only mean_value and variance_value)."},
+          {"op": "cmp", "rel": ">", "lhs": {"t": "formula", "latex": "\\sigma", "symbols": {"sigma": {"bind": "free"}}}, "rhs": {"t": "formula", "latex": "0", "symbols": {}}}
+        ]}
+      },
+      "statement": "st1",
+      "statement_role": "definiens",
+      "evidence": [
+        {"sentence": "s1", "quote": "\\(Z = (X - \\mu) / \\sigma\\) is the standard score of \\(X\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "if \\(X\\) is a random variable with mean \\(\\mu\\) and standard deviation \\(\\sigma \\gt 0\\)", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_follows",
+      "predicate": "follows_from",
+      "subject": "st1",
+      "object": {"ref": "st_last"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st1",
+      "evidence": [{"sentence": "s2", "quote": "A corollary of the last result", "role": "primary"}]
+    },
+    {
+      "local_ref": "c_X_normal",
+      "predicate": "has_distribution",
+      "subject": "X",
+      "object": {"ref": "N"},
+      "qualifiers": {"modality": "supposed"},
+      "statement": "st1",
+      "statement_role": "premise",
+      "evidence": [{"sentence": "s2", "quote": "if \\(X\\) has a normal distribution", "role": "primary"}]
+    },
+    {
+      "local_ref": "c_Z_stdnormal",
+      "predicate": "has_distribution",
+      "subject": "Z",
+      "object": {"ref": "SN"},
+      "qualifiers": {
+        "modality": "asserted",
+        "conditions": {"op": "and", "args": [{"op": "claim", "ref": "c_X_normal"}]}
+      },
+      "statement": "st1",
+      "statement_role": "conclusion",
+      "evidence": [
+        {"sentence": "s2", "quote": "the standard score \\(Z\\) has a standard normal distribution", "role": "primary"},
+        {"sentence": "s2", "quote": "if \\(X\\) has a normal distribution", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_N_from_SN",
+      "predicate": "transformation_of",
+      "subject": "N",
+      "object": {"ref": "SN"},
+      "qualifiers": {"modality": "asserted"},
+      "statement": "st1",
+      "evidence": [{"sentence": "s3", "quote": "any normally distributed variable can be constructed from a standard normal variable", "role": "primary"}]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s1", "quote": "standard deviation \\(\\sigma \\gt 0\\)", "reason": "No predicate for the standard deviation of a random variable; recorded as an unsupported condition leaf rather than derived into a variance."}
+  ]
+}

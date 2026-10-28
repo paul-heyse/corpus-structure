@@ -12,14 +12,19 @@ Tiers, recorded per comparison (evidence for OPEN-D7-2):
    returned as ``pending`` (equal=None) and listed in ``ValueComparator.pending``.
 
 Recorded choices (results/s0/instruments_tests.md): simplify time limit 5 s (SIGALRM, main
-thread); numeric tier draws 12 accepted points, at most 4,000 draws, seed 20261028, reals
-uniform in [-5, 5], integers in [-10, 10] for symbols constrained to integer sets; equality
-``math.isclose(rel_tol=1e-9, abs_tol=1e-12)``; at least 3 valid points are needed to decide.
+thread); numeric tier: seed 20261028, up to 12 **distinct** accepted points from at most 4,000
+draws; reals half uniform in [-5, 5] and half of magnitude 10^-2..10^3 (random sign), shifted
+or bounded by numeric bounds from ``member`` sets and ``symbol <rel> number`` leaves; integers
+(symbols in integer sets) uniform over [lower bound, +200] (default [-100, 100]); equality
+``math.isclose(rel_tol=1e-9, abs_tol=1e-12)``; at least 6 distinct valid points to decide,
+otherwise manual. Relations (``x < 1``) compare as relations (kind ``relation``).
 
-The SymPy 1.14 lark grammar lacks ``\\sigma``, ``\\pi``, ``\\lvert``/``\\rvert`` and implicit
-multiplication after a power (``b^2 \\sigma^2``). Each formula is parsed raw first; a raw
-failure is logged in ``PARSE_LOG`` for S5 and the parse is retried through a compatibility
-shim (``_lark_shim``); the comparison records whether the shim was needed.
+The SymPy 1.14 lark grammar lacks ``\\sigma``, ``\\pi``, capital Greek, ``\\lvert``/``\\rvert`` and
+implicit multiplication after a power (``b^2 \\sigma^2``). Each formula is parsed raw first; a
+raw failure is logged in ``PARSE_LOG`` for S5 and the parse is retried through a compatibility
+shim (``_lark_shim``) that keeps subscripts in placeholder names; the comparison records
+whether the shim was needed. A symbol directly followed by ``(`` (``\\Phi(x)``, ``f(x) y``,
+``\\Gamma(k)``) is ambiguous between application and product and goes to manual.
 """
 
 from __future__ import annotations

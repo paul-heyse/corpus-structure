@@ -1,0 +1,123 @@
+{
+ "envelope": {
+  "unit": "U12",
+  "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+  "source": "results/s0/pass_b/U12.json"
+ },
+ "unit_ref": "U12",
+ "statements": [
+  {
+   "local_ref": "st_thm",
+   "kind": "theorem",
+   "anchor": [
+    "seg:7edc0b114a37b999625e6f5b6393f3f1",
+    "seg:fffdc9c9a07875ea4f25614d1db1cc51",
+    "seg:798141f60bd67c856fd7779c40e80b78"
+   ]
+  },
+  {
+   "local_ref": "st_proof",
+   "kind": "proof",
+   "anchor": [
+    "seg:b32398b5dd210b09054a83c2b028e06c",
+    "seg:1f928b3871064106c0e965a530dfa590"
+   ]
+  }
+ ],
+ "entities": [
+  {
+   "local_ref": "e_X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "X",
+   "aliases": [],
+   "identity": {},
+   "scope_segment": "seg:c4fe4f7d381a7309db596d113d517bb8"
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c_mean",
+   "predicate": "mean_value",
+   "subject": "e_X",
+   "object": {
+    "t": "formula",
+    "latex": "k",
+    "symbols": {
+     "k": {
+      "bind": "unresolved"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st_thm",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 7295,
+     "end": 7308,
+     "role": "primary"
+    },
+    {
+     "start": 7253,
+     "end": 7289,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_var",
+   "predicate": "variance_value",
+   "subject": "e_X",
+   "object": {
+    "t": "formula",
+    "latex": "k",
+    "symbols": {
+     "k": {
+      "bind": "unresolved"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st_thm",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 7313,
+     "end": 7328,
+     "role": "primary"
+    },
+    {
+     "start": 7253,
+     "end": 7289,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c_proves",
+   "predicate": "proves",
+   "subject": "st_proof",
+   "object": {
+    "ref": "st_thm"
+   },
+   "qualifiers": {},
+   "statement": "st_proof",
+   "evidence": [
+    {
+     "start": 7340,
+     "end": 7352,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

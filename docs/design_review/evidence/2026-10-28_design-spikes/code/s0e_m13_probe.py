@@ -81,7 +81,8 @@ def norm(sym: str) -> str:
     return sym.replace("\\", "").replace("{", "").replace("}", "").replace(" ", "")
 
 
-def probe_page(page: str, sections_mode: str, clause_binders: bool = False) -> dict:
+def probe_page(page: str, sections_mode: str, clause_binders: bool = False, if_binder: bool = False,
+               paragraph_statements: bool = False, sample_parts: list | None = None) -> dict:
     r = adapt(page, {"sections": sections_mode})
     text, segs = r["text"], r["segments"]
     sents = sentences(r, "P1", "bp+c")
@@ -108,7 +109,8 @@ def probe_page(page: str, sections_mode: str, clause_binders: bool = False) -> d
         st = text[s["start"]:s["end"]]
         words = re.findall(r"[A-Za-z]+", st.lower())
         first = words[0] if words else ""
-        binder = first in BINDERS["sentence_initial"] or any(p in st.lower() for p in BINDERS["section_wide"])
+        initial = BINDERS["sentence_initial"] + (["if"] if if_binder else [])
+        binder = first in initial or any(p in st.lower() for p in BINDERS["section_wide"])
         clause = re.search(r"\b(" + "|".join(BINDERS["clause"]) + r")\b", st[: mn["pos"] - s["start"]].lower())
         mtex = text[mn["math"]["start"]:mn["math"]["end"]]
         rel = mn["pos"] - mn["math"]["start"]
@@ -121,6 +123,9 @@ def probe_page(page: str, sections_mode: str, clause_binders: bool = False) -> d
             binder = any(re.search(rf"\b{w}\b", before) for w in BINDERS["sentence_initial"])
         if (binder and (left_of or only)) or (clause and "\\in" in mtex[rel:]) or definitional:
             u = unit_of(mn["pos"])
+            section_wide = any(w in st.lower() for w in BINDERS["section_wide"]) or "again" in st.lower()
+            if u is None and paragraph_statements and not section_wide:  # a standalone paragraph is a statement
+                u = next((p for p in (sample_parts or []) if p["start"] <= mn["pos"] < p["end"]), None)
             if u:
                 extent = ("statement", u["start"], u["end"], u["key"])
             else:
@@ -158,6 +163,9 @@ def main() -> int:
     ap.add_argument("stored", type=Path)
     ap.add_argument("--sections", default="h3h4")
     ap.add_argument("--clause-binders", action="store_true")
+    ap.add_argument("--if-binder", action="store_true", help="variant: sentence-initial \"if\" binds")
+    ap.add_argument("--paragraph-statements", action="store_true",
+                    help="variant: a sample paragraph outside any unit is a statement extent")
     a = ap.parse_args()
     pages: dict = {}
     rows = []
@@ -166,24 +174,34 @@ def main() -> int:
             continue
         b = json.loads(f.read_text())
         meta = SAMPLE["units"][f.stem]
-        pg = pages.setdefault(meta["page"], probe_page(meta["page"], a.sections, a.clause_binders))
+        parts = [{"start": p["start"], "end": p["end"], "key": p["segment_key"]} for m in SAMPLE["units"].values()
+                 if m["page"] == meta["page"] for p in m["parts"]]
+        pg = pages.setdefault(meta["page"], probe_page(meta["page"], a.sections, a.clause_binders, a.if_binder,
+                                                       a.paragraph_statements, parts))
         for e in b.get("entities", []):
             if e.get("scope") != "local" or not e.get("symbol"):
                 continue
             sym = norm(e["symbol"])
             got = assign(pg, sym, [(p["start"], p["end"]) for p in meta["parts"]])
             annotated = e.get("extent") or "?"
-            rows.append({"unit": f.stem, "symbol": e["symbol"], "type": e["type"], "annotated_extent": annotated,
+            # an expression entity (a + b X, \prod X_i), not a symbol: outside M13's scope rules
+            expression = (len(symbols(f"\\({e['symbol']}\\)")) > 1
+                          or re.search(r"[+*/^-]|\\(prod|sum|frac)\b", e["symbol"]) is not None)
+            rows.append({"unit": f.stem, "symbol": e["symbol"], "type": e["type"], "expression": expression,
+                         "annotated_extent": annotated,
                          "probe": got["binding"], "match": got["binding"] == annotated,
                          "probe_site": (got.get("site") or "")[:90], "reopens": got.get("reopens") or ""})
-    tag = f"{a.sections}{'.clause' if a.clause_binders else ''}"
+    tag = (f"{a.sections}{'.clause' if a.clause_binders else ''}{'.if' if a.if_binder else ''}"
+           f"{'.para' if a.paragraph_statements else ''}")
     out = EVIDENCE / "results" / "s0" / f"m13_probe.{a.stored.name}.{tag}.tsv"
     with out.open("w", encoding="utf-8") as fh:
         fh.write("\t".join(rows[0]) + "\n")
         for r in rows:
             fh.write("\t".join(str(v).replace("\t", " ").replace("\n", " ") for v in r.values()) + "\n")
     ok = sum(r["match"] for r in rows)
-    print(f"{ok}/{len(rows)} local-entity extents reproduced by the M13 rules ({tag})")
+    sym = [r for r in rows if not r["expression"]]
+    print(f"{ok}/{len(rows)} local-entity extents reproduced by the M13 rules ({tag}); "
+          f"symbols only: {sum(r['match'] for r in sym)}/{len(sym)}")
     for r in rows:
         print(" ", r["unit"], r["symbol"], r["annotated_extent"], "->", r["probe"], "|", r["probe_site"][:70])
     return 0

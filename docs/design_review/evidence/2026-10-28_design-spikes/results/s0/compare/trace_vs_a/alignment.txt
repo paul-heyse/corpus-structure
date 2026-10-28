@@ -1,0 +1,80 @@
+# unit T1
+entities:
+  S0 = st1  (1.00 anchor:1.00)
+  S1 = st2  (1.00 anchor:1.00)
+  Z = Z  (0.95 symbol+scope)
+  X = X  (0.95 symbol+scope)
+  LSF = LS  (1.05 label)
+  LSF.loc = p_loc  (1.05 identity)
+  LSF.scale = p_scale  (1.05 identity)
+  ref only: []  pred only: []
+core: [('C1', 'c_Z_values'), ('C2', 'c_X_def'), ('C3', 'c_defines'), ('C5', 'c_hp_loc'), ('C6', 'c_hp_scale'), ('C7', 'c_dom_loc'), ('C8', 'c_dom_scale')]
+full: [('C1', 'c_Z_values')]
+evidence: [('C1', 'c_Z_values')]
+  core matching fixed point after 2 pass(es)
+  C2~c_X_def full-tier failures ['conditions'] diagnostics ['bindings']
+  C3~c_defines full-tier failures ['modality'] diagnostics []
+  C5~c_hp_loc full-tier failures ['statement_role'] diagnostics []
+  C6~c_hp_scale full-tier failures ['statement_role'] diagnostics []
+  C7~c_dom_loc full-tier failures ['statement_role'] diagnostics []
+  C8~c_dom_scale full-tier failures ['statement_role'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [] of (0, 1)
+# unit T2
+entities:
+  S1 = st1  (0.90 anchor:1.00)
+  X = X  (0.95 symbol+scope)
+  N = N  (1.05 label)
+  N.loc = p_loc  (1.05 identity)
+  N.scale = p_scale  (1.05 identity)
+  N.mean = p_mean  (1.05 identity)
+  N.sd = p_sd  (1.05 identity)
+  ref only: []  pred only: []
+core: [('C1', 'c_X_normal'), ('C4', 'c_loc_mean'), ('C5', 'c_scale_sd')]
+full: [('C1', 'c_X_normal')]
+evidence: [('C1', 'c_X_normal')]
+  core matching fixed point after 2 pass(es)
+  C4~c_loc_mean full-tier failures ['statement_role'] diagnostics []
+  C5~c_scale_sd full-tier failures ['statement_role'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit T3
+entities:
+  S1 = st1  (1.00 anchor:1.00)
+  S2 = st2  (1.00 anchor:1.00)
+  X = X  (0.95 symbol+scope)
+  Y = aX  (0.95 symbol+scope)
+  N = N  (1.05 label)
+  ref only: []  pred only: []
+core: [('C1', 'c_X_normal'), ('C2', 'c_aX_def'), ('C3', 'c_aX_normal'), ('C4', 'c_proves')]
+full: [('C1', 'c_X_normal'), ('C2', 'c_aX_def'), ('C3', 'c_aX_normal'), ('C4', 'c_proves')]
+evidence: [('C1', 'c_X_normal'), ('C2', 'c_aX_def'), ('C3', 'c_aX_normal'), ('C4', 'c_proves')]
+  core matching fixed point after 2 pass(es)
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)
+# unit T4
+entities:
+  S1 = st1  (1.00 anchor:1.00)
+  Y = Y  (0.95 symbol+scope)
+  X = X  (0.95 symbol+scope)
+  N = N  (1.05 label)
+  LN = LN  (1.05 label)
+  LN.mu = p_mu  (1.05 identity)
+  LN.sigma = p_sigma  (1.05 identity)
+  LN.scale = p_scale  (1.05 identity)
+  ref only: ['N.mean', 'N.sd']  pred only: ['Z', 'W', 'SN', 'SLN']
+core: [('C1', 'c_Y_normal'), ('C10', 'c_scale_derived'), ('C2', 'c_X_def'), ('C3', 'c_X_lognormal'), ('C4', 'c_defines_LN'), ('C5', 'c_hp_mu'), ('C6', 'c_hp_sigma'), ('C7', 'c_LN_transform'), ('C8', 'c_role_sigma'), ('C9', 'c_hp_scale')]
+full: [('C2', 'c_X_def')]
+evidence: [('C2', 'c_X_def')]
+  core matching fixed point after 2 pass(es)
+  C1~c_Y_normal full-tier failures ['conditions'] diagnostics []
+  C10~c_scale_derived full-tier failures ['modality', 'statement_role'] diagnostics []
+  C3~c_X_lognormal full-tier failures ['statement_role', 'conditions'] diagnostics []
+  C4~c_defines_LN full-tier failures ['modality'] diagnostics []
+  C5~c_hp_mu full-tier failures ['statement_role'] diagnostics []
+  C6~c_hp_sigma full-tier failures ['statement_role'] diagnostics []
+  C7~c_LN_transform full-tier failures ['statement_role', 'transform'] diagnostics ['bindings']
+  C8~c_role_sigma full-tier failures ['modality', 'statement_role'] diagnostics []
+  C9~c_hp_scale full-tier failures ['modality', 'statement_role'] diagnostics []
+alternatives ref: [] pred: []
+unsupported: [] of (0, 0)

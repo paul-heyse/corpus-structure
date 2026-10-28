@@ -1,0 +1,138 @@
+{
+  "unit_ref": "U5",
+  "statements": [
+    {"local_ref": "st_thm", "kind": "theorem", "anchor": ["s1", "s2", "s3", "s4"]},
+    {"local_ref": "st_proof", "kind": "proof", "anchor": ["s5"]}
+  ],
+  "entities": [
+    {"local_ref": "e_X1", "type": "RandomVariable", "label": "X_1", "scope": "local", "extent": "statement", "symbol": "X_1", "aliases": [], "identity": {}},
+    {"local_ref": "e_X2", "type": "RandomVariable", "label": "X_2", "scope": "local", "extent": "statement", "symbol": "X_2", "aliases": [], "identity": {}},
+    {"local_ref": "e_Xi", "type": "RandomVariable", "label": "X_i", "scope": "local", "extent": "statement", "symbol": "X_i", "aliases": [], "identity": {}},
+    {"local_ref": "e_sum", "type": "RandomVariable", "label": "X_1 + X_2", "scope": "local", "extent": "statement", "symbol": "X_1 + X_2", "aliases": [], "identity": {}},
+    {"local_ref": "e_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normally distributed"], "identity": {}}
+  ],
+  "claims": [
+    {
+      "local_ref": "c_Xi_normal",
+      "predicate": "has_distribution",
+      "subject": "e_Xi",
+      "object": {"ref": "e_normal"},
+      "qualifiers": {
+        "modality": "supposed",
+        "param_values": {
+          "mean": {"t": "formula", "latex": "\\mu_i", "symbols": {"mu_i": {"bind": "free"}}},
+          "variance": {"t": "formula", "latex": "\\sigma_i^2", "symbols": {"sigma_i": {"bind": "free"}}}
+        }
+      },
+      "statement": "st_thm",
+      "statement_role": "premise",
+      "evidence": [
+        {"sentence": "s1", "quote": "\\(X_i\\) is normally distributed with mean \\(\\mu_i\\) and variance \\(\\sigma_i^2\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "for \\(i \\in \\{1, 2\\}\\)", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_sum_def",
+      "predicate": "defined_as",
+      "subject": "e_sum",
+      "object": {"t": "formula", "latex": "X_1 + X_2", "symbols": {
+        "X_1": {"bind": "variable", "entity": "e_X1"},
+        "X_2": {"bind": "variable", "entity": "e_X2"}
+      }},
+      "qualifiers": {"modality": "defined"},
+      "statement": "st_thm",
+      "evidence": [
+        {"sentence": "s2", "quote": "\\(X_1 + X_2\\)", "role": "primary"}
+      ]
+    },
+    {
+      "local_ref": "c_sum_normal",
+      "predicate": "has_distribution",
+      "subject": "e_sum",
+      "object": {"ref": "e_normal"},
+      "qualifiers": {
+        "modality": "asserted",
+        "param_values": {
+          "mean": {"t": "formula", "latex": "\\mu_1 + \\mu_2", "symbols": {
+            "mu_1": {"bind": "param_of", "claim": "c_Xi_normal", "param": "mean"},
+            "mu_2": {"bind": "param_of", "claim": "c_Xi_normal", "param": "mean"}
+          }},
+          "variance": {"t": "formula", "latex": "\\sigma_1^2 + \\sigma_2^2", "symbols": {
+            "sigma_1": {"bind": "param_expr_of", "claim": "c_Xi_normal", "param": "variance"},
+            "sigma_2": {"bind": "param_expr_of", "claim": "c_Xi_normal", "param": "variance"}
+          }}
+        },
+        "conditions": {"op": "and", "args": [
+          {"op": "pred", "name": "independent", "args": [{"t": "entity", "ref": "e_X1"}, {"t": "entity", "ref": "e_X2"}]},
+          {"op": "forall", "var": "i", "set": {"t": "set", "latex": "\\{1, 2\\}", "symbols": {}}, "body": {"op": "claim", "ref": "c_Xi_normal"}}
+        ]}
+      },
+      "statement": "st_thm",
+      "statement_role": "conclusion",
+      "evidence": [
+        {"sentence": "s2", "quote": "Then \\(X_1 + X_2\\) is normally distributed with", "role": "primary"},
+        {"sentence": "s3", "quote": "\\(\\E(X_1 + X_2) = \\mu_1 + \\mu_2\\)", "role": "primary"},
+        {"sentence": "s4", "quote": "\\(\\var(X_1 + X_2) = \\sigma_1^2 + \\sigma_2^2\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables", "role": "condition"},
+        {"sentence": "s1", "quote": "for \\(i \\in \\{1, 2\\}\\)", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_sum_mean",
+      "predicate": "mean_value",
+      "subject": "e_sum",
+      "object": {"t": "formula", "latex": "\\mu_1 + \\mu_2", "symbols": {
+        "mu_1": {"bind": "param_of", "claim": "c_Xi_normal", "param": "mean"},
+        "mu_2": {"bind": "param_of", "claim": "c_Xi_normal", "param": "mean"}
+      }},
+      "qualifiers": {
+        "modality": "asserted",
+        "conditions": {"op": "and", "args": [
+          {"op": "pred", "name": "independent", "args": [{"t": "entity", "ref": "e_X1"}, {"t": "entity", "ref": "e_X2"}]},
+          {"op": "forall", "var": "i", "set": {"t": "set", "latex": "\\{1, 2\\}", "symbols": {}}, "body": {"op": "claim", "ref": "c_Xi_normal"}}
+        ]}
+      },
+      "statement": "st_thm",
+      "statement_role": "conclusion",
+      "evidence": [
+        {"sentence": "s3", "quote": "\\(\\E(X_1 + X_2) = \\mu_1 + \\mu_2\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_sum_var",
+      "predicate": "variance_value",
+      "subject": "e_sum",
+      "object": {"t": "formula", "latex": "\\sigma_1^2 + \\sigma_2^2", "symbols": {
+        "sigma_1": {"bind": "param_expr_of", "claim": "c_Xi_normal", "param": "variance"},
+        "sigma_2": {"bind": "param_expr_of", "claim": "c_Xi_normal", "param": "variance"}
+      }},
+      "qualifiers": {
+        "modality": "asserted",
+        "conditions": {"op": "and", "args": [
+          {"op": "pred", "name": "independent", "args": [{"t": "entity", "ref": "e_X1"}, {"t": "entity", "ref": "e_X2"}]},
+          {"op": "forall", "var": "i", "set": {"t": "set", "latex": "\\{1, 2\\}", "symbols": {}}, "body": {"op": "claim", "ref": "c_Xi_normal"}}
+        ]}
+      },
+      "statement": "st_thm",
+      "statement_role": "conclusion",
+      "evidence": [
+        {"sentence": "s4", "quote": "\\(\\var(X_1 + X_2) = \\sigma_1^2 + \\sigma_2^2\\)", "role": "primary"},
+        {"sentence": "s1", "quote": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables", "role": "condition"}
+      ]
+    },
+    {
+      "local_ref": "c_proves",
+      "predicate": "proves",
+      "subject": "st_proof",
+      "object": {"ref": "st_thm"},
+      "qualifiers": {},
+      "statement": "st_proof",
+      "evidence": [
+        {"sentence": "s5", "quote": "which we recognize as the MGF of the normal distribution with mean \\(\\mu_1 + \\mu_2\\) and variance \\(\\sigma_1^2 + \\sigma_2^2\\)", "role": "primary"}
+      ]
+    }
+  ],
+  "alternatives": [],
+  "unsupported": []
+}
