@@ -1,0 +1,21 @@
+{
+  "unit_ref": "U5",
+  "entities": [
+    {"local_ref": "e_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normal distribution"], "identity": {}},
+    {"local_ref": "rv_Xi", "type": "RandomVariable", "label": "X_i", "scope": "local", "extent": "statement", "symbol": "X_i", "aliases": ["X_i"], "identity": {}},
+    {"local_ref": "rv_sum", "type": "RandomVariable", "label": "X_1 + X_2", "scope": "local", "extent": "statement", "aliases": ["X_1 + X_2"], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "st_thm", "kind": "theorem", "anchor": ["s1", "s2", "s3", "s4"]},
+    {"local_ref": "st_proof", "kind": "proof", "anchor": ["s5"]}
+  ],
+  "claims": [
+    {"local_ref": "c1", "predicate": "has_distribution", "subject": "rv_Xi", "object": {"ref": "e_normal"}, "qualifiers": {"modality": "supposed", "param_values": {"mean": {"t": "formula", "latex": "\\mu_i", "symbols": {"\\mu_i": {"bind": "param_of", "claim": "c1", "param": "mean"}}}, "variance": {"t": "formula", "latex": "\\sigma_i^2", "symbols": {"\\sigma_i": {"bind": "param_expr_of", "claim": "c1", "param": "variance"}}}}}, "statement": "st_thm", "statement_role": "premise", "evidence": [{"sentence": "s1", "quote": "\\(X_i\\) is normally distributed with mean \\(\\mu_i\\) and variance \\(\\sigma_i^2\\)", "role": "primary"}]},
+    {"local_ref": "c2", "predicate": "has_distribution", "subject": "rv_sum", "object": {"ref": "e_normal"}, "qualifiers": {"modality": "asserted", "param_values": {"mean": {"t": "formula", "latex": "\\mu_1 + \\mu_2", "symbols": {"\\mu_1": {"bind": "param_of", "claim": "c1", "param": "mean"}, "\\mu_2": {"bind": "param_of", "claim": "c1", "param": "mean"}}}, "variance": {"t": "formula", "latex": "\\sigma_1^2 + \\sigma_2^2", "symbols": {"\\sigma_1": {"bind": "param_expr_of", "claim": "c1", "param": "variance"}, "\\sigma_2": {"bind": "param_expr_of", "claim": "c1", "param": "variance"}}}}, "conditions": {"op": "and", "args": [{"op": "pred", "name": "independent", "args": [{"t": "formula", "latex": "X_1", "symbols": {"X_1": {"bind": "variable", "entity": "rv_Xi"}}}, {"t": "formula", "latex": "X_2", "symbols": {"X_2": {"bind": "variable", "entity": "rv_Xi"}}}]}, {"op": "claim", "ref": "c1"}, {"op": "member", "x": {"t": "formula", "latex": "i", "symbols": {"i": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\{1, 2\\}"}}]}}, "statement": "st_thm", "statement_role": "conclusion", "evidence": [{"sentence": "s2", "quote": "Then \\(X_1 + X_2\\) is normally distributed with", "role": "primary"}, {"sentence": "s1", "quote": "Suppose that \\(X_1\\) and \\(X_2\\) are independent random variables", "role": "condition"}]},
+    {"local_ref": "c3", "predicate": "mean_value", "subject": "rv_sum", "object": {"t": "formula", "latex": "\\mu_1 + \\mu_2", "symbols": {"\\mu_1": {"bind": "param_of", "claim": "c1", "param": "mean"}, "\\mu_2": {"bind": "param_of", "claim": "c1", "param": "mean"}}}, "qualifiers": {"modality": "asserted"}, "statement": "st_thm", "statement_role": "conclusion", "evidence": [{"sentence": "s3", "quote": "\\(\\E(X_1 + X_2) = \\mu_1 + \\mu_2\\)", "role": "primary"}]},
+    {"local_ref": "c4", "predicate": "variance_value", "subject": "rv_sum", "object": {"t": "formula", "latex": "\\sigma_1^2 + \\sigma_2^2", "symbols": {"\\sigma_1": {"bind": "param_expr_of", "claim": "c1", "param": "variance"}, "\\sigma_2": {"bind": "param_expr_of", "claim": "c1", "param": "variance"}}}, "qualifiers": {"modality": "asserted"}, "statement": "st_thm", "statement_role": "conclusion", "evidence": [{"sentence": "s4", "quote": "\\(\\var(X_1 + X_2) = \\sigma_1^2 + \\sigma_2^2\\)", "role": "primary"}]},
+    {"local_ref": "c5", "predicate": "proves", "subject": "st_proof", "object": {"ref": "st_thm"}, "qualifiers": {"modality": "asserted"}, "evidence": [{"sentence": "s5", "quote": "which we recognize as the MGF of the normal distribution with mean \\(\\mu_1 + \\mu_2\\) and variance \\(\\sigma_1^2 + \\sigma_2^2\\)", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

@@ -1,0 +1,21 @@
+{
+  "unit_ref": "U9",
+  "entities": [
+    {"local_ref": "rv_Xi", "type": "RandomVariable", "label": "X_i", "scope": "local", "extent": "statement", "symbol": "X_i", "aliases": ["X_i"], "identity": {}},
+    {"local_ref": "rv_prod", "type": "RandomVariable", "label": "product of X_i", "scope": "local", "extent": "statement", "aliases": ["\\prod_{i=1}^n X_i"], "identity": {}},
+    {"local_ref": "e_lognormal", "type": "DistributionFamily", "label": "lognormal distribution", "scope": "global", "aliases": ["lognormal distribution"], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "st_thm", "kind": "theorem", "anchor": ["s1", "s2"]},
+    {"local_ref": "st_proof", "kind": "proof", "anchor": ["s3", "s4", "s5"]}
+  ],
+  "claims": [
+    {"local_ref": "c1", "predicate": "has_distribution", "subject": "rv_Xi", "object": {"ref": "e_lognormal"}, "qualifiers": {"modality": "supposed", "param_values": {"\\mu": {"t": "formula", "latex": "\\mu_i", "symbols": {"\\mu_i": {"bind": "param_of", "claim": "c1", "param": "\\mu"}}}, "\\sigma": {"t": "formula", "latex": "\\sigma_i", "symbols": {"\\sigma_i": {"bind": "param_of", "claim": "c1", "param": "\\sigma"}}}}}, "statement": "st_thm", "statement_role": "premise", "evidence": [{"sentence": "s1", "quote": "\\(X_i\\) has the lognormal distribution with parameters \\(\\mu_i \\in \\R\\) and \\(\\sigma_i \\in (0, \\infty)\\)", "role": "primary"}]},
+    {"local_ref": "c2", "predicate": "has_distribution", "subject": "rv_prod", "object": {"ref": "e_lognormal"}, "qualifiers": {"modality": "asserted", "param_values": {"\\mu": {"t": "formula", "latex": "\\mu", "symbols": {"\\mu": {"bind": "free"}}}, "\\sigma": {"t": "formula", "latex": "\\sigma", "symbols": {"\\sigma": {"bind": "free"}}}}, "conditions": {"op": "and", "args": [{"op": "member", "x": {"t": "formula", "latex": "n", "symbols": {"n": {"bind": "free"}}}, "set": {"t": "set", "latex": "\\N_+"}}, {"op": "pred", "name": "independent", "args": [{"t": "formula", "latex": "X_1", "symbols": {"X_1": {"bind": "variable", "entity": "rv_Xi"}}}, {"t": "formula", "latex": "X_n", "symbols": {"X_n": {"bind": "variable", "entity": "rv_Xi"}}}]}, {"op": "forall", "var": "i", "set": {"t": "set", "latex": "\\{1, 2, \\ldots, n\\}"}, "body": {"op": "and", "args": [{"op": "member", "x": {"t": "formula", "latex": "\\mu_i", "symbols": {"\\mu_i": {"bind": "param_of", "claim": "c1", "param": "\\mu"}}}, "set": {"t": "set", "latex": "\\R"}}, {"op": "member", "x": {"t": "formula", "latex": "\\sigma_i", "symbols": {"\\sigma_i": {"bind": "param_of", "claim": "c1", "param": "\\sigma"}}}, "set": {"t": "set", "latex": "(0, \\infty)"}}]}}, {"op": "claim", "ref": "c1"}]}}, "statement": "st_thm", "statement_role": "conclusion", "evidence": [{"sentence": "s2", "quote": "has the lognormal distribution with parameters \\(\\mu\\) and \\(\\sigma\\)", "role": "primary"}, {"sentence": "s1", "quote": "\\(n \\in \\N_+\\)", "role": "condition"}]},
+    {"local_ref": "c3", "predicate": "proves", "subject": "st_proof", "object": {"ref": "st_thm"}, "qualifiers": {"modality": "asserted"}, "evidence": [{"sentence": "s5", "quote": "But \\(\\sum_{i=1}^n Y_i\\) has the normal distribution", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s2", "quote": "where \\(\\mu = \\sum_{i=1}^n \\mu_i\\) and \\(\\sigma^2 = \\sum_{i=1}^n \\sigma_i^2\\)", "reason": "Derived values of the conclusion's parameters given by where-equations; defined_as applies only to random variables and no predicate binds a parameter symbol to a sum of parameters, so the conclusion keeps mu and sigma as free symbols."}
+  ]
+}

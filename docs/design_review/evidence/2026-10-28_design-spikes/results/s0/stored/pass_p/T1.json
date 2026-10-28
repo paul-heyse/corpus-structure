@@ -1,0 +1,394 @@
+{
+ "envelope": {
+  "unit": "T1",
+  "rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+  "source": "results/s0/pass_p/T1.json"
+ },
+ "unit_ref": "T1",
+ "entities": [
+  {
+   "local_ref": "rv_Z",
+   "type": "RandomVariable",
+   "label": "Z",
+   "scope": "local",
+   "extent": "section",
+   "symbol": "Z",
+   "aliases": [
+    "Z"
+   ],
+   "identity": {},
+   "scope_segment": "seg:2770f23815b73bab0298a5079ff95859"
+  },
+  {
+   "local_ref": "rv_X",
+   "type": "RandomVariable",
+   "label": "X",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X",
+   "aliases": [
+    "X"
+   ],
+   "identity": {},
+   "scope_segment": "seg:175c96a27cc62630afd30222ac6b06cd"
+  },
+  {
+   "local_ref": "fam_C",
+   "type": "FamilyConstruction",
+   "label": "location-scale family",
+   "scope": "global",
+   "aliases": [
+    "location-scale family associated with the given distribution of Z"
+   ],
+   "identity": {}
+  },
+  {
+   "local_ref": "par_loc",
+   "type": "FamilyParameter",
+   "label": "location parameter",
+   "scope": "global",
+   "symbol": "a",
+   "aliases": [
+    "location parameter",
+    "a"
+   ],
+   "identity": {
+    "family": {
+     "ref": "fam_C"
+    },
+    "canonical_name": "location"
+   }
+  },
+  {
+   "local_ref": "par_scale",
+   "type": "FamilyParameter",
+   "label": "scale parameter",
+   "scope": "global",
+   "symbol": "b",
+   "aliases": [
+    "scale parameter",
+    "b"
+   ],
+   "identity": {
+    "family": {
+     "ref": "fam_C"
+    },
+    "canonical_name": "scale"
+   }
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "st_asm",
+   "kind": "assumption",
+   "anchor": [
+    "seg:e1a33c047bb86880316815686144c6cd"
+   ]
+  },
+  {
+   "local_ref": "st_def",
+   "kind": "definition",
+   "anchor": [
+    "seg:f862503906430becb5c3e114fbbd5af5",
+    "seg:ebe0e73fe08976c567af5859a2b77bbd",
+    "seg:af77a6ba98384db9ded612eff96d3984"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c1",
+   "predicate": "takes_values_in",
+   "subject": "rv_Z",
+   "object": {
+    "t": "set",
+    "latex": "\\R"
+   },
+   "qualifiers": {
+    "modality": "supposed"
+   },
+   "statement": "st_asm",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 412,
+     "end": 435,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c2",
+   "predicate": "defined_as",
+   "subject": "rv_X",
+   "object": {
+    "t": "formula",
+    "latex": "a + b \\, Z",
+    "symbols": {
+     "a": {
+      "bind": "family_param",
+      "entity": "par_loc"
+     },
+     "b": {
+      "bind": "family_param",
+      "entity": "par_scale"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "rv_Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c1"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "family_param",
+          "entity": "par_loc"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R"
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "family_param",
+          "entity": "par_scale"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)"
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 499,
+     "end": 517,
+     "role": "primary"
+    },
+    {
+     "start": 450,
+     "end": 493,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c3",
+   "predicate": "construction_formula",
+   "subject": "fam_C",
+   "object": {
+    "t": "formula",
+    "latex": "a + b \\, Z",
+    "symbols": {
+     "a": {
+      "bind": "family_param",
+      "entity": "par_loc"
+     },
+     "b": {
+      "bind": "family_param",
+      "entity": "par_scale"
+     },
+     "Z": {
+      "bind": "variable",
+      "entity": "rv_Z"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "defined",
+    "base_variable": {
+     "ref": "rv_Z"
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "claim",
+       "ref": "c1"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "a",
+        "symbols": {
+         "a": {
+          "bind": "family_param",
+          "entity": "par_loc"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\R"
+       }
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "b",
+        "symbols": {
+         "b": {
+          "bind": "family_param",
+          "entity": "par_scale"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "(0, \\infty)"
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 495,
+     "end": 517,
+     "role": "primary"
+    },
+    {
+     "start": 519,
+     "end": 582,
+     "role": "supporting"
+    }
+   ]
+  },
+  {
+   "local_ref": "c4",
+   "predicate": "defines",
+   "subject": "st_def",
+   "object": {
+    "ref": "fam_C"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "evidence": [
+    {
+     "start": 583,
+     "end": 666,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c5",
+   "predicate": "has_parameter",
+   "subject": "fam_C",
+   "object": {
+    "ref": "par_loc"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 682,
+     "end": 713,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c6",
+   "predicate": "has_parameter",
+   "subject": "fam_C",
+   "object": {
+    "ref": "par_scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 718,
+     "end": 743,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c7",
+   "predicate": "parameter_role",
+   "subject": "par_loc",
+   "object": {
+    "t": "enum",
+    "enum": "ParameterRole",
+    "v": "location"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 682,
+     "end": 713,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c8",
+   "predicate": "parameter_role",
+   "subject": "par_scale",
+   "object": {
+    "t": "enum",
+    "enum": "ParameterRole",
+    "v": "scale"
+   },
+   "qualifiers": {
+    "modality": "defined"
+   },
+   "statement": "st_def",
+   "statement_role": "definiens",
+   "evidence": [
+    {
+     "start": 718,
+     "end": 743,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

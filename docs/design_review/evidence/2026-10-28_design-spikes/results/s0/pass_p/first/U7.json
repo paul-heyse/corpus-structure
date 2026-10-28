@@ -1,0 +1,20 @@
+{
+  "unit_ref": "U7",
+  "entities": [
+    {"local_ref": "rv_c", "type": "RandomVariable", "label": "a constant", "scope": "local", "extent": "statement", "aliases": [{"text": "a constant", "kind": "term"}], "identity": {}},
+    {"local_ref": "e_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [{"text": "normal distribution", "kind": "label"}], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "st_conv", "kind": "convention", "anchor": ["s1"]}
+  ],
+  "claims": [
+    {"local_ref": "c1", "predicate": "has_distribution", "subject": "rv_c", "object": {"ref": "e_normal"}, "qualifiers": {"modality": "conventional", "param_values": [{"key": "variance", "value": {"t": "formula", "latex": "0"}}]}, "statement": "st_conv", "evidence": [{"sentence": "s1", "quote": "consider a constant as having a normal distribution", "role": "primary"}, {"sentence": "s1", "quote": "variance 0", "role": "supporting"}]}
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s1", "quote": "with mean being the constant", "reason": "The mean under the convention is the constant itself; the constant has no symbol or formula in the source, so no has_distribution param value can carry it."},
+    {"local_ref": "u2", "sentence": "s3", "quote": "the formulas for the probability density function [14] and the distribution function [17] do not hold for a constant", "reason": "Negative applicability claim about named formulas that are cited by number to results outside this unit; no predicate states that a formula does not apply."},
+    {"local_ref": "u3", "sentence": "s3", "quote": "the other results involving the moment generating function [23], linear transformations [24], and sums [26] are still valid", "reason": "Validity claim about numbered results outside this unit; no predicate expresses the applicability of a referenced result to a constant."},
+    {"local_ref": "u4", "sentence": "s4", "quote": "the result for linear transformations [24] would hold for all \\(a\\) and \\(b\\)", "reason": "Hypothetical generalization of a numbered result over all parameters; no predicate or condition form for a referenced result's scope."}
+  ]
+}

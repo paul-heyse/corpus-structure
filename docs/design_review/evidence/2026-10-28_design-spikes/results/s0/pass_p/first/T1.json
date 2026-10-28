@@ -1,0 +1,26 @@
+{
+  "unit_ref": "T1",
+  "entities": [
+    {"local_ref": "rv_Z", "type": "RandomVariable", "label": "Z", "scope": "local", "extent": "section", "symbol": "Z", "aliases": [{"text": "Z", "kind": "symbol"}], "identity": {"symbol": "Z"}},
+    {"local_ref": "rv_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [{"text": "X", "kind": "symbol"}], "identity": {"symbol": "X"}},
+    {"local_ref": "fam_C", "type": "FamilyConstruction", "label": "location-scale family", "scope": "global", "aliases": [{"text": "location-scale family associated with the given distribution of Z", "kind": "label"}], "identity": {}},
+    {"local_ref": "par_loc", "type": "FamilyParameter", "label": "location parameter", "scope": "global", "symbol": "a", "aliases": [{"text": "location parameter", "kind": "label"}, {"text": "a", "kind": "symbol"}], "identity": {"family": {"ref": "fam_C"}, "canonical_name": "location"}},
+    {"local_ref": "par_scale", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "symbol": "b", "aliases": [{"text": "scale parameter", "kind": "label"}, {"text": "b", "kind": "symbol"}], "identity": {"family": {"ref": "fam_C"}, "canonical_name": "scale"}}
+  ],
+  "statements": [
+    {"local_ref": "st_asm", "kind": "assumption", "anchor": ["s3"]},
+    {"local_ref": "st_def", "kind": "definition", "anchor": ["s4", "s5", "s6"]}
+  ],
+  "claims": [
+    {"local_ref": "c1", "predicate": "takes_values_in", "subject": "rv_Z", "object": {"t": "set", "latex": "\\R"}, "qualifiers": {"modality": "supposed"}, "statement": "st_asm", "statement_role": "premise", "evidence": [{"sentence": "s3", "quote": "with values in \\( \\R \\)", "role": "primary"}]},
+    {"local_ref": "c2", "predicate": "defined_as", "subject": "rv_X", "object": {"t": "formula", "latex": "a + b \\, Z", "symbols": {"a": {"bind": "family_param", "entity": "par_loc"}, "b": {"bind": "family_param", "entity": "par_scale"}, "Z": {"bind": "variable", "entity": "rv_Z"}}}, "qualifiers": {"modality": "defined", "conditions": {"op": "and", "args": [{"op": "claim", "ref": "c1"}, {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "family_param", "entity": "par_loc"}}}, "set": {"t": "set", "latex": "\\R"}}, {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "family_param", "entity": "par_scale"}}}, "set": {"t": "set", "latex": "(0, \\infty)"}}]}}, "statement": "st_def", "statement_role": "definiens", "evidence": [{"sentence": "s4", "quote": "\\(X = a + b \\, Z\\)", "role": "primary"}, {"sentence": "s4", "quote": "For \\(a \\in \\R\\) and \\(b \\in (0, \\infty) \\)", "role": "condition"}]},
+    {"local_ref": "c3", "predicate": "construction_formula", "subject": "fam_C", "object": {"t": "formula", "latex": "a + b \\, Z", "symbols": {"a": {"bind": "family_param", "entity": "par_loc"}, "b": {"bind": "family_param", "entity": "par_scale"}, "Z": {"bind": "variable", "entity": "rv_Z"}}}, "qualifiers": {"modality": "defined", "base_variable": {"ref": "rv_Z"}, "conditions": {"op": "and", "args": [{"op": "claim", "ref": "c1"}, {"op": "member", "x": {"t": "formula", "latex": "a", "symbols": {"a": {"bind": "family_param", "entity": "par_loc"}}}, "set": {"t": "set", "latex": "\\R"}}, {"op": "member", "x": {"t": "formula", "latex": "b", "symbols": {"b": {"bind": "family_param", "entity": "par_scale"}}}, "set": {"t": "set", "latex": "(0, \\infty)"}}]}}, "statement": "st_def", "statement_role": "definiens", "evidence": [{"sentence": "s4", "quote": "let \\(X = a + b \\, Z\\)", "role": "primary"}, {"sentence": "s5", "quote": "The two-parameter family of distributions associated with \\(X\\)", "role": "supporting"}]},
+    {"local_ref": "c4", "predicate": "defines", "subject": "st_def", "object": {"ref": "fam_C"}, "qualifiers": {"modality": "defined"}, "evidence": [{"sentence": "s5", "quote": "is called the location-scale family associated with the given distribution of \\(Z\\)", "role": "primary"}]},
+    {"local_ref": "c5", "predicate": "has_parameter", "subject": "fam_C", "object": {"ref": "par_loc"}, "qualifiers": {"modality": "defined"}, "statement": "st_def", "statement_role": "definiens", "evidence": [{"sentence": "s6", "quote": "\\(a\\) is the location parameter", "role": "primary"}]},
+    {"local_ref": "c6", "predicate": "has_parameter", "subject": "fam_C", "object": {"ref": "par_scale"}, "qualifiers": {"modality": "defined"}, "statement": "st_def", "statement_role": "definiens", "evidence": [{"sentence": "s6", "quote": "\\(b\\) the scale parameter", "role": "primary"}]},
+    {"local_ref": "c7", "predicate": "parameter_role", "subject": "par_loc", "object": {"t": "enum", "enum": "ParameterRole", "v": "location"}, "qualifiers": {"modality": "defined"}, "statement": "st_def", "statement_role": "definiens", "evidence": [{"sentence": "s6", "quote": "\\(a\\) is the location parameter", "role": "primary"}]},
+    {"local_ref": "c8", "predicate": "parameter_role", "subject": "par_scale", "object": {"t": "enum", "enum": "ParameterRole", "v": "scale"}, "qualifiers": {"modality": "defined"}, "statement": "st_def", "statement_role": "definiens", "evidence": [{"sentence": "s6", "quote": "\\(b\\) the scale parameter", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

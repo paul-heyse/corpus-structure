@@ -1,0 +1,306 @@
+{
+ "envelope": {
+  "unit": "U5",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_p/U5.json"
+ },
+ "unit_ref": "U5",
+ "entities": [
+  {
+   "local_ref": "e_normal",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [
+    "normal distribution"
+   ],
+   "identity": {}
+  },
+  {
+   "local_ref": "rv_Xi",
+   "type": "RandomVariable",
+   "label": "X_i",
+   "scope": "local",
+   "extent": "statement",
+   "symbol": "X_i",
+   "aliases": [
+    "X_i"
+   ],
+   "identity": {},
+   "scope_segment": "seg:24a8a9e0116b7804e4e8a88cc7a70c39"
+  },
+  {
+   "local_ref": "rv_sum",
+   "type": "RandomVariable",
+   "label": "X_1 + X_2",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [
+    "X_1 + X_2"
+   ],
+   "identity": {},
+   "scope_segment": "seg:24a8a9e0116b7804e4e8a88cc7a70c39"
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "st_thm",
+   "kind": "theorem",
+   "anchor": [
+    "seg:1f176d498ace05b6e46c77bd6ba20004",
+    "seg:0c0de42de7ca0d1fb80723719b2a0704",
+    "seg:193ed5f44ae395e1a493b9c83c04da36",
+    "seg:2b97cdfddbfea3582d7a291c9026eb3f"
+   ]
+  },
+  {
+   "local_ref": "st_proof",
+   "kind": "proof",
+   "anchor": [
+    "seg:f5e79a0886514c2a2231a752576be53c"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c1",
+   "predicate": "has_distribution",
+   "subject": "rv_Xi",
+   "object": {
+    "ref": "e_normal"
+   },
+   "qualifiers": {
+    "modality": "supposed",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "\\mu_i",
+      "symbols": {
+       "\\mu_i": {
+        "bind": "param_of",
+        "claim": "c1",
+        "param": "mean"
+       }
+      }
+     },
+     "variance": {
+      "t": "formula",
+      "latex": "\\sigma_i^2",
+      "symbols": {
+       "\\sigma_i": {
+        "bind": "param_expr_of",
+        "claim": "c1",
+        "param": "variance"
+       }
+      }
+     }
+    }
+   },
+   "statement": "st_thm",
+   "statement_role": "premise",
+   "evidence": [
+    {
+     "start": 15817,
+     "end": 15896,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c2",
+   "predicate": "has_distribution",
+   "subject": "rv_sum",
+   "object": {
+    "ref": "e_normal"
+   },
+   "qualifiers": {
+    "modality": "asserted",
+    "param_values": {
+     "mean": {
+      "t": "formula",
+      "latex": "\\mu_1 + \\mu_2",
+      "symbols": {
+       "\\mu_1": {
+        "bind": "param_of",
+        "claim": "c1",
+        "param": "mean"
+       },
+       "\\mu_2": {
+        "bind": "param_of",
+        "claim": "c1",
+        "param": "mean"
+       }
+      }
+     },
+     "variance": {
+      "t": "formula",
+      "latex": "\\sigma_1^2 + \\sigma_2^2",
+      "symbols": {
+       "\\sigma_1": {
+        "bind": "param_expr_of",
+        "claim": "c1",
+        "param": "variance"
+       },
+       "\\sigma_2": {
+        "bind": "param_expr_of",
+        "claim": "c1",
+        "param": "variance"
+       }
+      }
+     }
+    },
+    "conditions": {
+     "op": "and",
+     "args": [
+      {
+       "op": "pred",
+       "name": "independent",
+       "args": [
+        {
+         "t": "formula",
+         "latex": "X_1",
+         "symbols": {
+          "X_1": {
+           "bind": "variable",
+           "entity": "rv_Xi"
+          }
+         }
+        },
+        {
+         "t": "formula",
+         "latex": "X_2",
+         "symbols": {
+          "X_2": {
+           "bind": "variable",
+           "entity": "rv_Xi"
+          }
+         }
+        }
+       ]
+      },
+      {
+       "op": "claim",
+       "ref": "c1"
+      },
+      {
+       "op": "member",
+       "x": {
+        "t": "formula",
+        "latex": "i",
+        "symbols": {
+         "i": {
+          "bind": "free"
+         }
+        }
+       },
+       "set": {
+        "t": "set",
+        "latex": "\\{1, 2\\}"
+       }
+      }
+     ]
+    }
+   },
+   "statement": "st_thm",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 15921,
+     "end": 15968,
+     "role": "primary"
+    },
+    {
+     "start": 15741,
+     "end": 15806,
+     "role": "condition"
+    }
+   ]
+  },
+  {
+   "local_ref": "c3",
+   "predicate": "mean_value",
+   "subject": "rv_sum",
+   "object": {
+    "t": "formula",
+    "latex": "\\mu_1 + \\mu_2",
+    "symbols": {
+     "\\mu_1": {
+      "bind": "param_of",
+      "claim": "c1",
+      "param": "mean"
+     },
+     "\\mu_2": {
+      "bind": "param_of",
+      "claim": "c1",
+      "param": "mean"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st_thm",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 15974,
+     "end": 16007,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c4",
+   "predicate": "variance_value",
+   "subject": "rv_sum",
+   "object": {
+    "t": "formula",
+    "latex": "\\sigma_1^2 + \\sigma_2^2",
+    "symbols": {
+     "\\sigma_1": {
+      "bind": "param_expr_of",
+      "claim": "c1",
+      "param": "variance"
+     },
+     "\\sigma_2": {
+      "bind": "param_expr_of",
+      "claim": "c1",
+      "param": "variance"
+     }
+    }
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "statement": "st_thm",
+   "statement_role": "conclusion",
+   "evidence": [
+    {
+     "start": 16012,
+     "end": 16057,
+     "role": "primary"
+    }
+   ]
+  },
+  {
+   "local_ref": "c5",
+   "predicate": "proves",
+   "subject": "st_proof",
+   "object": {
+    "ref": "st_thm"
+   },
+   "qualifiers": {
+    "modality": "asserted"
+   },
+   "evidence": [
+    {
+     "start": 16365,
+     "end": 16490,
+     "role": "primary"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": []
+}

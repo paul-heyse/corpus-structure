@@ -1,0 +1,22 @@
+{
+  "unit_ref": "T2",
+  "entities": [
+    {"local_ref": "e_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": ["normal distribution"], "identity": {}},
+    {"local_ref": "rv_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "section", "symbol": "X", "aliases": ["X"], "identity": {}},
+    {"local_ref": "par_loc", "type": "FamilyParameter", "label": "location parameter", "scope": "global", "symbol": "\\mu", "aliases": ["location parameter", "\\mu"], "identity": {"family": {"ref": "e_normal"}, "canonical_name": "location"}},
+    {"local_ref": "par_scale", "type": "FamilyParameter", "label": "scale parameter", "scope": "global", "symbol": "\\sigma", "aliases": ["scale parameter", "\\sigma"], "identity": {"family": {"ref": "e_normal"}, "canonical_name": "scale"}},
+    {"local_ref": "par_mean", "type": "FamilyParameter", "label": "mean", "scope": "global", "aliases": ["mean"], "identity": {"family": {"ref": "e_normal"}, "canonical_name": "mean"}},
+    {"local_ref": "par_sd", "type": "FamilyParameter", "label": "standard deviation", "scope": "global", "aliases": ["standard deviation"], "identity": {"family": {"ref": "e_normal"}, "canonical_name": "standard_deviation"}}
+  ],
+  "statements": [
+    {"local_ref": "st_asm", "kind": "assumption", "anchor": ["s1"]},
+    {"local_ref": "st_rem", "kind": "remark", "anchor": ["s2"]}
+  ],
+  "claims": [
+    {"local_ref": "c1", "predicate": "has_distribution", "subject": "rv_X", "object": {"ref": "e_normal"}, "qualifiers": {"modality": "supposed", "scope": "section", "param_values": {"location": {"t": "formula", "latex": "\\mu", "symbols": {"\\mu": {"bind": "param_of", "claim": "c1", "param": "location"}}}, "scale": {"t": "formula", "latex": "\\sigma", "symbols": {"\\sigma": {"bind": "param_of", "claim": "c1", "param": "scale"}}}}, "conditions": {"op": "and", "args": [{"op": "member", "x": {"t": "formula", "latex": "\\mu", "symbols": {"\\mu": {"bind": "param_of", "claim": "c1", "param": "location"}}}, "set": {"t": "set", "latex": "\\R"}}, {"op": "member", "x": {"t": "formula", "latex": "\\sigma", "symbols": {"\\sigma": {"bind": "param_of", "claim": "c1", "param": "scale"}}}, "set": {"t": "set", "latex": "(0, \\infty)"}}]}}, "statement": "st_asm", "statement_role": "premise", "evidence": [{"sentence": "s1", "quote": "has the normal distribution with location parameter \\( \\mu \\in \\R \\) and scale parameter \\( \\sigma \\in (0, \\infty) \\)", "role": "primary"}]},
+    {"local_ref": "c2", "predicate": "identical_parameter", "subject": "par_loc", "object": {"ref": "par_mean"}, "qualifiers": {"modality": "asserted"}, "statement": "st_rem", "evidence": [{"sentence": "s2", "quote": "the location and scale parameters are also the mean and standard deviation, respectively", "role": "primary"}]},
+    {"local_ref": "c3", "predicate": "identical_parameter", "subject": "par_scale", "object": {"ref": "par_sd"}, "qualifiers": {"modality": "asserted"}, "statement": "st_rem", "evidence": [{"sentence": "s2", "quote": "the location and scale parameters are also the mean and standard deviation, respectively", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

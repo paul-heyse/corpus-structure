@@ -1,0 +1,17 @@
+{
+  "unit_ref": "U12",
+  "entities": [
+    {"local_ref": "rv_X", "type": "RandomVariable", "label": "X", "scope": "local", "extent": "statement", "symbol": "X", "aliases": [{"text": "X", "kind": "symbol"}], "identity": {"symbol": "X"}}
+  ],
+  "statements": [
+    {"local_ref": "st_thm", "kind": "theorem", "anchor": ["s1", "s2", "s3"]},
+    {"local_ref": "st_proof", "kind": "proof", "anchor": ["s4", "s5"]}
+  ],
+  "claims": [
+    {"local_ref": "c1", "predicate": "mean_value", "subject": "rv_X", "object": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "unresolved"}}}, "qualifiers": {"modality": "asserted"}, "statement": "st_thm", "statement_role": "conclusion", "evidence": [{"sentence": "s2", "quote": "\\(\\E(X) = k\\)", "role": "primary"}]},
+    {"local_ref": "c2", "predicate": "variance_value", "subject": "rv_X", "object": {"t": "formula", "latex": "k", "symbols": {"k": {"bind": "unresolved"}}}, "qualifiers": {"modality": "asserted"}, "statement": "st_thm", "statement_role": "conclusion", "evidence": [{"sentence": "s3", "quote": "\\(\\var(X) = k\\)", "role": "primary"}]},
+    {"local_ref": "c3", "predicate": "proves", "subject": "st_proof", "object": {"ref": "st_thm"}, "qualifiers": {"modality": "asserted"}, "evidence": [{"sentence": "s4", "quote": "(a) From [3]", "role": "primary"}, {"sentence": "s5", "quote": "(b) From [3] again", "role": "supporting"}]}
+  ],
+  "alternatives": [],
+  "unsupported": []
+}

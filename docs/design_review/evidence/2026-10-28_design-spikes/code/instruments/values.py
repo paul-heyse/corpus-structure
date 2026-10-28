@@ -31,7 +31,7 @@ import signal
 import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
+from decimal import Context, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -60,7 +60,7 @@ SIMPLIFY_SECONDS = 5.0
 NUMERIC_SEED = 20261028
 NUMERIC_POINTS = 12
 NUMERIC_MAX_DRAWS = 4000
-NUMERIC_MIN_POINTS = 3
+NUMERIC_MIN_POINTS = 6  # distinct valid points needed to decide
 REL_TOL = 1e-9
 ABS_TOL = 1e-12
 
@@ -229,7 +229,7 @@ def text_norm(s: str) -> str:
     return " ".join(unicodedata.normalize("NFC", s).casefold().split())
 
 
-# Fallback unit table (pint is not installed in the spike env): unit -> (base unit, factor).
+# Fallback unit table, used only when pint is absent or does not know a unit: unit -> (base unit, factor).
 _UNITS: dict[str, tuple[str | None, Decimal]] = {
     "m": ("m", Decimal(1)),
     "cm": ("m", Decimal("0.01")),
@@ -244,7 +244,7 @@ _UNITS: dict[str, tuple[str | None, Decimal]] = {
     "h": ("s", Decimal(3600)),
     "%": (None, Decimal("0.01")),
 }
-try:  # pragma: no cover - pint absent at E0
+try:  # pint 0.26.2 is in the spike env since de5bd4c
     import pint  # type: ignore
 
     _UREG = pint.UnitRegistry()
@@ -253,15 +253,22 @@ except Exception:  # noqa: BLE001
 
 
 def number_base(v: str, unit: str | None) -> tuple[Decimal | None, str | None]:
+    """Decimal value in pint base units (D1 §6.2). pint 0.26.2 is the route; its float
+    conversion factors are rounded to 15 significant digits so the canonical string carries no
+    float noise. The fallback table applies only when pint is absent or does not know the unit
+    (then the table's factor, else the unit string kept as written with factor 1)."""
     try:
         d = Decimal(str(v).strip())
     except InvalidOperation:
         return None, unit
     if not unit:
         return d, None
-    if _UREG is not None:  # pragma: no cover
-        q = _UREG.Quantity(d, unit).to_base_units()
-        return Decimal(str(q.magnitude)), str(q.units)
+    if _UREG is not None:
+        try:
+            q = _UREG.Quantity(d, unit.strip()).to_base_units()
+            return Context(prec=15).create_decimal(str(q.magnitude)), str(q.units)
+        except Exception:  # noqa: BLE001 - unknown unit: fall through to the table
+            pass
     base, f = _UNITS.get(unit.strip(), (unit.strip(), Decimal(1)))
     return d * f, base
 
@@ -328,7 +335,6 @@ _SHIM_GREEK = {"sigma", "varsigma", "iota", "pi", "varpi", "Gamma", "Delta", "Th
 _NON_ATOM_AFTER = {"+", "-", "=", "<", ">", ",", ")", "]", "}", "^", "_", "|", "!", "/", "*",
                    "\\cdot", "\\times", "\\le", "\\ge", "\\leq", "\\geq", "\\ne", "\\neq",
                    "\\in", "\\setminus", "\\div", "\\mid", "&"}
-_DIGITS = "abcdefghij"
 
 
 class _Timeout(Exception):
@@ -349,10 +355,59 @@ def time_limit(seconds: float):
         signal.signal(signal.SIGALRM, old)
 
 
+def _group_end(tokens: list[str], i: int) -> int:
+    """Index of the ``}`` closing the group opened at ``tokens[i] == "{"`` (or -1)."""
+    depth = 0
+    for k in range(i, len(tokens)):
+        depth += tokens[k] == "{"
+        depth -= tokens[k] == "}"
+        if depth == 0:
+            return k
+    return -1
+
+
+def _encode(sub: str) -> str:
+    """Injective letters-only encoding of a subscript (hex of its UTF-8, digits a-p)."""
+    return "".join("abcdefghijklmnop"[int(c, 16)] for c in sub.encode("utf-8").hex())
+
+
+def application_ambiguity(tokens: list[str]) -> str | None:
+    """A symbol directly followed by ``(`` reads as function application or as a product
+    (``\\Phi(-x)``, ``f(x) y``, ``\\Gamma(k)``, ``X_1(t)``); SymPy's lark grammar either returns
+    an unresolved ambiguity or silently picks the product. Such formulas go to manual."""
+    for i, t in enumerate(tokens):
+        if t != "(" or i == 0:
+            continue
+        p = tokens[i - 1]
+        sym = None
+        if re.fullmatch(r"[A-Za-z]", p) and not (i >= 2 and tokens[i - 2] == "^"):
+            sym = p
+        elif p.startswith("\\") and (p[1:] in _LARK_GREEK or p[1:] in _SHIM_GREEK):
+            sym = p
+        elif i >= 2 and tokens[i - 2] == "_":
+            sym = "".join(tokens[max(0, i - 3) : i])
+        elif p == "}":
+            depth, k = 0, i - 1
+            while k >= 0:
+                depth += tokens[k] == "}"
+                depth -= tokens[k] == "{"
+                if depth == 0:
+                    break
+                k -= 1
+            if k >= 1 and tokens[k - 1] == "_":
+                sym = "".join(tokens[max(0, k - 2) : i])
+        if sym is not None:
+            return f"{sym}( reads as application or product"
+    return None
+
+
 def _lark_shim(tokens: list[str]) -> tuple[str, dict[str, str]]:
     """Rewrite canonical tokens into what SymPy 1.14's lark grammar accepts.
 
     Returns the LaTeX string and a symbol rename map (placeholder name -> intended name).
+    Greek letters the grammar lacks become ``\\mathit{name}``; a subscript (any token or
+    group, e.g. ``\\sigma_{X_1}``, ``\\sigma_\\mu``) is kept in the placeholder name through an
+    injective letters-only encoding and restored as ``name_{sub}`` after parsing.
     """
     renames: dict[str, str] = {}
     toks: list[str] = []
@@ -363,22 +418,18 @@ def _lark_shim(tokens: list[str]) -> tuple[str, dict[str, str]]:
             toks.append("|")
         elif t.startswith("\\") and t[1:] in _SHIM_GREEK:
             name = t[1:]
-            sub = None
-            if i + 2 < len(tokens) and tokens[i + 1] == "_":
+            ph = name
+            if i + 1 < len(tokens) and tokens[i + 1] == "_" and i + 2 < len(tokens):
                 if tokens[i + 2] == "{":
-                    k = tokens.index("}", i + 2) if "}" in tokens[i + 2 :] else None
-                    if k is not None:
-                        sub = "".join(tokens[i + 3 : k])
-                        i = k
+                    k = _group_end(tokens, i + 2)
+                    if k < 0:
+                        raise ValueError("unbalanced subscript group")
+                    sub_toks, i = tokens[i + 3 : k], k
                 else:
-                    sub = tokens[i + 2]
-                    i += 2
-            if sub is not None and re.fullmatch(r"[A-Za-z0-9]+", sub):
-                enc = "".join(_DIGITS[int(c)] if c.isdigit() else c for c in sub)
-                ph = f"{name}ZZ{enc}"
+                    sub_toks, i = [tokens[i + 2]], i + 2
+                sub = serialize(sub_toks)
+                ph = f"{name}ZZ{_encode(sub)}"
                 renames[ph] = f"{name}_{{{sub}}}"
-            else:
-                ph = name
             toks.extend(["\\mathit", "{", ph, "}"])
         else:
             toks.append(t)
@@ -455,12 +506,20 @@ def parse_formula(latex: str, macros: dict | None = None) -> ParseResult:
     if key in _PARSE_CACHE:
         return _PARSE_CACHE[key]
     res = ParseResult()
+    amb = application_ambiguity(canonical_tokens(latex, macros))
+    if amb is not None:
+        res.error = f"ambiguous: {amb}"
+        PARSE_LOG.append({"latex": latex, "expanded": raw, "raw_error": res.error, "shimmed": None,
+                          "shim_ok": False, "shim_error": res.error})
+        _PARSE_CACHE[key] = res
+        return res
     try:
         res.expr = _plain(parse_latex(raw, backend="lark"), {})
     except Exception as ex:  # noqa: BLE001
         raw_err = f"{type(ex).__name__}: {str(ex).splitlines()[0][:120]}"
-        shimmed, ren = _lark_shim(canonical_tokens(latex, macros))
+        shimmed, ren = None, {}
         try:
+            shimmed, ren = _lark_shim(canonical_tokens(latex, macros))
             res.expr = _plain(parse_latex(shimmed, backend="lark"), ren)
             res.shim = True
         except Exception as ex2:  # noqa: BLE001
@@ -635,23 +694,78 @@ def _close(x: complex, y: complex) -> bool:
     return abs(x - y) <= max(REL_TOL * max(abs(x), abs(y)), ABS_TOL)
 
 
+def _bounds(sym, members, rels) -> tuple[float, float]:
+    """Numeric lower/upper bounds on ``sym`` from its member sets and ``sym <rel> number`` leaves."""
+    lo, hi = -math.inf, math.inf
+    for s, st in members:
+        if s != sym:
+            continue
+        for attr, which in (("inf", "lo"), ("sup", "hi")):
+            try:
+                v = getattr(st, attr)
+                if v.is_number and v.is_finite:
+                    if which == "lo":
+                        lo = max(lo, float(v))
+                    else:
+                        hi = min(hi, float(v))
+            except Exception:  # noqa: BLE001
+                pass
+    for rel, lhs, rhs in rels:
+        if lhs == sym and rhs.is_number:
+            c, r = float(rhs), rel
+        elif rhs == sym and lhs.is_number:
+            c, r = float(lhs), {"<": ">", "<=": ">=", ">": "<", ">=": "<="}.get(rel, rel)
+        else:
+            continue
+        if r in ("<", "<="):
+            hi = min(hi, c)
+        elif r in (">", ">="):
+            lo = max(lo, c)
+    return lo, hi
+
+
+def _draw_real(rng: random.Random, lo: float, hi: float) -> float:
+    if math.isfinite(lo) and math.isfinite(hi):
+        return rng.uniform(lo, hi)
+    # half small (|v| <= 5), half large-magnitude (10^-2 .. 10^3), so piecewise forms such as
+    # min(x, 10) are exercised beyond the unit range
+    v = rng.uniform(-5.0, 5.0) if rng.random() < 0.5 else rng.choice((-1, 1)) * 10 ** rng.uniform(-2, 3)
+    if math.isfinite(lo):
+        return lo + abs(v)
+    if math.isfinite(hi):
+        return hi - abs(v)
+    return v
+
+
+def _draw_int(rng: random.Random, lo: float, hi: float) -> int:
+    a = math.ceil(lo) if math.isfinite(lo) else (math.floor(hi) - 200 if math.isfinite(hi) else -100)
+    b = math.floor(hi) if math.isfinite(hi) else a + 200
+    return rng.randint(a, b) if a <= b else a
+
+
 def sample_points(symbols, members, rels, rng: random.Random) -> list[dict]:
+    """Distinct points satisfying the constraints (rejection sampling)."""
     import sympy
 
     sym_sets: dict = {}
     for s, st in members:
         sym_sets.setdefault(s, []).append(st)
-    pts = []
-    draws = 0
     syms = sorted(symbols, key=str)
+    spec = {}
+    for s in syms:
+        integer = any(bool(st.is_subset(sympy.S.Integers)) for st in sym_sets.get(s, []))
+        spec[s] = (integer, *_bounds(s, members, rels))
+    pts, seen = [], set()
+    draws = 0
     while len(pts) < NUMERIC_POINTS and draws < NUMERIC_MAX_DRAWS:
         draws += 1
         pt = {}
         for s in syms:
-            sets = sym_sets.get(s, [])
-            integer = any(bool(st.is_subset(sympy.S.Integers)) for st in sets)
-            val = rng.randint(-10, 10) if integer else rng.uniform(-5.0, 5.0)
-            pt[s] = sympy.Integer(val) if integer else sympy.Float(val, 30)
+            integer, lo, hi = spec[s]
+            pt[s] = sympy.Integer(_draw_int(rng, lo, hi)) if integer else sympy.Float(_draw_real(rng, lo, hi), 30)
+        key = tuple(str(pt[s]) for s in syms)
+        if key in seen:
+            continue
         ok = True
         for s, st in members:
             if s in pt and st.contains(pt[s]) is not sympy.true:
@@ -667,6 +781,7 @@ def sample_points(symbols, members, rels, rng: random.Random) -> list[dict]:
                     ok = False
                     break
         if ok:
+            seen.add(key)
             pts.append(pt)
     return pts
 
@@ -804,7 +919,10 @@ class ValueComparator:
             r.shim = shim
             return r
         ea, eb = pa.expr, pb.expr
-        rel_a, rel_b = isinstance(ea, sympy.Equality), isinstance(eb, sympy.Equality)
+        ka, kb = _expr_kind(ea), _expr_kind(eb)
+        if "relation" in (ka, kb):
+            return self._compare_relation(ea, eb, ka, kb, a, b, shim)
+        rel_a, rel_b = ka == "equation", kb == "equation"
         if rel_a != rel_b:
             return Equivalence(False, "sympy", t, a, b, "equation versus expression", shim)
         diffs = [ea.lhs - ea.rhs - (eb.lhs - eb.rhs), ea.lhs - ea.rhs + (eb.lhs - eb.rhs)] if rel_a else [ea - eb]
@@ -844,3 +962,46 @@ class ValueComparator:
         r = self._manual(t, a, b, f"{detail}; numeric: {n_valid} valid points")
         r.shim = shim
         return r
+
+    def _compare_relation(self, ea, eb, ka, kb, a, b, shim) -> Equivalence:
+        """Inequalities (``x < 1``, ``X \\le x``): equal when the operators agree after writing
+        ``>``/``>=`` as ``<``/``<=`` and ``lhs - rhs`` simplifies to the same expression;
+        unequal when the differences differ by a nonzero constant or the other side is not a
+        relation; anything else goes to manual."""
+        import sympy
+
+        if ka != kb:
+            return Equivalence(False, "sympy", "relation", a, b, f"{ka} versus {kb}", shim)
+        ea, eb = _lt_form(ea), _lt_form(eb)
+        if type(ea) is not type(eb):
+            return self._manual("relation", a, b, f"operators differ: {type(ea).__name__} vs {type(eb).__name__}")
+        da, db = ea.lhs - ea.rhs, eb.lhs - eb.rhs
+        cands = [da - db] + ([da + db] if isinstance(ea, sympy.Unequality) else [])
+        try:
+            with time_limit(SIMPLIFY_SECONDS):
+                simp = [sympy.simplify(c) for c in cands]
+        except Exception as ex:  # noqa: BLE001  (timeout included)
+            return self._manual("relation", a, b, f"simplify {type(ex).__name__}")
+        if any(c == 0 for c in simp):
+            return Equivalence(True, "sympy", "relation", a, b, shim=shim)
+        if all(c.is_number and c.is_zero is False for c in simp):
+            return Equivalence(False, "sympy", "relation", a, b, "sides differ by a nonzero constant", shim)
+        return self._manual("relation", a, b, "relation equivalence inconclusive")
+
+
+def _expr_kind(e) -> str:
+    import sympy
+
+    if isinstance(e, sympy.Equality):
+        return "equation"
+    if isinstance(e, sympy.core.relational.Relational):
+        return "relation"
+    return "expression"
+
+
+def _lt_form(e):
+    import sympy
+
+    if isinstance(e, (sympy.StrictGreaterThan, sympy.GreaterThan)):
+        return e.reversed
+    return e

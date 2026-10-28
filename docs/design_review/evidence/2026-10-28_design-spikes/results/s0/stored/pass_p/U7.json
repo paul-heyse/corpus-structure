@@ -1,0 +1,100 @@
+{
+ "envelope": {
+  "unit": "U7",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "source": "results/s0/pass_p/U7.json"
+ },
+ "unit_ref": "U7",
+ "entities": [
+  {
+   "local_ref": "rv_c",
+   "type": "RandomVariable",
+   "label": "a constant",
+   "scope": "local",
+   "extent": "statement",
+   "aliases": [
+    "a constant"
+   ],
+   "identity": {},
+   "scope_segment": "seg:56cd22bafd1c152d7f14817bf7521324"
+  },
+  {
+   "local_ref": "e_normal",
+   "type": "DistributionFamily",
+   "label": "normal distribution",
+   "scope": "global",
+   "aliases": [
+    "normal distribution"
+   ],
+   "identity": {}
+  }
+ ],
+ "statements": [
+  {
+   "local_ref": "st_conv",
+   "kind": "convention",
+   "anchor": [
+    "seg:8f1e2d1b8e287f1dd2ac8cd2eadc30b1"
+   ]
+  }
+ ],
+ "claims": [
+  {
+   "local_ref": "c1",
+   "predicate": "has_distribution",
+   "subject": "rv_c",
+   "object": {
+    "ref": "e_normal"
+   },
+   "qualifiers": {
+    "modality": "conventional",
+    "param_values": {
+     "variance": {
+      "t": "formula",
+      "latex": "0"
+     }
+    }
+   },
+   "statement": "st_conv",
+   "evidence": [
+    {
+     "start": 21135,
+     "end": 21186,
+     "role": "primary"
+    },
+    {
+     "start": 21221,
+     "end": 21231,
+     "role": "supporting"
+    }
+   ]
+  }
+ ],
+ "alternatives": [],
+ "unsupported": [
+  {
+   "local_ref": "u1",
+   "reason": "The mean under the convention is the constant itself; the constant has no symbol or formula in the source, so no has_distribution param value can carry it.",
+   "start": 21188,
+   "end": 21216
+  },
+  {
+   "local_ref": "u2",
+   "reason": "Negative applicability claim about named formulas that are cited by number to results outside this unit; no predicate states that a formula does not apply.",
+   "start": 21345,
+   "end": 21461
+  },
+  {
+   "local_ref": "u3",
+   "reason": "Validity claim about numbered results outside this unit; no predicate expresses the applicability of a referenced result to a constant.",
+   "start": 21467,
+   "end": 21590
+  },
+  {
+   "local_ref": "u4",
+   "reason": "Hypothetical generalization of a numbered result over all parameters; no predicate or condition form for a referenced result's scope.",
+   "start": 21602,
+   "end": 21679
+  }
+ ]
+}

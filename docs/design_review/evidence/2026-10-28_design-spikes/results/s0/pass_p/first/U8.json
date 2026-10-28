@@ -1,0 +1,22 @@
+{
+  "unit_ref": "U8",
+  "entities": [
+    {"local_ref": "rod", "type": "RandomVariable", "label": "radius of the rod", "scope": "local", "extent": "statement", "aliases": [{"text": "the radius of the rod", "kind": "term"}], "identity": {}},
+    {"local_ref": "hole", "type": "RandomVariable", "label": "radius of the hole", "scope": "local", "extent": "statement", "aliases": [{"text": "the radius of the hole", "kind": "term"}], "identity": {}},
+    {"local_ref": "e_normal", "type": "DistributionFamily", "label": "normal distribution", "scope": "global", "aliases": [{"text": "normally distributed", "kind": "term"}], "identity": {}}
+  ],
+  "statements": [
+    {"local_ref": "st_ex", "kind": "exercise", "anchor": ["s1", "s2", "s3", "s4", "s5"]},
+    {"local_ref": "st_sol", "kind": "solution", "anchor": ["s6", "s7"]}
+  ],
+  "claims": [
+    {"local_ref": "c1", "predicate": "has_distribution", "subject": "rod", "object": {"ref": "e_normal"}, "qualifiers": {"modality": "exemplified", "param_values": [{"key": "mean", "value": {"t": "formula", "latex": "1"}}, {"key": "standard_deviation", "value": {"t": "formula", "latex": "0.002"}}]}, "statement": "st_ex", "statement_role": "example_value", "evidence": [{"sentence": "s2", "quote": "The radius of the rod is normally distributed with mean 1 cm and standard deviation 0.002 cm", "role": "primary"}]},
+    {"local_ref": "c2", "predicate": "has_distribution", "subject": "hole", "object": {"ref": "e_normal"}, "qualifiers": {"modality": "exemplified", "param_values": [{"key": "mean", "value": {"t": "formula", "latex": "1.01"}}, {"key": "standard_deviation", "value": {"t": "formula", "latex": "0.003"}}]}, "statement": "st_ex", "statement_role": "example_value", "evidence": [{"sentence": "s3", "quote": "The radius of the hole is normally distributed with mean 1.01 cm and standard deviation 0.003 cm", "role": "primary"}]},
+    {"local_ref": "c3", "predicate": "proves", "subject": "st_sol", "object": {"ref": "st_ex"}, "qualifiers": {"modality": "asserted"}, "evidence": [{"sentence": "s6", "quote": "Let \\(X\\) denote the radius of the rod and \\(Y\\) the radius of the hole.", "role": "primary"}]}
+  ],
+  "alternatives": [],
+  "unsupported": [
+    {"local_ref": "u1", "sentence": "s5", "quote": "Find the probability that the rod is to big for the hole", "reason": "The asked quantity is the probability of an event; no predicate expresses a posed probability, so it cannot be recorded with modality posed."},
+    {"local_ref": "u2", "sentence": "s4", "quote": "The machining processes that produce the rod and the hole are independent", "reason": "Exemplified independence of two random variables; independent is only a condition predicate in condition trees and no claim predicate expresses independence."}
+  ]
+}

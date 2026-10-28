@@ -1,0 +1,17 @@
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/instructions_p.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/guideline.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/schema.yaml
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/model.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/format.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/T1.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/T2.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/T3.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/T4.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/U5.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/U6.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/U7.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/U8.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/U9.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/U10.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/U11.md
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_design-spikes/results/s0/inputs/packet_only/units/U12.md
