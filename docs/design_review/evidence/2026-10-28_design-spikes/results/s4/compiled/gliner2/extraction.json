@@ -1,0 +1,74 @@
+{
+ "entities": {
+  "mathematical concept": "A defined mathematical term that is not a distribution family, construction or parameter: the gamma function, the standard score, the moment generating function. Examples: the gamma function; the standard score.",
+  "distribution family": "A named family of probability distributions, possibly with parameters: the normal distribution, the gamma distribution, the standard normal distribution. Mentions include adjectival forms (\"normally distributed\", \"has a gamma distribution\"). Examples: the normal distribution; lognormal distribution; normally distributed.",
+  "family construction": "A way of generating a family of distributions from a base distribution, such as the location-scale family, the location family or the scale family associated with a distribution, or the general exponential family. Not itself a single distribution family. Examples: location-scale family; scale family associated with the given distribution.",
+  "distribution parameter": "A parameter of a distribution family or construction, such as the location parameter, the scale parameter, the shape parameter k, the rate, the mean or the standard deviation when these parameterize the family. Examples: location parameter; shape parameter k; the rate parameter.",
+  "random variable": "A random variable denoted by a symbol (X, Y, Z, X_1, W) or by an expression in other random variables (a + b X, e^Y, X_1 + X_2). Local to the statement or section that introduces it. Examples: X; a + b X; X_1 + X_2."
+ },
+ "entity_attributes": {
+  "ParameterRole": {
+   "labels": [
+    "location",
+    "scale",
+    "shape",
+    "rate",
+    "mean",
+    "variance",
+    "standard_deviation",
+    "precision",
+    "degrees_of_freedom",
+    "success_probability",
+    "number_of_trials",
+    "lower_bound",
+    "upper_bound",
+    "other"
+   ],
+   "applies_to": [
+    "distribution parameter"
+   ],
+   "qualify_labels": true
+  }
+ },
+ "classifications": [
+  {
+   "task": "ClaimModality",
+   "labels": {
+    "asserted": "Concluded or stated as true; structural claims.",
+    "supposed": "A supposition: suppose, assume, if, or let about something taken as given.",
+    "defined": "What a definition stipulates, including a formula introducing a variable.",
+    "conventional": "A convention.",
+    "exemplified": "Setup values in examples and exercises.",
+    "posed": "Reserved until an asks_for predicate exists (OPEN-D2-15).",
+    "cited": "Attributed to another source."
+   }
+  },
+  {
+   "task": "StatementKind",
+   "labels": {
+    "definition": "Stipulates what a term means.",
+    "theorem": "A stated result.",
+    "proposition": "A stated result.",
+    "lemma": "A stated auxiliary result.",
+    "corollary": "A result stated to follow from another.",
+    "proof": "A proof of another statement.",
+    "example": "A worked example with setup values.",
+    "exercise": "An exercise with setup values and an asked quantity.",
+    "solution": "A solution of an exercise.",
+    "remark": "A remark; explicit claims only.",
+    "convention": "A convention the source adopts.",
+    "notation": "A notation the source introduces.",
+    "assumption": "A statement whose only content is a supposition (a context premise).",
+    "narrative": "Narrative text between units that states claims."
+   }
+  }
+ ],
+ "relations": {
+  "has distribution": {
+   "description": "The random variable has a distribution in the family, optionally with stated parameter values. \"X is normally distributed with mean μ and variance σ²\"."
+  },
+  "has parameter": {
+   "description": "A family or construction has this parameter. \"with shape parameter k and scale parameter b\"."
+  }
+ }
+}

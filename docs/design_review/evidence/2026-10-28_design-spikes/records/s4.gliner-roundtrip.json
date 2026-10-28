@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "id": "s4.gliner-roundtrip",
+  "title": "GLiNER2 extraction and JointIE schemas compiled from the pack",
+  "group": "S4 LinkML compilation",
+  "package": "S4-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which Schema.from_dict keys does gliner2 2.1.0 accept for the pack's entities, attributes, classifications and relations, do the compiled dicts round-trip, and do both schemas run (OPEN-D2-1)?",
+  "answers": [
+    "OPEN-D2-1",
+    "D2 §7.2"
+  ],
+  "method": "Dicts compiled from mention classes (title, description plus examples), enums by ci:extract (attribute, classification), ci:extract relation predicates; Schema.from_dict/to_dict and JointSchema.from_dict/to_dict fixpoints; unknown key rejected; one extraction each on T3 s1 on CPU with the cached fastino/gliner2.5-base-v1.",
+  "commands": [
+    "HF_HUB_OFFLINE=1 UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s4_gliner.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (W-S2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/schema",
+      "role": "spike schema copies (D2 §6, §9 v0)",
+      "sha256": "6de5c7eb0e959610b0f329efca839a061f97c8a40fa666fd31f6ee92bd66da23"
+    },
+    {
+      "path": "code/s4",
+      "role": "S4 compiler package",
+      "sha256": "909fe0549044ecdb2be8d6f91dc68d65e025925f06a60a6e73e90706a9eafef4"
+    },
+    {
+      "path": "code/s4_gliner.py",
+      "role": "GLiNER2 script",
+      "sha256": "e188d78dc1bc58d80a8fa8c32e14eb4c2729ec3ac4bd2167b3456bcefd9cdfa8"
+    },
+    {
+      "path": "results/s4/schema",
+      "role": "pack files",
+      "sha256": "21e1109ffb4e4c15286119df96241a1fa3f5e5f237752b32a561171b8ef0a747"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s4/compiled/gliner2",
+      "role": "extraction and joint dicts",
+      "sha256": "f779c8c78b2a32d4bdc5abcd221ae66cb5268f2e7da5eac69b5be103caa14749"
+    },
+    {
+      "path": "results/s4/gliner2.json",
+      "role": "keys, round trip, runs",
+      "sha256": "96977f732a34e8525fb470210ecbf5eb66edff7f13d70203a8f96557c549979d"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s4.pack-lint"
+  ],
+  "results": [
+    {
+      "name": "gliner2",
+      "value": "2.1.0",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "extraction_to_dict_fixpoint",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "compiled_dict_equals_to_dict",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "to_dict compacts a description-only entity config to a string; the compiler emits that canonical form"
+    },
+    {
+      "name": "joint_to_dict_fixpoint",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unknown_key_rejected",
+      "value": "ValidationError",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "extraction_run",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "joint_run",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "gliner2 2.1.0 accepts entities {label: description}, entity_attributes {labels, applies_to, qualify_labels}, classifications {task, labels: {label: description}} and relations {name: {description}}; from_dict/to_dict reach a fixpoint on the compiled form (description-only entity configs compact to strings), JointSchema round-trips, an unknown key is rejected, and both schemas ran on CPU. OPEN-D2-1 answered for v0 (no structures or thresholds declared).",
+  "consumed_by": [
+    "S2",
+    "OPEN-D2-1",
+    "S4 report"
+  ]
+}

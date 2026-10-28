@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "id": "s4.decoding-form",
+  "title": "Decoding form compiled in xgrammar 0.2.7 (vLLM 0.31's backend), offline on CPU",
+  "group": "S4 LinkML compilation",
+  "package": "S4-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Is the per-predicate oneOf decoding form accepted by vLLM 0.31's structured-output backend without downgrades, quickly enough, and does its grammar accept the canonical v1 batches and reject seeded invalid ones (V3)?",
+  "answers": [
+    "D2 §7.3"
+  ],
+  "method": "Decoding form = model-facing schema without discriminator/description/default/title, oneOf branches inlined; xgrammar 0.2.7 in a side uv project on CPU torch (results/s4/xgrammar-env); GrammarCompiler with the Qwen3.5-9B tokenizer; backend warnings captured at the fd level; acceptance of the 15 canonical batches compact and indented; 7 seeded invalid batches; each oneOf diagnosed in its own process.",
+  "commands": [
+    "cd results/s4/xgrammar-env && UV_PROJECT_ENVIRONMENT=$REPO/build/spike-xgrammar-venv uv sync --locked",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-xgrammar-venv uv run --project results/s4/xgrammar-env --locked python code/s4_decoding.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (W-S2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s4_decoding.py",
+      "role": "decoding script",
+      "sha256": "b38b5acda67fb8d2b42e551e49c914ea4250ac58d583de31353a1d8c14e983b3"
+    },
+    {
+      "path": "results/s4/xgrammar-env",
+      "role": "side environment (pyproject, uv.lock)",
+      "sha256": "b086abb1c9714c47909e5634f74a377f9b6942cba056a9e1bab1b69f8d1ce694"
+    },
+    {
+      "path": "results/s4/compiled/decoding_inputs",
+      "role": "canonical batches in schema order",
+      "sha256": "444bd447b2d20b9c97b460170e5f997e1c1e97ada547f7aded7f96b2fd3d205d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s4/compiled/batch.decoding.schema.json",
+      "role": "decoding form",
+      "sha256": "690db61122b3f50077c0dda579d25a8ecf029fbc1941ea9aed90bf2dd8c13bc8"
+    },
+    {
+      "path": "results/s4/decoding.json",
+      "role": "compile, acceptance, diagnosis",
+      "sha256": "9fbecb5c52d3f3b0675b5499c221e456e480b68aad1ee995f700f3b19acaacc2"
+    }
+  ],
+  "depends_on": [
+    "s4.batch-validation"
+  ],
+  "results": [
+    {
+      "name": "xgrammar",
+      "value": "0.2.7",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "compile_warnings",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "oneof_kept",
+      "value": 8,
+      "of": 8,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "compile_s",
+      "value": 0.03,
+      "of": null,
+      "unit": "s",
+      "note": "vocab 248077"
+    },
+    {
+      "name": "batches_accepted",
+      "value": 15,
+      "of": 15,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "seeds_rejected",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "ref_branches_downgraded_before_inlining",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "with $ref branches every oneOf fell back to anyOf (8 warnings)"
+    },
+    {
+      "name": "author_key_order_accepted",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "only with any_order=True"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "With oneOf branches inlined, xgrammar 0.2.7 keeps every oneOf (0 warnings), compiles the 53 KB decoding form in 0.03 s with the 248k-token Qwen vocabulary, accepts all 15 canonical batches and rejects all 7 seeds; with $ref branches every oneOf silently became anyOf. V3a (per-predicate oneOf) holds; the flat form is not needed. Checked offline without vLLM itself.",
+  "consumed_by": [
+    "P0-S-1",
+    "S3",
+    "S4 report"
+  ]
+}

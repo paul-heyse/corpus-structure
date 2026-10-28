@@ -1,0 +1,140 @@
+{
+ "by_group": {
+  "guideline": 11,
+  "rules": 5
+ },
+ "compile_ms": 21.9,
+ "evaluations": 866,
+ "finalize_reader": "code/mathgrammar + instruments/values.py sha256 31bff815a0bcb1cd28d91ce36ba924ed8f4a590ed263f8dfdf38c56fccbcd553",
+ "function_form": {
+  "agree_with_attribute_form": 21,
+  "compiled": true,
+  "expr": "$all([k in $family_params(claim.object&.id ?? '') or k in $enums['ParameterRole'] for k in (claim.qualifiers.param_values ?? {}).keys])",
+  "function_calls": 31,
+  "has_distribution_claims": 21
+ },
+ "guideline_seeds": 11,
+ "guideline_seeds_s0r2_warns": 11,
+ "negative_compiles": [
+  {
+   "case": "misspelled attribute",
+   "expr": "claim.qualifers.modality == 'asserted'",
+   "outcome": "rejected: ObjectAttributeError: ('qualifers', <_ObjectDataTypeDef name=Claim attributes=[id, key, predicate, groups, subject, object, value, qualifiers, statement, statement_kind, statement_ro"
+  },
+  {
+   "case": "attribute access on a nullable value",
+   "expr": "claim.object.label == 'x'",
+   "outcome": "rejected: EvaluationError: data type mismatch (attribute access target is nullable; discharge with '??' or use '&.' / '&[' for safe navigation)"
+  },
+  {
+   "case": "wrong function argument type",
+   "expr": "$is_a(claim.evidence_count, 'Entity')",
+   "outcome": "rejected: FunctionCallError: data type mismatch (argument #1)"
+  },
+  {
+   "case": "unknown root symbol",
+   "expr": "clam.predicate == 'x'",
+   "outcome": "rejected: SymbolResolutionError: clam"
+  },
+  {
+   "case": "nondeterministic builtin $now",
+   "expr": "$now > $today",
+   "outcome": "rejected: RuleSyntaxError: nondeterministic builtin(s) ['now', 'today'] rejected"
+  },
+  {
+   "case": "D2 §7.4's earlier form: all(...) is not a symbol",
+   "expr": "all([k in claim.family_params for k in claim.qualifiers.param_values.keys])",
+   "outcome": "rejected: SymbolResolutionError: all"
+  },
+  {
+   "case": "keyword argument in a call (D6 §7.3's earlier form)",
+   "expr": "$is_a(claim.subject.type, target='Entity')",
+   "outcome": "rejected: RuleSyntaxError: (\"syntax error (illegal character '=')\", LexToken(error,\"='Entity')\",1,32))"
+  }
+ ],
+ "parity": {
+  "E1": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "E2": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "E3": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "T1": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "T2": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "T3": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "T4": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "U10": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "U11": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "U12": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "U5": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "U6": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "U7": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "U8": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  },
+  "U9": {
+   "rule_engine_guideline": 0,
+   "s0r2_rules": 0
+  }
+ },
+ "parity_ok": true,
+ "pool": {
+  "claims": 71,
+  "units": [
+   "T1",
+   "T2",
+   "T3",
+   "T4",
+   "U10",
+   "U11",
+   "U12",
+   "U5",
+   "U6",
+   "U7",
+   "U8",
+   "U9"
+  ]
+ },
+ "rules_compiled": 16,
+ "run_ms": 294.4,
+ "seeds": 16,
+ "seeds_caught": 16,
+ "unexpected_fires": []
+}

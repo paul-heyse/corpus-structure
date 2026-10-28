@@ -1,0 +1,1775 @@
+{
+ "annotations": [
+  {
+   "element": "classes/Statement",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "local",
+   "tag": "ci:scope",
+   "type": "str",
+   "yaml": "local"
+  },
+  {
+   "element": "classes/Statement",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "none",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "none"
+  },
+  {
+   "element": "classes/Statement",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:reify",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "classes/Formula/attributes/sympy",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "consolidated",
+   "tag": "ci:form",
+   "type": "str",
+   "yaml": "consolidated"
+  },
+  {
+   "element": "classes/Formula/attributes/parse",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "consolidated",
+   "tag": "ci:form",
+   "type": "str",
+   "yaml": "consolidated"
+  },
+  {
+   "element": "classes/PhraseValue/attributes/sentence",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "model",
+   "tag": "ci:form",
+   "type": "str",
+   "yaml": "model"
+  },
+  {
+   "element": "classes/PhraseValue/attributes/start",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "stored",
+   "tag": "ci:form",
+   "type": "str",
+   "yaml": "stored"
+  },
+  {
+   "element": "classes/PhraseValue/attributes/start",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "stored",
+   "tag": "ci:required_in",
+   "type": "str",
+   "yaml": "stored"
+  },
+  {
+   "element": "classes/PhraseValue/attributes/end",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "stored",
+   "tag": "ci:form",
+   "type": "str",
+   "yaml": "stored"
+  },
+  {
+   "element": "classes/PhraseValue/attributes/end",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "stored",
+   "tag": "ci:required_in",
+   "type": "str",
+   "yaml": "stored"
+  },
+  {
+   "element": "classes/PhraseValue/attributes/coarse",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "stored",
+   "tag": "ci:form",
+   "type": "str",
+   "yaml": "stored"
+  },
+  {
+   "element": "slots/modality",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/polarity",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/hedge",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/attribution",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/conditions",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/scope",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/valid_time",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/defines",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/defines",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/proves",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/proves",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/follows_from",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/follows_from",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/refers_to",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/refers_to",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/unschematized",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/unschematized",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "enums/StatementKind",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "classification",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "classification"
+  },
+  {
+   "element": "enums/StatementKind",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": [
+    "unit",
+    "paragraph"
+   ],
+   "tag": "ci:target",
+   "type": "tuple",
+   "yaml": "unit paragraph"
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/definition",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/theorem",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/proposition",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/lemma",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/corollary",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/proof",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": false,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": false
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/example",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/exercise",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/solution",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": false,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": false
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/remark",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/convention",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/notation",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/assumption",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/StatementKind/permissible_values/narrative",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": true,
+   "tag": "ci:claim_bearing",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/ClaimModality",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": "classification",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "classification"
+  },
+  {
+   "element": "enums/ClaimModality",
+   "equal": true,
+   "file": "core.yaml",
+   "schemaview": [
+    "sentence"
+   ],
+   "tag": "ci:target",
+   "type": "tuple",
+   "yaml": "sentence"
+  },
+  {
+   "element": "classes/DistributionFamily",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "global",
+   "tag": "ci:scope",
+   "type": "str",
+   "yaml": "global"
+  },
+  {
+   "element": "classes/DistributionFamily",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "mention",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "mention"
+  },
+  {
+   "element": "classes/FamilyConstruction",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "global",
+   "tag": "ci:scope",
+   "type": "str",
+   "yaml": "global"
+  },
+  {
+   "element": "classes/FamilyConstruction",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "mention",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "mention"
+  },
+  {
+   "element": "classes/FamilyParameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "global",
+   "tag": "ci:scope",
+   "type": "str",
+   "yaml": "global"
+  },
+  {
+   "element": "classes/FamilyParameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "mention",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "mention"
+  },
+  {
+   "element": "classes/FamilyParameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "family",
+   "tag": "ci:parameter_class",
+   "type": "str",
+   "yaml": "family"
+  },
+  {
+   "element": "classes/RandomVariable",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "local",
+   "tag": "ci:scope",
+   "type": "str",
+   "yaml": "local"
+  },
+  {
+   "element": "classes/RandomVariable",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "mention",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "mention"
+  },
+  {
+   "element": "classes/Concept",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "global",
+   "tag": "ci:scope",
+   "type": "str",
+   "yaml": "global"
+  },
+  {
+   "element": "classes/Concept",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "mention",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "mention"
+  },
+  {
+   "element": "slots/has_distribution",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/has_distribution",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "param_values"
+   ],
+   "tag": "ci:qualifiers",
+   "type": "tuple",
+   "yaml": "param_values"
+  },
+  {
+   "element": "slots/has_distribution",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "param_values"
+   ],
+   "tag": "ci:identity_qualifiers",
+   "type": "tuple",
+   "yaml": "param_values"
+  },
+  {
+   "element": "slots/has_distribution",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "param_values",
+   "tag": "ci:param_map",
+   "type": "str",
+   "yaml": "param_values"
+  },
+  {
+   "element": "slots/has_distribution",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "relation",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "relation"
+  },
+  {
+   "element": "slots/has_distribution",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": true,
+   "tag": "ci:functional",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "slots/defined_as",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/defined_as",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/takes_values_in",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/takes_values_in",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/has_parameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/has_parameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "relation",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "relation"
+  },
+  {
+   "element": "slots/parameter_role",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/parameter_role",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/parameter_domain",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/parameter_domain",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/parameter_domain",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": true,
+   "tag": "ci:functional",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "slots/identical_parameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/identical_parameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/derived_parameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/derived_parameter",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/special_case_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/special_case_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "param_constraints"
+   ],
+   "tag": "ci:qualifiers",
+   "type": "tuple",
+   "yaml": "param_constraints"
+  },
+  {
+   "element": "slots/special_case_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "param_constraints"
+   ],
+   "tag": "ci:identity_qualifiers",
+   "type": "tuple",
+   "yaml": "param_constraints"
+  },
+  {
+   "element": "slots/special_case_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/transformation_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/transformation_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "transform",
+    "param_mapping"
+   ],
+   "tag": "ci:qualifiers",
+   "type": "tuple",
+   "yaml": "transform param_mapping"
+  },
+  {
+   "element": "slots/transformation_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "transform"
+   ],
+   "tag": "ci:identity_qualifiers",
+   "type": "tuple",
+   "yaml": "transform"
+  },
+  {
+   "element": "slots/transformation_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/limit_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/limit_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "limit",
+    "param_mapping"
+   ],
+   "tag": "ci:qualifiers",
+   "type": "tuple",
+   "yaml": "limit param_mapping"
+  },
+  {
+   "element": "slots/limit_of",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/member_of_construction",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/member_of_construction",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "base"
+   ],
+   "tag": "ci:qualifiers",
+   "type": "tuple",
+   "yaml": "base"
+  },
+  {
+   "element": "slots/member_of_construction",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "base"
+   ],
+   "tag": "ci:identity_qualifiers",
+   "type": "tuple",
+   "yaml": "base"
+  },
+  {
+   "element": "slots/member_of_construction",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/construction_formula",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/construction_formula",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": [
+    "base_variable",
+    "param_symbols"
+   ],
+   "tag": "ci:qualifiers",
+   "type": "tuple",
+   "yaml": "base_variable param_symbols"
+  },
+  {
+   "element": "slots/construction_formula",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/support",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/support",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/pdf",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/pdf",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/cdf",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/cdf",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/mgf",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/mgf",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/mean_value",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/mean_value",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/variance_value",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/variance_value",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/definition_formula",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "predicate",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "predicate"
+  },
+  {
+   "element": "slots/definition_formula",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "llm",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "llm"
+  },
+  {
+   "element": "slots/param_values",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/param_constraints",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/transform",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/param_mapping",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/limit",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/base",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/base_variable",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "slots/param_symbols",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "qualifier",
+   "tag": "ci:role",
+   "type": "str",
+   "yaml": "qualifier"
+  },
+  {
+   "element": "enums/ParameterRole",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "attribute",
+   "tag": "ci:extract",
+   "type": "str",
+   "yaml": "attribute"
+  },
+  {
+   "element": "enums/ParameterRole",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "FamilyParameter",
+   "tag": "ci:applies_to",
+   "type": "str",
+   "yaml": "FamilyParameter"
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/independent",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "2+",
+   "tag": "ci:arity",
+   "type": "str",
+   "yaml": "2+"
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/independent",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "RandomVariable",
+   "tag": "ci:args",
+   "type": "str",
+   "yaml": "RandomVariable"
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/independent",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": true,
+   "tag": "ci:symmetric",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/identically_distributed",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "2+",
+   "tag": "ci:arity",
+   "type": "str",
+   "yaml": "2+"
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/identically_distributed",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "RandomVariable",
+   "tag": "ci:args",
+   "type": "str",
+   "yaml": "RandomVariable"
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/identically_distributed",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": true,
+   "tag": "ci:symmetric",
+   "type": "bool",
+   "yaml": true
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/iid",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "2+",
+   "tag": "ci:arity",
+   "type": "str",
+   "yaml": "2+"
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/iid",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": "RandomVariable",
+   "tag": "ci:args",
+   "type": "str",
+   "yaml": "RandomVariable"
+  },
+  {
+   "element": "enums/ConditionPredicate/permissible_values/iid",
+   "equal": true,
+   "file": "statistics.yaml",
+   "schemaview": true,
+   "tag": "ci:symmetric",
+   "type": "bool",
+   "yaml": true
+  }
+ ],
+ "applicable_predicates": {
+  "Concept": [
+   "definition_formula",
+   "unschematized"
+  ],
+  "DistributionFamily": [
+   "cdf",
+   "has_parameter",
+   "limit_of",
+   "mean_value",
+   "member_of_construction",
+   "mgf",
+   "pdf",
+   "special_case_of",
+   "support",
+   "transformation_of",
+   "unschematized",
+   "variance_value"
+  ],
+  "FamilyConstruction": [
+   "construction_formula",
+   "has_parameter",
+   "unschematized"
+  ],
+  "FamilyParameter": [
+   "derived_parameter",
+   "identical_parameter",
+   "parameter_domain",
+   "parameter_role",
+   "unschematized"
+  ],
+  "RandomVariable": [
+   "cdf",
+   "defined_as",
+   "has_distribution",
+   "mean_value",
+   "mgf",
+   "pdf",
+   "support",
+   "takes_values_in",
+   "unschematized",
+   "variance_value"
+  ],
+  "Statement": [
+   "defines",
+   "follows_from",
+   "proves",
+   "refers_to",
+   "unschematized"
+  ]
+ },
+ "counts": {
+  "annotations": 129,
+  "classes": 25,
+  "enums": 10,
+  "predicates": 25,
+  "qualifiers": 15,
+  "slots": 68
+ },
+ "imports_closure": [
+  "linkml:types",
+  "../../core/schema/core",
+  "statistics"
+ ],
+ "induced_slots": {
+  "BoolValue": [
+   {
+    "multivalued": false,
+    "range": "boolean",
+    "required": true,
+    "slot": "v"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "Concept": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "label"
+   }
+  ],
+  "Condition": [],
+  "DateValue": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "v"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "Distributed": [],
+  "DistributionFamily": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "label"
+   }
+  ],
+  "Entity": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "label"
+   }
+  ],
+  "EntityRef": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "ref"
+   }
+  ],
+  "EnumValue": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "enum"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "v"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "FamilyConstruction": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "label"
+   }
+  ],
+  "FamilyParameter": [
+   {
+    "multivalued": false,
+    "range": "Parameterized",
+    "required": true,
+    "slot": "family"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "canonical_name"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "label"
+   }
+  ],
+  "Formula": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "latex"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "sympy"
+   },
+   {
+    "multivalued": false,
+    "range": "ParseStatus",
+    "required": false,
+    "slot": "parse"
+   },
+   {
+    "multivalued": true,
+    "range": "SymbolBinding",
+    "required": false,
+    "slot": "symbols"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "IntervalValue": [
+   {
+    "multivalued": false,
+    "range": "Value",
+    "required": false,
+    "slot": "start"
+   },
+   {
+    "multivalued": false,
+    "range": "Value",
+    "required": false,
+    "slot": "end"
+   },
+   {
+    "multivalued": false,
+    "range": "boolean",
+    "required": false,
+    "slot": "start_incl"
+   },
+   {
+    "multivalued": false,
+    "range": "boolean",
+    "required": false,
+    "slot": "end_incl"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "MapEntry": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "key"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "value"
+   }
+  ],
+  "NumberValue": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "v"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "unit"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "basis"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "ParamMapping": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "key"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "value"
+   }
+  ],
+  "ParamValue": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "key"
+   },
+   {
+    "multivalued": false,
+    "range": "Formula",
+    "required": false,
+    "slot": "value"
+   }
+  ],
+  "Parameterized": [],
+  "PhraseValue": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "text"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "sentence"
+   },
+   {
+    "multivalued": false,
+    "range": "integer",
+    "required": false,
+    "slot": "start"
+   },
+   {
+    "multivalued": false,
+    "range": "integer",
+    "required": false,
+    "slot": "end"
+   },
+   {
+    "multivalued": false,
+    "range": "boolean",
+    "required": false,
+    "slot": "coarse"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "RandomVariable": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "symbol"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "label"
+   }
+  ],
+  "SetExpr": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "latex"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "sympy"
+   },
+   {
+    "multivalued": false,
+    "range": "ParseStatus",
+    "required": false,
+    "slot": "parse"
+   },
+   {
+    "multivalued": true,
+    "range": "SymbolBinding",
+    "required": false,
+    "slot": "symbols"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "Statement": [
+   {
+    "multivalued": false,
+    "range": "StatementKind",
+    "required": false,
+    "slot": "kind"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "label"
+   }
+  ],
+  "SymbolBinding": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "symbol"
+   },
+   {
+    "multivalued": false,
+    "range": "BindKind",
+    "required": true,
+    "slot": "bind"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "entity"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "claim"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "param"
+   }
+  ],
+  "TextValue": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": true,
+    "slot": "v"
+   },
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ],
+  "Value": [
+   {
+    "multivalued": false,
+    "range": "string",
+    "required": false,
+    "slot": "t"
+   }
+  ]
+ },
+ "mismatches": [],
+ "native": {
+  "equals_string_t": {
+   "BoolValue": "bool",
+   "DateValue": "date",
+   "EnumValue": "enum",
+   "Formula": "formula",
+   "IntervalValue": "interval",
+   "NumberValue": "number",
+   "PhraseValue": "phrase",
+   "SetExpr": "set",
+   "TextValue": "text"
+  },
+  "examples": {
+   "Concept": [
+    "the gamma function",
+    "the standard score"
+   ],
+   "DistributionFamily": [
+    "the normal distribution",
+    "lognormal distribution",
+    "normally distributed"
+   ],
+   "FamilyConstruction": [
+    "location-scale family",
+    "scale family associated with the given distribution"
+   ],
+   "FamilyParameter": [
+    "location parameter",
+    "shape parameter k",
+    "the rate parameter"
+   ],
+   "RandomVariable": [
+    "X",
+    "a + b X",
+    "X_1 + X_2"
+   ]
+  },
+  "ifabsent": {
+   "modality": "string(asserted)",
+   "polarity": "string(positive)"
+  },
+  "prefixed_names": {
+   "cdf": "stat:cdf",
+   "construction_formula": "stat:construction_formula",
+   "defined_as": "stat:defined_as",
+   "defines": "core:defines",
+   "definition_formula": "stat:definition_formula",
+   "derived_parameter": "stat:derived_parameter",
+   "follows_from": "core:follows_from",
+   "has_distribution": "stat:has_distribution",
+   "has_parameter": "stat:has_parameter",
+   "identical_parameter": "stat:identical_parameter",
+   "limit_of": "stat:limit_of",
+   "mean_value": "stat:mean_value",
+   "member_of_construction": "stat:member_of_construction",
+   "mgf": "stat:mgf",
+   "parameter_domain": "stat:parameter_domain",
+   "parameter_role": "stat:parameter_role",
+   "pdf": "stat:pdf",
+   "proves": "core:proves",
+   "refers_to": "core:refers_to",
+   "special_case_of": "stat:special_case_of",
+   "support": "stat:support",
+   "takes_values_in": "stat:takes_values_in",
+   "transformation_of": "stat:transformation_of",
+   "unschematized": "core:unschematized",
+   "variance_value": "stat:variance_value"
+  },
+  "subsets": {
+   "distribution": [
+    "has_distribution"
+   ],
+   "family_structure": [
+    "construction_formula",
+    "derived_parameter",
+    "has_parameter",
+    "identical_parameter",
+    "parameter_domain",
+    "parameter_role",
+    "special_case_of",
+    "transformation_of"
+   ],
+   "formula_definition": [
+    "construction_formula",
+    "defined_as",
+    "definition_formula",
+    "transformation_of"
+   ],
+   "structural": [
+    "defines",
+    "follows_from",
+    "proves",
+    "refers_to"
+   ],
+   "unsupported": [
+    "unschematized"
+   ]
+  },
+  "symmetric": [
+   "identical_parameter"
+  ],
+  "title": {
+   "Concept": "mathematical concept",
+   "DistributionFamily": "distribution family",
+   "FamilyConstruction": "family construction",
+   "FamilyParameter": "distribution parameter",
+   "RandomVariable": "random variable"
+  },
+  "transitive": [
+   "special_case_of"
+  ],
+  "unique_keys": {
+   "FamilyParameter": {
+    "identity": [
+     "family",
+     "canonical_name"
+    ]
+   }
+  }
+ }
+}

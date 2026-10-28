@@ -1,0 +1,60 @@
+{
+ "core.yaml": {
+  "exit": 1,
+  "levels": {
+   "warning": 2
+  },
+  "problems": [
+   "warning standard_naming: Slot has name 't'",
+   "warning standard_naming: Slot has name 'v'"
+  ],
+  "target": "results/s4/schema/domains/core/schema/core.yaml"
+ },
+ "directory_mode": {
+  "exit": 2,
+  "levels": {
+   "error": 6,
+   "warning": 4
+  },
+  "problems": [
+   "error valid-schema: In <root>: Additional properties are not allowed ('rules' was unexpected)",
+   "error valid-schema: In <root>: 'id' is a required property",
+   "error valid-schema: In <root>: 'name' is a required property",
+   "warning standard_naming: Slot has name 't'",
+   "warning standard_naming: Slot has name 'v'",
+   "warning standard_naming: Slot has name 't'",
+   "warning standard_naming: Slot has name 'v'",
+   "error valid-schema: In <root>: Additional properties are not allowed ('derive', 'guideline', 'rules', 'tables', 'views' were unexpected)",
+   "error valid-schema: In <root>: 'id' is a required property",
+   "error valid-schema: In <root>: 'name' is a required property"
+  ],
+  "target": "results/s4/schema/domains"
+ },
+ "rules_files": {
+  "results/s4/schema/domains/core/schema/rules.yaml": {
+   "guideline": 0,
+   "ok": true,
+   "rules": 1,
+   "tables": 0,
+   "views": 0
+  },
+  "results/s4/schema/domains/statistics/schema/rules.yaml": {
+   "guideline": 11,
+   "ok": true,
+   "rules": 4,
+   "tables": 2,
+   "views": 1
+  }
+ },
+ "statistics.yaml": {
+  "exit": 1,
+  "levels": {
+   "warning": 2
+  },
+  "problems": [
+   "warning standard_naming: Slot has name 't'",
+   "warning standard_naming: Slot has name 'v'"
+  ],
+  "target": "results/s4/schema/domains/statistics/schema/statistics.yaml"
+ }
+}

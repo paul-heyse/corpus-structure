@@ -1,0 +1,200 @@
+{
+ "versions": {
+  "xgrammar": "0.2.7",
+  "torch": "2.14.1+cpu",
+  "transformers": "5.21.0",
+  "tokenizers": "0.23.3",
+  "apache-tvm-ffi": "0.1.15.post1"
+ },
+ "tokenizer": {
+  "repo": "Qwen/Qwen3.5-9B",
+  "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+ },
+ "schema_bytes": 88072,
+ "vocab_size": 248077,
+ "grammar_from_json_schema_s": 0.005,
+ "grammar_warnings": [],
+ "ebnf_bytes": 152241,
+ "compile": {
+  "outcome": "passed",
+  "first_s": 0.03,
+  "cached_s": 0.0001,
+  "uncached_again_s": 0.029,
+  "memory_bytes": 7629228,
+  "max_rss_delta_kb": 0,
+  "warnings": []
+ },
+ "accepts": {
+  "E1": {
+   "compact": true,
+   "indented": true
+  },
+  "E2": {
+   "compact": true,
+   "indented": true
+  },
+  "E3": {
+   "compact": true,
+   "indented": true
+  },
+  "T1": {
+   "compact": true,
+   "indented": true
+  },
+  "T2": {
+   "compact": true,
+   "indented": true
+  },
+  "T3": {
+   "compact": true,
+   "indented": true
+  },
+  "T4": {
+   "compact": true,
+   "indented": true
+  },
+  "U10": {
+   "compact": true,
+   "indented": true
+  },
+  "U11": {
+   "compact": true,
+   "indented": true
+  },
+  "U12": {
+   "compact": true,
+   "indented": true
+  },
+  "U5": {
+   "compact": true,
+   "indented": true
+  },
+  "U6": {
+   "compact": true,
+   "indented": true
+  },
+  "U7": {
+   "compact": true,
+   "indented": true
+  },
+  "U8": {
+   "compact": true,
+   "indented": true
+  },
+  "U9": {
+   "compact": true,
+   "indented": true
+  }
+ },
+ "accepted": 15,
+ "batches": 15,
+ "matcher_T3": {
+  "tokens": 900,
+  "accepted": true,
+  "completed": true,
+  "s": 0.001
+ },
+ "seeded": [
+  {
+   "seed": "unknown predicate",
+   "accepted": false
+  },
+  {
+   "seed": "modality not in enum",
+   "accepted": false
+  },
+  {
+   "seed": "bare LaTeX string in a formula position",
+   "accepted": false
+  },
+  {
+   "seed": "entity as a value (V1)",
+   "accepted": false
+  },
+  {
+   "seed": "null for an absent field",
+   "accepted": false
+  },
+  {
+   "seed": "Statement in entities[] (V2)",
+   "accepted": false
+  },
+  {
+   "seed": "qualifier of another predicate",
+   "accepted": false
+  }
+ ],
+ "seeded_rejected": 7,
+ "key_order": {
+  "author_order_default": false,
+  "author_order_any_order": true
+ },
+ "oneof_diagnosis": [
+  {
+   "path": "#/$defs/ConditionMF",
+   "branches": 10,
+   "downgraded": false,
+   "tag_properties": [
+    "op",
+    "rel"
+   ]
+  },
+  {
+   "path": "#/$defs/Formula/properties/symbols/additionalProperties",
+   "branches": 3,
+   "downgraded": false,
+   "tag_properties": [
+    "bind"
+   ]
+  },
+  {
+   "path": "#/$defs/IntervalValue/properties/start",
+   "branches": 3,
+   "downgraded": false,
+   "tag_properties": [
+    "t"
+   ]
+  },
+  {
+   "path": "#/$defs/IntervalValue/properties/start/oneOf/2/properties/symbols/additionalProperties",
+   "branches": 3,
+   "downgraded": false,
+   "tag_properties": [
+    "bind"
+   ]
+  },
+  {
+   "path": "#/$defs/IntervalValue/properties/end",
+   "branches": 3,
+   "downgraded": false,
+   "tag_properties": [
+    "t"
+   ]
+  },
+  {
+   "path": "#/$defs/IntervalValue/properties/end/oneOf/2/properties/symbols/additionalProperties",
+   "branches": 3,
+   "downgraded": false,
+   "tag_properties": [
+    "bind"
+   ]
+  },
+  {
+   "path": "#/$defs/SetValue/properties/symbols/additionalProperties",
+   "branches": 3,
+   "downgraded": false,
+   "tag_properties": [
+    "bind"
+   ]
+  },
+  {
+   "path": "#/properties/claims/items",
+   "branches": 25,
+   "downgraded": false,
+   "tag_properties": [
+    "predicate",
+    "statement_role"
+   ]
+  }
+ ]
+}

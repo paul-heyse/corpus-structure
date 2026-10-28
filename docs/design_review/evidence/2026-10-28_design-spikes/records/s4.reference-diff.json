@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "id": "s4.reference-diff",
+  "title": "Annotator reference generated from the schema, against S0-R2's",
+  "group": "S4 LinkML compilation",
+  "package": "S4-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the annotator reference be generated from SchemaView, the compiled models and rules.yaml with the information S0-R2's hand-assembled reference carries (D2 §7.5, §10.10)?",
+  "answers": [
+    "D2 §7.5",
+    "D2 §10.10",
+    "ADR-0011"
+  ],
+  "method": "A generator with no predicate, class or rule text in code: cards grouped by subsets, guideline rules per card by applies_to, tables, exact shapes from the core Pydantic models, examples from reference/; compared section by section, names mechanically and information by reading.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s4_reference.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (W-S2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/schema",
+      "role": "spike schema copies (D2 §6, §9 v0)",
+      "sha256": "6de5c7eb0e959610b0f329efca839a061f97c8a40fa666fd31f6ee92bd66da23"
+    },
+    {
+      "path": "code/s4",
+      "role": "S4 compiler package",
+      "sha256": "909fe0549044ecdb2be8d6f91dc68d65e025925f06a60a6e73e90706a9eafef4"
+    },
+    {
+      "path": "code/s4_reference.py",
+      "role": "reference script",
+      "sha256": "f8e752dbb17affae3e5a1a1a88b06735d3bfb22c7915e6838cdf7971ae6de713"
+    },
+    {
+      "path": "results/s0r2/inputs/packet_v1/reference.md",
+      "role": "S0-R2 reference",
+      "sha256": "3ff1694977f9d1d9d7450bed94a53368dffa0d2d46a81e1c48c6d3e763117f31"
+    },
+    {
+      "path": "results/s4/schema",
+      "role": "pack files",
+      "sha256": "21e1109ffb4e4c15286119df96241a1fa3f5e5f237752b32a561171b8ef0a747"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s4/compiled/reference.md",
+      "role": "generated reference",
+      "sha256": "94fecb91ac2018f2eae6f66f219035be12eb283ef6c4d9d7d7479c89b6b2999c"
+    },
+    {
+      "path": "results/s4/compiled/reference_by_kind",
+      "role": "V4 variants",
+      "sha256": "e1e0a2ce2672a390bae6a2f693839cd8ad162da92b882421ba95d5e7558280c9"
+    },
+    {
+      "path": "results/s4/reference_items.json",
+      "role": "mechanical diff",
+      "sha256": "3d68781d7e00d5dca56fc7cdcadf43f55dc987a81fd0ba59e83f655020c51664"
+    },
+    {
+      "path": "results/s4/reference_diff.md",
+      "role": "information diff",
+      "sha256": "4ad64a96f71ffbcc35717b07bfacc2bf2c04ef118cb56f678a32d0224a7893c2"
+    }
+  ],
+  "depends_on": [
+    "s4.batch-validation",
+    "s4.rules",
+    "s0r2.inputs"
+  ],
+  "results": [
+    {
+      "name": "cards",
+      "value": 25,
+      "of": null,
+      "unit": null,
+      "note": "S0-R2 24; S4 adds unschematized"
+    },
+    {
+      "name": "empty_meanings_s0r2",
+      "value": 6,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "empty_meanings_s4",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "names_only_in_s0r2",
+      "value": 9,
+      "of": null,
+      "unit": null,
+      "note": "all in S0-R2's per-card role/modality lines (role, modality and node names, ParameterRole); the generated reference states them in its tables section, rule descriptions and object shapes"
+    },
+    {
+      "name": "information_missing_in_generated",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "per-card role/modality sentence for the six family-structure-only predicates; same facts in the tables section"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The generated reference carries S0-R2's information and more (descriptions for 6 predicates and 11 qualifiers, exact shapes, tables, unschematized); the one information loss is the per-card role/modality sentence for family-structure-only predicates, restorable by schema text in the family_structure subset description. The reference compiler is specified.",
+  "consumed_by": [
+    "P0-S-1",
+    "P0-A-1",
+    "S4 report"
+  ]
+}

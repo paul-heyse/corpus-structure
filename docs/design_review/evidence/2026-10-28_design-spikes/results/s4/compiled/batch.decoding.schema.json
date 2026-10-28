@@ -1,0 +1,4918 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$defs": {
+  "AlternativeItem": {
+   "additionalProperties": false,
+   "properties": {
+    "refs": {
+     "items": {
+      "type": "string"
+     },
+     "minItems": 2,
+     "type": "array"
+    },
+    "reason": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "refs",
+    "reason"
+   ],
+   "type": "object"
+  },
+  "AndMF": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "and",
+     "type": "string"
+    },
+    "args": {
+     "items": {
+      "$ref": "#/$defs/ConditionMF"
+     },
+     "type": "array"
+    }
+   },
+   "required": [
+    "op",
+    "args"
+   ],
+   "type": "object"
+  },
+  "BareBinding": {
+   "additionalProperties": false,
+   "properties": {
+    "bind": {
+     "enum": [
+      "free",
+      "constant",
+      "unresolved"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "bind"
+   ],
+   "type": "object"
+  },
+  "ClaimBinding": {
+   "additionalProperties": false,
+   "properties": {
+    "bind": {
+     "enum": [
+      "param_of",
+      "param_expr_of"
+     ],
+     "type": "string"
+    },
+    "claim": {
+     "type": "string"
+    },
+    "param": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "bind",
+    "claim",
+    "param"
+   ],
+   "type": "object"
+  },
+  "ClaimNode": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "claim",
+     "type": "string"
+    },
+    "ref": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "op",
+    "ref"
+   ],
+   "type": "object"
+  },
+  "Claim_cdf_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "cdf",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_cdf_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_construction_formula_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "construction_formula",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_construction_formula_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_defined_as_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "defined_as",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_defined_as_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_defines_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "defines",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_defines_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_definition_formula_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "definition_formula",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_definition_formula_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_derived_parameter_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "derived_parameter",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_derived_parameter_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_follows_from_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "follows_from",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_follows_from_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_has_distribution_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "has_distribution",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_has_distribution_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_has_parameter_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "has_parameter",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_has_parameter_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_identical_parameter_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "identical_parameter",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_identical_parameter_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_limit_of_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "limit_of",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_limit_of_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_mean_value_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "mean_value",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_mean_value_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_member_of_construction_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "member_of_construction",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_member_of_construction_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_mgf_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "mgf",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_mgf_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_parameter_domain_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "parameter_domain",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/SetValue"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_parameter_domain_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_parameter_role_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "parameter_role",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Enum_ParameterRole"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_parameter_role_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_pdf_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "pdf",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_pdf_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_proves_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "proves",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_proves_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_refers_to_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "refers_to",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_refers_to_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_special_case_of_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "special_case_of",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_special_case_of_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_support_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "support",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/SetValue"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_support_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_takes_values_in_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "takes_values_in",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/SetValue"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_takes_values_in_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_transformation_of_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "transformation_of",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_transformation_of_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_unschematized_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "unschematized",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_unschematized_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_variance_value_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "variance_value",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_variance_value_model"
+    },
+    "statement": {
+     "type": "string"
+    },
+    "statement_role": {
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceMF"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "CmpNode": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "cmp",
+     "type": "string"
+    },
+    "rel": {
+     "enum": [
+      "<",
+      "<=",
+      "=",
+      "!=",
+      ">",
+      ">="
+     ],
+     "type": "string"
+    },
+    "lhs": {
+     "$ref": "#/$defs/Formula"
+    },
+    "rhs": {
+     "$ref": "#/$defs/Formula"
+    }
+   },
+   "required": [
+    "op",
+    "rel",
+    "lhs",
+    "rhs"
+   ],
+   "type": "object"
+  },
+  "ConditionMF": {
+   "oneOf": [
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "and",
+       "type": "string"
+      },
+      "args": {
+       "items": {
+        "$ref": "#/$defs/ConditionMF"
+       },
+       "type": "array"
+      }
+     },
+     "required": [
+      "op",
+      "args"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "or",
+       "type": "string"
+      },
+      "args": {
+       "items": {
+        "$ref": "#/$defs/ConditionMF"
+       },
+       "type": "array"
+      }
+     },
+     "required": [
+      "op",
+      "args"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "not",
+       "type": "string"
+      },
+      "arg": {
+       "$ref": "#/$defs/ConditionMF"
+      }
+     },
+     "required": [
+      "op",
+      "arg"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "claim",
+       "type": "string"
+      },
+      "ref": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "op",
+      "ref"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "member",
+       "type": "string"
+      },
+      "x": {
+       "$ref": "#/$defs/Formula"
+      },
+      "set": {
+       "$ref": "#/$defs/SetValue"
+      }
+     },
+     "required": [
+      "op",
+      "x",
+      "set"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "cmp",
+       "type": "string"
+      },
+      "rel": {
+       "enum": [
+        "<",
+        "<=",
+        "=",
+        "!=",
+        ">",
+        ">="
+       ],
+       "type": "string"
+      },
+      "lhs": {
+       "$ref": "#/$defs/Formula"
+      },
+      "rhs": {
+       "$ref": "#/$defs/Formula"
+      }
+     },
+     "required": [
+      "op",
+      "rel",
+      "lhs",
+      "rhs"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "pred",
+       "type": "string"
+      },
+      "name": {
+       "type": "string"
+      },
+      "args": {
+       "items": {
+        "anyOf": [
+         {
+          "$ref": "#/$defs/EntityRef"
+         },
+         {
+          "$ref": "#/$defs/Formula"
+         }
+        ]
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     },
+     "required": [
+      "op",
+      "name",
+      "args"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "forall",
+       "type": "string"
+      },
+      "var": {
+       "type": "string"
+      },
+      "set": {
+       "$ref": "#/$defs/SetValue"
+      },
+      "body": {
+       "$ref": "#/$defs/ConditionMF"
+      }
+     },
+     "required": [
+      "op",
+      "var",
+      "set",
+      "body"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "phrase",
+       "type": "string"
+      },
+      "text": {
+       "type": "string"
+      },
+      "sentence": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "op",
+      "text"
+     ],
+     "type": "object"
+    },
+    {
+     "additionalProperties": false,
+     "properties": {
+      "op": {
+       "const": "unsupported",
+       "type": "string"
+      },
+      "text": {
+       "type": "string"
+      },
+      "reason": {
+       "type": "string"
+      },
+      "sentence": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "op",
+      "text",
+      "reason"
+     ],
+     "type": "object"
+    }
+   ]
+  },
+  "DateValue": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "date",
+     "type": "string"
+    },
+    "v": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "t",
+    "v"
+   ],
+   "type": "object"
+  },
+  "EntityBinding": {
+   "additionalProperties": false,
+   "properties": {
+    "bind": {
+     "enum": [
+      "variable",
+      "family_param"
+     ],
+     "type": "string"
+    },
+    "entity": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "bind",
+    "entity"
+   ],
+   "type": "object"
+  },
+  "EntityRef": {
+   "additionalProperties": false,
+   "properties": {
+    "ref": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "ref"
+   ],
+   "type": "object"
+  },
+  "Entity_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "type": {
+     "enum": [
+      "Concept",
+      "DistributionFamily",
+      "FamilyConstruction",
+      "FamilyParameter",
+      "RandomVariable"
+     ],
+     "type": "string"
+    },
+    "label": {
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "global",
+      "local"
+     ],
+     "type": "string"
+    },
+    "extent": {
+     "enum": [
+      "statement",
+      "section"
+     ],
+     "type": "string"
+    },
+    "symbol": {
+     "type": "string"
+    },
+    "aliases": {
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    },
+    "identity": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "type": "object"
+    }
+   },
+   "required": [
+    "local_ref",
+    "type",
+    "label",
+    "scope"
+   ],
+   "type": "object"
+  },
+  "Enum_ParameterRole": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "enum",
+     "type": "string"
+    },
+    "enum": {
+     "const": "ParameterRole",
+     "type": "string"
+    },
+    "v": {
+     "enum": [
+      "location",
+      "scale",
+      "shape",
+      "rate",
+      "mean",
+      "variance",
+      "standard_deviation",
+      "precision",
+      "degrees_of_freedom",
+      "success_probability",
+      "number_of_trials",
+      "lower_bound",
+      "upper_bound",
+      "other"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "t",
+    "enum",
+    "v"
+   ],
+   "type": "object"
+  },
+  "EvidenceMF": {
+   "additionalProperties": false,
+   "properties": {
+    "sentence": {
+     "type": "string"
+    },
+    "quote": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "primary",
+      "supporting",
+      "condition",
+      "definition"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "sentence",
+    "quote",
+    "role"
+   ],
+   "type": "object"
+  },
+  "ForallMF": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "forall",
+     "type": "string"
+    },
+    "var": {
+     "type": "string"
+    },
+    "set": {
+     "$ref": "#/$defs/SetValue"
+    },
+    "body": {
+     "$ref": "#/$defs/ConditionMF"
+    }
+   },
+   "required": [
+    "op",
+    "var",
+    "set",
+    "body"
+   ],
+   "type": "object"
+  },
+  "Formula": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "formula",
+     "type": "string"
+    },
+    "latex": {
+     "type": "string"
+    },
+    "symbols": {
+     "additionalProperties": {
+      "oneOf": [
+       {
+        "additionalProperties": false,
+        "properties": {
+         "bind": {
+          "enum": [
+           "variable",
+           "family_param"
+          ],
+          "type": "string"
+         },
+         "entity": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "bind",
+         "entity"
+        ],
+        "type": "object"
+       },
+       {
+        "additionalProperties": false,
+        "properties": {
+         "bind": {
+          "enum": [
+           "param_of",
+           "param_expr_of"
+          ],
+          "type": "string"
+         },
+         "claim": {
+          "type": "string"
+         },
+         "param": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "bind",
+         "claim",
+         "param"
+        ],
+        "type": "object"
+       },
+       {
+        "additionalProperties": false,
+        "properties": {
+         "bind": {
+          "enum": [
+           "free",
+           "constant",
+           "unresolved"
+          ],
+          "type": "string"
+         }
+        },
+        "required": [
+         "bind"
+        ],
+        "type": "object"
+       }
+      ]
+     },
+     "type": "object"
+    }
+   },
+   "required": [
+    "t",
+    "latex"
+   ],
+   "type": "object"
+  },
+  "IntervalValue": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "interval",
+     "type": "string"
+    },
+    "start": {
+     "oneOf": [
+      {
+       "additionalProperties": false,
+       "properties": {
+        "t": {
+         "const": "number",
+         "type": "string"
+        },
+        "v": {
+         "type": "string"
+        },
+        "unit": {
+         "type": "string"
+        },
+        "basis": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "t",
+        "v"
+       ],
+       "type": "object"
+      },
+      {
+       "additionalProperties": false,
+       "properties": {
+        "t": {
+         "const": "date",
+         "type": "string"
+        },
+        "v": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "t",
+        "v"
+       ],
+       "type": "object"
+      },
+      {
+       "additionalProperties": false,
+       "properties": {
+        "t": {
+         "const": "formula",
+         "type": "string"
+        },
+        "latex": {
+         "type": "string"
+        },
+        "symbols": {
+         "additionalProperties": {
+          "oneOf": [
+           {
+            "additionalProperties": false,
+            "properties": {
+             "bind": {
+              "enum": [
+               "variable",
+               "family_param"
+              ],
+              "type": "string"
+             },
+             "entity": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "bind",
+             "entity"
+            ],
+            "type": "object"
+           },
+           {
+            "additionalProperties": false,
+            "properties": {
+             "bind": {
+              "enum": [
+               "param_of",
+               "param_expr_of"
+              ],
+              "type": "string"
+             },
+             "claim": {
+              "type": "string"
+             },
+             "param": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "bind",
+             "claim",
+             "param"
+            ],
+            "type": "object"
+           },
+           {
+            "additionalProperties": false,
+            "properties": {
+             "bind": {
+              "enum": [
+               "free",
+               "constant",
+               "unresolved"
+              ],
+              "type": "string"
+             }
+            },
+            "required": [
+             "bind"
+            ],
+            "type": "object"
+           }
+          ]
+         },
+         "type": "object"
+        }
+       },
+       "required": [
+        "t",
+        "latex"
+       ],
+       "type": "object"
+      }
+     ]
+    },
+    "end": {
+     "oneOf": [
+      {
+       "additionalProperties": false,
+       "properties": {
+        "t": {
+         "const": "number",
+         "type": "string"
+        },
+        "v": {
+         "type": "string"
+        },
+        "unit": {
+         "type": "string"
+        },
+        "basis": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "t",
+        "v"
+       ],
+       "type": "object"
+      },
+      {
+       "additionalProperties": false,
+       "properties": {
+        "t": {
+         "const": "date",
+         "type": "string"
+        },
+        "v": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "t",
+        "v"
+       ],
+       "type": "object"
+      },
+      {
+       "additionalProperties": false,
+       "properties": {
+        "t": {
+         "const": "formula",
+         "type": "string"
+        },
+        "latex": {
+         "type": "string"
+        },
+        "symbols": {
+         "additionalProperties": {
+          "oneOf": [
+           {
+            "additionalProperties": false,
+            "properties": {
+             "bind": {
+              "enum": [
+               "variable",
+               "family_param"
+              ],
+              "type": "string"
+             },
+             "entity": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "bind",
+             "entity"
+            ],
+            "type": "object"
+           },
+           {
+            "additionalProperties": false,
+            "properties": {
+             "bind": {
+              "enum": [
+               "param_of",
+               "param_expr_of"
+              ],
+              "type": "string"
+             },
+             "claim": {
+              "type": "string"
+             },
+             "param": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "bind",
+             "claim",
+             "param"
+            ],
+            "type": "object"
+           },
+           {
+            "additionalProperties": false,
+            "properties": {
+             "bind": {
+              "enum": [
+               "free",
+               "constant",
+               "unresolved"
+              ],
+              "type": "string"
+             }
+            },
+            "required": [
+             "bind"
+            ],
+            "type": "object"
+           }
+          ]
+         },
+         "type": "object"
+        }
+       },
+       "required": [
+        "t",
+        "latex"
+       ],
+       "type": "object"
+      }
+     ]
+    },
+    "start_incl": {
+     "type": "boolean"
+    },
+    "end_incl": {
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "t"
+   ],
+   "type": "object"
+  },
+  "MemberNode": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "member",
+     "type": "string"
+    },
+    "x": {
+     "$ref": "#/$defs/Formula"
+    },
+    "set": {
+     "$ref": "#/$defs/SetValue"
+    }
+   },
+   "required": [
+    "op",
+    "x",
+    "set"
+   ],
+   "type": "object"
+  },
+  "NotMF": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "not",
+     "type": "string"
+    },
+    "arg": {
+     "$ref": "#/$defs/ConditionMF"
+    }
+   },
+   "required": [
+    "op",
+    "arg"
+   ],
+   "type": "object"
+  },
+  "NumberValue": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "number",
+     "type": "string"
+    },
+    "v": {
+     "type": "string"
+    },
+    "unit": {
+     "type": "string"
+    },
+    "basis": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "t",
+    "v"
+   ],
+   "type": "object"
+  },
+  "OrMF": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "or",
+     "type": "string"
+    },
+    "args": {
+     "items": {
+      "$ref": "#/$defs/ConditionMF"
+     },
+     "type": "array"
+    }
+   },
+   "required": [
+    "op",
+    "args"
+   ],
+   "type": "object"
+  },
+  "PhraseMF": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "phrase",
+     "type": "string"
+    },
+    "text": {
+     "type": "string"
+    },
+    "sentence": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "t",
+    "text"
+   ],
+   "type": "object"
+  },
+  "PhraseNodeMF": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "phrase",
+     "type": "string"
+    },
+    "text": {
+     "type": "string"
+    },
+    "sentence": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "op",
+    "text"
+   ],
+   "type": "object"
+  },
+  "PredNode": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "pred",
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "args": {
+     "items": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/EntityRef"
+       },
+       {
+        "$ref": "#/$defs/Formula"
+       }
+      ]
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "op",
+    "name",
+    "args"
+   ],
+   "type": "object"
+  },
+  "Q_cdf_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_construction_formula_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    },
+    "base_variable": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "param_symbols": {
+     "additionalProperties": {
+      "$ref": "#/$defs/Formula"
+     },
+     "type": "object"
+    }
+   },
+   "type": "object"
+  },
+  "Q_defined_as_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_defines_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_definition_formula_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_derived_parameter_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_follows_from_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_has_distribution_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    },
+    "param_values": {
+     "additionalProperties": {
+      "$ref": "#/$defs/Formula"
+     },
+     "type": "object"
+    }
+   },
+   "type": "object"
+  },
+  "Q_has_parameter_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_identical_parameter_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_limit_of_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    },
+    "limit": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "param_mapping": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "type": "object"
+    }
+   },
+   "type": "object"
+  },
+  "Q_mean_value_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_member_of_construction_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    },
+    "base": {
+     "$ref": "#/$defs/EntityRef"
+    }
+   },
+   "type": "object"
+  },
+  "Q_mgf_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_parameter_domain_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_parameter_role_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_pdf_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_proves_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_refers_to_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_special_case_of_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    },
+    "param_constraints": {
+     "$ref": "#/$defs/ConditionMF"
+    }
+   },
+   "type": "object"
+  },
+  "Q_support_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_takes_values_in_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_transformation_of_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    },
+    "transform": {
+     "$ref": "#/$defs/Formula"
+    },
+    "param_mapping": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "type": "object"
+    }
+   },
+   "type": "object"
+  },
+  "Q_unschematized_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "Q_variance_value_model": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionMF"
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseMF"
+    },
+    "modality": {
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "statement",
+      "section",
+      "document"
+     ],
+     "type": "string"
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue"
+    }
+   },
+   "type": "object"
+  },
+  "SetValue": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "set",
+     "type": "string"
+    },
+    "latex": {
+     "type": "string"
+    },
+    "symbols": {
+     "additionalProperties": {
+      "oneOf": [
+       {
+        "additionalProperties": false,
+        "properties": {
+         "bind": {
+          "enum": [
+           "variable",
+           "family_param"
+          ],
+          "type": "string"
+         },
+         "entity": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "bind",
+         "entity"
+        ],
+        "type": "object"
+       },
+       {
+        "additionalProperties": false,
+        "properties": {
+         "bind": {
+          "enum": [
+           "param_of",
+           "param_expr_of"
+          ],
+          "type": "string"
+         },
+         "claim": {
+          "type": "string"
+         },
+         "param": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "bind",
+         "claim",
+         "param"
+        ],
+        "type": "object"
+       },
+       {
+        "additionalProperties": false,
+        "properties": {
+         "bind": {
+          "enum": [
+           "free",
+           "constant",
+           "unresolved"
+          ],
+          "type": "string"
+         }
+        },
+        "required": [
+         "bind"
+        ],
+        "type": "object"
+       }
+      ]
+     },
+     "type": "object"
+    }
+   },
+   "required": [
+    "t",
+    "latex"
+   ],
+   "type": "object"
+  },
+  "Statement_model": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "definition",
+      "theorem",
+      "proposition",
+      "lemma",
+      "corollary",
+      "proof",
+      "example",
+      "exercise",
+      "solution",
+      "remark",
+      "convention",
+      "notation",
+      "assumption",
+      "narrative"
+     ],
+     "type": "string"
+    },
+    "anchor": {
+     "anyOf": [
+      {
+       "enum": [
+        "unit",
+        "outside"
+       ],
+       "type": "string"
+      },
+      {
+       "items": {
+        "type": "string"
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     ]
+    }
+   },
+   "required": [
+    "local_ref",
+    "kind",
+    "anchor"
+   ],
+   "type": "object"
+  },
+  "UnsupportedMF": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "sentence": {
+     "type": "string"
+    },
+    "quote": {
+     "type": "string"
+    },
+    "reason": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "local_ref",
+    "sentence",
+    "quote",
+    "reason"
+   ],
+   "type": "object"
+  },
+  "UnsupportedNodeMF": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "unsupported",
+     "type": "string"
+    },
+    "text": {
+     "type": "string"
+    },
+    "reason": {
+     "type": "string"
+    },
+    "sentence": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "op",
+    "text",
+    "reason"
+   ],
+   "type": "object"
+  }
+ },
+ "additionalProperties": false,
+ "properties": {
+  "unit_ref": {
+   "type": "string"
+  },
+  "entities": {
+   "items": {
+    "$ref": "#/$defs/Entity_model"
+   },
+   "type": "array"
+  },
+  "statements": {
+   "items": {
+    "$ref": "#/$defs/Statement_model"
+   },
+   "type": "array"
+  },
+  "claims": {
+   "items": {
+    "oneOf": [
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "cdf",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_cdf_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "construction_formula",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_construction_formula_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "defined_as",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_defined_as_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "defines",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_defines_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "definition_formula",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_definition_formula_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "derived_parameter",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_derived_parameter_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "follows_from",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_follows_from_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "has_distribution",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_has_distribution_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "has_parameter",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_has_parameter_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "identical_parameter",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_identical_parameter_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "limit_of",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_limit_of_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "mean_value",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_mean_value_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "member_of_construction",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_member_of_construction_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "mgf",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_mgf_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "parameter_domain",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/SetValue"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_parameter_domain_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "parameter_role",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Enum_ParameterRole"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_parameter_role_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "pdf",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_pdf_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "proves",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_proves_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "refers_to",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_refers_to_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "special_case_of",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_special_case_of_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "support",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/SetValue"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_support_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "takes_values_in",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/SetValue"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_takes_values_in_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "transformation_of",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/EntityRef"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_transformation_of_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "unschematized",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/PhraseMF"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_unschematized_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     },
+     {
+      "additionalProperties": false,
+      "properties": {
+       "local_ref": {
+        "type": "string"
+       },
+       "predicate": {
+        "const": "variance_value",
+        "type": "string"
+       },
+       "subject": {
+        "type": "string"
+       },
+       "object": {
+        "$ref": "#/$defs/Formula"
+       },
+       "qualifiers": {
+        "$ref": "#/$defs/Q_variance_value_model"
+       },
+       "statement": {
+        "type": "string"
+       },
+       "statement_role": {
+        "enum": [
+         "premise",
+         "conclusion",
+         "definiens",
+         "restriction",
+         "example_value"
+        ],
+        "type": "string"
+       },
+       "evidence": {
+        "items": {
+         "$ref": "#/$defs/EvidenceMF"
+        },
+        "minItems": 1,
+        "type": "array"
+       }
+      },
+      "required": [
+       "local_ref",
+       "predicate",
+       "subject",
+       "object",
+       "evidence"
+      ],
+      "type": "object"
+     }
+    ]
+   },
+   "type": "array"
+  },
+  "alternatives": {
+   "items": {
+    "$ref": "#/$defs/AlternativeItem"
+   },
+   "type": "array"
+  },
+  "unsupported": {
+   "items": {
+    "$ref": "#/$defs/UnsupportedMF"
+   },
+   "type": "array"
+  }
+ },
+ "required": [
+  "unit_ref"
+ ],
+ "type": "object"
+}

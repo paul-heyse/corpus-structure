@@ -1,0 +1,13 @@
+# Core rules: domain-free rules every pack runs beside its own (D2 §2, §7.4). Same form as a pack's
+# rules.yaml; the core file has no views:, guideline: or tables: of its own.
+rules:
+  - id: core.value_kind_matches_slot
+    applies_to: any
+    severity: warning
+    at: [finalize]
+    description: >-
+      A formula or set object parses under its slot's declared kind; the grammar's reading of a
+      different kind (a set in a Formula slot, a relation where a formula belongs) is a warning,
+      and the value is kept as written. Reads the grammar's parse, so it runs at finalize only.
+    when: "(claim.value&.slot_kind ?? '') in ['formula', 'set']"
+    check: "claim.value&.math_kind == null or claim.value&.math_kind == claim.value&.slot_kind"

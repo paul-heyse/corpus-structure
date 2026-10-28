@@ -1,0 +1,389 @@
+id: https://corpus-structure.dev/domains/statistics
+name: statistics
+title: Statistics schema
+description: >-
+  Statistics schema v0 (D2 §9) in the native form of D2 §3: it covers the trace and the spike pages
+  (LocationScale, Normal, LogNormal, Gamma). Descriptions are model input (D2 §1.3).
+version: 0.2.0
+license: https://creativecommons.org/publicdomain/zero/1.0/
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  stat: https://corpus-structure.dev/domains/statistics/
+  core: https://corpus-structure.dev/core/
+default_prefix: stat
+default_range: string
+imports:
+  - linkml:types
+  - ../../core/schema/core
+
+subsets:
+  formula_definition:
+    description: >-
+      Formula claims that define a variable, a concept or a construction by a formula, or a family
+      by a transformation. They hold by the form of the formula: role definiens in a definition or
+      for a formula introducing a variable; modality defined when stipulated, asserted when
+      concluded; no claim nodes, only the restrictions stated with them on their own symbols
+      (guideline §10.7 rule 2).
+  family_structure:
+    description: >-
+      Claims about a family's parameters as such. They hold by the structure of the family: no claim
+      nodes, only the restrictions stated with them on their own symbols (guideline §10.7 rule 2);
+      a parameter symbol binds family_param (§10.7 row 2); stated only in a definition of the family
+      (§10.4).
+  distribution:
+    description: >-
+      Distribution claims: the parameter values a sentence states, keyed by the family's canonical
+      parameter names (guideline §10.5).
+
+classes:
+  DistributionFamily:
+    is_a: Entity
+    mixins: [Distributed, Parameterized]
+    title: distribution family
+    description: >-
+      A named family of probability distributions, possibly with parameters: the normal
+      distribution, the gamma distribution, the standard normal distribution. Mentions include
+      adjectival forms ("normally distributed", "has a gamma distribution").
+    examples:
+      - value: the normal distribution
+      - value: lognormal distribution
+      - value: normally distributed
+    annotations:
+      ci:scope: global
+      ci:extract: mention
+
+  FamilyConstruction:
+    is_a: Entity
+    mixins: [Parameterized]
+    title: family construction
+    description: >-
+      A way of generating a family of distributions from a base distribution, such as the
+      location-scale family, the location family or the scale family associated with a
+      distribution, or the general exponential family. Not itself a single distribution family.
+    examples:
+      - value: location-scale family
+      - value: scale family associated with the given distribution
+    annotations:
+      ci:scope: global
+      ci:extract: mention
+
+  FamilyParameter:
+    is_a: Entity
+    title: distribution parameter
+    description: >-
+      A parameter of a distribution family or construction, such as the location parameter, the
+      scale parameter, the shape parameter k, the rate, the mean or the standard deviation when
+      these parameterize the family.
+    slots: [family, canonical_name]
+    slot_usage:
+      family: {required: true}
+      canonical_name: {required: true}
+    unique_keys:
+      identity:
+        unique_key_slots: [family, canonical_name]
+    examples:
+      - value: location parameter
+      - value: shape parameter k
+      - value: the rate parameter
+    annotations:
+      ci:scope: global
+      ci:extract: mention
+      ci:parameter_class: family
+
+  RandomVariable:
+    is_a: Entity
+    mixins: [Distributed]
+    title: random variable
+    description: >-
+      A random variable denoted by a symbol (X, Y, Z, X_1, W) or by an expression in other random
+      variables (a + b X, e^Y, X_1 + X_2). Local to the statement or section that introduces it.
+    slots: [symbol]
+    examples:
+      - value: X
+      - value: a + b X
+      - value: X_1 + X_2
+    annotations:
+      ci:scope: local
+      ci:extract: mention
+
+  Concept:
+    is_a: Entity
+    title: mathematical concept
+    description: >-
+      A defined mathematical term that is not a distribution family, construction or parameter: the
+      gamma function, the standard score, the moment generating function.
+    examples:
+      - value: the gamma function
+      - value: the standard score
+    annotations:
+      ci:scope: global
+      ci:extract: mention
+
+  Distributed:
+    mixin: true
+    description: Things that have a distribution and its characteristics.
+
+  Parameterized:
+    mixin: true
+    description: Things that have parameters, a family or a construction.
+
+  ParamValue:
+    is_a: MapEntry
+    description: >-
+      One entry of a param_values or param_symbols map: key a canonical parameter name, value the
+      formula it takes.
+    slot_usage:
+      value: {range: Formula, inlined: true}
+
+  ParamMapping:
+    is_a: MapEntry
+    description: >-
+      One entry of a param_mapping map: key the target family's parameter canonical name, value the
+      canonical name of the base family's parameter it corresponds to.
+    slot_usage:
+      value: {range: string}
+
+slots:
+  # entity attributes
+  family:
+    range: Parameterized
+    description: The family or construction the parameter belongs to (a local ref in batches).
+  canonical_name:
+    description: >-
+      The parameter's name from the phrase that first names its symbol as a parameter of the
+      family: its role word spelled as the ParameterRole value, else the symbol without backslash
+      (guideline §10.4).
+  symbol:
+    description: The symbol or expression that denotes the random variable, as written.
+
+  # predicates
+  has_distribution:
+    domain: RandomVariable
+    range: DistributionFamily
+    in_subset: [distribution]
+    description: >-
+      The random variable has a distribution in the family, optionally with stated parameter
+      values. "X is normally distributed with mean μ and variance σ²".
+    annotations:
+      ci:role: predicate
+      ci:qualifiers: param_values
+      ci:identity_qualifiers: param_values
+      ci:param_map: param_values
+      ci:extract: relation
+      ci:functional: true
+  defined_as:
+    domain: RandomVariable
+    range: Formula
+    in_subset: [formula_definition]
+    description: The random variable is defined by a formula in other variables. "let X = a + b Z".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  takes_values_in:
+    domain: RandomVariable
+    range: SetExpr
+    description: The random variable's values lie in the set. "with values in ℝ".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  has_parameter:
+    domain: Parameterized
+    range: FamilyParameter
+    in_subset: [family_structure]
+    description: A family or construction has this parameter. "with shape parameter k and scale parameter b".
+    annotations: {ci:role: predicate, ci:extract: relation}
+  parameter_role:
+    domain: FamilyParameter
+    range: ParameterRole
+    in_subset: [family_structure]
+    description: >-
+      The parameter plays this role, stated when it differs from its canonical name. "σ is the shape
+      parameter".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  parameter_domain:
+    domain: FamilyParameter
+    range: SetExpr
+    in_subset: [family_structure]
+    description: The set of the parameter's allowed values. "b ∈ (0, ∞)".
+    annotations: {ci:role: predicate, ci:extract: llm, ci:functional: true}
+  identical_parameter:
+    domain: FamilyParameter
+    range: FamilyParameter
+    symmetric: true
+    in_subset: [family_structure]
+    description: >-
+      Two parameter names denote the same parameter of the family. "the location and scale
+      parameters are also the mean and standard deviation, respectively".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  derived_parameter:
+    domain: FamilyParameter
+    range: Formula
+    in_subset: [family_structure]
+    description: The parameter equals a formula in the family's other parameters. "e^μ is the scale parameter".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  special_case_of:
+    domain: DistributionFamily
+    range: Entity
+    transitive: true
+    in_subset: [family_structure]
+    description: >-
+      The family is the special case of another family or construction obtained under parameter
+      constraints. "The exponential distribution is the gamma distribution with k = 1".
+    annotations:
+      ci:role: predicate
+      ci:qualifiers: param_constraints
+      ci:identity_qualifiers: param_constraints
+      ci:extract: llm
+  transformation_of:
+    domain: DistributionFamily
+    range: DistributionFamily
+    in_subset: [formula_definition, family_structure]
+    description: >-
+      Variables in this family arise by transforming a variable of the other family. "X = e^Y has
+      the lognormal distribution".
+    annotations:
+      ci:role: predicate
+      ci:qualifiers: transform param_mapping
+      ci:identity_qualifiers: transform
+      ci:extract: llm
+  limit_of:
+    domain: DistributionFamily
+    range: DistributionFamily
+    description: The family is a limit of the other under a stated limiting operation.
+    annotations:
+      ci:role: predicate
+      ci:qualifiers: limit param_mapping
+      ci:extract: llm
+  member_of_construction:
+    domain: DistributionFamily
+    range: FamilyConstruction
+    description: >-
+      The family is the construction applied to a base. "The general normal distribution is the
+      location-scale family associated with the standard normal distribution".
+    annotations:
+      ci:role: predicate
+      ci:qualifiers: base
+      ci:identity_qualifiers: base
+      ci:extract: llm
+  construction_formula:
+    domain: FamilyConstruction
+    range: Formula
+    in_subset: [formula_definition, family_structure]
+    description: >-
+      The formula generating members of the construction, without the variable it defines. "X = a +
+      b Z" gives a + b Z.
+    annotations:
+      ci:role: predicate
+      ci:qualifiers: base_variable param_symbols
+      ci:extract: llm
+  support:
+    domain: Distributed
+    range: SetExpr
+    description: The support of the distribution, the set of values with positive density or mass. "on (0, ∞)".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  pdf:
+    domain: Distributed
+    range: Formula
+    description: The probability density (or mass) function, with its argument domain as a condition.
+    annotations: {ci:role: predicate, ci:extract: llm}
+  cdf:
+    domain: Distributed
+    range: Formula
+    description: The cumulative distribution function, with its argument domain as a condition.
+    annotations: {ci:role: predicate, ci:extract: llm}
+  mgf:
+    domain: Distributed
+    range: Formula
+    description: The moment generating function, with the set of arguments where it is finite as a condition.
+    annotations: {ci:role: predicate, ci:extract: llm}
+  mean_value:
+    domain: Distributed
+    range: Formula
+    description: The mean (expected value) as a formula. "E(X) = μ".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  variance_value:
+    domain: Distributed
+    range: Formula
+    description: The variance as a formula. "var(X) = σ²".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  definition_formula:
+    domain: Concept
+    range: Formula
+    in_subset: [formula_definition]
+    description: The formula defining the concept. "the standard score is (X - μ) / σ".
+    annotations: {ci:role: predicate, ci:extract: llm}
+
+  # qualifiers
+  param_values:
+    range: ParamValue
+    multivalued: true
+    inlined: true
+    description: >-
+      The parameter values the sentence states, an object from the family's canonical parameter
+      names to formulas: {"shape": <formula>, "scale": <formula>} (guideline §10.5).
+    annotations: {ci:role: qualifier}
+  param_constraints:
+    range: Condition
+    description: A condition tree (D1 §7) over the base family's parameters under which the special case holds (k = 1).
+    annotations: {ci:role: qualifier}
+  transform:
+    range: Formula
+    description: The transformation, as a formula in the base variable. "e^Y".
+    annotations: {ci:role: qualifier}
+  param_mapping:
+    range: ParamMapping
+    multivalued: true
+    inlined: true
+    description: >-
+      An object from the target family's canonical parameter names to the base family's canonical
+      parameter names they correspond to: {"shape": "sigma"}.
+    annotations: {ci:role: qualifier}
+  limit:
+    range: PhraseValue
+    description: The limiting operation as stated. "as n → ∞".
+    annotations: {ci:role: qualifier}
+  base:
+    range: Entity
+    description: The base family the construction is applied to.
+    annotations: {ci:role: qualifier}
+  base_variable:
+    range: RandomVariable
+    description: The base variable the construction formula transforms (Z in a + b Z).
+    annotations: {ci:role: qualifier}
+  param_symbols:
+    range: ParamValue
+    multivalued: true
+    inlined: true
+    description: >-
+      An object from the construction's canonical parameter names to the symbols that stand for
+      them in its formula: {"location": <formula a>, "scale": <formula b>}.
+    annotations: {ci:role: qualifier}
+
+enums:
+  ParameterRole:
+    description: The role a parameter plays in its family.
+    annotations: {ci:extract: attribute, ci:applies_to: FamilyParameter}
+    permissible_values:
+      location: {description: A location parameter.}
+      scale: {description: A scale parameter.}
+      shape: {description: A shape parameter.}
+      rate: {description: A rate parameter.}
+      mean: {description: The mean as a parameter.}
+      variance: {description: The variance as a parameter.}
+      standard_deviation: {description: The standard deviation as a parameter.}
+      precision: {description: The precision (reciprocal variance) as a parameter.}
+      degrees_of_freedom: {description: Degrees of freedom.}
+      success_probability: {description: A success probability.}
+      number_of_trials: {description: A number of trials.}
+      lower_bound: {description: A lower bound of the support.}
+      upper_bound: {description: An upper bound of the support.}
+      other: {description: Another stated role.}
+  ConditionPredicate:
+    description: The condition predicates of pred nodes (D2 §5).
+    permissible_values:
+      independent:
+        description: The arguments are independent.
+        annotations: {ci:arity: 2+, ci:args: RandomVariable, ci:symmetric: true}
+      identically_distributed:
+        description: The arguments have the same distribution.
+        annotations: {ci:arity: 2+, ci:args: RandomVariable, ci:symmetric: true}
+      iid:
+        description: The arguments are independent and identically distributed.
+        annotations: {ci:arity: 2+, ci:args: RandomVariable, ci:symmetric: true}

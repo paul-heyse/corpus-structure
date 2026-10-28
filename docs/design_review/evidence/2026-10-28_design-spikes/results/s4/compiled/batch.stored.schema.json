@@ -1,0 +1,3495 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$defs": {
+  "AlternativeItem": {
+   "additionalProperties": false,
+   "properties": {
+    "refs": {
+     "items": {
+      "type": "string"
+     },
+     "minItems": 2,
+     "type": "array"
+    },
+    "reason": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "refs",
+    "reason"
+   ],
+   "type": "object"
+  },
+  "AndSt": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "and",
+     "type": "string"
+    },
+    "args": {
+     "items": {
+      "$ref": "#/$defs/ConditionSt"
+     },
+     "type": "array"
+    }
+   },
+   "required": [
+    "op",
+    "args"
+   ],
+   "type": "object"
+  },
+  "BareBinding": {
+   "additionalProperties": false,
+   "properties": {
+    "bind": {
+     "enum": [
+      "free",
+      "constant",
+      "unresolved"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "bind"
+   ],
+   "type": "object"
+  },
+  "ClaimBinding": {
+   "additionalProperties": false,
+   "properties": {
+    "bind": {
+     "enum": [
+      "param_of",
+      "param_expr_of"
+     ],
+     "type": "string"
+    },
+    "claim": {
+     "type": "string"
+    },
+    "param": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "bind",
+    "claim",
+    "param"
+   ],
+   "type": "object"
+  },
+  "ClaimNode": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "claim",
+     "type": "string"
+    },
+    "ref": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "op",
+    "ref"
+   ],
+   "type": "object"
+  },
+  "Claim_cdf_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "cdf",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_cdf_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_construction_formula_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "construction_formula",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_construction_formula_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_defined_as_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "defined_as",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_defined_as_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_defines_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "defines",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_defines_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_definition_formula_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "definition_formula",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_definition_formula_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_derived_parameter_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "derived_parameter",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_derived_parameter_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_follows_from_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "follows_from",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_follows_from_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_has_distribution_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "has_distribution",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_has_distribution_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_has_parameter_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "has_parameter",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_has_parameter_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_identical_parameter_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "identical_parameter",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_identical_parameter_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_limit_of_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "limit_of",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_limit_of_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_mean_value_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "mean_value",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_mean_value_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_member_of_construction_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "member_of_construction",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_member_of_construction_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_mgf_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "mgf",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_mgf_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_parameter_domain_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "parameter_domain",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/SetValue"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_parameter_domain_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_parameter_role_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "parameter_role",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Enum_ParameterRole"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_parameter_role_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_pdf_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "pdf",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_pdf_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_proves_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "proves",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_proves_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_refers_to_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "refers_to",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_refers_to_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_special_case_of_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "special_case_of",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_special_case_of_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_support_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "support",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/SetValue"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_support_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_takes_values_in_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "takes_values_in",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/SetValue"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_takes_values_in_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_transformation_of_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "transformation_of",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/EntityRef"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_transformation_of_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_unschematized_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "unschematized",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/PhraseSt"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_unschematized_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "Claim_variance_value_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "predicate": {
+     "const": "variance_value",
+     "type": "string"
+    },
+    "subject": {
+     "type": "string"
+    },
+    "object": {
+     "$ref": "#/$defs/Formula"
+    },
+    "qualifiers": {
+     "$ref": "#/$defs/Q_variance_value_stored"
+    },
+    "statement": {
+     "default": null,
+     "type": "string"
+    },
+    "statement_role": {
+     "default": null,
+     "enum": [
+      "premise",
+      "conclusion",
+      "definiens",
+      "restriction",
+      "example_value"
+     ],
+     "type": "string"
+    },
+    "evidence": {
+     "items": {
+      "$ref": "#/$defs/EvidenceSt"
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "local_ref",
+    "predicate",
+    "subject",
+    "object",
+    "evidence"
+   ],
+   "type": "object"
+  },
+  "CmpNode": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "cmp",
+     "type": "string"
+    },
+    "rel": {
+     "enum": [
+      "<",
+      "<=",
+      "=",
+      "!=",
+      ">",
+      ">="
+     ],
+     "type": "string"
+    },
+    "lhs": {
+     "$ref": "#/$defs/Formula"
+    },
+    "rhs": {
+     "$ref": "#/$defs/Formula"
+    }
+   },
+   "required": [
+    "op",
+    "rel",
+    "lhs",
+    "rhs"
+   ],
+   "type": "object"
+  },
+  "ConditionSt": {
+   "discriminator": {
+    "mapping": {
+     "and": "#/$defs/AndSt",
+     "claim": "#/$defs/ClaimNode",
+     "cmp": "#/$defs/CmpNode",
+     "forall": "#/$defs/ForallSt",
+     "member": "#/$defs/MemberNode",
+     "not": "#/$defs/NotSt",
+     "or": "#/$defs/OrSt",
+     "phrase": "#/$defs/PhraseNodeSt",
+     "pred": "#/$defs/PredNode",
+     "unsupported": "#/$defs/UnsupportedNodeSt"
+    },
+    "propertyName": "op"
+   },
+   "oneOf": [
+    {
+     "$ref": "#/$defs/AndSt"
+    },
+    {
+     "$ref": "#/$defs/OrSt"
+    },
+    {
+     "$ref": "#/$defs/NotSt"
+    },
+    {
+     "$ref": "#/$defs/ClaimNode"
+    },
+    {
+     "$ref": "#/$defs/MemberNode"
+    },
+    {
+     "$ref": "#/$defs/CmpNode"
+    },
+    {
+     "$ref": "#/$defs/PredNode"
+    },
+    {
+     "$ref": "#/$defs/ForallSt"
+    },
+    {
+     "$ref": "#/$defs/PhraseNodeSt"
+    },
+    {
+     "$ref": "#/$defs/UnsupportedNodeSt"
+    }
+   ]
+  },
+  "DateValue": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "date",
+     "type": "string"
+    },
+    "v": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "t",
+    "v"
+   ],
+   "type": "object"
+  },
+  "EntityBinding": {
+   "additionalProperties": false,
+   "properties": {
+    "bind": {
+     "enum": [
+      "variable",
+      "family_param"
+     ],
+     "type": "string"
+    },
+    "entity": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "bind",
+    "entity"
+   ],
+   "type": "object"
+  },
+  "EntityRef": {
+   "additionalProperties": false,
+   "description": "A reference to an entity (local ref in batches, key once stored). A position type, not a value.",
+   "properties": {
+    "ref": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "ref"
+   ],
+   "type": "object"
+  },
+  "Entity_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "type": {
+     "enum": [
+      "Concept",
+      "DistributionFamily",
+      "FamilyConstruction",
+      "FamilyParameter",
+      "RandomVariable"
+     ],
+     "type": "string"
+    },
+    "label": {
+     "type": "string"
+    },
+    "scope": {
+     "enum": [
+      "global",
+      "local"
+     ],
+     "type": "string"
+    },
+    "extent": {
+     "default": null,
+     "enum": [
+      "statement",
+      "section"
+     ],
+     "type": "string"
+    },
+    "symbol": {
+     "default": null,
+     "type": "string"
+    },
+    "aliases": {
+     "default": [],
+     "items": {
+      "type": "string"
+     },
+     "type": "array"
+    },
+    "identity": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "type": "object"
+    },
+    "scope_segment": {
+     "default": null,
+     "type": "string"
+    }
+   },
+   "required": [
+    "local_ref",
+    "type",
+    "label",
+    "scope"
+   ],
+   "type": "object"
+  },
+  "Enum_ParameterRole": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "enum",
+     "type": "string"
+    },
+    "enum": {
+     "const": "ParameterRole",
+     "type": "string"
+    },
+    "v": {
+     "enum": [
+      "location",
+      "scale",
+      "shape",
+      "rate",
+      "mean",
+      "variance",
+      "standard_deviation",
+      "precision",
+      "degrees_of_freedom",
+      "success_probability",
+      "number_of_trials",
+      "lower_bound",
+      "upper_bound",
+      "other"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "t",
+    "enum",
+    "v"
+   ],
+   "type": "object"
+  },
+  "EvidenceSt": {
+   "additionalProperties": false,
+   "properties": {
+    "start": {
+     "type": "integer"
+    },
+    "end": {
+     "type": "integer"
+    },
+    "role": {
+     "enum": [
+      "primary",
+      "supporting",
+      "condition",
+      "definition"
+     ],
+     "type": "string"
+    },
+    "coarse": {
+     "default": null,
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "start",
+    "end",
+    "role"
+   ],
+   "type": "object"
+  },
+  "ForallSt": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "forall",
+     "type": "string"
+    },
+    "var": {
+     "type": "string"
+    },
+    "set": {
+     "$ref": "#/$defs/SetValue"
+    },
+    "body": {
+     "$ref": "#/$defs/ConditionSt"
+    }
+   },
+   "required": [
+    "op",
+    "var",
+    "set",
+    "body"
+   ],
+   "type": "object"
+  },
+  "Formula": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "formula",
+     "type": "string"
+    },
+    "latex": {
+     "type": "string"
+    },
+    "symbols": {
+     "additionalProperties": {
+      "discriminator": {
+       "mapping": {
+        "constant": "#/$defs/BareBinding",
+        "family_param": "#/$defs/EntityBinding",
+        "free": "#/$defs/BareBinding",
+        "param_expr_of": "#/$defs/ClaimBinding",
+        "param_of": "#/$defs/ClaimBinding",
+        "unresolved": "#/$defs/BareBinding",
+        "variable": "#/$defs/EntityBinding"
+       },
+       "propertyName": "bind"
+      },
+      "oneOf": [
+       {
+        "$ref": "#/$defs/EntityBinding"
+       },
+       {
+        "$ref": "#/$defs/ClaimBinding"
+       },
+       {
+        "$ref": "#/$defs/BareBinding"
+       }
+      ]
+     },
+     "type": "object"
+    }
+   },
+   "required": [
+    "t",
+    "latex"
+   ],
+   "type": "object"
+  },
+  "IntervalValue": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "interval",
+     "type": "string"
+    },
+    "start": {
+     "default": null,
+     "discriminator": {
+      "mapping": {
+       "date": "#/$defs/DateValue",
+       "formula": "#/$defs/Formula",
+       "number": "#/$defs/NumberValue"
+      },
+      "propertyName": "t"
+     },
+     "oneOf": [
+      {
+       "$ref": "#/$defs/NumberValue"
+      },
+      {
+       "$ref": "#/$defs/DateValue"
+      },
+      {
+       "$ref": "#/$defs/Formula"
+      }
+     ]
+    },
+    "end": {
+     "default": null,
+     "discriminator": {
+      "mapping": {
+       "date": "#/$defs/DateValue",
+       "formula": "#/$defs/Formula",
+       "number": "#/$defs/NumberValue"
+      },
+      "propertyName": "t"
+     },
+     "oneOf": [
+      {
+       "$ref": "#/$defs/NumberValue"
+      },
+      {
+       "$ref": "#/$defs/DateValue"
+      },
+      {
+       "$ref": "#/$defs/Formula"
+      }
+     ]
+    },
+    "start_incl": {
+     "default": null,
+     "type": "boolean"
+    },
+    "end_incl": {
+     "default": null,
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "t"
+   ],
+   "type": "object"
+  },
+  "MemberNode": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "member",
+     "type": "string"
+    },
+    "x": {
+     "$ref": "#/$defs/Formula"
+    },
+    "set": {
+     "$ref": "#/$defs/SetValue"
+    }
+   },
+   "required": [
+    "op",
+    "x",
+    "set"
+   ],
+   "type": "object"
+  },
+  "NotSt": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "not",
+     "type": "string"
+    },
+    "arg": {
+     "$ref": "#/$defs/ConditionSt"
+    }
+   },
+   "required": [
+    "op",
+    "arg"
+   ],
+   "type": "object"
+  },
+  "NumberValue": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "number",
+     "type": "string"
+    },
+    "v": {
+     "type": "string"
+    },
+    "unit": {
+     "default": null,
+     "type": "string"
+    },
+    "basis": {
+     "default": null,
+     "type": "string"
+    }
+   },
+   "required": [
+    "t",
+    "v"
+   ],
+   "type": "object"
+  },
+  "OrSt": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "or",
+     "type": "string"
+    },
+    "args": {
+     "items": {
+      "$ref": "#/$defs/ConditionSt"
+     },
+     "type": "array"
+    }
+   },
+   "required": [
+    "op",
+    "args"
+   ],
+   "type": "object"
+  },
+  "PhraseNodeSt": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "phrase",
+     "type": "string"
+    },
+    "text": {
+     "type": "string"
+    },
+    "start": {
+     "type": "integer"
+    },
+    "end": {
+     "type": "integer"
+    },
+    "coarse": {
+     "default": null,
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "op",
+    "text",
+    "start",
+    "end"
+   ],
+   "type": "object"
+  },
+  "PhraseSt": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "phrase",
+     "type": "string"
+    },
+    "text": {
+     "type": "string"
+    },
+    "start": {
+     "type": "integer"
+    },
+    "end": {
+     "type": "integer"
+    },
+    "coarse": {
+     "default": null,
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "t",
+    "text",
+    "start",
+    "end"
+   ],
+   "type": "object"
+  },
+  "PredNode": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "pred",
+     "type": "string"
+    },
+    "name": {
+     "type": "string"
+    },
+    "args": {
+     "items": {
+      "anyOf": [
+       {
+        "$ref": "#/$defs/EntityRef"
+       },
+       {
+        "$ref": "#/$defs/Formula"
+       }
+      ]
+     },
+     "minItems": 1,
+     "type": "array"
+    }
+   },
+   "required": [
+    "op",
+    "name",
+    "args"
+   ],
+   "type": "object"
+  },
+  "Q_cdf_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_construction_formula_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    },
+    "base_variable": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "param_symbols": {
+     "additionalProperties": {
+      "$ref": "#/$defs/Formula"
+     },
+     "default": null,
+     "type": "object"
+    }
+   },
+   "type": "object"
+  },
+  "Q_defined_as_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_defines_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_definition_formula_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_derived_parameter_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_follows_from_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_has_distribution_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    },
+    "param_values": {
+     "additionalProperties": {
+      "$ref": "#/$defs/Formula"
+     },
+     "default": null,
+     "type": "object"
+    }
+   },
+   "type": "object"
+  },
+  "Q_has_parameter_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_identical_parameter_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_limit_of_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    },
+    "limit": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "param_mapping": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "default": null,
+     "type": "object"
+    }
+   },
+   "type": "object"
+  },
+  "Q_mean_value_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_member_of_construction_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    },
+    "base": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_mgf_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_parameter_domain_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_parameter_role_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_pdf_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_proves_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_refers_to_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_special_case_of_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    },
+    "param_constraints": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_support_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_takes_values_in_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_transformation_of_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    },
+    "transform": {
+     "$ref": "#/$defs/Formula",
+     "default": null
+    },
+    "param_mapping": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "default": null,
+     "type": "object"
+    }
+   },
+   "type": "object"
+  },
+  "Q_unschematized_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "Q_variance_value_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "attribution": {
+     "$ref": "#/$defs/EntityRef",
+     "default": null
+    },
+    "conditions": {
+     "$ref": "#/$defs/ConditionSt",
+     "default": null
+    },
+    "hedge": {
+     "$ref": "#/$defs/PhraseSt",
+     "default": null
+    },
+    "modality": {
+     "default": "asserted",
+     "enum": [
+      "asserted",
+      "supposed",
+      "defined",
+      "conventional",
+      "exemplified",
+      "posed",
+      "cited"
+     ],
+     "type": "string"
+    },
+    "polarity": {
+     "default": "positive",
+     "enum": [
+      "positive",
+      "negative"
+     ],
+     "type": "string"
+    },
+    "scope": {
+     "$ref": "#/$defs/ScopeSt",
+     "default": null
+    },
+    "valid_time": {
+     "$ref": "#/$defs/IntervalValue",
+     "default": null
+    }
+   },
+   "type": "object"
+  },
+  "ScopeSt": {
+   "additionalProperties": false,
+   "description": "The stored form of the scope qualifier: the extent and the segment it resolves to.",
+   "properties": {
+    "extent": {
+     "type": "string"
+    },
+    "segment": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "extent",
+    "segment"
+   ],
+   "type": "object"
+  },
+  "SetValue": {
+   "additionalProperties": false,
+   "properties": {
+    "t": {
+     "const": "set",
+     "type": "string"
+    },
+    "latex": {
+     "type": "string"
+    },
+    "symbols": {
+     "additionalProperties": {
+      "discriminator": {
+       "mapping": {
+        "constant": "#/$defs/BareBinding",
+        "family_param": "#/$defs/EntityBinding",
+        "free": "#/$defs/BareBinding",
+        "param_expr_of": "#/$defs/ClaimBinding",
+        "param_of": "#/$defs/ClaimBinding",
+        "unresolved": "#/$defs/BareBinding",
+        "variable": "#/$defs/EntityBinding"
+       },
+       "propertyName": "bind"
+      },
+      "oneOf": [
+       {
+        "$ref": "#/$defs/EntityBinding"
+       },
+       {
+        "$ref": "#/$defs/ClaimBinding"
+       },
+       {
+        "$ref": "#/$defs/BareBinding"
+       }
+      ]
+     },
+     "type": "object"
+    }
+   },
+   "required": [
+    "t",
+    "latex"
+   ],
+   "type": "object"
+  },
+  "Statement_stored": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "definition",
+      "theorem",
+      "proposition",
+      "lemma",
+      "corollary",
+      "proof",
+      "example",
+      "exercise",
+      "solution",
+      "remark",
+      "convention",
+      "notation",
+      "assumption",
+      "narrative"
+     ],
+     "type": "string"
+    },
+    "anchor": {
+     "anyOf": [
+      {
+       "const": "outside",
+       "type": "string"
+      },
+      {
+       "items": {
+        "type": "string"
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     ]
+    }
+   },
+   "required": [
+    "local_ref",
+    "kind",
+    "anchor"
+   ],
+   "type": "object"
+  },
+  "UnsupportedNodeSt": {
+   "additionalProperties": false,
+   "properties": {
+    "op": {
+     "const": "unsupported",
+     "type": "string"
+    },
+    "text": {
+     "type": "string"
+    },
+    "reason": {
+     "type": "string"
+    },
+    "start": {
+     "type": "integer"
+    },
+    "end": {
+     "type": "integer"
+    },
+    "coarse": {
+     "default": null,
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "op",
+    "text",
+    "reason",
+    "start",
+    "end"
+   ],
+   "type": "object"
+  },
+  "UnsupportedSt": {
+   "additionalProperties": false,
+   "properties": {
+    "local_ref": {
+     "type": "string"
+    },
+    "start": {
+     "type": "integer"
+    },
+    "end": {
+     "type": "integer"
+    },
+    "reason": {
+     "type": "string"
+    },
+    "coarse": {
+     "default": null,
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "local_ref",
+    "start",
+    "end",
+    "reason"
+   ],
+   "type": "object"
+  }
+ },
+ "additionalProperties": false,
+ "properties": {
+  "unit_ref": {
+   "type": "string"
+  },
+  "entities": {
+   "default": [],
+   "items": {
+    "$ref": "#/$defs/Entity_stored"
+   },
+   "type": "array"
+  },
+  "statements": {
+   "default": [],
+   "items": {
+    "$ref": "#/$defs/Statement_stored"
+   },
+   "type": "array"
+  },
+  "claims": {
+   "default": [],
+   "items": {
+    "discriminator": {
+     "mapping": {
+      "cdf": "#/$defs/Claim_cdf_stored",
+      "construction_formula": "#/$defs/Claim_construction_formula_stored",
+      "defined_as": "#/$defs/Claim_defined_as_stored",
+      "defines": "#/$defs/Claim_defines_stored",
+      "definition_formula": "#/$defs/Claim_definition_formula_stored",
+      "derived_parameter": "#/$defs/Claim_derived_parameter_stored",
+      "follows_from": "#/$defs/Claim_follows_from_stored",
+      "has_distribution": "#/$defs/Claim_has_distribution_stored",
+      "has_parameter": "#/$defs/Claim_has_parameter_stored",
+      "identical_parameter": "#/$defs/Claim_identical_parameter_stored",
+      "limit_of": "#/$defs/Claim_limit_of_stored",
+      "mean_value": "#/$defs/Claim_mean_value_stored",
+      "member_of_construction": "#/$defs/Claim_member_of_construction_stored",
+      "mgf": "#/$defs/Claim_mgf_stored",
+      "parameter_domain": "#/$defs/Claim_parameter_domain_stored",
+      "parameter_role": "#/$defs/Claim_parameter_role_stored",
+      "pdf": "#/$defs/Claim_pdf_stored",
+      "proves": "#/$defs/Claim_proves_stored",
+      "refers_to": "#/$defs/Claim_refers_to_stored",
+      "special_case_of": "#/$defs/Claim_special_case_of_stored",
+      "support": "#/$defs/Claim_support_stored",
+      "takes_values_in": "#/$defs/Claim_takes_values_in_stored",
+      "transformation_of": "#/$defs/Claim_transformation_of_stored",
+      "unschematized": "#/$defs/Claim_unschematized_stored",
+      "variance_value": "#/$defs/Claim_variance_value_stored"
+     },
+     "propertyName": "predicate"
+    },
+    "oneOf": [
+     {
+      "$ref": "#/$defs/Claim_cdf_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_construction_formula_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_defined_as_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_defines_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_definition_formula_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_derived_parameter_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_follows_from_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_has_distribution_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_has_parameter_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_identical_parameter_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_limit_of_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_mean_value_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_member_of_construction_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_mgf_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_parameter_domain_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_parameter_role_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_pdf_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_proves_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_refers_to_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_special_case_of_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_support_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_takes_values_in_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_transformation_of_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_unschematized_stored"
+     },
+     {
+      "$ref": "#/$defs/Claim_variance_value_stored"
+     }
+    ]
+   },
+   "type": "array"
+  },
+  "alternatives": {
+   "default": [],
+   "items": {
+    "$ref": "#/$defs/AlternativeItem"
+   },
+   "type": "array"
+  },
+  "unsupported": {
+   "default": [],
+   "items": {
+    "$ref": "#/$defs/UnsupportedSt"
+   },
+   "type": "array"
+  }
+ },
+ "required": [
+  "unit_ref"
+ ],
+ "type": "object"
+}

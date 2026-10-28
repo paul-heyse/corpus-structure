@@ -1,0 +1,53 @@
+{
+ "entities": {
+  "mathematical concept": {
+   "description": "A defined mathematical term that is not a distribution family, construction or parameter: the gamma function, the standard score, the moment generating function. Examples: the gamma function; the standard score."
+  },
+  "distribution family": {
+   "description": "A named family of probability distributions, possibly with parameters: the normal distribution, the gamma distribution, the standard normal distribution. Mentions include adjectival forms (\"normally distributed\", \"has a gamma distribution\"). Examples: the normal distribution; lognormal distribution; normally distributed."
+  },
+  "family construction": {
+   "description": "A way of generating a family of distributions from a base distribution, such as the location-scale family, the location family or the scale family associated with a distribution, or the general exponential family. Not itself a single distribution family. Examples: location-scale family; scale family associated with the given distribution."
+  },
+  "distribution parameter": {
+   "description": "A parameter of a distribution family or construction, such as the location parameter, the scale parameter, the shape parameter k, the rate, the mean or the standard deviation when these parameterize the family. Examples: location parameter; shape parameter k; the rate parameter."
+  },
+  "random variable": {
+   "description": "A random variable denoted by a symbol (X, Y, Z, X_1, W) or by an expression in other random variables (a + b X, e^Y, X_1 + X_2). Local to the statement or section that introduces it. Examples: X; a + b X; X_1 + X_2."
+  }
+ },
+ "relations": {
+  "has distribution": {
+   "head": [
+    "random variable"
+   ],
+   "tail": [
+    "distribution family"
+   ],
+   "description": "The random variable has a distribution in the family, optionally with stated parameter values. \"X is normally distributed with mean μ and variance σ²\".",
+   "directed": true,
+   "symmetric": false,
+   "allow_self": false,
+   "max_per_head": 1
+  },
+  "has parameter": {
+   "head": [
+    "distribution family",
+    "family construction"
+   ],
+   "tail": [
+    "distribution parameter"
+   ],
+   "description": "A family or construction has this parameter. \"with shape parameter k and scale parameter b\".",
+   "directed": true,
+   "symmetric": false,
+   "allow_self": false
+  }
+ },
+ "constraints": [
+  {
+   "type": "NoSelfLoops",
+   "relation": null
+  }
+ ]
+}

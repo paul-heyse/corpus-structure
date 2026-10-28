@@ -1,0 +1,164 @@
+[
+ {
+  "rule": "guideline.structural_role_modality",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_proves",
+  "mutation": "a proves claim given statement_role conclusion",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.role_by_kind",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_X_normal",
+  "mutation": "a theorem premise given role example_value",
+  "caught": true,
+  "also_fired": [
+   "guideline.modality_by_role"
+  ],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.modality_by_role",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_X_normal",
+  "mutation": "a premise given modality asserted",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.structural_no_conditions",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_proves",
+  "mutation": "a proves claim given a claim node",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.premise_conditions_index_only",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_X_normal",
+  "mutation": "a premise given a restriction a ∈ ℝ",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.no_claim_nodes_on_form",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_aX_def",
+  "mutation": "a defined_as definiens given a claim node",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.references_a_premise",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_aX_normal",
+  "mutation": "a conclusion's conditions removed",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.parameter_role_differs",
+  "site": "batch",
+  "unit": "T4",
+  "claim": "c_role_sigma",
+  "mutation": "the parameter's canonical name set to its stated role",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.formula_excludes_defined_variable",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_aX_def",
+  "mutation": "a defined_as formula written with 'X ='",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.symbol_keys_no_backslash",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_aX_normal",
+  "mutation": "a binding key written with a backslash",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "guideline.binding_priority",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_aX_normal",
+  "mutation": "a param_of binding rewritten as free",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": true
+ },
+ {
+  "rule": "stat.param_keys_known",
+  "site": "finalize",
+  "unit": "T3",
+  "claim": "c_X_normal",
+  "mutation": "a param_values key 'kurtosis' added",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": null
+ },
+ {
+  "rule": "stat.one_distribution_per_statement",
+  "site": "batch",
+  "unit": "T3",
+  "claim": "c_aX_normal",
+  "mutation": "a conclusion has_distribution duplicated",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": null
+ },
+ {
+  "rule": "stat.domain_is_set",
+  "site": "finalize",
+  "unit": "T1",
+  "claim": "c_dom_loc",
+  "mutation": "a parameter_domain set rewritten as '\\frac{'",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": null
+ },
+ {
+  "rule": "stat.no_family_on_variable",
+  "site": "batch",
+  "unit": "T1",
+  "claim": "c_hp_loc",
+  "mutation": "has_parameter given a random variable as subject",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": null
+ },
+ {
+  "rule": "core.value_kind_matches_slot",
+  "site": "finalize",
+  "unit": "T3",
+  "claim": "c_aX_def",
+  "mutation": "a defined_as formula rewritten as a membership x ∈ ℝ",
+  "caught": true,
+  "also_fired": [],
+  "s0r2_rules_warns": null
+ }
+]

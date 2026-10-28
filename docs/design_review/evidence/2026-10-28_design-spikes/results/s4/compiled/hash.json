@@ -1,0 +1,21 @@
+{
+ "hash": "0af28efdb3ddc863280f41fbe09c3e2122584e79dc4303300e2a602f54d1c85c",
+ "runs": [
+  {
+   "PYTHONHASHSEED": "1",
+   "hash": "0af28efdb3ddc863280f41fbe09c3e2122584e79dc4303300e2a602f54d1c85c",
+   "location": "results/s4/schema/domains"
+  },
+  {
+   "PYTHONHASHSEED": "777",
+   "hash": "0af28efdb3ddc863280f41fbe09c3e2122584e79dc4303300e2a602f54d1c85c",
+   "location": "results/s4/schema/domains"
+  },
+  {
+   "PYTHONHASHSEED": "4242",
+   "hash": "0af28efdb3ddc863280f41fbe09c3e2122584e79dc4303300e2a602f54d1c85c",
+   "location": "a copy in a temporary directory"
+  }
+ ],
+ "stable": true
+}

@@ -1,0 +1,12 @@
+{
+ "mutation_linkml_adds_TextValue_lang": [
+  "model text: fields differ: pydantic ['v'] linkml ['lang', 'v']",
+  "stored text: fields differ: pydantic ['v'] linkml ['lang', 'v']"
+ ],
+ "mutation_pydantic_drops_NumberValue_basis": [
+  "model number: fields differ: pydantic ['unit', 'v'] linkml ['basis', 'unit', 'v']",
+  "stored number: fields differ: pydantic ['unit', 'v'] linkml ['basis', 'unit', 'v']"
+ ],
+ "passed": true,
+ "real": []
+}

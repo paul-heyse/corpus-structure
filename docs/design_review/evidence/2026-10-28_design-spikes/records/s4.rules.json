@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "id": "s4.rules",
+  "title": "Pack rules and guideline warnings in rule-engine, with the generic view builder",
+  "group": "S4 LinkML compilation",
+  "package": "S4-C",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the pack's rules.yaml checks and the 11 guideline checks compile as typed rule-engine rules, give no warnings on the v1 reference and examples, catch one seeded violation each, and serve both call sites through one view (OPEN-D2-3)?",
+  "answers": [
+    "OPEN-D2-3",
+    "D2 §7.4",
+    "D5 §8.2",
+    "ADR-0018"
+  ],
+  "method": "One typed Context per expression generated from the schema version (OBJECT views, getattr, no mapping dot-access, UTC, $now/$today/$random rejected); tables as typed $ builtins; a generic view builder over one core candidate type adapted from a batch (local refs) and from a 12-unit pool (synthetic keys); the views: family_params compiled from rules.yaml; a function form of the same view compared; negative compiles; one seed per rule; parity with code/s0r2_rules.py.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s4_rules.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (W-S2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/schema",
+      "role": "spike schema copies (D2 §6, §9 v0)",
+      "sha256": "6de5c7eb0e959610b0f329efca839a061f97c8a40fa666fd31f6ee92bd66da23"
+    },
+    {
+      "path": "code/s4",
+      "role": "S4 compiler package",
+      "sha256": "909fe0549044ecdb2be8d6f91dc68d65e025925f06a60a6e73e90706a9eafef4"
+    },
+    {
+      "path": "code/s4_rules.py",
+      "role": "rules script",
+      "sha256": "8d3263b4463d5cdad80e22b0f599f8b0ae7cf51429ab85e95a5411c42d2493da"
+    },
+    {
+      "path": "code/s0r2_rules.py",
+      "role": "Python reference checker",
+      "sha256": "abc04655db3c3d69cd2036228dbaec2ba1c94e3509b4ca25ef32af56f35328c0"
+    },
+    {
+      "path": "results/s4/schema",
+      "role": "pack files",
+      "sha256": "21e1109ffb4e4c15286119df96241a1fa3f5e5f237752b32a561171b8ef0a747"
+    },
+    {
+      "path": "results/s0r2/reference_model_v1",
+      "role": "v1 reference",
+      "sha256": "34f49dd67a804a94ee6caa2eefd0dda4a96bd30382b3f716c850dba2ff8683dc"
+    },
+    {
+      "path": "results/s0r2/examples",
+      "role": "worked examples",
+      "sha256": "ed890c5478ed75c50119b57210528823111a9a551d861d4528b3f53bc9639e35"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s4/rules.tsv",
+      "role": "rule x claim x site",
+      "sha256": "f2c7e221f7f9a571da083283d53f89099f517e8c7d2154b9d1f5c234979e339e"
+    },
+    {
+      "path": "results/s4/rules_compile.json",
+      "role": "compile, parity, function form, negatives",
+      "sha256": "053cabdcbcf6a2e5870f69eeb27df8c6792d1a5d4a4dc158111c0f9a15389495"
+    },
+    {
+      "path": "results/s4/rules_seeds.json",
+      "role": "seeds",
+      "sha256": "e1b03d0eab0b3e155273081c473c26634a5cdf30909e1c04780da49e18d5a175"
+    }
+  ],
+  "depends_on": [
+    "s4.pack-lint",
+    "s4.batch-validation",
+    "s0r2.reference-v1",
+    "s0r2.inputs"
+  ],
+  "results": [
+    {
+      "name": "rules_compiled",
+      "value": 16,
+      "of": null,
+      "unit": null,
+      "note": "4 pack rules, 1 core rule, 11 guideline"
+    },
+    {
+      "name": "evaluations",
+      "value": 866,
+      "of": null,
+      "unit": null,
+      "note": "rule x claim x site, unseeded"
+    },
+    {
+      "name": "unexpected_fires",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "seeds_caught",
+      "value": 16,
+      "of": 16,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "guideline_seeds_also_warned_by_s0r2_rules",
+      "value": 11,
+      "of": 11,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "parity_with_s0r2_rules",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "both 0 warnings on all 15 batches"
+    },
+    {
+      "name": "negative_compiles_rejected",
+      "value": 7,
+      "of": 7,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "function_form_agrees",
+      "value": 21,
+      "of": 21,
+      "unit": null,
+      "note": "31 calls for one evaluation pass"
+    },
+    {
+      "name": "compile_ms",
+      "value": 21.9,
+      "of": null,
+      "unit": "ms",
+      "note": "16 rules, 32 expressions"
+    },
+    {
+      "name": "finalize_reader",
+      "value": "code/mathgrammar + instruments/values.py sha256 31bff815a0bcb1cd28d91ce36ba924ed8f4a590ed263f8dfdf38c56fccbcd553",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All 16 rules compile under typed contexts, give 0 warnings on the 15 v1 batches at the batch site and 0 at the finalize site, and catch 16 of 16 seeds (S0-R2's checker warns on all 11 guideline seeds too); the view-attribute and function forms both type-check and agree, and the views: section compiles family_params with no domain code, closing OPEN-D2-3 as proposed.",
+  "consumed_by": [
+    "P0-S-2",
+    "P0-O-2",
+    "OPEN-D2-3",
+    "ADR-0018",
+    "S4 report"
+  ]
+}

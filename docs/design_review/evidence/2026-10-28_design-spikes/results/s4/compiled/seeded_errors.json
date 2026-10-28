@@ -1,0 +1,103 @@
+[
+ {
+  "caught": true,
+  "jsonschema_best_match": "$.claims[0] {'local_ref': 'c_X_normal', 'predicate': 'has_distrib', 'subject': 'X', 'object': {'ref': 'N'}, 'qualifiers': {'modality",
+  "pydantic": "claims.0 union_tag_invalid",
+  "seed": "unknown predicate",
+  "sidetable": null
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": "$.claims[0] {'local_ref': 'c_X_normal', 'predicate': 'has_distribution', 'subject': 'X', 'object': {'ref': 'N'}, 'qualifiers': {'mod",
+  "pydantic": "claims.0.has_distribution.qualifiers.modality literal_error",
+  "seed": "modality not in enum",
+  "sidetable": null
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": "$.claims[0] {'local_ref': 'c_X_normal', 'predicate': 'has_distribution', 'subject': 'X', 'object': {'ref': 'N'}, 'qualifiers': {'mod",
+  "pydantic": "claims.0.has_distribution.qualifiers.transform extra_forbidden",
+  "seed": "qualifier not allowed for the predicate",
+  "sidetable": null
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": "$.claims[1] {'local_ref': 'c_aX_def', 'predicate': 'defined_as', 'subject': 'aX', 'object': {'t': 'formula', 'latex': 'a + b X', 'sy",
+  "pydantic": "claims.1.defined_as.object.symbols.q.param_of.claim missing",
+  "seed": "binding without its claim",
+  "sidetable": null
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": "$.claims[1] {'local_ref': 'c_aX_def', 'predicate': 'defined_as', 'subject': 'aX', 'object': 'a + b \\\\mu', 'qualifiers': {'modality':",
+  "pydantic": "claims.1.defined_as.object model_type",
+  "seed": "bare LaTeX string in a formula position",
+  "sidetable": null
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": null,
+  "pydantic": "accepted",
+  "seed": "subject of the wrong class (side table)",
+  "sidetable": [
+   "class_mismatch: c_X_normal.subject 'N' is a DistributionFamily, expected RandomVariable"
+  ]
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": null,
+  "pydantic": "accepted",
+  "seed": "object ref that does not resolve (side table)",
+  "sidetable": [
+   "unresolved_ref: c_X_normal.object 'nowhere'"
+  ]
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": null,
+  "pydantic": "accepted",
+  "seed": "variable binding naming a global entity (side table)",
+  "sidetable": [
+   "binding_target: c_aX_def q variable names 'N', not a local entity"
+  ]
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": null,
+  "pydantic": "accepted",
+  "seed": "param_of naming a missing map entry (side table)",
+  "sidetable": [
+   "binding_target: c_aX_def q param_of names 'c_X_normal'/'kurtosis', no such map entry"
+  ]
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": null,
+  "pydantic": "accepted",
+  "seed": "global entity with an extent (side table)",
+  "sidetable": [
+   "INV-05: global entity N with an extent"
+  ]
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": "$.claims[0] {'local_ref': 'c_X_normal', 'predicate': 'has_distribution', 'subject': 'X', 'object': {'t': 'entity', 'ref': 'N'}, 'qua",
+  "pydantic": "claims.0.has_distribution.object.t extra_forbidden",
+  "seed": "entity as a value (V1)",
+  "sidetable": null
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": "$.claims[0] {'local_ref': 'c_X_normal', 'predicate': 'has_distribution', 'subject': 'X', 'object': {'ref': 'N'}, 'qualifiers': {'mod",
+  "pydantic": "claims.0.has_distribution.statement_role literal_error",
+  "seed": "null for an absent field",
+  "sidetable": null
+ },
+ {
+  "caught": true,
+  "jsonschema_best_match": "$.entities[3].type 'Statement' is not one of ['Concept', 'DistributionFamily', 'FamilyConstruction', 'FamilyParameter', 'RandomVariable']",
+  "pydantic": "entities.3.type literal_error",
+  "seed": "Statement in entities[] (V2)",
+  "sidetable": null
+ }
+]

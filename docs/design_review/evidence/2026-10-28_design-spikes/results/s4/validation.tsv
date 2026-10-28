@@ -1,0 +1,181 @@
+set	unit	form	variant	rewrites	claims	pydantic	pydantic_errors	jsonschema	jsonschema_errors	sidetable	sidetable_issues	validators_agree	pydantic_ms	jsonschema_ms	first_error
+v1.model	T1	model	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.206	21.663	claims.3.construction_formula.qualifiers.base_variable.t extra_forbidden
+v1.model	T1	model	canonical	1	8	valid	0	valid	0	ok	0	True	0.14	9.095	
+v1.model	T2	model	as_written	0	3	valid	0	valid	0	ok	0	True	0.051	2.632	
+v1.model	T3	model	as_written	0	4	valid	0	valid	0	ok	0	True	0.061	9.484	
+v1.model	T4	model	as_written	0	17	valid	0	valid	0	ok	0	True	0.125	20.554	
+v1.model	U10	model	as_written	0	9	valid	0	valid	0	ok	0	True	0.062	16.264	
+v1.model	U11	model	as_written	0	4	invalid	9	invalid	1	not_run	0	True	0.098	89.624	claims.2.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+v1.model	U11	model	canonical	2	4	valid	0	valid	0	ok	0	True	0.137	15.99	
+v1.model	U12	model	as_written	0	4	valid	0	valid	0	ok	0	True	0.097	19.935	
+v1.model	U5	model	as_written	0	6	invalid	27	invalid	3	not_run	0	True	0.155	231.751	claims.2.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+v1.model	U5	model	canonical	6	6	valid	0	valid	0	ok	0	True	0.166	54.239	
+v1.model	U6	model	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.134	12.915	entities.5.type literal_error
+v1.model	U6	model	canonical	1	8	valid	0	valid	0	ok	0	True	0.085	12.823	
+v1.model	U7	model	as_written	0	1	valid	0	valid	0	ok	0	True	0.032	2.973	
+v1.model	U8	model	as_written	0	3	valid	0	valid	0	ok	0	True	0.042	2.701	
+v1.model	U9	model	as_written	0	4	valid	0	valid	0	ok	0	True	0.08	27.469	
+examples	E1	model	as_written	0	9	valid	0	valid	0	ok	0	True	0.087	17.032	
+examples	E2	model	as_written	0	4	valid	0	valid	0	ok	0	True	0.05	10.413	
+examples	E3	model	as_written	0	2	valid	0	valid	0	ok	0	True	0.026	1.914	
+v1.stored	T1	stored	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.132	21.934	claims.3.construction_formula.qualifiers.base_variable.t extra_forbidden
+v1.stored	T1	stored	canonical	1	8	valid	0	valid	0	ok	0	True	0.09	9.363	
+v1.stored	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.046	2.681	
+v1.stored	T3	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.059	9.624	
+v1.stored	T4	stored	as_written	0	17	valid	0	valid	0	ok	0	True	0.12	20.858	
+v1.stored	U10	stored	as_written	0	9	valid	0	valid	0	ok	0	True	0.063	16.59	
+v1.stored	U11	stored	as_written	0	4	invalid	9	invalid	1	not_run	0	True	0.088	182.453	claims.2.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+v1.stored	U11	stored	canonical	2	4	valid	0	valid	0	ok	0	True	0.143	16.544	
+v1.stored	U12	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.091	19.819	
+v1.stored	U5	stored	as_written	0	6	invalid	27	invalid	3	not_run	0	True	0.164	201.735	claims.2.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+v1.stored	U5	stored	canonical	6	6	valid	0	valid	0	ok	0	True	0.161	157.643	
+v1.stored	U6	stored	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.183	13.229	entities.5.type literal_error
+v1.stored	U6	stored	canonical	1	8	valid	0	valid	0	ok	0	True	0.073	13.082	
+v1.stored	U7	stored	as_written	0	1	valid	0	valid	0	ok	0	True	0.035	3.067	
+v1.stored	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.041	2.703	
+v1.stored	U9	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.086	28.581	
+s0.reference	T1	stored	as_written	0	10	invalid	1	invalid	1	not_run	0	True	0.118	24.758	claims.3.construction_formula.qualifiers.base_variable.t extra_forbidden
+s0.reference	T1	stored	canonical	1	10	valid	0	valid	0	ok	0	True	0.141	11.873	
+s0.reference	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.073	6.661	
+s0.reference	T3	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.074	8.603	
+s0.reference	T4	stored	as_written	0	18	valid	0	valid	0	ok	0	True	0.133	22.538	
+s0.reference	U10	stored	as_written	0	9	valid	0	valid	0	ok	0	True	0.078	12.694	
+s0.reference	U11	stored	as_written	0	4	invalid	9	invalid	1	not_run	0	True	0.102	88.372	claims.2.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+s0.reference	U11	stored	canonical	2	4	valid	0	valid	0	ok	0	True	0.108	16.101	
+s0.reference	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.046	4.788	
+s0.reference	U5	stored	as_written	0	6	invalid	27	invalid	3	not_run	0	True	0.165	384.047	claims.2.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+s0.reference	U5	stored	canonical	6	6	valid	0	valid	0	ok	0	True	0.16	55.813	
+s0.reference	U6	stored	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.17	14.103	entities.5.type literal_error
+s0.reference	U6	stored	canonical	1	8	valid	0	valid	0	ok	0	True	0.106	14.031	
+s0.reference	U7	stored	as_written	0	1	valid	0	valid	0	ok	0	True	0.039	3.053	
+s0.reference	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.041	2.707	
+s0.reference	U9	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.086	28.122	
+s0.stored.adjudication_d7	T1	stored	as_written	0	10	invalid	1	invalid	1	not_run	0	True	0.181	25.479	claims.3.construction_formula.qualifiers.base_variable.t extra_forbidden
+s0.stored.adjudication_d7	T1	stored	canonical	1	10	valid	0	valid	0	ok	0	True	0.122	11.97	
+s0.stored.adjudication_d7	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.059	6.576	
+s0.stored.adjudication_d7	T3	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.057	8.433	
+s0.stored.adjudication_d7	T4	stored	as_written	0	18	valid	0	valid	0	ok	0	True	0.112	22.67	
+s0.stored.adjudication_d7	U10	stored	as_written	0	9	valid	0	valid	0	ok	0	True	0.071	12.469	
+s0.stored.adjudication_d7	U11	stored	as_written	0	4	invalid	9	invalid	1	not_run	0	True	0.103	102.016	claims.2.has_distribution.qualifiers.conditions.and.args.0.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.adjudication_d7	U11	stored	canonical	2	4	valid	0	valid	0	ok	0	True	0.14	18.625	
+s0.stored.adjudication_d7	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.064	4.833	
+s0.stored.adjudication_d7	U5	stored	as_written	0	6	invalid	27	invalid	3	not_run	0	True	0.179	382.704	claims.2.has_distribution.qualifiers.conditions.and.args.0.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.adjudication_d7	U5	stored	canonical	6	6	valid	0	valid	0	ok	0	True	0.168	63.412	
+s0.stored.adjudication_d7	U6	stored	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.141	14.031	entities.5.type literal_error
+s0.stored.adjudication_d7	U6	stored	canonical	1	8	valid	0	valid	0	ok	0	True	0.066	14.013	
+s0.stored.adjudication_d7	U7	stored	as_written	0	6	invalid	5	invalid	5	not_run	0	True	0.058	8.117	entities.2.type literal_error
+s0.stored.adjudication_d7	U7	stored	canonical	5	6	valid	0	valid	0	ok	0	True	0.033	8.078	
+s0.stored.adjudication_d7	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.035	2.665	
+s0.stored.adjudication_d7	U9	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.076	30.06	
+s0.stored.adjudication_d7_s	T1	stored	as_written	0	10	invalid	1	invalid	1	not_run	0	True	0.12	27.143	claims.3.construction_formula.qualifiers.base_variable.t extra_forbidden
+s0.stored.adjudication_d7_s	T1	stored	canonical	1	10	valid	0	valid	0	ok	0	True	0.069	11.888	
+s0.stored.adjudication_d7_s	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.042	6.558	
+s0.stored.adjudication_d7_s	T3	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.046	8.284	
+s0.stored.adjudication_d7_s	T4	stored	as_written	0	18	valid	0	valid	0	ok	0	True	0.298	21.763	
+s0.stored.adjudication_d7_s	U10	stored	as_written	0	9	valid	0	valid	0	ok	0	True	0.057	12.85	
+s0.stored.adjudication_d7_s	U11	stored	as_written	0	4	invalid	9	invalid	1	not_run	0	True	0.091	102.554	claims.2.has_distribution.qualifiers.conditions.and.args.0.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.adjudication_d7_s	U11	stored	canonical	2	4	valid	0	valid	0	ok	0	True	0.148	142.176	
+s0.stored.adjudication_d7_s	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.079	4.61	
+s0.stored.adjudication_d7_s	U5	stored	as_written	0	6	invalid	27	invalid	3	not_run	0	True	0.179	222.237	claims.2.has_distribution.qualifiers.conditions.and.args.0.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.adjudication_d7_s	U5	stored	canonical	6	6	valid	0	valid	0	ok	0	True	0.168	64.297	
+s0.stored.adjudication_d7_s	U6	stored	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.171	13.977	entities.5.type literal_error
+s0.stored.adjudication_d7_s	U6	stored	canonical	1	8	valid	0	valid	0	ok	0	True	0.143	13.908	
+s0.stored.adjudication_d7_s	U7	stored	as_written	0	6	invalid	5	invalid	5	not_run	0	True	0.088	8.179	entities.2.type literal_error
+s0.stored.adjudication_d7_s	U7	stored	canonical	5	6	valid	0	valid	0	ok	0	True	0.074	8.056	
+s0.stored.adjudication_d7_s	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.065	2.701	
+s0.stored.adjudication_d7_s	U9	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.133	30.997	
+s0.stored.pass_a	T1	stored	as_written	0	10	invalid	1	invalid	1	not_run	0	True	0.171	26.708	claims.3.construction_formula.qualifiers.base_variable.t extra_forbidden
+s0.stored.pass_a	T1	stored	canonical	1	10	valid	0	valid	0	ok	0	True	0.127	11.939	
+s0.stored.pass_a	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.061	6.543	
+s0.stored.pass_a	T3	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.062	8.376	
+s0.stored.pass_a	T4	stored	as_written	0	17	valid	0	valid	0	ok	0	True	0.112	21.303	
+s0.stored.pass_a	U10	stored	as_written	0	9	valid	0	valid	0	ok	0	True	0.086	12.457	
+s0.stored.pass_a	U11	stored	as_written	0	4	invalid	9	invalid	1	not_run	0	True	0.1	231.035	claims.2.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_a	U11	stored	canonical	2	4	valid	0	valid	0	ok	0	True	0.131	18.182	
+s0.stored.pass_a	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.051	4.764	
+s0.stored.pass_a	U5	stored	as_written	0	6	invalid	27	invalid	3	not_run	0	True	0.157	295.904	claims.2.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_a	U5	stored	canonical	6	6	valid	0	valid	0	ok	0	True	0.155	56.066	
+s0.stored.pass_a	U6	stored	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.145	13.992	entities.5.type literal_error
+s0.stored.pass_a	U6	stored	canonical	1	8	valid	0	valid	0	ok	0	True	0.063	13.812	
+s0.stored.pass_a	U7	stored	as_written	0	6	invalid	5	invalid	5	not_run	0	True	0.059	8.34	entities.2.type literal_error
+s0.stored.pass_a	U7	stored	canonical	5	6	valid	0	valid	0	ok	0	True	0.035	8.103	
+s0.stored.pass_a	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.034	2.719	
+s0.stored.pass_a	U9	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.079	28.362	
+s0.stored.pass_b	T1	stored	as_written	0	10	invalid	1	invalid	1	not_run	0	True	0.116	29.239	claims.3.construction_formula.qualifiers.base_variable.t extra_forbidden
+s0.stored.pass_b	T1	stored	canonical	1	10	valid	0	valid	0	ok	0	True	0.154	12.03	
+s0.stored.pass_b	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.077	6.453	
+s0.stored.pass_b	T3	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.062	8.232	
+s0.stored.pass_b	T4	stored	as_written	0	18	valid	0	valid	0	ok	0	True	0.137	22.607	
+s0.stored.pass_b	U10	stored	as_written	0	9	valid	0	valid	0	ok	0	True	0.074	12.779	
+s0.stored.pass_b	U11	stored	as_written	0	4	invalid	9	invalid	1	not_run	0	True	0.103	101.881	claims.2.has_distribution.qualifiers.conditions.and.args.0.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_b	U11	stored	canonical	2	4	valid	0	valid	0	ok	0	True	0.133	17.347	
+s0.stored.pass_b	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.048	4.742	
+s0.stored.pass_b	U5	stored	as_written	0	6	invalid	27	invalid	3	not_run	0	True	0.152	388.801	claims.2.has_distribution.qualifiers.conditions.and.args.0.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_b	U5	stored	canonical	6	6	valid	0	valid	0	ok	0	True	0.164	61.244	
+s0.stored.pass_b	U6	stored	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.167	13.973	entities.5.type literal_error
+s0.stored.pass_b	U6	stored	canonical	1	8	valid	0	valid	0	ok	0	True	0.074	13.96	
+s0.stored.pass_b	U7	stored	as_written	0	1	valid	0	valid	0	ok	0	True	0.033	3.069	
+s0.stored.pass_b	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.035	2.691	
+s0.stored.pass_b	U9	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.078	28.708	
+s0.stored.pass_h	T1	stored	as_written	0	10	invalid	1	invalid	1	not_run	0	True	0.115	29.748	claims.2.construction_formula.qualifiers.base_variable.t extra_forbidden
+s0.stored.pass_h	T1	stored	canonical	1	10	valid	0	valid	0	ok	0	True	0.098	12.445	
+s0.stored.pass_h	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.059	6.35	
+s0.stored.pass_h	T3	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.05	7.452	
+s0.stored.pass_h	T4	stored	as_written	0	12	valid	0	valid	0	ok	0	True	0.09	15.932	
+s0.stored.pass_h	U10	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.04	8.061	
+s0.stored.pass_h	U11	stored	as_written	0	4	invalid	9	invalid	1	not_run	0	True	0.091	75.944	claims.2.has_distribution.qualifiers.conditions.and.args.2.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_h	U11	stored	canonical	2	4	valid	0	valid	0	ok	0	True	0.123	17.671	
+s0.stored.pass_h	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.067	4.433	
+s0.stored.pass_h	U5	stored	as_written	0	6	invalid	27	invalid	3	not_run	0	True	0.159	389.693	claims.2.has_distribution.qualifiers.conditions.and.args.2.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_h	U5	stored	canonical	6	6	valid	0	valid	0	ok	0	True	0.189	59.142	
+s0.stored.pass_h	U6	stored	as_written	0	9	valid	0	valid	0	ok	0	True	0.138	10.033	
+s0.stored.pass_h	U7	stored	as_written	0	1	valid	0	valid	0	ok	0	True	0.032	0.983	
+s0.stored.pass_h	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.035	2.687	
+s0.stored.pass_h	U9	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.065	15.065	
+s0.stored.pass_p	T1	stored	as_written	0	8	invalid	2	invalid	2	not_run	0	True	0.105	9.587	entities.3.identity.family string_type
+s0.stored.pass_p	T1	stored	canonical	2	8	valid	0	valid	0	ok	0	True	0.099	9.331	
+s0.stored.pass_p	T2	stored	as_written	0	3	invalid	4	invalid	4	not_run	0	True	0.07	6.395	entities.2.identity.family string_type
+s0.stored.pass_p	T2	stored	canonical	4	3	valid	0	valid	0	ok	0	True	0.036	6.255	
+s0.stored.pass_p	T3	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.046	7.694	
+s0.stored.pass_p	T4	stored	as_written	0	15	invalid	3	invalid	3	not_run	0	True	0.116	19.261	entities.8.identity.family string_type
+s0.stored.pass_p	T4	stored	canonical	3	15	valid	0	valid	0	ok	0	True	0.09	18.868	
+s0.stored.pass_p	U10	stored	as_written	0	8	invalid	2	invalid	2	not_run	0	True	0.072	12.02	entities.4.identity.family string_type
+s0.stored.pass_p	U10	stored	canonical	2	8	valid	0	valid	0	ok	0	True	0.051	12.022	
+s0.stored.pass_p	U11	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.051	17.181	
+s0.stored.pass_p	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.034	4.431	
+s0.stored.pass_p	U5	stored	as_written	0	5	valid	0	valid	0	ok	0	True	0.055	17.238	
+s0.stored.pass_p	U6	stored	as_written	0	7	valid	0	valid	0	ok	0	True	0.068	7.648	
+s0.stored.pass_p	U7	stored	as_written	0	1	valid	0	valid	0	ok	0	True	0.019	0.963	
+s0.stored.pass_p	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.028	2.664	
+s0.stored.pass_p	U9	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.054	18.584	
+s0.stored.pass_sg	T1	stored	as_written	0	8	invalid	1	invalid	1	not_run	0	True	0.085	27.043	claims.2.construction_formula.qualifiers.base_variable.t extra_forbidden
+s0.stored.pass_sg	T1	stored	canonical	1	8	valid	0	valid	0	ok	0	True	0.058	8.364	
+s0.stored.pass_sg	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.042	8.779	
+s0.stored.pass_sg	T3	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.041	7.655	
+s0.stored.pass_sg	T4	stored	as_written	0	15	valid	0	valid	0	ok	0	True	0.106	24.685	
+s0.stored.pass_sg	U10	stored	as_written	0	10	valid	0	valid	0	ok	0	True	0.066	23.12	
+s0.stored.pass_sg	U11	stored	as_written	0	3	invalid	9	invalid	1	not_run	0	True	0.086	196.64	claims.1.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_sg	U11	stored	canonical	2	3	valid	0	valid	0	ok	0	True	0.12	16.648	
+s0.stored.pass_sg	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.051	4.708	
+s0.stored.pass_sg	U5	stored	as_written	0	5	invalid	27	invalid	3	not_run	0	True	0.165	197.127	claims.1.has_distribution.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_sg	U5	stored	canonical	6	5	valid	0	valid	0	ok	0	True	0.162	159.655	
+s0.stored.pass_sg	U6	stored	as_written	0	7	valid	0	valid	0	ok	0	True	0.141	13.917	
+s0.stored.pass_sg	U7	stored	as_written	0	1	valid	0	valid	0	ok	0	True	0.033	2.345	
+s0.stored.pass_sg	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.034	2.673	
+s0.stored.pass_sg	U9	stored	as_written	0	3	invalid	13	invalid	1	not_run	0	True	0.119	135.486	claims.1.has_distribution.qualifiers.conditions.and.args.2.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_sg	U9	stored	canonical	3	3	valid	0	valid	0	ok	0	True	0.148	26.306	
+s0.stored.pass_sp	T1	stored	as_written	0	10	invalid	1	invalid	1	not_run	0	True	0.148	29.402	claims.3.construction_formula.qualifiers.base_variable.t extra_forbidden
+s0.stored.pass_sp	T1	stored	canonical	1	10	valid	0	valid	0	ok	0	True	0.109	11.689	
+s0.stored.pass_sp	T2	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.061	10.5	
+s0.stored.pass_sp	T3	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.056	9.667	
+s0.stored.pass_sp	T4	stored	as_written	0	16	valid	0	valid	0	ok	0	True	0.112	30.696	
+s0.stored.pass_sp	U10	stored	as_written	0	8	valid	0	valid	0	ok	0	True	0.062	21.907	
+s0.stored.pass_sp	U11	stored	as_written	0	5	invalid	9	invalid	1	not_run	0	True	0.099	80.855	claims.3.has_distribution.qualifiers.conditions.and.args.2.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_sp	U11	stored	canonical	2	5	valid	0	valid	0	ok	0	True	0.126	22.113	
+s0.stored.pass_sp	U12	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.113	10.746	
+s0.stored.pass_sp	U5	stored	as_written	0	7	invalid	27	invalid	3	not_run	0	True	0.188	492.535	claims.3.has_distribution.qualifiers.conditions.and.args.2.pred.args.0.EntityRef.t extra_forbidden
+s0.stored.pass_sp	U5	stored	canonical	6	7	valid	0	valid	0	ok	0	True	0.171	60.658	
+s0.stored.pass_sp	U6	stored	as_written	0	7	valid	0	valid	0	ok	0	True	0.139	14.233	
+s0.stored.pass_sp	U7	stored	as_written	0	1	valid	0	valid	0	ok	0	True	0.061	2.404	
+s0.stored.pass_sp	U8	stored	as_written	0	3	valid	0	valid	0	ok	0	True	0.042	2.674	
+s0.stored.pass_sp	U9	stored	as_written	0	4	valid	0	valid	0	ok	0	True	0.111	29.917	

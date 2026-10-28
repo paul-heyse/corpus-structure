@@ -1,0 +1,119 @@
+{
+ "sections": [
+  {
+   "s0r2_section": "entity types",
+   "s4_section": "entity types",
+   "only_s0r2": [],
+   "only_s4": [
+    "extent"
+   ],
+   "both": 6
+  },
+  {
+   "s0r2_section": "predicates",
+   "s4_section": "predicates",
+   "only_s0r2": [
+    "ParameterRole",
+    "asserted",
+    "claim",
+    "conclusion",
+    "defined",
+    "definiens",
+    "example_value",
+    "premise",
+    "statement_role"
+   ],
+   "only_s4": [
+    "unschematized"
+   ],
+   "both": 45
+  },
+  {
+   "s0r2_section": "qualifiers",
+   "s4_section": "qualifiers",
+   "only_s0r2": [],
+   "only_s4": [
+    "asserted",
+    "positive"
+   ],
+   "both": 15
+  },
+  {
+   "s0r2_section": "enumerations",
+   "s4_section": "enumerations",
+   "only_s0r2": [],
+   "only_s4": [
+    "ambiguous",
+    "condition",
+    "primary",
+    "supporting"
+   ],
+   "both": 58
+  },
+  {
+   "s0r2_section": "values and condition nodes",
+   "s4_section": "exact shapes",
+   "only_s0r2": [],
+   "only_s4": [
+    "cN",
+    "identically_distributed",
+    "iid",
+    "independent",
+    "name",
+    "null",
+    "param_mapping",
+    "param_symbols",
+    "param_values",
+    "pred",
+    "sN"
+   ],
+   "both": 0
+  },
+  {
+   "s0r2_section": "worked examples",
+   "s4_section": "worked examples",
+   "only_s0r2": [],
+   "only_s4": [],
+   "both": 1
+  },
+  {
+   "s0r2_section": null,
+   "s4_section": "statement roles and modality",
+   "only_s0r2": [],
+   "only_s4": [
+    "modality_by_role",
+    "roles_by_kind"
+   ],
+   "both": 0
+  }
+ ],
+ "cards": {
+  "s0r2_cards": 24,
+  "s4_cards": 25,
+  "only_s0r2": [],
+  "only_s4": [
+   "unschematized"
+  ],
+  "empty_meaning_s0r2": [
+   "definition_formula",
+   "support",
+   "cdf",
+   "mgf",
+   "mean_value",
+   "variance_value"
+  ],
+  "empty_meaning_s4": []
+ },
+ "examples_identical_to_s0r2": {
+  "E1": true,
+  "E2": true,
+  "E3": true
+ },
+ "example_statement_kinds": [
+  "definition",
+  "exercise",
+  "proof",
+  "solution",
+  "theorem"
+ ]
+}

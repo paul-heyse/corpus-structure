@@ -97,3 +97,53 @@ FROM s, unnest(CAST(j -> 'non_canonical_value_decisions' AS JSON[])) AS t(d);
 -- Full-tier condition failures against the reference, classified by shape (code/s0_condition_classes.py).
 CREATE TABLE condition_classes AS
 SELECT * FROM read_csv('{{ folder }}/results/s0/condition_classes.tsv', delim = '\t', header = true);
+
+-- S6 Storage smoke (results/s6; code/s6*.py).
+
+-- Constraint sweep: every bad row, the error expected and the one observed.
+CREATE TABLE s6_constraints AS
+SELECT * FROM read_csv('{{ folder }}/results/s6/constraints.tsv', delim = '\t', header = true, all_varchar = true);
+
+-- Vector loads and filtered top-10 queries by dimension, index layout and iterative scan.
+CREATE TABLE s6_vectors AS
+SELECT * FROM read_csv('{{ folder }}/results/s6/vectors.tsv', delim = '\t', header = true);
+
+-- Binary COPY timings and queries at run scale.
+CREATE TABLE s6_volume AS
+SELECT * FROM read_csv('{{ folder }}/results/s6/volume.tsv', delim = '\t', header = true, all_varchar = true);
+
+-- Table, index and column sizes after the volume load.
+CREATE TABLE s6_sizes AS
+SELECT * FROM read_csv('{{ folder }}/results/s6/sizes.tsv', delim = '\t', header = true, all_varchar = true);
+
+-- ==== S4 LinkML compilation (results/s4; code/s4*.py) — block owned by S4 ====
+
+-- Batch validation: one row per batch, form and variant (as written, and canonical after the recorded V1/V2 rewrites).
+CREATE TABLE s4_validation AS
+SELECT * FROM read_csv('{{ folder }}/results/s4/validation.tsv', delim = '\t', header = true);
+
+-- Validation per batch set and variant.
+CREATE VIEW s4_validation_by_set AS
+SELECT "set", variant, count(*) AS batches, sum(claims) AS claims,
+       count(*) FILTER (WHERE pydantic = 'valid') AS pydantic_valid,
+       count(*) FILTER (WHERE jsonschema = 'valid') AS jsonschema_valid,
+       count(*) FILTER (WHERE sidetable = 'ok') AS sidetable_ok,
+       count(*) FILTER (WHERE validators_agree) AS validators_agree,
+       sum(rewrites) AS rewrites
+FROM s4_validation GROUP BY "set", variant;
+
+-- Rules: rule x claim x call site, unseeded (expected pass) and seeded (expected fire).
+CREATE TABLE s4_rules AS
+SELECT * FROM read_csv('{{ folder }}/results/s4/rules.tsv', delim = '\t', header = true, all_varchar = true);
+
+CREATE VIEW s4_rules_by_rule AS
+SELECT rule, grp, count(*) FILTER (WHERE expected = 'pass') AS evaluations,
+       count(*) FILTER (WHERE expected = 'pass' AND result = 'fire') AS unexpected_fires,
+       count(*) FILTER (WHERE expected = 'fire' AND result = 'fire') AS seeds_caught,
+       count(*) FILTER (WHERE expected = 'fire') AS seeds
+FROM s4_rules GROUP BY rule, grp;
+
+-- Artifact sizes in bytes and Qwen3.5-9B tokens.
+CREATE TABLE s4_sizes AS
+SELECT * FROM read_csv('{{ folder }}/results/s4/sizes.tsv', delim = '\t', header = true, all_varchar = true);
+-- ==== end S4 ====

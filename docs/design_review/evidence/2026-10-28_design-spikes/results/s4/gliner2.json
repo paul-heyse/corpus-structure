@@ -1,0 +1,140 @@
+{
+ "gliner2": "2.1.0",
+ "checkpoint": {
+  "repo": "fastino/gliner2.5-base-v1",
+  "revision": "54785d51df8d86a0d8f2eb212fec15871aad2c4d"
+ },
+ "sentence": "Suppose that \\(X\\) is normally distributed with mean \\(\\mu\\) and variance \\(\\sigma^2\\).",
+ "extraction": {
+  "compiled_equals_to_dict": false,
+  "to_dict_is_fixpoint": true,
+  "keys_used": [
+   "classifications",
+   "entities",
+   "entity_attributes",
+   "relations"
+  ],
+  "entity_config_keys": [
+   "description"
+  ],
+  "attribute_keys": [
+   "applies_to",
+   "labels",
+   "qualify_labels"
+  ],
+  "classification_keys": [
+   "labels",
+   "task"
+  ],
+  "relation_config_keys": [
+   "description"
+  ],
+  "to_dict_differs_at": [
+   "entities"
+  ],
+  "unknown_key_rejected": "ValidationError"
+ },
+ "joint": {
+  "to_dict_is_fixpoint": true,
+  "relations": {
+   "has distribution": {
+    "head": [
+     "random variable"
+    ],
+    "tail": [
+     "distribution family"
+    ],
+    "directed": true,
+    "symmetric": false,
+    "max_per_head": 1
+   },
+   "has parameter": {
+    "head": [
+     "distribution family",
+     "family construction"
+    ],
+    "tail": [
+     "distribution parameter"
+    ],
+    "directed": true,
+    "symmetric": false
+   }
+  },
+  "constraints": [
+   {
+    "type": "NoSelfLoops",
+    "relation": null
+   }
+  ]
+ },
+ "extraction_run": {
+  "outcome": "passed",
+  "load_s": 1.4,
+  "extract_s": 0.49,
+  "result": {
+   "entities": {
+    "mathematical concept": [],
+    "distribution family": [],
+    "family construction": [],
+    "distribution parameter": [
+     {
+      "text": "variance",
+      "start": 65,
+      "end": 73,
+      "ParameterRole": {
+       "label": "mean",
+       "confidence": 0.46610531210899353
+      }
+     }
+    ],
+    "random variable": [
+     {
+      "text": "X",
+      "start": 15,
+      "end": 16
+     }
+    ]
+   },
+   "ClaimModality": "supposed",
+   "StatementKind": "assumption",
+   "relation_extraction": {
+    "has distribution": [],
+    "has parameter": []
+   }
+  }
+ },
+ "joint_run": {
+  "outcome": "passed",
+  "s": 1.6,
+  "feasible": true,
+  "result": {
+   "entities": [
+    {
+     "id": "e1",
+     "type": "random variable",
+     "text": "X",
+     "start": 15,
+     "end": 16,
+     "confidence": 0.991122542391776
+    },
+    {
+     "id": "e2",
+     "type": "distribution parameter",
+     "text": "mean",
+     "start": 48,
+     "end": 52,
+     "confidence": 0.8381177971254907
+    },
+    {
+     "id": "e3",
+     "type": "distribution parameter",
+     "text": "variance",
+     "start": 65,
+     "end": 73,
+     "confidence": 0.8638341865235228
+    }
+   ],
+   "relations": []
+  }
+ }
+}

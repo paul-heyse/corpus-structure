@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "id": "s4.pack-lint",
+  "title": "Pack files in the native LinkML form: lint and annotation round trip",
+  "group": "S4 LinkML compilation",
+  "package": "S4-A",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do core.yaml, statistics.yaml and rules.yaml, written in D2 §3's native form, load in SchemaView with their import and lint clean, and do the remaining ci: annotations round-trip (OPEN-D2-6)?",
+  "answers": [
+    "OPEN-D2-6",
+    "D2 §3",
+    "D2 §6",
+    "D2 §9",
+    "ADR-0017"
+  ],
+  "method": "Pack files written in the D2 §2 layout under results/s4/schema/domains; linkml-lint per file with .linkmllint.yaml (extends recommended, recommended at error); rules files checked by a strict Pydantic model; each ci: annotation read through SchemaView compared with yaml.safe_load of the file.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s4_lint.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (W-S2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/schema",
+      "role": "spike schema copies (D2 §6, §9 v0)",
+      "sha256": "6de5c7eb0e959610b0f329efca839a061f97c8a40fa666fd31f6ee92bd66da23"
+    },
+    {
+      "path": "code/s4",
+      "role": "S4 compiler package",
+      "sha256": "909fe0549044ecdb2be8d6f91dc68d65e025925f06a60a6e73e90706a9eafef4"
+    },
+    {
+      "path": "code/s4_lint.py",
+      "role": "check script",
+      "sha256": "cf016616000c2a28167bc98d20eb274626f372de137778be7f43d20b99ab5205"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s4/schema",
+      "role": "pack files",
+      "sha256": "21e1109ffb4e4c15286119df96241a1fa3f5e5f237752b32a561171b8ef0a747"
+    },
+    {
+      "path": "results/s4/lint",
+      "role": "lint and readback",
+      "sha256": "33ce5580f131604f6a54ead7431376fe3e4abf1dc61fdca1a272c52080320f5a"
+    },
+    {
+      "path": "results/s4/roundtrip.md",
+      "role": "findings and D2 ambiguities",
+      "sha256": "2e22ff6d0b518ed9e76752c2943894ddeaae666eed06b1f0943f9625ff54be59"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu"
+  ],
+  "results": [
+    {
+      "name": "lint_errors",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "core.yaml and statistics.yaml"
+    },
+    {
+      "name": "lint_warnings",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "standard_naming on the D1 field names t and v (statistics.yaml with its core import)"
+    },
+    {
+      "name": "rules_files_valid",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "annotations_round_trip",
+      "value": 129,
+      "of": 129,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "directory_mode_errors",
+      "value": 6,
+      "of": null,
+      "unit": null,
+      "note": "rules.yaml linted as a schema: lint files, not the directory"
+    },
+    {
+      "name": "d2_ambiguities_resolved",
+      "value": 21,
+      "of": null,
+      "unit": null,
+      "note": "roundtrip.md A1-A21"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Both schema files lint with 0 errors (two kept standard_naming warnings on D1's t and v); every one of the 129 scalar ci: annotations round-trips unchanged through SchemaView, so OPEN-D2-6 closes on native slots plus scalar annotations. ci:kind, ci:object, ci:group and the identity/field roles are derived or native; canonical_prefixes is disabled deliberately.",
+  "consumed_by": [
+    "P0-S-1",
+    "OPEN-D2-6",
+    "ADR-0017",
+    "S4 report"
+  ]
+}

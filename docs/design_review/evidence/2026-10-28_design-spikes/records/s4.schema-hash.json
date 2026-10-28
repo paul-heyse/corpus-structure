@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "id": "s4.schema-hash",
+  "title": "Schema version hash and the schema-table rows",
+  "group": "S4 LinkML compilation",
+  "package": "S4-B",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Is the schema version hash (canonical JSON of the parsed pack files, rules files and worked examples) stable across processes, hash seeds and locations, and what rows does the schema-table compiler give D3's meta tables?",
+  "answers": [
+    "D2 §2",
+    "D2 §7.1",
+    "D3 §3"
+  ],
+  "method": "SHA-256 of canonical JSON (D1 §10.1) over the parsed core.yaml, statistics.yaml, both rules.yaml and reference/E*, computed in this process and in three subprocesses (PYTHONHASHSEED 1, 777, 4242; the last on a copy in a temporary directory); schema tables compiled from SchemaView in D3 §3's column names.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s4_compile.py",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s4_compile.py --hash-only"
+  ],
+  "agents": [
+    {
+      "role": "executor (W-S2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/schema",
+      "role": "spike schema copies (D2 §6, §9 v0)",
+      "sha256": "6de5c7eb0e959610b0f329efca839a061f97c8a40fa666fd31f6ee92bd66da23"
+    },
+    {
+      "path": "code/s4",
+      "role": "S4 compiler package",
+      "sha256": "909fe0549044ecdb2be8d6f91dc68d65e025925f06a60a6e73e90706a9eafef4"
+    },
+    {
+      "path": "code/s4_compile.py",
+      "role": "compile script",
+      "sha256": "4edd3218affffca5096baef06ba728ac4bff74800aac7adebe03fb662bf8202d"
+    },
+    {
+      "path": "results/s4/schema",
+      "role": "pack files",
+      "sha256": "21e1109ffb4e4c15286119df96241a1fa3f5e5f237752b32a561171b8ef0a747"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s4/compiled/hash.json",
+      "role": "hash runs",
+      "sha256": "e586e3164d03df7cd6b3e07a7484455c2bd43aa217357d2d748d46bbc2786fbe"
+    },
+    {
+      "path": "results/s4/compiled/tables.json",
+      "role": "schema-table rows for meta.schema_*",
+      "sha256": "47fac3b19e6d2b917ba33ac885e6da323cbcfe4227c3b3d071548db4f8fa0b09"
+    }
+  ],
+  "depends_on": [
+    "s4.pack-lint"
+  ],
+  "results": [
+    {
+      "name": "schema_version_hash",
+      "value": "0af28efdb3ddc863280f41fbe09c3e2122584e79dc4303300e2a602f54d1c85c",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "hash_runs_equal",
+      "value": 3,
+      "of": 3,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "schema_class_rows",
+      "value": 25,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "schema_slot_rows",
+      "value": 97,
+      "of": null,
+      "unit": null,
+      "note": "class-local attributes named <prefix>:<Class>.<attribute>"
+    },
+    {
+      "name": "schema_enum_rows",
+      "value": 10,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "schema_rule_rows",
+      "value": 16,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The hash is identical in four computations across hash seeds and locations; the schema-table rows exist for S6-D in D3's column names, with class-local value-class attributes keyed <prefix>:<Class>.<attribute> because D3's (schema_version_id, name) key cannot hold two attributes named v.",
+  "consumed_by": [
+    "S6-D",
+    "P0-F-4",
+    "P0-S-1",
+    "S4 report"
+  ]
+}

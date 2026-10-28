@@ -1,0 +1,2653 @@
+{
+ "compiled_artifact": [
+  {
+   "compiler": "json_schema",
+   "compiler_version": "s4-0.1",
+   "hash": "88ca862c41c3b9148a11af61fe3a514faf07d5f6019903453af1e34d9a540075",
+   "kind": "batch.model_facing"
+  },
+  {
+   "compiler": "json_schema",
+   "compiler_version": "s4-0.1",
+   "hash": "df2c5f8b7655270b1822afb70a0a9e56f5f6b47dbc91d60a27ed50817a979353",
+   "kind": "batch.stored"
+  },
+  {
+   "compiler": "json_schema",
+   "compiler_version": "s4-0.1",
+   "hash": "87e7eaeab4c27f500b04fbdb43b58aa2d61791ca8a78a4ca6f5f4c6d72ab3ea6",
+   "kind": "batch.decoding"
+  },
+  {
+   "compiler": "schema_tables",
+   "compiler_version": "s4-0.1",
+   "hash": "6b4f862465a6e78a69484b275ffcb7f25483184691fd8c670e6b3589627cfee8",
+   "kind": "tables"
+  }
+ ],
+ "schema_class": [
+  {
+   "annotations": {},
+   "description": "A truth value.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:BoolValue",
+   "parent": "core:Value",
+   "scope": null
+  },
+  {
+   "annotations": {
+    "ci:extract": "mention",
+    "ci:scope": "global",
+    "examples": [
+     "the gamma function",
+     "the standard score"
+    ],
+    "title": "mathematical concept"
+   },
+   "description": "A defined mathematical term that is not a distribution family, construction or parameter: the gamma function, the standard score, the moment generating function.",
+   "identity_keys": [],
+   "kind": "entity",
+   "name": "stat:Concept",
+   "parent": "core:Entity",
+   "scope": "global"
+  },
+  {
+   "annotations": {
+    "abstract": true
+   },
+   "description": "A condition tree (D1 §7). Its node shapes are owned by the core Pydantic Condition union, discriminated on op; this class is the range that names it.",
+   "identity_keys": [],
+   "kind": "abstract",
+   "name": "core:Condition",
+   "parent": null,
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "A date or date-time kept verbatim as ISO 8601.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:DateValue",
+   "parent": "core:Value",
+   "scope": null
+  },
+  {
+   "annotations": {
+    "mixin": true
+   },
+   "description": "Things that have a distribution and its characteristics.",
+   "identity_keys": [],
+   "kind": "abstract",
+   "name": "stat:Distributed",
+   "parent": null,
+   "scope": null
+  },
+  {
+   "annotations": {
+    "ci:extract": "mention",
+    "ci:scope": "global",
+    "examples": [
+     "the normal distribution",
+     "lognormal distribution",
+     "normally distributed"
+    ],
+    "mixins": [
+     "Distributed",
+     "Parameterized"
+    ],
+    "title": "distribution family"
+   },
+   "description": "A named family of probability distributions, possibly with parameters: the normal distribution, the gamma distribution, the standard normal distribution. Mentions include adjectival forms (\"normally distributed\", \"has a gamma distribution\").",
+   "identity_keys": [],
+   "kind": "entity",
+   "name": "stat:DistributionFamily",
+   "parent": "core:Entity",
+   "scope": "global"
+  },
+  {
+   "annotations": {
+    "abstract": true
+   },
+   "description": "Base of every entity class; instances are D1 entities.",
+   "identity_keys": [],
+   "kind": "abstract",
+   "name": "core:Entity",
+   "parent": null,
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "A reference to an entity: a batch local ref, or an entity key once stored. It is a position type, not a value; a slot whose range is an entity class takes it.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:EntityRef",
+   "parent": null,
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "A permissible value of a schema enum.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:EnumValue",
+   "parent": "core:Value",
+   "scope": null
+  },
+  {
+   "annotations": {
+    "ci:extract": "mention",
+    "ci:scope": "global",
+    "examples": [
+     "location-scale family",
+     "scale family associated with the given distribution"
+    ],
+    "mixins": [
+     "Parameterized"
+    ],
+    "title": "family construction"
+   },
+   "description": "A way of generating a family of distributions from a base distribution, such as the location-scale family, the location family or the scale family associated with a distribution, or the general exponential family. Not itself a single distribution family.",
+   "identity_keys": [],
+   "kind": "entity",
+   "name": "stat:FamilyConstruction",
+   "parent": "core:Entity",
+   "scope": "global"
+  },
+  {
+   "annotations": {
+    "ci:extract": "mention",
+    "ci:parameter_class": "family",
+    "ci:scope": "global",
+    "examples": [
+     "location parameter",
+     "shape parameter k",
+     "the rate parameter"
+    ],
+    "title": "distribution parameter"
+   },
+   "description": "A parameter of a distribution family or construction, such as the location parameter, the scale parameter, the shape parameter k, the rate, the mean or the standard deviation when these parameterize the family.",
+   "identity_keys": [
+    "family",
+    "canonical_name"
+   ],
+   "kind": "entity",
+   "name": "stat:FamilyParameter",
+   "parent": "core:Entity",
+   "scope": "global"
+  },
+  {
+   "annotations": {},
+   "description": "A formula as written, with its symbol bindings (D1 §6.1).",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:Formula",
+   "parent": "core:Value",
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "An interval of values; an absent bound is unbounded.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:IntervalValue",
+   "parent": "core:Value",
+   "scope": null
+  },
+  {
+   "annotations": {
+    "abstract": true
+   },
+   "description": "One entry of a map qualifier (ci:object map): a string key and a value. A map qualifier ranges over a subclass, multivalued and inlined, and is written as an object from key to value.",
+   "identity_keys": [],
+   "kind": "abstract",
+   "name": "core:MapEntry",
+   "parent": null,
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "A number with its unit and basis as stated (D1 §6.2).",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:NumberValue",
+   "parent": "core:Value",
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "One entry of a param_mapping map: key the target family's parameter canonical name, value the canonical name of the base family's parameter it corresponds to.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "stat:ParamMapping",
+   "parent": "core:MapEntry",
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "One entry of a param_values or param_symbols map: key a canonical parameter name, value the formula it takes.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "stat:ParamValue",
+   "parent": "core:MapEntry",
+   "scope": null
+  },
+  {
+   "annotations": {
+    "mixin": true
+   },
+   "description": "Things that have parameters, a family or a construction.",
+   "identity_keys": [],
+   "kind": "abstract",
+   "name": "stat:Parameterized",
+   "parent": null,
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "Text kept but not interpreted. The model-facing form names the sentence it lies in; the stored form adds the offsets the quote cascade located.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:PhraseValue",
+   "parent": "core:Value",
+   "scope": null
+  },
+  {
+   "annotations": {
+    "ci:extract": "mention",
+    "ci:scope": "local",
+    "examples": [
+     "X",
+     "a + b X",
+     "X_1 + X_2"
+    ],
+    "mixins": [
+     "Distributed"
+    ],
+    "title": "random variable"
+   },
+   "description": "A random variable denoted by a symbol (X, Y, Z, X_1, W) or by an expression in other random variables (a + b X, e^Y, X_1 + X_2). Local to the statement or section that introduces it.",
+   "identity_keys": [],
+   "kind": "entity",
+   "name": "stat:RandomVariable",
+   "parent": "core:Entity",
+   "scope": "local"
+  },
+  {
+   "annotations": {},
+   "description": "A set written in LaTeX, such as \\R, (0, \\infty) or \\R \\setminus \\{0\\}.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:SetExpr",
+   "parent": "core:Formula",
+   "scope": null
+  },
+  {
+   "annotations": {
+    "ci:extract": "none",
+    "ci:reify": true,
+    "ci:scope": "local"
+   },
+   "description": "An authored unit of meaning: a definition, theorem, proof, example, exercise, remark, convention or assumption. Claims belong to statements as premises, conclusions, definientia or example values. Listed in a batch's statements[], never in entities[].",
+   "identity_keys": [],
+   "kind": "entity",
+   "name": "core:Statement",
+   "parent": "core:Entity",
+   "scope": "local"
+  },
+  {
+   "annotations": {},
+   "description": "How one symbol of a formula is bound (D1 §6.1).",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:SymbolBinding",
+   "parent": null,
+   "scope": null
+  },
+  {
+   "annotations": {},
+   "description": "Free text that is the value itself.",
+   "identity_keys": [],
+   "kind": "value",
+   "name": "core:TextValue",
+   "parent": "core:Value",
+   "scope": null
+  },
+  {
+   "annotations": {
+    "abstract": true
+   },
+   "description": "Base of the D1 value classes. Every value carries the tag t, which names its class; the core Pydantic value union is discriminated on it.",
+   "identity_keys": [],
+   "kind": "abstract",
+   "name": "core:Value",
+   "parent": null,
+   "scope": null
+  }
+ ],
+ "schema_enum": [
+  {
+   "annotations": {},
+   "name": "core:BindKind",
+   "values": [
+    {
+     "annotations": {},
+     "description": "The symbol denotes a local entity of the batch.",
+     "value": "variable"
+    },
+    {
+     "annotations": {},
+     "description": "The symbol is the value of an entry of another claim's parameter map.",
+     "value": "param_of"
+    },
+    {
+     "annotations": {},
+     "description": "The symbol occurs inside the value of such an entry.",
+     "value": "param_expr_of"
+    },
+    {
+     "annotations": {},
+     "description": "The symbol denotes a parameter entity of a family.",
+     "value": "family_param"
+    },
+    {
+     "annotations": {},
+     "description": "A symbol the statement introduces, restricted by its conditions.",
+     "value": "free"
+    },
+    {
+     "annotations": {},
+     "description": "A numeric or named constant.",
+     "value": "constant"
+    },
+    {
+     "annotations": {},
+     "description": "Not bound; a counted resolution gap.",
+     "value": "unresolved"
+    }
+   ]
+  },
+  {
+   "annotations": {
+    "ci:extract": "classification",
+    "ci:target": [
+     "sentence"
+    ]
+   },
+   "name": "core:ClaimModality",
+   "values": [
+    {
+     "annotations": {},
+     "description": "Concluded or stated as true; structural claims.",
+     "value": "asserted"
+    },
+    {
+     "annotations": {},
+     "description": "A supposition: suppose, assume, if, or let about something taken as given.",
+     "value": "supposed"
+    },
+    {
+     "annotations": {},
+     "description": "What a definition stipulates, including a formula introducing a variable.",
+     "value": "defined"
+    },
+    {
+     "annotations": {},
+     "description": "A convention.",
+     "value": "conventional"
+    },
+    {
+     "annotations": {},
+     "description": "Setup values in examples and exercises.",
+     "value": "exemplified"
+    },
+    {
+     "annotations": {},
+     "description": "Reserved until an asks_for predicate exists (OPEN-D2-15).",
+     "value": "posed"
+    },
+    {
+     "annotations": {},
+     "description": "Attributed to another source.",
+     "value": "cited"
+    }
+   ]
+  },
+  {
+   "annotations": {},
+   "name": "stat:ConditionPredicate",
+   "values": [
+    {
+     "annotations": {
+      "ci:args": "RandomVariable",
+      "ci:arity": "2+",
+      "ci:symmetric": true
+     },
+     "description": "The arguments are independent.",
+     "value": "independent"
+    },
+    {
+     "annotations": {
+      "ci:args": "RandomVariable",
+      "ci:arity": "2+",
+      "ci:symmetric": true
+     },
+     "description": "The arguments have the same distribution.",
+     "value": "identically_distributed"
+    },
+    {
+     "annotations": {
+      "ci:args": "RandomVariable",
+      "ci:arity": "2+",
+      "ci:symmetric": true
+     },
+     "description": "The arguments are independent and identically distributed.",
+     "value": "iid"
+    }
+   ]
+  },
+  {
+   "annotations": {},
+   "name": "core:EvidenceRole",
+   "values": [
+    {
+     "annotations": {},
+     "description": "The minimal span that states the claim.",
+     "value": "primary"
+    },
+    {
+     "annotations": {},
+     "description": "An introducer that determines the modality.",
+     "value": "supporting"
+    },
+    {
+     "annotations": {},
+     "description": "The span of a condition.",
+     "value": "condition"
+    },
+    {
+     "annotations": {},
+     "description": "The span of a definition the claim relies on.",
+     "value": "definition"
+    }
+   ]
+  },
+  {
+   "annotations": {
+    "ci:applies_to": "FamilyParameter",
+    "ci:extract": "attribute"
+   },
+   "name": "stat:ParameterRole",
+   "values": [
+    {
+     "annotations": {},
+     "description": "A location parameter.",
+     "value": "location"
+    },
+    {
+     "annotations": {},
+     "description": "A scale parameter.",
+     "value": "scale"
+    },
+    {
+     "annotations": {},
+     "description": "A shape parameter.",
+     "value": "shape"
+    },
+    {
+     "annotations": {},
+     "description": "A rate parameter.",
+     "value": "rate"
+    },
+    {
+     "annotations": {},
+     "description": "The mean as a parameter.",
+     "value": "mean"
+    },
+    {
+     "annotations": {},
+     "description": "The variance as a parameter.",
+     "value": "variance"
+    },
+    {
+     "annotations": {},
+     "description": "The standard deviation as a parameter.",
+     "value": "standard_deviation"
+    },
+    {
+     "annotations": {},
+     "description": "The precision (reciprocal variance) as a parameter.",
+     "value": "precision"
+    },
+    {
+     "annotations": {},
+     "description": "Degrees of freedom.",
+     "value": "degrees_of_freedom"
+    },
+    {
+     "annotations": {},
+     "description": "A success probability.",
+     "value": "success_probability"
+    },
+    {
+     "annotations": {},
+     "description": "A number of trials.",
+     "value": "number_of_trials"
+    },
+    {
+     "annotations": {},
+     "description": "A lower bound of the support.",
+     "value": "lower_bound"
+    },
+    {
+     "annotations": {},
+     "description": "An upper bound of the support.",
+     "value": "upper_bound"
+    },
+    {
+     "annotations": {},
+     "description": "Another stated role.",
+     "value": "other"
+    }
+   ]
+  },
+  {
+   "annotations": {},
+   "name": "core:ParseStatus",
+   "values": [
+    {
+     "annotations": {},
+     "description": "One reading.",
+     "value": "ok"
+    },
+    {
+     "annotations": {},
+     "description": "Parsed in part.",
+     "value": "partial"
+    },
+    {
+     "annotations": {},
+     "description": "More than one reading, none chosen by declared context.",
+     "value": "ambiguous"
+    },
+    {
+     "annotations": {},
+     "description": "Not parsed.",
+     "value": "failed"
+    }
+   ]
+  },
+  {
+   "annotations": {},
+   "name": "core:Polarity",
+   "values": [
+    {
+     "annotations": {},
+     "description": "Stated.",
+     "value": "positive"
+    },
+    {
+     "annotations": {},
+     "description": "Denied.",
+     "value": "negative"
+    }
+   ]
+  },
+  {
+   "annotations": {},
+   "name": "core:ScopeExtent",
+   "values": [
+    {
+     "annotations": {},
+     "description": "The statement that states it.",
+     "value": "statement"
+    },
+    {
+     "annotations": {},
+     "description": "The enclosing section from the stating sentence on.",
+     "value": "section"
+    },
+    {
+     "annotations": {},
+     "description": "The whole document.",
+     "value": "document"
+    }
+   ]
+  },
+  {
+   "annotations": {
+    "ci:extract": "classification",
+    "ci:target": [
+     "unit",
+     "paragraph"
+    ]
+   },
+   "name": "core:StatementKind",
+   "values": [
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "Stipulates what a term means.",
+     "value": "definition"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A stated result.",
+     "value": "theorem"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A stated result.",
+     "value": "proposition"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A stated auxiliary result.",
+     "value": "lemma"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A result stated to follow from another.",
+     "value": "corollary"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": false
+     },
+     "description": "A proof of another statement.",
+     "value": "proof"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A worked example with setup values.",
+     "value": "example"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "An exercise with setup values and an asked quantity.",
+     "value": "exercise"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": false
+     },
+     "description": "A solution of an exercise.",
+     "value": "solution"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A remark; explicit claims only.",
+     "value": "remark"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A convention the source adopts.",
+     "value": "convention"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A notation the source introduces.",
+     "value": "notation"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "A statement whose only content is a supposition (a context premise).",
+     "value": "assumption"
+    },
+    {
+     "annotations": {
+      "ci:claim_bearing": true
+     },
+     "description": "Narrative text between units that states claims.",
+     "value": "narrative"
+    }
+   ]
+  },
+  {
+   "annotations": {},
+   "name": "core:StatementRole",
+   "values": [
+    {
+     "annotations": {},
+     "description": "A supposition the statement makes.",
+     "value": "premise"
+    },
+    {
+     "annotations": {},
+     "description": "What a theorem, corollary or remark concludes.",
+     "value": "conclusion"
+    },
+    {
+     "annotations": {},
+     "description": "What a definition stipulates, or a formula introducing a variable.",
+     "value": "definiens"
+    },
+    {
+     "annotations": {},
+     "description": "Reserved; restrictions are condition nodes in guideline v1.",
+     "value": "restriction"
+    },
+    {
+     "annotations": {},
+     "description": "A setup value of an example or exercise.",
+     "value": "example_value"
+    }
+   ]
+  }
+ ],
+ "schema_rule": [
+  {
+   "applies_to": [
+    "stat:cdf",
+    "stat:construction_formula",
+    "stat:defined_as",
+    "core:defines",
+    "stat:definition_formula",
+    "stat:derived_parameter",
+    "core:follows_from",
+    "stat:has_distribution",
+    "stat:has_parameter",
+    "stat:identical_parameter",
+    "stat:limit_of",
+    "stat:mean_value",
+    "stat:member_of_construction",
+    "stat:mgf",
+    "stat:parameter_domain",
+    "stat:parameter_role",
+    "stat:pdf",
+    "core:proves",
+    "core:refers_to",
+    "stat:special_case_of",
+    "stat:support",
+    "stat:takes_values_in",
+    "stat:transformation_of",
+    "core:unschematized",
+    "stat:variance_value"
+   ],
+   "at": [
+    "finalize"
+   ],
+   "check_expr": "claim.value&.math_kind == null or claim.value&.math_kind == claim.value&.slot_kind",
+   "description": "A formula or set object parses under its slot's declared kind; the grammar's reading of a different kind (a set in a Formula slot, a relation where a formula belongs) is a warning, and the value is kept as written. Reads the grammar's parse, so it runs at finalize only.",
+   "grp": "rules",
+   "rule_id": "core.value_kind_matches_slot",
+   "severity": "warning",
+   "when_expr": "(claim.value&.slot_kind ?? '') in ['formula', 'set']"
+  },
+  {
+   "applies_to": [
+    "stat:cdf",
+    "stat:construction_formula",
+    "stat:defined_as",
+    "core:defines",
+    "stat:definition_formula",
+    "stat:derived_parameter",
+    "core:follows_from",
+    "stat:has_distribution",
+    "stat:has_parameter",
+    "stat:identical_parameter",
+    "stat:limit_of",
+    "stat:mean_value",
+    "stat:member_of_construction",
+    "stat:mgf",
+    "stat:parameter_domain",
+    "stat:parameter_role",
+    "stat:pdf",
+    "core:proves",
+    "core:refers_to",
+    "stat:special_case_of",
+    "stat:support",
+    "stat:takes_values_in",
+    "stat:transformation_of",
+    "core:unschematized",
+    "stat:variance_value"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "$all([not (b.symbol in claim.given_by_others and b.bind in ['free', 'family_param'] and not (b.symbol in claim.gives_symbols) and not ('family_structure' in claim.groups and b.bind == 'family_param')) for b in claim.bindings])",
+   "description": "A symbol another claim gives as a parameter value binds param_of, not free or family_param, unless the claim is about the family as such (guideline §10.7 rows 2-4).",
+   "grp": "guideline",
+   "rule_id": "guideline.binding_priority",
+   "severity": "warning",
+   "when_expr": "true"
+  },
+  {
+   "applies_to": [
+    "stat:construction_formula",
+    "stat:defined_as"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "not ((claim.value&.latex ?? '') =~ r'\\s*[A-Za-z]\\w*(_\\{?\\w+\\}?)?\\s*=')",
+   "description": "A formula that defines a variable or generates a family excludes the variable it defines (guideline §10.7).",
+   "grp": "guideline",
+   "rule_id": "guideline.formula_excludes_defined_variable",
+   "severity": "warning",
+   "when_expr": "true"
+  },
+  {
+   "applies_to": [
+    "stat:cdf",
+    "stat:construction_formula",
+    "stat:defined_as",
+    "core:defines",
+    "stat:definition_formula",
+    "stat:derived_parameter",
+    "core:follows_from",
+    "stat:has_distribution",
+    "stat:has_parameter",
+    "stat:identical_parameter",
+    "stat:limit_of",
+    "stat:mean_value",
+    "stat:member_of_construction",
+    "stat:mgf",
+    "stat:parameter_domain",
+    "stat:parameter_role",
+    "stat:pdf",
+    "core:proves",
+    "core:refers_to",
+    "stat:special_case_of",
+    "stat:support",
+    "stat:takes_values_in",
+    "stat:transformation_of",
+    "core:unschematized",
+    "stat:variance_value"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "not (claim.statement_role in $modality_by_role) or claim.qualifiers.modality == $modality_by_role[claim.statement_role]",
+   "description": "A claim's modality follows from its statement_role (guideline §10.6).",
+   "grp": "guideline",
+   "rule_id": "guideline.modality_by_role",
+   "severity": "warning",
+   "when_expr": "not ('structural' in claim.groups) and claim.statement_role != null"
+  },
+  {
+   "applies_to": [
+    "stat:construction_formula",
+    "stat:defined_as",
+    "stat:definition_formula",
+    "stat:derived_parameter",
+    "stat:has_parameter",
+    "stat:identical_parameter",
+    "stat:parameter_domain",
+    "stat:parameter_role",
+    "stat:special_case_of",
+    "stat:transformation_of"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "claim.claim_refs.is_empty",
+   "description": "Formula and family-structure claims carry no claim nodes, only restrictions on their own symbols (guideline §10.7 rule 2).",
+   "grp": "guideline",
+   "rule_id": "guideline.no_claim_nodes_on_form",
+   "severity": "warning",
+   "when_expr": "not (claim.statement_role in ['premise', 'example_value'])"
+  },
+  {
+   "applies_to": [
+    "stat:parameter_role"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "(claim.value&.v ?? '') == '' or (claim.value&.v ?? '') != (claim.subject.identity&['canonical_name'] ?? '')",
+   "description": "A parameter_role claim is stated only when the role differs from the canonical name (guideline §10.4).",
+   "grp": "guideline",
+   "rule_id": "guideline.parameter_role_differs",
+   "severity": "warning",
+   "when_expr": "true"
+  },
+  {
+   "applies_to": [
+    "stat:cdf",
+    "stat:construction_formula",
+    "stat:defined_as",
+    "core:defines",
+    "stat:definition_formula",
+    "stat:derived_parameter",
+    "core:follows_from",
+    "stat:has_distribution",
+    "stat:has_parameter",
+    "stat:identical_parameter",
+    "stat:limit_of",
+    "stat:mean_value",
+    "stat:member_of_construction",
+    "stat:mgf",
+    "stat:parameter_domain",
+    "stat:parameter_role",
+    "stat:pdf",
+    "core:proves",
+    "core:refers_to",
+    "stat:special_case_of",
+    "stat:support",
+    "stat:takes_values_in",
+    "stat:transformation_of",
+    "core:unschematized",
+    "stat:variance_value"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "$all([n.op == 'and' or (n.op == 'member' and (n.x_latex ?? '') in claim.subject.index_symbols) for n in claim.condition_nodes])",
+   "description": "Premises and example values carry no conditions except the range of an index they are stated for; restrictions go to the claims that depend on them (guideline §10.7 rule 1).",
+   "grp": "guideline",
+   "rule_id": "guideline.premise_conditions_index_only",
+   "severity": "warning",
+   "when_expr": "not ('structural' in claim.groups) and claim.statement_role in ['premise', 'example_value']"
+  },
+  {
+   "applies_to": [
+    "stat:cdf",
+    "stat:construction_formula",
+    "stat:defined_as",
+    "core:defines",
+    "stat:definition_formula",
+    "stat:derived_parameter",
+    "core:follows_from",
+    "stat:has_distribution",
+    "stat:has_parameter",
+    "stat:identical_parameter",
+    "stat:limit_of",
+    "stat:mean_value",
+    "stat:member_of_construction",
+    "stat:mgf",
+    "stat:parameter_domain",
+    "stat:parameter_role",
+    "stat:pdf",
+    "core:proves",
+    "core:refers_to",
+    "stat:special_case_of",
+    "stat:support",
+    "stat:takes_values_in",
+    "stat:transformation_of",
+    "core:unschematized",
+    "stat:variance_value"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "claim.statement_premises.is_empty or $any([p in claim.claim_refs for p in claim.statement_premises])",
+   "description": "Every other claim carries a claim node for the premises it depends on: it references at least one premise of its statement or of a context-premise assumption (guideline §10.7 rule 3).",
+   "grp": "guideline",
+   "rule_id": "guideline.references_a_premise",
+   "severity": "warning",
+   "when_expr": "not ('structural' in claim.groups or 'formula_definition' in claim.groups or 'family_structure' in claim.groups) and not (claim.statement_role in ['premise', 'example_value'])"
+  },
+  {
+   "applies_to": [
+    "stat:cdf",
+    "stat:construction_formula",
+    "stat:defined_as",
+    "core:defines",
+    "stat:definition_formula",
+    "stat:derived_parameter",
+    "core:follows_from",
+    "stat:has_distribution",
+    "stat:has_parameter",
+    "stat:identical_parameter",
+    "stat:limit_of",
+    "stat:mean_value",
+    "stat:member_of_construction",
+    "stat:mgf",
+    "stat:parameter_domain",
+    "stat:parameter_role",
+    "stat:pdf",
+    "core:proves",
+    "core:refers_to",
+    "stat:special_case_of",
+    "stat:support",
+    "stat:takes_values_in",
+    "stat:transformation_of",
+    "core:unschematized",
+    "stat:variance_value"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "not (claim.statement_kind in $roles_by_kind) or (claim.statement_role ?? 'none') in $roles_by_kind[claim.statement_kind]",
+   "description": "A claim's statement_role is one its statement's kind gives (guideline §10.3).",
+   "grp": "guideline",
+   "rule_id": "guideline.role_by_kind",
+   "severity": "warning",
+   "when_expr": "not ('structural' in claim.groups) and claim.statement_kind != null"
+  },
+  {
+   "applies_to": [
+    "core:defines",
+    "core:follows_from",
+    "core:proves",
+    "core:refers_to"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "claim.condition_nodes.is_empty",
+   "description": "Structural claims carry no conditions (guideline §10.7 rule 4).",
+   "grp": "guideline",
+   "rule_id": "guideline.structural_no_conditions",
+   "severity": "warning",
+   "when_expr": "true"
+  },
+  {
+   "applies_to": [
+    "core:defines",
+    "core:follows_from",
+    "core:proves",
+    "core:refers_to"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "claim.statement_role == null and claim.qualifiers.modality == 'asserted'",
+   "description": "Structural claims take no statement_role and are asserted (guideline §10.3, §10.6).",
+   "grp": "guideline",
+   "rule_id": "guideline.structural_role_modality",
+   "severity": "warning",
+   "when_expr": "true"
+  },
+  {
+   "applies_to": [
+    "stat:cdf",
+    "stat:construction_formula",
+    "stat:defined_as",
+    "core:defines",
+    "stat:definition_formula",
+    "stat:derived_parameter",
+    "core:follows_from",
+    "stat:has_distribution",
+    "stat:has_parameter",
+    "stat:identical_parameter",
+    "stat:limit_of",
+    "stat:mean_value",
+    "stat:member_of_construction",
+    "stat:mgf",
+    "stat:parameter_domain",
+    "stat:parameter_role",
+    "stat:pdf",
+    "core:proves",
+    "core:refers_to",
+    "stat:special_case_of",
+    "stat:support",
+    "stat:takes_values_in",
+    "stat:transformation_of",
+    "core:unschematized",
+    "stat:variance_value"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "$all([not (b.symbol =~ r'\\\\') for b in claim.bindings])",
+   "description": "Symbol-map keys are written without backslash (guideline §10.7).",
+   "grp": "guideline",
+   "rule_id": "guideline.symbol_keys_no_backslash",
+   "severity": "warning",
+   "when_expr": "true"
+  },
+  {
+   "applies_to": [
+    "stat:parameter_domain",
+    "stat:support",
+    "stat:takes_values_in"
+   ],
+   "at": [
+    "finalize"
+   ],
+   "check_expr": "(claim.value&.parse ?? '') == 'ok'",
+   "description": "The object parses as a set (parse ok under the set kind); otherwise a warning, and the object is kept as written. Reads the grammar's parse status, so it runs at finalize only.",
+   "grp": "rules",
+   "rule_id": "stat.domain_is_set",
+   "severity": "warning",
+   "when_expr": "true"
+  },
+  {
+   "applies_to": [
+    "stat:has_parameter"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "not $is_a(claim.subject.type, 'RandomVariable')",
+   "description": "The subject of has_parameter is not a random variable. Subsumed by the predicate's domain (Parameterized) once the side-table type check runs; kept as the check of the $is_a builtin.",
+   "grp": "rules",
+   "rule_id": "stat.no_family_on_variable",
+   "severity": "error",
+   "when_expr": "true"
+  },
+  {
+   "applies_to": [
+    "stat:has_distribution"
+   ],
+   "at": [
+    "batch",
+    "finalize"
+   ],
+   "check_expr": "$all([o in claim.alternative_of for o in claim.same_slot])",
+   "description": "At most one asserted or defined stated has_distribution per variable per statement, unless the claims are marked as alternatives; derived claims are exempt.",
+   "grp": "rules",
+   "rule_id": "stat.one_distribution_per_statement",
+   "severity": "error",
+   "when_expr": "claim.establishment == 'stated' and claim.qualifiers.modality in ['asserted', 'defined']"
+  },
+  {
+   "applies_to": [
+    "stat:has_distribution"
+   ],
+   "at": [
+    "finalize"
+   ],
+   "check_expr": "$all([k in claim.family_params or k in $enums['ParameterRole'] for k in (claim.qualifiers.param_values ?? {}).keys])",
+   "description": "Every param_values key is the canonical name of a parameter the family has in this run, or a ParameterRole value. A family's parameters are complete only at finalize.",
+   "grp": "rules",
+   "rule_id": "stat.param_keys_known",
+   "severity": "warning",
+   "when_expr": "true"
+  }
+ ],
+ "schema_slot": [
+  {
+   "annotations": {},
+   "description": "The truth value.",
+   "domain_class": "BoolValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:BoolValue.v",
+   "object_kind": "bool",
+   "qualifiers": [],
+   "range": "boolean",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The ISO 8601 string as written.",
+   "domain_class": "DateValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:DateValue.v",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The local ref or entity key.",
+   "domain_class": "EntityRef",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:EntityRef.ref",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The enum's name.",
+   "domain_class": "EnumValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:EnumValue.enum",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The permissible value.",
+   "domain_class": "EnumValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:EnumValue.v",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The LaTeX exactly as written, macros included.",
+   "domain_class": "Formula",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:Formula.latex",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "consolidated"
+   },
+   "description": "The parse outcome; added by M11 during consolidation.",
+   "domain_class": "Formula",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:Formula.parse",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "ParseStatus",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The binding map, keyed by symbol in token form without backslash.",
+   "domain_class": "Formula",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": true,
+   "name": "core:Formula.symbols",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "SymbolBinding",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "consolidated"
+   },
+   "description": "The normalized SymPy form; added by M11 during consolidation.",
+   "domain_class": "Formula",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:Formula.sympy",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The upper bound, a value.",
+   "domain_class": "IntervalValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:IntervalValue.end",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "Value",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "Whether the upper bound is included.",
+   "domain_class": "IntervalValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:IntervalValue.end_incl",
+   "object_kind": "bool",
+   "qualifiers": [],
+   "range": "boolean",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The lower bound, a value.",
+   "domain_class": "IntervalValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:IntervalValue.start",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "Value",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "Whether the lower bound is included.",
+   "domain_class": "IntervalValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:IntervalValue.start_incl",
+   "object_kind": "bool",
+   "qualifiers": [],
+   "range": "boolean",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The entry's key.",
+   "domain_class": "MapEntry",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:MapEntry.key",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The entry's value.",
+   "domain_class": "MapEntry",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:MapEntry.value",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "A reference basis the source states, such as gauge or absolute, or absent.",
+   "domain_class": "NumberValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:NumberValue.basis",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The unit as stated, or absent.",
+   "domain_class": "NumberValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:NumberValue.unit",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The canonical decimal string.",
+   "domain_class": "NumberValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:NumberValue.v",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "stored"
+   },
+   "description": "The text was not located exactly; the span is the whole cited sentence.",
+   "domain_class": "PhraseValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:PhraseValue.coarse",
+   "object_kind": "bool",
+   "qualifiers": [],
+   "range": "boolean",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "stored",
+    "ci:required_in": "stored"
+   },
+   "description": "End offset in the rendition's canonical text.",
+   "domain_class": "PhraseValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:PhraseValue.end",
+   "object_kind": "number",
+   "qualifiers": [],
+   "range": "integer",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "model"
+   },
+   "description": "The unit sentence (sN) or standing-context sentence (cN) holding the text.",
+   "domain_class": "PhraseValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:PhraseValue.sentence",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "stored",
+    "ci:required_in": "stored"
+   },
+   "description": "Start offset in the rendition's canonical text.",
+   "domain_class": "PhraseValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:PhraseValue.start",
+   "object_kind": "number",
+   "qualifiers": [],
+   "range": "integer",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The text as written.",
+   "domain_class": "PhraseValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:PhraseValue.text",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The binding kind.",
+   "domain_class": "SymbolBinding",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:SymbolBinding.bind",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "BindKind",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "param_of, param_expr_of: the claim's local ref (key once stored).",
+   "domain_class": "SymbolBinding",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:SymbolBinding.claim",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "variable, family_param: the entity's local ref (key once stored).",
+   "domain_class": "SymbolBinding",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:SymbolBinding.entity",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "param_of, param_expr_of: the entry of the claim's ci:param_map qualifier.",
+   "domain_class": "SymbolBinding",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:SymbolBinding.param",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The symbol in token form, without backslash.",
+   "domain_class": "SymbolBinding",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:SymbolBinding.symbol",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The text.",
+   "domain_class": "TextValue",
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:TextValue.v",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "Who the source says states the claim, when it cites someone.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:attribution",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "Entity",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "A reference basis the source states, such as gauge or absolute, or absent.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:basis",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The binding kind.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:bind",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "BindKind",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "param_of, param_expr_of: the claim's local ref (key once stored).",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:claim",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "stored"
+   },
+   "description": "The text was not located exactly; the span is the whole cited sentence.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:coarse",
+   "object_kind": "bool",
+   "qualifiers": [],
+   "range": "boolean",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The condition tree under which the claim holds (D1 §7).",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:conditions",
+   "object_kind": "condition",
+   "qualifiers": [],
+   "range": "Condition",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The statement defines the entity. \"is called the location-scale family\".",
+   "domain_class": "Statement",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:defines",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "Entity",
+   "role": "predicate",
+   "subsets": [
+    "structural"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": null,
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:end",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "Whether the upper bound is included.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:end_incl",
+   "object_kind": "bool",
+   "qualifiers": [],
+   "range": "boolean",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "variable, family_param: the entity's local ref (key once stored).",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:entity",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The enum's name.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:enum",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The statement is stated to follow from another (\"a corollary of the last result\").",
+   "domain_class": "Statement",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:follows_from",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "Statement",
+   "role": "predicate",
+   "subsets": [
+    "structural"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "A hedging phrase the source attaches to the claim (\"usually\", \"in some settings\").",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:hedge",
+   "object_kind": "phrase",
+   "qualifiers": [],
+   "range": "PhraseValue",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The entry's key.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:key",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The statement's kind.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:kind",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "StatementKind",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "Canonical display label (D1 §4.1). Identity follows the key rules of D1 §10.1.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:label",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The LaTeX exactly as written, macros included.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:latex",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ifabsent": "string(asserted)"
+   },
+   "description": "How the source holds the claim (D1 §5.2); asserted when absent.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:modality",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "ClaimModality",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "param_of, param_expr_of: the entry of the claim's ci:param_map qualifier.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:param",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "consolidated"
+   },
+   "description": "The parse outcome; added by M11 during consolidation.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:parse",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "ParseStatus",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ifabsent": "string(positive)"
+   },
+   "description": "Whether the claim is stated or denied; positive when absent.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:polarity",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "Polarity",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "A proof or solution statement proves (or solves) another statement.",
+   "domain_class": "Statement",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:proves",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "Statement",
+   "role": "predicate",
+   "subsets": [
+    "structural"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The local ref or entity key.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:ref",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The statement explicitly refers to an entity defined elsewhere (\"recall the gamma function\").",
+   "domain_class": "Statement",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:refers_to",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "Entity",
+   "role": "predicate",
+   "subsets": [
+    "structural"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "How far a supposition reaches beyond its statement; model-facing a ScopeExtent value, stored {extent, segment}.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:scope",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "ScopeExtent",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "model"
+   },
+   "description": "The unit sentence (sN) or standing-context sentence (cN) holding the text.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:sentence",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": null,
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:start",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "Whether the lower bound is included.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:start_incl",
+   "object_kind": "bool",
+   "qualifiers": [],
+   "range": "boolean",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The binding map, keyed by symbol in token form without backslash.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": true,
+   "name": "core:symbols",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "SymbolBinding",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:form": "consolidated"
+   },
+   "description": "The normalized SymPy form; added by M11 during consolidation.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:sympy",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The value's tag, naming its class.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:t",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The text as written.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:text",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The unit as stated, or absent.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:unit",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "Something the source states that the schema cannot express (D1 §8.1).",
+   "domain_class": "Entity",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:unschematized",
+   "object_kind": "phrase",
+   "qualifiers": [],
+   "range": "PhraseValue",
+   "role": "predicate",
+   "subsets": [
+    "unsupported"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": null,
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:v",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The time interval over which the claim holds, when the source states one.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:valid_time",
+   "object_kind": "interval",
+   "qualifiers": [],
+   "range": "IntervalValue",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The entry's value.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "core:value",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The base family the construction is applied to.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:base",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "Entity",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The base variable the construction formula transforms (Z in a + b Z).",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:base_variable",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "RandomVariable",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The parameter's name from the phrase that first names its symbol as a parameter of the family: its role word spelled as the ParameterRole value, else the symbol without backslash (guideline §10.4).",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:canonical_name",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "identity",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The cumulative distribution function, with its argument domain as a condition.",
+   "domain_class": "Distributed",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:cdf",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The formula generating members of the construction, without the variable it defines. \"X = a + b Z\" gives a + b Z.",
+   "domain_class": "FamilyConstruction",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:construction_formula",
+   "object_kind": "formula",
+   "qualifiers": [
+    "stat:base_variable",
+    "stat:param_symbols"
+   ],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": [
+    "family_structure",
+    "formula_definition"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The random variable is defined by a formula in other variables. \"let X = a + b Z\".",
+   "domain_class": "RandomVariable",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:defined_as",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": [
+    "formula_definition"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The formula defining the concept. \"the standard score is (X - μ) / σ\".",
+   "domain_class": "Concept",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:definition_formula",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": [
+    "formula_definition"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The parameter equals a formula in the family's other parameters. \"e^μ is the scale parameter\".",
+   "domain_class": "FamilyParameter",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:derived_parameter",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": [
+    "family_structure"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The family or construction the parameter belongs to (a local ref in batches).",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:family",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "Parameterized",
+   "role": "identity",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:functional": true,
+    "ci:param_map": "param_values"
+   },
+   "description": "The random variable has a distribution in the family, optionally with stated parameter values. \"X is normally distributed with mean μ and variance σ²\".",
+   "domain_class": "RandomVariable",
+   "extract": "relation",
+   "identity_qualifiers": [
+    "stat:param_values"
+   ],
+   "multivalued": false,
+   "name": "stat:has_distribution",
+   "object_kind": "entity",
+   "qualifiers": [
+    "stat:param_values"
+   ],
+   "range": "DistributionFamily",
+   "role": "predicate",
+   "subsets": [
+    "distribution"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "A family or construction has this parameter. \"with shape parameter k and scale parameter b\".",
+   "domain_class": "Parameterized",
+   "extract": "relation",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:has_parameter",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "FamilyParameter",
+   "role": "predicate",
+   "subsets": [
+    "family_structure"
+   ]
+  },
+  {
+   "annotations": {
+    "symmetric": true
+   },
+   "description": "Two parameter names denote the same parameter of the family. \"the location and scale parameters are also the mean and standard deviation, respectively\".",
+   "domain_class": "FamilyParameter",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:identical_parameter",
+   "object_kind": "entity",
+   "qualifiers": [],
+   "range": "FamilyParameter",
+   "role": "predicate",
+   "subsets": [
+    "family_structure"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The limiting operation as stated. \"as n → ∞\".",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:limit",
+   "object_kind": "phrase",
+   "qualifiers": [],
+   "range": "PhraseValue",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The family is a limit of the other under a stated limiting operation.",
+   "domain_class": "DistributionFamily",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:limit_of",
+   "object_kind": "entity",
+   "qualifiers": [
+    "stat:limit",
+    "stat:param_mapping"
+   ],
+   "range": "DistributionFamily",
+   "role": "predicate",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The mean (expected value) as a formula. \"E(X) = μ\".",
+   "domain_class": "Distributed",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:mean_value",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The family is the construction applied to a base. \"The general normal distribution is the location-scale family associated with the standard normal distribution\".",
+   "domain_class": "DistributionFamily",
+   "extract": "llm",
+   "identity_qualifiers": [
+    "stat:base"
+   ],
+   "multivalued": false,
+   "name": "stat:member_of_construction",
+   "object_kind": "entity",
+   "qualifiers": [
+    "stat:base"
+   ],
+   "range": "FamilyConstruction",
+   "role": "predicate",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The moment generating function, with the set of arguments where it is finite as a condition.",
+   "domain_class": "Distributed",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:mgf",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "A condition tree (D1 §7) over the base family's parameters under which the special case holds (k = 1).",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:param_constraints",
+   "object_kind": "condition",
+   "qualifiers": [],
+   "range": "Condition",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "An object from the target family's canonical parameter names to the base family's canonical parameter names they correspond to: {\"shape\": \"sigma\"}.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": true,
+   "name": "stat:param_mapping",
+   "object_kind": "map",
+   "qualifiers": [],
+   "range": "ParamMapping",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "An object from the construction's canonical parameter names to the symbols that stand for them in its formula: {\"location\": <formula a>, \"scale\": <formula b>}.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": true,
+   "name": "stat:param_symbols",
+   "object_kind": "map",
+   "qualifiers": [],
+   "range": "ParamValue",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The parameter values the sentence states, an object from the family's canonical parameter names to formulas: {\"shape\": <formula>, \"scale\": <formula>} (guideline §10.5).",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": true,
+   "name": "stat:param_values",
+   "object_kind": "map",
+   "qualifiers": [],
+   "range": "ParamValue",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "ci:functional": true
+   },
+   "description": "The set of the parameter's allowed values. \"b ∈ (0, ∞)\".",
+   "domain_class": "FamilyParameter",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:parameter_domain",
+   "object_kind": "set",
+   "qualifiers": [],
+   "range": "SetExpr",
+   "role": "predicate",
+   "subsets": [
+    "family_structure"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The parameter plays this role, stated when it differs from its canonical name. \"σ is the shape parameter\".",
+   "domain_class": "FamilyParameter",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:parameter_role",
+   "object_kind": "enum",
+   "qualifiers": [],
+   "range": "ParameterRole",
+   "role": "predicate",
+   "subsets": [
+    "family_structure"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The probability density (or mass) function, with its argument domain as a condition.",
+   "domain_class": "Distributed",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:pdf",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": []
+  },
+  {
+   "annotations": {
+    "transitive": true
+   },
+   "description": "The family is the special case of another family or construction obtained under parameter constraints. \"The exponential distribution is the gamma distribution with k = 1\".",
+   "domain_class": "DistributionFamily",
+   "extract": "llm",
+   "identity_qualifiers": [
+    "stat:param_constraints"
+   ],
+   "multivalued": false,
+   "name": "stat:special_case_of",
+   "object_kind": "entity",
+   "qualifiers": [
+    "stat:param_constraints"
+   ],
+   "range": "Entity",
+   "role": "predicate",
+   "subsets": [
+    "family_structure"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The support of the distribution, the set of values with positive density or mass. \"on (0, ∞)\".",
+   "domain_class": "Distributed",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:support",
+   "object_kind": "set",
+   "qualifiers": [],
+   "range": "SetExpr",
+   "role": "predicate",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The symbol or expression that denotes the random variable, as written.",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:symbol",
+   "object_kind": "text",
+   "qualifiers": [],
+   "range": "string",
+   "role": "field",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The random variable's values lie in the set. \"with values in ℝ\".",
+   "domain_class": "RandomVariable",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:takes_values_in",
+   "object_kind": "set",
+   "qualifiers": [],
+   "range": "SetExpr",
+   "role": "predicate",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "The transformation, as a formula in the base variable. \"e^Y\".",
+   "domain_class": null,
+   "extract": null,
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:transform",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "qualifier",
+   "subsets": []
+  },
+  {
+   "annotations": {},
+   "description": "Variables in this family arise by transforming a variable of the other family. \"X = e^Y has the lognormal distribution\".",
+   "domain_class": "DistributionFamily",
+   "extract": "llm",
+   "identity_qualifiers": [
+    "stat:transform"
+   ],
+   "multivalued": false,
+   "name": "stat:transformation_of",
+   "object_kind": "entity",
+   "qualifiers": [
+    "stat:transform",
+    "stat:param_mapping"
+   ],
+   "range": "DistributionFamily",
+   "role": "predicate",
+   "subsets": [
+    "family_structure",
+    "formula_definition"
+   ]
+  },
+  {
+   "annotations": {},
+   "description": "The variance as a formula. \"var(X) = σ²\".",
+   "domain_class": "Distributed",
+   "extract": "llm",
+   "identity_qualifiers": [],
+   "multivalued": false,
+   "name": "stat:variance_value",
+   "object_kind": "formula",
+   "qualifiers": [],
+   "range": "Formula",
+   "role": "predicate",
+   "subsets": []
+  }
+ ],
+ "schema_version": {
+  "content_hash": "0af28efdb3ddc863280f41fbe09c3e2122584e79dc4303300e2a602f54d1c85c",
+  "domain": "statistics",
+  "label": "0.2.0",
+  "source_files": [
+   "core/schema/core.yaml",
+   "core/schema/rules.yaml",
+   "statistics/reference/E1/batch.json",
+   "statistics/reference/E1/packet.md",
+   "statistics/reference/E2/batch.json",
+   "statistics/reference/E2/packet.md",
+   "statistics/reference/E3/batch.json",
+   "statistics/reference/E3/packet.md",
+   "statistics/schema/rules.yaml",
+   "statistics/schema/statistics.yaml"
+  ]
+ }
+}

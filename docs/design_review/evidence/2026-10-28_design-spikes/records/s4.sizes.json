@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "id": "s4.sizes",
+  "title": "Sizes of the compiled S4 artifacts in bytes and served-model tokens",
+  "group": "S4 LinkML compilation",
+  "package": "S4-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How large are the generated reference (whole, per part, per statement kind) and the compiled schemas in Qwen3.5-9B tokens, and does the reference exceed about 1,500 tokens (V4)?",
+  "answers": [
+    "D2 §7.5",
+    "D4 §4.2",
+    "D4 §4.1"
+  ],
+  "method": "tokenizers 0.23.3 with the Qwen3.5-9B tokenizer.json (revision recorded), encode_batch_fast, add_special_tokens=False, one count per artifact text; schemas compacted JSON.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s4_reference.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (W-S2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s4_reference.py",
+      "role": "reference script",
+      "sha256": "f8e752dbb17affae3e5a1a1a88b06735d3bfb22c7915e6838cdf7971ae6de713"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s4/sizes.tsv",
+      "role": "artifact: bytes, tokens, sha256",
+      "sha256": "70b9a43f13cc59c98d4a3af44a8eb1537b68ccceab98bf969117c5b4334c33ee"
+    },
+    {
+      "path": "results/s4/tokenizer.json",
+      "role": "tokenizer revision",
+      "sha256": "b9449881eb989e7d1ee906ce808298968f8221d007a37de2720c7af7ab7c6eb1"
+    }
+  ],
+  "depends_on": [
+    "s4.reference-diff",
+    "e0.environment"
+  ],
+  "results": [
+    {
+      "name": "reference_tokens",
+      "value": 12851,
+      "of": null,
+      "unit": "tokens",
+      "note": null
+    },
+    {
+      "name": "reference_without_examples_tokens",
+      "value": 6339,
+      "of": null,
+      "unit": "tokens",
+      "note": null
+    },
+    {
+      "name": "s0r2_reference_tokens",
+      "value": 11486,
+      "of": null,
+      "unit": "tokens",
+      "note": null
+    },
+    {
+      "name": "s0r2_reference_without_examples_tokens",
+      "value": 4956,
+      "of": null,
+      "unit": "tokens",
+      "note": null
+    },
+    {
+      "name": "predicate_cards_tokens",
+      "value": 2762,
+      "of": null,
+      "unit": "tokens",
+      "note": null
+    },
+    {
+      "name": "smallest_per_kind_tokens",
+      "value": 6347,
+      "of": null,
+      "unit": "tokens",
+      "note": null
+    },
+    {
+      "name": "decoding_schema_tokens",
+      "value": 12716,
+      "of": null,
+      "unit": "tokens",
+      "note": null
+    },
+    {
+      "name": "model_facing_schema_tokens",
+      "value": 10461,
+      "of": null,
+      "unit": "tokens",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The generated reference is about 1.3 times S0-R2's without examples and over four times the brief's 1,500-token threshold even with every example filtered out; filtering by statement kind can drop only examples, so V4 as specified cannot reach the threshold and is not adopted.",
+  "consumed_by": [
+    "P0-S-1",
+    "P0-A-1",
+    "S3",
+    "S4 report"
+  ]
+}

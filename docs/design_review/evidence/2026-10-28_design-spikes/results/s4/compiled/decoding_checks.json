@@ -1,0 +1,17 @@
+{
+ "anyOf": 3,
+ "branches": 25,
+ "build_ms": 49.8,
+ "byte_identical_across_processes": true,
+ "bytes_compact": 53151,
+ "check_schema": {
+  "decoding": "passed",
+  "model": "passed",
+  "stored": "passed"
+ },
+ "issues": [],
+ "json_depth": 15,
+ "model_facing_bytes_compact": 42559,
+ "oneOf": 8,
+ "stored_bytes_compact": 42427
+}

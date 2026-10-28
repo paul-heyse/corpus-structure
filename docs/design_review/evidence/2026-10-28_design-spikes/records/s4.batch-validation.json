@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "id": "s4.batch-validation",
+  "title": "Batch models in both forms, JSON Schemas and the mirror contract test",
+  "group": "S4 LinkML compilation",
+  "package": "S4-B",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the per-predicate batch models built from the pack validate the v1 reference (both forms), the worked examples and the S0 batches, with jsonschema as an independent oracle, and which single entity-reference and statement shapes hold (V1, V2)?",
+  "answers": [
+    "D2 §7.3",
+    "D2 §6",
+    "D1 §6",
+    "D1 §10.3",
+    "OPEN-D2-6",
+    "ADR-0017"
+  ],
+  "method": "create_model per predicate over hand-written core Pydantic shapes; one TypeAdapter per form, strict JSON validation; draft 2020-12 export checked with check_schema; every batch validated as written and after the recorded V1/V2 rewrites, by Pydantic, by jsonschema on the exported schema and by the entity-type side-table check; contract test of the core shapes against core.yaml with one mutation on each side; seeded errors.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s4_compile.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (W-S2)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/schema",
+      "role": "spike schema copies (D2 §6, §9 v0)",
+      "sha256": "6de5c7eb0e959610b0f329efca839a061f97c8a40fa666fd31f6ee92bd66da23"
+    },
+    {
+      "path": "code/s4",
+      "role": "S4 compiler package",
+      "sha256": "909fe0549044ecdb2be8d6f91dc68d65e025925f06a60a6e73e90706a9eafef4"
+    },
+    {
+      "path": "code/s4_compile.py",
+      "role": "compile script",
+      "sha256": "4edd3218affffca5096baef06ba728ac4bff74800aac7adebe03fb662bf8202d"
+    },
+    {
+      "path": "results/s4/schema",
+      "role": "pack files",
+      "sha256": "21e1109ffb4e4c15286119df96241a1fa3f5e5f237752b32a561171b8ef0a747"
+    },
+    {
+      "path": "results/s0r2/reference_model_v1",
+      "role": "v1 reference, model-facing",
+      "sha256": "34f49dd67a804a94ee6caa2eefd0dda4a96bd30382b3f716c850dba2ff8683dc"
+    },
+    {
+      "path": "results/s0r2/reference_v1",
+      "role": "v1 reference, stored",
+      "sha256": "43860b19cd349555c731dadf188ab36c0e57c452cb4723a03a471974bd5b3bab"
+    },
+    {
+      "path": "results/s0r2/examples",
+      "role": "worked examples",
+      "sha256": "ed890c5478ed75c50119b57210528823111a9a551d861d4528b3f53bc9639e35"
+    },
+    {
+      "path": "results/s0/stored",
+      "role": "S0 stored batches",
+      "sha256": "1fd359e43d24157a34f205fcbbf08e3a686cd885cf2acc4042bd1893a5b3834c"
+    },
+    {
+      "path": "results/s0/reference",
+      "role": "v0 reference, stored",
+      "sha256": "11f7c32221741b140ba18335df2c4f0a7c1b1e99bb16db5ab126aab5cd9aa1dc"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s4/compiled/batch.model.schema.json",
+      "role": "model-facing JSON Schema",
+      "sha256": "d31766c38bb02d48c93bc22bcacf0e93501a8d520622ce4b46a151cd755638ef"
+    },
+    {
+      "path": "results/s4/compiled/batch.stored.schema.json",
+      "role": "stored JSON Schema",
+      "sha256": "cd645f633e72d7c5f195fac8ab1a99e4def13ae72f91d3190f3b818428893258"
+    },
+    {
+      "path": "results/s4/compiled/decoding_checks.json",
+      "role": "schema checks",
+      "sha256": "7bf09f85a9fce47f4ae840cea94c18dcdf6d497d65c84439c7634665f4cc288b"
+    },
+    {
+      "path": "results/s4/compiled/contract.json",
+      "role": "mirror contract test",
+      "sha256": "27e07d79fe7c890c2d5cf7668fc16df3252e593ff9e573b439a7138cabac3144"
+    },
+    {
+      "path": "results/s4/compiled/seeded_errors.json",
+      "role": "seeded errors",
+      "sha256": "0977884b50edb43ce56d6401fcf230cab7ba7e99284c4134183fa525e3f8db4c"
+    },
+    {
+      "path": "results/s4/validation.tsv",
+      "role": "batch x form x variant",
+      "sha256": "61df1c6a72261fe5b829f4284ed163b4fdccb0d7697d4cf7e7f7355e5f1b7050"
+    },
+    {
+      "path": "results/s4/validation_errors.jsonl",
+      "role": "errors and rewrites per batch",
+      "sha256": "0cff51016776b5faedaeb23032a38ef69faa09c0aa48aaf757a290ed371c8137"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s0r2.reference-v1",
+    "s0r2.inputs",
+    "s0.stored",
+    "s4.pack-lint"
+  ],
+  "results": [
+    {
+      "name": "batches",
+      "value": 135,
+      "of": null,
+      "unit": null,
+      "note": "15 model-facing (12 v1 + 3 examples), 120 stored (12 v1, 12 v0 reference, 96 S0 passes)"
+    },
+    {
+      "name": "valid_as_written",
+      "value": 90,
+      "of": 135,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "batch_defects_migrated",
+      "value": 45,
+      "of": null,
+      "unit": null,
+      "note": "every as-written failure is a V1 or V2 shape: {t: entity} or dict-valued identity ref, or a Statement in entities[]"
+    },
+    {
+      "name": "valid_after_migration",
+      "value": 45,
+      "of": 45,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "rewrites",
+      "value": 126,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "side_table_clean",
+      "value": 135,
+      "of": 135,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "validators_agree",
+      "value": 180,
+      "of": 180,
+      "unit": null,
+      "note": "Pydantic and jsonschema verdicts per batch and variant"
+    },
+    {
+      "name": "check_schema_passed",
+      "value": 3,
+      "of": 3,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "contract_test",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": "0 differences; each one-sided mutation fails it"
+    },
+    {
+      "name": "seeded_errors_caught",
+      "value": 13,
+      "of": 13,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "predicate_branches",
+      "value": 25,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "model_facing_schema_bytes",
+      "value": 42559,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "pydantic_ms_median",
+      "value": 0.073,
+      "of": null,
+      "unit": "ms",
+      "note": "per valid batch, indicative"
+    },
+    {
+      "name": "jsonschema_ms_median",
+      "value": 12.022,
+      "of": null,
+      "unit": "ms",
+      "note": "per valid batch, indicative"
+    },
+    {
+      "name": "schema_bytes_identical_across_processes",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All 135 batches validate in their form once 45 recorded batch defects are migrated to the canonical shapes (V1 {ref}, V2 statements only in statements[] with anchor outside); Pydantic and jsonschema agree on every batch, the side-table check is clean, both exported schemas pass check_schema, and the contract test passes while failing under either one-sided change.",
+  "consumed_by": [
+    "P0-S-1",
+    "P0-F-2b",
+    "P0-A-1",
+    "ADR-0017",
+    "S4 report"
+  ]
+}
