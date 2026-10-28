@@ -24,6 +24,15 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0018](0018-policy-routed-escalation.md) | Escalation is routed by versioned policies over measurements | 2026-10-28 | [§B6](../design/DESIGN.md#section-b6) | Interface-checked |  |
 | [ADR-0019](0019-identity-follows-content.md) | "Identity follows content: renditions are content-addressed, statements and scopes are anchored by locators, authored batches are the authority" | 2026-10-28 |  | Proposed |  |
 
+## Proposed: open choices, not accepted decisions
+
+| ADR | Title | Date | Governs | Evidence | Replaces |
+|---|---|---|---|---|---|
+| [ADR-0020](0020-one-model-generated-projections.md) | One LinkML model is the authority; every representation is a governed projection | 2026-10-28 |  | Proposed |  |
+| [ADR-0021](0021-instance-and-structure-authorities.md) | PostgreSQL is the transactional authority for instances, the model for structure and meaning; set-based steps run in an in-process engine | 2026-10-28 |  | Proposed |  |
+| [ADR-0022](0022-schema-change-modelled.md) | Schema change is modelled: revisions, a payload-schema registry and change records with compatibility classes | 2026-10-28 |  | Proposed |  |
+| [ADR-0023](0023-declared-identity.md) | Identity is declared: qualifier key roles, canonical forms by range, case policy and a versioned key scheme | 2026-10-28 |  | Proposed |  |
+
 ## Superseded, still in the tree
 
 | ADR | Title | Date | Governs | Evidence | Replaces |

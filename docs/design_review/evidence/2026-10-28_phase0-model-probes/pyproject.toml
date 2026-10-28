@@ -1,0 +1,30 @@
+[project]
+name = "phase0-model-probes-2026-10-28"
+version = "0.0.0"
+description = "Throwaway environment for the phase 0 model probes Q-1..Q-7 (plan: docs/plans/phase-0_2026-10-28.md §11). Not product code."
+requires-python = "==3.14.10"
+# Exact pins (2026-10-28), matching the product pins where the product uses the library.
+dependencies = [
+    "linkml==1.12.1",
+    "linkml-runtime==1.12.1",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.1",
+    "sqlalchemy==2.1.5",
+    "alembic==1.20.0",
+    "pglast==8.7",
+    "psycopg[binary]==3.3.6",
+    "pyarrow==26.0.0",
+    "adbc-driver-postgresql==1.13.0",
+    "duckdb==2.0.0",
+    "pgpq==0.12.0",
+    "jsonschema==4.26.0",
+    "pyyaml==6.0.3",
+    # Evidence records (repo tools/evidence)
+    "corpus-evidence==0.1.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+corpus-evidence = { path = "../../../../tools/evidence", editable = true }

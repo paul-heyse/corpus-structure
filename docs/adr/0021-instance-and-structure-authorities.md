@@ -1,0 +1,40 @@
+---
+id: ADR-0021
+title: PostgreSQL is the transactional authority for instances, the model for structure and meaning; set-based steps run in an in-process engine
+status: proposed
+date: 2026-10-28
+supersedes: []
+superseded-by: null
+design: []
+evidence: Proposed
+---
+
+## Context
+
+What forces this decision now; the expected change and affected owners/consumer contracts.
+Cite stable architectural section IDs and direct owner links and source findings where they carry the argument. Identify current
+implementation separately from the proposed target.
+
+## Options
+
+Use the [design principles](../design_review/design_principles/core/design-principles.md) and [efficient-architecture heuristics](../design_review/design_principles/core/efficient-architecture-heuristics.md) together
+to compare material alternatives early, before physical choices become entrenched. Explain
+qualitative tradeoffs where relevant; no checklist, cost model or additional proof machinery
+is required.
+
+1. **The simplest viable alternative** — say why it loses or wins.
+2. Other meaningful choices. Compare change propagation, semantic ownership, composition,
+   isolated testing and total library/bespoke integration burden where relevant.
+
+## Decision
+
+State the selected responsibility/contract/mechanism so a future session can assess it.
+Amend governed sections in DESIGN or the focused architectural collection in the same commit, ending with `> Decision: ADR-0021`.
+
+## Consequences
+
+What becomes easier and harder; scope limits and the event that would reopen the decision
+(add `revisit:` metadata, with `$ command` only when a command safely decides it).
+Acceptance records a decision in force. State remaining implementation and verification and
+link to the plan's current disposition owner; do not mark a finding closed solely because this
+record is accepted.

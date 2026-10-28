@@ -72,8 +72,8 @@ What this document does not build:
 | Contract | Consumers |
 |---|---|
 | The model files and the model revision (log file and `meta.model_revision`) | every document; runs record the revision (orchestration O1) |
-| `core/_model/`: `StrEnum`s with member-property frozensets, `QualifierSpec`s, defaults, local ↔ prefixed name tables, SQL-literal constants, templated validators | foundations (keys, shapes), schema and rules, ingest and math (locators, M01), orchestration, consolidation |
-| The generated `core/vocab.py` | orchestration (O0), every writer |
+| `core/_model/`: `QualifierSpec`s, defaults, local ↔ prefixed name tables, SQL-literal constants, templated validators | foundations (keys, shapes), schema and rules, ingest and math (locators, M01), orchestration, consolidation |
+| The generated `core/vocab.py`: `StrEnum`s with member-property frozensets | orchestration (O0), every writer |
 | The generated `MetaData` and the overlay | foundations (0001, repository), every SQL reader |
 | Arrow schemas for every table and payload class | pool and interchange |
 | JSON Schemas with `$id` per revision; a `referencing.Registry` builder | schema and rules, agent interface (`read_instructions`), pool and interchange (external consumers) |
@@ -102,7 +102,8 @@ What this document does not build:
 
 **The model revision** (TM §2) is the LinkML `version`, the SHA-256 of the canonical JSON of the parsed
 `core` and `system` files (D2 §2's hashing rule), the compiler versions and the key-scheme version.
-- **The checked-in log**, `model/revisions.yaml`, is the authority. Each entry holds a revision and its
+- **The checked-in log**, `model/revisions.yaml`, is the authority: a list of entries
+  `{label, content_hash, key_scheme, compilers, parent, change_record}`. Each entry holds a revision and its
   change record (§3.7).
 - **`meta.model_revision`** is its projection, written by S1b's `ensure`. It stores the content hash and
   the change record, not the model source, which stays in Git at the revision; a run whose recorded
@@ -117,7 +118,8 @@ The annotation bar is AGENTS.md's: each declaration has a named consumer.
 
 **Member properties.** These use native permissible-value `in_subset` if probe Q-2 confirms that
 `linkml-lint` accepts it and `SchemaView` reads it back (`permissible_value_ancestors`,
-`annotation_dict`). Otherwise they use a scalar `ci:` annotation per property. Examples:
+`annotation_dict`). Otherwise they use one scalar `ci:properties` annotation per member, holding
+space-separated property names. Examples:
 - modality: `premise_forming` `{supposed}`, `attribution_identifying` `{cited}`, `conflict_bearing`
   `{asserted, defined}`;
 - segment kind: `annotation_unit`, `statement_anchor`, `search_block` and `container` (the email
@@ -130,12 +132,27 @@ The annotation bar is AGENTS.md's: each declaration has a named consumer.
 
 | Output | Contents |
 |---|---|
-| `core/_model/vocab.py` | One `StrEnum` per closed set, each member's properties as frozensets, and `lifecycle` metadata |
 | `core/_model/qualifiers.py` | `QualifierSpec`s for the core qualifiers (TM §8): range, default, key role, conditional role, canonical form by range, store placement |
+
+**The `QualifierSpec` contract** (fixed 2026-10-28 so that F2d can be built against it):
+
+| Field | Values |
+|---|---|
+| `name` | prefixed name |
+| `local_name` | local name |
+| `range` | class, enum or type name |
+| `default` | `MISSING` or a value |
+| `key_role` | `identity` \| `meaning` \| `inert` |
+| `key_role_when` | member-property name, or `None` |
+| `canonical` | `token_form` \| `text_form` \| `identifier` \| `enum` \| `entity_key` \| `interval` \| `map` \| `number` \| `verbatim` (TM §8) |
+| `case` | `fold` \| `preserve` |
+| `store` | `column` \| `json` \| `edge` |
+
+Core specs are generated here. Pack specs are compiled by S1 into the same type.
 | `core/_model/names.py` | Local ↔ prefixed name tables for core elements (the core half of X2-01; the pack map is S1's) |
 | `core/_model/sql.py` | SQL-literal constants for the overlay and queries, such as the `search_block` kind list for the BM25 predicate |
 | `core/_model/validators.py` | Validator functions generated from `ci:invariant` templates (`ordered`, `ordered_eq`, `iff_present`, `together`, `exactly_one`), called by the shapes and mirrored as CHECKs by M2 (F01) |
-| `core/vocab.py` | Regenerated at its existing import path |
+| `core/vocab.py` | Regenerated at its existing import path: one `StrEnum` per closed set, each member's properties as frozensets, and `lifecycle` metadata. The hand enums `DropReason` and `FrameFailureReason` (added by F2c) and `ConfidenceSource` (added by O0) are taken over with the same names and members; P0-D-2 may change members, and M1 regenerates |
 
 `core/vocab.py`'s regeneration also makes these changes:
 - `SegmentParseStatus` and `evidence.ParseStatus` merge into `DelimitingStatus`;
