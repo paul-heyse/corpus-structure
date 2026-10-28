@@ -60,9 +60,32 @@ a canonical text. Rules for the canonical text:
 - Block elements are separated by `\n\n`; list items by `\n`; table cells by `\t` and rows by
   `\n`.
 - Inline math keeps its LaTeX source between its original delimiters, e.g. `\(a \in \R\)`.
-  Display math keeps `\[ … \]`. Nothing inside math is rewritten.
-- HTML entities are decoded; whitespace inside a block collapses to one space; the result is
-  NFC-normalized.
+  Display math keeps `\[ … \]`. A display environment the source places bare, outside any
+  delimiters (Siegrist's `\begin{align}` and `\begin{align*}` blocks), is display math too,
+  kept verbatim from `\begin` to `\end`. Nothing inside math is rewritten, whitespace included.
+  > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): the bare `align` blocks (106 in the corpus inventory) are delimited as `math_display` segments by the profile's display environments, and every one of the 19,432 element texts compared is reproduced by an independent XPath path ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); collapsing whitespace would change 1–5 multi-line formulas per spike page ([s1.variants](../design_review/evidence/2026-10-28_design-spikes/records/s1.variants.json))
+- Math is delimited by the delimiters and display environments the source profile declares
+  ([D4 M01](D4-method-catalog.md#m01-ingesthtml)). A delimiter the source leaves unbalanced
+  makes its math segment `partial`, with the reason (unclosed at block end, unclosed before the
+  next opener, closed by the other kind's closer); delimiting resumes at the next opener, so
+  one source error never swallows the text after it. A delimited span the math grammar cannot
+  read leaves the segment `ok`: the failure is the value's `parse` status (§6.2), kept with its
+  category (ADR-0009).
+  > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): 8 of 28,956 math spans are `partial`, each at an unbalanced delimiter in the source, with its reason recorded ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the profile-generated pattern reproduces the result unchanged ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json))
+- HTML entities are decoded; whitespace inside a block, outside math, collapses to one space;
+  the result is NFC-normalized.
+  > Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): NFKC would change no character, so NFC loses nothing ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
+- Text a browser shows but the HTML does not contain is canonical text by declared convention,
+  and each insertion is recorded as markup on its segment so that a consumer can strip it:
+  - an empty cross-reference link (Siegrist's `a.ref`) is `[n]`, the number the page's script
+    renders; a sentence never starts at it ([D4 M03](D4-method-catalog.md#m03-segmentsentences));
+  - `<q>` content stands between quotation marks `“ ”`;
+  - an item of an ordered sub-list (`ol.sub`) starts with its marker `(a) `, `(b) `, …, the
+    form the text itself uses to refer to it;
+  - a `details` summary is a `heading` segment inside its `details`.
+
+  The conventions are part of the adapter configuration, so changing one makes a new rendition.
+  > Status: **Tested** on the four spike pages (S1, 2026-10-28): `(a) ` markers cause no false sentence split, against 8 for the browser's `a. `; `[n]` markers, each one token that never starts a sentence, cause none, against 4–6 per page for bracketed markers read as text; an empty link leaves broken text ("By , …") ([s1.variants](../design_review/evidence/2026-10-28_design-spikes/records/s1.variants.json)); on 78 pages, with the insertions stripped, all 19,432 element texts compared match an independent path ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
 - Text that is not content (navigation, scripts, app widgets, footer) is excluded by the
   adapter's declared rules ([D4 M01](D4-method-catalog.md#m01-ingesthtml)).
 
@@ -84,12 +107,23 @@ a parent. Segments form a tree rooted at the document segment. Kinds:
 | `paragraph` | Block of prose | `<p>` |
 | `list`, `list_item` | Lists | `<ol>`, `<ul>`, `<li>` |
 | `details` | Collapsible proof or solution | `<details>` |
-| `math_display` | Display formula | `\[ … \]` |
+| `math_display` | Display formula | `\[ … \]`; a bare `\begin{align}` or `\begin{align*}` block (§3.1) |
 | `math_inline` | Inline formula | `\( … \)` |
 | `heading` | Heading text | `<h1>`–`<h6>` |
 | `table`, `table_row`, `table_cell`, `caption`, `footnote` | Tables and notes | as named |
+| `figure` | A figure: container of its `caption` | `<figure>` with `<figcaption>` |
 | `sentence` | Sentence, from segmentation | spaCy |
 | `email_message`, `quoted_block`, `signature` | Email structure (later) | — |
+
+> Status: nested `h3`/`h4` sections **Tested** on the four spike pages (S1, 2026-10-28): sectioning by `h3` alone would remove 4–9 sections per page ([s1.variants](../design_review/evidence/2026-10-28_design-spikes/records/s1.variants.json)), and all 13 locators of [D2 §12.2](D2-schema-and-guidelines.md#122-slicesyaml) resolve to exactly one segment ([s1.adapter](../design_review/evidence/2026-10-28_design-spikes/records/s1.adapter.json)); what section extents mean for variable scopes is `OPEN-D1-2`
+
+> Status: `figure` **Tested** on 78 Siegrist pages (S1, 2026-10-28): 51 figures, each a container with its caption kept ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
+
+Text placed directly in a container, outside any block element (most often a display formula
+put bare in a `unit` or `details`), is a `paragraph` segment with `attrs.orphan: true` and the
+container's kind, so no content is lost for want of a block element.
+
+> Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): 44 orphan runs (18 in `details`, 17 in units, 9 at section level), the same under both HTML parsers; no block is left unclassified ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
 
 Segment attributes (`attrs`) hold author markup verbatim: element id, CSS classes, `<dfn>`
 terms with their offsets, link targets. Author markup is an **input**: the adapter also emits it
@@ -302,7 +336,8 @@ bindings never block a claim; they lower its completeness and are measured.
 ### 6.2 Canonical form
 
 For keys and comparisons, a value has a canonical form: formulas and sets by **normalized
-LaTeX** (source macros expanded by the domain's macro map; spacing commands `\,`, `\;`, `\!`,
+LaTeX** (source macros expanded by the rendition's own macro table, recorded by M01, with the
+pack's map only for names the page does not define; spacing commands `\,`, `\;`, `\!`,
 `\left`, `\right` and whitespace removed; braces around single tokens dropped, so `b^{2}` is
 `b^2`). The SymPy form is never part of a key, so adding or upgrading the parser never changes
 keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)); numbers as normalized decimal strings with pint base units; text NFC-casefolded with
@@ -420,9 +455,9 @@ keys, uses no insignificant whitespace, encodes UTF-8 and NFC-normalizes strings
 | Rendition | `ren` | document key, adapter config hash |
 | Segment | `seg` | rendition key, kind, start, end |
 | Span | — | natural key `(rendition, start, end)` |
-| Global entity | `ent` | type, identity attributes, normalized canonical label |
+| Global entity | `ent` | type and identity attributes; the normalized canonical label only when the type's identity attributes are incomplete (a `FamilyParameter` keys by family and canonical name alone) |
 | Local entity | `ent` | type, scope segment key, normalized symbol or label |
-| Statement | `stm` | anchor segment keys (sorted) |
+| Statement | `stm` | the key of the smallest segment covering the anchor (so "the unit" and "its sentences" key alike) |
 | Claim | `clm` | subject key, predicate, object key or canonical value, identity qualifiers |
 | Method config | `cfg` | method name, method version, canonical params |
 
@@ -430,6 +465,10 @@ A key is computed when an entity is first created. A global entity that consolid
 to an entity of the reference run keeps that entity's key and canonical label
 ([D5 §3.3](D5-consolidation-identity-confidence.md#33-global-entities)), so keys are stable
 across runs. A statement's `kind` and label are attributes, not identity.
+
+> Status: **Measured** on the S0 passes (2026-10-28): with the earlier rules (sorted anchor keys;
+> label always in the key) 21 of 70 aligned claim pairs had equal claim keys; with these two rules
+> 48 did, and the rest are real differences (../design_review/evidence/2026-10-28_design-spikes/results/s0/key_variants/, record s0.agreement).
 
 **Identity qualifiers** are those that change meaning: `modality`, `polarity`, `statement`,
 canonical `conditions`, and every schema qualifier the schema lists in `ci:identity_qualifiers`
@@ -490,7 +529,7 @@ variance`. The standard deviation `|b|σ` is a `derived` claim, never stated as 
 
 | ID | Question | Resolved by |
 |---|---|---|
-| OPEN-D1-1 | Is spaCy sentence segmentation reliable on math-dense paragraphs, or should sentences be split with math spans masked? | Spike S1 |
-| OPEN-D1-2 | Do variable scopes need a `section` extent in practice, or does `statement` scope plus "Suppose again" resolution suffice? | Spike S0 reference annotations |
-| OPEN-D1-3 | Should `FamilyParameter` identity use role names or source symbols when a source names no role ("parameters μ and σ")? Current proposal: canonical name = role if stated, else symbol; later `parameter_role` claims add roles | Spike S0, D2 review |
-| OPEN-D1-4 | Is `section` the right scope extent for Siegrist's page-level standing assumptions (the lead-in "we fixed random variable Z")? | Spike S0 |
+| OPEN-D1-1 | Is spaCy sentence segmentation reliable on math-dense paragraphs, or should sentences be split with math spans masked? | Spike S1. **Answered** (2026-10-28): not on raw text (boundary F1 0.80, most false splits inside math), nor with an opaque mask (0.70); reliable with each inline formula merged into one token before the parser (b′, F1 1.00 on an 85-block gold two markers produced identically), adopted in [D4 M03](D4-method-catalog.md#m03-segmentsentences). **Measured** ([s1.sentence-gold](../design_review/evidence/2026-10-28_design-spikes/records/s1.sentence-gold.json)) |
+| OPEN-D1-2 | Do variable scopes need a `section` extent in practice, or does `statement` scope plus "Suppose again" resolution suffice? | Spike S0 reference annotations; **answered by S0** (2026-10-28): yes; T1's "In this section", T2's "Suppose again" and U12 are section-scoped in every pass, and M13 reproduces them with section-wide and reopen binders (D4 M13) |
+| OPEN-D1-3 | Should `FamilyParameter` identity use role names or source symbols when a source names no role ("parameters μ and σ")? Current proposal: canonical name = role if stated, else symbol; later `parameter_role` claims add roles | Spike S0, D2 review; **answered by S0** (2026-10-28): the role word when the unit states one, else the symbol (guideline v1 §10.4, D2); names across units are OPEN-D2-9 |
+| OPEN-D1-4 | Is `section` the right scope extent for Siegrist's page-level standing assumptions (the lead-in "we fixed random variable Z")? | Spike S0; **answered by S0** (2026-10-28): `section`, under nested h3/h4 synthesis; `document` was never needed |

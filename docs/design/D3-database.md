@@ -740,4 +740,4 @@ partitioning is needed until a project holds many corpora.
 | OPEN-D3-1 | Exact pg_textsearch index and query syntax (`USING bm25`, `<@>`, `to_bm25query`), and whether it indexes `kb.segment.text` in place | Spike S6 |
 | OPEN-D3-2 | Embedding model and dimension (Qwen3-Embedding-0.6B at 1024, or 8B truncated by Matryoshka to 1024 or 2048) | Spike S7 |
 | OPEN-D3-3 | Whether `kb.segment.text` duplicated from the canonical text is worth its space, or a generated substring view suffices | Spike S6 |
-| OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | Spikes S6 and S0; phase 1 goldens if S0 has too few units |
+| OPEN-D3-4 | Whether claim keys need a stable cross-run `meaning_key` that ignores `statement` (to compare the same fact stated in two places) | Spikes S6 and S0; phase 1 goldens if S0 has too few units; S0 evidence (2026-10-28): on 70 aligned claim pairs, meaning keys agreed for 41 (54 after the D1 §10.1 key-rule changes) against 21 (48) for claim keys; S6 decides storage |

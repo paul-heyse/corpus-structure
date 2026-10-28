@@ -52,7 +52,7 @@ non-positive states. Here they are fields and statuses
 
 | # | Stage | Primary method | Escalation on a measured gap | Writes |
 |---|---|---|---|---|
-| 1 | Ingest and segment | lxml + pylatexenc (HTML), Docling (PDF), spaCy sentences | MinerU VLM for failed layouts | documents, renditions, segments, spans |
+| 1 | Ingest and segment | html5lib through lxml, profile-driven math delimiting and one math grammar (HTML; ADR-0009), Docling (PDF), spaCy sentences with inline math merged | MinerU VLM for failed layouts | documents, renditions, segments, spans |
 | 2 | Profile | GLiNER2 unit classification, term statistics, embeddings | Opus domain brief | profile observations |
 | 3 | Schema | LinkML domain pack | Opus schema proposals from coverage gaps | schema version |
 | 4 | Extract | GLiNER2 compiled from the schema; `JointIE`; spaCy patterns; math spans | LLM claim extraction (local, then Opus) | observations |
@@ -71,7 +71,8 @@ next schema version.
 |---|---|---|---|
 | Encoders and deterministic methods | spaCy, GLiNER2.5, pint, lark, sympy, z3, Splink | Every unit | Unchanged |
 | Local LLM | vLLM 0.31 on the RTX 5090 (32 GB), starting from Qwen3.5-9B; a larger quantized model tested in spike S3 | First escalation: verification, qualifiers, pre-adjudication with a rationale | Directional proxy for hosted-model prompts and evidence packing |
-| Opus 5.5 | The Claude Code session, working a queue through MCP tools ([D8](D8-agent-and-query-interfaces.md)) | Final adjudication, goldens, guidelines, schema proposals | Goldens and guidelines |
+| Opus 5.5 | The Claude Code session, working a queue through MCP tools ([D8](D8-agent-and-query-interfaces.md)) | Final adjudication, guidelines, schema proposals; dispatches golden authoring | Guidelines and golden dispatch |
+| Sonnet 5.5 | Fresh subagent sessions dispatched by the Claude Code session ([D7 §3](D7-evaluation-goldens-outer-loop.md#3-golden-authoring-protocol), ADR-0011) | Golden passes and golden adjudication, from the generated annotator reference and query-assembled packets | Unchanged; the model is recorded per pass |
 | Hosted APIs | — | — | Production escalation tier |
 
 All LLM tiers share one prompt and evidence-packet format compiled from the schema. The pipeline
@@ -82,10 +83,10 @@ with those items explicitly unresolved.
 
 | Phase | Adds | Opus mainly | Gate |
 |---|---|---|---|
-| 0 · Skeleton | Meta-model in PostgreSQL, HTML ingest, Opus intervention tools, query API, evaluation harness | Extracts all claims; drafts schema, guideline, goldens | The trace units and the spike pages answer their typed questions from the database; evaluation runs |
+| 0 · Skeleton | Meta-model in PostgreSQL, HTML ingest, Opus intervention tools, query API, evaluation harness | Extracts all claims; drafts schema and guideline; dispatches Sonnet golden passes | The trace units and the spike pages answer their typed questions from the database; evaluation runs |
 | 1 · Baseline | Compiled GLiNER2 schemas, spaCy, math and table readers, the local LLM tier | Adjudicates what the local LLM could not settle | F1 and intervention share measured per type and stage |
 | 2 · Consolidation | Linking, claim fusion, pgmpy confidence, rule validation | Grey-zone identities and conflicts | Identity errors measured; confidence calibrated on goldens |
-| 3 · Distillation | Escalation ladders across tiers, GLiNER2 LoRA adapters, gepa prompt tuning | Goldens for the errors metrics surface | Intervention share falls at equal or better F1 |
+| 3 · Distillation | Escalation ladders across tiers, GLiNER2 LoRA adapters, gepa prompt tuning | Golden units (Sonnet passes) for the errors metrics surface | Intervention share falls at equal or better F1 |
 | 4 · Schema depth | Coverage-gap discovery, schema versions with migrations, statistics verifiers | Schema and guideline proposals | Coverage rises; new types reach target F1 |
 | 5 · Second corpus | A corpus chosen for where statistics struggled; later hosted models and tenants | New domain packs | A new pack built with bounded interventions |
 
@@ -95,7 +96,7 @@ with those items explicitly unresolved.
 |---|---|---|
 | Model hosting | Hosted long term; near term Opus in Claude Code is the strong model and a local LLM runs on the RTX 5090 | Three-tier ladder, one shared prompt and evidence format, `awaiting_agent` tasks |
 | Corpus | Statistics only until it stands up; a more NLP-natural corpus later, sooner if math density stalls progress | Phases 0–4 on Siegrist first-pass chapters |
-| Golden verification | No per-item human verification; the operator steers through guidelines from an outer loop | Blind two-pass Opus authoring, versioned guidelines, re-scoring on change, independent witnesses ([D7](D7-evaluation-goldens-outer-loop.md)) |
+| Golden verification | No per-item human verification; the operator steers through guidelines from an outer loop | Blind two-pass Sonnet authoring from a generated annotator reference, versioned guidelines, re-scoring on change, independent witnesses ([D7](D7-evaluation-goldens-outer-loop.md), ADR-0011) |
 | Opus cost | Opus from the Claude Code session; the constraint is output size during debugging | Bounded work packets, pagination, debug slices |
 | Repository | New repository `corpus-structure`; the old one read-only | Port list in [D9](D9-repository-and-phase0.md) |
 

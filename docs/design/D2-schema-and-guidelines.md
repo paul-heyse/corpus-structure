@@ -381,7 +381,7 @@ ClaimProposalBatch                   model-facing form; "stored:" notes where th
                           object: { ref: local_ref } | <value of p>,
                           qualifiers: { core qualifiers, schema qualifiers of p },
                           statement?: local_ref, statement_role?,
-                          evidence[]: { sentence, quote, role } }
+                          evidence[]: { sentence, quote, role } }   sentence: sN of the unit or cN of its standing context
                                      stored: evidence[] = { start, end, role, coarse? }
   alternatives[]      { refs: [claim local_refs] (2 or more), reason }
   unsupported[]       { local_ref, sentence, quote, reason }
@@ -400,6 +400,15 @@ ClaimProposalBatch                   model-facing form; "stored:" notes where th
 - **Extent.** `statement` scopes a local entity to the statement that binds it; `section` to the
   enclosing section from the binding sentence on (D1 §4.2). The stored form resolves it to a
   `scope_segment`.
+- **Standing-context citations.** Evidence and statement anchors may name a standing-context
+  sentence (`cN`, D4 §4.1) as well as a unit sentence (`sN`). A supposition stated only in the
+  standing context is recorded once, as a statement of kind `assumption` anchored at its `cN`
+  sentences, so the unit's conditions can reference its claims (guideline §10.2); stored offsets
+  then lie outside the unit's range, inside the context sentence.
+  > Status: **Tested** (S0-R2, 2026-10-28: U12, H3; record s0r2.reference-v1)
+- **Exact shapes** for every value, binding and condition node, entity-valued identity slots
+  (a local-ref string), `aliases` (strings) and `scope` (a string) are stated in the generated
+  annotator reference (§7.5), because models given only this outline guessed them (S0 gap GG-17).
 
 Per-predicate branches restrict the subject and object types (via an `entity_types` side table
 resolved at validation, because JSON Schema cannot follow local references), the value type, and
@@ -438,17 +447,50 @@ compilation, so a broken rule never reaches a run. Severity `error` makes a fail
 `rejected`; `warning` records a validation observation and lowers confidence (D5 §6). The exact
 expression syntax is checked in spike S4 (`OPEN-D2-3`).
 
+**Guideline rules as batch warnings.** The guideline rules that code can check are compiled as a
+`guideline:` group of `warning` rules applied to model-facing batches when they are written (golden
+passes through `write_golden`, LLM and agent proposals), so the author sees them and fixes the batch
+or says why the rule does not apply:
+- statement role by statement kind;
+- modality by role;
+- which claims may carry a condition tree, and what it may hold;
+- a formula excludes the variable it defines;
+- symbol-map keys without backslash;
+- binding priority;
+- `parameter_role` only when it differs from the canonical name.
+
+Rules the code cannot see (which premises a claim depends on, restrictions repeated in each
+dependent claim) stay the author's. The validator's invariant INV-06 and the guideline agree: a
+premise that no condition references carries `scope: statement`.
+> Status: **Tested** in the spike instruments (S0-R2, 2026-10-28: `code/s0r2_rules.py`; the v1
+> reference, the worked examples and both v1 passes end with no warnings)
+
 `rules.yaml` also has a `derive:` section: named derivation rules (for statistics, variance to
 standard deviation, transitivity of `special_case_of`, applying a construction's parameter
 mapping). Each names its source predicates, a match condition and a template for the derived
 claim; M23 applies them ([D4 M23](D4-method-catalog.md#m23-deriveclaims)). Derivations that need
 algebra call registered SymPy helpers, never inline code.
 
-### 7.5 To the guideline inventory
+### 7.5 To the annotator reference
 
-The guideline (§10) has a generated section listing every class, predicate, qualifier and enum
-value with its description. The compiler regenerates it on every schema version, so the
-guideline Opus writes goldens from cannot drift from the schema.
+The compiler generates the **annotator reference** (§10.10) on every schema version, so what
+golden passes, the agent and the LLM tiers write from cannot drift from the schema. Its parts:
+
+- **Entity types:** each with its description, scope, identity slots and examples.
+- **Predicates:** a card per predicate, grouped as structural, formula and family-structure, and
+  other. Each card gives the subject and object types, the description, the predicate's own
+  qualifiers, and the predicate's statement role, modality and condition rule from guideline §10.3,
+  §10.6 and §10.7.
+- **Qualifiers and enums.**
+- **Shapes:** the exact JSON shape of every value, binding and condition node.
+- **Worked examples:** complete packets with their batches, from pages outside every golden split
+  (D7 §4).
+
+It replaces giving annotators the LinkML schema verbatim with a model excerpt beside it. The raw
+schema stays available as background.
+> Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md)
+> Status: **Tested** in the spike (S0-R2, 2026-10-28: `code/s0r2_inputs.py`; the v1 passes did not open
+> the raw schema); production generator not built
 
 ### 7.6 Domain verifiers
 
@@ -791,103 +833,197 @@ Initial `rules.yaml` (expressions to be syntax-checked in S4):
 | `stat.variance_nonnegative` | `has_distribution` with a `variance` key | warning | Checked by M20 with z3, not by rule-engine: the conditions imply variance ≥ 0 when the formula parses |
 | `stat.no_family_on_variable` | `has_parameter` | error | Subject is not a `RandomVariable` |
 
-## 10. Guideline v0 (statistics)
+## 10. Guideline v1 (statistics)
 
-This is the starting content of `domains/statistics/guideline.md`. Opus writes goldens from it
-alone ([D7 §3](D7-evaluation-goldens-outer-loop.md#3-golden-authoring-protocol)); the operator
+This is the starting content of `domains/statistics/guideline.md`. Golden passes, written by
+Sonnet subagents, work from it together with the generated annotator reference (§10.10)
+([D7 §3](D7-evaluation-goldens-outer-loop.md#3-golden-authoring-protocol), ADR-0011); the operator
 steers it ([D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop)). In
 `guideline.md`, sections 10.3–10.8 carry the `<!-- core -->` tag that puts them into LLM prompts
 (D4 §4.2, D7 §2).
 
+> Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md)
+> Status: **Measured** as the S0-R2 candidate (2026-10-28): with it, the generated reference and
+> query-assembled context, Sonnet and Haiku passes reached full-tier F1 0.77 and 0.68 against the
+> reference, from 0.37 and 0.35 under v0, and agreed at 0.76 on six held-out units
+> ([S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md)). Every rule states a choice that v0 left to inference
+> and the S0 gap analysis found contested (../design_review/evidence/2026-10-28_design-spikes/results/s0/gaps.md, GG-1…17). Its open points are
+> OPEN-D2-7 … OPEN-D2-10 (§11).
+
 ### 10.1 Purpose
 
 Produce, for one annotation unit, the complete set of entities, statements and claims that the
-source states, in claim form (D1), each with minimal evidence spans. Completeness is judged
-against this guideline, not against what any extractor can find.
+source states, in claim form, each with minimal evidence spans. Completeness is judged against
+this guideline, not against what any extractor can find. Where this guideline gives a rule, follow
+it even if another reading seems natural; where it gives none, choose, and say so in your notes.
 
 ### 10.2 The annotation unit and its context
 
-- The unit is a Siegrist numbered unit (`div.unit`), or an unnumbered paragraph between units.
-- You may read the whole page for context (running variables, earlier definitions), but you
-  annotate only what the unit itself states. A claim restated from earlier in the page is
-  annotated again where it is restated, as its own evidence.
-- `<details>` blocks are proofs or solutions: annotate a `Statement` of kind `proof` or
-  `solution`, and its `proves` link. Do not annotate proof steps in v0.
+- The unit is a numbered unit of the source, or a paragraph between units. Annotate what the unit
+  states.
+- The packet's **standing context** lists the sentences outside the unit that the unit depends on:
+  the sentences where symbols the unit uses were introduced and are still in force, and
+  section-wide suppositions. Each has an id (`c1`, `c2`, …) that you may cite like a unit sentence.
+- **Context premises.** When the unit's claims depend on a supposition stated only in the standing
+  context ("Suppose that X has …"), record that supposition once: a `Statement` of kind
+  `assumption` anchored at its context sentence(s), with its premise claims (modality `supposed`,
+  role `premise`) citing the context sentence. The unit's claims then reference those premises in
+  their conditions and bind symbols to them (§10.7). Record nothing else from the standing context.
+- Collapsible proofs and solutions are statements of kind `proof` or `solution` with a `proves`
+  link; their steps are not annotated.
 
-### 10.3 What to capture
+### 10.3 What to capture, and the statement role of each claim
 
-| Statement kind | Capture |
-|---|---|
-| Definition | The `Statement`; `defines`; the defined entity; its formulas (`defined_as`, `construction_formula`, `definition_formula`, `pdf` …); parameters with `has_parameter`, roles and domains; the premises it supposes |
-| Theorem, proposition, corollary | Premises (`supposed`), restrictions (as conditions), conclusions (`asserted`) with conditions referencing premises; derived variables (`defined_as`) |
-| Remark or narrative paragraph | Only explicit claims (parameter identities, memberships, special cases); skip motivation, history and analogies |
-| Example, exercise | The setup facts as `exemplified` claims; the asked quantity as `posed`; skip the solution's working |
-| Proof, solution | `Statement` and `proves` only |
-| Convention | Claims with modality `conventional` |
+A statement's kind is what the source calls it (definition, theorem, corollary, remark, example,
+exercise, convention); a unit that mixes kinds ("A corollary of …", "Recall that …") yields one
+statement per kind. `assumption` is a statement whose only content is a supposition.
+
+| Statement kind | Capture | `statement_role` |
+|---|---|---|
+| Definition | the `Statement`; `defines` for each defined entity; the defining formulas; the family's parameters, their domains and roles; the suppositions the definition makes about things it takes as given | stipulated content: `definiens`; suppositions about given things: `premise` |
+| Theorem, proposition, corollary | premises; conclusions; variables the statement introduces by formula ("then Y = cX has …") | premises `premise`; the formula defining an introduced variable `definiens`; everything the statement asserts `conclusion` |
+| Remark | explicit claims only: identities, memberships, special cases; skip motivation, history, analogies, app instructions | as for a theorem when the remark supposes something and states a consequence; otherwise none |
+| Example, exercise | the setup facts; the asked quantity | setup facts `example_value`; the asked quantity is recorded as `unsupported` with reason "asked quantity" (no predicate yet) |
+| Convention | the conventional claims | none |
+| Proof, solution | `Statement` and `proves` only | none |
+| Assumption (context premise) | the supposed claims | `premise` |
+
+Structural claims — `defines`, `proves`, `refers_to`, `follows_from` — take no role.
 
 ### 10.4 Entities
 
-- Create a `DistributionFamily` for every named family, including standardized members
-  ("standard normal distribution"), with a `special_case_of` claim when the source states the
-  constraint.
-- A construction ("location-scale family associated with …") is a `FamilyConstruction`, never a
-  family.
-- Random variables are local. Use statement scope unless the source binds the variable for the
-  section ("Suppose again", "Throughout this section"); then use section scope with the
-  section's first binding as the scope anchor.
-- Parameters are global `FamilyParameter` entities identified by family and canonical name. Use
-  the role word the source states ("location", "shape"); if none is stated, use the symbol
-  (`mu`, `sigma`) and add `parameter_role` claims when a later sentence names the role.
+- A `DistributionFamily` for every named family, including standardized members ("standard
+  normal", "basic Weibull"), with a `special_case_of` claim only when the source states the
+  constraint. "Standard" or "basic" does not mean parameter-free.
+- A construction ("the location-scale family associated with …") is a `FamilyConstruction`.
+- Random variables are local, with `extent` `statement`, unless the source binds them for the
+  section ("In this section", "Throughout", "Suppose again", or a supposition in a lead-in paragraph
+  that later units use without rebinding); then `section`.
+- A random variable written as an expression (`a + b X`, `X^2`) is a local `RandomVariable` whose
+  symbol is the expression as written, with one `defined_as` claim.
+- An **indexed** family of variables (`X_i` for `i ∈ {1, …, n}`) is one local entity whose symbol is
+  the indexed form (`X_i`); claims about every member are stated once, about `X_i`, with the index
+  range as a `member` node in their conditions. Do not expand it into `X_1`, `X_2`.
+- **Parameters** are global `FamilyParameter` entities identified by family and canonical name. The
+  canonical name is the role word if the unit states one for that parameter anywhere ("shape
+  parameter k" gives `shape`; "mean μ" gives `mean`), spelled as the `ParameterRole` value
+  (`standard_deviation`, `degrees_of_freedom`); otherwise the symbol without backslash (`mu`). Add a
+  `parameter_role` claim only when the role is stated and differs from the canonical name.
+- `has_parameter`, `parameter_domain` and `parameter_role` are stated only in a definition of the
+  family; elsewhere "F with shape parameter k" supplies `param_values` only.
 
 ### 10.5 Claims
 
-- Use the predicate whose description fits; if none fits, record an `unsupported` item with the
-  text and a reason. Never force a fact into a nearby predicate.
+- Use the predicate whose description fits (the annotator reference, §10.10); if none fits, record an
+  `unsupported` item with the text and a reason. Never force a fact into a nearby predicate.
+- A sentence is a claim if it relates two identifiable things (entities, values, statements) in a
+  way a consumer could query. Skip pure motivation, framing ("as usual") and scene-setting without a
+  quantity.
 - `has_distribution` carries the parameter values the sentence states, keyed by the family's
-  parameter canonical names. "with mean μ and variance σ²" gives `{mean: μ, variance: σ²}`.
-- "Respectively" pairs in order; when the pairing is unclear, record both readings as
-  alternatives (§10.8).
+  canonical parameter names (§10.4). "shape parameter k and scale parameter b c" gives
+  `{shape: k, scale: b c}`.
+- When one sentence states a value both as a parameter and as a property ("mean μ", "E(X) = μ"),
+  record both claims; they are not alternatives.
+- Independence of variables is a condition (`pred` node, `independent`), not a claim. For a
+  sequence written `(X_1, X_2, …, X_n)`, write the arguments as the source lists them, without the
+  ellipsis (`X_1, X_2, X_n`).
+- "Respectively" pairs in order; when the pairing is unclear, give both readings as alternatives.
+- Do not state derived facts the source does not state (a standard deviation from a variance).
 
 ### 10.6 Modality
 
-Premises introduced by "suppose", "let", "assume", "if" are `supposed`. What a theorem concludes
-is `asserted`. What a definition stipulates is `defined`. Values in examples and exercises are
-`exemplified`; what an exercise asks for is `posed`.
+| Claim | Modality |
+|---|---|
+| A supposition: "suppose", "assume", "if", or "let" about something taken as given | `supposed` |
+| What a definition stipulates, including "let X = …" or "the variable X = b Z" that introduces the defined construction's variable | `defined` |
+| What a theorem, corollary or remark concludes; a formula introducing a variable inside a theorem | `asserted` for conclusions; `defined` for the introducing formula |
+| Setup values in examples and exercises | `exemplified` |
+| A convention | `conventional` |
+| Structural claims (`defines`, `proves`, `refers_to`, `follows_from`) | `asserted` |
 
-### 10.7 Conditions and formulas
+### 10.7 Conditions, formulas and symbol bindings
 
-- Restrictions ("if a ∈ ℝ and b ∈ ℝ ∖ {0}") become `member` or `cmp` nodes of the conclusion's
-  condition tree, together with `claim` nodes for its premises.
+**Which claims carry a condition tree.** A claim's conditions say what must hold for that claim, as
+the source states it, to be true.
+
+1. **Premises and example values** carry none, except the range of an index they are stated for
+   (`member` of `i` in `{1, …, n}`). Restrictions written into a premise ("with shape k ∈ (0, ∞)")
+   restrict the premise's symbols: they go into the claims that depend on the premise (rule 3), not
+   onto the premise. A premise that no condition references (everything depending on it is a
+   formula or family-structure claim, rule 2) carries the qualifier `scope: statement`: it holds
+   over its statement.
+2. **Formula and family-structure claims** — `defined_as`, `construction_formula`,
+   `definition_formula`, `transformation_of`, `has_parameter`, `parameter_domain`,
+   `parameter_role`, `derived_parameter`, `identical_parameter`, `special_case_of` — hold by the form
+   of the formula or the structure of the family. They carry no `claim` nodes; they carry only the
+   restrictions on their own symbols that the source states with them ("For b ∈ (0, ∞), X = b Z").
+3. **Every other claim** — distributions, moments, values, whether asserted or defined — carries a
+   `claim` node for each premise it depends on (by default every premise of its statement, and any
+   context premise, §10.2), and a `member` or `cmp` node for each stated restriction on the symbols
+   it uses, repeated in each such claim even when the restriction was written with the premise.
+   Several nodes are combined with `and`.
+4. Structural claims carry none.
+
+**Formulas.**
+
 - Copy LaTeX exactly as written, including the source's macros (`\R`, `\E`, `\var`). Do not
-  simplify. Bind each symbol (D1 §6.1); use `unresolved` rather than guessing.
-- Do not state derived facts the source does not state (the standard deviation from a variance);
-  the pipeline derives them.
+  simplify or expand.
+- A formula that defines a variable or generates a family excludes the variable it defines: the
+  object of "X = b Z" is `b Z`; the subject carries X.
+
+**Symbol bindings.** A binding says what a symbol refers to, so that a claim can be read on its own.
+Look at where the symbol **first appears** in the unit (or its standing context), then bind it in
+each claim by the first row that applies:
+
+| Row | When | Binding |
+|---|---|---|
+| 1 | The symbol names a random variable or other entity of the batch | `variable` (with `entity`) |
+| 2 | The claim is about a family as such (`has_parameter`, `parameter_domain`, `parameter_role`, `derived_parameter`, `identical_parameter`, `construction_formula`, `transformation_of`, `special_case_of`) and the symbol names that family's parameter | `family_param` (with `entity`) |
+| 3 | The symbol first appears as (part of) the value a `has_distribution` claim gives to a parameter ("Suppose that X has … with mean μ"), and this is another claim | `param_of` (with `claim`, `param`); when the value is a larger expression containing it (σ in σ²) `param_expr_of` |
+| 4 | The unit names the symbol as a parameter of a family it defines or describes ("scale parameter b"), anywhere in the unit, and row 3 does not apply | `family_param` (with `entity`) |
+| 5 | Anything else the unit introduces: the value in the claim that introduces it, a symbol introduced by a restriction ("If c ∈ (0, ∞)"), an index, a dummy variable of a function, integral, sum or set | `free` |
+| 6 | A numeric or named constant (`e`, `\pi`) | `constant` |
+| 7 | None of these | `unresolved` |
+
+In the reference's worked example of the general Weibull definition, k first appears as the shape value of Z's distribution (row 3: `param_of`
+that premise elsewhere, `free` in the premise itself), and b first appears in the restriction "For b ∈
+(0, ∞)" and is named the scale parameter of the family being defined (row 4: `family_param`).
+
+Symbol maps are keyed by the symbol without backslash (`mu`, `sigma`, `X_i`).
 
 ### 10.8 Evidence, ambiguity and limits
 
-- Each claim cites the minimal span(s) that state it: usually a clause or a formula plus its
-  governing words. Conditions cite their spans with role `condition`.
+- Each claim cites the minimal span(s) that state it, quoted exactly from one sentence (a unit
+  sentence `sN` or a context sentence `cN`). The primary span excludes introducers ("Suppose that",
+  "If", "then"); cite the introducer as `supporting` when it determines the modality.
+- A `defined_as` claim cites the expression and its formula. A `proves` claim cites the proof's or
+  solution's concluding clause.
+- Conditions cite their spans with role `condition`.
 - If the text supports two incompatible readings, give both claims and mark them as alternatives
   with a one-line reason.
-- Out of scope in v0: proof steps, app and simulation descriptions, data sets, biographies,
+- Out of scope: proof steps, app and simulation descriptions, data sets, biographies,
   computational exercises' numeric answers.
 
 ### 10.9 Output
 
-A model-facing `ClaimProposalBatch` (§7.3) per unit, with `statements`, `entities` (local ones
-with their `extent`), `claims`, `alternatives` and `unsupported` arrays, citing evidence by
-sentence id and quote, written through the `write_golden` tool ([D8](D8-agent-and-query-interfaces.md)).
-Until that tool exists (spikes), write the batch as a JSON file.
+A model-facing `ClaimProposalBatch` per unit (§7.3), with `statements`, `entities` (local
+ones with their `extent`), `claims`, `alternatives` and `unsupported`, citing evidence by sentence
+id and quote.
 
-### 10.10 Generated inventory
+### 10.10 Generated annotator reference
 
-*(Generated from the schema version by §7.5: every class, predicate, qualifier and enum value
-with its description.)*
+The annotator reference is generated from the schema: every predicate with its subject and object types,
+description, the qualifiers it takes and its role and modality under §10.3 and §10.6, the binding
+kinds, the value shapes, and complete worked examples.
 
 ### 10.11 Direction log
 
 *(One entry per operator direction: date, the direction in the operator's words, the guideline
 change it produced, the golden units re-authored.)*
+
+| Date | Direction | Guideline change | Units re-authored |
+|---|---|---|---|
+| 2026-10-28 | "It looks like sonnet is the right call, and the rules establish a clear approach" | v0 → v1 (roles, modality, conditions, bindings, context premises, indexed families, parameter naming); golden author Sonnet (ADR-0011) | None yet (no golden set exists; the S0 reference was conformed to v1 in the spike) |
 
 ## 11. Open questions
 
@@ -896,9 +1032,13 @@ change it produced, the golden units re-authored.)*
 | OPEN-D2-1 | Exact `Schema.from_dict` keys for structures, attributes and per-type thresholds in gliner2 2.1.0 | Spike S4 |
 | OPEN-D2-2 | Raw LaTeX or masked math placeholders in GLiNER2 input | Spike S2 |
 | OPEN-D2-3 | rule-engine syntax for the `rules.yaml` checks, and whether custom functions such as `family_params` are better as resolver-backed symbols | Spike S4 |
-| OPEN-D2-4 | Whether property predicates (`mean_value`, `pdf`, …) should be one `has_property` predicate with a `property` qualifier instead | Spike S0 annotations: count how many distinct properties appear |
-| OPEN-D2-5 | Whether "standard normal" is better a family with `special_case_of` or a parameterization of the normal family | Spike S0 and outer-loop direction |
+| OPEN-D2-4 | Whether property predicates (`mean_value`, `pdf`, …) should be one `has_property` predicate with a `property` qualifier instead | Spike S0 annotations: count how many distinct properties appear; **answered by S0** (2026-10-28): keep separate property predicates (only `mean_value` and `variance_value` were needed); add a standard-deviation property, now in OPEN-D2-9 |
+| OPEN-D2-5 | Whether "standard normal" is better a family with `special_case_of` or a parameterization of the normal family | Spike S0 and outer-loop direction; **answered by S0** (2026-10-28): standardized families as families of their own worked in every pass; `special_case_of` only when the source states the constraint; guideline v1 §10.4 |
 | OPEN-D2-6 | Whether LinkML annotation values that are lists (`ci:examples`, `ci:qualifiers`) round-trip through `SchemaView` unchanged | Spike S4 |
+| OPEN-D2-7 | Members of an indexed family as condition arguments: v1 makes `X_i` one entity but lists independence over `X_1, X_2, X_n`; needs an indexed-set argument (base, index, range) and a `forall` over claims (S0 gap RG-2) | Schema change with D1 §7; then a guideline rule |
+| OPEN-D2-8 | Which premises a claim depends on: "every premise of its statement" over-references when a statement holds independent results; candidate rule "the premises whose entities or symbols the claim uses" | Next guideline revision, checked on held-out units |
+| OPEN-D2-9 | Guideline points v1 leaves open: section-level suppositions nothing references (`scope: statement` or `section`), restricting phrases ("In some settings", GG-16), recalled definitions (GG-12), local definitions "where μ = …" (RG-4), what an exercise asks for (`asks_for`, SG-1), numbers with units as parameter values (SG-3), a standard-deviation property (SG-4), a family's canonical parameter names across units, fixed by its defining unit (RG-7) | Next guideline and schema revision |
+| OPEN-D2-10 | Documented shapes for `param_mapping`, `param_symbols` and `param_constraints` (SG-11), so the generated reference can state them | Schema description update |
 
 
 ## 12. Statistics pack files v0

@@ -40,11 +40,15 @@ the normal family's parameters`), so a correction is a small edit.
 | Tool | Input | Output | Effect |
 |---|---|---|---|
 | `golden_next` | `set`, `pass` (`a`, `b`, `c`) | the next unit needing that pass | Leases it |
-| `read_golden_unit` | `unit`, `pass` | golden-mode packet; for pass `c` also passes A and B and their alignment diff | — |
-| `write_golden` | `unit`, `pass`, `batch`, `decisions?` (pass `c`: per-difference decision and reason, `guideline_gap` marks) | validation result | Stores the pass; pass `c` writes golden items and sets the unit `adjudicated` |
+| `read_golden_unit` | `unit`, `pass` | golden-mode packet (query-assembled standing context, D7 §3.2) with the guideline and the generated annotator reference; for pass `c` also passes A and B and their alignment diff | — |
+| `write_golden` | `unit`, `pass`, `batch`, `decisions?` (pass `c`: per-difference decision and reason, `guideline_gap` marks) | validation result: errors, and guideline-rule warnings (D2 §7.4) | Stores the pass with its session reference and model; pass `c` writes golden items and sets the unit `adjudicated` |
 
-Passes A and B must come from separate subagent sessions; the tool records the session reference
-and refuses a pass `b` from the session that wrote pass `a` for the same unit. Test-split units
+Golden passes A, B and C are fresh **Sonnet 5.5** subagent sessions dispatched by the Claude Code
+session (D7 §3, ADR-0011); the session itself (Opus) does not author goldens. Passes A and B must
+come from separate subagent sessions; the tool records the session reference and model and refuses
+a pass `b` from the session that wrote pass `a` for the same unit.
+
+> Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md) Test-split units
 are served only to golden passes, never to `read_unit` or `query` item views (D7 §4).
 
 ### 2.3 Knowledge-level proposals and decisions
@@ -84,7 +88,7 @@ budget per iteration (D6 §7.4) bounds how many packets the session is asked for
 
 **Working instructions** for the session live in a repository skill
 (`.claude/skills/work-queue/SKILL.md`, D9): how to pull and submit work, to use fresh subagents
-for golden passes A, B and C, never to look at test-split items, and to keep rationales to two
+for golden passes A, B and C (Sonnet, ADR-0011), never to look at test-split items, and to keep rationales to two
 sentences.
 
 ## 4. CLI
@@ -175,4 +179,4 @@ Expected answers are the trace's target claims; D9 §4 turns them into tests.
 |---|---|---|
 | OPEN-D8-1 | FastMCP 4.1 stdio server alongside the orchestrator's `LISTEN`/`NOTIFY`: one process or two | Phase 0 |
 | OPEN-D8-2 | Whether grouping several small units in one packet lowers agent quality (context interference) | Phase 0 comparison on `core12` |
-| OPEN-D8-3 | How the Claude Code session best launches blind golden passes (subagents with restricted tools) so that passes A and B are verifiably separate | Phase 0 |
+| OPEN-D8-3 | How the Claude Code session best launches blind golden passes (subagents with restricted tools) so that passes A and B are verifiably separate | Answered in practice by S0 and S0-R2 (2026-10-28): a fresh subagent per pass, given one input folder and one output folder, told what it may not read, and audited from its transcript (every tool call) rather than its own report; phase 0 makes the input and output folders the only paths the tools serve |

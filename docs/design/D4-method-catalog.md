@@ -63,7 +63,7 @@ canonical JSON document (`cfg:` key, D1 §10).
 | Deterministic | M01–M03, M08, M09, M11–M13, M15, M17–M23 | ms | Everything they can do; never skipped |
 | Encoder (GPU or CPU) | M04, M05, M06, M07, M14 | 10–100 ms | Candidate mentions, relations, labels, links on every unit from phase 1 |
 | Local LLM (vLLM on the RTX 5090) | M10, M16 | 1–20 s | Claim proposals where encoders leave gaps; pre-adjudication |
-| Agent (Opus via MCP) | M24 | minutes, batched | Phase 0 extraction; final adjudication; goldens (D7) |
+| Agent (Opus via MCP) | M24 | minutes, batched | Phase 0 extraction; final adjudication; dispatches golden passes, which Sonnet subagents author (D7 §3, ADR-0011) |
 | Hosted LLM (later) | M10 and M16 configurations against a hosted endpoint | s, priced | Production escalation |
 
 The LLM tiers share one prompt and packet format (§4), so a configuration that worked on the
@@ -136,10 +136,17 @@ A2: …
 
 - **Size caps.** Default 3,000 tokens of text and context for the local LLM, 6,000 for the agent
   (D8 §3). A unit larger than the cap is split at sentence boundaries into numbered parts that
-  share the standing context; the split is recorded in the task.
-- **Standing context** is at most five sentences, chosen by M13 (the binding sentences of
-  symbols the unit uses but does not bind). Without M13 output, the section's first paragraph is
-  used.
+  share the standing context; the split is recorded in the task. The **output** budget is sized from
+  batch size, not unit size: a batch runs two to nineteen times its unit's tokens (S0 core units:
+  units at most 345 tokens, batches up to about 2,500; record s0.sizes, Measured).
+- **Standing context** is at most six sentences, chosen by M13: for each symbol the unit uses,
+  the sentence holding the binding site M13 assigns it when that sentence lies outside the unit,
+  plus the site a "Suppose again" reopens; a sentence identical to one of the unit's is left out.
+  Each carries an id (`c1`, …) that evidence may cite (D2 §7.3). A self-contained unit has none;
+  without M13 output the packet has none. A positional rule ("the previous binding sentences in the
+  section") is not used: it handed one exercise another exercise's setup and missed a premise stated
+  before the unit.
+  > Status: **Tested** (S0-R2, 2026-10-28; records s0r2.inputs, s0r2.scores; `code/s0r2_sample.py`)
 - **Known entities** are the canonical labels of global entities in the reference run, or
   proposed earlier in this run, that are linked to the page (at most 30). Proposals reuse them,
   so identity across units holds by label (D5 §3.3). Golden packets omit them (D7 §3.2).
@@ -152,8 +159,8 @@ A2: …
 |---|---|---|
 | System instructions | `methods/llm/prompts/<task>.md` | Method version |
 | Guideline core rules | Guideline §10 sections tagged `core` (D2 §10) | Guideline version |
-| Schema inventory | Compiled prompt inventory (D2 §7.3), filtered to classes and predicates relevant to the segment's statement kind when the inventory exceeds 1,500 tokens | Schema version |
-| Examples | k (default 2) adjudicated **dev-split** golden units nearest to the unit by M04 embedding, rendered as packet + expected batch; never the test split (D7 §4) | Golden set version |
+| Schema inventory | The generated annotator reference (D2 §10.10): per predicate its subject and object, statement role, modality and condition rule, with value and node shapes; filtered to the classes and predicates relevant to the segment's statement kind when it exceeds 1,500 tokens (local LLM); whole for the agent and golden passes | Schema version |
+| Examples | k (default 2) adjudicated **dev-split** golden units nearest to the unit by M04 embedding, rendered as packet + expected batch; never the test split (D7 §4). Golden passes instead get the reference's fixed worked examples, from pages outside every split | Golden set version |
 | Packet | §4.1 | Unit |
 | Output instruction | "Return one ClaimProposalBatch" plus the JSON Schema for tiers that do not enforce it | Schema version |
 
@@ -199,16 +206,52 @@ order emitting canonical text by D1 §3.1 and a segment for each block element a
 delimiter pair; attach author markup to segment `attrs` and emit it as `author_markup`
 observations (`dfn` terms with offsets, unit ids and classes, `details`, links with targets).
 Tables become `table`/`table_row`/`table_cell` segments with cell text in canonical text.
+Rendered-only text (reference markers, quotation marks, sub-list markers, `details` summaries)
+and orphan text follow D1 §3.1 and §3.2.
+
+**Page macros.** The rendition's macro table is the page's own `\newcommand` definitions
+(`parse_detail.macros`); the domain pack's macro map supplies only names the page does not
+define. Consumers that expand or read macros (the math grammar, M09, M11, quote location) take
+the rendition's table, because the same name has different bodies on different pages: `\mse` is
+`\text{mse}` on some and `\text{MSE}` on others, `\kur` is `\text{kurt}` or `\text{kur}`.
+> Status: per-page macros **Tested** on 78 Siegrist pages (S1, 2026-10-28): 29 distinct definitions recorded per rendition; the common names (`\N`, `\R`, `\E`, `\var`, `\P`, `\sd`) agree across pages, several others do not ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the fallback to the pack map is **Proposed**
 
 **Configuration.** A *source profile* (one per source family; Siegrist's is drafted in
-[D2 §12.1](D2-schema-and-guidelines.md#121-methodsyaml)): exclusion rules, the title, section
-headings (`h3` and `h4` open nested sections), the unit selector (`div.unit`), statement-kind
-hints from block classes (`p.dfn` → definition, `p.math` → theorem, `p.app` → not claim-bearing)
-and from section titles ("Computational Exercises" → exercise), `details` kinds (proof or
-solution), math delimiters, and whether pages define macros. The profile lives in the domain
-pack's `methods.yaml`; it is about the source's HTML, not the domain.
+[D2 §12.1](D2-schema-and-guidelines.md#121-methodsyaml)) is a set of CSS selectors, each with a
+role payload: exclusion rules (scripts, the macro block, navigation including Siegrist's
+`ul.map` chapter lists, controls, images), the title, section headings (`h3` and `h4` open
+nested sections), the unit selector (`div.unit`), statement-kind hints from block classes
+(`p.dfn` → definition, `p.math` and `p.stat` → theorem, `p.Proof` → proof, `p.app` → not
+claim-bearing) and from section titles ("Computational Exercises" → exercise), `details` kinds
+(proof or solution), math delimiters and display environments (`align`, `align*`), the macro
+source (`div.latex`), and the rendering conventions of D1 §3.1. The profile lives in the domain
+pack's `methods.yaml`; it is about the source's HTML, not the domain. Either selector engine,
+cssselect2's `Matcher` or the cssselect→XPath translation, evaluates the profile identically;
+the `Matcher` also reports an element claimed by two roles, and the XPath form is portable to
+other tools (trafilatura's `prune_xpath` accepted it unchanged).
+> Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): both engines select identical node sets for every rule on every page, with no role conflicts and no unclassified block ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
 
-**Library realization.** `lxml.html.document_fromstring`; CSS selectors through `lxml.cssselect` for exclusions
+A second source needs more of the profile than Siegrist does: a `layout` role (tables used for
+layout), section rules with a heading source (NIST's subsections are layout-table rows), a
+`verbatim` role (`pre` keeps its line breaks), per-selector list markers, and per-selector
+rendering of reference links and `img[alt]`. Generic defaults: `pre` keeps whitespace, an
+`img` with `alt` text is never silently dropped, and a list without items is a block.
+> Status: **Proposed**, from the NIST probe on 8 pages (S1, 2026-10-28), where only the Siegrist `scripts` and `images` rules matched anything ([s1.nist](../design_review/evidence/2026-10-28_design-spikes/records/s1.nist.json))
+
+**Parser.** html5lib through `lxml.html.html5parser`, whose HTML5 tree construction closes an
+open `<p>` before a block element. libxml2 (`lxml.html.document_fromstring`) keeps a `<details>`
+that follows an unclosed `<p>` inside the paragraph, with its summary and proof; it is
+acceptable only with a repair rule that closes `<p>` before block elements.
+> Status: **Tested** on 78 Siegrist pages (S1, 2026-10-28): the two parsers give canonical texts of equal length on every page and differ in segments on 4 pages, each at an unclosed `<p>` before `<details>`, where html5lib's tree is the correct one ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json)); the corpus run used libxml2, and a rerun with html5lib as the default is open
+
+**No profile-free fallback.** trafilatura does not produce M01's canonical text for a profiled
+source: it drops headings next to units, every `details` summary, captions and short proofs
+ending in an empty reference, and returns no units, `details` or sections as structure. It may
+draft a provisional rendition (`profile: none`, `parse_status: partial`) to help write the
+profile of a new source.
+> Status: **Measured** on 78 Siegrist pages (S1, 2026-10-28): trafilatura 2.3.1 misses 5.3% of canonical content, 93% of `h2`–`h4` headings, all `details` summaries and 99% of captions; it keeps every math span it outputs verbatim ([s1.trafilatura](../design_review/evidence/2026-10-28_design-spikes/records/s1.trafilatura.json))
+
+**Library realization.** The parser above; CSS selectors through `lxml.cssselect` for exclusions
 and unit selection; math delimiting by one `regex` pattern generated from the profile's declared
 delimiters and display environments (an escaped backslash is skipped; a span stops at the next
 delimiter, so an unclosed one is `partial` and the scan resynchronizes); each span validated by
@@ -219,7 +262,8 @@ never adapter code.
 > Status: **Tested** in the S1 adapter (2026-10-28): the generated pattern delimits identically to the scanner on 517 blocks ([s1.profile-delimiting](../design_review/evidence/2026-10-28_design-spikes/records/s1.profile-delimiting.json))
 
 **Measured by.** `parse_status` per rendition and segment; excluded-character share; segment
-counts by kind; author-markup counts (S1 compares them with `siegrist_sections.tsv`).
+counts by kind; author-markup counts against the corpus index (`siegrist_sections.tsv`).
+> Status: **Measured** on 78 Siegrist pages (S1, 2026-10-28): units, definition units, `dfn` terms, `details` and `\[` display math equal the index on 77 of 78 pages (on the exception the index counts a commented-out unit); `dfn` terms item by item, no difference ([s1.corpus](../design_review/evidence/2026-10-28_design-spikes/records/s1.corpus.json))
 
 **Port.** The rules, not the code shape, of `corpus-intelligence` `html_adapter` (≈1,000 lines;
 D9 §7). Spike: S1.
@@ -240,22 +284,28 @@ consolidates them.
 
 | Unit | Reads | Writes | Tier · phase · entry |
 |---|---|---|---|
-| rendition | canonical text, structural segments | `sentence` segments | deterministic · 0 · base |
+| rendition | canonical text, structural and math segments, reference markup | `sentence` segments | deterministic · 0 · base |
 
 **Behaviour.** Splits every `paragraph`, `list_item`, `table_cell` and `caption` into sentence
 segments; never splits inside math; never lets a sentence cross its parent block. Runs as part
 of rendition construction: its configuration hash is part of the rendition's adapter
 configuration, so sentence segments are as stable as the other segments.
 
-**Library realization (variant chosen by S1, `OPEN-D1-1`).** spaCy 3.8 `en_core_web_sm` with the
-parser's sentence boundaries. Candidate (b′), to compare with S1's masked variant: a pipeline
-component before the parser that, using the math segments, merges each inline math span into
-one token with `doc.retokenize()` (`POS=PROPN`) and sets `is_sent_start = False` on tokens
-inside display math. The parser respects preset boundaries, and token offsets stay in canonical
-text, so no offset mapping is needed.
+**Library realization (variant b′; `OPEN-D1-1` closed by S1).** spaCy 3.8 `en_core_web_sm` with
+the parser's sentence boundaries, after a step that, using the math segments and the reference
+markup, merges each inline math span and each rendered reference marker (`[n]`, D1 §3.1) into
+one token with `doc.retokenize()` (`POS=PROPN`, `TAG=NNP`) and sets `is_sent_start = False` on
+reference markers and on every token of a display formula after its first. The parser respects
+preset boundaries, and token offsets stay in canonical text, so no offset mapping is needed.
+Math is never presented to spaCy as text: on raw text the parser splits inside formulas, an
+opaque placeholder loses real boundaries, and math rendered to Unicode adds false splits after
+list markers and mid-clause.
+> Status: **Measured** on a sentence gold of 85 blocks with 49 internal boundaries, marked identically by two independent markers (S1, 2026-10-28): boundary F1 1.00 for b′ against 0.80 for raw text, 20 of whose 24 false splits fall inside math, and 0.70 for an opaque mask; under b′ the rule-based sentencizer reaches 0.99 and the `trf` parser 0.98 ([s1.sentence-gold](../design_review/evidence/2026-10-28_design-spikes/records/s1.sentence-gold.json))
 
-**Measured by.** Sentences per paragraph; share of sentences beginning lower-case or with a
-math token (split-error proxies).
+**Measured by.** Boundary F1 against S1's sentence gold whenever the pipeline, model or math
+presentation changes. Sentences per paragraph and the share of sentences beginning lower-case
+or with a math token are diagnostics only, not quality measures.
+> Status: **Measured** (S1, 2026-10-28): the two proxies flag 3 of the 20 blocks the raw-text pipeline segments wrongly, so they cannot stand in for a gold ([s1.sentence-gold](../design_review/evidence/2026-10-28_design-spikes/records/s1.sentence-gold.json))
 
 ### M04 embed.segments
 
@@ -610,5 +660,5 @@ agent proposals only.
 | OPEN-D4-1 | Which local model: Qwen3.5-9B at full precision, or a larger quantized model that fits 32 GB with an embedding model beside it | Spike S3 |
 | OPEN-D4-2 | Reasoning on or off for structured proposals on the local model (quality versus latency) | Spike S3 |
 | OPEN-D4-3 | SymPy LaTeX backend (lark or ANTLR) and the macro map that maximizes parse rate | Spike S5 |
-| OPEN-D4-4 | Unit of LLM work: whole `unit`, paragraph, or sentence group; set by S0 output sizes and S3 quality per packet size | Spikes S0, S3 |
-| OPEN-D4-5 | Whether M13's rule-based scoping reaches the S0 annotators' scopes, or symbol scope must come from the LLM proposal | Spikes S0, S5 |
+| OPEN-D4-4 | Unit of LLM work: whole `unit`, paragraph, or sentence group; set by S0 output sizes and S3 quality per packet size | Spikes S0, S3; **answered by S0 and S0-R2** for golden and agent packets (2026-10-28): the unit, with query-assembled standing context (§4.1); output budget from batch size; S3 measures local-LLM quality per packet size |
+| OPEN-D4-5 | Whether M13's rule-based scoping reaches the S0 annotators' scopes, or symbol scope must come from the LLM proposal | Spikes S0, S5; **answered by S0** (2026-10-28): 20 of 20 annotated scopes with two additions, sentence-initial "if" and paragraph statements (M13); S5 checks math-heavy symbols |

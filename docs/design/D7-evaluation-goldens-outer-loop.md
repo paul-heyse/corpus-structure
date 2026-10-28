@@ -1,22 +1,29 @@
 # D7 · Evaluation, goldens and the outer loop
 
 **Proposed (2026-10-28).** How quality is measured without per-item human verification: the
-versioned guideline, blind two-pass golden authoring by Opus with adjudication, splits and
-leakage rules, alignment and scoring, witnesses that do not depend on Opus, experiments and
+versioned guideline, blind two-pass golden authoring by Sonnet with adjudication, splits and
+leakage rules, alignment and scoring, witnesses that do not depend on the golden author, experiments and
 promotion, and the operator's outer loop of direction. Tables: [D3 §7](D3-database.md#7-eval-goldens-and-results).
 
 ## 1. The problem and the answer
 
-Goldens are written by Opus; the pipeline escalates to Opus. Scoring one against the other could
-measure only agreement with Opus, and a guideline nobody reviews could drift. The design answers
-with five separate mechanisms, none sufficient alone:
+Goldens are written by **Sonnet 5.5** subagents (ADR-0011); the pipeline escalates to Opus, the
+agent tier. Keeping the golden author apart from the escalation tier means a pipeline tuned toward
+Opus's habits is not rewarded by Opus-written goldens. Goldens could still encode their author's
+habits, and a guideline nobody reviews could drift. The design answers with five separate
+mechanisms, none sufficient alone:
+
+> Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md)
+> Status: **Measured** (S0-R2, 2026-10-28): Sonnet from unit packets with the §3.2 inputs reached full-tier
+> F1 0.77 against the reference, against 0.68 for the Opus passes on the earlier inputs
+> ([S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md); record s0r2.scores)
 
 | Risk | Mechanism | Section |
 |---|---|---|
 | Goldens copy pipeline output | Authoring is blind to every pipeline output; packets carry no hints | §3 |
 | One annotator's idiosyncrasy becomes truth | Two blind passes, measured agreement, explicit adjudication with reasons | §3 |
 | The pipeline is tuned to the test goldens | Test split never used for prompts, fitting, agent work or error analysis | §4 |
-| Opus is systematically wrong in a way both passes share | Witnesses independent of Opus: author markup not consumed, computation, reference facts | §6 |
+| The golden author is systematically wrong in a way both passes share | Witnesses independent of the golden author: author markup not consumed, computation, reference facts | §6 |
 | The guideline drifts from what the operator wants | The operator directs from an outer loop; every direction is versioned and re-scored | §2, §8 |
 
 Agreement between the two blind passes is reported as the **ceiling**: no metric is read as
@@ -26,8 +33,13 @@ meaningful beyond the annotators' own agreement on that predicate.
 
 - **Location and versions.** `domains/<name>/guideline.md`; each content change is a
   `meta.guideline_version` (content hash, label, parent, change note, author). The generated
-  inventory (D2 §7.5) is regenerated per schema version, so the guideline always names the
-  current schema.
+  annotator reference (D2 §7.5, §10.10) is regenerated per schema version, so the guideline and the
+  reference always name the current schema.
+- **Conventions are written, not inferred.** Every choice an annotator would otherwise have to guess
+  (statement roles, modality, which claims carry conditions, symbol bindings, parameter names) is a
+  rule in the guideline. Where the guideline is silent, annotators agree on content and diverge on
+  qualifiers, and the reference silently takes one annotator's habit (S0: core F1 0.93 against full
+  0.63 between two Opus passes; the smaller models' losses concentrated at unwritten conventions).
 - **Core tags.** Sections marked `<!-- core -->` are included in LLM prompts (D4 §4.2); the
   whole guideline is given to golden authors.
 - **Change classes.**
@@ -65,15 +77,29 @@ stratum units are taken in order of `sha256(unit_key + seed)`.
 
 ### 3.2 Pass A and pass B (blind)
 
-Two fresh Opus subagent sessions, dispatched by the Claude Code session, each receive only:
+Two fresh **Sonnet 5.5** subagent sessions, dispatched by the Claude Code session, each receive only:
 
-- the guideline version (full text) and schema inventory;
+- the guideline version (full text);
+- the annotator reference generated from the schema version (D2 §10.10): entity types with their
+  identity slots; every predicate with its statement role, modality and condition rule; qualifiers;
+  enums; exact value and condition-node shapes; and complete worked examples taken from pages outside
+  every golden split (§4);
 - the unit packet in golden mode: the D4 §4.1 packet **without hints, known entities, alternatives or any
-  pipeline output**, with standing context chosen by the rule "previous binding sentences in the
-  same section" computed from the text alone (not from M13);
-- the page's full canonical text for reference (guideline §10.2: read the page, annotate only
-  the unit);
-- the model-facing ClaimProposalBatch schema (D2 §7.3).
+  pipeline output**. Its standing context is assembled by query: for each symbol the unit uses, the
+  sentence holding the binding site M13 assigns it, when that sentence lies outside the unit, plus
+  the site a "Suppose again" reopens. Each context sentence carries an id (`cN`) that evidence may cite;
+- the model-facing ClaimProposalBatch schema (D2 §7.3) and the validator, which reports format and
+  invariant errors and guideline-rule warnings (D2 §7.4).
+
+The page's full text is not given: the query-assembled context carries what the unit depends on.
+The model is recorded on each `eval.golden_pass`; another model is a revisit of ADR-0011.
+
+> Decision: [ADR-0011](../adr/0011-golden-author-and-annotator-inputs.md)
+> Status: **Measured** on twelve core units and six held-out units (S0-R2, 2026-10-28):
+> Sonnet 0.77 and Haiku 0.68 full-tier F1 against the reference from these inputs, against 0.37 and
+> 0.35 from the guideline, schema and positional context alone. Sonnet and Haiku agreed with each
+> other at 0.76 on the held-out units. Whether page text still helps with these inputs was not run
+> (records s0r2.inputs, s0r2.scores).
 
 They do not see each other's output, earlier golden versions, run claims or metrics. Each pass
 is submitted through `write_golden` (D8) with `pass: a` or `pass: b` and stored as an
@@ -88,13 +114,16 @@ stored in the unit's `agreement` record and aggregated per predicate as the **ce
 
 ### 3.4 Adjudication (pass C)
 
-A third fresh session receives the guideline, the packet, both passes and the alignment diff
+A third fresh Sonnet session receives the guideline, the annotator reference, the packet, both passes and the alignment diff
 (matched, A-only, B-only, matched-with-qualifier-differences). For each difference it decides:
 keep A, keep B, keep both as a **faithful ambiguity** (golden alternatives), drop both, or
 rewrite; each decision has a one-line reason, and decisions that the guideline does not settle
 are marked `guideline_gap` with the rule they touch. The result is the golden unit's items
 (stored form); the unit becomes `adjudicated`. `guideline_gap` marks feed the operator's digest
-(§8).
+(§8). Adjudication decides contested items and finds guideline gaps; it is not expected to raise a
+unit above its better pass (S0-R2: a Sonnet adjudicator over a Sonnet and a Haiku pass scored 0.75
+against the Sonnet pass's 0.77; record s0r2.adjudication). Every `guideline_gap` decision is a
+candidate rule for the guideline.
 
 ### 3.5 Staleness and re-authoring
 
@@ -178,13 +207,19 @@ tie-breaker. Matching is one-to-one, maximizing summed similarity with
 **Uncertainty.** Every score has a 95% interval from 1,000 bootstrap resamples over units;
 comparisons between runs use the paired bootstrap on the same units.
 
+**Reading agreement with a reference.** A reference adjudicated from one model's passes favours that
+model where the guideline is silent, so a comparison of annotators or authors reports pass against
+pass (symmetrized, no reference) beside pass against reference, and checks any rule change on units
+from pages not used to write it. A reference correction made after seeing a pass is reported with the
+figures before it (S0, S0-R2, 2026-10-28).
+
 **Re-scoring.** Results reference the golden set version they used. When goldens change, kept
 runs that matter (the promoted run and open experiments) are re-scored (`ops.run.kind =
 rescore`), so trends compare like with like.
 
 ## 6. Independent witnesses
 
-Evidence of quality that does not pass through Opus. A witness is valid for a metric only if no
+Evidence of quality that does not pass through the golden author. A witness is valid for a metric only if no
 method in the run consumed the witness's information for the output being measured; the
 registry in `evaluate/witnesses.py` declares, per witness, which method inputs disqualify it.
 
@@ -193,11 +228,11 @@ registry in `evaluate/witnesses.py` declares, per witness, which method inputs d
 | **Author markup** | `dfn` terms imply a definition statement defining that term: recall of `defines` claims for marked terms; block classes (`p.dfn`, `p.math`) and section titles imply statement kinds | Valid only in an ablation run (consolidation `use_markup_hints: false`, M08 off) that the experiment harness makes on dev units; never in ordinary runs, which use markup |
 | **Computation** | Correctness (not guideline compliance) of distribution, moment and support claims: M21 verifier outcomes over accepted claims | Reported separately from runs where verifiers were confidence sources (the experiment harness can mask verifier sources) |
 | **Reference facts** | A small reference pack in the domain (`domains/statistics/reference/`): supports, standard parameterizations, means and variances of common families, written from `sympy.stats` and `scipy.stats` definitions | Not readable by any method; consulted only by evaluation |
-| **Cross-pass agreement** | Annotator agreement (§3.3) | Independent of the pipeline, not of Opus |
+| **Cross-pass agreement** | Annotator agreement (§3.3) | Independent of the pipeline, not of the golden author |
 
 **Random audit with prediction-powered inference.** At each phase gate a uniform random sample
 of accepted claims from the whole corpus (default 100, excluding golden units) is judged by a
-fresh Opus session in audit mode (blind to confidence and sources) under the guideline. Combined
+fresh session of the golden author's model (Sonnet, ADR-0011; Proposed, not yet run) in audit mode (blind to confidence and sources) under the guideline. Combined
 with the pipeline's confidence over all accepted claims through prediction-powered inference
 (`ppi_py`, mean estimation), this gives a corpus-level precision estimate with a valid interval,
 not just a golden-unit estimate. The audit sample is never used for fitting.
@@ -276,6 +311,7 @@ system proceeds under the current guideline.
 | ID | Question | Resolved by |
 |---|---|---|
 | OPEN-D7-1 | Golden set sizes that give useful intervals per predicate group at acceptable authoring time | Phase 1 interval widths |
-| OPEN-D7-2 | Formula equivalence: SymPy simplification versus numeric sampling under conditions, and timeouts | Spike S5 |
+| OPEN-D7-2 | Formula equivalence: SymPy simplification versus numeric sampling under conditions, and timeouts | Spike S5; S0 evidence (2026-10-28): canonical form decided nearly every value comparison; SymPy and numeric tiers a handful of times; manual decisions recorded with reasons |
 | OPEN-D7-3 | Split granularity: page or chapter (pages within a chapter share running examples) | Phase 1: compare dev–test gaps |
 | OPEN-D7-4 | Whether `ppi_py` (and which version) fits the audit design, or a hand-written PPI mean estimator suffices | Phase 2 |
+| OPEN-D7-5 | Whether the page's full text still helps golden passes once standing context is assembled by query (S0-R2 ran packets only) | A paired run with and without page text on dev units |

@@ -64,7 +64,8 @@ latest release at phase 0 start, recorded in `docs/pins.md` when held.
 | rule-engine | 5.1.0 | M19, policies |
 | gliner2 | 2.1.0 | M05–M07 |
 | spacy, en_core_web_sm | 3.8.16, 3.8.x | M03, M08, M13, M22 |
-| lxml, pylatexenc | latest | M01, M09, M11 |
+| lxml, html5lib | latest | M01 (html5lib parser through `lxml.html.html5parser`; D4 M01) |
+| pylatexenc | 3.0b2 (spike) | M01: page macro tables and the balance check of delimited spans; math itself is read by the grammar (ADR-0009) |
 | sympy, lark | 1.14.0, latest | M11, M21, alignment |
 | pint | latest | M12 |
 | z3-solver | 5.3.2.0 | M20 |

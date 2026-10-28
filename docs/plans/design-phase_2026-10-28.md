@@ -13,8 +13,8 @@ ADRs, and replace this plan with the phase 0 build plan of [D9 §5](../design/D9
 
 | Item | State |
 |---|---|
-| D0–D9, trace | Written; **Proposed**; not yet reviewed against spike evidence |
-| Spike briefs S0–S7 | Written ([spike README](../design_review/evidence/2026-10-28_design-spikes/README.md)); none run |
+| D0–D9, trace | Written; **Proposed**, with S0/S1/S0-R2 results folded in (2026-10-28, ADR-0009–0011): labels mark what is Tested or Measured |
+| Spike briefs S0–S7 | Written ([spike README](../design_review/evidence/2026-10-28_design-spikes/README.md)); S0, S1 and the S0-R2 revisit run and folded in (Q1, Q2, the S0/S1 part of Q5) |
 | Library realization in D4 | First-pass realizations written by the design owner; not yet deepened against the library overviews |
 | Code | None. The template's scripts and tests only |
 | Fresh review | A fresh-eyes completeness review (2026-10-28; 37 findings: 2 blockers, 17 major, 18 minor) was folded into D1–D9, the trace and the S0, S1 and S6 briefs; none remains open |
@@ -38,7 +38,7 @@ or proposal id.
 | # | Slice | Lane | Depends on | Done when |
 |---|---|---|---|---|
 | Q1 | S1 ingest and segmentation | Spikes | — | `S1-report.md` with `sample.json` |
-| Q2 | S0 reference annotations | Spikes (Opus subagents) | S1 or raw text | `S0-report.md`; references adjudicated |
+| Q2 | S0 reference annotations | Spikes (Opus, then Haiku and Sonnet subagents; S0-R2) | S1 or raw text | `S0-report.md`; references adjudicated |
 | Q3 | S4 LinkML compilation; S6 storage smoke | Spikes | — (S0 batches help S4) | Both reports |
 | Q4 | Library pass 1: D4 cards, D2 §7 compilers, D3 extension use | Library leverage | — | Every D4 card's realization reviewed; proposals filed |
 | Q5 | Fold-in 1: S1, S0, S4, S6, library pass 1 → D1, D2, D3, D4, trace | Design owner | Q1–Q4 | Findings rows for those OPEN items closed or re-scoped |
@@ -113,26 +113,26 @@ Library proposals join as `L-nn` rows.
 
 | Item | Component | Consequence and intended correction | Disposition · dependency | Closure check |
 |---|---|---|---|---|
-| OPEN-D1-1 | M03 sentences | Sentence splitting on math-dense prose; choose variant | open · S1 | D4 M03 states the chosen variant |
-| OPEN-D1-2 | M13, D1 §4.2 | Section extent for variable scope | open · S0, S5 | D1 §4.2 and D4 M13 updated |
-| OPEN-D1-3 | D2 §9 FamilyParameter | Role names or symbols for parameter identity | open · S0 | D2 §9, §10.4 updated |
-| OPEN-D1-4 | D1 §5.2 `scope` qualifier | Section extent for standing assumptions | open · S0 | D1 §5.2 updated |
+| OPEN-D1-1 | M03 sentences | Sentence splitting on math-dense prose; choose variant | closed · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md): b′ (inline math merged into one token), F1 1.0 vs 0.80; D4 M03 states it (2026-10-28) | D4 M03 states the chosen variant |
+| OPEN-D1-2 | M13, D1 §4.2 | Section extent for variable scope | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): a `section` extent is needed (T1, T2, U12); D4 M13 binds section-wide and reopen phrases (ADR-0009 edit) (2026-10-28) | D1 §4.2 and D4 M13 updated |
+| OPEN-D1-3 | D2 §9 FamilyParameter | Role names or symbols for parameter identity | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md), guideline v1 §10.4: role word when the unit states one, else the symbol; cross-unit naming by the family's defining unit carried in OPEN-D2-9 (2026-10-28) | D2 §9, §10.4 updated |
+| OPEN-D1-4 | D1 §5.2 `scope` qualifier | Section extent for standing assumptions | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): `section` under nested h3/h4 synthesis; `document` never needed (2026-10-28) | D1 §5.2 updated |
 | OPEN-D2-1 | D2 §7.2 | `Schema.from_dict` keys | open · S4 | D2 §7.2 example corrected |
 | OPEN-D2-2 | M06, M07 | Raw or masked math | open · S2 | D4 M06 configuration fixed |
 | OPEN-D2-3 | D2 §7.4, D5 §8.2 | rule-engine syntax; functions or resolver attributes | open · S4 | D2 §7.4 and D5 §8.2 updated |
-| OPEN-D2-4 | D2 §9 | Property predicates or `has_property` | open · S0 | D2 §9 decided |
-| OPEN-D2-5 | D2 §9, §10.4 | Standard normal as family or parameterization | open · S0, operator direction | D2 decided; direction logged if the operator chooses |
+| OPEN-D2-4 | D2 §9 | Property predicates or `has_property` | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): keep property predicates; standard-deviation property added to OPEN-D2-9 (2026-10-28) | D2 §9 decided |
+| OPEN-D2-5 | D2 §9, §10.4 | Standard normal as family or parameterization | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): standardized families as families; guideline v1 §10.4 (2026-10-28) | D2 decided; direction logged if the operator chooses |
 | OPEN-D2-6 | D2 §3 | List annotations round-trip | open · S4 | D2 §3 notes the representation |
 | OPEN-D3-1 | D3 §5 | pg_textsearch syntax | open · S6 | D3 DDL corrected |
 | OPEN-D3-2 | D3 §5, M04 | Embedding model and dimension | open · S7 | `halfvec(n)` fixed in D3 |
 | OPEN-D3-3 | D3 §5 | Keep `kb.segment.text` | open · S6 | D3 decided |
-| OPEN-D3-4 | D3 §5, D5 §5.5 | Stored meaning key | open · S6, S0 | D3 and D5 decided |
+| OPEN-D3-4 | D3 §5, D5 §5.5 | Stored meaning key | open · S6; [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) evidence recorded in D3 (meaning keys more stable) | D3 and D5 decided |
 | OPEN-D4-1 | M10, M16, D6 §5 | Local model choice | open · S3 | D4 M10 and D6 §5 budgets updated |
 | OPEN-D4-2 | M10 | Reasoning on or off | open · S3 | D4 M10 configuration |
 | OPEN-D4-3 | M11 | LaTeX backend and macro map | open · S5 | D4 M11 configuration |
-| OPEN-D4-4 | D4 §4.1, D8 §3 | Unit of LLM work | open · S0, S3 | Packet rules updated |
-| OPEN-D4-5 | M13 | Rule-based scoping sufficient | open · S0, S5 | D4 M13 confirmed or changed |
-| OPEN-D5-1 | D5 §5.4 | Slot definition for non-functional formula predicates | open · S0, phase 1 | D5 §5.4 updated |
+| OPEN-D4-4 | D4 §4.1, D8 §3 | Unit of LLM work | closed for golden and agent packets · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md), [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md): the unit packet with query-assembled context; output budget from batch size (D4 §4.1); S3 still measures local-LLM quality per packet size | Packet rules updated |
+| OPEN-D4-5 | M13 | Rule-based scoping sufficient | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md): 20/20 scopes with two rule additions (D4 M13); S5 checks math-heavy symbols | D4 M13 confirmed or changed |
+| OPEN-D5-1 | D5 §5.4 | Slot definition for non-functional formula predicates | open · phase 1 (S0 units did not exercise it) | D5 §5.4 updated |
 | OPEN-D5-2 | D5 §6.4 | Latent-model data needs and source merging | deferred · phase 2 | Phase 2 experiment |
 | OPEN-D5-3 | D5 §5.4 | Auto-resolution margin | deferred · phase 2 | Phase 2 |
 | OPEN-D5-4 | D5 §3.1 | Mention overlap rule near math | open · S2 | D5 §3.1 rule fixed |
@@ -140,14 +140,19 @@ Library proposals join as `L-nn` rows.
 | OPEN-D6-2 | D6 §5 | GPU mode default | open · S3, S7 | D6 §5 updated |
 | OPEN-D6-3 | D6 §7.4 | Iteration and agent budget defaults | deferred · phase 0 practice | Policies v0.2 |
 | OPEN-D7-1 | D7 §3.1 | Golden set sizes | deferred · phase 1 | — |
-| OPEN-D7-2 | D7 §5.3 | Formula equivalence procedure | open · S5 | D7 §5.3 fixed |
+| OPEN-D7-2 | D7 §5.3 | Formula equivalence procedure | open · S5; [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md) evidence recorded in D7 | D7 §5.3 fixed |
 | OPEN-D7-3 | D7 §4 | Split granularity | deferred · phase 1 | — |
 | OPEN-D7-4 | D7 §6 | PPI implementation | deferred · phase 2 | — |
 | OPEN-D8-1 | D8 §1 | MCP server and orchestrator processes | open · P0.7 | Decided in build |
 | OPEN-D8-2 | D8 §3 | Grouping units in packets | open · phase 0 | Decided on `core12` |
-| OPEN-D8-3 | D8 §2.2 | Verifiably separate blind passes | open · S0 practice, P0.7 | S0 report describes the method used |
-| OPEN-D9-1 | D9 §2 | Python 3.14 wheels | open · spike environments | D9 §2 updated with resolutions |
+| OPEN-D8-3 | D8 §2.2 | Verifiably separate blind passes | closed · [S0 report](../design_review/evidence/2026-10-28_design-spikes/S0-report.md), [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md): fresh subagent per pass, one input and one output folder, transcript audit (D8 §7) | S0 report describes the method used |
+| OPEN-D9-1 | D9 §2 | Python 3.14 wheels | open · S2, S4, S5 for gliner2, z3, pgmpy, splink; the S0/S1 set resolved on 3.14.10 (D9 §2, 2026-10-28) | D9 §2 updated with resolutions |
 | OPEN-D9-2 | D9 §1 | MCP and orchestrator in one process | open · P0.7 | Same as OPEN-D8-1 |
+| GOLD-01 | D7 §3, D2 §7.5/§10, D4 §4.1, D8 §2.2 | Golden author and annotator inputs: Sonnet passes and adjudication from a generated annotator reference, guideline v1 and query-assembled context | decided · ADR-0011 (operator direction 2026-10-28, [S0-R2 report](../design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md)); design amended; production tools phase 0 (P0.7) | `write_golden` records the model; reference generator built |
+| OPEN-D2-7 … OPEN-D2-10 | D2 §11 | Guideline v1's open points: indexed-family arguments (schema), which premises a claim depends on, the remaining smaller gaps, qualifier shape documentation | open · next guideline/schema revision, checked on held-out units | D2 §10/§9 updated |
+| OPEN-D7-5 | D7 §3.2 | Whether page text still helps golden passes with query context | open · phase 0 dev comparison | D7 §3.2 confirmed or changed |
+| HTML-01 … HTML-07 | D1 §3, D4 M01–M03 | Seven HTML rules S1 found D1/D4 did not state | closed · [S1 report](../design_review/evidence/2026-10-28_design-spikes/S1-report.md); folded into D1 §3 and D4 M01–M03 (2026-10-28) | D1 §3, D4 M01–M03 state them |
+| PARSE-01 | D1 §6.2, D4 §4.3, M01, M09, M11, M13 | One math grammar; profile-driven delimiting; offset-preserving quote location | decided · ADR-0009; implemented in the spike instruments; production with D4's methods | D4 cards realized in phase 0 |
 
 ## Deferred, each with a trigger
 
@@ -163,7 +168,7 @@ Library proposals join as `L-nn` rows.
 
 | Risk | Mitigation |
 |---|---|
-| Circularity: Opus goldens scoring Opus-assisted runs | D7 §1 mechanisms; test split excluded from agent work; witnesses |
+| Circularity: goldens scoring runs assisted by the same model | Goldens by Sonnet, the pipeline's agent tier Opus (ADR-0011); D7 §1 mechanisms; test split excluded from agent work; witnesses |
 | Math density makes encoders weak, so the LLM tier carries most claims | Accepted for phase 1 (S2 measures it); phase 3 distillation targets it; second corpus earlier if it stalls |
 | Machinery growth, the previous repository's failure mode | Every method and table needs a consumer; conditional methods only through experiments; this plan's deferred list |
 | Design churn while spikes run | Spikes never edit D-documents; fold-ins are batched (Q5, Q8) |

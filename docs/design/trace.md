@@ -6,6 +6,10 @@ tests ([D9 §5](D9-repository-and-phase0.md#5-phase-0-build-plan)). They are the
 development-split goldens; they are **not** a test split, because the design was written against
 them.
 
+The claims follow guideline v1 (D2 §10). The model-facing batches that spike S0-R2 checked for the
+same units are `../design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/T1.json`…`T4.json`; where a detail here is
+abbreviated, those batches are exact.
+
 The units map to expectations already settled in the previous repository
 (`fixtures/siegrist_three_sections/expectations.toml`), so the source readings are not new
 judgments:
@@ -65,14 +69,16 @@ Unit `dfn1` (`<p class="dfn">`):
 | C1 | Z | `takes_values_in` | set ≔ `\R` | supposed, scope `section` | S0 · premise | — |
 | C2 | X | `defined_as` | formula ≔ `a + b \, Z` | defined | S1 · definiens | `and(member(a, \R), member(b, (0, \infty)))` |
 | C3 | S1 | `defines` | LSF | asserted | — | — |
-| C4 | LSF | `construction_formula` | formula ≔ `X = a + b \, Z`; qualifiers `base_variable: Z`, `param_symbols: {location: a, scale: b}` | defined | S1 · definiens | as C2 |
-| C5 | LSF | `has_parameter` | LSF.loc | defined | S1 | — |
-| C6 | LSF | `has_parameter` | LSF.scale | defined | S1 | — |
-| C7 | LSF.loc | `parameter_domain` | set ≔ `\R` | defined | S1 · restriction | — |
-| C8 | LSF.scale | `parameter_domain` | set ≔ `(0, \infty)` | defined | S1 · restriction | — |
+| C4 | LSF | `construction_formula` | formula ≔ `a + b \, Z` (the generated variable is the subject's, not part of the formula); qualifiers `base_variable: Z`, `param_symbols: {location: a, scale: b}` | defined | S1 · definiens | as C2 |
+| C5 | LSF | `has_parameter` | LSF.loc | defined | S1 · definiens | — |
+| C6 | LSF | `has_parameter` | LSF.scale | defined | S1 · definiens | — |
+| C7 | LSF.loc | `parameter_domain` | set ≔ `\R` | defined | S1 · definiens | — |
+| C8 | LSF.scale | `parameter_domain` | set ≔ `(0, \infty)` | defined | S1 · definiens | — |
 
-Symbol bindings: in C2 and C4, `Z` binds `variable Z`; `a`, `b` bind `free`; `X` in C4 binds
-`variable X`.
+Symbol bindings: in C2 and C4, `Z` binds `variable Z`; `a` and `b` bind `family_param LSF.loc` and
+`family_param LSF.scale` (the unit names them the location and scale parameters, guideline §10.7
+row 4), in C2's conditions too. No `parameter_role` claims: the canonical names already are the
+roles (§10.4).
 
 **Must not appear.** A `DistributionFamily` named "location-scale family"; a link from LSF to any
 specific distribution; `b ∈ ℝ` (the source restricts b to (0, ∞)).
@@ -103,14 +109,12 @@ and C8 also cite the first sentence's restriction spans with role `condition`).
 
 | Ref | Subject | Predicate | Object | Modality | Statement · role | Conditions |
 |---|---|---|---|---|---|---|
-| C1 | X | `has_distribution` | N; `param_values {location: ≔ \mu, scale: ≔ \sigma}` | supposed, scope `section` | S1 · premise | `and(member(\mu, \R), member(\sigma, (0, \infty)))` |
-| C2 | N | `has_parameter` | N.loc | asserted | S1 | — |
-| C3 | N | `has_parameter` | N.scale | asserted | S1 | — |
+| C1 | X | `has_distribution` | N; `param_values {location: ≔ \mu, scale: ≔ \sigma}` | supposed, scope `section` | S1 · premise | — (a premise carries no restrictions; its dependants are family-structure claims, guideline §10.7 rules 1–2) |
 | C4 | N.loc | `identical_parameter` | N.mean | asserted | S1 · conclusion | — |
 | C5 | N.scale | `identical_parameter` | N.sd | asserted | S1 · conclusion | — |
 
-Symbol bindings: in C1, `\mu` and `\sigma` bind `free` (introduced here, restricted by the
-conditions).
+Symbol bindings: in C1, `\mu` and `\sigma` bind `free` (introduced here). No `has_parameter`
+claims: they are stated only in a definition of the family (guideline §10.4), and this is a remark.
 
 **Must not appear.** `N.loc identical_parameter N.sd` or `N.scale identical_parameter N.mean`
 (wrong pairing of "respectively"); any claim with subject X and predicate `has_parameter`
@@ -144,7 +148,7 @@ followed by a `<details>` proof beginning "The MGF of \(a + b X\) is …".
 | Ref | Subject | Predicate | Object | Modality | Statement · role | Conditions |
 |---|---|---|---|---|---|---|
 | C1 | X | `has_distribution` | N; `param_values {mean: ≔ \mu, variance: ≔ \sigma^2}` | supposed | S1 · premise | — |
-| C2 | Y | `defined_as` | formula ≔ `a + b X` | defined | S1 · definiens | — |
+| C2 | Y | `defined_as` | formula ≔ `a + b X` | defined | S1 · definiens | `and(member(a, \R), member(b, \R \setminus \{0\}))` (restrictions stated with it on its own symbols, §10.7 rule 2) |
 | C3 | Y | `has_distribution` | N; `param_values {mean: ≔ a + b \mu, variance: ≔ b^2 \sigma^2}` | asserted | S1 · conclusion | `and(claim C1, member(a, \R), member(b, \R \setminus \{0\}))` |
 | C4 | S2 | `proves` | S1 | asserted | — | — |
 | D1 | Y | `has_distribution` | N; `param_values {mean: ≔ a + b \mu, standard_deviation: ≔ \lvert b \rvert \sigma}` | asserted, **establishment `derived`** | S1 · conclusion | as C3 |
@@ -175,35 +179,50 @@ and its list items:
 > 1. The parameter \( \sigma \) is the shape parameter of the distribution.
 > 2. The parameter \( e^\mu\) is the scale parameter of the distribution.
 
+and the unit's second paragraph (part of `div.unit#dfn`; S0 found the trace had omitted it):
+
+> If \(Z\) has the standard normal distribution then \(W = e^Z\) has the standard lognormal
+> distribution.
+
 **Entities.**
 
 | Ref | Type | Scope | Label and aliases |
 |---|---|---|---|
 | S1 | `Statement` (kind `definition`) | local: unit `dfn` | — |
-| Y, X | `RandomVariable` | local: S1 | symbols `Y`, `X` |
+| Y, X, Z, W | `RandomVariable` | local: S1 | symbols `Y`, `X`, `Z`, `W` |
 | N | `DistributionFamily` | global | as T2 |
 | LN | `DistributionFamily` | global | "lognormal distribution" |
 | N.mean, N.sd | `FamilyParameter` | global | as T2 |
 | LN.mu, LN.sigma | `FamilyParameter` (LN, canonical name `mu` / `sigma`: no role named in the definition) | global | symbols `\mu`, `\sigma` |
 | LN.scale | `FamilyParameter` (LN, `scale`) | global | "scale parameter" |
+| SN, SLN | `DistributionFamily` | global | "standard normal distribution", "standard lognormal distribution" |
 
 **Claims.**
 
 | Ref | Subject | Predicate | Object | Modality | Statement · role | Conditions |
 |---|---|---|---|---|---|---|
-| C1 | Y | `has_distribution` | N; `param_values {mean: ≔ \mu, standard_deviation: ≔ \sigma}` | supposed | S1 · premise | `and(member(\mu, \R), member(\sigma, (0, \infty)))` |
+| C1 | Y | `has_distribution` | N; `param_values {mean: ≔ \mu, standard_deviation: ≔ \sigma}` | supposed | S1 · premise | — |
 | C2 | X | `defined_as` | formula ≔ `e^Y` | defined | S1 · definiens | — |
-| C3 | X | `has_distribution` | LN; `param_values {mu: ≔ \mu, sigma: ≔ \sigma}` | defined | S1 · conclusion | `claim C1` |
+| C3 | X | `has_distribution` | LN; `param_values {mu: ≔ \mu, sigma: ≔ \sigma}` | defined | S1 · definiens | `and(claim C1, member(\mu, \R), member(\sigma, (0, \infty)))` |
 | C4 | S1 | `defines` | LN | asserted | — | — |
-| C5 | LN | `has_parameter` | LN.mu | defined | S1 | — |
-| C6 | LN | `has_parameter` | LN.sigma | defined | S1 | — |
-| C7 | LN | `transformation_of` | N; qualifiers `transform: ≔ X = e^Y`, `param_mapping {mu: mean, sigma: standard_deviation}` (canonical names of N's parameters) | defined | S1 | — |
-| C8 | LN.sigma | `parameter_role` | enum `ParameterRole.shape` | asserted | S1 | — |
-| C9 | LN | `has_parameter` | LN.scale | asserted | S1 | — |
-| C10 | LN.scale | `derived_parameter` | formula ≔ `e^\mu` | asserted | S1 | — |
+| C5 | LN | `has_parameter` | LN.mu | defined | S1 · definiens | — |
+| C6 | LN | `has_parameter` | LN.sigma | defined | S1 · definiens | — |
+| C7 | LN | `transformation_of` | N; qualifiers `transform: ≔ e^Y`, `param_mapping {mu: mean, sigma: standard_deviation}` (canonical names of N's parameters) | defined | S1 · definiens | — |
+| C8 | LN.sigma | `parameter_role` | enum `ParameterRole.shape` | defined | S1 · definiens | — |
+| C9 | LN | `has_parameter` | LN.scale | defined | S1 · definiens | — |
+| C10 | LN.scale | `derived_parameter` | formula ≔ `e^\mu` | defined | S1 · definiens | — |
+| C11 | LN.mu | `parameter_domain` | set ≔ `\R` | defined | S1 · definiens | — |
+| C12 | LN.sigma | `parameter_domain` | set ≔ `(0, \infty)` | defined | S1 · definiens | — |
+| C13 | Z | `has_distribution` | SN | supposed | S1 · premise | — |
+| C14 | W | `defined_as` | formula ≔ `e^Z` | defined | S1 · definiens | — |
+| C15 | W | `has_distribution` | SLN | defined | S1 · definiens | `claim C13` |
+| C16 | S1 | `defines` | SLN | asserted | — | — |
+| C17 | SLN | `transformation_of` | SN; qualifier `transform: ≔ e^Z` | defined | S1 · definiens | — |
 
 Symbol bindings: C1 `\mu`, `\sigma` bind `free`; C3 `\mu` binds `param_of C1 mean`, `\sigma`
-binds `param_of C1 standard_deviation`; C10 `\mu` binds `family_param LN.mu`.
+binds `param_of C1 standard_deviation` (in its conditions too); C10 `\mu` binds `family_param LN.mu` (a
+family-structure claim, guideline §10.7 row 2). C11 and C12 state the domains the premise's
+restrictions give the parameters that become LN's (§10.4).
 
 **What changed from the old design.** The old representation could not state the shape and scale
 sentences (outcome `outside_representation`). Here they are ordinary claims (C8–C10), because

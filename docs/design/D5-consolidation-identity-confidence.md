@@ -465,7 +465,7 @@ M13 binds `X`, `a`, `b`, `\mu`, `\sigma` to the unit; M10 proposes C1–C4.
 
 | ID | Question | Resolved by |
 |---|---|---|
-| OPEN-D5-1 | Is the slot definition (§5.4) right for non-functional predicates with formula objects (two `pdf` claims for one family in one statement)? | S0 reference annotations; phase 1 alternative-group review |
+| OPEN-D5-1 | Is the slot definition (§5.4) right for non-functional predicates with formula objects (two `pdf` claims for one family in one statement)? | S0 reference annotations; phase 1 alternative-group review; not exercised by the S0 core units (2026-10-28: no unit states one formula predicate twice for a subject) |
 | OPEN-D5-2 | Minimum aligned claims per predicate group before the latent-truth model replaces cold-start weights, and which sources must be merged for conditional independence | Phase 2 calibration experiment |
 | OPEN-D5-3 | Default auto-resolution margin for alternatives, and whether it should exist before calibration | Phase 2 |
 | OPEN-D5-4 | Mention-cluster overlap rule (IoU 0.5 or head sharing) on math-adjacent mentions such as "normally distributed with mean \(\mu\)" | Spike S2 |

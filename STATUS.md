@@ -22,7 +22,9 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
   `just evidence` regenerates indexes, the DuckDB catalog (`build/evidence.duckdb`) and checks them;
   reports render from the catalog. 44 records (41 current) for the design spikes.
 - Toolchain: Python 3.14.10; Rust unpinned (rustup nightly); dev tools at latest.
-- Golden and annotation subagents run on Haiku 5.5 by operator direction. **S0-R2** (annotator inputs
+- **Golden author is Sonnet 5.5** (ADR-0011, operator decision 2026-10-28): blind passes and
+  adjudication from guideline v1 (now D2 §10), the schema-generated annotator reference and
+  query-assembled context. **S0-R2** (annotator inputs
   v1: written conventions, schema-generated reference, query context) lifted full-tier agreement from
   packets to Sonnet 0.77 and Haiku 0.68 (from 0.37 and 0.35; Opus v0 passes 0.68), holding on six
   held-out units ([S0-R2 report](docs/design_review/evidence/2026-10-28_design-spikes/S0-R2-report.md);
@@ -42,8 +44,6 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Known failures, blocks and decisions
 
-- X1 (fold the S0/S1 design implications into D1/D2/D4/D7, apply trace corrections, dispose the
-  OPEN items) is gated on the operator's review of both reports.
 - Open choice for the operator: whether finalized evidence records should outlive their folder's
   retirement (would supersede ADR-0001's evidence clause; ADR-0010 revisit).
 - `scripts/docs.py` has an uncommitted operator change; new library docs in `docs/libraries/`
@@ -51,8 +51,9 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Next
 
-- Operator review of the S0 and S1 reports; then X1 with design-phase Q5.
-- X1 carries guideline v1 (s0r2/guideline_v1.md) and its v2 points (S0-R2 report) into D2 §10, the
-  generated reference into D2 §7.5/§10.10, query context into D7 §3.2/D8 §3.
+- X1 is done (2026-10-28): S0, S1 and S0-R2 folded into D0, D1, D2, D4, D7, D8, D9 and the trace;
+  dispositions in the [design-phase findings table](docs/plans/design-phase_2026-10-28.md). Open:
+  OPEN-D2-7…10 (guideline v2, indexed-family schema construct), OPEN-D7-5 (page text with query context).
+- Next spikes: S2–S5 against the v1 reference (`results/s0r2/reference_v1`), S4 and S6 alongside.
 - Spikes S2–S5 can start on the S0 reference and S1 renditions (S2/S3 score against
   `results/s0/reference`); new results are finalized as records (`just evidence finalize`).

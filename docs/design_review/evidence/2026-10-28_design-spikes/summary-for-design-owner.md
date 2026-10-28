@@ -94,10 +94,19 @@ A Sonnet adjudicator over the two passes adds nothing over the Sonnet pass. This
 Sonnet can author goldens from packets, Haiku with a check, and the adjudicator is a check on
 contested items.
 
+## Folded in (2026-10-28)
+
+The operator reviewed the reports and directed the fold-in. Decisions: ADR-0011 (Sonnet golden
+author; inputs v1). D2 §10 is guideline v1, and D2 §7.3–§7.5 cover context citations, rule warnings
+and the generated reference. D4 §4.1–§4.2 cover query context and output budgets. D7 §1–§3 and §5.4
+give the golden author, its inputs, the role of adjudication and how agreement is read. D8 §2.2
+covers the golden tools, D0's actors and phases, and D1 §3 with D4 M01–M03 the HTML rules. D1 §10.1
+has the two key rules, and the trace is on v1. Dispositions are in your findings table, including
+new rows GOLD-01, HTML-01…07, PARSE-01, OPEN-D2-7…10 and OPEN-D7-5.
+
 ## Waiting on decisions
 
-- **Operator:** review of the reports (S1, S0, S0-R2), which gates X1; the golden author in light of S0-R2; and
-  whether finalized evidence records outlive their folder (this would supersede ADR-0001's clause).
-- **Design owner:** the dispositions of the items above in your findings table, and whether ADR-0009
-  and ADR-0010 fit the Q8 decisions. Both ADRs were written in the spike lane with the operator's
+- **Operator:** whether finalized evidence records outlive their folder (this would supersede ADR-0001's clause).
+- **Design owner:** a check of the dispositions recorded in your findings table, and whether ADR-0009,
+  ADR-0010 and ADR-0011 fit the Q8 decisions. Both ADRs were written in the spike lane with the operator's
   approval.
