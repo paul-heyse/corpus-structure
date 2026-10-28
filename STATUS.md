@@ -4,51 +4,56 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Increment and slice
 
-- **Design phase:** the target design ([D0–D9 and the worked trace](docs/design/README.md)) is
-  Proposed, with S0, S1 and S0-R2 folded in (labels mark what is Tested or Measured); nothing is
-  in production. The active plan is [design-phase](docs/plans/design-phase_2026-10-28.md); the
-  [S0/S1 spike plan series](docs/plans/design-spikes-s0-s1_2026-10-28.md) is **complete**, its
-  file's disposition pending the operator's revised process.
-- **Design authority:** the in-repo agent holds primary design authority (operator direction,
-  2026-10-28); the project-conversation Claude reviews for missing design reasoning. Its S0/S1
-  review is dispositioned
-  ([response](docs/design_review/evidence/2026-10-28_design-spikes/design-authority-response-S0-S1.md)).
-- **Decisions in force:**
-  - ADR-0010: evidence records and catalog.
-  - ADR-0011: Sonnet 5.5 is the golden author, working from guideline v1 (D2 §10), the
-    schema-generated annotator reference and query-assembled context.
-  - ADR-0012, superseding ADR-0009: one math grammar; keys from the token form; source facts as
-    profile data; offset-preserving quote location.
-- **Evidence** ([folder](docs/design_review/evidence/2026-10-28_design-spikes/README.md), 46
-  records): S1, S0 and S0-R2 reports. Under inputs v1, full-tier agreement from packets is Sonnet
-  0.77 and Haiku 0.68, against 0.37 and 0.35 before and 0.68 for the Opus v0 passes.
-  html5lib renditions are content-identical to libxml2's on the seven reference pages.
-- Toolchain: Python 3.14.10; Rust unpinned (rustup nightly); pylatexenc 3.0b2 and SymPy 1.14.0
-  are holds in [pins](docs/pins.md).
+- **Three active plans** (operator, 2026-10-28; [plans index](docs/plans/README.md)):
+  [design-phase](docs/plans/design-phase_2026-10-28.md) owns design findings and OPEN dispositions;
+  the [spike series](docs/plans/design-spikes-s0-s1_2026-10-28.md) owns spike execution (S0/S1
+  done; S2–S7 planned, queue rows 23–34); the [phase 0 series](docs/plans/phase-0_2026-10-28.md)
+  owns the build (coordinator plus seven documents in `docs/plans/phase-0/`; nothing built). A
+  [roadmap](docs/plans/roadmap-phases-1-5_2026-10-28.md) sketches phases 1–5.
+- **Design:** D0–D9 and the trace are Proposed. The phase 0 contract layer had a design/target
+  review ([report](docs/design_review/reviews/design_review_phase0-contract-layer_2026-10-28.md),
+  decision Revise); the operator confirmed all 14 rule changes, and they and the reconciliation of
+  the seven documents' contract sheets are folded into D0–D9 (coordinator §9.1 lists routes).
+- **Decisions in force:** ADR-0010 (evidence records); ADR-0011 (Sonnet golden author); ADR-0012
+  (one math grammar, token-form keys); ADR-0013 claim model, ADR-0014 observations and per-run
+  materialization, ADR-0015 agent work queue, ADR-0019 identity follows content (accepted).
+  Proposed until their spikes report: ADR-0016 PostgreSQL (S6), ADR-0017 LinkML packs (S4),
+  ADR-0018 policy routing (S4).
+- **Phase 0 scope** (operator, 2026-10-28): Opus extracts the four spike pages whole plus the dev
+  golden units by locator, about 234 packets
+  ([evidence](docs/design_review/evidence/2026-10-28_phase0-golden-size/README.md)); the full first
+  pass is phase 1. Lexical search is BM25 through pg_textsearch.
+- **Library research** for the phase 0 plans: four notes in
+  `docs/design_review/evidence/2026-10-28_library-*` (probes, no records).
 
 ## Last verified (2026-10-28)
 
 | Command | Outcome and scope |
 |---|---|
-| `uv run pytest` | `passed`: 59 tests (incl. 7 for `corpus_evidence`) |
-| `just evidence` | `passed`: 46 records, 0 errors, 4 warnings (all on superseded records, expected) |
-| `just docs-check`, `just adr-lint` | `passed` (after the review disposition) |
-| `just hygiene` | `passed` earlier on 2026-10-28; docs-only changes since |
-| Spike instruments `code/tests_instruments/run_all.py` | `passed`: 75 tests (spike env) |
-| `just test-all` | `not_run` since the evidence package landed; run at the next scope end |
+| `just docs-check` | `passed` (178 pages) at `bf66392` |
+| `just adr-lint` | `passed`: 17 records |
+| `just evidence` | `passed`: 46 records, 0 errors, 4 warnings (S0 report inputs changed since finalization) |
+| `just turn-end` | `passed` |
+| Phase 0 graph check (scratch script) | `passed`: 28 packages, acyclic, prerequisites match the documents |
+| `uv run pytest`, `just test-all`, `just hygiene` | `not_run` this session: documentation only |
 
 ## Known failures, blocks and decisions
 
-- Plans and evidence are never deleted (operator direction; `AGENTS.md` overrides ADR-0001's
-  retirement clause). The operator will propose the evidence system, including the reusable
-  apparatus; findings rows EVID-01 and APPARATUS-01 wait on it.
-- `scripts/docs.py` has an uncommitted operator change; new library docs in `docs/libraries/`
-  are untracked (operator's).
+- **Operator setup before database work:** add `pg_textsearch` to `shared_preload_libraries`,
+  restart PostgreSQL, and create it (and later `vector`) as `postgres` in the template database
+  the project clones (D3 §3); S6 can use `pg_virtualenv` instead.
+- **Untracked operator files:** seven new overviews in `docs/libraries/` (html5lib, hypothesis,
+  jsonschema, pgevector, postgresql-18-pg-textsearch, ppi_py, vllm); committed design text links
+  them. `scripts/docs.py` may still hold an operator change.
+- Plans and evidence are never deleted (AGENTS.md); EVID-01 and APPARATUS-01 wait on the
+  operator's evidence-system design.
+- The four `just evidence` warnings are on S0 report inputs regenerated after finalization.
 
 ## Next
 
-- Spikes S2, S3 and S5 against the v1 reference (`results/s0r2/reference_v1`, libxml2 renditions);
-  S4 and S6 alongside; S7 after S2 (briefs updated 2026-10-28).
-- Open before or early in phase 0: OPEN-D1-5 (`extref`), STMT-01's key figures (S6), the
-  property test for token keys (S5, P0.5b); guideline v2 and schema v0.2 rows OPEN-D2-7…20.
-- Then the phase 0 build plan (design-phase Q9, D9 §5).
+- Spike lane: E4 environments, I-R2 instrument revision, E5, C1 (contested items); then S4 and S6
+  (phase 0's critical path), S5-A (grammar, token keys), then S2, S3, S7 (spike coordinator §5).
+- Build lane, ready now: P0-F-1, then P0-F-2a and P0-I-0, then P0-F-2b and P0-O-0 (coordinator §7).
+  P0-S-1/-2 are drafted against the schema-rules note and finalized on `s4.*`; P0-F-4 waits on
+  `s6.*` and the operator setup; P0-I-2a waits on S5-A; `core/tex.py` freezes on
+  `s5.keys-property`.
