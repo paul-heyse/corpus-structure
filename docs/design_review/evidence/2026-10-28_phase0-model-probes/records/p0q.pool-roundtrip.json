@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "id": "p0q.pool-roundtrip",
+  "title": "Pool round trip: ADBC fetch_record_batch → DuckDB 2.0 → Arrow → psycopg Copy.set_types or pgpq",
+  "group": "Phase 0 model probes",
+  "package": "P0-P-Q5",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do absent versus null inside JSONB, JSON text, NUMERIC exactness and timestamptz instants survive ADBC 1.13 fetch_record_batch → DuckDB 2.0 relation (one join, one group-by) → Arrow → PostgreSQL by psycopg Copy.set_types and by pgpq 0.12; how does the loader bind the run and cut given ADBC's parameter limits; what memory does one join hold?",
+  "answers": [
+    "P0-P-Q5",
+    "P0-P-1 loader route (pool-and-interchange §3.1)",
+    "P0-P-3 writer and pgpq adoption (pool-and-interchange §3.4)"
+  ],
+  "method": "Database p0q_pool cloned from cs_template on 18/corpus (dropped afterwards). Nine hand-made rows covering JSONB present-null/absent/false/JSON-null/SQL-NULL, big and tiny JSON numbers, unicode, a json column with whitespace, order and duplicate keys, NUMERIC with 39 digits, 1.50, 1e-40, NaN and ±Infinity, timestamptz at year 1, both epochs, 9999-12-31 23:59:59.999999 and odd offsets, plus a dimension table. ADBC fetch_record_batch → read_all → DuckDB register, join USING (kind) and group-by with json_exists and ->, rel.to_arrow_table() → (a) psycopg binary COPY with Copy.set_types (Jsonb/Json with identity dumps, Decimal) and (b) pgpq new_with_encoders with the JSONB string encoder → Copy.write, NUMERIC as text, as decimal128(38, 9) and through a text staging table; 11 SQL checks per row against the source. Also psycopg as loader, ±infinity, $1 SELECT binding and the temp-table route with statements read from pg_stat_statements, DuckDB 2.0 result lifecycle, and memory at 10^5 and 10^6 observations (~290 B JSONB) joined with 2x10^4 claims (VmRSS, pa.total_allocated_bytes, DuckDB JSON-profiling system.peak_buffer_memory). Versions: adbc-driver-postgresql 1.13.0, duckdb 2.0.0, pyarrow 26.0.0, pgpq 0.12.0, psycopg 3.3.6, PostgreSQL 18.6; same machine as p0q.fk-cost.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q5_pool_roundtrip.py all"
+  ],
+  "agents": [
+    {
+      "role": "library-research probe worker",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/q4_*, code/q5_*, code/q4_s6/, results/q4/, results/q5/, records/p0q.fk-cost.json, records/p0q.pool-roundtrip.json and the README's Q-4 and Q-5 sections"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/q5_pool_roundtrip.py",
+      "role": "probe script with the source rows",
+      "sha256": "f30bde59a498d8df386f1f5306338e8716fab8f9816a238db526c1a849a75cad"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/q5/fidelity.md",
+      "role": "report",
+      "sha256": "d4c494aa36067fe821fedae92462972c01a536a89432d51d1fbebafb0029c1f5"
+    },
+    {
+      "path": "results/q5/fidelity.json",
+      "role": "schemas, values, checks, binding, lifecycle",
+      "sha256": "8a121f69fcccdf809de0044bc2320d059c09e6bfb5a31004ac089008c056f247"
+    },
+    {
+      "path": "results/q5/memory_100000.json",
+      "role": "memory and timing at 10^5",
+      "sha256": "6e7184be216b9dadbd2236d65e50be92b76527246590680ef8d987fa2d03088e"
+    },
+    {
+      "path": "results/q5/memory_1000000.json",
+      "role": "memory and timing at 10^6",
+      "sha256": "8bc850c571332eb261b5ce4308da59fb1b6cc891ed7ee0797b209631999af2bc"
+    },
+    {
+      "path": "results/q5/all_stdout.txt",
+      "role": "run log",
+      "sha256": "6c7178b6fbcb8f8ad28b5ba6c3f7ada7cbfcae92871072a98d4f30cc1921a282"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "psycopg_set_types_checks_passed",
+      "value": 99,
+      "of": 99,
+      "unit": null,
+      "note": "11 checks x 9 rows: absent vs null, JSON text, NUMERIC text (39 digits, scale, NaN, ±Infinity), timestamptz at year 1 and 9999; needs identity dumps for JSON text, Decimal, and a UTC cast before to_pylist"
+    },
+    {
+      "name": "pgpq_staging_checks_passed",
+      "value": 99,
+      "of": 99,
+      "unit": null,
+      "note": "NUMERIC through a text staging table and ::numeric; pgpq Timestamp into timestamptz keeps the UTC instant; Text into json keeps the text"
+    },
+    {
+      "name": "pgpq_numeric_as_text",
+      "value": "08P01: insufficient data left in message",
+      "of": null,
+      "unit": null,
+      "note": "refused by the server, no silent corruption"
+    },
+    {
+      "name": "pgpq_numeric_decimal128",
+      "value": "ArrowInvalid: Rescaling Decimal value would cause data loss",
+      "of": null,
+      "unit": null,
+      "note": "39 digits and NaN/Infinity cannot be decimal128"
+    },
+    {
+      "name": "adbc_numeric_arrow_type",
+      "value": "extension<arrow.opaque[storage_type=string, type_name=numeric]>",
+      "of": null,
+      "unit": null,
+      "note": "digits exact; special values spelled nan, inf, -inf"
+    },
+    {
+      "name": "adbc_infinity_timestamptz",
+      "value": "not preserved",
+      "of": null,
+      "unit": null,
+      "note": "±infinity become finite values near int64 minimum (epoch offset added without special-casing; +infinity wraps)"
+    },
+    {
+      "name": "duckdb_absent_vs_null",
+      "value": "distinguished",
+      "of": null,
+      "unit": null,
+      "note": "json_exists true with -> JSON null for present-null; false with SQL NULL for absent"
+    },
+    {
+      "name": "duckdb_second_execute_on_open_result",
+      "value": "silently ends the open result",
+      "of": null,
+      "unit": null,
+      "note": "4 of 5 remaining rows lost, no ResourceInUseException; relations have no fetchone(); fetchall on TIMESTAMPTZ needs pytz; unquoted column at is a parse error"
+    },
+    {
+      "name": "adbc_param_select",
+      "value": "accepted",
+      "of": null,
+      "unit": null,
+      "note": "$1 SELECT works in 1.13 but is sent as a plain SELECT, not COPY: 161 vs 115 ms at 10^5 rows, 1360 vs 935 ms at 10^6"
+    },
+    {
+      "name": "adbc_load_ms_1e5",
+      "value": 162.5,
+      "of": 100000,
+      "unit": "ms",
+      "note": "Arrow 38 MB; RSS +92 MB; psycopg loader 199.7 ms, RSS +138 MB"
+    },
+    {
+      "name": "adbc_load_ms_1e6",
+      "value": 941.2,
+      "of": 1000000,
+      "unit": "ms",
+      "note": "Arrow 388 MB; RSS +430 MB; psycopg loader 1978.7 ms (2.1x), RSS +1.5 GB"
+    },
+    {
+      "name": "join_peak_buffer_bytes_1e5",
+      "value": 20557824,
+      "of": null,
+      "unit": "B",
+      "note": "DuckDB system.peak_buffer_memory for the join → Arrow (11.1 ms); join + group-by 30,679,040 B; output Arrow is a full copy (RSS +52 MB)"
+    },
+    {
+      "name": "join_peak_buffer_bytes_1e6",
+      "value": 20328448,
+      "of": null,
+      "unit": "B",
+      "note": "join 39.5 ms; join + group-by 166,821,888 B; RSS +420 MB for the 389 MB output copy"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Absent versus null, JSON text, NUMERIC exactness and timestamptz instants survive ADBC → DuckDB 2.0 → psycopg Copy.set_types on every case (given identity dumps for JSON text, Decimal for NUMERIC and a UTC cast before to_pylist), and survive pgpq only with NUMERIC through a text staging table and a server-side cast (text is refused by the server, decimal128 by Arrow); ±infinity timestamps do not survive ADBC. ADBC returns NUMERIC as arrow.opaque strings, accepts $1 SELECTs in 1.13 but then leaves the COPY transport (about 1.4x slower), and loads 2.1x faster than psycopg at 10^6 rows with a third of the memory; one join holds about 20 MB of DuckDB buffer, with the output Arrow as a full copy. Inputs: P0-P-1 loads with ADBC, binding the run and cut as literals or via a temporary table, NUMERIC kept as text, DuckDB TimeZone pinned to UTC, one open result per connection; P0-P-3 stays on psycopg Copy.set_types and does not adopt pgpq unless a measured writer cost calls for it (then with the staging step).",
+  "consumed_by": [
+    "P0-P-1",
+    "P0-P-3"
+  ]
+}

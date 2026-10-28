@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "id": "p0q.fk-cost",
+  "title": "Same-run composite FKs and per-version vocabulary FKs at run scale, with the s6.volume rerun on 18/corpus",
+  "group": "Phase 0 model probes",
+  "package": "P0-F-Q4",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "At D3 §11's run scale (10^5 observations, 10^4-10^5 claims), what do the target model's same-run composite FKs (UNIQUE (run_id, id) targets; kb.claim_ref and kb.claim_entity_ref (run_id, ...) REFERENCES kb.claim/kb.entity (run_id, id); kb.claim.attribution_entity_id) and per-version vocabulary FKs ((schema_version_id, predicate) -> meta.schema_slot for INV-03; (schema_version_id, kind) -> meta.statement_kind) cost on binary COPY and run deletion on 18/corpus, and does the s6.volume result hold on the dedicated cluster?",
+  "answers": [
+    "P0-F-Q4",
+    "INV-03 and INV-08 enforcement placement (model-and-projections §3.4, foundations §3.8)",
+    "D3 §11 pending rerun",
+    "ADR-0021 variants"
+  ],
+  "method": "A base database cloned from cs_template with S6's applied DDL and S6-B's row load (copies in code/q4_s6, patched only for the cluster, paths and no SET ROLE), cloned afresh for every repetition in its own process. (a) S6's s6e_volume.py unchanged, 5 repetitions. (b) A scratch TM §6 addendum over S6's DDL in three placements (t_none: columns, edge tables and overlay indexes, no same-run or vocabulary FK, edges deleted by run_id; t_samerun: plus UNIQUE (run_id, id) and five cascading composite FKs; t_all: plus the two vocabulary FKs), writing S6's tasks and observations, 2,500 Statement entities, claims with the new columns, 1 claim_ref and 4 claim_entity_ref rows per claim; 5 repetitions per placement at 2x10^4 claims (order rotated), 3 of t_none and t_all at 10^5 claims; rolled-back negative inserts; the bulk-writer equivalent check timed in Python. psycopg 3.3.6 binary COPY with Copy.set_types, client wall clock. PostgreSQL 18.6 on 18/corpus (ops/postgresql/corpus.conf: shared_buffers 8GB, work_mem 64MB, maintenance_work_mem 8GB, synchronous_commit off, fsync on, io_uring, jit off, random_page_cost 1.1); AMD Ryzen 9 9950X3D (16C/32T), 188 GiB, Linux 7.0.0-38; Python 3.14.10; another session's multiprocess job ran concurrently (1-minute load average 5-13, recorded per run). Databases p0q_fk* dropped afterwards.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py all",
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py target --variant t_none --rep 2 --claims 100000",
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py target --variant t_all --rep 2 --claims 100000",
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py dataset",
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py drop",
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py summary"
+  ],
+  "agents": [
+    {
+      "role": "library-research probe worker",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/q4_*, code/q5_*, code/q4_s6/, results/q4/, results/q5/, records/p0q.fk-cost.json, records/p0q.pool-roundtrip.json and the README's Q-4 and Q-5 sections"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/q4_fk_cost.py",
+      "role": "probe script and dataset generator (seed 20261028)",
+      "sha256": "675bf5d7369d03b1eeb810354fca520add3bfcce830c0417e9977c2d1128268a"
+    },
+    {
+      "path": "code/q4_s6",
+      "role": "copies of S6's s6_db, s6_load, s6a_ddl, s6b_rows, s6e_volume and DDL (patched as their headers state)",
+      "sha256": "97da92a98ffa2922d41b322c26ff27547449df78471d32c130fd4b53a73febc0"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/q4/summary.md",
+      "role": "report tables",
+      "sha256": "2e619bc6a1ca13b018adf57fe8043e7c28691180dd337877474ebfe8b8e1d3aa"
+    },
+    {
+      "path": "results/q4/summary.json",
+      "role": "figures",
+      "sha256": "a16acffcfe892f4a51cc06f403cc34fb110a2c5f2e281c9cfbdc1f3cdb3c4ee8"
+    },
+    {
+      "path": "results/q4/base.json",
+      "role": "server facts, settings, machine, base load",
+      "sha256": "96a7c7b7f4a052e3d583c28838af5ffd3ae5c6411ab42b4f6df4e1729e5be29e"
+    },
+    {
+      "path": "results/q4/s6_rerun",
+      "role": "s6.volume rerun outputs per repetition",
+      "sha256": "206195542aea6a4a3894ae8c01079185b5223b4772e733952b21894fb61aee9a"
+    },
+    {
+      "path": "results/q4/target",
+      "role": "target-model placement outputs per repetition",
+      "sha256": "130618f68e274b658658b0c78254c04c0cd4dd37a0b136ecb9ae4c97463536d7"
+    },
+    {
+      "path": "results/q4/trial_t_all_without_attribution_index.json",
+      "role": "trial run without the attribution index",
+      "sha256": "98fc33372f76266e1edbde98368c18ccfe4f7b7ef1d461ed54c268d716643ad5"
+    },
+    {
+      "path": "results/q4/dataset.json",
+      "role": "dataset description and restore command",
+      "sha256": "5f6f6885af2699a53e01f3ab3881cd53af7a5ce8aad85f1939de0cf9f200cfed"
+    },
+    {
+      "path": "results/q4/raw/p0q_fk_dataset.sql.gz",
+      "role": "t_all volume dataset dump for C2 (Git LFS)",
+      "sha256": "4065db02e19aeb7e500c8d7f27824f811dc58775e5aafe7dc174bdcb14c161d3"
+    },
+    {
+      "path": "results/q4/all_stdout.txt",
+      "role": "run log, including the interrupted drop (42501) before the resumed repetition",
+      "sha256": "0c9cb3a350ba95b8465daf09ed41a91363f7408613231f0e8d341a276a54bb5f"
+    }
+  ],
+  "depends_on": [
+    "2026-10-28_design-spikes/s6.volume",
+    "2026-10-28_design-spikes/s6.ddl"
+  ],
+  "results": [
+    {
+      "name": "s6_rerun_copy_observations_ms",
+      "value": 1190.8,
+      "of": 100000,
+      "unit": "ms",
+      "note": "median of 5 (1185.4-1214.8); s6.volume on the interim cluster: 1109.7"
+    },
+    {
+      "name": "s6_rerun_copy_claims_ms",
+      "value": 232.6,
+      "of": 20000,
+      "unit": "ms",
+      "note": "median of 5 (227.1-244.9); s6.volume: 228.6"
+    },
+    {
+      "name": "s6_rerun_copy_tasks_ms",
+      "value": 107.1,
+      "of": 12500,
+      "unit": "ms",
+      "note": "median of 5; s6.volume: 103.4"
+    },
+    {
+      "name": "s6_rerun_run_deletion_ms",
+      "value": 304.0,
+      "of": null,
+      "unit": "ms",
+      "note": "median of 5 (300.1-306.8); s6.volume: 260.8"
+    },
+    {
+      "name": "s6_rerun_qualifier_query_ms",
+      "value": 1.052,
+      "of": null,
+      "unit": "ms",
+      "note": "claim_pred index scan (bitmap scan on the interim cluster), 1,410 rows"
+    },
+    {
+      "name": "s6_rerun_observations_by_kind_ms",
+      "value": 27.0,
+      "of": null,
+      "unit": "ms",
+      "note": "nested loop of 12,500 index scans (interim: hash join, 17.9 ms); plan change likely random_page_cost 1.1, not tested"
+    },
+    {
+      "name": "materialized_writes_t_none_ms",
+      "value": 742.4,
+      "of": 20000,
+      "unit": "ms",
+      "note": "entities, claims, support, evidence and 10^5 edge rows; median of 5 (735.5-777.1)"
+    },
+    {
+      "name": "materialized_writes_t_samerun_ms",
+      "value": 1254.6,
+      "of": 20000,
+      "unit": "ms",
+      "note": "median of 5 (1246.5-1264.3)"
+    },
+    {
+      "name": "materialized_writes_t_all_ms",
+      "value": 1319.1,
+      "of": 20000,
+      "unit": "ms",
+      "note": "median of 5 (1292.1-1345.1); +576.7 ms (+78%) over t_none; whole run load ratio 1.276"
+    },
+    {
+      "name": "materialized_writes_t_none_100k_ms",
+      "value": 3807.7,
+      "of": 100000,
+      "unit": "ms",
+      "note": "5x10^5 edges; median of 3"
+    },
+    {
+      "name": "materialized_writes_t_all_100k_ms",
+      "value": 6744.0,
+      "of": 100000,
+      "unit": "ms",
+      "note": "median of 3; +2936 ms (+77%); whole load ratio 1.59; linear in rows"
+    },
+    {
+      "name": "fk_probe_cost_us",
+      "value": 2.4,
+      "of": null,
+      "unit": "µs",
+      "note": "per composite FK probe on edge rows: (506.0-121.8 ms)/160,000 probes on kb.claim_entity_ref"
+    },
+    {
+      "name": "run_deletion_t_none_ms",
+      "value": 375.6,
+      "of": 20000,
+      "unit": "ms",
+      "note": "edges deleted explicitly by run_id; 1679.9 ms at 10^5 claims"
+    },
+    {
+      "name": "run_deletion_t_all_ms",
+      "value": 578.3,
+      "of": 20000,
+      "unit": "ms",
+      "note": "edges cascade; 2665.6 ms at 10^5 claims"
+    },
+    {
+      "name": "bulk_writer_check_ms",
+      "value": 3.62,
+      "of": 20000,
+      "unit": "ms",
+      "note": "Python set membership over the same rows; 21.2 ms at 10^5 claims"
+    },
+    {
+      "name": "negatives_refused_t_all",
+      "value": 4,
+      "of": 4,
+      "unit": null,
+      "note": "cross-run claim_ref target, cross-run claim_entity_ref entity, unknown predicate (INV-03), unknown statement kind: 23503; t_none accepts 4 of 4; t_samerun refuses the 2 same-run cases"
+    },
+    {
+      "name": "attribution_fk_without_index_trigger_ms",
+      "value": 9325.8,
+      "of": 7500,
+      "unit": "ms",
+      "note": "NO ACTION check per deleted entity scanning the run's claims; 32 ms with an index on kb.claim (run_id, attribution_entity_id); the TM §6 sketch lacks it"
+    },
+    {
+      "name": "drop_database_force_as_non_superuser",
+      "value": "42501: permission denied to terminate process",
+      "of": null,
+      "unit": null,
+      "note": "an autovacuum worker in a freshly loaded clone; plain DROP DATABASE (retried) cancels autovacuum itself"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "On 18/corpus the s6.volume figures hold (binary COPY is client-bound: 100,000 observations in about 1.19 s, 20,000 claims in 0.23 s; deletion 0.30 s), with two query plans changed to index paths. Same-run composite and per-version vocabulary FKs cost about +0.58 s on a 2x10^4-claim run's materialized writes (+78%; +28% of the whole load) and +2.9 s at 10^5 claims, linear in rows at about 2.4 µs per FK probe, nearly all on the edge rows; deletion +0.2 s and +1.0 s. They refuse cross-run and unknown-vocabulary rows; the bulk-writer placement would save that time but needs its own check (4-21 ms) and edge deletion and guards only its own writes. Input to P0-M-2/P0-F-4: FK enforcement is acceptable at this scale; declare INV-03 and INV-08 as FKs, with a referencing-side index for every composite FK no existing index leads with (at least kb.claim (run_id, attribution_entity_id), whose absence made deletion take 9.3 s).",
+  "consumed_by": [
+    "P0-M-2",
+    "P0-F-4"
+  ]
+}

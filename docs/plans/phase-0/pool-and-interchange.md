@@ -88,8 +88,13 @@ and the reference run's entities and aliases (which alias-equality linking joins
 **The loader.** `pool.load` reads `kb.run_observation` and the payloads as of `cut_at`.
 - Its route is chosen by probe Q-5: ADBC 1.13 `fetch_record_batch()`, or psycopg with a typed row
   factory.
-- ADBC returns NUMERIC as `utf8` and JSONB as `arrow.json`, and has no parameterized `SELECT`, so the
-  loader binds the run and the cut by other means: a literal from the run row, or a temporary table.
+- Probe Q-5 (`p0q.pool-roundtrip`, Tested 2026-10-28) chose ADBC. NUMERIC arrives as `arrow.opaque`
+  strings and is kept as text; JSONB arrives as `arrow.json`. `$1`-parameterized `SELECT`s work in 1.13
+  but bypass the COPY transport (about 1.4× slower), so the loader binds the run and the cut as literals
+  from the run row or through a temporary table. `±infinity` timestamps do not survive.
+- DuckDB 2.0 handling the probe found: a second `execute()` silently discards the rest of an open
+  result, so each result is consumed or closed first; the session time zone is pinned to UTC; Arrow
+  output drops the JSON tag, so the loader re-attaches it from the model's schema.
 
 **T3 hydration** into the keyed candidate set is the reference path for Python steps.
 
@@ -147,9 +152,9 @@ Merges are phase 2, so phase 0 builds only the probe and the fixture.
 any bulk-writer enforcement of INV-03/INV-08; this package adds the Arrow-native route and the export.
 - psycopg `Copy.set_types` is the default. S6 measured it on the interim cluster: 100,000 observations
   in 1.1 s and 20,000 claims in 229 ms (Measured, 2026-10-28).
-- pgpq 0.12 (`ArrowToPostgresBinaryEncoder` → `psycopg.Copy.write`) is adopted only if probe Q-5 shows
-  that absent versus null, JSONB, numeric and `timestamptz` survive. pgpq writes `TIMESTAMP` only, and
-  is Alpha (coordinator ruling 8).
+- pgpq 0.12 is not adopted (probe Q-5): NUMERIC as text is refused by the server, and only a text
+  staging table with `::numeric` passes. It is reconsidered only if a measured writer cost calls for it,
+  and then with the staging step.
 
 **The Parquet run export**, `ci export RUN`:
 - writes the run's knowledge tables through DuckDB

@@ -1,0 +1,99 @@
+{
+ "rows": 1000000,
+ "versions": {
+  "adbc-driver-postgresql": "1.13.0",
+  "adbc-driver-manager": "1.13.0",
+  "duckdb": "2.0.0",
+  "pyarrow": "26.0.0",
+  "pgpq": "0.12.0",
+  "psycopg": "3.3.6",
+  "psycopg-binary": "3.3.6"
+ },
+ "steps": [
+  {
+   "VmHWM": 64827392,
+   "VmRSS": 64827392,
+   "arrow_allocated": 0,
+   "step": "start"
+  },
+  {
+   "VmHWM": 514936832,
+   "VmRSS": 514936832,
+   "arrow_allocated": 0,
+   "step": "after ADBC load (Arrow tables)",
+   "ms": 941.2,
+   "arrow_obs_nbytes": 388042557,
+   "arrow_claim_nbytes": 1760240
+  },
+  {
+   "VmHWM": 548478976,
+   "VmRSS": 548478976,
+   "arrow_allocated": 4160,
+   "step": "after DuckDB register"
+  },
+  {
+   "VmHWM": 989798400,
+   "VmRSS": 989798400,
+   "arrow_allocated": 4160,
+   "step": "after join → Arrow",
+   "ms": 39.5,
+   "rows_out": 1000000,
+   "arrow_out_nbytes": 388929641,
+   "duckdb_system": {
+    "blocked_thread_time": 0.024264,
+    "peak_buffer_memory": 20328448,
+    "peak_streaming_buffer_size": 0,
+    "peak_temp_dir_size": 0,
+    "total_memory_allocated": 8388608
+   }
+  },
+  {
+   "VmHWM": 1172905984,
+   "VmRSS": 1172905984,
+   "arrow_allocated": 4160,
+   "step": "after join + group-by → Arrow",
+   "ms": 32.3,
+   "rows_out": 20,
+   "duckdb_system": {
+    "blocked_thread_time": 0.027859000000000002,
+    "peak_buffer_memory": 166821888,
+    "peak_streaming_buffer_size": 0,
+    "peak_temp_dir_size": 0,
+    "total_memory_allocated": 181141504
+   }
+  },
+  {
+   "VmHWM": 1167032320,
+   "VmRSS": 620007424,
+   "arrow_allocated": 0,
+   "step": "after closing DuckDB and dropping results"
+  },
+  {
+   "VmHWM": 2894307328,
+   "VmRSS": 2195390464,
+   "arrow_allocated": 396042880,
+   "step": "after psycopg load (Arrow table)",
+   "ms": 1978.7,
+   "arrow_nbytes": 396042557,
+   "equal_payload_to_adbc": true
+  }
+ ],
+ "pg_sizes": {
+  "vol_claim": 2105344,
+  "vol_obs": 480256000
+ },
+ "payload_mean_bytes": 292.348554,
+ "duckdb_memory_after": [],
+ "adbc_routes_ms": {
+  "adbc literal run_id (COPY)": {
+   "ms": 935.2,
+   "rows": 1000000,
+   "schema_equal_to_copy_route": true
+  },
+  "adbc $1 run_id (extended protocol)": {
+   "ms": 1360.1,
+   "rows": 1000000,
+   "schema_equal_to_copy_route": true
+  }
+ }
+}

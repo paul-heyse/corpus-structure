@@ -1,0 +1,22 @@
+{
+ "db": "p0q_fk_dataset",
+ "variant": "t_all",
+ "claims_n": 20000,
+ "seed": 20261028,
+ "run": 4,
+ "rows": {
+  "ops.task": 12500,
+  "kb.observation": 100000,
+  "kb.entity": 7500,
+  "kb.claim": 20000,
+  "kb.claim_support": 20000,
+  "kb.claim_evidence": 20000,
+  "kb.claim_ref": 20000,
+  "kb.claim_entity_ref": 80000
+ },
+ "dump": "results/q4/raw/p0q_fk_dataset.sql.gz",
+ "dump_bytes": 6688260,
+ "restore": "createdb -T cs_template <db> && gunzip -c results/q4/raw/p0q_fk_dataset.sql.gz | psql -d <db>",
+ "pg_dump_rc": 0,
+ "gzip_rc": 0
+}

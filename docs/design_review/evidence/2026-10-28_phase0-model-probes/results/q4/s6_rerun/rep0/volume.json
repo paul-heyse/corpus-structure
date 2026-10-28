@@ -1,0 +1,1430 @@
+{
+ "copy_type_notes": {
+  "score as float8 into real": "22P03: incorrect binary data format",
+  "payload as str into jsonb (declared jsonb)": "accepted"
+ },
+ "observations": {
+  "rows": 100000,
+  "ms": 1214.7650920087472,
+  "payload_bytes_by_kind": {
+   "mention": 138,
+   "relation": 205,
+   "scope": 238,
+   "value": 262,
+   "claim_proposal": 4295
+  }
+ },
+ "queries": {
+  "claims with qualifier param_values.variance (`@?`, no GIN)": {
+   "rows": 1410,
+   "ms": 1.051,
+   "plan": [
+    "Index Scan using claim_pred on claim (actual rows=1410.00 loops=1)",
+    "  Index Cond: ((run_id = '4'::smallint) AND (predicate = 'stat:has_distribution'::text))",
+    "  Filter: (qualifiers @? '$.\"param_values\".\"variance\"'::jsonpath)",
+    "  Rows Removed by Filter: 4505",
+    "  Index Searches: 1",
+    "  Buffers: shared hit=1027",
+    "Planning Time: 0.020 ms",
+    "Execution Time: 0.905 ms"
+   ]
+  },
+  "why a method ran (one unit)": {
+   "rows": 5,
+   "ms": 0.574,
+   "plan": [
+    "Sort (actual rows=5.00 loops=1)",
+    "  Sort Key: t.id",
+    "  Sort Method: quicksort  Memory: 25kB",
+    "  Buffers: shared hit=446",
+    "  ->  Nested Loop Left Join (actual rows=5.00 loops=1)",
+    "        Join Filter: (pr.id = t.trigger_rule_id)",
+    "        Rows Removed by Join Filter: 5",
+    "        Buffers: shared hit=446",
+    "        ->  Nested Loop (actual rows=5.00 loops=1)",
+    "              Join Filter: (m.id = mc.method_id)",
+    "              Rows Removed by Join Filter: 50",
+    "              Buffers: shared hit=445",
+    "              ->  Seq Scan on method m (actual rows=11.00 loops=1)",
+    "                    Buffers: shared hit=1",
+    "              ->  Materialize (actual rows=5.00 loops=11)",
+    "                    Storage: Memory  Maximum Storage: 17kB",
+    "                    Buffers: shared hit=444",
+    "                    ->  Nested Loop (actual rows=5.00 loops=1)",
+    "                          Join Filter: (mc.id = t.method_config_id)",
+    "                          Rows Removed by Join Filter: 60",
+    "                          Buffers: shared hit=444",
+    "                          ->  Seq Scan on method_config mc (actual rows=13.00 loops=1)",
+    "                                Buffers: shared hit=1",
+    "                          ->  Materialize (actual rows=5.00 loops=13)",
+    "                                Storage: Memory  Maximum Storage: 17kB",
+    "                                Buffers: shared hit=443",
+    "                                ->  Seq Scan on task t (actual rows=5.00 loops=1)",
+    "                                      Filter: ((run_id = '4'::smallint) AND (unit_key = 'unit:vol-1234'::text))",
+    "                                      Rows Removed by Filter: 12554",
+    "                                      Buffers: shared hit=443",
+    "        ->  Materialize (actual rows=1.00 loops=5)",
+    "              Storage: Memory  Maximum Storage: 17kB",
+    "              Buffers: shared hit=1",
+    "              ->  Seq Scan on policy_rule pr (actual rows=1.00 loops=1)",
+    "                    Buffers: shared hit=1",
+    "Planning:",
+    "  Buffers: shared hit=11",
+    "Planning Time: 0.075 ms",
+    "Execution Time: 0.469 ms"
+   ]
+  },
+  "effective observations of one task (kb.run_observation)": {
+   "rows": 1,
+   "ms": 0.587,
+   "plan": [
+    "Aggregate (actual rows=1.00 loops=1)",
+    "  Buffers: shared hit=448",
+    "  ->  Nested Loop (actual rows=16.00 loops=1)",
+    "        Buffers: shared hit=448",
+    "        ->  Nested Loop (actual rows=1.00 loops=1)",
+    "              Join Filter: ((r.finished_at IS NULL) OR (t.finished_at <= r.finished_at))",
+    "              Buffers: shared hit=444",
+    "              ->  Seq Scan on run r (actual rows=1.00 loops=1)",
+    "                    Filter: (id = '4'::smallint)",
+    "                    Rows Removed by Filter: 3",
+    "                    Buffers: shared hit=1",
+    "              ->  Seq Scan on task t (actual rows=1.00 loops=1)",
+    "                    Filter: ((run_id = '4'::smallint) AND (COALESCE(reused_task_id, id) = '6230'::smallint) AND (status = ANY ('{done,empty,reused}'::text[])))",
+    "                    Rows Removed by Filter: 12558",
+    "                    Buffers: shared hit=443",
+    "        ->  Materialize (actual rows=16.00 loops=1)",
+    "              Storage: Memory  Maximum Storage: 17kB",
+    "              Buffers: shared hit=4",
+    "              ->  Index Only Scan using observation_task_id_ordinal_key on observation o (actual rows=16.00 loops=1)",
+    "                    Index Cond: (task_id = '6230'::smallint)",
+    "                    Heap Fetches: 16",
+    "                    Index Searches: 1",
+    "                    Buffers: shared hit=4",
+    "Planning:",
+    "  Buffers: shared hit=3",
+    "Planning Time: 0.050 ms",
+    "Execution Time: 0.518 ms"
+   ]
+  },
+  "observations of the run by kind (kb.run_observation)": {
+   "rows": 5,
+   "ms": 26.732,
+   "plan": [
+    "Sort (actual rows=5.00 loops=1)",
+    "  Sort Key: o.kind",
+    "  Sort Method: quicksort  Memory: 25kB",
+    "  Buffers: shared hit=42511",
+    "  ->  HashAggregate (actual rows=5.00 loops=1)",
+    "        Group Key: o.kind",
+    "        Batches: 1  Memory Usage: 32kB",
+    "        Buffers: shared hit=42511",
+    "        ->  Nested Loop (actual rows=100000.00 loops=1)",
+    "              Buffers: shared hit=42511",
+    "              ->  Nested Loop (actual rows=12500.00 loops=1)",
+    "                    Join Filter: ((r.finished_at IS NULL) OR (t.finished_at <= r.finished_at))",
+    "                    Buffers: shared hit=444",
+    "                    ->  Seq Scan on run r (actual rows=1.00 loops=1)",
+    "                          Filter: (id = '4'::smallint)",
+    "                          Rows Removed by Filter: 3",
+    "                          Buffers: shared hit=1",
+    "                    ->  Seq Scan on task t (actual rows=12500.00 loops=1)",
+    "                          Filter: ((run_id = '4'::smallint) AND (status = ANY ('{done,empty,reused}'::text[])))",
+    "                          Rows Removed by Filter: 59",
+    "                          Buffers: shared hit=443",
+    "              ->  Index Scan using observation_task_id_ordinal_key on observation o (actual rows=8.00 loops=12500)",
+    "                    Index Cond: (task_id = COALESCE(t.reused_task_id, t.id))",
+    "                    Index Searches: 12500",
+    "                    Buffers: shared hit=42067",
+    "Planning:",
+    "  Buffers: shared hit=3",
+    "Planning Time: 0.157 ms",
+    "Execution Time: 27.022 ms"
+   ]
+  },
+  "claims of one subject": {
+   "rows": 1,
+   "ms": 0.037,
+   "plan": [
+    "Aggregate (actual rows=1.00 loops=1)",
+    "  Buffers: shared hit=6",
+    "  ->  Index Only Scan using claim_subject on claim (actual rows=4.00 loops=1)",
+    "        Index Cond: ((run_id = '4'::smallint) AND (subject_id = '167'::smallint))",
+    "        Heap Fetches: 4",
+    "        Index Searches: 1",
+    "        Buffers: shared hit=6",
+    "Planning Time: 0.010 ms",
+    "Execution Time: 0.005 ms"
+   ]
+  }
+ },
+ "run_deletion": {
+  "before": {
+   "kb.entity": 5000,
+   "kb.claim": 20000,
+   "kb.claim_link": 0,
+   "eval.alignment": 0,
+   "eval.result": 0,
+   "ops.task": 12500,
+   "ops.measurement": 0,
+   "ops.run": 1,
+   "kb.claim_evidence": 20000,
+   "kb.entity_alias": 0
+  },
+  "after": {
+   "kb.entity": 0,
+   "kb.claim": 0,
+   "kb.claim_link": 0,
+   "eval.alignment": 0,
+   "eval.result": 0,
+   "ops.task": 12500,
+   "ops.measurement": 0,
+   "ops.run": 1,
+   "kb.claim_evidence": 0,
+   "kb.entity_alias": 0
+  },
+  "kept_run_before": {
+   "kb.entity": 67,
+   "kb.claim": 71,
+   "kb.claim_link": 1,
+   "eval.alignment": 0,
+   "eval.result": 0,
+   "ops.task": 17,
+   "ops.measurement": 0,
+   "ops.run": 1,
+   "kb.claim_evidence": 106,
+   "kb.entity_alias": 91
+  },
+  "kept_run_after": {
+   "kb.entity": 67,
+   "kb.claim": 71,
+   "kb.claim_link": 1,
+   "eval.alignment": 0,
+   "eval.result": 0,
+   "ops.task": 17,
+   "ops.measurement": 0,
+   "ops.run": 1,
+   "kb.claim_evidence": 106,
+   "kb.entity_alias": 91
+  },
+  "ms": 305.0,
+  "ok": true
+ },
+ "sizes": [
+  [
+   "object",
+   "kind",
+   "rows",
+   "table_bytes",
+   "index_bytes",
+   "total_bytes",
+   "note"
+  ],
+  [
+   "eval.alignment",
+   "table",
+   1,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "eval.document_split",
+   "table",
+   5,
+   16384,
+   16384,
+   32768,
+   ""
+  ],
+  [
+   "eval.golden_item",
+   "table",
+   163,
+   106496,
+   32768,
+   139264,
+   ""
+  ],
+  [
+   "eval.golden_pass",
+   "table",
+   36,
+   180224,
+   32768,
+   212992,
+   ""
+  ],
+  [
+   "eval.golden_set",
+   "table",
+   1,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "eval.golden_unit",
+   "table",
+   12,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "eval.result",
+   "table",
+   1,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "kb.claim",
+   "table",
+   20079,
+   8790016,
+   3153920,
+   11943936,
+   ""
+  ],
+  [
+   "kb.claim_evidence",
+   "table",
+   20116,
+   1482752,
+   835584,
+   2318336,
+   ""
+  ],
+  [
+   "kb.claim_link",
+   "table",
+   2,
+   16384,
+   49152,
+   65536,
+   ""
+  ],
+  [
+   "kb.claim_support",
+   "table",
+   20077,
+   1277952,
+   647168,
+   1925120,
+   ""
+  ],
+  [
+   "kb.document",
+   "table",
+   5,
+   16384,
+   49152,
+   65536,
+   ""
+  ],
+  [
+   "kb.embedding",
+   "table",
+   0,
+   8192,
+   32768,
+   40960,
+   ""
+  ],
+  [
+   "kb.entity",
+   "table",
+   5078,
+   1032192,
+   557056,
+   1589248,
+   ""
+  ],
+  [
+   "kb.entity_alias",
+   "table",
+   109,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "kb.entity_anchor",
+   "table",
+   81,
+   8192,
+   16384,
+   24576,
+   ""
+  ],
+  [
+   "kb.entity_mention",
+   "table",
+   65,
+   8192,
+   16384,
+   24576,
+   ""
+  ],
+  [
+   "kb.observation",
+   "table",
+   100014,
+   42098688,
+   7004160,
+   49102848,
+   ""
+  ],
+  [
+   "kb.rendition",
+   "table",
+   4,
+   81920,
+   49152,
+   131072,
+   ""
+  ],
+  [
+   "kb.rendition_build",
+   "table",
+   4,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "kb.segment",
+   "table",
+   2335,
+   1499136,
+   876544,
+   2375680,
+   ""
+  ],
+  [
+   "kb.span",
+   "table",
+   87,
+   49152,
+   32768,
+   81920,
+   ""
+  ],
+  [
+   "meta.compiled_artifact",
+   "table",
+   0,
+   8192,
+   16384,
+   24576,
+   ""
+  ],
+  [
+   "meta.guideline_version",
+   "table",
+   1,
+   32768,
+   32768,
+   65536,
+   ""
+  ],
+  [
+   "meta.project",
+   "table",
+   1,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "meta.schema_class",
+   "table",
+   0,
+   8192,
+   8192,
+   16384,
+   ""
+  ],
+  [
+   "meta.schema_enum",
+   "table",
+   0,
+   8192,
+   8192,
+   16384,
+   ""
+  ],
+  [
+   "meta.schema_rule",
+   "table",
+   0,
+   8192,
+   8192,
+   16384,
+   ""
+  ],
+  [
+   "meta.schema_slot",
+   "table",
+   45,
+   16384,
+   16384,
+   32768,
+   ""
+  ],
+  [
+   "meta.schema_version",
+   "table",
+   1,
+   32768,
+   32768,
+   65536,
+   ""
+  ],
+  [
+   "ops.debug_slice",
+   "table",
+   1,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "ops.experiment",
+   "table",
+   0,
+   8192,
+   8192,
+   16384,
+   ""
+  ],
+  [
+   "ops.intervention",
+   "table",
+   36,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "ops.measurement",
+   "table",
+   1,
+   16384,
+   40960,
+   57344,
+   ""
+  ],
+  [
+   "ops.method",
+   "table",
+   11,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "ops.method_config",
+   "table",
+   13,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "ops.policy_rule",
+   "table",
+   1,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "ops.policy_version",
+   "table",
+   1,
+   16384,
+   32768,
+   49152,
+   ""
+  ],
+  [
+   "ops.run",
+   "table",
+   4,
+   16384,
+   16384,
+   32768,
+   ""
+  ],
+  [
+   "ops.task",
+   "table",
+   12559,
+   3661824,
+   2236416,
+   5898240,
+   ""
+  ],
+  [
+   "eval.alignment_pkey",
+   "index on alignment",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.alignment_run",
+   "index on alignment",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.document_split_pkey",
+   "index on document_split",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.golden_item_golden_pass_id_rendition_id_item_type_local_ref_key",
+   "index on golden_item",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.golden_item_pkey",
+   "index on golden_item",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.golden_pass_golden_unit_id_pass_guideline_version_id_key",
+   "index on golden_pass",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.golden_pass_pkey",
+   "index on golden_pass",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.golden_set_pkey",
+   "index on golden_set",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.golden_set_project_id_label_split_key",
+   "index on golden_set",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.golden_unit_golden_set_id_unit_key_key",
+   "index on golden_unit",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.golden_unit_pkey",
+   "index on golden_unit",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.result_pkey",
+   "index on result",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "eval.result_run",
+   "index on result",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_object",
+   "index on claim",
+   "",
+   "",
+   434176,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_pkey",
+   "index on claim",
+   "",
+   "",
+   466944,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_pred",
+   "index on claim",
+   "",
+   "",
+   253952,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_run_id_key_key",
+   "index on claim",
+   "",
+   "",
+   1417216,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_statement",
+   "index on claim",
+   "",
+   "",
+   212992,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_subject",
+   "index on claim",
+   "",
+   "",
+   368640,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_evidence_pkey",
+   "index on claim_evidence",
+   "",
+   "",
+   835584,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_link_from_claim_id_link_type_to_claim_id_key",
+   "index on claim_link",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_link_pkey",
+   "index on claim_link",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_link_to",
+   "index on claim_link",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.claim_support_pkey",
+   "index on claim_support",
+   "",
+   "",
+   647168,
+   "",
+   ""
+  ],
+  [
+   "kb.document_key_key",
+   "index on document",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.document_pkey",
+   "index on document",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.document_project_id_source_uri_content_hash_key",
+   "index on document",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.embedding_hnsw",
+   "index on embedding",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.embedding_pkey",
+   "index on embedding",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "kb.embedding_target_type_target_id_model_config_id_key",
+   "index on embedding",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "kb.entity_pkey",
+   "index on entity",
+   "",
+   "",
+   131072,
+   "",
+   ""
+  ],
+  [
+   "kb.entity_run_id_key_key",
+   "index on entity",
+   "",
+   "",
+   368640,
+   "",
+   ""
+  ],
+  [
+   "kb.entity_type",
+   "index on entity",
+   "",
+   "",
+   57344,
+   "",
+   ""
+  ],
+  [
+   "kb.entity_alias_lookup",
+   "index on entity_alias",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.entity_alias_pkey",
+   "index on entity_alias",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.entity_anchor_pkey",
+   "index on entity_anchor",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.entity_mention_pkey",
+   "index on entity_mention",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.observation_pkey",
+   "index on observation",
+   "",
+   "",
+   2260992,
+   "",
+   ""
+  ],
+  [
+   "kb.observation_segment",
+   "index on observation",
+   "",
+   "",
+   851968,
+   "",
+   ""
+  ],
+  [
+   "kb.observation_span",
+   "index on observation",
+   "",
+   "",
+   720896,
+   "",
+   ""
+  ],
+  [
+   "kb.observation_task_id_ordinal_key",
+   "index on observation",
+   "",
+   "",
+   3170304,
+   "",
+   ""
+  ],
+  [
+   "kb.rendition_document_id_content_digest_key",
+   "index on rendition",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.rendition_key_key",
+   "index on rendition",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.rendition_pkey",
+   "index on rendition",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.rendition_build_pkey",
+   "index on rendition_build",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.rendition_build_rendition",
+   "index on rendition_build",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.segment_bm25",
+   "index on segment",
+   "",
+   "",
+   237568,
+   "",
+   ""
+  ],
+  [
+   "kb.segment_key_key",
+   "index on segment",
+   "",
+   "",
+   286720,
+   "",
+   ""
+  ],
+  [
+   "kb.segment_kind",
+   "index on segment",
+   "",
+   "",
+   65536,
+   "",
+   ""
+  ],
+  [
+   "kb.segment_pkey",
+   "index on segment",
+   "",
+   "",
+   131072,
+   "",
+   ""
+  ],
+  [
+   "kb.segment_range",
+   "index on segment",
+   "",
+   "",
+   131072,
+   "",
+   ""
+  ],
+  [
+   "kb.span_pkey",
+   "index on span",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "kb.span_rendition_id_start_offset_end_offset_key",
+   "index on span",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "meta.compiled_artifact_pkey",
+   "index on compiled_artifact",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "meta.compiled_artifact_schema_version_id_compiler_compiler_versi_key",
+   "index on compiled_artifact",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "meta.guideline_version_pkey",
+   "index on guideline_version",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "meta.guideline_version_project_id_content_hash_key",
+   "index on guideline_version",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "meta.project_name_key",
+   "index on project",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "meta.project_pkey",
+   "index on project",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "meta.schema_class_pkey",
+   "index on schema_class",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "meta.schema_enum_pkey",
+   "index on schema_enum",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "meta.schema_rule_pkey",
+   "index on schema_rule",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "meta.schema_slot_pkey",
+   "index on schema_slot",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "meta.schema_version_pkey",
+   "index on schema_version",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "meta.schema_version_project_id_content_hash_key",
+   "index on schema_version",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.debug_slice_pkey",
+   "index on debug_slice",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.debug_slice_project_id_name_key",
+   "index on debug_slice",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.experiment_pkey",
+   "index on experiment",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "ops.intervention_pkey",
+   "index on intervention",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.intervention_run",
+   "index on intervention",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.measurement_lookup",
+   "index on measurement",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.measurement_pkey",
+   "index on measurement",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.measurement_task",
+   "index on measurement",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "ops.method_name_version_key",
+   "index on method",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.method_pkey",
+   "index on method",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.method_config_config_hash_key",
+   "index on method_config",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.method_config_pkey",
+   "index on method_config",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.policy_rule_pkey",
+   "index on policy_rule",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.policy_rule_policy_version_id_rule_key_key",
+   "index on policy_rule",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.policy_version_pkey",
+   "index on policy_version",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.policy_version_project_id_content_hash_key",
+   "index on policy_version",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.run_pkey",
+   "index on run",
+   "",
+   "",
+   16384,
+   "",
+   ""
+  ],
+  [
+   "ops.task_agent",
+   "index on task",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "ops.task_cache",
+   "index on task",
+   "",
+   "",
+   1802240,
+   "",
+   ""
+  ],
+  [
+   "ops.task_lease",
+   "index on task",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "ops.task_pending",
+   "index on task",
+   "",
+   "",
+   8192,
+   "",
+   ""
+  ],
+  [
+   "ops.task_pkey",
+   "index on task",
+   "",
+   "",
+   303104,
+   "",
+   ""
+  ],
+  [
+   "ops.task_run",
+   "index on task",
+   "",
+   "",
+   106496,
+   "",
+   ""
+  ],
+  [
+   "kb.segment.text",
+   "column",
+   2335,
+   316429,
+   "",
+   "",
+   "stored bytes (raw 421588); 13.3% of kb.segment with its indexes; 0.41% of the four schemas at volume"
+  ],
+  [
+   "kb.segment.text (BM25 kinds only)",
+   "column",
+   587,
+   74599,
+   "",
+   "",
+   "raw 73397; the rows the BM25 index reads"
+  ],
+  [
+   "kb.rendition.canonical_text",
+   "column",
+   4,
+   24527,
+   "",
+   "",
+   "stored bytes, TOAST-compressed (raw 66645); raw segment text is 6.3x the raw canonical text (every level of the tree, sentences included, repeats it)"
+  ],
+  [
+   "kb.segment_bm25",
+   "index",
+   "",
+   "",
+   237568,
+   "",
+   "BM25 partial index over the four pages"
+  ],
+  [
+   "per unit",
+   "ratio",
+   124,
+   2552,
+   "",
+   "",
+   "segment text bytes per author unit on the four pages (124 units) vs observation payload bytes per volume unit (11608 at 40 observations per unit)"
+  ],
+  [
+   "four schemas",
+   "total",
+   "",
+   "",
+   "",
+   "76955648",
+   "after the volume load, before its deletion"
+  ]
+ ]
+}

@@ -1,0 +1,161 @@
+# S6 volume (brief step 7)
+
+Run 4 (`full`, finished): 2500 units, 12500 tasks, 100000 observations, 5000 entities, 20000 claims. PostgreSQL 18.6 on the project-local cluster (shared_buffers 160 MB, work_mem 4 MB); client wall times, median of 7.
+
+| step | rows | ms | rows/s | mean payload B | note |
+|---|---|---|---|---|---|
+| copy ops.task | 12500 | 106.6 | 117232 |  | binary COPY, set_types |
+| copy kb.observation | 100000 | 1188.4 | 84143 | 297 | mention mean 138 B; relation mean 205 B; scope mean 238 B; value mean 262 B; claim_proposal mean 4295 B |
+| copy kb.entity | 5000 | 44.0 | 113643 |  |  |
+| copy kb.claim | 20000 | 232.6 | 85990 |  | qualifiers and values of the v1 reference claims, cycled |
+| copy kb.claim_support + kb.claim_evidence | 40000 | 200.2 | 199780 |  |  |
+
+D6 §3 binary COPY notes (one row each, rolled back): score as float8 into real: 22P03: incorrect binary data format; payload as str into jsonb (declared jsonb): accepted
+
+## claims with qualifier param_values.variance (`@?`, no GIN)
+
+1410 rows; median 1.075 ms.
+
+```
+Index Scan using claim_pred on claim (actual rows=1410.00 loops=1)
+  Index Cond: ((run_id = '4'::smallint) AND (predicate = 'stat:has_distribution'::text))
+  Filter: (qualifiers @? '$."param_values"."variance"'::jsonpath)
+  Rows Removed by Filter: 4505
+  Index Searches: 1
+  Buffers: shared hit=1027
+Planning Time: 0.030 ms
+Execution Time: 0.898 ms
+```
+
+## why a method ran (one unit)
+
+5 rows; median 0.589 ms.
+
+```
+Sort (actual rows=5.00 loops=1)
+  Sort Key: t.id
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=446
+  ->  Nested Loop Left Join (actual rows=5.00 loops=1)
+        Join Filter: (pr.id = t.trigger_rule_id)
+        Rows Removed by Join Filter: 5
+        Buffers: shared hit=446
+        ->  Nested Loop (actual rows=5.00 loops=1)
+              Join Filter: (m.id = mc.method_id)
+              Rows Removed by Join Filter: 50
+              Buffers: shared hit=445
+              ->  Seq Scan on method m (actual rows=11.00 loops=1)
+                    Buffers: shared hit=1
+              ->  Materialize (actual rows=5.00 loops=11)
+                    Storage: Memory  Maximum Storage: 17kB
+                    Buffers: shared hit=444
+                    ->  Nested Loop (actual rows=5.00 loops=1)
+                          Join Filter: (mc.id = t.method_config_id)
+                          Rows Removed by Join Filter: 60
+                          Buffers: shared hit=444
+                          ->  Seq Scan on method_config mc (actual rows=13.00 loops=1)
+                                Buffers: shared hit=1
+                          ->  Materialize (actual rows=5.00 loops=13)
+                                Storage: Memory  Maximum Storage: 17kB
+                                Buffers: shared hit=443
+                                ->  Seq Scan on task t (actual rows=5.00 loops=1)
+                                      Filter: ((run_id = '4'::smallint) AND (unit_key = 'unit:vol-1234'::text))
+                                      Rows Removed by Filter: 12554
+                                      Buffers: shared hit=443
+        ->  Materialize (actual rows=1.00 loops=5)
+              Storage: Memory  Maximum Storage: 17kB
+              Buffers: shared hit=1
+              ->  Seq Scan on policy_rule pr (actual rows=1.00 loops=1)
+                    Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=11
+Planning Time: 0.073 ms
+Execution Time: 0.455 ms
+```
+
+## effective observations of one task (kb.run_observation)
+
+1 rows; median 0.596 ms.
+
+```
+Aggregate (actual rows=1.00 loops=1)
+  Buffers: shared hit=448
+  ->  Nested Loop (actual rows=16.00 loops=1)
+        Buffers: shared hit=448
+        ->  Nested Loop (actual rows=1.00 loops=1)
+              Join Filter: ((r.finished_at IS NULL) OR (t.finished_at <= r.finished_at))
+              Buffers: shared hit=444
+              ->  Seq Scan on run r (actual rows=1.00 loops=1)
+                    Filter: (id = '4'::smallint)
+                    Rows Removed by Filter: 3
+                    Buffers: shared hit=1
+              ->  Seq Scan on task t (actual rows=1.00 loops=1)
+                    Filter: ((run_id = '4'::smallint) AND (COALESCE(reused_task_id, id) = '6230'::smallint) AND (status = ANY ('{done,empty,reused}'::text[])))
+                    Rows Removed by Filter: 12558
+                    Buffers: shared hit=443
+        ->  Materialize (actual rows=16.00 loops=1)
+              Storage: Memory  Maximum Storage: 17kB
+              Buffers: shared hit=4
+              ->  Index Only Scan using observation_task_id_ordinal_key on observation o (actual rows=16.00 loops=1)
+                    Index Cond: (task_id = '6230'::smallint)
+                    Heap Fetches: 16
+                    Index Searches: 1
+                    Buffers: shared hit=4
+Planning:
+  Buffers: shared hit=3
+Planning Time: 0.052 ms
+Execution Time: 0.496 ms
+```
+
+## observations of the run by kind (kb.run_observation)
+
+5 rows; median 27.39 ms.
+
+```
+Sort (actual rows=5.00 loops=1)
+  Sort Key: o.kind
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=42511
+  ->  HashAggregate (actual rows=5.00 loops=1)
+        Group Key: o.kind
+        Batches: 1  Memory Usage: 32kB
+        Buffers: shared hit=42511
+        ->  Nested Loop (actual rows=100000.00 loops=1)
+              Buffers: shared hit=42511
+              ->  Nested Loop (actual rows=12500.00 loops=1)
+                    Join Filter: ((r.finished_at IS NULL) OR (t.finished_at <= r.finished_at))
+                    Buffers: shared hit=444
+                    ->  Seq Scan on run r (actual rows=1.00 loops=1)
+                          Filter: (id = '4'::smallint)
+                          Rows Removed by Filter: 3
+                          Buffers: shared hit=1
+                    ->  Seq Scan on task t (actual rows=12500.00 loops=1)
+                          Filter: ((run_id = '4'::smallint) AND (status = ANY ('{done,empty,reused}'::text[])))
+                          Rows Removed by Filter: 59
+                          Buffers: shared hit=443
+              ->  Index Scan using observation_task_id_ordinal_key on observation o (actual rows=8.00 loops=12500)
+                    Index Cond: (task_id = COALESCE(t.reused_task_id, t.id))
+                    Index Searches: 12500
+                    Buffers: shared hit=42067
+Planning:
+  Buffers: shared hit=3
+Planning Time: 0.158 ms
+Execution Time: 27.335 ms
+```
+
+## claims of one subject
+
+1 rows; median 0.05 ms.
+
+```
+Aggregate (actual rows=1.00 loops=1)
+  Buffers: shared hit=6
+  ->  Index Only Scan using claim_subject on claim (actual rows=4.00 loops=1)
+        Index Cond: ((run_id = '4'::smallint) AND (subject_id = '167'::smallint))
+        Heap Fetches: 4
+        Index Searches: 1
+        Buffers: shared hit=6
+Planning Time: 0.015 ms
+Execution Time: 0.008 ms
+```
+

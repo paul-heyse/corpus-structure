@@ -1,0 +1,1534 @@
+{
+ "base": {
+  "version": "PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+  "settings": {
+   "checkpoint_timeout": "900s",
+   "default_text_search_config": "pg_catalog.english",
+   "effective_cache_size": "83886088kB",
+   "effective_io_concurrency": "256",
+   "fsync": "on",
+   "huge_pages": "try",
+   "io_method": "io_uring",
+   "jit": "off",
+   "maintenance_work_mem": "8388608kB",
+   "max_parallel_maintenance_workers": "4",
+   "max_parallel_workers_per_gather": "4",
+   "max_wal_size": "8192MB",
+   "port": "5434",
+   "random_page_cost": "1.1",
+   "shared_buffers": "10485768kB",
+   "synchronous_commit": "off",
+   "wal_compression": "zstd",
+   "work_mem": "65536kB"
+  },
+  "available_extensions": {
+   "vector": "0.8.7",
+   "pg_textsearch": "1.5.1"
+  },
+  "cluster": "dedicated cluster 18/corpus (just db-provision; socket /var/run/postgresql, port 5434; shared_preload_libraries per ops/postgresql/corpus.conf: pg_textsearch, pg_stat_statements, auto_explain; developer a non-superuser with CREATEDB); main cluster on 5432 untouched",
+  "shared_preload_libraries_note": "not readable by a non-superuser (pg_read_all_settings); ops/postgresql/corpus.conf sets pg_textsearch,pg_stat_statements,auto_explain",
+  "df_root": "/dev/nvme0n1p2  1.8T  1.7T  106G  95% /",
+  "at": "2026-10-28T19:28:15-0400",
+  "extensions": {
+   "pg_stat_statements": "1.12",
+   "pg_textsearch": "1.5.1",
+   "plpgsql": "1.0",
+   "vector": "0.8.7"
+  },
+  "ddl": {
+   "statements": 73,
+   "ms": 45.4,
+   "catalog": {
+    "tables": 40,
+    "views": 3,
+    "indexes": 88,
+    "constraints_by_type": {
+     "c": 47,
+     "f": 83,
+     "n": 275,
+     "p": 40,
+     "u": 24
+    },
+    "bm25_index": "CREATE INDEX segment_bm25 ON kb.segment USING bm25 (text) WITH (text_config=english) WHERE ((kind = ANY (ARRAY['paragraph'::text, 'heading'::text, 'list_item'::text, 'math_display'::text])) AND ((ts_config)::oid = ('english'::regconfig)::oid))",
+    "owner_is_superuser": false
+   }
+  },
+  "base_ms": 424.2,
+  "schema_slot_rows_added": 45,
+  "machine": {
+   "cpu": "AMD Ryzen 9 9950X3D 16-Core Processor",
+   "logical_cpus": 32,
+   "mem_total": "197452760 kB",
+   "kernel": "7.0.0-38-generic",
+   "python": "3.14.10",
+   "psycopg": "3.3.6",
+   "psycopg_impl": "binary",
+   "libpq": 180006,
+   "load_1_5_15": [
+    13.38330078125,
+    4.91748046875,
+    2.15625
+   ]
+  }
+ },
+ "s6_rerun_copy_type_notes": {
+  "score as float8 into real": "22P03: incorrect binary data format",
+  "payload as str into jsonb (declared jsonb)": "accepted"
+ },
+ "s6_rerun": {
+  "copy ops.task": {
+   "median": 107.1,
+   "min": 106.2,
+   "max": 108.8,
+   "n": 5,
+   "s6_volume_interim_cluster": 103.4,
+   "plan_rep0": null
+  },
+  "copy kb.observation": {
+   "median": 1190.8,
+   "min": 1185.4,
+   "max": 1214.8,
+   "n": 5,
+   "s6_volume_interim_cluster": 1109.7,
+   "plan_rep0": null
+  },
+  "copy kb.entity": {
+   "median": 44.0,
+   "min": 43.2,
+   "max": 45.6,
+   "n": 5,
+   "s6_volume_interim_cluster": null,
+   "plan_rep0": null
+  },
+  "copy kb.claim": {
+   "median": 232.6,
+   "min": 227.1,
+   "max": 244.9,
+   "n": 5,
+   "s6_volume_interim_cluster": 228.6,
+   "plan_rep0": null
+  },
+  "copy kb.claim_support + kb.claim_evidence": {
+   "median": 201.2,
+   "min": 200.2,
+   "max": 216.1,
+   "n": 5,
+   "s6_volume_interim_cluster": null,
+   "plan_rep0": null
+  },
+  "query: claims with qualifier param_values.variance (`@?`, no GIN)": {
+   "median": 1.052,
+   "min": 1.022,
+   "max": 1.094,
+   "n": 5,
+   "s6_volume_interim_cluster": 1.001,
+   "plan_rep0": "Index Scan using claim_pred on claim (actual rows=1410.00 loops=1)"
+  },
+  "query: why a method ran (one unit)": {
+   "median": 0.589,
+   "min": 0.574,
+   "max": 0.68,
+   "n": 5,
+   "s6_volume_interim_cluster": 0.559,
+   "plan_rep0": "Seq Scan on method m (actual rows=11.00 loops=1); Seq Scan on method_config mc (actual rows=13.00 loops=1); Seq Scan on task t (actual rows=5.00 loops=1); Seq Scan on policy_rule pr (actual rows=1.00 loops=1)"
+  },
+  "query: effective observations of one task (kb.run_observation)": {
+   "median": 0.587,
+   "min": 0.57,
+   "max": 0.61,
+   "n": 5,
+   "s6_volume_interim_cluster": null,
+   "plan_rep0": "Seq Scan on run r (actual rows=1.00 loops=1); Seq Scan on task t (actual rows=1.00 loops=1); Index Only Scan using observation_task_id_ordinal_key on observation o (actual rows=16.00 loops=1)"
+  },
+  "query: observations of the run by kind (kb.run_observation)": {
+   "median": 27.0,
+   "min": 26.659,
+   "max": 27.567,
+   "n": 5,
+   "s6_volume_interim_cluster": 17.931,
+   "plan_rep0": "Seq Scan on run r (actual rows=1.00 loops=1); Seq Scan on task t (actual rows=12500.00 loops=1); Index Scan using observation_task_id_ordinal_key on observation o (actual rows=8.00 loops=12500)"
+  },
+  "query: claims of one subject": {
+   "median": 0.037,
+   "min": 0.034,
+   "max": 0.053,
+   "n": 5,
+   "s6_volume_interim_cluster": null,
+   "plan_rep0": "Index Only Scan using claim_subject on claim (actual rows=4.00 loops=1)"
+  },
+  "delete materialized rows (entities, claims, cascades)": {
+   "median": 304.0,
+   "min": 300.1,
+   "max": 306.8,
+   "n": 5,
+   "s6_volume_interim_cluster": 260.8,
+   "plan_rep0": null
+  }
+ },
+ "s6_rerun_loadavg": [
+  {
+   "loadavg_before": [
+    13.38330078125,
+    4.91748046875,
+    2.15625
+   ],
+   "loadavg_after": [
+    12.7119140625,
+    4.9189453125,
+    2.171875
+   ],
+   "wall_s": 2.8
+  },
+  {
+   "loadavg_before": [
+    11.6669921875,
+    4.9541015625,
+    2.21337890625
+   ],
+   "loadavg_after": [
+    11.1328125,
+    4.955078125,
+    2.228515625
+   ],
+   "wall_s": 2.8
+  },
+  {
+   "loadavg_before": [
+    10.11572265625,
+    4.9404296875,
+    2.25341796875
+   ],
+   "loadavg_after": [
+    9.7060546875,
+    4.94189453125,
+    2.2685546875
+   ],
+   "wall_s": 2.8
+  },
+  {
+   "loadavg_before": [
+    9.0625,
+    4.96044921875,
+    2.3037109375
+   ],
+   "loadavg_after": [
+    8.65673828125,
+    4.9443359375,
+    2.31298828125
+   ],
+   "wall_s": 2.8
+  },
+  {
+   "loadavg_before": [
+    8.09423828125,
+    4.9462890625,
+    2.34228515625
+   ],
+   "loadavg_after": [
+    7.76611328125,
+    4.93017578125,
+    2.3515625
+   ],
+   "wall_s": 2.8
+  }
+ ],
+ "target": {
+  "t_all @ 100000 claims": {
+   "variant": "t_all",
+   "claims_n": 100000,
+   "steps": {
+    "ops.task": {
+     "median": 107.9,
+     "min": 107.5,
+     "max": 109.9,
+     "n": 3
+    },
+    "kb.observation": {
+     "median": 1196.1,
+     "min": 1177.1,
+     "max": 1255.7,
+     "n": 3
+    },
+    "kb.entity": {
+     "median": 259.1,
+     "min": 253.4,
+     "max": 273.2,
+     "n": 3
+    },
+    "kb.claim": {
+     "median": 2094.9,
+     "min": 2078.1,
+     "max": 2097.8,
+     "n": 3
+    },
+    "kb.claim_support": {
+     "median": 527.6,
+     "min": 503.5,
+     "max": 569.9,
+     "n": 3
+    },
+    "kb.claim_evidence": {
+     "median": 486.9,
+     "min": 484.4,
+     "max": 497.4,
+     "n": 3
+    },
+    "kb.claim_ref": {
+     "median": 666.2,
+     "min": 661.4,
+     "max": 677.3,
+     "n": 3
+    },
+    "kb.claim_entity_ref": {
+     "median": 2654.8,
+     "min": 2634.8,
+     "max": 2750.6,
+     "n": 3
+    }
+   },
+   "materialized_ms": {
+    "median": 6744.0,
+    "min": 6626.1,
+    "max": 6801.2,
+    "n": 3
+   },
+   "edges_ms": {
+    "median": 3316.2,
+    "min": 3301.0,
+    "max": 3427.8999999999996,
+    "n": 3
+   },
+   "load_ms": {
+    "median": 8104.8,
+    "min": 7911.1,
+    "max": 8109.6,
+    "n": 3
+   },
+   "deletion_ms": {
+    "median": 2665.6,
+    "min": 2661.7,
+    "max": 2673.7,
+    "n": 3
+   },
+   "py_check_ms": {
+    "median": 21.2,
+    "min": 20.21,
+    "max": 21.52,
+    "n": 3
+   },
+   "rows": {
+    "ops.task": 12500,
+    "kb.observation": 100000,
+    "kb.entity": 27500,
+    "kb.claim": 100000,
+    "kb.claim_support": 100000,
+    "kb.claim_evidence": 100000,
+    "kb.claim_ref": 100000,
+    "kb.claim_entity_ref": 400000
+   },
+   "negatives": {
+    "claim_ref target in another run (INV-08)": "refused 23503 (claim_ref_target_same_run)",
+    "claim_entity_ref entity in another run": "refused 23503 (claim_entity_ref_entity_same_run)",
+    "claim predicate not in the version's slots (INV-03)": "refused 23503 (claim_predicate_in_version)",
+    "statement kind not in the version's members": "refused 23503 (entity_kind_in_version)"
+   },
+   "deletion_ok": [
+    true,
+    true,
+    true
+   ],
+   "loadavg_1m": [
+    6.99,
+    7.64,
+    5.4
+   ],
+   "sizes_total_index_bytes": {
+    "kb.claim": [
+     64897024,
+     18235392
+    ],
+    "kb.entity": [
+     7340032,
+     3686400
+    ],
+    "kb.claim_ref": [
+     20389888,
+     10067968
+    ],
+    "kb.claim_entity_ref": [
+     80920576,
+     38608896
+    ],
+    "kb.observation": [
+     49102848,
+     7004160
+    ]
+   },
+   "explain_triggers_rep0": [
+    "eval.result: Delete on result (actual time=0.003..0.004 rows=0.00 loops=1)",
+    "eval.result: Execution Time: 0.023 ms",
+    "eval.alignment: Delete on alignment (actual time=0.002..0.002 rows=0.00 loops=1)",
+    "eval.alignment: Execution Time: 0.009 ms",
+    "kb.claim_link: Delete on claim_link (actual time=0.002..0.002 rows=0.00 loops=1)",
+    "kb.claim_link: Execution Time: 0.009 ms",
+    "kb.claim: Delete on claim (actual time=43.412..43.412 rows=0.00 loops=1)",
+    "kb.claim: Trigger for constraint claim_evidence_claim_id_fkey: time=234.271 calls=100000",
+    "kb.claim: Trigger for constraint claim_support_claim_id_fkey: time=217.341 calls=100000",
+    "kb.claim: Trigger for constraint claim_link_from_claim_id_fkey: time=179.441 calls=100000",
+    "kb.claim: Trigger for constraint claim_link_to_claim_id_fkey: time=177.872 calls=100000",
+    "kb.claim: Trigger for constraint claim_ref_claim: time=228.396 calls=100000",
+    "kb.claim: Trigger for constraint claim_ref_target_same_run: time=236.138 calls=100000",
+    "kb.claim: Trigger for constraint claim_entity_ref_claim: time=319.454 calls=100000",
+    "kb.claim: Execution Time: 1657.133 ms",
+    "kb.entity: Delete on entity (actual time=10.622..10.622 rows=0.00 loops=1)",
+    "kb.entity: Trigger for constraint entity_alias_entity_id_fkey: time=107.928 calls=27500",
+    "kb.entity: Trigger for constraint entity_anchor_entity_id_fkey: time=90.421 calls=27500",
+    "kb.entity: Trigger for constraint entity_mention_entity_id_fkey: time=82.002 calls=27500",
+    "kb.entity: Trigger for constraint claim_subject_id_fkey: time=152.845 calls=27500",
+    "kb.entity: Trigger for constraint claim_object_entity_id_fkey: time=146.531 calls=27500",
+    "kb.entity: Trigger for constraint claim_statement_id_fkey: time=128.133 calls=27500",
+    "kb.entity: Trigger for constraint claim_attribution_same_run: time=118.168 calls=27500",
+    "kb.entity: Trigger for constraint claim_entity_ref_entity_same_run: time=166.017 calls=27500",
+    "kb.entity: Execution Time: 1009.477 ms"
+   ],
+   "constraints": [
+    [
+     "kb.claim",
+     "claim_attribution_same_run",
+     "f",
+     "FOREIGN KEY (run_id, attribution_entity_id) REFERENCES kb.entity(run_id, id)"
+    ],
+    [
+     "kb.claim",
+     "claim_object_entity_id_fkey",
+     "f",
+     "FOREIGN KEY (object_entity_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_predicate_in_version",
+     "f",
+     "FOREIGN KEY (schema_version_id, predicate) REFERENCES meta.schema_slot(schema_version_id, name)"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_key",
+     "u",
+     "UNIQUE (run_id, id)"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.claim",
+     "claim_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_statement_id_fkey",
+     "f",
+     "FOREIGN KEY (statement_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_subject_id_fkey",
+     "f",
+     "FOREIGN KEY (subject_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim_entity_ref",
+     "claim_entity_ref_claim",
+     "f",
+     "FOREIGN KEY (run_id, claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_entity_ref",
+     "claim_entity_ref_entity_same_run",
+     "f",
+     "FOREIGN KEY (run_id, entity_id) REFERENCES kb.entity(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_ref",
+     "claim_ref_claim",
+     "f",
+     "FOREIGN KEY (run_id, claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_ref",
+     "claim_ref_target_same_run",
+     "f",
+     "FOREIGN KEY (run_id, target_claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.entity",
+     "entity_kind_in_version",
+     "f",
+     "FOREIGN KEY (schema_version_id, kind) REFERENCES meta.statement_kind(schema_version_id, value)"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_key",
+     "u",
+     "UNIQUE (run_id, id)"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.entity",
+     "entity_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.entity",
+     "entity_scope_segment_id_fkey",
+     "f",
+     "FOREIGN KEY (scope_segment_id) REFERENCES kb.segment(id)"
+    ]
+   ]
+  },
+  "t_all @ 20000 claims": {
+   "variant": "t_all",
+   "claims_n": 20000,
+   "steps": {
+    "ops.task": {
+     "median": 108.9,
+     "min": 106.5,
+     "max": 109.3,
+     "n": 5
+    },
+    "kb.observation": {
+     "median": 1192.0,
+     "min": 1172.7,
+     "max": 1246.5,
+     "n": 5
+    },
+    "kb.entity": {
+     "median": 76.7,
+     "min": 74.7,
+     "max": 78.3,
+     "n": 5
+    },
+    "kb.claim": {
+     "median": 401.6,
+     "min": 390.5,
+     "max": 413.1,
+     "n": 5
+    },
+    "kb.claim_support": {
+     "median": 103.9,
+     "min": 102.0,
+     "max": 114.7,
+     "n": 5
+    },
+    "kb.claim_evidence": {
+     "median": 99.6,
+     "min": 98.9,
+     "max": 102.4,
+     "n": 5
+    },
+    "kb.claim_ref": {
+     "median": 127.3,
+     "min": 125.9,
+     "max": 133.9,
+     "n": 5
+    },
+    "kb.claim_entity_ref": {
+     "median": 506.0,
+     "min": 499.4,
+     "max": 511.4,
+     "n": 5
+    }
+   },
+   "materialized_ms": {
+    "median": 1319.1,
+    "min": 1292.1,
+    "max": 1345.1,
+    "n": 5
+   },
+   "edges_ms": {
+    "median": 634.5,
+    "min": 625.9,
+    "max": 641.9,
+    "n": 5
+   },
+   "load_ms": {
+    "median": 2613.5,
+    "min": 2590.6,
+    "max": 2700.8,
+    "n": 5
+   },
+   "deletion_ms": {
+    "median": 578.3,
+    "min": 577.6,
+    "max": 582.9,
+    "n": 5
+   },
+   "py_check_ms": {
+    "median": 3.62,
+    "min": 3.51,
+    "max": 3.65,
+    "n": 5
+   },
+   "rows": {
+    "ops.task": 12500,
+    "kb.observation": 100000,
+    "kb.entity": 7500,
+    "kb.claim": 20000,
+    "kb.claim_support": 20000,
+    "kb.claim_evidence": 20000,
+    "kb.claim_ref": 20000,
+    "kb.claim_entity_ref": 80000
+   },
+   "negatives": {
+    "claim_ref target in another run (INV-08)": "refused 23503 (claim_ref_target_same_run)",
+    "claim_entity_ref entity in another run": "refused 23503 (claim_entity_ref_entity_same_run)",
+    "claim predicate not in the version's slots (INV-03)": "refused 23503 (claim_predicate_in_version)",
+    "statement kind not in the version's members": "refused 23503 (entity_kind_in_version)"
+   },
+   "deletion_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "loadavg_1m": [
+    12.33,
+    10.56,
+    9.71,
+    8.36,
+    7.46
+   ],
+   "sizes_total_index_bytes": {
+    "kb.claim": [
+     13295616,
+     3866624
+    ],
+    "kb.entity": [
+     2080768,
+     1048576
+    ],
+    "kb.claim_ref": [
+     4612096,
+     2154496
+    ],
+    "kb.claim_entity_ref": [
+     16490496,
+     7741440
+    ],
+    "kb.observation": [
+     49102848,
+     7004160
+    ]
+   },
+   "explain_triggers_rep0": [
+    "eval.result: Delete on result (actual time=0.004..0.004 rows=0.00 loops=1)",
+    "eval.result: Execution Time: 0.023 ms",
+    "eval.alignment: Delete on alignment (actual time=0.002..0.002 rows=0.00 loops=1)",
+    "eval.alignment: Execution Time: 0.008 ms",
+    "kb.claim_link: Delete on claim_link (actual time=0.002..0.002 rows=0.00 loops=1)",
+    "kb.claim_link: Execution Time: 0.008 ms",
+    "kb.claim: Delete on claim (actual time=14.256..14.257 rows=0.00 loops=1)",
+    "kb.claim: Trigger for constraint claim_evidence_claim_id_fkey: time=45.400 calls=20000",
+    "kb.claim: Trigger for constraint claim_support_claim_id_fkey: time=43.267 calls=20000",
+    "kb.claim: Trigger for constraint claim_link_from_claim_id_fkey: time=36.296 calls=20000",
+    "kb.claim: Trigger for constraint claim_link_to_claim_id_fkey: time=36.097 calls=20000",
+    "kb.claim: Trigger for constraint claim_ref_claim: time=44.267 calls=20000",
+    "kb.claim: Trigger for constraint claim_ref_target_same_run: time=44.701 calls=20000",
+    "kb.claim: Trigger for constraint claim_entity_ref_claim: time=64.541 calls=20000",
+    "kb.claim: Execution Time: 332.995 ms",
+    "kb.entity: Delete on entity (actual time=3.176..3.176 rows=0.00 loops=1)",
+    "kb.entity: Trigger for constraint entity_alias_entity_id_fkey: time=29.370 calls=7500",
+    "kb.entity: Trigger for constraint entity_anchor_entity_id_fkey: time=25.044 calls=7500",
+    "kb.entity: Trigger for constraint entity_mention_entity_id_fkey: time=22.638 calls=7500",
+    "kb.entity: Trigger for constraint claim_subject_id_fkey: time=39.869 calls=7500",
+    "kb.entity: Trigger for constraint claim_object_entity_id_fkey: time=38.354 calls=7500",
+    "kb.entity: Trigger for constraint claim_statement_id_fkey: time=35.216 calls=7500",
+    "kb.entity: Trigger for constraint claim_attribution_same_run: time=31.781 calls=7500",
+    "kb.entity: Trigger for constraint claim_entity_ref_entity_same_run: time=30.487 calls=7500",
+    "kb.entity: Execution Time: 257.748 ms"
+   ],
+   "constraints": [
+    [
+     "kb.claim",
+     "claim_attribution_same_run",
+     "f",
+     "FOREIGN KEY (run_id, attribution_entity_id) REFERENCES kb.entity(run_id, id)"
+    ],
+    [
+     "kb.claim",
+     "claim_object_entity_id_fkey",
+     "f",
+     "FOREIGN KEY (object_entity_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_predicate_in_version",
+     "f",
+     "FOREIGN KEY (schema_version_id, predicate) REFERENCES meta.schema_slot(schema_version_id, name)"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_key",
+     "u",
+     "UNIQUE (run_id, id)"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.claim",
+     "claim_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_statement_id_fkey",
+     "f",
+     "FOREIGN KEY (statement_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_subject_id_fkey",
+     "f",
+     "FOREIGN KEY (subject_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim_entity_ref",
+     "claim_entity_ref_claim",
+     "f",
+     "FOREIGN KEY (run_id, claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_entity_ref",
+     "claim_entity_ref_entity_same_run",
+     "f",
+     "FOREIGN KEY (run_id, entity_id) REFERENCES kb.entity(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_ref",
+     "claim_ref_claim",
+     "f",
+     "FOREIGN KEY (run_id, claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_ref",
+     "claim_ref_target_same_run",
+     "f",
+     "FOREIGN KEY (run_id, target_claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.entity",
+     "entity_kind_in_version",
+     "f",
+     "FOREIGN KEY (schema_version_id, kind) REFERENCES meta.statement_kind(schema_version_id, value)"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_key",
+     "u",
+     "UNIQUE (run_id, id)"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.entity",
+     "entity_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.entity",
+     "entity_scope_segment_id_fkey",
+     "f",
+     "FOREIGN KEY (scope_segment_id) REFERENCES kb.segment(id)"
+    ]
+   ]
+  },
+  "t_none @ 100000 claims": {
+   "variant": "t_none",
+   "claims_n": 100000,
+   "steps": {
+    "ops.task": {
+     "median": 109.6,
+     "min": 108.1,
+     "max": 110.0,
+     "n": 3
+    },
+    "kb.observation": {
+     "median": 1195.8,
+     "min": 1178.9,
+     "max": 1196.3,
+     "n": 3
+    },
+    "kb.entity": {
+     "median": 233.5,
+     "min": 230.5,
+     "max": 233.9,
+     "n": 3
+    },
+    "kb.claim": {
+     "median": 1678.0,
+     "min": 1673.6,
+     "max": 1700.5,
+     "n": 3
+    },
+    "kb.claim_support": {
+     "median": 510.7,
+     "min": 503.4,
+     "max": 548.1,
+     "n": 3
+    },
+    "kb.claim_evidence": {
+     "median": 490.8,
+     "min": 487.2,
+     "max": 494.6,
+     "n": 3
+    },
+    "kb.claim_ref": {
+     "median": 127.0,
+     "min": 124.4,
+     "max": 136.0,
+     "n": 3
+    },
+    "kb.claim_entity_ref": {
+     "median": 732.0,
+     "min": 706.7,
+     "max": 779.8,
+     "n": 3
+    }
+   },
+   "materialized_ms": {
+    "median": 3807.7,
+    "min": 3735.8,
+    "max": 3847.2,
+    "n": 3
+   },
+   "edges_ms": {
+    "median": 868.0,
+    "min": 833.7,
+    "max": 904.1999999999999,
+    "n": 3
+   },
+   "load_ms": {
+    "median": 5096.6,
+    "min": 5040.2,
+    "max": 5152.599999999999,
+    "n": 3
+   },
+   "deletion_ms": {
+    "median": 1679.9,
+    "min": 1638.8,
+    "max": 1700.2,
+    "n": 3
+   },
+   "py_check_ms": {
+    "median": 19.2,
+    "min": 18.59,
+    "max": 22.21,
+    "n": 3
+   },
+   "rows": {
+    "ops.task": 12500,
+    "kb.observation": 100000,
+    "kb.entity": 27500,
+    "kb.claim": 100000,
+    "kb.claim_support": 100000,
+    "kb.claim_evidence": 100000,
+    "kb.claim_ref": 100000,
+    "kb.claim_entity_ref": 400000
+   },
+   "negatives": {
+    "claim_ref target in another run (INV-08)": "accepted",
+    "claim_entity_ref entity in another run": "accepted",
+    "claim predicate not in the version's slots (INV-03)": "accepted",
+    "statement kind not in the version's members": "accepted"
+   },
+   "deletion_ok": [
+    true,
+    true,
+    true
+   ],
+   "loadavg_1m": [
+    7.27,
+    6.91,
+    5.39
+   ],
+   "sizes_total_index_bytes": {
+    "kb.claim": [
+     61521920,
+     14860288
+    ],
+    "kb.entity": [
+     6455296,
+     2801664
+    ],
+    "kb.claim_ref": [
+     20389888,
+     10067968
+    ],
+    "kb.claim_entity_ref": [
+     80920576,
+     38608896
+    ],
+    "kb.observation": [
+     49102848,
+     7004160
+    ]
+   },
+   "explain_triggers_rep0": [
+    "eval.result: Delete on result (actual time=0.003..0.003 rows=0.00 loops=1)",
+    "eval.result: Execution Time: 0.022 ms",
+    "eval.alignment: Delete on alignment (actual time=0.002..0.002 rows=0.00 loops=1)",
+    "eval.alignment: Execution Time: 0.009 ms",
+    "kb.claim_link: Delete on claim_link (actual time=0.002..0.002 rows=0.00 loops=1)",
+    "kb.claim_link: Execution Time: 0.008 ms",
+    "kb.claim_ref: Delete on claim_ref (actual time=18.240..18.240 rows=0.00 loops=1)",
+    "kb.claim_ref: Execution Time: 18.246 ms",
+    "kb.claim_entity_ref: Delete on claim_entity_ref (actual time=84.206..84.206 rows=0.00 loops=1)",
+    "kb.claim_entity_ref: Execution Time: 84.223 ms",
+    "kb.claim: Delete on claim (actual time=59.586..59.587 rows=0.00 loops=1)",
+    "kb.claim: Trigger for constraint claim_evidence_claim_id_fkey: time=243.214 calls=100000",
+    "kb.claim: Trigger for constraint claim_support_claim_id_fkey: time=217.480 calls=100000",
+    "kb.claim: Trigger for constraint claim_link_from_claim_id_fkey: time=180.022 calls=100000",
+    "kb.claim: Trigger for constraint claim_link_to_claim_id_fkey: time=178.823 calls=100000",
+    "kb.claim: Execution Time: 890.379 ms",
+    "kb.entity: Delete on entity (actual time=9.729..9.730 rows=0.00 loops=1)",
+    "kb.entity: Trigger for constraint entity_alias_entity_id_fkey: time=110.135 calls=27500",
+    "kb.entity: Trigger for constraint entity_anchor_entity_id_fkey: time=93.435 calls=27500",
+    "kb.entity: Trigger for constraint entity_mention_entity_id_fkey: time=84.206 calls=27500",
+    "kb.entity: Trigger for constraint claim_subject_id_fkey: time=154.393 calls=27500",
+    "kb.entity: Trigger for constraint claim_object_entity_id_fkey: time=145.992 calls=27500",
+    "kb.entity: Trigger for constraint claim_statement_id_fkey: time=129.353 calls=27500",
+    "kb.entity: Execution Time: 732.040 ms"
+   ],
+   "constraints": [
+    [
+     "kb.claim",
+     "claim_object_entity_id_fkey",
+     "f",
+     "FOREIGN KEY (object_entity_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.claim",
+     "claim_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_statement_id_fkey",
+     "f",
+     "FOREIGN KEY (statement_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_subject_id_fkey",
+     "f",
+     "FOREIGN KEY (subject_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.entity",
+     "entity_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.entity",
+     "entity_scope_segment_id_fkey",
+     "f",
+     "FOREIGN KEY (scope_segment_id) REFERENCES kb.segment(id)"
+    ]
+   ]
+  },
+  "t_none @ 20000 claims": {
+   "variant": "t_none",
+   "claims_n": 20000,
+   "steps": {
+    "ops.task": {
+     "median": 110.4,
+     "min": 109.3,
+     "max": 111.3,
+     "n": 5
+    },
+    "kb.observation": {
+     "median": 1196.3,
+     "min": 1189.5,
+     "max": 1227.7,
+     "n": 5
+    },
+    "kb.entity": {
+     "median": 65.1,
+     "min": 64.6,
+     "max": 67.9,
+     "n": 5
+    },
+    "kb.claim": {
+     "median": 321.2,
+     "min": 316.9,
+     "max": 331.0,
+     "n": 5
+    },
+    "kb.claim_support": {
+     "median": 104.1,
+     "min": 102.1,
+     "max": 144.5,
+     "n": 5
+    },
+    "kb.claim_evidence": {
+     "median": 101.1,
+     "min": 98.8,
+     "max": 103.2,
+     "n": 5
+    },
+    "kb.claim_ref": {
+     "median": 25.7,
+     "min": 25.4,
+     "max": 26.4,
+     "n": 5
+    },
+    "kb.claim_entity_ref": {
+     "median": 121.8,
+     "min": 111.6,
+     "max": 127.1,
+     "n": 5
+    }
+   },
+   "materialized_ms": {
+    "median": 742.4,
+    "min": 735.5,
+    "max": 777.1,
+    "n": 5
+   },
+   "edges_ms": {
+    "median": 147.9,
+    "min": 137.0,
+    "max": 153.5,
+    "n": 5
+   },
+   "load_ms": {
+    "median": 2048.9,
+    "min": 2042.3,
+    "max": 2115.0,
+    "n": 5
+   },
+   "deletion_ms": {
+    "median": 375.6,
+    "min": 372.6,
+    "max": 381.6,
+    "n": 5
+   },
+   "py_check_ms": {
+    "median": 3.75,
+    "min": 3.53,
+    "max": 4.18,
+    "n": 5
+   },
+   "rows": {
+    "ops.task": 12500,
+    "kb.observation": 100000,
+    "kb.entity": 7500,
+    "kb.claim": 20000,
+    "kb.claim_support": 20000,
+    "kb.claim_evidence": 20000,
+    "kb.claim_ref": 20000,
+    "kb.claim_entity_ref": 80000
+   },
+   "negatives": {
+    "claim_ref target in another run (INV-08)": "accepted",
+    "claim_entity_ref entity in another run": "accepted",
+    "claim predicate not in the version's slots (INV-03)": "accepted",
+    "statement kind not in the version's members": "accepted"
+   },
+   "deletion_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "loadavg_1m": [
+    12.71,
+    10.12,
+    9.33,
+    8.66,
+    7.27
+   ],
+   "sizes_total_index_bytes": {
+    "kb.claim": [
+     12582912,
+     3153920
+    ],
+    "kb.entity": [
+     1826816,
+     794624
+    ],
+    "kb.claim_ref": [
+     4612096,
+     2154496
+    ],
+    "kb.claim_entity_ref": [
+     16490496,
+     7741440
+    ],
+    "kb.observation": [
+     49102848,
+     7004160
+    ]
+   },
+   "explain_triggers_rep0": [
+    "eval.result: Delete on result (actual time=0.003..0.003 rows=0.00 loops=1)",
+    "eval.result: Execution Time: 0.020 ms",
+    "eval.alignment: Delete on alignment (actual time=0.002..0.002 rows=0.00 loops=1)",
+    "eval.alignment: Execution Time: 0.008 ms",
+    "kb.claim_link: Delete on claim_link (actual time=0.002..0.002 rows=0.00 loops=1)",
+    "kb.claim_link: Execution Time: 0.008 ms",
+    "kb.claim_ref: Delete on claim_ref (actual time=3.539..3.539 rows=0.00 loops=1)",
+    "kb.claim_ref: Execution Time: 3.545 ms",
+    "kb.claim_entity_ref: Delete on claim_entity_ref (actual time=14.639..14.639 rows=0.00 loops=1)",
+    "kb.claim_entity_ref: Execution Time: 14.650 ms",
+    "kb.claim: Delete on claim (actual time=7.220..7.221 rows=0.00 loops=1)",
+    "kb.claim: Trigger for constraint claim_evidence_claim_id_fkey: time=44.928 calls=20000",
+    "kb.claim: Trigger for constraint claim_support_claim_id_fkey: time=42.448 calls=20000",
+    "kb.claim: Trigger for constraint claim_link_from_claim_id_fkey: time=35.363 calls=20000",
+    "kb.claim: Trigger for constraint claim_link_to_claim_id_fkey: time=35.220 calls=20000",
+    "kb.claim: Execution Time: 167.465 ms",
+    "kb.entity: Delete on entity (actual time=2.696..2.696 rows=0.00 loops=1)",
+    "kb.entity: Trigger for constraint entity_alias_entity_id_fkey: time=30.022 calls=7500",
+    "kb.entity: Trigger for constraint entity_anchor_entity_id_fkey: time=25.013 calls=7500",
+    "kb.entity: Trigger for constraint entity_mention_entity_id_fkey: time=22.667 calls=7500",
+    "kb.entity: Trigger for constraint claim_subject_id_fkey: time=39.441 calls=7500",
+    "kb.entity: Trigger for constraint claim_object_entity_id_fkey: time=38.370 calls=7500",
+    "kb.entity: Trigger for constraint claim_statement_id_fkey: time=34.700 calls=7500",
+    "kb.entity: Execution Time: 194.255 ms"
+   ],
+   "constraints": [
+    [
+     "kb.claim",
+     "claim_object_entity_id_fkey",
+     "f",
+     "FOREIGN KEY (object_entity_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.claim",
+     "claim_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_statement_id_fkey",
+     "f",
+     "FOREIGN KEY (statement_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_subject_id_fkey",
+     "f",
+     "FOREIGN KEY (subject_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.entity",
+     "entity_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.entity",
+     "entity_scope_segment_id_fkey",
+     "f",
+     "FOREIGN KEY (scope_segment_id) REFERENCES kb.segment(id)"
+    ]
+   ]
+  },
+  "t_samerun @ 20000 claims": {
+   "variant": "t_samerun",
+   "claims_n": 20000,
+   "steps": {
+    "ops.task": {
+     "median": 109.4,
+     "min": 108.0,
+     "max": 112.3,
+     "n": 5
+    },
+    "kb.observation": {
+     "median": 1181.5,
+     "min": 1176.3,
+     "max": 1198.1,
+     "n": 5
+    },
+    "kb.entity": {
+     "median": 67.8,
+     "min": 66.9,
+     "max": 69.4,
+     "n": 5
+    },
+    "kb.claim": {
+     "median": 350.1,
+     "min": 340.0,
+     "max": 361.9,
+     "n": 5
+    },
+    "kb.claim_support": {
+     "median": 102.8,
+     "min": 101.8,
+     "max": 103.4,
+     "n": 5
+    },
+    "kb.claim_evidence": {
+     "median": 99.3,
+     "min": 98.7,
+     "max": 99.6,
+     "n": 5
+    },
+    "kb.claim_ref": {
+     "median": 127.0,
+     "min": 125.0,
+     "max": 127.8,
+     "n": 5
+    },
+    "kb.claim_entity_ref": {
+     "median": 507.2,
+     "min": 503.6,
+     "max": 511.8,
+     "n": 5
+    }
+   },
+   "materialized_ms": {
+    "median": 1254.6,
+    "min": 1246.5,
+    "max": 1264.3,
+    "n": 5
+   },
+   "edges_ms": {
+    "median": 632.2,
+    "min": 630.5,
+    "max": 639.1,
+    "n": 5
+   },
+   "load_ms": {
+    "median": 2545.5,
+    "min": 2536.1,
+    "max": 2570.2000000000003,
+    "n": 5
+   },
+   "deletion_ms": {
+    "median": 578.6,
+    "min": 574.4,
+    "max": 587.0,
+    "n": 5
+   },
+   "py_check_ms": {
+    "median": 3.67,
+    "min": 3.53,
+    "max": 3.76,
+    "n": 5
+   },
+   "rows": {
+    "ops.task": 12500,
+    "kb.observation": 100000,
+    "kb.entity": 7500,
+    "kb.claim": 20000,
+    "kb.claim_support": 20000,
+    "kb.claim_evidence": 20000,
+    "kb.claim_ref": 20000,
+    "kb.claim_entity_ref": 80000
+   },
+   "negatives": {
+    "claim_ref target in another run (INV-08)": "refused 23503 (claim_ref_target_same_run)",
+    "claim_entity_ref entity in another run": "refused 23503 (claim_entity_ref_entity_same_run)",
+    "claim predicate not in the version's slots (INV-03)": "accepted",
+    "statement kind not in the version's members": "accepted"
+   },
+   "deletion_ok": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "loadavg_1m": [
+    12.71,
+    11.13,
+    9.33,
+    8.36,
+    7.77
+   ],
+   "sizes_total_index_bytes": {
+    "kb.claim": [
+     13295616,
+     3866624
+    ],
+    "kb.entity": [
+     2080768,
+     1048576
+    ],
+    "kb.claim_ref": [
+     4612096,
+     2154496
+    ],
+    "kb.claim_entity_ref": [
+     16490496,
+     7741440
+    ],
+    "kb.observation": [
+     49102848,
+     7004160
+    ]
+   },
+   "explain_triggers_rep0": [
+    "eval.result: Delete on result (actual time=0.003..0.003 rows=0.00 loops=1)",
+    "eval.result: Execution Time: 0.018 ms",
+    "eval.alignment: Delete on alignment (actual time=0.001..0.001 rows=0.00 loops=1)",
+    "eval.alignment: Execution Time: 0.005 ms",
+    "kb.claim_link: Delete on claim_link (actual time=0.001..0.001 rows=0.00 loops=1)",
+    "kb.claim_link: Execution Time: 0.006 ms",
+    "kb.claim: Delete on claim (actual time=8.463..8.463 rows=0.00 loops=1)",
+    "kb.claim: Trigger for constraint claim_evidence_claim_id_fkey: time=46.984 calls=20000",
+    "kb.claim: Trigger for constraint claim_support_claim_id_fkey: time=43.559 calls=20000",
+    "kb.claim: Trigger for constraint claim_link_from_claim_id_fkey: time=36.021 calls=20000",
+    "kb.claim: Trigger for constraint claim_link_to_claim_id_fkey: time=35.802 calls=20000",
+    "kb.claim: Trigger for constraint claim_ref_claim: time=44.769 calls=20000",
+    "kb.claim: Trigger for constraint claim_ref_target_same_run: time=45.620 calls=20000",
+    "kb.claim: Trigger for constraint claim_entity_ref_claim: time=63.935 calls=20000",
+    "kb.claim: Execution Time: 329.400 ms",
+    "kb.entity: Delete on entity (actual time=2.901..2.901 rows=0.00 loops=1)",
+    "kb.entity: Trigger for constraint entity_alias_entity_id_fkey: time=30.065 calls=7500",
+    "kb.entity: Trigger for constraint entity_anchor_entity_id_fkey: time=24.821 calls=7500",
+    "kb.entity: Trigger for constraint entity_mention_entity_id_fkey: time=22.689 calls=7500",
+    "kb.entity: Trigger for constraint claim_subject_id_fkey: time=39.222 calls=7500",
+    "kb.entity: Trigger for constraint claim_object_entity_id_fkey: time=38.145 calls=7500",
+    "kb.entity: Trigger for constraint claim_statement_id_fkey: time=34.515 calls=7500",
+    "kb.entity: Trigger for constraint claim_attribution_same_run: time=31.591 calls=7500",
+    "kb.entity: Trigger for constraint claim_entity_ref_entity_same_run: time=30.959 calls=7500",
+    "kb.entity: Execution Time: 256.670 ms"
+   ],
+   "constraints": [
+    [
+     "kb.claim",
+     "claim_attribution_same_run",
+     "f",
+     "FOREIGN KEY (run_id, attribution_entity_id) REFERENCES kb.entity(run_id, id)"
+    ],
+    [
+     "kb.claim",
+     "claim_object_entity_id_fkey",
+     "f",
+     "FOREIGN KEY (object_entity_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_key",
+     "u",
+     "UNIQUE (run_id, id)"
+    ],
+    [
+     "kb.claim",
+     "claim_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.claim",
+     "claim_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_statement_id_fkey",
+     "f",
+     "FOREIGN KEY (statement_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim",
+     "claim_subject_id_fkey",
+     "f",
+     "FOREIGN KEY (subject_id) REFERENCES kb.entity(id)"
+    ],
+    [
+     "kb.claim_entity_ref",
+     "claim_entity_ref_claim",
+     "f",
+     "FOREIGN KEY (run_id, claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_entity_ref",
+     "claim_entity_ref_entity_same_run",
+     "f",
+     "FOREIGN KEY (run_id, entity_id) REFERENCES kb.entity(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_ref",
+     "claim_ref_claim",
+     "f",
+     "FOREIGN KEY (run_id, claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.claim_ref",
+     "claim_ref_target_same_run",
+     "f",
+     "FOREIGN KEY (run_id, target_claim_id) REFERENCES kb.claim(run_id, id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_fkey",
+     "f",
+     "FOREIGN KEY (run_id) REFERENCES ops.run(id) ON DELETE CASCADE"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_key",
+     "u",
+     "UNIQUE (run_id, id)"
+    ],
+    [
+     "kb.entity",
+     "entity_run_id_key_key",
+     "u",
+     "UNIQUE (run_id, key)"
+    ],
+    [
+     "kb.entity",
+     "entity_schema_version_id_fkey",
+     "f",
+     "FOREIGN KEY (schema_version_id) REFERENCES meta.schema_version(id)"
+    ],
+    [
+     "kb.entity",
+     "entity_scope_segment_id_fkey",
+     "f",
+     "FOREIGN KEY (scope_segment_id) REFERENCES kb.segment(id)"
+    ]
+   ]
+  }
+ },
+ "fk_overhead_medians": {
+  "t_samerun - t_none @ 20000": {
+   "materialized_ms": 512.2,
+   "edges_ms": 484.3,
+   "load_ms": 496.6,
+   "deletion_ms": 203.0,
+   "claim_ms": 28.9,
+   "entity_ms": 2.7,
+   "load_ratio": 1.242,
+   "materialized_ratio": 1.69
+  },
+  "t_all - t_none @ 20000": {
+   "materialized_ms": 576.7,
+   "edges_ms": 486.6,
+   "load_ms": 564.6,
+   "deletion_ms": 202.7,
+   "claim_ms": 80.4,
+   "entity_ms": 11.6,
+   "load_ratio": 1.276,
+   "materialized_ratio": 1.777
+  },
+  "t_all - t_none @ 100000": {
+   "materialized_ms": 2936.3,
+   "edges_ms": 2448.2,
+   "load_ms": 3008.2,
+   "deletion_ms": 985.7,
+   "claim_ms": 416.9,
+   "entity_ms": 25.6,
+   "load_ratio": 1.59,
+   "materialized_ratio": 1.771
+  }
+ }
+}

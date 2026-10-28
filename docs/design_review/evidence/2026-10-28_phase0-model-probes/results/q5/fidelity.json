@@ -1,0 +1,544 @@
+{
+ "versions": {
+  "adbc-driver-postgresql": "1.13.0",
+  "adbc-driver-manager": "1.13.0",
+  "duckdb": "2.0.0",
+  "pyarrow": "26.0.0",
+  "pgpq": "0.12.0",
+  "psycopg": "3.3.6",
+  "psycopg-binary": "3.3.6"
+ },
+ "at": "2026-10-28T19:36:23-0400",
+ "adbc_schema": [
+  {
+   "name": "id",
+   "type": "int64",
+   "metadata": {
+    "POSTGRESQL:type": "int8"
+   }
+  },
+  {
+   "name": "run_id",
+   "type": "int64",
+   "metadata": {
+    "POSTGRESQL:type": "int8"
+   }
+  },
+  {
+   "name": "kind",
+   "type": "string",
+   "metadata": {
+    "POSTGRESQL:type": "text"
+   }
+  },
+  {
+   "name": "payload",
+   "type": "extension<arrow.json>",
+   "metadata": {
+    "POSTGRESQL:type": "jsonb"
+   }
+  },
+  {
+   "name": "payload_json",
+   "type": "extension<arrow.json>",
+   "metadata": {
+    "POSTGRESQL:type": "json"
+   }
+  },
+  {
+   "name": "amount",
+   "type": "extension<arrow.opaque[storage_type=string, type_name=numeric, vendor_name=PostgreSQL]>",
+   "metadata": {
+    "ADBC:postgresql:typname": "numeric",
+    "POSTGRESQL:type": "numeric",
+    "POSTGRESQL:typmod": "-1"
+   }
+  },
+  {
+   "name": "at",
+   "type": "timestamp[us, tz=UTC]",
+   "metadata": {
+    "POSTGRESQL:type": "timestamptz"
+   }
+  },
+  {
+   "name": "label",
+   "type": "string",
+   "metadata": {
+    "POSTGRESQL:type": "text"
+   }
+  },
+  {
+   "name": "note",
+   "type": "string",
+   "metadata": {
+    "POSTGRESQL:type": "text"
+   }
+  }
+ ],
+ "adbc_values": {
+  "payload": [
+   "{\"a\": 1, \"b\": null}",
+   "{\"a\": 1}",
+   "{}",
+   "null",
+   null,
+   "{\"i\": 0, \"t\": 0.000000000000000000000000000001, \"v\": 12345678901234567890.12345678901234567890}",
+   "{\"s\": \"é 😀 é-escaped \\\"q\\\"\", \"arr\": [null, 1, {\"b\": null}]}",
+   "{\"a\": 2, \"z\": 1}",
+   "{\"b\": false}"
+  ],
+  "payload_json": [
+   "{\"a\": 1, \"b\": null}",
+   "{\"a\": 1}",
+   "{}",
+   "null",
+   null,
+   "{\"v\": 12345678901234567890.12345678901234567890, \"t\": 1e-30}",
+   "{\"s\": \"é 😀\", \"arr\": [null, 1, {\"b\": null}]}",
+   "{ \"z\" : 1,  \"a\":2, \"a\": 3 }",
+   "{\"b\": false}"
+  ],
+  "amount": [
+   "1.50",
+   "-0.000001",
+   "0",
+   "nan",
+   null,
+   "123456789012345678901234567890.123456789",
+   "inf",
+   "-inf",
+   "0.0000000000000000000000000000000000000001"
+  ],
+  "at": [
+   1793170800123456,
+   1793170800123456,
+   946684800000000,
+   -1,
+   null,
+   -62135596800000000,
+   253402300799999999,
+   1774744200000000,
+   1793212200000001
+  ]
+ },
+ "binding": {
+  "param_select": {
+   "outcome": "accepted",
+   "ids": [
+    7,
+    8,
+    9
+   ]
+  },
+  "param_select_record_batch": {
+   "outcome": "accepted",
+   "ids": [
+    3
+   ]
+  },
+  "param_insert_str_into_timestamptz": "ProgrammingError: INVALID_ARGUMENT: Failed to prepare query: ERROR:  column \"cut_at\" is of type timestamp with time zone but expression is of type text",
+  "temp_table_cut": {
+   "ids": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8
+   ],
+   "expected": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8
+   ]
+  },
+  "server_statements": [
+   "COPY (SELECT /*q5-cut*/ o.id FROM src_obs o JOIN q5_cut c ON o.run_id = c.run_id WHERE o.at <= c.cut_at ORDER BY o.id) TO STDOUT (FORMAT binary)",
+   "COPY (SELECT /*q5-plain*/ id FROM src_obs ORDER BY id) TO STDOUT (FORMAT binary)",
+   "SELECT /*q5-param*/ id, kind FROM src_obs WHERE run_id = $1 AND id > $2 ORDER BY id",
+   "SELECT /*q5-param-rb*/ id FROM src_obs WHERE id = $1"
+  ]
+ },
+ "duckdb": {
+  "timezone": "America/New_York",
+  "relation_fetchone": "AttributeError: Relations no longer have fetchone(): a relation keeps no result between calls, so every call runs it again. Use rel.limit(1).fetchall() instead.",
+  "unquoted_at_identifier": "ParserException: Parser Error: syntax error at or near \")\"",
+  "duck_types": {
+   "id": "BIGINT",
+   "run_id": "BIGINT",
+   "kind": "VARCHAR",
+   "payload": "JSON",
+   "payload_json": "JSON",
+   "amount": "VARCHAR",
+   "at": "TIMESTAMP WITH TIME ZONE",
+   "label": "VARCHAR",
+   "note": "VARCHAR"
+  },
+  "fetchall_timestamptz": "InvalidInputException: Invalid Input Error: Required module 'pytz' failed to import, due to the following Python exception:",
+  "group_by": [
+   {
+    "kind": "mention",
+    "n": 2,
+    "n_payload": 2,
+    "b_exists": "1",
+    "b_json_null": "1",
+    "first_at": 1793170800123456
+   },
+   {
+    "kind": "relation",
+    "n": 2,
+    "n_payload": 2,
+    "b_exists": "0",
+    "b_json_null": "0",
+    "first_at": -1
+   },
+   {
+    "kind": "scope",
+    "n": 2,
+    "n_payload": 2,
+    "b_exists": "1",
+    "b_json_null": "0",
+    "first_at": 1774744200000000
+   },
+   {
+    "kind": "value",
+    "n": 3,
+    "n_payload": 2,
+    "b_exists": "0",
+    "b_json_null": "0",
+    "first_at": -62135596800000000
+   }
+  ],
+  "absent_vs_null": [
+   [
+    "1",
+    "True",
+    "null",
+    "False",
+    "OBJECT"
+   ],
+   [
+    "2",
+    "False",
+    "None",
+    "True",
+    "OBJECT"
+   ],
+   [
+    "3",
+    "False",
+    "None",
+    "True",
+    "OBJECT"
+   ],
+   [
+    "4",
+    "False",
+    "None",
+    "True",
+    "NULL"
+   ],
+   [
+    "5",
+    "None",
+    "None",
+    "True",
+    "None"
+   ],
+   [
+    "6",
+    "False",
+    "None",
+    "True",
+    "OBJECT"
+   ],
+   [
+    "7",
+    "False",
+    "None",
+    "True",
+    "OBJECT"
+   ],
+   [
+    "8",
+    "False",
+    "None",
+    "True",
+    "OBJECT"
+   ],
+   [
+    "9",
+    "True",
+    "false",
+    "False",
+    "OBJECT"
+   ]
+  ],
+  "arrow_out_schema": [
+   {
+    "name": "id",
+    "type": "int64",
+    "metadata": {}
+   },
+   {
+    "name": "run_id",
+    "type": "int64",
+    "metadata": {}
+   },
+   {
+    "name": "kind",
+    "type": "string",
+    "metadata": {}
+   },
+   {
+    "name": "payload",
+    "type": "string",
+    "metadata": {}
+   },
+   {
+    "name": "payload_json",
+    "type": "string",
+    "metadata": {}
+   },
+   {
+    "name": "amount",
+    "type": "string",
+    "metadata": {}
+   },
+   {
+    "name": "at",
+    "type": "timestamp[us, tz=America/New_York]",
+    "metadata": {}
+   },
+   {
+    "name": "label",
+    "type": "string",
+    "metadata": {}
+   },
+   {
+    "name": "note",
+    "type": "string",
+    "metadata": {}
+   },
+   {
+    "name": "weight",
+    "type": "string",
+    "metadata": {}
+   },
+   {
+    "name": "cls",
+    "type": "string",
+    "metadata": {}
+   }
+  ],
+  "result_lifecycle": {
+   "first_fetchone": [
+    0
+   ],
+   "second_statement": [
+    [
+     42
+    ]
+   ],
+   "first_after_second": [],
+   "relation_reevaluated_twice": [
+    9,
+    9
+   ]
+  }
+ },
+ "writes": {
+  "psycopg_set_types": {
+   "arrow_at_type": "timestamp[us, tz=America/New_York]",
+   "to_pylist_at_as_returned": "OverflowError: date value out of range (Python datetime in the DuckDB session zone)",
+   "outcome": "written",
+   "ms": 2.65,
+   "compare": {
+    "rows": 9,
+    "failures_by_check": {},
+    "all_pass": true,
+    "failing_rows": []
+   }
+  },
+  "pgpq_text": {
+   "numeric_route": "text",
+   "pgpq_schema": [
+    [
+     "id",
+     "Int8",
+     true
+    ],
+    [
+     "run_id",
+     "Int8",
+     true
+    ],
+    [
+     "kind",
+     "Text",
+     true
+    ],
+    [
+     "payload",
+     "Jsonb",
+     true
+    ],
+    [
+     "payload_json",
+     "Text",
+     true
+    ],
+    [
+     "amount",
+     "Text",
+     true
+    ],
+    [
+     "at",
+     "Timestamp",
+     true
+    ],
+    [
+     "label",
+     "Text",
+     true
+    ],
+    [
+     "note",
+     "Text",
+     true
+    ],
+    [
+     "weight",
+     "Text",
+     true
+    ],
+    [
+     "cls",
+     "Text",
+     true
+    ]
+   ],
+   "outcome": "refused by the server",
+   "error": "08P01: insufficient data left in message",
+   "ms": 3.15
+  },
+  "pgpq_decimal128": {
+   "numeric_route": "decimal128",
+   "outcome": "refused before COPY",
+   "error": "ArrowInvalid: Rescaling Decimal value would cause data loss"
+  },
+  "pgpq_staging": {
+   "numeric_route": "staging",
+   "pgpq_schema": [
+    [
+     "id",
+     "Int8",
+     true
+    ],
+    [
+     "run_id",
+     "Int8",
+     true
+    ],
+    [
+     "kind",
+     "Text",
+     true
+    ],
+    [
+     "payload",
+     "Jsonb",
+     true
+    ],
+    [
+     "payload_json",
+     "Text",
+     true
+    ],
+    [
+     "amount",
+     "Text",
+     true
+    ],
+    [
+     "at",
+     "Timestamp",
+     true
+    ],
+    [
+     "label",
+     "Text",
+     true
+    ],
+    [
+     "note",
+     "Text",
+     true
+    ],
+    [
+     "weight",
+     "Text",
+     true
+    ],
+    [
+     "cls",
+     "Text",
+     true
+    ]
+   ],
+   "outcome": "written",
+   "ms": 3.87,
+   "compare": {
+    "rows": 9,
+    "failures_by_check": {},
+    "all_pass": true,
+    "failing_rows": []
+   }
+  }
+ },
+ "psycopg_loader": {
+  "equal_to_adbc_by_column": {
+   "id": true,
+   "run_id": true,
+   "kind": true,
+   "payload": true,
+   "payload_json": true,
+   "amount": [
+    "NaN",
+    "Infinity",
+    "-Infinity"
+   ],
+   "at": true,
+   "label": true,
+   "note": true
+  },
+  "timestamptz_load_by_session_zone": {
+   "server TimeZone, text": "America/New_York: DataError: timestamp too small (before year 1): '0001-12-31 19:03:58-04:56:02 BC'",
+   "server TimeZone, binary": "America/New_York: DataError: timestamp too small (before year 1)"
+  },
+  "note": "text-format cursor with TextLoader for jsonb/json/numeric; binary jsonb would come back as dicts via json.loads",
+  "default_loaders_row6": {
+   "payload": "{'i': 0, 't': 1e-30, 'v': 1.2345678901234567e+19}",
+   "amount": "Decimal('123456789012345678901234567890.123456789')"
+  },
+  "binary_text_loader": "TextBinaryLoader"
+ },
+ "infinity_timestamps": {
+  "adbc_int64_us": [
+   -9222425352054775809,
+   -9222425352054775808
+  ],
+  "postgres_epoch_us_text": [
+   "Infinity",
+   "-Infinity"
+  ],
+  "int64_min": -9223372036854775808,
+  "int64_max": 9223372036854775807,
+  "pg_epoch_offset_us": 946684800000000
+ }
+}

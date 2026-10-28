@@ -251,9 +251,9 @@ TM §6:
 **Naming.** `MetaData(naming_convention=…)` makes constraint names stable. `Identity(always=True)`
 generates ids.
 
-**INV-03 and INV-08** (same-run FKs) are declared, and their enforcement placement follows probe Q-4:
-- FK, if the COPY cost at run scale is acceptable;
-- otherwise foundations' bulk-write primitives (F4), with a test per invariant.
+**INV-03 and INV-08** (same-run FKs) are enforced by FKs: probe Q-4 (`p0q.fk-cost`, Measured 2026-10-28)
+found the cost acceptable at run scale. The compiler gives every composite FK whose columns no existing
+index starts with a supporting index, for example `kb.claim (run_id, attribution_entity_id)`.
 
 **Generator choice.** `RelationalModelTransformer` may be used as an intermediate model, but not
 `gen-sqltables`. That generator emits native PostgreSQL enums, no CHECKs and no JSONB, and Alembic's

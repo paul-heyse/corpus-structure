@@ -1,0 +1,46 @@
+base 424.2 ms; slots 45
+s6rerun 0 2.8 s
+t_none 20000 0 {'ops.task': 110.2, 'kb.observation': 1227.7, 'kb.entity': 67.9, 'kb.claim': 319.9, 'kb.claim_support': 144.5, 'kb.claim_evidence': 102.4, 'kb.claim_ref': 25.7, 'kb.claim_entity_ref': 116.7}
+t_samerun 20000 0 {'ops.task': 110.7, 'kb.observation': 1178.9, 'kb.entity': 67.6, 'kb.claim': 340.0, 'kb.claim_support': 101.8, 'kb.claim_evidence': 99.2, 'kb.claim_ref': 127.0, 'kb.claim_entity_ref': 510.9}
+t_all 20000 0 {'ops.task': 109.3, 'kb.observation': 1246.5, 'kb.entity': 76.7, 'kb.claim': 399.0, 'kb.claim_support': 114.7, 'kb.claim_evidence': 100.7, 'kb.claim_ref': 127.3, 'kb.claim_entity_ref': 507.2}
+s6rerun 1 2.8 s
+t_samerun 20000 1 {'ops.task': 108.0, 'kb.observation': 1197.9, 'kb.entity': 68.5, 'kb.claim': 361.9, 'kb.claim_support': 103.0, 'kb.claim_evidence': 99.5, 'kb.claim_ref': 127.8, 'kb.claim_entity_ref': 503.6}
+t_all 20000 1 {'ops.task': 106.5, 'kb.observation': 1192.0, 'kb.entity': 74.7, 'kb.claim': 390.5, 'kb.claim_support': 102.1, 'kb.claim_evidence': 98.9, 'kb.claim_ref': 126.5, 'kb.claim_entity_ref': 499.4}
+t_none 20000 1 {'ops.task': 110.4, 'kb.observation': 1189.5, 'kb.entity': 64.8, 'kb.claim': 321.2, 'kb.claim_support': 107.1, 'kb.claim_evidence': 101.1, 'kb.claim_ref': 25.7, 'kb.claim_entity_ref': 122.5}
+s6rerun 2 2.8 s
+t_all 20000 2 {'ops.task': 109.3, 'kb.observation': 1246.4, 'kb.entity': 77.8, 'kb.claim': 413.1, 'kb.claim_support': 109.9, 'kb.claim_evidence': 102.4, 'kb.claim_ref': 130.5, 'kb.claim_entity_ref': 511.4}
+t_none 20000 2 {'ops.task': 111.3, 'kb.observation': 1193.0, 'kb.entity': 65.1, 'kb.claim': 329.2, 'kb.claim_support': 102.1, 'kb.claim_evidence': 99.6, 'kb.claim_ref': 26.1, 'kb.claim_entity_ref': 121.8}
+t_samerun 20000 2 {'ops.task': 109.4, 'kb.observation': 1176.3, 'kb.entity': 69.4, 'kb.claim': 350.1, 'kb.claim_support': 102.4, 'kb.claim_evidence': 99.6, 'kb.claim_ref': 125.0, 'kb.claim_entity_ref': 507.2}
+s6rerun 3 2.8 s
+t_none 20000 3 {'ops.task': 109.3, 'kb.observation': 1207.3, 'kb.entity': 64.6, 'kb.claim': 331.0, 'kb.claim_support': 104.1, 'kb.claim_evidence': 98.8, 'kb.claim_ref': 25.4, 'kb.claim_entity_ref': 111.6}
+t_samerun 20000 3 {'ops.task': 109.0, 'kb.observation': 1181.5, 'kb.entity': 67.8, 'kb.claim': 346.0, 'kb.claim_support': 103.4, 'kb.claim_evidence': 98.7, 'kb.claim_ref': 127.3, 'kb.claim_entity_ref': 511.8}
+t_all 20000 3 {'ops.task': 108.9, 'kb.observation': 1190.0, 'kb.entity': 78.3, 'kb.claim': 401.6, 'kb.claim_support': 103.9, 'kb.claim_evidence': 98.9, 'kb.claim_ref': 125.9, 'kb.claim_entity_ref': 506.0}
+s6rerun 4 2.8 s
+t_samerun 20000 4 {'ops.task': 112.3, 'kb.observation': 1198.1, 'kb.entity': 66.9, 'kb.claim': 355.1, 'kb.claim_support': 102.8, 'kb.claim_evidence': 99.3, 'kb.claim_ref': 125.6, 'kb.claim_entity_ref': 504.9}
+t_all 20000 4 {'ops.task': 108.4, 'kb.observation': 1172.7, 'kb.entity': 75.8, 'kb.claim': 405.1, 'kb.claim_support': 102.0, 'kb.claim_evidence': 99.6, 'kb.claim_ref': 133.9, 'kb.claim_entity_ref': 502.7}
+t_none 20000 4 {'ops.task': 111.3, 'kb.observation': 1196.3, 'kb.entity': 65.5, 'kb.claim': 316.9, 'kb.claim_support': 102.2, 'kb.claim_evidence': 103.2, 'kb.claim_ref': 26.4, 'kb.claim_entity_ref': 127.1}
+t_none 100000 0 {'ops.task': 109.6, 'kb.observation': 1195.8, 'kb.entity': 230.5, 'kb.claim': 1673.6, 'kb.claim_support': 548.1, 'kb.claim_evidence': 490.8, 'kb.claim_ref': 124.4, 'kb.claim_entity_ref': 779.8}
+t_all 100000 0 {'ops.task': 109.9, 'kb.observation': 1255.7, 'kb.entity': 273.2, 'kb.claim': 2097.8, 'kb.claim_support': 569.9, 'kb.claim_evidence': 486.9, 'kb.claim_ref': 661.4, 'kb.claim_entity_ref': 2654.8}
+t_all 100000 1 {'ops.task': 107.9, 'kb.observation': 1177.1, 'kb.entity': 259.1, 'kb.claim': 2078.1, 'kb.claim_support': 503.5, 'kb.claim_evidence': 484.4, 'kb.claim_ref': 666.2, 'kb.claim_entity_ref': 2634.8}
+t_none 100000 1 {'ops.task': 110.0, 'kb.observation': 1178.9, 'kb.entity': 233.9, 'kb.claim': 1700.5, 'kb.claim_support': 510.7, 'kb.claim_evidence': 494.6, 'kb.claim_ref': 136.0, 'kb.claim_entity_ref': 732.0}
+Traceback (most recent call last):
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py", line 567, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py", line 555, in main
+    cmd_target(a.variant, a.rep, a.claims)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py", line 251, in cmd_target
+    drop(db)
+    ~~~~^^^^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_fk_cost.py", line 213, in drop
+    s6mods().drop_db(name)
+    ~~~~~~~~~~~~~~~~^^^^^^
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q4_s6/s6_db.py", line 94, in drop_db
+    c.execute(f"DROP DATABASE IF EXISTS {name} WITH (FORCE)")
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/corpus-structure/build/probe-venv/lib/python3.14/site-packages/psycopg/connection.py", line 304, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.InsufficientPrivilege: permission denied to terminate process
+DETAIL:  Only roles with privileges of the role whose process is being terminated or with privileges of the "pg_signal_backend" role may terminate this process.
+child ('target', '--variant', 't_none', '--rep', '2', '--claims', '100000') failed: 1

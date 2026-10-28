@@ -1,0 +1,22 @@
+Uninstalled 1 package in 0.22ms
+Installed 1 package in 2ms
+psycopg_set_types written None {}
+pgpq_text refused by the server 08P01: insufficient data left in message None
+pgpq_decimal128 refused before COPY ArrowInvalid: Rescaling Decimal value would cause data loss None
+pgpq_staging written None {}
+binding {'param_select': {'outcome': 'accepted', 'ids': [7, 8, 9]}, 'param_select_record_batch': {'outcome': 'accepted', 'ids': [3]}, 'param_insert_str_into_timestamptz': 'ProgrammingError: INVALID_ARGUMENT: Failed to prepare query: ERROR:  column "cut_at" is of type timestamp with time zone but expression is of type text', 'temp_table_cut': {'ids': [1, 2, 3, 4, 6, 8], 'expected': [1, 2, 3, 4, 6, 8]}, 'server_statements': ['COPY (SELECT /*q5-cut*/ o.id FROM src_obs o JOIN q5_cut c ON o.run_id = c.run_id WHERE o.at <= c.cut_at ORDER BY o.id) TO STDOUT (FORMAT binary)', 'COPY (SELECT /*q5-plain*/ id FROM src_obs ORDER BY id) TO STDOUT (FORMAT binary)', 'SELECT /*q5-param*/ id, kind FROM src_obs WHERE run_id = $1 AND id > $2 ORDER BY id', 'SELECT /*q5-param-rb*/ id FROM src_obs WHERE id = $1']}
+100000 {'VmHWM': 64856064, 'VmRSS': 64856064, 'arrow_allocated': 0, 'step': 'start'}
+100000 {'VmHWM': 161116160, 'VmRSS': 161116160, 'arrow_allocated': 0, 'step': 'after ADBC load (Arrow tables)', 'ms': 162.5, 'arrow_obs_nbytes': 38451750, 'arrow_claim_nbytes': 1760240}
+100000 {'VmHWM': 194842624, 'VmRSS': 194842624, 'arrow_allocated': 4160, 'step': 'after DuckDB register'}
+100000 {'VmHWM': 249323520, 'VmRSS': 249323520, 'arrow_allocated': 4160, 'step': 'after join → Arrow', 'ms': 11.1, 'rows_out': 100000, 'arrow_out_nbytes': 38540464, 'duckdb_system': {'blocked_thread_time': 0.007985, 'peak_buffer_memory': 20557824, 'peak_streaming_buffer_size': 0, 'peak_temp_dir_size': 0, 'total_memory_allocated': 8388608}}
+100000 {'VmHWM': 280297472, 'VmRSS': 280297472, 'arrow_allocated': 4160, 'step': 'after join + group-by → Arrow', 'ms': 13.4, 'rows_out': 20, 'duckdb_system': {'blocked_thread_time': 0.010617000000000001, 'peak_buffer_memory': 30679040, 'peak_streaming_buffer_size': 0, 'peak_temp_dir_size': 0, 'total_memory_allocated': 43515904}}
+100000 {'VmHWM': 276164608, 'VmRSS': 211742720, 'arrow_allocated': 0, 'step': 'after closing DuckDB and dropping results'}
+100000 {'VmHWM': 423706624, 'VmRSS': 356491264, 'arrow_allocated': 39252096, 'step': 'after psycopg load (Arrow table)', 'ms': 199.7, 'arrow_nbytes': 39251750, 'equal_payload_to_adbc': True}
+1000000 {'VmHWM': 64827392, 'VmRSS': 64827392, 'arrow_allocated': 0, 'step': 'start'}
+1000000 {'VmHWM': 514936832, 'VmRSS': 514936832, 'arrow_allocated': 0, 'step': 'after ADBC load (Arrow tables)', 'ms': 941.2, 'arrow_obs_nbytes': 388042557, 'arrow_claim_nbytes': 1760240}
+1000000 {'VmHWM': 548478976, 'VmRSS': 548478976, 'arrow_allocated': 4160, 'step': 'after DuckDB register'}
+1000000 {'VmHWM': 989798400, 'VmRSS': 989798400, 'arrow_allocated': 4160, 'step': 'after join → Arrow', 'ms': 39.5, 'rows_out': 1000000, 'arrow_out_nbytes': 388929641, 'duckdb_system': {'blocked_thread_time': 0.024264, 'peak_buffer_memory': 20328448, 'peak_streaming_buffer_size': 0, 'peak_temp_dir_size': 0, 'total_memory_allocated': 8388608}}
+1000000 {'VmHWM': 1172905984, 'VmRSS': 1172905984, 'arrow_allocated': 4160, 'step': 'after join + group-by → Arrow', 'ms': 32.3, 'rows_out': 20, 'duckdb_system': {'blocked_thread_time': 0.027859000000000002, 'peak_buffer_memory': 166821888, 'peak_streaming_buffer_size': 0, 'peak_temp_dir_size': 0, 'total_memory_allocated': 181141504}}
+1000000 {'VmHWM': 1167032320, 'VmRSS': 620007424, 'arrow_allocated': 0, 'step': 'after closing DuckDB and dropping results'}
+1000000 {'VmHWM': 2894307328, 'VmRSS': 2195390464, 'arrow_allocated': 396042880, 'step': 'after psycopg load (Arrow table)', 'ms': 1978.7, 'arrow_nbytes': 396042557, 'equal_payload_to_adbc': True}
+dropped p0q_pool remaining: []

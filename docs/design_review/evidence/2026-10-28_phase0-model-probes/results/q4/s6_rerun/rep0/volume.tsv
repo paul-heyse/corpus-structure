@@ -1,0 +1,12 @@
+step	rows	ms	rows_per_s	mean_payload_bytes	note
+copy ops.task	12500	108.8	114837		binary COPY, set_types
+copy kb.observation	100000	1214.8	82320	297	mention mean 138 B; relation mean 205 B; scope mean 238 B; value mean 262 B; claim_proposal mean 4295 B
+copy kb.entity	5000	44.5	112425		
+copy kb.claim	20000	241.0	82978		qualifiers and values of the v1 reference claims, cycled
+copy kb.claim_support + kb.claim_evidence	40000	216.1	185137		
+query: claims with qualifier param_values.variance (`@?`, no GIN)	1410	1.051			Index Scan using claim_pred on claim (actual rows=1410.00 loops=1)
+query: why a method ran (one unit)	5	0.574			->  Seq Scan on method m (actual rows=11.00 loops=1)
+query: effective observations of one task (kb.run_observation)	1	0.587			->  Seq Scan on run r (actual rows=1.00 loops=1)
+query: observations of the run by kind (kb.run_observation)	5	26.732			->  Seq Scan on run r (actual rows=1.00 loops=1)
+query: claims of one subject	1	0.037			->  Index Only Scan using claim_subject on claim (actual rows=4.00 loops=1)
+delete materialized rows (entities, claims, cascades)	25000	305.0			run row and tasks kept: True
