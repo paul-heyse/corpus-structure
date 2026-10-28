@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "s1.nist",
+  "title": "NIST generality probe",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-F",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the adapter generalize to a second source (NIST e-Handbook pages)?",
+  "answers": [
+    "HTML-07",
+    "D4 M01"
+  ],
+  "method": "Eight NIST pages through the adapter's generic path and trafilatura.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1f_nist.py"
+  ],
+  "agents": [
+    {
+      "role": "executor",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s1/nist_probe.md",
+      "role": "report",
+      "sha256": "da14f5f8fcb77a00cc7faa5667d1cd70d40ff9d8c806175d0bbddd0d79e6bf3e"
+    },
+    {
+      "path": "results/s1/nist",
+      "role": null,
+      "sha256": "25ed467cb9237593086815648be10138dd2d6e2f586d0f31262ff312fc5b723e"
+    }
+  ],
+  "depends_on": [
+    "s1.adapter"
+  ],
+  "results": [
+    {
+      "name": "pages",
+      "value": 8,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "siegrist_rules_matching",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "scripts and images only"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The local NIST copy is MathJax, so image math stays untested; several Siegrist facts sit in adapter code and should move into profile data.",
+  "consumed_by": [
+    "S1-report.md",
+    "ADR-0009"
+  ]
+}

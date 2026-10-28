@@ -87,6 +87,12 @@ rules-scan:
 rules-test:
     @if ls rules/*.yml >/dev/null 2>&1; then ast-grep test --skip-snapshot-tests; else echo "rules-test: not_run (no rules yet)"; fi
 
+# Evidence records (ADR-0010): no args = index + catalog + check; or check | finalize <folder> <id>… |
+# index | catalog | render <template.j2> [-o out] | schema. `index`, `finalize`, `render` edit files.
+[positional-arguments]
+evidence *args:
+    @uv run python -m corpus_evidence "$@"
+
 # ADR tooling: new <slug> [--title T] | supersede <ADR-NNNN> <slug> | index | lint | revisit
 [positional-arguments]
 adr *args:

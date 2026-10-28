@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "id": "s1.trafilatura",
+  "title": "trafilatura baseline",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-E",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Could a profile-free extractor serve as M01's fallback canonical text?",
+  "answers": [
+    "HTML-07"
+  ],
+  "method": "trafilatura 2.3.1 XML output aligned with canonical text, plain, pruned and pruned without empty references.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1e_trafilatura.py"
+  ],
+  "agents": [
+    {
+      "role": "executor",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s1/baseline_trafilatura.tsv",
+      "role": null,
+      "sha256": "3239fa99f6d0b98ff72a09dd9943abf51a69f2cfa42d1cc401fe55673dbb4743"
+    },
+    {
+      "path": "results/s1/baseline_trafilatura.md",
+      "role": null,
+      "sha256": "163ea46e224e58241fb140859dd2edbdaa26e8aebc1fb8fbcec77270265f4b5f"
+    },
+    {
+      "path": "results/s1/baseline_trafilatura_summary.json",
+      "role": null,
+      "sha256": "4433414a9f2579ea7592f0d608898a7f1959fd3be24a1d3ca5cc8e265fd22e27"
+    }
+  ],
+  "depends_on": [
+    "s1.corpus"
+  ],
+  "results": [
+    {
+      "name": "content_missing_plain",
+      "value": 0.0528,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "headings_missing",
+      "value": 0.9295,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "summaries_missing",
+      "value": 1.0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Not usable as M01's fallback: it drops headings, summaries, captions and short proofs ending in empty references; it keeps math verbatim.",
+  "consumed_by": [
+    "S1-report.md"
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "s1.profile-delimiting",
+  "title": "Profile-driven math delimiting (S1-R1)",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-R1",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can math delimiting be generated from the source profile without changing any result?",
+  "answers": [
+    "ADR-0009",
+    "HTML-07"
+  ],
+  "method": "Scanner replaced by one regex generated from the profile; compared with the committed scanner; S1-B and S1-D rerun.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1_adapter.py special/LocationScale.html special/Normal.html special/LogNormal.html special/Gamma.html",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1b_sample.py",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1d_corpus.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "code/s1_adapter.py",
+      "role": "implementation",
+      "sha256": "f0e067aa123a5d0b11f7cb21dfe0ebc3546cf0e554fde899688e5f57f70a0480"
+    }
+  ],
+  "depends_on": [
+    "s1.corpus",
+    "parse.regex-probe"
+  ],
+  "results": [
+    {
+      "name": "blocks_identical",
+      "value": 517,
+      "of": 517,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "edge_cases_identical",
+      "value": 8,
+      "of": 8,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "corpus_rerun_changes",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "numbers unchanged; only earlier committed fixes visible"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The profile-generated pattern is identical to the scanner; the 78-page rerun changes nothing.",
+  "consumed_by": [
+    "ADR-0009"
+  ]
+}

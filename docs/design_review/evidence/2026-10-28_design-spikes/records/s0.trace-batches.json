@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "s0.trace-batches",
+  "title": "The worked trace as model-facing batches",
+  "group": "S0 Reference annotations",
+  "package": "S0-C",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What does the worked trace (T1–T4) state, as batches the instruments can align?",
+  "answers": [
+    "D1 §12",
+    "trace.md"
+  ],
+  "method": "Root transcription of trace.md's tables; T4 param_mapping corrected to canonical names.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/trace_batches",
+      "role": null,
+      "sha256": "9291f258d870f5e3b32e4d079d7fd59d3a5c30242efbd5a11794c2cfadb75e7a"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Four batches; validate with 0 issues.",
+  "consumed_by": [
+    "s0.trace-diff",
+    "aligner verification"
+  ]
+}

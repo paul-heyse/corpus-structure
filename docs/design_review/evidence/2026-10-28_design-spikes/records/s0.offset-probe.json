@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "s0.offset-probe",
+  "title": "Offset-form evidence probe",
+  "group": "S0 Reference annotations",
+  "package": "S0-B",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an annotator cite evidence by character offsets as reliably as by quote (D2 §7.3's premise)?",
+  "answers": [
+    "D2 §7.3"
+  ],
+  "method": "Fresh subagent cites T1–T4 by offsets.",
+  "commands": [],
+  "agents": [
+    {
+      "role": "annotator O",
+      "model": "Claude Opus 5.5",
+      "brief": "results/s0/inputs/offset/instructions_o.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote only its output folder; counted offsets with str.find"
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/offset_probe",
+      "role": null,
+      "sha256": "d605fc7bfbea532ea7485df690e9d8908e500ba19602b87bd7dd393d1b7d0597"
+    }
+  ],
+  "depends_on": [
+    "s0.packets"
+  ],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "The annotator computed offsets with tool scripts, so the probe shows tool-assisted conversion works, not that a model without tools counts offsets; moved to S3.",
+  "consumed_by": [
+    "S0 report",
+    "S3"
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "id": "s0.instruments",
+  "title": "Comparison instruments, review and math grammar",
+  "group": "S0 Reference annotations",
+  "package": "I-A, I-B, I-R1",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the validator, quote locator, value equivalence, aligner, scores and keys implement D7 §5 and ADR-0009?",
+  "answers": [
+    "D7 §5",
+    "D4 §4.3",
+    "D1 §6.2",
+    "ADR-0009",
+    "OPEN-D7-2"
+  ],
+  "method": "Worker-built instruments, independent implementation review (F1–F5 fixed), hand alignment against the trace diff, math-grammar coverage.",
+  "commands": [
+    "code/tests_instruments/run_all.py",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/mathgrammar/coverage.py --per-page 10"
+  ],
+  "agents": [
+    {
+      "role": "executor (instruments)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    },
+    {
+      "role": "implementation reviewer",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/instruments_tests.md",
+      "role": null,
+      "sha256": "f216c08f4e06c632d4f6e115d1dcfbe2fc82970f1f58d772cfcef6e199fbc05b"
+    },
+    {
+      "path": "results/s0/aligner_verification.md",
+      "role": null,
+      "sha256": "b92ed1ed4ebb4e9f3a68cd5f5ab724794a5cafb8ffbd380524537e5be60d2b3d"
+    },
+    {
+      "path": "results/mathgrammar",
+      "role": null,
+      "sha256": "b88816eb8eb1b90c50ed1940b6b0717839c0e6dd0ccf01b3e0f0630c17c1dabf"
+    }
+  ],
+  "depends_on": [
+    "s0.trace-diff",
+    "parse.lark-probe",
+    "parse.regex-probe"
+  ],
+  "results": [
+    {
+      "name": "tests_passed",
+      "value": 75,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "grammar_values_read",
+      "value": 86,
+      "of": 86,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "grammar_spans_ok",
+      "value": 976,
+      "of": 1532,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "hand_alignment_agreement",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The aligner reproduces the hand classification; the math grammar replaces the string shim without changing canonical forms.",
+  "consumed_by": [
+    "S0-G",
+    "S0 report"
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "id": "s0.m13-probe",
+  "title": "M13 rule scoping against the reference",
+  "group": "S0 Reference annotations",
+  "package": "S0-E, S0-R1",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How many annotated variable scopes do D4 M13's rules reproduce, under both section syntheses (OPEN-D4-5, OPEN-D1-2)?",
+  "answers": [
+    "OPEN-D4-5",
+    "OPEN-D1-2",
+    "D4 M13"
+  ],
+  "method": "Regex engine as D2/D4 write it and with two amendments; spaCy Matcher engine with grammar symbols (S0-R1).",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0e_m13_probe.py results/s0/reference [--if-binder] [--paragraph-statements] [--sections h3]",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0e_m13_probe.py results/s0/reference --engine patterns [--paragraph-statements] [--sections h3]"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/m13_probe.reference.h3h4.tsv",
+      "role": null,
+      "sha256": "c4f18fa005d2624524f0faebb9e225a4a4c9e7ae502b8a836563f09ce788f515"
+    },
+    {
+      "path": "results/s0/m13_probe.reference.h3h4.if.para.tsv",
+      "role": null,
+      "sha256": "10bdb9fbeaa5dad7490fc6f4bb340d27ace8d44d5b825d818060547e66f0318f"
+    },
+    {
+      "path": "results/s0/m13_probe.reference.patterns.h3h4.tsv",
+      "role": null,
+      "sha256": "5225635ba9221aef2a96a8167d95b1a89dedbddc9aa0378e5759addea7bd4b63"
+    },
+    {
+      "path": "results/s0/m13_probe.reference.patterns.h3h4.para.tsv",
+      "role": null,
+      "sha256": "10bdb9fbeaa5dad7490fc6f4bb340d27ace8d44d5b825d818060547e66f0318f"
+    },
+    {
+      "path": "results/s0/m13_probe.reference.patterns.h3.para.tsv",
+      "role": null,
+      "sha256": "10bdb9fbeaa5dad7490fc6f4bb340d27ace8d44d5b825d818060547e66f0318f"
+    }
+  ],
+  "depends_on": [
+    "s0.adjudication",
+    "s0.instruments"
+  ],
+  "results": [
+    {
+      "name": "symbol_extents_as_written",
+      "value": 16,
+      "of": 20,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "symbol_extents_amended",
+      "value": 20,
+      "of": 20,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "symbol_extents_patterns",
+      "value": 20,
+      "of": 20,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "section_synthesis_effect",
+      "value": "none",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "As written, 16 of 20; with a sentence-initial 'if' binder and paragraph statements, 20 of 20 under both engines and both section syntheses.",
+  "consumed_by": [
+    "S0 report",
+    "D4 M13",
+    "S5"
+  ]
+}

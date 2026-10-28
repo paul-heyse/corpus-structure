@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "parse.regex-probe",
+  "title": "regex probe: quote cascade and math delimiting",
+  "group": "Parsing (ADR-0009)",
+  "package": "PARSE-01",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do regex's offset-preserving and fuzzy matching improve quote location, and can one pattern delimit math like the scanner?",
+  "answers": [
+    "PARSE-01",
+    "ADR-0009",
+    "D4 §4.3"
+  ],
+  "method": "499 real quotes under seeded LLM-style errors; cascade variants; one regex against the scanner on 517 blocks; Lark regex=True.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/regex_probe.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/regex_probe",
+      "role": null,
+      "sha256": "abbfcba5adb08ddb7d6d23b90fe0bf869967e031804a57af57989a5fdc88bdb5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "mid_word_cuts_cascade",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "mid_word_cuts_current",
+      "value": 64,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "macro_respellings_exact",
+      "value": 16,
+      "of": 16,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "dropped_word_exact",
+      "value": 43,
+      "of": 99,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "math_blocks_equal",
+      "value": 517,
+      "of": 517,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The cascade (exact, spacing-tolerant, macro-normalized, rapidfuzz refined by regex BESTMATCH, word snapping) removes all mid-word cuts; one regex equals the scanner.",
+  "consumed_by": [
+    "ADR-0009"
+  ]
+}

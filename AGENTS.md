@@ -149,7 +149,9 @@ process scripts are stdlib-only and run without a project environment.
 - **No new alignment linting.** Don't add lints or checks for design alignment; update existing
   checks only when they break. Skills are welcome.
 - **Probes go to the evidence folder**, `docs/design_review/evidence/<date>_<topic>/` with a
-  README, not to a session scratchpad.
+  README, not to a session scratchpad. When a result is accepted, write its record
+  (`records/<id>.json`, ADR-0010) and run `just evidence finalize <folder> <id>` then
+  `just evidence`; reports take figures from `just evidence render` (evidence README).
 - **Detail over length.** Architecture pages have no line budget: the detail the design needs
   comes before brevity. History belongs in Git, not in the design.
 

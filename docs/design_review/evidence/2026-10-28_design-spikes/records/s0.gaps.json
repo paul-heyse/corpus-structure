@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "s0.gaps",
+  "title": "Gap analysis",
+  "group": "S0 Reference annotations",
+  "package": "S0-F",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which schema, guideline and representation gaps did the annotators and adjudicators hit?",
+  "answers": [
+    "D2 §9",
+    "D2 §10",
+    "D1",
+    "OPEN-D2-4",
+    "OPEN-D2-5",
+    "OPEN-D5-1",
+    "OPEN-D1-3"
+  ],
+  "method": "Analyst subagent synthesis of all notes, unsupported items, adjudications and diffs.",
+  "commands": [],
+  "agents": [
+    {
+      "role": "analyst",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/gaps.md",
+      "role": null,
+      "sha256": "697d8548f75faf4cbd09f5a2a291c657403c9b457db953144a4a016078cfad71"
+    }
+  ],
+  "depends_on": [
+    "s0.pass-a",
+    "s0.pass-b",
+    "s0.pass-p",
+    "s0.pass-h",
+    "s0.adjudication",
+    "s0.adjudication-d7",
+    "s0.trace-diff"
+  ],
+  "results": [
+    {
+      "name": "schema_gaps",
+      "value": 11,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "guideline_gaps",
+      "value": 17,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "representation_gaps",
+      "value": 7,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "35 gaps, each stated as the general rule or construct missing; ranked top ten; root and D7 adjudicator decided three points oppositely.",
+  "consumed_by": [
+    "S0 report",
+    "X1 fold-in"
+  ]
+}

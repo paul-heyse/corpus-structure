@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "s1.report",
+  "title": "S1 report",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What does S1 establish for D1 §3 and D4 M01–M03?",
+  "answers": [
+    "OPEN-D1-1",
+    "HTML-01",
+    "HTML-02",
+    "HTML-03",
+    "HTML-04",
+    "HTML-05",
+    "HTML-06",
+    "HTML-07"
+  ],
+  "method": "Report from the S1 records.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "S1-report.md",
+      "role": "report",
+      "sha256": "cf4e59be6950f80d9889752b5b5b5fe936262e8ec935687de027b039794231b4"
+    }
+  ],
+  "depends_on": [
+    "s1.adapter",
+    "s1.variants",
+    "s1.sentence-gold",
+    "s1.corpus",
+    "s1.trafilatura",
+    "s1.nist"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "D1 §3 fits Siegrist HTML; OPEN-D1-1 closed in favour of merged-math parsing; HTML-01…07 specified.",
+  "consumed_by": [
+    "design-phase plan Q1",
+    "X1 fold-in"
+  ]
+}

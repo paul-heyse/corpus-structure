@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "s0.packets",
+  "title": "Blind annotation packets",
+  "group": "S0 Reference annotations",
+  "package": "S0-A",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What self-contained inputs does each blind pass receive (D7 §3.2 golden mode, packet only, offset probe, adjudication)?",
+  "answers": [
+    "OPEN-D8-3",
+    "D7 §3.2"
+  ],
+  "method": "Generated input folders: guideline, model, schema, format, unit packets, pages, instructions.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0a_packets.py golden",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0a_packets.py packet_only",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0a_packets.py offset"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/inputs",
+      "role": "input folders",
+      "sha256": "c860eb6e5d255150c3d1e23e71bdb46349d3e86432c7bcac5398fb075ef44e2b"
+    }
+  ],
+  "depends_on": [
+    "s1.adapter"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "One input folder per pass; golden_h copies A's inputs for the Haiku control; adjudication_d7 carries both passes and their alignment diff.",
+  "consumed_by": [
+    "S0 report"
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "id": "e0.environment",
+  "title": "Spike environment and model revisions",
+  "group": "Environment",
+  "package": "E0",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do all spike libraries resolve and import on Python 3.14.10, and which model and tokenizer revisions are cached?",
+  "answers": [
+    "OPEN-D9-1"
+  ],
+  "method": "Exact pins in the spike uv project; import check and version record.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/e0_environment.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "pyproject.toml",
+      "role": null,
+      "sha256": "51a3e45334708f1f057eb6fd0daec40162380fcd4fb1ebdac4cc9ce1c11ae396"
+    },
+    {
+      "path": "uv.lock",
+      "role": null,
+      "sha256": "b1ad37c16d924a62ad85916178dffcac20056c3b0e62dfb484441d531d7d4437"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/environment.json",
+      "role": "environment",
+      "sha256": "a40cb1b143ea3ebd59fd34f7b5679d3b6a19b4293967c82124d69353dc7a528c"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "python",
+      "value": "3.14.10",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "libxml2",
+      "value": "2.14.6",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "all_imports_ok",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Every pinned spike dependency resolves and imports on Python 3.14.10; tokenizer revisions of Qwen3.5-9B and GLiNER2.5-base-v1 are recorded.",
+  "consumed_by": [
+    "S1-report.md",
+    "S0 report"
+  ]
+}

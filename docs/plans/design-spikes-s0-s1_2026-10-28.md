@@ -154,7 +154,9 @@ Everything is written under
 `docs/design_review/evidence/2026-10-28_design-spikes/`: code in `code/`, results in
 `results/s1/` and `results/s0/`, `sample.json` at the folder root, reports `S1-report.md` and
 `S0-report.md` from the template. Results stay small and inspectable (JSON, JSONL, TSV,
-Markdown); the corpus is quoted at most a sentence at a time. Design documents are not edited
+Markdown); the corpus is quoted at most a sentence at a time. Each finalized result gets a
+record in `records/` (ADR-0010; `just evidence finalize`, `just evidence`), which the README index
+and the catalog are generated from; report figures are rendered from the catalog. Design documents are not edited
 during execution; design consequences go in each report's "Design implications" section and
 reach the design through the closing package (§7, package X1).
 
@@ -208,6 +210,11 @@ row. "Needs" names the input a package consumes, not merely an earlier row.
 | 19 | S1-R1 Profile-driven math delimiting (ADR-0009) | S1 §3.1 | S1-D | delimiter pattern generated from the profile; S1-D checks rerun unchanged |
 | 20 | S0-R1 M13 revisit: binders as spaCy patterns, symbols from the grammar | S0 §6 | I-R1 symbol API; S0-D reference | `m13_probe.*.tsv` with the amended rules |
 | 21 | S0-G Rerun of every S0 comparison on the revised instruments; passes H and D7 scored | S0 §4 | I-R1 | `compare/`, revised figures for S0-F |
+
+| 22 | E1–E3 Evidence records, catalog and generated reports (ADR-0010) | this plan §3.4 | — | `tools/evidence/`, `records/`, generated indexes, `build/evidence.duckdb` |
+
+Row 22 (2026-10-28, operator direction) precedes S0-G: S0-G's results are the first finalized
+through records, and the S0 report's figures are rendered from the catalog.
 
 Rows 18–21 were added 2026-10-28 after the operator approved the parsing recommendation
 (ADR-0009: one math grammar, source facts as profile data, offset-preserving quote location,

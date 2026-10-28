@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "id": "s1.corpus",
+  "title": "78-page corpus run",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the adapter hold on all 78 first-pass pages: invariants, math, counts against the index, parser differences, macros, links, sizes?",
+  "answers": [
+    "HTML-01",
+    "HTML-02",
+    "HTML-05",
+    "HTML-06",
+    "OPEN-D4-4",
+    "OPEN-D2-2"
+  ],
+  "method": "Adapter and independent checks over every page; libxml2 vs html5lib; Qwen3.5-9B and GLiNER2 token counts.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1d_corpus.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/environment.json",
+      "role": "environment",
+      "sha256": "a40cb1b143ea3ebd59fd34f7b5679d3b6a19b4293967c82124d69353dc7a528c"
+    },
+    {
+      "path": "code/profile/siegrist.yaml",
+      "role": "source profile",
+      "sha256": "ef9ecb449443d642f8cbbf7f58a8de0a04d497a18c45e0ae685316fe77139026"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s1/counts.tsv",
+      "role": null,
+      "sha256": "411b6ac4d62f791068c639fca07da473e0eebccd556c5bfe001a2fa13885e089"
+    },
+    {
+      "path": "results/s1/parser_diff.tsv",
+      "role": null,
+      "sha256": "b75ed3089a323a08d21178a8ccb07a51b8a73b1872d28c163738e2a2bbcbaa5e"
+    },
+    {
+      "path": "results/s1/coverage.tsv",
+      "role": null,
+      "sha256": "ad0b2461d0de327f497af4cabb6214bb3e8c5a021b8389ff7a70569cf74591aa"
+    },
+    {
+      "path": "results/s1/links.tsv",
+      "role": null,
+      "sha256": "82f8ecbda5be7563185a151aedd5a33e53a41d97ba2d46e012bcda3b2740c4eb"
+    },
+    {
+      "path": "results/s1/sizes.tsv",
+      "role": null,
+      "sha256": "56968d0a310d497b838dfb8d11679a4d5a01058f36257d00af0492252e8599b6"
+    },
+    {
+      "path": "results/s1/repairs.tsv",
+      "role": null,
+      "sha256": "92749afa937e0a15b0c2de0ab0605374e07475864b278d73bc937a23e2842fe1"
+    },
+    {
+      "path": "results/s1/macros.tsv",
+      "role": null,
+      "sha256": "824b987d91bc481ba5aa8c8a311a8ed87ff7a11378aeaa408b84df884261346c"
+    },
+    {
+      "path": "results/s1/corpus_summary.json",
+      "role": null,
+      "sha256": "c47a66cf673b6c23b35be48c734ae861de2bdbe4a3d716f5a1aaf267381e4415"
+    }
+  ],
+  "depends_on": [
+    "s1.adapter"
+  ],
+  "results": [
+    {
+      "name": "structural_violations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "element_texts_matched",
+      "value": 19432,
+      "of": 19432,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "math_spans_ok",
+      "value": 28948,
+      "of": 28956,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pages_matching_index_counts",
+      "value": 77,
+      "of": 78,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "units_over_3000_qwen_tokens",
+      "value": 0,
+      "of": 2479,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "units_over_512_gliner_tokens",
+      "value": 153,
+      "of": 2479,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "D1 §3 holds on all 78 pages; libxml2 misplaces details inside unclosed paragraphs on 4 pages (html5lib correct); macros vary per page; no unit exceeds the local LLM cap.",
+  "consumed_by": [
+    "S1-report.md"
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "id": "s1.sentence-gold",
+  "title": "Sentence-boundary gold and segmentation matrix",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-C",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does sentence segmentation survive inline LaTeX, and which pipeline and math presentation to adopt (OPEN-D1-1)?",
+  "answers": [
+    "OPEN-D1-1",
+    "D4 M03"
+  ],
+  "method": "85-block stratified gold marked independently by two subagents; five pipelines × five math presentations scored by boundary F1.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1c_gold_sample.py",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1c_score.py agreement",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1c_score.py score"
+  ],
+  "agents": [
+    {
+      "role": "gold marker A",
+      "model": "Claude Opus 5.5",
+      "brief": "results/s1/gold/worksheet.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote only its output folder"
+    },
+    {
+      "role": "gold marker B",
+      "model": "Claude Opus 5.5",
+      "brief": "results/s1/gold/worksheet.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote only its output folder"
+    }
+  ],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s1/gold",
+      "role": "gold",
+      "sha256": "67922d22b663777cbf8d3559d5e26ac567058bf46cdfebd1bc7e5510d5010879"
+    },
+    {
+      "path": "results/s1/sentences.tsv",
+      "role": "table",
+      "sha256": "5b2a3cb78cb58d995e3e0b30b4a28e8c08a09485371b8911ccefbe21de9ab885"
+    },
+    {
+      "path": "results/s1/sentences_errors.json",
+      "role": null,
+      "sha256": "19d81cd0a987dba2becfae22b0e0d22346e1770e777c9ad653f9d0d6750f8bff"
+    },
+    {
+      "path": "results/s1/sentences_proxies.json",
+      "role": null,
+      "sha256": "4a527849619562a07d5110747cd9483adf01618717350f87cdd006c7a4056451"
+    }
+  ],
+  "depends_on": [
+    "s1.adapter"
+  ],
+  "results": [
+    {
+      "name": "marker_agreement_blocks",
+      "value": 85,
+      "of": 85,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "gold_boundaries",
+      "value": 49,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "f1_sm_parser_merged_math",
+      "value": 1.0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "f1_sm_parser_raw",
+      "value": 0.8,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "proxy_flags_erroneous_blocks",
+      "value": 3,
+      "of": 20,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "spaCy sm parser with inline math merged into one token (b′) gives F1 1.0; raw text 0.80; D4 proxies cannot stand in for a gold.",
+  "consumed_by": [
+    "S1-report.md",
+    "D4 M03"
+  ]
+}

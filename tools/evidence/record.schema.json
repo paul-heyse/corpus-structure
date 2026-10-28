@@ -1,0 +1,346 @@
+{
+  "$defs": {
+    "AgentPass": {
+      "additionalProperties": false,
+      "description": "An agent that produced part of the record's outputs (annotation, adjudication, analysis).",
+      "properties": {
+        "role": {
+          "description": "e.g. annotator pass A, adjudicator, executor",
+          "title": "Role",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model name and version, e.g. Claude Opus 5.5",
+          "title": "Model",
+          "type": "string"
+        },
+        "brief": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path of the instructions it received, if kept",
+          "title": "Brief"
+        },
+        "separation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How its inputs were bounded and audited",
+          "title": "Separation"
+        }
+      },
+      "required": [
+        "role",
+        "model"
+      ],
+      "title": "AgentPass",
+      "type": "object"
+    },
+    "FileRef": {
+      "additionalProperties": false,
+      "description": "A file or directory in the evidence folder; a directory hashes as its sorted contents.",
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. environment, input-batch, table, report",
+          "title": "Role"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Filled by `finalize`",
+          "title": "Sha256"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "FileRef",
+      "type": "object"
+    },
+    "Result": {
+      "additionalProperties": false,
+      "description": "A headline figure, stated with its denominator or unit when it has one.",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        },
+        "of": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Denominator, when the value is a count of something",
+          "title": "Of"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "Result",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "id": {
+      "maxLength": 80,
+      "pattern": "^[a-z0-9][a-z0-9.\\-]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "title": {
+      "minLength": 3,
+      "title": "Title",
+      "type": "string"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Grouping in indexes, e.g. the spike (S0)",
+      "title": "Group"
+    },
+    "package": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Plan package that produced it, e.g. S0-C",
+      "title": "Package"
+    },
+    "finalized": {
+      "format": "date",
+      "title": "Finalized",
+      "type": "string"
+    },
+    "status": {
+      "default": "current",
+      "enum": [
+        "current",
+        "superseded"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "supersedes": {
+      "items": {
+        "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}_[a-z0-9\\-]+/)?[a-z0-9][a-z0-9.\\-]*$",
+        "type": "string"
+      },
+      "title": "Supersedes",
+      "type": "array"
+    },
+    "superseded_by": {
+      "anyOf": [
+        {
+          "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}_[a-z0-9\\-]+/)?[a-z0-9][a-z0-9.\\-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Superseded By"
+    },
+    "question": {
+      "description": "Why it was investigated",
+      "minLength": 3,
+      "title": "Question",
+      "type": "string"
+    },
+    "answers": {
+      "description": "Design or plan items it informs (OPEN-D1-1, ADR-0009)",
+      "items": {
+        "type": "string"
+      },
+      "title": "Answers",
+      "type": "array"
+    },
+    "method": {
+      "description": "How, in a sentence or two",
+      "minLength": 3,
+      "title": "Method",
+      "type": "string"
+    },
+    "commands": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Commands",
+      "type": "array"
+    },
+    "agents": {
+      "items": {
+        "$ref": "#/$defs/AgentPass"
+      },
+      "title": "Agents",
+      "type": "array"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/FileRef"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "outputs": {
+      "items": {
+        "$ref": "#/$defs/FileRef"
+      },
+      "minItems": 1,
+      "title": "Outputs",
+      "type": "array"
+    },
+    "depends_on": {
+      "description": "Records whose outputs it used",
+      "items": {
+        "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}_[a-z0-9\\-]+/)?[a-z0-9][a-z0-9.\\-]*$",
+        "type": "string"
+      },
+      "title": "Depends On",
+      "type": "array"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/Result"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "outcome": {
+      "enum": [
+        "passed",
+        "failed",
+        "blocked",
+        "partial"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "conclusion": {
+      "minLength": 3,
+      "title": "Conclusion",
+      "type": "string"
+    },
+    "consumed_by": {
+      "description": "Reports, plans, ADRs that rely on it",
+      "items": {
+        "type": "string"
+      },
+      "title": "Consumed By",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "finalized",
+    "question",
+    "method",
+    "outputs",
+    "outcome",
+    "conclusion"
+  ],
+  "title": "Record",
+  "type": "object"
+}

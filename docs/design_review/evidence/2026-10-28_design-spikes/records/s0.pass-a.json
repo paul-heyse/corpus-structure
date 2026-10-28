@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "s0.pass-a",
+  "title": "Pass A: blind annotation of the twelve core units (Claude Opus 5.5, golden inputs)",
+  "group": "S0 Reference annotations",
+  "package": "S0-B",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What does an annotator following guideline v0 write for the twelve core units, blind to the trace and other passes?",
+  "answers": [
+    "OPEN-D8-3",
+    "OPEN-D1-2",
+    "OPEN-D1-3",
+    "OPEN-D2-4",
+    "OPEN-D2-5"
+  ],
+  "method": "Fresh subagent with golden inputs; batches validated by code/s0_check.py; first versions kept.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0/pass_a"
+  ],
+  "agents": [
+    {
+      "role": "annotator Pass A",
+      "model": "Claude Opus 5.5",
+      "brief": "results/s0/inputs/golden/instructions_a.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote only its output folder"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s0/inputs/golden",
+      "role": "inputs",
+      "sha256": "4247612a08f33d38193ff1db363eb2b927a95f5b35f453aed7eef6a8d4f4a69a"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/pass_a",
+      "role": "batches, notes, first versions",
+      "sha256": "fd7487aeb3123778adbb274c55be75e6b86f804c33214f4325e8a610e0ef4a92"
+    }
+  ],
+  "depends_on": [
+    "s0.packets"
+  ],
+  "results": [
+    {
+      "name": "units_validated",
+      "value": 12,
+      "of": 12,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Twelve batches validate after format repairs; notes list every guess.",
+  "consumed_by": [
+    "S0 report",
+    "s0.adjudication"
+  ]
+}

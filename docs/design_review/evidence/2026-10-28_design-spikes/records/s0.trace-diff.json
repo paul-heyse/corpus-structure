@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "id": "s0.trace-diff",
+  "title": "Passes against the trace and the old-repository witness",
+  "group": "S0 Reference annotations",
+  "package": "S0-C",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Where do the passes differ from the worked trace and from independently settled targets, and whose reading is wrong?",
+  "answers": [
+    "trace.md",
+    "D2 §10"
+  ],
+  "method": "Hand classification of every T1–T4 difference before adjudication; witness targets compared at their stated level.",
+  "commands": [],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/trace_diff.md",
+      "role": null,
+      "sha256": "a44b24e6452c6f6e7594567593620d73fd6d9011d638d147a46ae4f15bb89180"
+    },
+    {
+      "path": "results/s0/witness_diff.md",
+      "role": null,
+      "sha256": "42d4f494e4f3331b5bc91743348f89a3e1d13538a92ec3142f42c423d9810d1c"
+    }
+  ],
+  "depends_on": [
+    "s0.trace-batches",
+    "s0.pass-a",
+    "s0.pass-b"
+  ],
+  "results": [
+    {
+      "name": "differences",
+      "value": 26,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "trace_wrong",
+      "value": 2,
+      "of": 26,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pass_wrong",
+      "value": 2,
+      "of": 26,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "guideline_gaps",
+      "value": 22,
+      "of": 26,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "witness_limits",
+      "value": 4,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Most differences are guideline gaps (five proposed rules G1–G5); the witness agrees with both passes on every core-unit distinction except four representation limits.",
+  "consumed_by": [
+    "S0 report",
+    "X1 fold-in"
+  ]
+}

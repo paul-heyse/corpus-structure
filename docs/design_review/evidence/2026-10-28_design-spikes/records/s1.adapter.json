@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "id": "s1.adapter",
+  "title": "Adapter on the four spike pages, sample and invariants",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-A, S1-B",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does D1 §3's evidence model (canonical text, segment tree, keys, renditions) fit Siegrist HTML, deterministically, with the core units locatable?",
+  "answers": [
+    "D1 §3",
+    "HTML-01",
+    "HTML-02",
+    "HTML-03",
+    "HTML-04",
+    "HTML-07"
+  ],
+  "method": "Profile-driven lxml adapter (D2 §12.1 profile plus S1 additions) on four pages; structural and independent-path invariants; two-run determinism; D2 §12.2 locators.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1_adapter.py special/LocationScale.html special/Normal.html special/LogNormal.html special/Gamma.html",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1b_sample.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/environment.json",
+      "role": "environment",
+      "sha256": "a40cb1b143ea3ebd59fd34f7b5679d3b6a19b4293967c82124d69353dc7a528c"
+    },
+    {
+      "path": "code/profile/siegrist.yaml",
+      "role": "source profile",
+      "sha256": "ef9ecb449443d642f8cbbf7f58a8de0a04d497a18c45e0ae685316fe77139026"
+    },
+    {
+      "path": "code/profile/slices.yaml",
+      "role": "locators",
+      "sha256": "5e02c53c51c0afe36d87807d6b369eb9d51f6e7c27e24e6d50c677c6abde4c35"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s1/canonical",
+      "role": null,
+      "sha256": "8c5d52ad0ecdfc3eed2ada6ceda308f4ac8469741781476c1bc8c2070ebd8ed5"
+    },
+    {
+      "path": "results/s1/segments",
+      "role": null,
+      "sha256": "15347e8f907cebd26891ac425248429ed1006c42a0bfc03ba5cd31e8f5d43ffb"
+    },
+    {
+      "path": "results/s1/markup",
+      "role": null,
+      "sha256": "6cfcf9552db5bad6891b8a649cdc25818ff31178f7f7f05112f0758bc80e1ea3"
+    },
+    {
+      "path": "results/s1/renditions.json",
+      "role": null,
+      "sha256": "aa75c9c0af1039f5360bc81639cd63de6b1a5c2c68d9a7b4a4b89fe83c60a884"
+    },
+    {
+      "path": "sample.json",
+      "role": "core-unit sample",
+      "sha256": "55463a0aca5c03c6412cf721692fa8a6eac3c6f5e9ffa4749509e7c123a30bd8"
+    },
+    {
+      "path": "results/s1/invariants.json",
+      "role": null,
+      "sha256": "75f47bcb1c5bf034893814c5d49e521a8feeac44b618909d36da8693d8b5507b"
+    },
+    {
+      "path": "results/s1/locators.json",
+      "role": null,
+      "sha256": "5b2b88bba2f493199f081581bd58aa029d266d9036e512190e62add9962b9514"
+    }
+  ],
+  "depends_on": [
+    "e0.environment"
+  ],
+  "results": [
+    {
+      "name": "core_units_located",
+      "value": 12,
+      "of": 12,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "locators_resolved",
+      "value": 13,
+      "of": 13,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "invariant_violations",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "deterministic",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All twelve core units and thirteen locators resolve exactly once; no invariant violations; text and keys identical across runs.",
+  "consumed_by": [
+    "S1-report.md",
+    "S0 packets"
+  ]
+}

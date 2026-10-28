@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "s1.variants",
+  "title": "Adapter variants and rendering conventions",
+  "group": "S1 Ingest and segmentation",
+  "package": "S1-A",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which parser, normalization, math whitespace, section synthesis, profile engine and math detection variants change canonical text, and which rendering conventions to adopt?",
+  "answers": [
+    "HTML-02",
+    "HTML-03",
+    "HTML-04",
+    "HTML-05",
+    "HTML-07"
+  ],
+  "method": "Variants V1–V7 and conventions R1–R5 diffed on the four pages.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s1a_variants.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "code/profile/siegrist.yaml",
+      "role": "source profile",
+      "sha256": "ef9ecb449443d642f8cbbf7f58a8de0a04d497a18c45e0ae685316fe77139026"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s1/variants_s1a.json",
+      "role": null,
+      "sha256": "a54c6acf0cbf3a4d1c8f0a9b052afe09767db59043bc334b858901d1cc9546bd"
+    },
+    {
+      "path": "results/s1/variants_s1a.md",
+      "role": "decisions",
+      "sha256": "f9162fa851604d73fbab45d9c6cf83072f483562c76dc4353c9768961116d88b"
+    },
+    {
+      "path": "results/s1/blocks",
+      "role": null,
+      "sha256": "d0f0317c5f3efbb0937455dc132fe4905d96483948ec41a24afb6e2711564e0d"
+    }
+  ],
+  "depends_on": [
+    "s1.adapter"
+  ],
+  "results": [
+    {
+      "name": "profile_engines_identical",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "prose_safe_spans_agree",
+      "value": 918,
+      "of": null,
+      "unit": null,
+      "note": "pylatexenc 3.0b2 prose-safe state vs scanner on the four pages"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Profile engines agree everywhere; NFC suffices; nested h3/h4 sections; references rendered as [n] and list markers as (a) remove false sentence splits.",
+  "consumed_by": [
+    "S1-report.md"
+  ]
+}

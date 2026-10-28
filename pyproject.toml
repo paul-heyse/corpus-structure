@@ -3,12 +3,15 @@ name = "corpus-structure-dev"
 version = "0.0.0"
 description = "The uv root: repo scripts, their tests and the dev tools. Product Python packages join as workspace members."
 requires-python = ">=3.14"
-dependencies = []
+dependencies = ["corpus-evidence"]
 
 # Add product packages as members (e.g. members = ["python/*"]) and list them in `dependencies`
 # with `[tool.uv.sources] <name> = { workspace = true }`, so the root environment tests them.
 [tool.uv.workspace]
-members = []
+members = ["tools/evidence"]
+
+[tool.uv.sources]
+corpus-evidence = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -30,7 +33,7 @@ pythonpath = ["scripts"]
 
 [tool.ruff]
 line-length = 100
-src = ["scripts"]
+src = ["scripts", "tools/evidence/src"]
 target-version = "py314"
 # Fixtures are analyzer input; docs may contain illustrative code fences. A subdirectory that is a
 # separate Python project with its own environment (conventionally under `services/`) is excluded.
@@ -42,7 +45,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.pyrefly]
 python-version = "3.14"
-project-includes = ["scripts", "tests"]
+project-includes = ["scripts", "tests", "tools"]
 project-excludes = ["fixtures/**", ".claude/**", "**/target/**"]
-search-path = ["scripts"]
+search-path = ["scripts", "tools/evidence/src"]
 site-package-path = [".venv/lib/python3.14/site-packages"]

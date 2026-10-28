@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "parse.lark-probe",
+  "title": "Lark grammar-extension probe",
+  "group": "Parsing (ADR-0009)",
+  "package": "PARSE-01",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can SymPy's Lark LaTeX grammar be extended by directives instead of rewriting strings around it?",
+  "answers": [
+    "PARSE-01",
+    "ADR-0009",
+    "OPEN-D4-3"
+  ],
+  "method": "Shipped vs extended grammar on all S0 batch values and the spike-page math spans.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/lark_probe.py --sample 1500"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/lark_probe",
+      "role": null,
+      "sha256": "d7aaf32a765218b5cdba229b90ed4591639908b00b39eaa5c5c7c4e0ca2c492c"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "values_shipped",
+      "value": 37,
+      "of": 52,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "values_extended",
+      "value": 51,
+      "of": 52,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "spans_shipped",
+      "value": 466,
+      "of": 918,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "spans_extended",
+      "value": 729,
+      "of": 918,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Directive-only extension recognizes 51 of 52 values (37 shipped) and 729 of 918 spans (466 shipped).",
+  "consumed_by": [
+    "ADR-0009"
+  ]
+}

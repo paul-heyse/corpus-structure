@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "s0.sizes",
+  "title": "Batch and packet sizes",
+  "group": "S0 Reference annotations",
+  "package": "S0-F",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How large are unit packets and batches in local-LLM tokens (OPEN-D4-4)?",
+  "answers": [
+    "OPEN-D4-4",
+    "D4 §4.1"
+  ],
+  "method": "Qwen3.5-9B tokenizer over units, packets and batches of every pass.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0f_sizes.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "results/environment.json",
+      "role": "environment",
+      "sha256": "a40cb1b143ea3ebd59fd34f7b5679d3b6a19b4293967c82124d69353dc7a528c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/size.tsv",
+      "role": null,
+      "sha256": "cb303fe3221a8bc18386d7654d50d31bf707084a6b10dabd7da830c3ec6c24b6"
+    }
+  ],
+  "depends_on": [
+    "s0.adjudication"
+  ],
+  "results": [
+    {
+      "name": "unit_tokens_max",
+      "value": 345,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "packet_tokens_max",
+      "value": 637,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "batch_tokens_max",
+      "value": 2509,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "over_local_cap",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Output, not input, sets the local-LLM budget: batches are 2–19 times their unit.",
+  "consumed_by": [
+    "S0 report"
+  ]
+}

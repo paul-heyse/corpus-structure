@@ -134,12 +134,19 @@ base guidance is manual. Plans retain execution disposition and existing review 
 The collection entry pages are unassessed; discovery/design-quality benefits remain Proposed.
 
 
+**Evidence records — Implemented** (ADR-0010). A finalized result of an investigation gets one
+typed record in its evidence folder (`records/<id>.json`: question, informed items, method,
+agents, hashed inputs and outputs, headline results, outcome, conclusion, consumers); revisions
+supersede. `just evidence` derives the README indexes, a rebuildable DuckDB catalog with
+per-folder views and report figures from queries; none of these is an authority, and records
+retire with their folder (ADR-0001).
+
 **Documentation publication** (ADR-0003). Focused architecture pages retain stable section IDs;
 a moved live section leaves a relocation pointer. One resolver drives ADR references and the
 generated section directory. Publication derives navigation and search from sources; it does not
 prove implementation. [Publishing operations](../publishing.md) owns the commands.
 
-> Decision: ADR-0001, ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0008
+> Decision: ADR-0001, ADR-0002, ADR-0003, ADR-0006, ADR-0007, ADR-0008, ADR-0010
 
 
 No product binding decisions yet. Add each as `### §B1 <decision stated as a sentence>` with a

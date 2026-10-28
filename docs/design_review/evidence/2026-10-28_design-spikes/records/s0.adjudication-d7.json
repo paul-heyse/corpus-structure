@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "id": "s0.adjudication-d7",
+  "title": "D7 adjudicator session (Haiku)",
+  "group": "S0 Reference annotations",
+  "package": "S0-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Is adjudication determinate under guideline v0: does an independent adjudicator decide as the root did?",
+  "answers": [
+    "D7 §3.4"
+  ],
+  "method": "Fresh subagent receives the guideline, packets, both passes and their alignment diff, decides every difference.",
+  "commands": [],
+  "agents": [
+    {
+      "role": "adjudicator",
+      "model": "Claude Haiku 5.5",
+      "brief": "results/s0/inputs/adjudication_d7/instructions_d7.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote only its output folder"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s0/inputs/adjudication_d7",
+      "role": "inputs",
+      "sha256": "2859e92d3566ec9a035e222f47f076d8f86a5e9d810a6e8ea9528bf1c6974857"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/adjudication_d7",
+      "role": null,
+      "sha256": "60edc844781041f6994686d7d4681a93a2cb24d2baea2211ca01abb99753e525"
+    }
+  ],
+  "depends_on": [
+    "s0.packets",
+    "s0.pass-a",
+    "s0.pass-b"
+  ],
+  "results": [
+    {
+      "name": "decisions",
+      "value": 97,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "guideline_gap_decisions",
+      "value": 21,
+      "of": 97,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Twelve batches validate; comparison with the root's reference follows in S0-G.",
+  "consumed_by": [
+    "S0-G"
+  ]
+}

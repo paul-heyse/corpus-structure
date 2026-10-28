@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "s0.adjudication",
+  "title": "Root adjudication of A and B into the reference",
+  "group": "S0 Reference annotations",
+  "package": "S0-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "One adjudicated batch per unit, every decision with a reason and kind.",
+  "answers": [
+    "D7 §3.4",
+    "OPEN-D1-3",
+    "OPEN-D2-5"
+  ],
+  "method": "Decision table applied to the closer pass per unit (code/s0d_reference.py).",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0d_reference.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "results/s0/reference_model",
+      "role": "reference batches",
+      "sha256": "63bd3461c57ba0bf56c274534045760e2cae2faface271b4fdbb2372d2c011ab"
+    },
+    {
+      "path": "results/s0/adjudication.md",
+      "role": "decisions",
+      "sha256": "8307b1c08ec1bfdf87d53c804d04b455c5ee100c96be1f7fec60d428554c776d"
+    }
+  ],
+  "depends_on": [
+    "s0.pass-a",
+    "s0.pass-b",
+    "s0.trace-diff"
+  ],
+  "results": [
+    {
+      "name": "decisions",
+      "value": 21,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "guideline_gap_decisions",
+      "value": 14,
+      "of": 21,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The reference validates; no difference needed an alternatives group.",
+  "consumed_by": [
+    "S0-G",
+    "S2",
+    "S3"
+  ]
+}

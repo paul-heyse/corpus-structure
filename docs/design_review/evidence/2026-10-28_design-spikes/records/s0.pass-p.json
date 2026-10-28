@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "s0.pass-p",
+  "title": "Pass P: blind annotation of the twelve core units (Claude Haiku 5.5, unit packets only)",
+  "group": "S0 Reference annotations",
+  "package": "S0-E",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What does an annotator following guideline v0 write for the twelve core units, blind to the trace and other passes?",
+  "answers": [
+    "OPEN-D4-4",
+    "OPEN-D1-2"
+  ],
+  "method": "Fresh subagent with unit packets only; batches validated by code/s0_check.py; first versions kept.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/s0_check.py results/s0/pass_p"
+  ],
+  "agents": [
+    {
+      "role": "annotator Pass P",
+      "model": "Claude Haiku 5.5",
+      "brief": "results/s0/inputs/packet_only/instructions_p.md",
+      "separation": "fresh subagent; read only its input folder and output folder (transcript audit of every file opened, 2026-10-28); wrote only its output folder"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s0/inputs/packet_only",
+      "role": "inputs",
+      "sha256": "99c7bcf7f4aa418d1167f1e97bb1e15c700ce9c388c1164ea66121e5ca8e2a5c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s0/pass_p",
+      "role": "batches, notes, first versions",
+      "sha256": "4fdfd16cb9c48decfffa07fdb13e38b2c4391d7e8d8caf80364d1b3082781b05"
+    }
+  ],
+  "depends_on": [
+    "s0.packets"
+  ],
+  "results": [
+    {
+      "name": "units_validated",
+      "value": 12,
+      "of": 12,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Twelve batches validate after format repairs; notes list every guess.",
+  "consumed_by": [
+    "S0 report",
+    "S0-G"
+  ]
+}
