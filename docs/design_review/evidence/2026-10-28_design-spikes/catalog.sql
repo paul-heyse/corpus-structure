@@ -147,3 +147,7 @@ FROM s4_rules GROUP BY rule, grp;
 CREATE TABLE s4_sizes AS
 SELECT * FROM read_csv('{{ folder }}/results/s4/sizes.tsv', delim = '\t', header = true, all_varchar = true);
 -- ==== end S4 ====
+
+-- Claim- and meaning-key agreement on the 70 aligned A/B pairs under the S0 variants and the revised statement key (S6-F).
+CREATE TABLE s6_keys AS
+SELECT * FROM read_csv('{{ folder }}/results/s6/keys.tsv', delim = '\t', header = true, all_varchar = true);

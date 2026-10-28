@@ -1,0 +1,249 @@
+{#- S6 report: storage smoke. Figures come from the evidence catalog (ADR-0010); prose by executor
+    W-S3. Render: `just evidence catalog`, then
+    `just evidence render docs/design_review/evidence/2026-10-28_design-spikes/S6-report.md.j2`. -#}
+{% set S = 'f_2026_10_28_design_spikes' %}
+{% set F = '2026-10-28_design-spikes/' %}
+{% macro res(rid, name) -%}
+{%- set r = query("SELECT value_num, value_text, \"of\" FROM record_results WHERE gid = $g AND name = $n", g=F ~ rid, n=name)[0] -%}
+{%- if r.value_num is not none -%}{%- if r.value_num == r.value_num | int -%}{{ r.value_num | int }}{%- else -%}{{ num(r.value_num) }}{%- endif -%}{%- else -%}{{ r.value_text }}{%- endif -%}
+{%- if r.of is not none %} of {{ r.of }}{% endif -%}
+{%- endmacro %}
+{% for rid in ['s6.ddl', 's6.constraints', 's6.queries', 's6.bm25', 's6.dry-run-2', 's6.queue', 's6.volume', 's6.vectors', 's6.sizes', 's6.keys', 's6.restated'] %}{% set _ = record(F ~ rid) %}{% endfor %}
+# S6 · Storage smoke — report
+
+**Run:** 2026-10-28, by executor W-S3 (Claude Opus 5.5). **Brief:** [S6-storage-smoke.md](S6-storage-smoke.md); plan
+[S6](../../../plans/design-spikes-s0-s1/S6-storage-smoke.md). **Status:** passed.
+
+## Answer
+
+D3's DDL applies on PostgreSQL 18.6 with pg_textsearch 1.5.1 and vector 0.8.7, as a non-superuser in a database
+cloned from the template. It needs one error fix, a `::regconfig` cast in the BM25 partial-index predicate, and one gap
+fix, the `kb.segment.kind` CHECK its comment promises. The v1 trace and golden rows fit, with one reference misfit (OPEN-D1-5).
+All {{ res('s6.constraints', 'constraint_cases_passed') }} constraint cases behave as expected. Every D8 §5.3 trace question
+returns its expected claims. BM25 works with the named index and the repeated, cast predicate, but D3's kind list
+counts {{ res('s6.bm25', 'd3_kind_list_chars_indexed_twice') }} non-space characters twice. The queue's claiming and
+`attempt` fencing hold under a kill and a stall. Under the revised statement key (ADR-0019), claim-key agreement on the
+70 aligned A/B pairs rises from 21 to {{ res('s6.keys', 'revised_claim_keys_equal') }}, and with the label rule to
+{{ res('s6.keys', 'revised_labels_claim_keys_equal') }} against {{ res('s6.keys', 'revised_labels_meaning_keys_equal') }}
+meaning keys. No fact is restated across the twelve units, so nothing calls for a stored meaning key yet (OPEN-D3-4 goes to
+phase 1 goldens).
+
+## What was run
+
+All commands are `UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/…`, run from this folder.
+
+| Step | Command | Outcome | Records |
+|---|---|---|---|
+| 1–2 Database, DDL | `s6_extract_ddl.py`; `s6a_ddl.py --sql s6_ddl.sql`; `s6a_ddl.py` | passed | [s6.ddl](records/s6.ddl.json) |
+| 3 Rows, constraints, run deletion | `s6b_rows.py` | passed | [s6.constraints](records/s6.constraints.json) |
+| 4–5 Queries, BM25 | `s6c_queries.py` | passed | [s6.queries](records/s6.queries.json), [s6.bm25](records/s6.bm25.json) |
+| §3 Joint dry run (S6-D) | `s6d_dry_run.py --suffix _2` | passed | [s6.dry-run-2](records/s6.dry-run-2.json) (supersedes s6.dry-run; identical figures) |
+| 6 Vectors | `s6e_vectors.py` | passed | [s6.vectors](records/s6.vectors.json) |
+| 7, 8 Volume, sizes | `s6e_volume.py` | passed | [s6.volume](records/s6.volume.json), [s6.sizes](records/s6.sizes.json) |
+| 7b Queue | `s6e_queue.py --log-dir <scratch>` | passed | [s6.queue](records/s6.queue.json) |
+| 9–10 Keys, restated facts | `s6f_keys.py` | passed | [s6.keys](records/s6.keys.json), [s6.restated](records/s6.restated.json) |
+| Corrected DDL as a diff | `s6g_diff.py` | passed (D3's SQL blocks unchanged since extraction) | `results/s6/ddl.diff` |
+| 11 Drop the database | `DROP DATABASE cs_spike_s6`, `DROP ROLE cs_s6_app` | passed | — |
+
+**Environment.** PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2) on the project-local interim cluster (`just db-up`,
+`build/pg/`, socket `build/pg/run`, port 5440, `shared_preload_libraries = pg_textsearch`, developer superuser;
+shared_buffers 160 MB, work_mem 4 MB, maintenance_work_mem 64 MB, raised to 1 GB for the HNSW builds). The system cluster
+on 5432 and the new `18/corpus` cluster (5434) were not used. The DDL and every row were written as `cs_s6_app`, a NOLOGIN
+non-superuser with CREATEDB (`SET ROLE`), in `cs_spike_s6` cloned from `cs_template`. Python 3.14.10, psycopg 3.3.6
+(binary), pgvector-python 0.5.1 (record [e4.env-cpu](records/e4.env-cpu.json)); instruments I-R2
+([s0.instruments-ir2](records/s0.instruments-ir2.json)). Free disk was 109 GB at the start and 106 GB at the end.
+
+## Results
+
+### DDL (`results/s6/ddl_fixes.md`)
+
+Applied as written, {{ res('s6.ddl', 'errors_as_written') }} statements fail: `CREATE INDEX segment_bm25` raises
+`22P02 invalid input syntax for type oid: "english"`. `regconfig` has no `=` operator of its own, so `ts_config = 'english'`
+resolves to `oid = oid` and reads the literal as an oid. The applied copy has {{ res('s6.ddl', 'errors_fixed_copy') }}
+errors. The extension premises of D3 §3 hold: {{ res('s6.ddl', 'create_extension_as_app') }}, and the migration's
+assertion fails with {{ res('s6.ddl', 'assertion_without_extension') }} in a database without pg_textsearch. The B7 columns
+were already in D3.
+
+The corrected DDL as a diff against D3's blocks:
+
+```diff
+{% include 'results/s6/ddl.diff' %}
+```
+
+### Rows and constraints (`constraints.tsv`, `rows.json`, `run_deletion.md`)
+
+- T3's C2 stores both restrictions ({{ res('s6.constraints', 't3_c2_conditions') }}). T4 has {{ res('s6.constraints', 't4_claims') }} claims.
+  U12's premise cites `c1` outside its unit, and the evidence query returns it ({{ res('s6.constraints', 'context_premise_evidence_returned') }}).
+- The golden run has passes a = SV, b = HV and c = the v1 reference. Pass c is created after a and b for
+  {{ res('s6.constraints', 'pass_c_after_a_and_b') }} units; there are {{ res('s6.constraints', 'golden_items') }} pass-c items,
+  and the Weibull page is `reserved`.
+- `kb.run_observation` resolves a reused task and excludes a task finished after the run's `finished_at`
+  ({{ res('s6.constraints', 'run_observation_reuse_and_fate_cut') }}).
+- The sweep has {{ res('s6.constraints', 'constraint_cases_passed') }} cases: the brief's three bad rows, one mutated copy
+  of an existing row for every CHECK, NOT NULL, FK, UNIQUE and composite PK, and six invariants the database does not
+  express. Those six (INV-10 span bounds, span and segment text, cross-rendition evidence, distinct pass sessions, items
+  only on pass c) insert without error, as expected: they are repository checks.
+- Misfit: U6's `e_last_result` is a `Statement`-typed entity without a kind and fails `entity_check`, so it and its
+  claim `c_follows` were not loaded (OPEN-D1-5: an external reference, `unsupported` until `extref`).
+- Run deletion keeps the run row and its tasks. `kb.claim_link` has no `run_id` index, but the claim cascade removes
+  links through `claim_link_to` and the unique index. The RI checks on `kb.claim.subject_id`, `object_entity_id` and
+  `statement_id` reach their `(run_id, …)` indexes only through PostgreSQL 18's skip scan. At volume the whole delete took
+  {{ res('s6.volume', 'run_deletion_ms') }} ms.
+
+### Queries (`queries.md`)
+
+Every D3 §9 pattern returns its rows in under 2 ms on the trace data. Each D8 §5.3 question returns all its expected
+trace claims ({{ res('s6.queries', 'd8_questions_missing_expected_rows') }} missing); the extra rows come from other
+core units in the run, and from the derived D1 that D3 §10 describes. Three corrections:
+
+- D3 §9's `family_profile` pattern returns {{ res('s6.queries', 'family_profile_normal_d3_pattern_rows') }} row for the
+  normal family. T2's answer lives on the `FamilyParameter` entities whose identity names the family, so the pattern
+  needs that branch.
+- The evidence query's `unit_id` is null, because a span's smallest containing segment is a sentence.
+- `statement(page#unit)` cannot reach a lead-in assumption outside the unit (T1's C1).
+
+The `@?` qualifier query is carried by `claim_pred` ({{ res('s6.queries', 'qualifier_query_carried_by_claim_pred') }}).
+
+### BM25 (`bm25.md`, OPEN-D3-1)
+
+- **Working form:** {{ res('s6.bm25', 'working_form') }}. It gives an ordered `Index Scan using segment_bm25`, and the
+  forced generic plan of a prepared statement uses it too ({{ res('s6.bm25', 'prepared_generic_plan_uses_index') }}).
+- **What fails:** D3 §5's query as written fails with {{ res('s6.bm25', 'd3_query_as_written') }}. The implicit string
+  form fails with {{ res('s6.bm25', 'implicit_string_form') }}, and the unqualified index name with
+  {{ res('s6.bm25', 'unqualified_index_name') }}.
+- **Silent fallback:** with the predicate omitted, or written so the planner cannot prove it, the query falls back to
+  standalone scoring over every row, including rows the index does not hold (index scan:
+  {{ res('s6.bm25', 'predicate_omitted_index_scan') }}).
+- **Boolean and phrase filters:** `@@ to_tsquery('english', …)` filters work. Served by the index alongside BM25 ordering:
+  {{ res('s6.bm25', 'tsquery_filter_served_with_ranking') }}; the filter is applied first, and its matches are scored and sorted.
+- **Overlap:** the kind list is not non-overlapping. `math_display` segments nested in indexed paragraphs and list items
+  put {{ res('s6.bm25', 'd3_kind_list_chars_indexed_twice') }} non-space characters in the index twice. With
+  `('paragraph','heading','list_item','caption')` the overlap is {{ res('s6.bm25', 'paragraph_heading_list_item_caption_overlap') }}
+  and no character is left out on the four pages.
+- **Size and order:** the index holds {{ res('s6.bm25', 'index_rows') }} segment rows; all five brief queries use it
+  ({{ res('s6.bm25', 'queries_with_index_scan') }}), with negative scores ascending.
+
+### Joint dry run (`dry_run_2.md`, S6-D)
+
+S4-B's tables register as schema version 0.2.0. The content hash recomputes ({{ res('s6.dry-run-2', 'content_hash_recomputed_matches') }}),
+as do the artifact bodies ({{ res('s6.dry-run-2', 'artifact_hashes_match') }}). {{ res('s6.dry-run-2', 'schema_rows_inserted') }}
+compiled rows insert. The trace rows inserted against the version agree on predicates
+({{ res('s6.dry-run-2', 'predicates_without_slot') }} without a slot) and on types and value kinds
+({{ res('s6.dry-run-2', 'type_and_kind_disagreements') }} disagreements). Naming does not join:
+{{ res('s6.dry-run-2', 'entity_types_matching_only_prefixed') }} entity types and
+{{ res('s6.dry-run-2', 'qualifier_keys_matching_only_prefixed') }} qualifier keys match only once prefixed, and
+{{ res('s6.dry-run-2', 'slot_class_refs_bare') }} `domain_class`/`range` values in the compiled rows are bare while class
+names are prefixed. Value-class attributes are {{ res('s6.dry-run-2', 'value_class_attribute_rows') }} slot rows named
+`<prefix>:<Class>.<attr>`. Last: {{ res('s6.dry-run-2', 'parse_status_enum_vs_ddl') }}. The rerun against the final S4
+tables reproduces s6.dry-run exactly.
+
+### Vectors (`vectors.tsv`, phase 1)
+
+At 10,000 rows the planner chooses {{ res('s6.vectors', 'planner_choice_at_10k') }} for the selective filtered join.
+The table below forces the HNSW scan:
+
+| dim | index | iterative scan | median ms | p95 ms | recall@10 |
+|---|---|---|---|---|---|
+{% for r in query("SELECT dim, \"index\" AS ix, iterative_scan, median_ms, p95_ms, recall_at_10 FROM " ~ S ~ ".s6_vectors WHERE \"index\" LIKE '%forced%' ORDER BY dim, ix, iterative_scan") %}
+| {{ r.dim }} | {{ r.ix | replace(' (forced)', '') }} | {{ r.iterative_scan }} | {{ r.median_ms }} | {{ r.p95_ms }} | {{ r.recall_at_10 }} |
+{% endfor %}
+
+HNSW builds took {{ res('s6.vectors', 'hnsw_build_ms_1024_global') }} ms at 1024 dimensions and
+{{ res('s6.vectors', 'hnsw_build_ms_2048_global') }} ms at 2048, with indexes of {{ res('s6.vectors', 'index_bytes_1024') }}
+and {{ res('s6.vectors', 'index_bytes_2048') }} bytes. These are random vectors, a worst case for recall; S7 decides the
+dimension with real embeddings.
+
+### Volume and sizes (`volume.tsv`, `sizes.tsv`)
+
+| step | rows | ms |
+|---|---|---|
+{% for r in query("SELECT step, \"rows\" AS n, ms FROM " ~ S ~ ".s6_volume") %}
+| {{ r.step }} | {{ r.n }} | {{ r.ms }} |
+{% endfor %}
+
+- **Binary COPY types:** a `real` column refuses `float8` ({{ res('s6.volume', 'float8_into_real_binary_copy') }}), so
+  D6 §3's float4 note holds. A `str` sent into a declared `jsonb` column is {{ res('s6.volume', 'str_into_declared_jsonb') }}:
+  it is stored as a JSON string, so pass dicts.
+- **Segment text:** {{ res('s6.sizes', 'segment_text_per_unit_bytes') }} bytes per author unit, against about 11.6 kB of
+  observation payload per unit at run scale. The database totals {{ res('s6.sizes', 'four_schemas_total_bytes') }} bytes
+  after the volume load. OPEN-D3-3 stays answered, and the sizes support keeping the column.
+
+### Queue (`queue.md`, P0-O-1)
+
+- **Exactly once:** {{ res('s6.queue', 'tasks_done_once_with_one_observation') }} tasks were done exactly once with one
+  observation, and {{ res('s6.queue', 'claims_while_previous_lease_live') }} claims were made while a lease was live.
+- **Kill and stall:** the {{ res('s6.queue', 'reclaimed_tasks') }} re-claimed tasks are exactly the killed worker's
+  in-flight batch and the stalled worker's batch. The stalled worker's late fencing UPDATE matched
+  {{ res('s6.queue', 'stalled_worker_fenced_in') }} rows and it committed nothing.
+- **Wake-ups:** NOTIFY in the inserting transaction woke the waiting worker below the client timer's resolution ({{ res('s6.queue', 'notify_commit_to_claim') }} s).
+  Tasks inserted without a notification were found by the timeout re-query after {{ res('s6.queue', 'silent_insert_to_claim') }} s.
+- **Claim plan:** {{ res('s6.queue', 'claim_plan') }}.
+
+### Keys under the revised statement key (`keys.tsv`, `key_pairs.tsv`; B3, OPEN-D3-4)
+
+| variant | aligned pairs | claim keys equal | meaning keys equal | S0 record (claim / meaning) |
+|---|---|---|---|---|
+{% for r in query("SELECT * FROM " ~ S ~ ".s6_keys") %}
+| {{ r.variant }} | {{ r.aligned_pairs }} | {{ r.claim_keys_equal }} | {{ r.meaning_keys_equal }} | {% if r.s0_record_claim %}{{ r.s0_record_claim }} / {{ r.s0_record_meaning }}{% else %}—{% endif %} |
+{% endfor %}
+
+- **Reproduction:** this driver reproduces the four S0 rows exactly (last column).
+- **What the revised key leaves:** with the label rule, {{ res('s6.keys', 'pairs_differing_only_by_statement') }} pairs still
+  differ by statement alone: in U6, pass B splits one paragraph into two statements where pass A has one. The other
+  {{ res('s6.keys', 'pairs_differing_in_meaning_too') }} differing pairs disagree about the fact itself (conditions,
+  modality, a parameter value's LaTeX), so their meaning keys differ too.
+- **Comparability:** every pass is on one rendition per page, where locators and segments correspond one to one, so the
+  figures are comparable with the S0 rows.
+- **Restated facts:** {{ res('s6.restated', 'restated_across_units') }} facts are restated across units (also
+  {{ res('s6.restated', 'restated_across_units_label_rule') }} under the label rule). Only
+  {{ res('s6.restated', 'facts_with_a_global_subject') }} facts have a global subject that could recur.
+
+## Assumptions
+
+- **Cluster.** The project-local interim cluster, in place of the system cluster or a throwaway one: it was the one where
+  the role is superuser with pg_textsearch preloaded at the time (coordinator). Timings are relative to its small default
+  memory settings.
+- **Roles.** The DDL was applied by a non-superuser (`cs_s6_app`) to test D3 §3's privilege story. Under peer
+  authentication that meant `SET ROLE` from the superuser.
+- **Keys in S6-B–E.** The rows use placeholder keys (sha256 of item parts), unique per run, with global entities merged
+  across units. The D1 §10.1 keys are S6-F's subject.
+- **Golden passes.** a = SV (Sonnet 5.5), b = HV (Haiku 5.5), c = the v1 reference (model-facing, with its decisions).
+  Items were derived only for pass c, as D3 §7 has them (the brief's "pass SV with its items" predates that).
+- **Synthetic payloads.** The volume payloads are synthetic in the D3 §6.2 shapes, with proposals the v1 reference
+  batches cycled: no S2 or S3 output exists yet.
+- **Queue timings.** Lease 2 s and wait timeout 1 s in the queue test (production: 5 min and 30–60 s), so expiry happens
+  within the test.
+- **Statement anchors.** In S6-F the anchor outside units is the nearest paragraph or list item. Alignment ran on the
+  batches as stored (or label-normalized); only the keys use the revised anchor, so every variant has the same 70 pairs.
+- **Context-premise rule.** S6-F implements it (an assumption inside another statement's anchor takes that statement's
+  part); no S0 batch triggered it.
+
+## Design implications
+
+| Design item | Proposed change or answer | Evidence |
+|---|---|---|
+| D3 §5 `segment_bm25`, §5 BM25 query (F1) | Cast the literal in the index predicate and in every query repeating it: `ts_config = 'english'::regconfig` | [s6.ddl](records/s6.ddl.json), [s6.bm25](records/s6.bm25.json) |
+| D3 §5 `kb.segment.kind` (F2) | Add the CHECK with the D1 §3.2 kinds that the column comment promises | [s6.ddl](records/s6.ddl.json), [s6.constraints](records/s6.constraints.json) |
+| D3 §5 BM25 kind list (OPEN-D3-1) | `('paragraph','heading','list_item','caption')`: no overlap and full coverage on the four pages; drop `math_display`, whose segments nest in paragraphs and list items (orphan display formulas are already paragraphs). Repeat the predicate always: without it the query silently scores rows the index does not hold. OPEN-D3-1 closed with this syntax | [s6.bm25](records/s6.bm25.json) |
+| D3 §9 `family_profile`; D8 §5.2–§5.3 | Add the branch over `FamilyParameter` entities whose identity names the family (`attrs ->> 'family'`) | [s6.queries](records/s6.queries.json) |
+| D3 §9 evidence query | `unit_id` from the span's nearest `unit` ancestor (range or `parent_id` walk), not from the span's own segment | [s6.queries](records/s6.queries.json) |
+| D8 §5.3 T1 `statement(LocationScale#dfn1)` | A unit locator cannot reach the lead-in assumption; use the composite locator, or rely on premises reached through conditions | [s6.queries](records/s6.queries.json) |
+| D3 §3 `meta.schema_*` naming; D2 §7.1; P0-F-4 | One naming convention across compiled rows, `kb.entity.type` and `kb.claim.qualifiers` keys (prefixed everywhere, or bare classes and qualifiers): as stored, class and qualifier joins fail, and the compiled `domain_class`/`range` are bare while class names are prefixed | [s6.dry-run-2](records/s6.dry-run-2.json) |
+| D3 §3 `meta.schema_slot` PK; D2 §7.1 | Value-class attributes (`v` of several value classes) need the class in the key: a `domain_class` key column, or the `<prefix>:<Class>.<attr>` names S4 uses | [s6.dry-run-2](records/s6.dry-run-2.json) |
+| D3 §5 `parse_status` CHECKs; D1 §3.2 `ParseStatus` | The compiled enum has `ambiguous`, which `kb.segment`/`kb.rendition` refuse; align one with the other | [s6.dry-run-2](records/s6.dry-run-2.json) |
+| D6 §3 claiming; P0-O-1 | The claim statement holds as written. Its `OR` across pending and expired rows plans as a BitmapOr plus a full sort before `LIMIT`; for larger queues split it into two branches (pending through `task_pending`'s order, expired through `task_lease`), e.g. `UNION ALL` of two `LIMIT`ed `SKIP LOCKED` selects | [s6.queue](records/s6.queue.json) |
+| D3 §4 `ops.task` indexes | Add `(run_id, unit_key)` for "why a method ran" and per-unit reads; without it the query scans the run's tasks (under 1 ms at 12,500 tasks, linear in a run's tasks) | [s6.volume](records/s6.volume.json) |
+| D3 §8 run deletion | Delete claims first (links cascade); consider `kb.claim_link (run_id)` only if links are deleted directly; the RI checks rely on skip scan over `(run_id, …)` indexes | [s6.constraints](records/s6.constraints.json), [s6.volume](records/s6.volume.json) |
+| D6 §3 binary COPY | Confirmed: `real` needs `float4`; pass JSONB as dicts (a `str` becomes a JSON string) | [s6.volume](records/s6.volume.json) |
+| D3 §5 `kb.embedding` (phase 1) | halfvec at 1024 and 2048 builds and serves; filtered queries need `hnsw.iterative_scan` (`relaxed_order`) as D3 plans; the dimension waits on S7 | [s6.vectors](records/s6.vectors.json) |
+| OPEN-D3-3 | Stays answered: segment text is small beside a run's observations | [s6.sizes](records/s6.sizes.json) |
+| OPEN-D3-4, STMT-01, D1 §10.1 (B3) | The revised statement key brings claim keys to within 3 pairs of meaning keys, all from one statement-segmentation disagreement. No restated facts across the twelve units: no meaning-key column in 0001; phase 1 goldens decide | [s6.keys](records/s6.keys.json), [s6.restated](records/s6.restated.json) |
+| OPEN-D1-5; the v1 reference | A `Statement`-typed entity for an external reference fails D3's statement-kind CHECK; keep such references `unsupported` until `extref`, and correct U6 in the reference | [s6.constraints](records/s6.constraints.json) |
+
+## Follow-ups
+
+- Restated facts and the meaning key: rerun on phase 1 goldens drawn across pages (OPEN-D3-4).
+- BM25 kind list: confirm no overlap and full coverage on the 78-page corpus (tables, footnotes, figures beyond one caption).
+- Vector recall with real embeddings and the chosen dimension (S7), with `iterative_scan` and `ef_search`.
+- Queue: measure the two-branch claim against the single statement at 10⁵ pending tasks per stage.
+- Rerun the volume figures on `18/corpus` (io_uring, larger buffers); the figures here are from the interim cluster.

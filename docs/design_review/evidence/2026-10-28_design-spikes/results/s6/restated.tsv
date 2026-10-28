@@ -1,0 +1,3 @@
+rule	meaning_key	predicate	subject	object	units	statements
+raw	(none)					no meaning key in more than one unit among 71 facts (23 with a global subject; local subjects are scoped to their unit)
+labels	(none)					no meaning key in more than one unit among 71 facts (23 with a global subject; local subjects are scoped to their unit)

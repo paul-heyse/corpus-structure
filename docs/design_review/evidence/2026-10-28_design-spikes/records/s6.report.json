@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "id": "s6.report",
+  "title": "S6 report",
+  "group": "S6 Storage smoke",
+  "package": "S6-G",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does D3's DDL apply on PostgreSQL 18 with pgvector and pg_textsearch; do the v1 trace rows and typed queries work; does the revised statement key settle the meaning key?",
+  "answers": [
+    "OPEN-D3-1",
+    "OPEN-D3-3",
+    "OPEN-D3-4",
+    "D3 §3",
+    "D3 §5",
+    "D3 §8",
+    "D3 §9",
+    "D6 §3",
+    "D8 §5.3",
+    "STMT-01",
+    "ADR-0016"
+  ],
+  "method": "Report rendered from the evidence catalog over the S6 records, with the corrected DDL as a diff against D3's blocks (code/s6g_diff.py) and design implications tied to D3 sections and OPEN items. The spike ran on the project-local interim cluster; cs_spike_s6 and cs_s6_app were dropped at the end (step 11).",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6g_diff.py",
+    "just evidence catalog",
+    "just evidence render docs/design_review/evidence/2026-10-28_design-spikes/S6-report.md.j2"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6*, results/s6/, records/s6.*, S6-report*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "S6-report.md.j2",
+      "role": "template",
+      "sha256": "9cea2717f8af48266f2332987c023908f8e2f08d86cd521de4d367f5e59cdd65"
+    },
+    {
+      "path": "code/s6g_diff.py",
+      "role": "diff script",
+      "sha256": "822efbdfc276bf604bd46bbff5e2872e40b845f4565f9f63574c83cb22665d4f"
+    },
+    {
+      "path": "code/s6_ddl.sql",
+      "role": "D3 DDL as extracted",
+      "sha256": "f9424e3075711ea60d5f41ec72979ea6c7feb85e07327226d9c35226cb844046"
+    },
+    {
+      "path": "code/s6_ddl_applied.sql",
+      "role": "applied copy",
+      "sha256": "8eaf80ea08f93e760cc139314ca4f16f30a3722e3e3a923e5f8777cd1506eda3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "S6-report.md",
+      "role": "report",
+      "sha256": "91224d4e91686ad89788de06fe4a93a9f30fd347f61ef90fdfa2b9b5b2e1775f"
+    },
+    {
+      "path": "results/s6/ddl.diff",
+      "role": "corrected DDL as a diff against D3",
+      "sha256": "676bd750204f76bd61a6d26041fe23cef73e14cf351a16adf6ed1228586a6164"
+    }
+  ],
+  "depends_on": [
+    "s6.ddl",
+    "s6.constraints",
+    "s6.queries",
+    "s6.bm25",
+    "s6.dry-run-2",
+    "s6.queue",
+    "s6.volume",
+    "s6.vectors",
+    "s6.sizes",
+    "s6.keys",
+    "s6.restated"
+  ],
+  "results": [
+    {
+      "name": "ddl_fixes",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "F1 regconfig cast (error), F2 kind CHECK (gap)"
+    },
+    {
+      "name": "design_implications",
+      "value": 17,
+      "of": null,
+      "unit": null,
+      "note": "rows in the report's design-implications table"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "D3 becomes migration 0001 with two DDL fixes, a BM25 kind list without math_display (with caption), corrected family_profile and evidence queries, one naming convention between the compiled schema rows and the knowledge rows, a schema_slot key for value-class attributes, ParseStatus aligned with the parse_status CHECKs and an ops.task (run_id, unit_key) index; the queue design holds, a two-branch claim is the scaling option; the revised statement key brings claim keys within three pairs of meaning keys and no restated facts were found, so migration 0001 needs no meaning-key column. Evidence for ADR-0016 (PostgreSQL as the single authority): every store mechanism tested works in the one database.",
+  "consumed_by": [
+    "X2",
+    "ADR-0016",
+    "P0-F-4",
+    "P0-O-1",
+    "P0-C-1",
+    "P0-C-2",
+    "design-phase plan"
+  ]
+}

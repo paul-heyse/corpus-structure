@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "id": "s6.dry-run-2",
+  "title": "Joint dry run: S4-B's compiled schema rows against the tables and the trace rows (rerun on the final S4 tables)",
+  "group": "S6 Storage smoke",
+  "package": "S6-D",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [
+    "s6.dry-run"
+  ],
+  "superseded_by": null,
+  "question": "Do S4-B's compiled schema-table rows load into meta.schema_*, register as a schema version from their hash, and agree with the trace rows inserted against that version?",
+  "answers": [
+    "D3 §3",
+    "D2 §7.1",
+    "P0-F-4"
+  ],
+  "method": "results/s4/compiled/tables.json (S4-B, now recorded: s4.schema-hash, s4.batch-validation) registered as schema version 0.2.0 (content hash recomputed from the listed sources), artifact bodies hash-checked, every schema_* row inserted under a savepoint; the twelve core units materialized on a run of that version; typed agreement checked in SQL and Python. PostgreSQL 18.6 (Ubuntu 18.6-1.pgdg24.04+2), pg_textsearch 1.5.1, vector 0.8.7, on the project-local cluster (just db-up; socket build/pg/run, port 5440, pg_textsearch preloaded); DDL applied and rows written as the NOLOGIN non-superuser cs_s6_app (SET ROLE) in cs_spike_s6 cloned from cs_template; psycopg 3.3.6 (binary), pgvector-python 0.5.1, spike venv checked against the lock (`uv sync --locked --check`: no changes) before the final run; free disk 109G at start, 106G at end.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6d_dry_run.py --suffix _2"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6_*, code/s6*.py/.sql, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6d_dry_run.py",
+      "role": "script",
+      "sha256": "510672c37374cc8d056ef089c1ed3d54889497ed029c7934ae209f885e41298d"
+    },
+    {
+      "path": "results/s4/compiled/tables.json",
+      "role": "S4-B compiled tables (s4.schema-hash)",
+      "sha256": "47fac3b19e6d2b917ba33ac885e6da323cbcfe4227c3b3d071548db4f8fa0b09"
+    },
+    {
+      "path": "results/s4/compiled/batch.model.schema.json",
+      "role": "artifact body",
+      "sha256": "d31766c38bb02d48c93bc22bcacf0e93501a8d520622ce4b46a151cd755638ef"
+    },
+    {
+      "path": "results/s4/compiled/batch.stored.schema.json",
+      "role": "artifact body",
+      "sha256": "cd645f633e72d7c5f195fac8ab1a99e4def13ae72f91d3190f3b818428893258"
+    },
+    {
+      "path": "results/s4/compiled/batch.decoding.schema.json",
+      "role": "artifact body",
+      "sha256": "690db61122b3f50077c0dda579d25a8ecf029fbc1941ea9aed90bf2dd8c13bc8"
+    },
+    {
+      "path": "results/s4/schema/domains",
+      "role": "pack sources",
+      "sha256": "53963d91b94ba3d55a75b62c4140e8c3c64491f870281f253d60f6ae1f09352a"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/dry_run_2.md",
+      "role": "mismatches",
+      "sha256": "f48aa72a78546dcd96b55843703ea125586d94d3b9a7e9c7b4e3332e741c3696"
+    },
+    {
+      "path": "results/s6/dry_run_2.json",
+      "role": "figures",
+      "sha256": "08fe177ec0b76953df6646cf9ff7c4b4740de049cccb0e6a79f35819506576c5"
+    }
+  ],
+  "depends_on": [
+    "e4.env-cpu",
+    "s4.batch-validation",
+    "s4.schema-hash",
+    "s6.constraints"
+  ],
+  "results": [
+    {
+      "name": "content_hash_recomputed_matches",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "artifact_hashes_match",
+      "value": 4,
+      "of": 4,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "schema_rows_inserted",
+      "value": 148,
+      "of": 148,
+      "unit": null,
+      "note": "no row rejected"
+    },
+    {
+      "name": "predicates_without_slot",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "type_and_kind_disagreements",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "entity_types_matching_only_prefixed",
+      "value": 6,
+      "of": null,
+      "unit": null,
+      "note": "schema_class.name prefixed (stat:RandomVariable); kb.entity.type bare"
+    },
+    {
+      "name": "qualifier_keys_matching_only_prefixed",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": "slot qualifiers prefixed (stat:param_values); claim qualifier keys bare"
+    },
+    {
+      "name": "slot_class_refs_bare",
+      "value": 43,
+      "of": null,
+      "unit": null,
+      "note": "domain_class/range bare while class names are prefixed"
+    },
+    {
+      "name": "value_class_attribute_rows",
+      "value": 29,
+      "of": null,
+      "unit": null,
+      "note": "schema_slot PK (schema_version_id, name) cannot hold v of two value classes; class folded into the name"
+    },
+    {
+      "name": "parse_status_enum_vs_ddl",
+      "value": "ParseStatus has 'ambiguous'; kb.segment/kb.rendition CHECKs do not",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The phase 0 path pack → compiled rows → migration-0001 tables → trace rows works: hashes recompute, all 148 compiled rows insert, and predicates, types, value kinds and enum values agree. What breaks joins is naming: class names and slot qualifiers are prefixed in the compiled rows, entity types and claim qualifier keys bare, and domain_class/range bare inside the compiled rows themselves; one convention is needed. Two DDL/D2 §7.1 findings: value-class attributes need the class in schema_slot's key, and ParseStatus 'ambiguous' is not in D3's parse_status CHECKs. Rerun against the final S4 tables (schema hash 0af28efd…, the file S4 records): every figure and finding is identical to s6.dry-run, whose input was already that file.",
+  "consumed_by": [
+    "P0-F-4",
+    "S4",
+    "S6-G",
+    "X2"
+  ]
+}

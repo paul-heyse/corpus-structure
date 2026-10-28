@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "id": "s6.keys",
+  "title": "Claim-key agreement under the revised statement key (ADR-0019)",
+  "group": "S6 Storage smoke",
+  "package": "S6-F",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Under the revised statement key (anchor segment located by its locator, plus the ordinal of the statement's first sentence in it), how close does claim-key agreement on the 70 aligned A/B pairs come to meaning-key agreement? (B3, OPEN-D3-4)",
+  "answers": [
+    "OPEN-D3-4",
+    "STMT-01",
+    "D1 §10.1",
+    "ADR-0019",
+    "P0-C-1"
+  ],
+  "method": "S0 passes A and B aligned per unit with the I-R2 instruments as code/s0d_compare.py does; keys from instruments.keys.compute_keys with each statement's anchor replaced, for keys only, by the anchor segment's locator in key form (corpus_structure.core.locators, generated on the rendition) and the first sentence's ordinal (unit inside units, details for proofs and solutions, paragraph or list item outside units; an assumption inside another statement's anchor takes that statement's part). The four S0 variants recomputed by the same driver as a check. One rendition per page, where locators and segments correspond one to one, so the figures are comparable with the S0 rows.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6f_keys.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6*, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6f_keys.py",
+      "role": "script",
+      "sha256": "00d24ef0b237fece01255dfbd815427ec1efc3b53a76260d05ed571f1bbb72cb"
+    },
+    {
+      "path": "code/instruments",
+      "role": "I-R2 instruments (token form)",
+      "sha256": "710c293a289db97d302a7349021d738f559a7e473279affaee389d02e51b3e71"
+    },
+    {
+      "path": "code/mathgrammar",
+      "role": "I-R2 math grammar",
+      "sha256": "9e5fee61fdc97c016f348b4ae4691294d3d18cd418f4b6b9065c2a12ff275492"
+    },
+    {
+      "path": "code/s0d_compare.py",
+      "role": "alignment driver reused",
+      "sha256": "fc07dea4b7a3dc13bfd8d91ddf7b0ce2c5ceda57c41666c627a9938636723ffe"
+    },
+    {
+      "path": "code/s0d_key_variants.py",
+      "role": "S0 normalizations reused",
+      "sha256": "fa2883057786bc68cf8cafb53a2a8c4f45d1b0a0b40d35abdf8863d73246bfef"
+    },
+    {
+      "path": "results/s0/stored/pass_a",
+      "role": "pass A (stored)",
+      "sha256": "9f7ff580ce153e82808cfeb45f1116524b3e2ff933f230766c67945935893f10"
+    },
+    {
+      "path": "results/s0/stored/pass_b",
+      "role": "pass B (stored)",
+      "sha256": "70e57b182007a3fe916222d77ce2f0780e54ca4aaa1d572aae5b9ad31508e2d1"
+    },
+    {
+      "path": "sample.json",
+      "role": "units",
+      "sha256": "55463a0aca5c03c6412cf721692fa8a6eac3c6f5e9ffa4749509e7c123a30bd8"
+    },
+    {
+      "path": "results/s1/segments",
+      "role": "segments",
+      "sha256": "15347e8f907cebd26891ac425248429ed1006c42a0bfc03ba5cd31e8f5d43ffb"
+    },
+    {
+      "path": "results/s1/sentences",
+      "role": "sentences",
+      "sha256": "87ffec6f0a378346ef0a0d473f7cb4a1c2902ba11bce740ba13b2b1e4f60eaec"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/keys.tsv",
+      "role": "variant rows",
+      "sha256": "617bc84f30620d9c67ebd097685d6fb5c984ec577cfeba52fd478f352eb8c99c"
+    },
+    {
+      "path": "results/s6/key_pairs.tsv",
+      "role": "pairs whose claim keys differ, with causes",
+      "sha256": "059f7ff3070d6ab8dfa6667a5d795f0cba5bfc362059166be53bcabffc71ffe3"
+    },
+    {
+      "path": "results/s6/keys.json",
+      "role": "figures and statement anchors",
+      "sha256": "be5b228c7dfa1fdf4ad7ad67a6e53ec7289fdf0e4a6fec2f59f3179eea3cf2f1"
+    }
+  ],
+  "depends_on": [
+    "s0.agreement-ir2",
+    "s0.instruments-ir2",
+    "e4.env-cpu"
+  ],
+  "results": [
+    {
+      "name": "aligned_pairs",
+      "value": 70,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "s0_rows_reproduced",
+      "value": true,
+      "of": 4,
+      "unit": null,
+      "note": "21/41, 35/41, 21/54, 48/54 recomputed by this driver"
+    },
+    {
+      "name": "revised_claim_keys_equal",
+      "value": 38,
+      "of": 70,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "revised_meaning_keys_equal",
+      "value": 41,
+      "of": 70,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "revised_labels_claim_keys_equal",
+      "value": 51,
+      "of": 70,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "revised_labels_meaning_keys_equal",
+      "value": 54,
+      "of": 70,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "pairs_differing_only_by_statement",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": "U6: pass B splits the paragraph into two statements (st_recall, st_cor at ordinal 2), pass A has one"
+    },
+    {
+      "name": "pairs_differing_in_meaning_too",
+      "value": 16,
+      "of": null,
+      "unit": null,
+      "note": "conditions, modality, a parameter value's latex: disagreements about the fact, which no key rule should hide"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The revised statement key raises claim-key agreement from 21 to 38 of 70 (meaning keys 41), and with the label rule from 48 to 51 against 54 meaning keys: the 3 remaining statement-caused differences are one paragraph that pass B splits into two statements. Statement identity (B3) does the work; claim keys now differ from meaning keys only where the passes disagree about statement segmentation.",
+  "consumed_by": [
+    "OPEN-D3-4",
+    "STMT-01",
+    "P0-F-4",
+    "P0-C-1",
+    "S6-G"
+  ]
+}

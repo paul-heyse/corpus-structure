@@ -68,6 +68,10 @@ def bare(name: str | None) -> str | None:
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--suffix", default="", help="output name suffix, e.g. _2 for a superseding run")
+    suffix = ap.parse_args().suffix
     tables = json.loads((S4 / "compiled" / "tables.json").read_text())
     sv = tables["schema_version"]
     out: dict = {"input": "results/s4/compiled/tables.json", "schema_version": sv}
@@ -243,7 +247,7 @@ def main() -> int:
         checks["value-class attribute rows (named <prefix>:<Class>.<attr>)"] = c.execute(
             "SELECT count(*) FROM meta.schema_slot WHERE schema_version_id = %(sv)s AND name LIKE '%%.%%'", P).fetchone()[0]
         out["checks"] = checks
-    write_json(RESULTS / "dry_run.json", out)
+    write_json(RESULTS / f"dry_run{suffix}.json", out)
     md = ["# S6 joint dry run (S6-D, plan §3)", "",
           f"S4-B's `results/s4/compiled/tables.json` (schema version {sv['label']}, content hash `{sv['content_hash'][:16]}…`) loaded into `meta.schema_*` of "
           "`cs_spike_s6` (PostgreSQL 18.6, project-local cluster, as the non-superuser `cs_s6_app`); the twelve core units of the v1 reference inserted "
@@ -288,7 +292,7 @@ def main() -> int:
            "class is folded into the name; a `domain_class` column in the key would say it directly (DDL / D2 §7.1 finding).",
            "- **`ParseStatus` has `ambiguous`**, which D3's `parse_status` CHECKs (`kb.segment`, `kb.rendition`) do not allow; one of the two moves.",
            "- U6's `Statement`-typed entity stays a misfit against either version (OPEN-D1-5).", ""]
-    (RESULTS / "dry_run.md").write_text("\n".join(md) + "\n")
+    (RESULTS / f"dry_run{suffix}.md").write_text("\n".join(md) + "\n")
     print(json.dumps({k: (v if not isinstance(v, list) else len(v)) for k, v in checks.items()}, default=str, indent=1)[:3000])
     print("hash", out["content_hash_matches"], [a["body_hash_recomputed_matches"] for a in art], inserted, rejected[:3])
     return 0

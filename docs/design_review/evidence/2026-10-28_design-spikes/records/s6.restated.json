@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "id": "s6.restated",
+  "title": "Facts restated across units in the v1 reference",
+  "group": "S6 Storage smoke",
+  "package": "S6-F",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How often is the same fact (subject, predicate, object, identity qualifiers) stated in more than one unit of the v1 reference, which a stored meaning key would connect? (OPEN-D3-4)",
+  "answers": [
+    "OPEN-D3-4"
+  ],
+  "method": "Meaning keys (I-R2 instruments: claim key without statement, condition refs by meaning key) of every claim in the twelve v1 reference batches, raw and under the label rule; facts grouped by meaning key across units.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --locked python code/s6f_keys.py"
+  ],
+  "agents": [
+    {
+      "role": "executor W-S3",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "coordinator brief; wrote only code/s6*, results/s6/, records/s6.*"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s6f_keys.py",
+      "role": "script",
+      "sha256": "00d24ef0b237fece01255dfbd815427ec1efc3b53a76260d05ed571f1bbb72cb"
+    },
+    {
+      "path": "code/instruments",
+      "role": "I-R2 instruments (token form)",
+      "sha256": "710c293a289db97d302a7349021d738f559a7e473279affaee389d02e51b3e71"
+    },
+    {
+      "path": "code/mathgrammar",
+      "role": "I-R2 math grammar",
+      "sha256": "9e5fee61fdc97c016f348b4ae4691294d3d18cd418f4b6b9065c2a12ff275492"
+    },
+    {
+      "path": "code/s0d_compare.py",
+      "role": "alignment driver reused",
+      "sha256": "fc07dea4b7a3dc13bfd8d91ddf7b0ce2c5ceda57c41666c627a9938636723ffe"
+    },
+    {
+      "path": "code/s0d_key_variants.py",
+      "role": "S0 normalizations reused",
+      "sha256": "fa2883057786bc68cf8cafb53a2a8c4f45d1b0a0b40d35abdf8863d73246bfef"
+    },
+    {
+      "path": "results/s0r2/reference_v1",
+      "role": "v1 reference (stored)",
+      "sha256": "43860b19cd349555c731dadf188ab36c0e57c452cb4723a03a471974bd5b3bab"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s6/restated.tsv",
+      "role": "restated facts",
+      "sha256": "f0962814612725f1bdc9d29f303559f65fedafaafe50f090f4fa8ba3cdecf6cb"
+    },
+    {
+      "path": "results/s6/keys.json",
+      "role": "counts",
+      "sha256": "be5b228c7dfa1fdf4ad7ad67a6e53ec7289fdf0e4a6fec2f59f3179eea3cf2f1"
+    }
+  ],
+  "depends_on": [
+    "s0r2.scores-ir2",
+    "s0.instruments-ir2",
+    "e4.env-cpu"
+  ],
+  "results": [
+    {
+      "name": "facts",
+      "value": 71,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "facts_with_a_global_subject",
+      "value": 23,
+      "of": 71,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "restated_across_units",
+      "value": 0,
+      "of": 71,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "restated_across_units_label_rule",
+      "value": 0,
+      "of": 71,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "restated_within_a_unit",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "No fact in the twelve core units is stated in more than one unit (0 of 71, also under the label rule); only 23 facts have a global subject that could recur, since local subjects are scoped to their unit. Twelve units chosen for mechanism diversity are too few to decide: the evidence does not call for a meaning-key column in migration 0001, and the question goes to phase 1 goldens (OPEN-D3-4).",
+  "consumed_by": [
+    "OPEN-D3-4",
+    "S6-G",
+    "phase 1 goldens"
+  ]
+}

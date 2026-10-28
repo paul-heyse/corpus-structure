@@ -1,0 +1,52 @@
+variant	unit	pass_a	pass_b	claim_key_causes	meaning_key_causes
+revised	T1	c_X_def	c_X_def	conditions,modality	conditions,modality
+revised	T1	c_constr	c_construction	conditions	conditions
+revised	T1	c_defines	c_defines	modality	modality
+revised	T2	c_loc_mean	c_loc_is_mean	subject.label,object.label	subject.label,object.label
+revised	T2	c_scale_sd	c_scale_is_sd	subject.label,object.label	subject.label,object.label
+revised	T4	c_defines_LN	c_defines_ln	modality	modality
+revised	T4	c_defines_SLN	c_defines_stdln	modality	modality
+revised	T4	c_dom_mu	c_dom_mu	subject.label	subject.label
+revised	T4	c_dom_sigma	c_dom_sigma	subject.label	subject.label
+revised	T4	c_hp_mu	c_has_mu	object.label	object.label
+revised	T4	c_hp_scale	c_has_scale	object.label	object.label
+revised	T4	c_hp_sigma	c_has_sigma	object.label	object.label
+revised	T4	c_role_sigma	c_sigma_shape	subject.label	subject.label
+revised	T4	c_scale_derived	c_scale_derived	subject.label	subject.label
+revised	U5	c_S_mean	c_sum_mean	conditions	conditions
+revised	U5	c_S_normal	c_sum_normal	conditions	conditions
+revised	U5	c_S_var	c_sum_var	conditions	conditions
+revised	U5	c_Xi_normal	c_Xi_normal	conditions	conditions
+revised	U6	c_N_from_SN	c_normal_from_std	statement	(meaning keys equal)
+revised	U6	c_X_normal	c_X_normal	statement	(meaning keys equal)
+revised	U6	c_Z_stdnormal	c_Z_stdnormal	conditions,statement	(meaning keys equal)
+revised	U8	c_hole_normal	c_hole_normal	param_values.canonical_latex	param_values.canonical_latex
+revised	U8	c_rod_normal	c_rod_normal	param_values.canonical_latex	param_values.canonical_latex
+revised	U9	c_P_lognormal	c_prod_lognormal	conditions	conditions
+revised	U9	c_Xi_lognormal	c_Xi_lognormal	conditions	conditions
+revised	U10	c_defines	c_defines	modality	modality
+revised	U10	c_dom_scale	c_dom_scale	subject.label	subject.label
+revised	U10	c_dom_shape	c_dom_shape	subject.label	subject.label
+revised	U10	c_hp_scale	c_has_scale	object.label	object.label
+revised	U10	c_hp_shape	c_has_shape	object.label	object.label
+revised	U11	c_S_gamma	c_sum_gamma	conditions	conditions
+revised	U11	c_Xi_gamma	c_Xi_gamma	conditions	conditions
+revised+labels	T1	c_X_def	c_X_def	conditions,modality	conditions,modality
+revised+labels	T1	c_constr	c_construction	conditions	conditions
+revised+labels	T1	c_defines	c_defines	modality	modality
+revised+labels	T4	c_defines_LN	c_defines_ln	modality	modality
+revised+labels	T4	c_defines_SLN	c_defines_stdln	modality	modality
+revised+labels	U5	c_S_mean	c_sum_mean	conditions	conditions
+revised+labels	U5	c_S_normal	c_sum_normal	conditions	conditions
+revised+labels	U5	c_S_var	c_sum_var	conditions	conditions
+revised+labels	U5	c_Xi_normal	c_Xi_normal	conditions	conditions
+revised+labels	U6	c_N_from_SN	c_normal_from_std	statement	(meaning keys equal)
+revised+labels	U6	c_X_normal	c_X_normal	statement	(meaning keys equal)
+revised+labels	U6	c_Z_stdnormal	c_Z_stdnormal	conditions,statement	(meaning keys equal)
+revised+labels	U8	c_hole_normal	c_hole_normal	param_values.canonical_latex	param_values.canonical_latex
+revised+labels	U8	c_rod_normal	c_rod_normal	param_values.canonical_latex	param_values.canonical_latex
+revised+labels	U9	c_P_lognormal	c_prod_lognormal	conditions	conditions
+revised+labels	U9	c_Xi_lognormal	c_Xi_lognormal	conditions	conditions
+revised+labels	U10	c_defines	c_defines	modality	modality
+revised+labels	U11	c_S_gamma	c_sum_gamma	conditions	conditions
+revised+labels	U11	c_Xi_gamma	c_Xi_gamma	conditions	conditions

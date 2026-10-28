@@ -1,0 +1,922 @@
+{
+ "raw": {
+  "pairs": 70,
+  "claim": 21,
+  "meaning": 41,
+  "claim_causes": {
+   "conditions": 16,
+   "modality": 5,
+   "statement": 36,
+   "subject.label": 8,
+   "object.label": 7,
+   "subject.anchor": 3,
+   "param_values.canonical_latex": 2
+  },
+  "meaning_causes": {
+   "conditions": 10,
+   "modality": 5,
+   "subject.label": 8,
+   "object.label": 7,
+   "subject.anchor": 3,
+   "param_values.canonical_latex": 2
+  },
+  "matches_s0": true
+ },
+ "anchors": {
+  "pairs": 70,
+  "claim": 35,
+  "meaning": 41,
+  "claim_causes": {
+   "conditions": 13,
+   "modality": 5,
+   "subject.label": 8,
+   "object.label": 7,
+   "statement": 6,
+   "param_values.canonical_latex": 2
+  },
+  "meaning_causes": {
+   "conditions": 10,
+   "modality": 5,
+   "subject.label": 8,
+   "object.label": 7,
+   "param_values.canonical_latex": 2
+  },
+  "matches_s0": true
+ },
+ "labels": {
+  "pairs": 70,
+  "claim": 21,
+  "meaning": 54,
+  "claim_causes": {
+   "conditions": 16,
+   "modality": 5,
+   "statement": 36,
+   "subject.anchor": 3,
+   "param_values.canonical_latex": 2
+  },
+  "meaning_causes": {
+   "conditions": 10,
+   "modality": 5,
+   "subject.anchor": 3,
+   "param_values.canonical_latex": 2
+  },
+  "matches_s0": true
+ },
+ "anchors+labels": {
+  "pairs": 70,
+  "claim": 48,
+  "meaning": 54,
+  "claim_causes": {
+   "conditions": 13,
+   "modality": 5,
+   "statement": 6,
+   "param_values.canonical_latex": 2
+  },
+  "meaning_causes": {
+   "conditions": 10,
+   "modality": 5,
+   "param_values.canonical_latex": 2
+  },
+  "matches_s0": true
+ },
+ "revised": {
+  "pairs": 70,
+  "claim": 38,
+  "meaning": 41,
+  "claim_causes": {
+   "conditions": 11,
+   "modality": 5,
+   "subject.label": 8,
+   "object.label": 7,
+   "statement": 3,
+   "param_values.canonical_latex": 2
+  },
+  "meaning_causes": {
+   "conditions": 10,
+   "modality": 5,
+   "subject.label": 8,
+   "object.label": 7,
+   "param_values.canonical_latex": 2
+  },
+  "matches_s0": null,
+  "statements": {
+   "T1": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "assumption",
+      "anchor_kind": "paragraph",
+      "locator": "special/LocationScale.html@p:As usual,",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/LocationScale.html#dfn1",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_assume",
+      "kind": "assumption",
+      "anchor_kind": "paragraph",
+      "locator": "special/LocationScale.html@p:As usual,",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_def",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/LocationScale.html#dfn1",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "T2": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "narrative",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Suppose again",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_remark",
+      "kind": "remark",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Suppose again",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "T3": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html#rel1",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: The MGF of \\(a",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html#rel1",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: The MGF of \\(a",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "T4": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/LogNormal.html#dfn",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_def",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/LogNormal.html#dfn",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U5": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html#rel2",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: The MGF of \\(X_1",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html#rel2",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: The MGF of \\(X_1",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U6": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "narrative",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Recall",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_recall",
+      "kind": "remark",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Recall",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_cor",
+      "kind": "corollary",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Recall",
+      "ordinal": 2,
+      "joined": null
+     }
+    ]
+   },
+   "U7": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "convention",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:In some",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_conv",
+      "kind": "convention",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:In some",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U8": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "exercise",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html@u:A",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "solution",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: Let \\(X\\) denote the radius",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_ex",
+      "kind": "exercise",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html@u:A",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_sol",
+      "kind": "solution",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: Let \\(X\\) denote the radius",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U9": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/LogNormal.html@u:Suppose that \\(n",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/LogNormal.html@details:Details: Again from definition [1], we can write \\( X_i",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/LogNormal.html@u:Suppose that \\(n",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/LogNormal.html@details:Details: Again from definition [1], we can write \\( X_i",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U10": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#dfn4",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_def",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#dfn4",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U11": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#rel2",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Gamma.html@details:Details: Recall that the",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#rel2",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Gamma.html@details:Details: Recall that the",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U12": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#mom1",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Gamma.html@details:Details: (a) From",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#mom1",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Gamma.html@details:Details: (a) From",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   }
+  }
+ },
+ "revised+labels": {
+  "pairs": 70,
+  "claim": 51,
+  "meaning": 54,
+  "claim_causes": {
+   "conditions": 11,
+   "modality": 5,
+   "statement": 3,
+   "param_values.canonical_latex": 2
+  },
+  "meaning_causes": {
+   "conditions": 10,
+   "modality": 5,
+   "param_values.canonical_latex": 2
+  },
+  "matches_s0": null,
+  "statements": {
+   "T1": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "assumption",
+      "anchor_kind": "paragraph",
+      "locator": "special/LocationScale.html@p:As usual,",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/LocationScale.html#dfn1",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_assume",
+      "kind": "assumption",
+      "anchor_kind": "paragraph",
+      "locator": "special/LocationScale.html@p:As usual,",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_def",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/LocationScale.html#dfn1",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "T2": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "narrative",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Suppose again",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_remark",
+      "kind": "remark",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Suppose again",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "T3": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html#rel1",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: The MGF of \\(a",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html#rel1",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: The MGF of \\(a",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "T4": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/LogNormal.html#dfn",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_def",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/LogNormal.html#dfn",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U5": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html#rel2",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: The MGF of \\(X_1",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html#rel2",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: The MGF of \\(X_1",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U6": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "narrative",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Recall",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_recall",
+      "kind": "remark",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Recall",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_cor",
+      "kind": "corollary",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:Recall",
+      "ordinal": 2,
+      "joined": null
+     }
+    ]
+   },
+   "U7": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "convention",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:In some",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_conv",
+      "kind": "convention",
+      "anchor_kind": "paragraph",
+      "locator": "special/Normal.html@p:In some",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U8": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "exercise",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html@u:A",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "solution",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: Let \\(X\\) denote the radius",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_ex",
+      "kind": "exercise",
+      "anchor_kind": "unit",
+      "locator": "special/Normal.html@u:A",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_sol",
+      "kind": "solution",
+      "anchor_kind": "details",
+      "locator": "special/Normal.html@details:Details: Let \\(X\\) denote the radius",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U9": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/LogNormal.html@u:Suppose that \\(n",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/LogNormal.html@details:Details: Again from definition [1], we can write \\( X_i",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/LogNormal.html@u:Suppose that \\(n",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/LogNormal.html@details:Details: Again from definition [1], we can write \\( X_i",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U10": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#dfn4",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_def",
+      "kind": "definition",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#dfn4",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U11": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#rel2",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Gamma.html@details:Details: Recall that the",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#rel2",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Gamma.html@details:Details: Recall that the",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   },
+   "U12": {
+    "a": [
+     {
+      "statement": "st1",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#mom1",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st2",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Gamma.html@details:Details: (a) From",
+      "ordinal": 1,
+      "joined": null
+     }
+    ],
+    "b": [
+     {
+      "statement": "st_thm",
+      "kind": "theorem",
+      "anchor_kind": "unit",
+      "locator": "special/Gamma.html#mom1",
+      "ordinal": 1,
+      "joined": null
+     },
+     {
+      "statement": "st_proof",
+      "kind": "proof",
+      "anchor_kind": "details",
+      "locator": "special/Gamma.html@details:Details: (a) From",
+      "ordinal": 1,
+      "joined": null
+     }
+    ]
+   }
+  }
+ },
+ "restated": {
+  "raw": {
+   "facts": 71,
+   "facts_with_a_global_subject": 23,
+   "restated_across_units": 0,
+   "restated_within_a_unit": 0,
+   "claims_in_restated_facts": 0
+  },
+  "labels": {
+   "facts": 71,
+   "facts_with_a_global_subject": 23,
+   "restated_across_units": 0,
+   "restated_within_a_unit": 0,
+   "claims_in_restated_facts": 0
+  }
+ },
+ "units": [
+  "T1",
+  "T2",
+  "T3",
+  "T4",
+  "U5",
+  "U6",
+  "U7",
+  "U8",
+  "U9",
+  "U10",
+  "U11",
+  "U12"
+ ]
+}

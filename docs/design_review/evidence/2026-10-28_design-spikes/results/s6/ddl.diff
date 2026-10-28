@@ -1,0 +1,20 @@
+--- D3 §3–§8 DDL (code/s6_ddl.sql)
++++ S6 applied copy (code/s6_ddl_applied.sql)
+@@ -221,5 +221,8 @@
+   key          text NOT NULL UNIQUE,             -- 'seg:…'
+   parent_id    bigint REFERENCES kb.segment,
+-  kind         text NOT NULL,                    -- D1 §3.2; checked against a list in the migration
++-- S6 fix F2: kb.segment.kind checked against the D1 §3.2 list
++  kind         text NOT NULL CHECK (kind IN ('document','section','unit','paragraph','list','list_item','details',
++                    'math_display','math_inline','heading','table','table_row','table_cell','caption','footnote',
++                    'figure','sentence','email_message','quoted_block','signature')),   -- D1 §3.2
+   ordinal      integer NOT NULL,                 -- position among siblings
+   depth        integer NOT NULL,
+@@ -240,5 +243,6 @@
+ -- on the corpus by S6
+ CREATE INDEX segment_bm25 ON kb.segment USING bm25 (text) WITH (text_config = 'english')
+-  WHERE kind IN ('paragraph','heading','list_item','math_display') AND ts_config = 'english';
++-- S6 fix F1: regconfig literal in the BM25 index predicate
++  WHERE kind IN ('paragraph','heading','list_item','math_display') AND ts_config = 'english'::regconfig;
+ 
+ CREATE TABLE kb.span (
