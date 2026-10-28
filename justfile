@@ -118,6 +118,19 @@ doctor-check:
     printf '%s\n' "$out"
     [ "$status" -eq 0 ] && ! grep -qE 'MISSING|FAILED|below the declared floor' <<<"$out"
 
+# The project-local PostgreSQL 18 cluster (D3 §3): initialize once under build/pg/, start it on its
+# own socket (port 5440), and create cs_template with vector and pg_textsearch
+db-up:
+    @bash scripts/local_pg.sh up
+
+# Stop the project-local cluster
+db-down:
+    @bash scripts/local_pg.sh down
+
+# The project-local cluster's state, URL and cs_template extensions
+db-status:
+    @bash scripts/local_pg.sh status
+
 # Tool presence and the versions in use
 doctor:
     #!/usr/bin/env bash

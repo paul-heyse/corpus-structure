@@ -72,6 +72,7 @@ permission, concurrent-work and testing constraints, and follow discovered depen
 | Decisions | `just adr new <slug> --title "…"`, `just adr supersede ADR-NNNN <slug>`, `just adr revisit`; `just turn-end` regenerates the index; `just adr-lint` runs within `just hygiene` |
 | Documentation changes | `just docs-test` for publisher/resolver changes; `docs-check` (publication) runs within `just hygiene`. First run: `just bootstrap-docs`; preview: `just docs-serve`. No product gate solely for docs. |
 | Tools present? | `just doctor`, or `just ready` |
+| Local PostgreSQL (interim instance, D3 §3) | `just db-up` initializes `build/pg/` once, starts it on its own socket (port 5440) and creates `cs_template`; `just db-down`, `just db-status`. Database tests use it unless `CORPUS_DATABASE__URL` names another server; `bash scripts/local_pg.sh url` prints its URL |
 | Prepare a checkout | `bash scripts/setup-env` uses existing lockfiles. Review `.envrc`, then `direnv allow` for activation; ignored `.envrc.local` holds personal overrides. Activation performs no installs, builds or service startup. |
 | Template changes | `copier update --defaults`, then review the diff like any other change (`.copier-answers.yml` is never edited by hand) |
 
