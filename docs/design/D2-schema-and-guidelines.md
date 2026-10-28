@@ -215,12 +215,15 @@ themselves live in `model/core.yaml`, `model/system.yaml` and the packs.
 | `ci:key_role_when: <member property>` | qualifier slot | The role applies only when the claim's modality has that property, as attribution is identity under an `attribution_identifying` modality | `KeySchema` |
 | `ci:case: fold \| preserve` | a string-ranged slot; a class (for its label) | Case policy for canonical forms and label normalization; `fold` by default, `preserve` for math-bearing labels and identifier slots | `KeySchema`, label normalization |
 | `ci:stored_range: <class>` | slot | The stored form's range where it differs from the authored one (`scope`: `ScopeExtent` authored, `StoredScope` stored) | the Python generator |
-| `ci:invariant: <template>(…)` | class | One of a closed set of templates: `ordered(a, b)`, `ordered_eq(a, b)`, `iff_present(x, y = v)`, `together(a, b)`, `exactly_one(a, b)` | a generated validator **and** a generated CHECK |
+| `ci:invariant: <template>(…)` | class | One of a closed set of templates: `ordered(a, b)`, `ordered_eq(a, b)`, `iff_present(x, y = v)`, `together(a, b)`, `exactly_one(a, b)`; `iff_absent(x, y = v)` (x absent exactly when y = v), added after probe Q-3 | a generated validator **and** a generated CHECK |
 | `ci:store: table \| nested \| edge` | class or slot | Relational placement, written only to override the derived default: system classes are tables, scalar slots columns, single-valued class-ranged references FKs, multivalued or nested references edges, inlined value classes nested | the `MetaData` and Arrow compilers |
 | `ci:payload: <kind>` | nested class | The class is a registered payload schema of that kind (an observation kind, a compiled-artifact kind, …) | the payload-schema registry writer, readers' upcast dispatch (§8) |
 | `ci:sql_visible: <space-separated paths>` | nested class | The paths PostgreSQL reads (a CHECK, index, generated column, view or D3 §9 query); a pack may declare a schema qualifier path, which makes it a relational change (§8) | the change classifier (§8), the overlay check |
 | `ci:null: never \| json` | nested slot | Whether Arrow null may stand for "absent" (`never`: null forbidden) or the value travels as `arrow.json` text, where JSON null is a value | the Arrow compiler |
 | `ci:key_scheme: N` | the `core` schema | The key-scheme version (ADR-0023) | runs, judgment targets, conformance vectors |
+| `ci:on_delete: cascade \| restrict \| set_null` | FK slot | The referential action of a generated FK (probe Q-3, `p0q.port-check`, Tested 2026-10-28) | the `MetaData` compiler |
+| `ci:generated: insert_time` | slot | The column is stamped by the database at insert (`DEFAULT now()`), which `ifabsent` cannot express (Q-3) | the `MetaData` compiler |
+| `ci:sql_type: <type>` | slot | A PostgreSQL type with no LinkML equivalent, such as `regconfig` (Q-3) | the `MetaData` compiler |
 | `types:` (native) | schema | `Key`, `Locator`, `CanonicalDecimal`, `SentenceId`, `Timestamp`, each with its base type, pattern and projection type | every compiler |
 
 No declaration names an index, a BM25 setting, an operator class or a partial predicate: those are

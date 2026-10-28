@@ -1,0 +1,9 @@
+[
+ {
+  "key": "kb.segment index segment_bm25 where",
+  "generated": "kind IN ('caption', 'heading', 'list_item', 'paragraph') AND ts_config = CAST('english' AS regconfig)",
+  "s6": "kind IN ('heading', 'list_item', 'math_display', 'paragraph') AND ts_config = CAST('english' AS regconfig)",
+  "class": "S6 DDL differs by design",
+  "reason": "D3 revised the BM25 kind list after S6 (D3 \u00a75: caption replaces math_display); the overlay reads SEARCH_BLOCK from the search_block member property, which follows current D3"
+ }
+]

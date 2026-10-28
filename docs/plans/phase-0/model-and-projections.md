@@ -196,7 +196,14 @@ byte. A hand edit fails.
 
 ### 3.3 Stage B, or its fallback (M5)
 
-Probe **Q-1** decides which variant is built (it does not reopen ADR-0020).
+Probe **Q-1** decided the variant (`p0q.stage-b`, Tested 2026-10-28): **Stage B through a `PydanticGenerator`
+subclass.** It reproduced every named feature, the four union aliases exactly, 35 of 45 classes structurally,
+and agreed with the hand models on all 300 validations of S4's 135 batches. M5 carries the residue:
+model additions (condition nodes, batch items, evidence, a qualifiers class, the envelope, an `Expression`
+base, typed interval bounds, a declaration order matching the hand unions); three Stage B annotations
+`ci:py_type`, `ci:validator`, `ci:py_name`; the hand private bases flattened into functions; `CitationFrame`
+and `FrameEntry` and the canonical-decimal validator staying hand-written; JSON Schema descriptions moved
+into the model. The fallback below is kept only as the route if the residue proves larger.
 
 - **Stage B.** A `PydanticGenerator` subclass (overriding `generate_slot` and `get_class_slot_range`,
   with a `template_dir` for frozen config), or an own Jinja emitter over `SchemaView`, generates the
@@ -273,7 +280,13 @@ It binds to generated tables by name and fails at import on a missing table or c
 declares no index or physical setting (TM §4: declarations judge representations, they do not prescribe
 layout).
 
-**Port check.** Probe Q-3 compares a LinkML sketch of five D3 tables plus the overlay against S6's
+**Port check.** Probe Q-3 (`p0q.port-check`, Tested 2026-10-28) found the split sound: over 84 columns, 38
+constraints and 12 indexes the only residue is the intended BM25 kind list, once four declarations are
+added to the vocabulary (`ci:on_delete`, `ci:generated: insert_time`, `ci:sql_type`, the `iff_absent`
+invariant template; D2 §3.4). The migration environment filters views with `include_object` on SQLAlchemy
+2.1's `Table.is_view` (Alembic 1.20 has no view support, and `CreateView` leaves `Table.info` empty), and
+avoids `compare_server_default` on the `regconfig` column (it crashes with `22P02`). The probe compared a
+LinkML sketch of five D3 tables plus the overlay against S6's
 tested DDL, through a normalized pglast 8.7 projection:
 - columns, with type, nullability and default;
 - the set of constraints;

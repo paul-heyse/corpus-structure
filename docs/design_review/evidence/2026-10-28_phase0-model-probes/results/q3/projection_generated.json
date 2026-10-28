@@ -1,0 +1,992 @@
+{
+ "ops.run": {
+  "columns": {
+   "id": {
+    "type": "int8",
+    "not_null": true,
+    "default": "identity always"
+   },
+   "project_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "kind": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "phase": {
+    "type": "int2",
+    "not_null": true,
+    "default": null
+   },
+   "options": {
+    "type": "jsonb",
+    "not_null": true,
+    "default": "'{}'"
+   },
+   "debug_slice_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "corpus_hash": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "schema_version_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "guideline_version_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "policy_version_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "code_commit": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "parent_run_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "reference_run_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "iteration": {
+    "type": "int4",
+    "not_null": true,
+    "default": "0"
+   },
+   "iteration_limit": {
+    "type": "int4",
+    "not_null": true,
+    "default": "3"
+   },
+   "status": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "notes": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "started_at": {
+    "type": "timestamptz",
+    "not_null": false,
+    "default": null
+   },
+   "finished_at": {
+    "type": "timestamptz",
+    "not_null": false,
+    "default": null
+   },
+   "created_at": {
+    "type": "timestamptz",
+    "not_null": true,
+    "default": "now()"
+   }
+  },
+  "order": [
+   "id",
+   "project_id",
+   "kind",
+   "phase",
+   "options",
+   "debug_slice_id",
+   "corpus_hash",
+   "schema_version_id",
+   "guideline_version_id",
+   "policy_version_id",
+   "code_commit",
+   "parent_run_id",
+   "reference_run_id",
+   "iteration",
+   "iteration_limit",
+   "status",
+   "notes",
+   "started_at",
+   "finished_at",
+   "created_at"
+  ],
+  "constraints": [
+   [
+    "check",
+    "kind IN ('experiment', 'full', 'golden', 'ingest', 'rescore', 'slice')"
+   ],
+   [
+    "check",
+    "status IN ('awaiting_agent', 'cancelled', 'consolidating', 'created', 'failed', 'finished', 'running')"
+   ],
+   [
+    "foreign key",
+    [
+     "debug_slice_id"
+    ],
+    "ops.debug_slice",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "guideline_version_id"
+    ],
+    "meta.guideline_version",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "parent_run_id"
+    ],
+    "ops.run",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "policy_version_id"
+    ],
+    "ops.policy_version",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "project_id"
+    ],
+    "meta.project",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "reference_run_id"
+    ],
+    "ops.run",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "schema_version_id"
+    ],
+    "meta.schema_version",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "primary key",
+    [
+     "id"
+    ]
+   ]
+  ],
+  "indexes": {}
+ },
+ "ops.task": {
+  "columns": {
+   "id": {
+    "type": "int8",
+    "not_null": true,
+    "default": "identity always"
+   },
+   "run_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "stage": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "unit_type": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "unit_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "unit_key": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "method_config_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "trigger_rule_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "trigger_metrics": {
+    "type": "jsonb",
+    "not_null": true,
+    "default": "'{}'"
+   },
+   "input_hash": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "packet_hash": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "reused_task_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "status": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "attempt": {
+    "type": "int4",
+    "not_null": true,
+    "default": "0"
+   },
+   "priority": {
+    "type": "int4",
+    "not_null": true,
+    "default": "0"
+   },
+   "claimed_by": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "lease_until": {
+    "type": "timestamptz",
+    "not_null": false,
+    "default": null
+   },
+   "cost": {
+    "type": "jsonb",
+    "not_null": true,
+    "default": "'{}'"
+   },
+   "error": {
+    "type": "jsonb",
+    "not_null": false,
+    "default": null
+   },
+   "reason": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "created_at": {
+    "type": "timestamptz",
+    "not_null": true,
+    "default": "now()"
+   },
+   "started_at": {
+    "type": "timestamptz",
+    "not_null": false,
+    "default": null
+   },
+   "finished_at": {
+    "type": "timestamptz",
+    "not_null": false,
+    "default": null
+   }
+  },
+  "order": [
+   "id",
+   "run_id",
+   "stage",
+   "unit_type",
+   "unit_id",
+   "unit_key",
+   "method_config_id",
+   "trigger_rule_id",
+   "trigger_metrics",
+   "input_hash",
+   "packet_hash",
+   "reused_task_id",
+   "status",
+   "attempt",
+   "priority",
+   "claimed_by",
+   "lease_until",
+   "cost",
+   "error",
+   "reason",
+   "created_at",
+   "started_at",
+   "finished_at"
+  ],
+  "constraints": [
+   [
+    "check",
+    "status IN ('awaiting_agent', 'cancelled', 'done', 'empty', 'failed', 'pending', 'reused', 'running', 'skipped')"
+   ],
+   [
+    "check",
+    "unit_type IN ('alternative_group', 'claim', 'document', 'entity', 'golden_unit', 'identity_group', 'observation', 'rendition', 'run', 'segment')"
+   ],
+   [
+    "foreign key",
+    [
+     "method_config_id"
+    ],
+    "ops.method_config",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "reused_task_id"
+    ],
+    "ops.task",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "run_id"
+    ],
+    "ops.run",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "trigger_rule_id"
+    ],
+    "ops.policy_rule",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "primary key",
+    [
+     "id"
+    ]
+   ]
+  ],
+  "indexes": {
+   "task_pending": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "run_id",
+     "stage",
+     "method_config_id",
+     "priority DESC",
+     "id"
+    ],
+    "with": {},
+    "where": "status = 'pending'"
+   },
+   "task_lease": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "lease_until"
+    ],
+    "with": {},
+    "where": "status = 'running'"
+   },
+   "task_agent": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "run_id",
+     "priority DESC",
+     "id"
+    ],
+    "with": {},
+    "where": "status = 'awaiting_agent'"
+   },
+   "task_cache": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "method_config_id",
+     "input_hash"
+    ],
+    "with": {},
+    "where": "status IN ('done', 'empty') AND unit_type <> 'run'"
+   },
+   "task_run": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "run_id",
+     "stage"
+    ],
+    "with": {},
+    "where": null
+   }
+  }
+ },
+ "kb.segment": {
+  "columns": {
+   "id": {
+    "type": "int8",
+    "not_null": true,
+    "default": "identity always"
+   },
+   "rendition_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "key": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "parent_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "kind": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "ordinal": {
+    "type": "int4",
+    "not_null": true,
+    "default": null
+   },
+   "depth": {
+    "type": "int4",
+    "not_null": true,
+    "default": null
+   },
+   "start_offset": {
+    "type": "int4",
+    "not_null": true,
+    "default": null
+   },
+   "end_offset": {
+    "type": "int4",
+    "not_null": true,
+    "default": null
+   },
+   "text": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "ts_config": {
+    "type": "regconfig",
+    "not_null": true,
+    "default": "'english'"
+   },
+   "attrs": {
+    "type": "jsonb",
+    "not_null": true,
+    "default": "'{}'"
+   },
+   "parse_status": {
+    "type": "text",
+    "not_null": true,
+    "default": "'ok'"
+   },
+   "parse_reason": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   }
+  },
+  "order": [
+   "id",
+   "rendition_id",
+   "key",
+   "parent_id",
+   "kind",
+   "ordinal",
+   "depth",
+   "start_offset",
+   "end_offset",
+   "text",
+   "ts_config",
+   "attrs",
+   "parse_status",
+   "parse_reason"
+  ],
+  "constraints": [
+   [
+    "check",
+    "(parse_status = 'ok') = (parse_reason IS NULL)"
+   ],
+   [
+    "check",
+    "kind IN ('caption', 'details', 'document', 'email_message', 'figure', 'footnote', 'heading', 'list', 'list_item', 'math_display', 'math_inline', 'paragraph', 'quoted_block', 'section', 'sentence', 'signature', 'table', 'table_cell', 'table_row', 'unit')"
+   ],
+   [
+    "check",
+    "parse_status IN ('failed', 'ok', 'partial')"
+   ],
+   [
+    "check",
+    "start_offset <= end_offset"
+   ],
+   [
+    "foreign key",
+    [
+     "parent_id"
+    ],
+    "kb.segment",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "rendition_id"
+    ],
+    "kb.rendition",
+    [
+     "id"
+    ],
+    "CASCADE",
+    null
+   ],
+   [
+    "primary key",
+    [
+     "id"
+    ]
+   ],
+   [
+    "unique",
+    [
+     "key"
+    ]
+   ]
+  ],
+  "indexes": {
+   "segment_range": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "rendition_id",
+     "start_offset",
+     "end_offset"
+    ],
+    "with": {},
+    "where": null
+   },
+   "segment_kind": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "rendition_id",
+     "kind"
+    ],
+    "with": {},
+    "where": null
+   },
+   "segment_bm25": {
+    "unique": false,
+    "using": "bm25",
+    "params": [
+     "text"
+    ],
+    "with": {
+     "text_config": "'english'"
+    },
+    "where": "kind IN ('caption', 'heading', 'list_item', 'paragraph') AND ts_config = CAST('english' AS regconfig)"
+   }
+  }
+ },
+ "kb.claim": {
+  "columns": {
+   "id": {
+    "type": "int8",
+    "not_null": true,
+    "default": "identity always"
+   },
+   "run_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "key": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "subject_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "predicate": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "object_entity_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "object_value": {
+    "type": "jsonb",
+    "not_null": false,
+    "default": null
+   },
+   "qualifiers": {
+    "type": "jsonb",
+    "not_null": true,
+    "default": "'{}'"
+   },
+   "statement_id": {
+    "type": "int8",
+    "not_null": false,
+    "default": null
+   },
+   "statement_role": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "status": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "establishment": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "confidence": {
+    "type": "float4",
+    "not_null": false,
+    "default": null
+   },
+   "completeness": {
+    "type": "jsonb",
+    "not_null": true,
+    "default": "'{}'"
+   }
+  },
+  "order": [
+   "id",
+   "run_id",
+   "key",
+   "subject_id",
+   "predicate",
+   "object_entity_id",
+   "object_value",
+   "qualifiers",
+   "statement_id",
+   "statement_role",
+   "status",
+   "establishment",
+   "confidence",
+   "completeness"
+  ],
+  "constraints": [
+   [
+    "check",
+    "establishment IN ('agent_asserted', 'derived', 'stated')"
+   ],
+   [
+    "check",
+    "statement_role IN ('conclusion', 'definiens', 'example_value', 'premise', 'restriction')"
+   ],
+   [
+    "check",
+    "status IN ('accepted', 'ambiguous', 'candidate', 'conflicting', 'rejected', 'unsupported')"
+   ],
+   [
+    "check",
+    "(object_entity_id IS NULL) <> (object_value IS NULL)"
+   ],
+   [
+    "foreign key",
+    [
+     "object_entity_id"
+    ],
+    "kb.entity",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "run_id"
+    ],
+    "ops.run",
+    [
+     "id"
+    ],
+    "CASCADE",
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "statement_id"
+    ],
+    "kb.entity",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "foreign key",
+    [
+     "subject_id"
+    ],
+    "kb.entity",
+    [
+     "id"
+    ],
+    null,
+    null
+   ],
+   [
+    "primary key",
+    [
+     "id"
+    ]
+   ],
+   [
+    "unique",
+    [
+     "run_id",
+     "key"
+    ]
+   ]
+  ],
+  "indexes": {
+   "claim_pred": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "run_id",
+     "predicate",
+     "status"
+    ],
+    "with": {},
+    "where": null
+   },
+   "claim_subject": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "run_id",
+     "subject_id"
+    ],
+    "with": {},
+    "where": null
+   },
+   "claim_object": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "run_id",
+     "object_entity_id"
+    ],
+    "with": {},
+    "where": null
+   },
+   "claim_statement": {
+    "unique": false,
+    "using": "btree",
+    "params": [
+     "run_id",
+     "statement_id"
+    ],
+    "with": {},
+    "where": null
+   }
+  }
+ },
+ "meta.schema_slot": {
+  "columns": {
+   "schema_version_id": {
+    "type": "int8",
+    "not_null": true,
+    "default": null
+   },
+   "name": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "role": {
+    "type": "text",
+    "not_null": true,
+    "default": null
+   },
+   "domain_class": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "range": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "object_kind": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "multivalued": {
+    "type": "bool",
+    "not_null": true,
+    "default": "FALSE"
+   },
+   "qualifiers": {
+    "type": "text[]",
+    "not_null": true,
+    "default": "'{}'"
+   },
+   "identity_qualifiers": {
+    "type": "text[]",
+    "not_null": true,
+    "default": "'{}'"
+   },
+   "subsets": {
+    "type": "text[]",
+    "not_null": true,
+    "default": "'{}'"
+   },
+   "extract": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "description": {
+    "type": "text",
+    "not_null": false,
+    "default": null
+   },
+   "annotations": {
+    "type": "jsonb",
+    "not_null": true,
+    "default": "'{}'"
+   }
+  },
+  "order": [
+   "schema_version_id",
+   "name",
+   "role",
+   "domain_class",
+   "range",
+   "object_kind",
+   "multivalued",
+   "qualifiers",
+   "identity_qualifiers",
+   "subsets",
+   "extract",
+   "description",
+   "annotations"
+  ],
+  "constraints": [
+   [
+    "check",
+    "role IN ('field', 'identity', 'predicate', 'qualifier')"
+   ],
+   [
+    "foreign key",
+    [
+     "schema_version_id"
+    ],
+    "meta.schema_version",
+    [
+     "id"
+    ],
+    "CASCADE",
+    null
+   ],
+   [
+    "primary key",
+    [
+     "schema_version_id",
+     "name"
+    ]
+   ]
+  ],
+  "indexes": {}
+ }
+}

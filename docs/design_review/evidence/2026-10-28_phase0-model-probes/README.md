@@ -1,6 +1,6 @@
 # Phase 0 model probes, 2026-10-28
 
-**Status, 2026-10-28: environment built; probes Q-1 to Q-5 and Q-7 not yet run.**
+**Status, 2026-10-28: Q-1 to Q-5 and the settings check have run and are finalized; Q-7 is running.**
 
 These are bounded investigations that decide between the stated variants of the phase 0 model
 foundations. They are owned by the [phase 0 series](../../../plans/phase-0_2026-10-28.md), whose §11
@@ -441,10 +441,100 @@ pyarrow 26.0.0, pgpq 0.12.0, psycopg 3.3.6, PostgreSQL 18.6, same machine as Q-4
   - Adopt pgpq only if a measured writer cost calls for it, and then with the staging step.
   - The Alpha status and the missing timestamptz type stay as recorded (coordinator ruling 8).
 
+## Q-1: Stage B (`p0q.stage-b`)
+
+**Question.** Can a linkml 1.12.1 `PydanticGenerator` subclass, or an own emitter, over S4's
+`core.yaml` produce the core shapes? The shapes are:
+- discriminated `t`/`op` unions with a named recursive `Condition`;
+- `MISSING` defaults (pydantic 2.14.1);
+- frozen models with tuples;
+- both `ci:form` variants;
+- prefixed aliases.
+
+The probe also asks how the result differs from `values.py` and `batch.py`, whether S4's 135 batches
+validate alike, and whether the JSON Schemas equal `core/schemas/*.json` byte for byte.
+
+**Method.**
+- **The model.** `code/q1_build.py` patches a copy of S4's `core.yaml` with `code/q1/model_patch.yaml`,
+  writing `results/q1/schema/core_stage_b.yaml`, which lints with 0 errors. The patch adds:
+  - the condition node classes;
+  - the batch items, evidence, a qualifiers class (`extra_slots` for schema qualifiers) and the
+    envelope;
+  - types and enums;
+  - an `Expression` base for `Formula` and `SetExpr` (S4 had `SetExpr is_a Formula`);
+  - typed interval bounds;
+  - a declaration order that matches the hand unions.
+- **The generator.** `code/q1/stage_b.py` subclasses `PydanticGenerator`. It keeps `render()`'s
+  pipeline and the template machinery, with `template_dir` overrides in `code/q1/templates`: a frozen
+  `CoreModel` base, PEP 695 `type` aliases, explicit `Field` sources. It overrides `_get_classes`,
+  `generate_class`, `generate_slot`, `get_class_slot_range` and `before_generate_enums`. A
+  form-expansion plan over `SchemaView` reads `ci:form`, `ci:required_in` and `ci:stored_range`: a
+  class whose fields, ranges or members differ by form is emitted as `Authored…` and `Stored…`.
+- **Behaviour.** Behaviour stays hand-written in `code/q1/hooks.py`, called through a proposed
+  `ci:validator`. Spans and `scope_segment` presence are generated from `ci:invariant`.
+- **The comparison.** `code/q1_stage_b.py` compares the generated module
+  (`results/q1/generated/core_shapes.py`) with the product's hand shapes, imported read-only. It
+  checks:
+  - per class: field annotation, default, alias, `exclude_if`, order, config, bases and validators;
+  - the union aliases;
+  - the JSON Schemas, rendered with the product's `CoreJsonSchema`;
+  - S4's 135 batches, as written, after S4's V1/V2 canonicalization and, for the stored batches,
+    after a probe-local prefix migration (S4's batches predate the X2 prefixed-name ruling). Verdicts,
+    `(loc, type)` error sets and dumps are compared;
+  - 12 seeded errors;
+  - stock `gen-pydantic` over the same schema, for contrast.
+
+**Result (Tested, 2026-10-28; linkml 1.12.1, pydantic 2.14.1, Python 3.14.10).**
+- **Every named feature is present** (12/12):
+  - `AuthoredCondition`/`StoredCondition` are named `$defs` entries, discriminated on `op`;
+  - the value unions are discriminated on `t`;
+  - `MISSING` defaults are absent from dumps;
+  - models are frozen with `extra="forbid"`, and sequences are tuples;
+  - both forms are generated, with stored-only fields;
+  - the stored qualifiers carry `core:` aliases (`validate_by_alias`, `serialize_by_alias`), and
+    default modality and polarity are excluded from dumps.
+- **The four union aliases are identical to the hand ones.** 35 of 45 classes are structurally equal.
+- **The other 10 classes differ in three ways:**
+  - the hand private bases `_Batch`, `_Claim`, `_Entity`, `_Qualifiers` and `_Span` are flattened.
+    Their methods become functions: `_Batch.local_refs()` is used by tests;
+  - `AuthoredQualifiers` field order is an artifact of the hand inheritance, and no single
+    declaration order reproduces both forms' hand orders;
+  - `NumberValue` uses a `pattern` instead of the hand canonical-decimal validator. The verdicts agree,
+    but the error type changes (`string_pattern_mismatch` against `value_error`) and the "write '…'"
+    suggestion is lost, unless the hand validator stays and the pattern becomes schema-only.
+- **`CitationFrame` and `FrameEntry` stay hand-written** (a `RootModel` with methods).
+- **Batches.** 300 validations of the 135 batches: verdicts and error sets agree in 300 of 300. The
+  137 valid validations have identical dumps (17 authored, plus 120 stored after the prefix migration).
+- **Seeded errors.** Both model sets reject all 12. The error sets are equal in 11; the twelfth is the
+  number case above.
+- **JSON Schemas.** 0 of 6 files are byte-equal: the committed descriptions are hand docstrings,
+  which the model does not hold. Without descriptions:
+  - 5 of 6 files are equal;
+  - `batch.authored` is equal only key-order-insensitively, because of the qualifiers' property order.
+- **Stock `gen-pydantic`** emits 0 discriminators, 0 `MISSING` and no tuples. It produces one class per
+  model class, with both forms' fields optional.
+- **Regeneration** is byte-identical.
+
+**Interpretation.**
+- **The variant is feasible.** The subclass works, but most of the work is the overridden class and
+  slot generation plus the form expansion. It is close to an own emitter hosted in the generator,
+  using the generator for orchestration and templates. An own emitter over `SchemaView` is the
+  equivalent alternative and was not built.
+- **Declarations needed beyond TM §4:**
+  - the item and condition classes in `core` (TM §2 already places them there);
+  - `ci:py_type` on types, for the min-length strings LinkML cannot state and for the `CITATION`
+    marker;
+  - `ci:validator` for hand behaviour;
+  - `ci:py_name` or model renames (`SetExpr`→`SetValue`, `PhraseValue`→`Phrase`, `AndNode`→`And`, …).
+
+  Whether the committed schema descriptions come from the model is a choice for M5.
+
+**Feeds.** P0-M-5 (M5's variant): Stage B, with the residue above.
+
 ## Records
 
 <!-- evidence-index:start -->
-Generated by `just evidence index` from `records/`; do not edit by hand. 5 current, 0 superseded.
+Generated by `just evidence index` from `records/`; do not edit by hand. 6 current, 0 superseded.
 
 
 **Phase 0 model probes**
@@ -453,6 +543,7 @@ Generated by `just evidence index` from `records/`; do not edit by hand. 5 curre
 |---|---|---|---|---|
 | [Validating a pydantic-settings BaseSettings reads the environment](records/p0q.settings-env.json) | P0-F-5 | passed | coordinator decision 26, foundations §3.5 operations models, foundations §3.9 | 2026-10-28 |
 | [Same-run composite FKs and per-version vocabulary FKs at run scale, with the s6.volume rerun on 18/corpus](records/p0q.fk-cost.json) | P0-F-Q4 | passed | P0-F-Q4, INV-03 and INV-08 enforcement placement (model-and-projections §3.4, foundations §3.8), D3 §11 pending rerun, ADR-0021 variants | 2026-10-28 |
+| [Stage B: the core shapes generated by a PydanticGenerator subclass over S4's core.yaml](records/p0q.stage-b.json) | P0-M-Q1 | passed | P0-M-Q1, model-and-projections §3.3 Stage B or its fallback | 2026-10-28 |
 | [Member properties on enum members: native in_subset versus a scalar ci:properties annotation](records/p0q.member-properties.json) | P0-M-Q2 | passed | P0-M-Q2, model-and-projections §3.1 member properties | 2026-10-28 |
 | [Port check: MetaData generated from a LinkML sketch of five D3 tables plus an overlay, against S6's DDL; Alembic with a CreateView table](records/p0q.port-check.json) | P0-M-Q3 | passed | P0-M-Q3, model-and-projections §3.4 port check, model-and-projections §3.4 overlay/compiler split | 2026-10-28 |
 | [Pool round trip: ADBC fetch_record_batch → DuckDB 2.0 → Arrow → psycopg Copy.set_types or pgpq](records/p0q.pool-roundtrip.json) | P0-P-Q5 | passed | P0-P-Q5, P0-P-1 loader route (pool-and-interchange §3.1), P0-P-3 writer and pgpq adoption (pool-and-interchange §3.4) | 2026-10-28 |

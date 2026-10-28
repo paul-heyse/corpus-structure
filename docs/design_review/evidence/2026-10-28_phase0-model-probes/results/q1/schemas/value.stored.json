@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "BoolValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "bool",
+          "type": "string"
+        },
+        "v": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "DateValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "date",
+          "type": "string"
+        },
+        "v": {
+          "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "EnumValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
+      ],
+      "type": "object"
+    },
+    "Formula": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "formula",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "enum": [
+            "ok",
+            "partial",
+            "ambiguous",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "IntervalValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "interval",
+          "type": "string"
+        },
+        "start": {
+          "discriminator": {
+            "mapping": {
+              "date": "#/$defs/DateValue",
+              "formula": "#/$defs/Formula",
+              "number": "#/$defs/NumberValue"
+            },
+            "propertyName": "t"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumberValue"
+            },
+            {
+              "$ref": "#/$defs/DateValue"
+            },
+            {
+              "$ref": "#/$defs/Formula"
+            }
+          ]
+        },
+        "end": {
+          "discriminator": {
+            "mapping": {
+              "date": "#/$defs/DateValue",
+              "formula": "#/$defs/Formula",
+              "number": "#/$defs/NumberValue"
+            },
+            "propertyName": "t"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumberValue"
+            },
+            {
+              "$ref": "#/$defs/DateValue"
+            },
+            {
+              "$ref": "#/$defs/Formula"
+            }
+          ]
+        },
+        "start_incl": {
+          "type": "boolean"
+        },
+        "end_incl": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "type": "object"
+    },
+    "NumberValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "number",
+          "type": "string"
+        },
+        "v": {
+          "pattern": "^(?:0|-?(?:[1-9][0-9]*(?:\\.[0-9]*[1-9])?|0\\.[0-9]*[1-9]))$",
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "SetValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "set",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "enum": [
+            "ok",
+            "partial",
+            "ambiguous",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "StoredPhrase": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coarse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "text",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "SymbolBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "bind": {
+          "enum": [
+            "variable",
+            "param_of",
+            "param_expr_of",
+            "family_param",
+            "free",
+            "constant",
+            "unresolved"
+          ],
+          "type": "string"
+        },
+        "entity": {
+          "type": "string"
+        },
+        "claim": {
+          "type": "string"
+        },
+        "param": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bind"
+      ],
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "text",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "bool": "#/$defs/BoolValue",
+      "date": "#/$defs/DateValue",
+      "enum": "#/$defs/EnumValue",
+      "formula": "#/$defs/Formula",
+      "interval": "#/$defs/IntervalValue",
+      "number": "#/$defs/NumberValue",
+      "phrase": "#/$defs/StoredPhrase",
+      "set": "#/$defs/SetValue",
+      "text": "#/$defs/TextValue"
+    },
+    "propertyName": "t"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/TextValue"
+    },
+    {
+      "$ref": "#/$defs/NumberValue"
+    },
+    {
+      "$ref": "#/$defs/BoolValue"
+    },
+    {
+      "$ref": "#/$defs/EnumValue"
+    },
+    {
+      "$ref": "#/$defs/Formula"
+    },
+    {
+      "$ref": "#/$defs/SetValue"
+    },
+    {
+      "$ref": "#/$defs/DateValue"
+    },
+    {
+      "$ref": "#/$defs/IntervalValue"
+    },
+    {
+      "$ref": "#/$defs/StoredPhrase"
+    }
+  ]
+}

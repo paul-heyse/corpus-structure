@@ -1,0 +1,246 @@
+{
+ "search_block": [
+  "paragraph",
+  "list_item",
+  "heading",
+  "caption"
+ ],
+ "counts": {
+  "ops.run": {
+   "columns": 20,
+   "constraints": 10,
+   "indexes": 0
+  },
+  "ops.task": {
+   "columns": 23,
+   "constraints": 7,
+   "indexes": 5
+  },
+  "kb.segment": {
+   "columns": 14,
+   "constraints": 8,
+   "indexes": 3
+  },
+  "kb.claim": {
+   "columns": 14,
+   "constraints": 10,
+   "indexes": 4
+  },
+  "meta.schema_slot": {
+   "columns": 13,
+   "constraints": 3,
+   "indexes": 0
+  }
+ },
+ "residue_items": 1,
+ "by_class": {
+  "S6 DDL differs by design": 1
+ },
+ "generated_constraint_names": {
+  "ops.run": [
+   "pk_run",
+   "fk_run_project_id",
+   "ck_run_kind_182380918a",
+   "fk_run_debug_slice_id",
+   "fk_run_schema_version_id",
+   "fk_run_guideline_version_id",
+   "fk_run_policy_version_id",
+   "fk_run_parent_run_id",
+   "fk_run_reference_run_id",
+   "ck_run_status_c083e937b6"
+  ],
+  "ops.task": [
+   "pk_task",
+   "fk_task_run_id",
+   "ck_task_unit_type_dbbc309bfc",
+   "fk_task_method_config_id",
+   "fk_task_trigger_rule_id",
+   "fk_task_reused_task_id",
+   "ck_task_status_9ecb3cedef"
+  ],
+  "kb.segment": [
+   "pk_segment",
+   "fk_segment_rendition_id",
+   "fk_segment_parent_id",
+   "ck_segment_kind_bc1bdabc7d",
+   "ck_segment_parse_status_ac723c743e",
+   "uq_segment_key",
+   "ck_segment_iff_absent_4921089430",
+   "ck_segment_ordered_eq_ce23619d75"
+  ],
+  "kb.claim": [
+   "pk_claim",
+   "fk_claim_run_id",
+   "fk_claim_subject_id",
+   "fk_claim_object_entity_id",
+   "fk_claim_statement_id",
+   "ck_claim_statement_role_f56ac0d3bf",
+   "ck_claim_status_56c4715ee9",
+   "ck_claim_establishment_947b296bf3",
+   "uq_claim_run_id_key",
+   "ck_claim_exactly_one_a0e97ac0f0"
+  ],
+  "meta.schema_slot": [
+   "pk_schema_slot",
+   "fk_schema_slot_schema_version_id",
+   "ck_schema_slot_role_8d98a3cc53"
+  ]
+ },
+ "raw_ast_equal_note": "raw pglast AST equality is not used: generated DDL names every constraint and writes them table-level, S6 writes them inline and unnamed",
+ "controls": {
+  "column type": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "kb.segment column depth type"
+   ]
+  },
+  "nullability": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "ops.run column corpus_hash not_null"
+   ]
+  },
+  "default": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "ops.run column iteration_limit default"
+   ]
+  },
+  "check member": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "kb.claim constraint only generated check establishment IN ('agent', 'derived', 'stated')",
+    "kb.claim constraint only s6 check establishment IN ('agent_asserted', 'derived', 'stated')"
+   ]
+  },
+  "fk action": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "kb.claim constraint only generated foreign key ('run_id',)",
+    "kb.claim constraint only s6 foreign key ('run_id',)"
+   ]
+  },
+  "unique": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "kb.segment constraint only s6 unique ('key',)"
+   ]
+  },
+  "index using": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "kb.segment index segment_bm25 using"
+   ]
+  },
+  "index with": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "kb.segment index segment_bm25 with"
+   ]
+  },
+  "index where": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "ops.task index task_lease where"
+   ]
+  },
+  "index desc": {
+   "applied": true,
+   "detected": true,
+   "new_items": [
+    "ops.task index task_agent params"
+   ]
+  }
+ },
+ "controls_all_detected": true,
+ "strict": {
+  "residue_items": 11,
+  "skipped_invariants": [
+   "Segment: iff_absent(parse_reason, parse_status = ok)"
+  ],
+  "by_class": {
+   "compiler should carry (declaration missing from TM \u00a74)": 10,
+   "S6 DDL differs by design": 1
+  }
+ },
+ "database": {
+  "server_version": "18.6 (Ubuntu 18.6-1.pgdg24.04+2)",
+  "extensions": {
+   "plpgsql": "1.0",
+   "pg_textsearch": "1.5.1",
+   "vector": "0.8.7",
+   "pg_stat_statements": "1.12"
+  },
+  "views_in_db": [
+   "ops.finished_run"
+  ],
+  "bm25_index_def": "CREATE INDEX segment_bm25 ON kb.segment USING bm25 (text) WITH (text_config=english) WHERE ((kind = ANY (ARRAY['paragraph'::text, 'list_item'::text, 'heading'::text, 'caption'::text])) AND ((ts_config)::oid = ('english'::regconfig)::oid))",
+  "applied_tables": [
+   "kb.claim",
+   "kb.entity",
+   "kb.rendition",
+   "kb.segment",
+   "meta.guideline_version",
+   "meta.project",
+   "meta.schema_slot",
+   "meta.schema_version",
+   "ops.debug_slice",
+   "ops.method_config",
+   "ops.policy_rule",
+   "ops.policy_version",
+   "ops.run",
+   "ops.task"
+  ],
+  "view_table_is_view": true,
+  "view_table_info": {},
+  "compare_server_default_true": {
+   "error": "DataError: (psycopg.errors.InvalidTextRepresentation) invalid input syntax for type oid: \"english\"",
+   "sql": "SELECT 'english'::regconfig = 'english' AS anon_1"
+  },
+  "reflection_warnings": [
+   "Did not recognize type 'regconfig' of column 'ts_config'"
+  ],
+  "autogen": {
+   "no_filter": {
+    "diffs": [
+     "('add_table', Table('finished_run', MetaData(), Column('id', BigInteger(), table=<finished_run>), Column('status', Text(), table=<finished_run>), schema='ops'))"
+    ],
+    "upgrade_code": "# ### commands auto generated by Alembic - please adjust! ###\n    op.create_table('finished_run',\n    sa.Column('id', sa.BigInteger(), nullable=True),\n    sa.Column('status', sa.Text(), nullable=True),\n    schema='ops'\n    )\n    # ### end Alembic commands ###"
+   },
+   "include_object_native_is_view": {
+    "diffs": [],
+    "upgrade_code": "# ### commands auto generated by Alembic - please adjust! ###\n    pass\n    # ### end Alembic commands ###"
+   },
+   "include_object_info_unmarked": {
+    "diffs": [
+     "('add_table', Table('finished_run', MetaData(), Column('id', BigInteger(), table=<finished_run>), Column('status', Text(), table=<finished_run>), schema='ops'))"
+    ],
+    "upgrade_code": "# ### commands auto generated by Alembic - please adjust! ###\n    op.create_table('finished_run',\n    sa.Column('id', sa.BigInteger(), nullable=True),\n    sa.Column('status', sa.Text(), nullable=True),\n    schema='ops'\n    )\n    # ### end Alembic commands ###"
+   },
+   "include_object_info_marked": {
+    "diffs": [],
+    "upgrade_code": "# ### commands auto generated by Alembic - please adjust! ###\n    pass\n    # ### end Alembic commands ###"
+   },
+   "view_absent_no_filter": {
+    "diffs": [
+     "('add_table', Table('finished_run', MetaData(), Column('id', BigInteger(), table=<finished_run>), Column('status', Text(), table=<finished_run>), schema='ops'))"
+    ],
+    "upgrade_code": "# ### commands auto generated by Alembic - please adjust! ###\n    op.create_table('finished_run',\n    sa.Column('id', sa.BigInteger(), nullable=True),\n    sa.Column('status', sa.Text(), nullable=True),\n    schema='ops'\n    )\n    # ### end Alembic commands ###"
+   },
+   "view_absent_native_is_view": {
+    "diffs": [],
+    "upgrade_code": "# ### commands auto generated by Alembic - please adjust! ###\n    pass\n    # ### end Alembic commands ###"
+   }
+  },
+  "dropped": true
+ }
+}

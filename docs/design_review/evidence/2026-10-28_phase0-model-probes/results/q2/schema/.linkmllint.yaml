@@ -1,0 +1,24 @@
+# linkml-lint configuration for the pack schemas (S4-A; schema-rules note L-09).
+# Lint each schema file, never the schema/ directory: directory mode lints rules.yaml as a schema.
+extends: recommended
+rules:
+  # Descriptions are model input (D2 §1.3): a class, slot, enum or permissible value without one fails.
+  recommended:
+    level: error
+  no_undeclared_subsets:
+    level: error
+  no_undeclared_ranges:
+    level: error
+  no_invalid_slot_usage:
+    level: error
+  # D1 fixes the JSON field names t (value tag) and v (scalar value); the rule's snake-case pattern
+  # wants two characters, so its two findings (slots t and v) are listed in roundtrip.md and kept.
+  standard_naming:
+    level: warning
+  no_empty_title:
+    level: disabled        # titles are GLiNER2 labels on mention classes only (D2 §7.2)
+  # ci:, core: and stat: are registered elsewhere (content-inventory, VIVO core, POSIX stat). The
+  # IRIs are explicit and every export carries its own prefix map (JSON-LD @context, D8 §6), so the
+  # collision is accepted deliberately rather than renaming every stored predicate.
+  canonical_prefixes:
+    level: disabled

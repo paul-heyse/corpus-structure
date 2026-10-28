@@ -1,0 +1,138 @@
+{
+ "features": {
+  "named_recursive_condition": true,
+  "op_discriminator": true,
+  "t_discriminator": true,
+  "missing_default": true,
+  "missing_dumped_absent": true,
+  "frozen": true,
+  "extra_forbid": true,
+  "tuples": true,
+  "form_variants": true,
+  "stored_only_fields": true,
+  "prefixed_aliases": true,
+  "default_excluded": true
+ },
+ "structure": {
+  "compared": 45,
+  "equal": 35,
+  "hand_only": [
+   "CitationFrame",
+   "FrameEntry",
+   "_Batch",
+   "_Claim",
+   "_Entity",
+   "_Qualifiers",
+   "_Span"
+  ],
+  "generated_only": [],
+  "aliases_equal": {
+   "AuthoredValue": true,
+   "StoredValue": true,
+   "AuthoredCondition": true,
+   "StoredCondition": true
+  },
+  "unequal_classes": [
+   "AuthoredBatch",
+   "AuthoredClaim",
+   "AuthoredEntity",
+   "AuthoredQualifiers",
+   "NumberValue",
+   "StoredBatch",
+   "StoredClaim",
+   "StoredEntity",
+   "StoredEvidence",
+   "StoredUnsupported"
+  ]
+ },
+ "schemas": {
+  "value.authored": {
+   "bytes_equal": false,
+   "hand_bytes": 6963,
+   "generated_bytes": 6671,
+   "equal_without_descriptions": true,
+   "equal_without_descriptions_any_order": true,
+   "description_paths_hand": 3,
+   "description_paths_generated": 0
+  },
+  "value.stored": {
+   "bytes_equal": false,
+   "hand_bytes": 7113,
+   "generated_bytes": 6821,
+   "equal_without_descriptions": true,
+   "equal_without_descriptions_any_order": true,
+   "description_paths_hand": 3,
+   "description_paths_generated": 0
+  },
+  "condition.authored": {
+   "bytes_equal": false,
+   "hand_bytes": 8259,
+   "generated_bytes": 8041,
+   "equal_without_descriptions": true,
+   "equal_without_descriptions_any_order": true,
+   "description_paths_hand": 2,
+   "description_paths_generated": 0
+  },
+  "condition.stored": {
+   "bytes_equal": false,
+   "hand_bytes": 8523,
+   "generated_bytes": 8305,
+   "equal_without_descriptions": true,
+   "equal_without_descriptions_any_order": true,
+   "description_paths_hand": 2,
+   "description_paths_generated": 0
+  },
+  "batch.authored": {
+   "bytes_equal": false,
+   "hand_bytes": 20057,
+   "generated_bytes": 19658,
+   "equal_without_descriptions": false,
+   "equal_without_descriptions_any_order": true,
+   "description_paths_hand": 7,
+   "description_paths_generated": 3
+  },
+  "batch.stored": {
+   "bytes_equal": false,
+   "hand_bytes": 21375,
+   "generated_bytes": 20654,
+   "equal_without_descriptions": true,
+   "equal_without_descriptions_any_order": true,
+   "description_paths_hand": 9,
+   "description_paths_generated": 3
+  }
+ },
+ "batches": {
+  "batches": 135,
+  "validations": 300,
+  "verdicts_agree": 300,
+  "errors_equal": 300,
+  "valid_both": 137,
+  "dumps_equal": 137,
+  "by_form_verdict": {
+   "model/as_written/hand:valid/generated:valid": 13,
+   "model/canonical/hand:valid/generated:valid": 4,
+   "model/as_written/hand:invalid/generated:invalid": 2,
+   "stored/as_written/hand:invalid/generated:invalid": 120,
+   "stored/canonical/hand:invalid/generated:invalid": 41,
+   "stored/canonical_prefixed/hand:valid/generated:valid": 120
+  }
+ },
+ "stock_and_drift": {
+  "stock_exit": 0,
+  "stock_counts": {
+   "discriminator": 0,
+   "MISSING": 0,
+   "frozen": 1,
+   "tuple[": 0,
+   "Optional[": 75,
+   "type ": 0
+  },
+  "stock_phrase_tag": [],
+  "regenerated_identical": true
+ },
+ "seeded": {
+  "seeds": 12,
+  "both_reject": 12,
+  "errors_equal": 11
+ }
+}

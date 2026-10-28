@@ -1,0 +1,169 @@
+{
+ "baseline_lint": {
+  "exit": 1,
+  "levels": {
+   "warning": 2
+  },
+  "problems": [
+   "warning standard_naming: Slot has name 't'",
+   "warning standard_naming: Slot has name 'v'"
+  ],
+  "stderr_tail": []
+ },
+ "forms": {
+  "ci_properties": {
+   "file": "core_ci_properties.yaml",
+   "generators": {
+    "gen-json-schema": {
+     "exit": 0,
+     "stderr_tail": [],
+     "stdout_bytes": 23350
+    },
+    "gen-pydantic": {
+     "exit": 0,
+     "stderr_tail": [],
+     "stdout_bytes": 25169
+    }
+   },
+   "lint": {
+    "exit": 1,
+    "levels": {
+     "warning": 2
+    },
+    "problems": [
+     "warning standard_naming: Slot has name 't'",
+     "warning standard_naming: Slot has name 'v'"
+    ],
+    "stderr_tail": []
+   },
+   "readback": {
+    "accessors": {
+     "annotation_dict(ClaimModality)": {
+      "ci:extract": "classification",
+      "ci:target": "sentence"
+     },
+     "annotation_dict(supposed)": "AttributeError: 'NoneType' object has no attribute 'annotations'",
+     "induced_enum(ClaimModality).permissible_values[supposed].in_subset": [],
+     "permissible_value_ancestors(supposed, ClaimModality)": [
+      "supposed"
+     ],
+     "permissible_value_parents(supposed, ClaimModality)": [],
+     "pv.annotations": {
+      "ci:properties": "premise_forming"
+     },
+     "pv.in_subset": []
+    },
+    "canonical_json_has_declaration": true,
+    "canonical_sha256": "bd2bad6a3007ee55d7d45d695bd702c3ec8e2120e5ff1928ca78480537bcd772",
+    "declared_subsets": [
+     "structural",
+     "unsupported"
+    ],
+    "membership_equal_to_expected": true,
+    "mismatches": {},
+    "value_types": [
+     "extended_str"
+    ],
+    "yaml_dump_unit": {
+     "annotations": {
+      "ci:properties": {
+       "tag": "ci:properties",
+       "value": "annotation_unit statement_anchor"
+      }
+     },
+     "description": "An author-marked unit.",
+     "text": "unit"
+    }
+   }
+  },
+  "in_subset": {
+   "file": "core_in_subset.yaml",
+   "generators": {
+    "gen-json-schema": {
+     "exit": 0,
+     "stderr_tail": [],
+     "stdout_bytes": 23350
+    },
+    "gen-pydantic": {
+     "exit": 0,
+     "stderr_tail": [],
+     "stdout_bytes": 28284
+    }
+   },
+   "lint": {
+    "exit": 1,
+    "levels": {
+     "warning": 2
+    },
+    "problems": [
+     "warning standard_naming: Slot has name 't'",
+     "warning standard_naming: Slot has name 'v'"
+    ],
+    "stderr_tail": []
+   },
+   "readback": {
+    "accessors": {
+     "annotation_dict(ClaimModality)": {
+      "ci:extract": "classification",
+      "ci:target": "sentence"
+     },
+     "annotation_dict(supposed)": "AttributeError: 'NoneType' object has no attribute 'annotations'",
+     "induced_enum(ClaimModality).permissible_values[supposed].in_subset": [
+      "premise_forming"
+     ],
+     "permissible_value_ancestors(supposed, ClaimModality)": [
+      "supposed"
+     ],
+     "permissible_value_parents(supposed, ClaimModality)": [],
+     "pv.annotations": {},
+     "pv.in_subset": [
+      "premise_forming"
+     ]
+    },
+    "canonical_json_has_declaration": true,
+    "canonical_sha256": "94d2c572481f5352e7ccc0c6dfcf06d99282148e72bb98cb38d2b7e0c4380847",
+    "declared_subsets": [
+     "annotation_unit",
+     "attribution_identifying",
+     "claim_bearing",
+     "conflict_bearing",
+     "container",
+     "premise_forming",
+     "search_block",
+     "statement_anchor",
+     "structural",
+     "unsupported"
+    ],
+    "membership_equal_to_expected": true,
+    "mismatches": {},
+    "value_types": [
+     "SubsetDefinitionName"
+    ],
+    "yaml_dump_unit": {
+     "description": "An author-marked unit.",
+     "in_subset": [
+      "annotation_unit",
+      "statement_anchor"
+     ],
+     "text": "unit"
+    }
+   }
+  }
+ },
+ "passed": true,
+ "seeded_caught": true,
+ "seeded_lint": {
+  "exit": 2,
+  "levels": {
+   "error": 1,
+   "warning": 2
+  },
+  "problems": [
+   "error no_undeclared_subsets: Enum 'SegmentKind' permissible value 'figure' asserts membership in undeclared subset 'undeclared_property'.",
+   "warning standard_naming: Slot has name 't'",
+   "warning standard_naming: Slot has name 'v'"
+  ],
+  "stderr_tail": []
+ },
+ "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s4/schema/domains/core/schema/core.yaml"
+}

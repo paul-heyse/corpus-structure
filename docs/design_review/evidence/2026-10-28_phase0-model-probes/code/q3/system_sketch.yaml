@@ -1,0 +1,306 @@
+id: https://corpus-structure.dev/system-sketch
+name: system_sketch
+title: Probe sketch of five D3 tables
+description: >-
+  Q-3 probe only. A LinkML sketch of ops.run, ops.task, kb.segment, kb.claim and meta.schema_slot in
+  the shape S6 applied (code/s6_ddl_applied.sql of the design spikes), declared with TM §4's
+  vocabulary (ci:lifecycle, ci:invariant, ci:store) and native LinkML. Declarations outside TM §4 that
+  the compiler reads are marked "proposed" in their descriptions. Referenced tables outside the five
+  are stub classes (an id only) so the foreign keys resolve.
+version: 0.0.1
+license: https://creativecommons.org/publicdomain/zero/1.0/
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  sys: https://corpus-structure.dev/system/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: sys
+default_range: string
+imports:
+  - linkml:types
+
+types:
+  Id:
+    typeof: integer
+    uri: xsd:long
+    description: A generated bigint row id.
+  SmallInt:
+    typeof: integer
+    uri: xsd:short
+    description: A small integer (smallint).
+  Real:
+    typeof: float
+    uri: xsd:float
+    description: A single-precision float (real).
+  Timestamp:
+    typeof: datetime
+    uri: xsd:dateTime
+    description: A point in time with time zone (timestamptz).
+  TsConfig:
+    typeof: string
+    description: A text-search configuration name (regconfig). Proposed ci:sql_type, not in TM §4.
+    annotations: {ci:sql_type: regconfig}
+
+subsets:
+  meta: {description: Tables in the meta schema.}
+  ops: {description: Tables in the ops schema.}
+  kb: {description: Tables in the kb schema.}
+  search_block: {description: "Member property: a segment of this kind is a BM25 search block."}
+
+classes:
+  # ---- stubs: referenced tables outside the five (an id only; not compared) ----
+  Project: {in_subset: [meta], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+  SchemaVersion: {in_subset: [meta], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+  GuidelineVersion: {in_subset: [meta], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+  DebugSlice: {in_subset: [ops], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+  PolicyVersion: {in_subset: [ops], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+  PolicyRule: {in_subset: [ops], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+  MethodConfig: {in_subset: [ops], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+  Rendition: {in_subset: [kb], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+  Entity: {in_subset: [kb], description: Stub., attributes: {id: {identifier: true, range: Id, description: Row id.}}}
+
+  # ---- nested payload classes (jsonb); every attribute optional, so {} is a valid instance ----
+  RunOptions:
+    description: The run's options (D6 §2).
+    annotations: {ci:store: nested, ci:payload: run_options}
+    attributes: {agent_mode: {description: The agent mode.}}
+  TaskCost:
+    description: A task's cost.
+    annotations: {ci:store: nested, ci:payload: task_cost}
+    attributes: {wall_ms: {range: integer, description: Wall time.}}
+  TriggerMetrics:
+    description: The metric values a policy rule saw.
+    annotations: {ci:store: nested}
+    attributes: {values: {description: Metric values.}}
+  TaskError:
+    description: Failure detail.
+    annotations: {ci:store: nested}
+    attributes: {message: {description: The message.}}
+  SegmentAttrs:
+    description: Author markup of a segment (D1 §3.2).
+    annotations: {ci:store: nested}
+    attributes: {classes: {description: Author classes.}}
+  ClaimValue:
+    description: A D1 §6 value (the core Value union).
+    annotations: {ci:store: nested}
+    attributes: {t: {description: The value tag.}}
+  Qualifiers:
+    description: Core and schema qualifiers, conditions included.
+    annotations: {ci:store: nested}
+    attributes: {modality: {description: The modality.}}
+  Completeness:
+    description: Completeness counts.
+    annotations: {ci:store: nested}
+    attributes: {unresolved_symbols: {range: integer, description: Unresolved symbols.}}
+  SlotAnnotations:
+    description: A slot's scalar ci annotations.
+    annotations: {ci:store: nested}
+    attributes: {symmetric: {range: boolean, description: Symmetric.}}
+
+  # ---- the five tables ----
+  Run:
+    in_subset: [ops]
+    description: A run (D3 §4).
+    annotations: {ci:store: table}
+    attributes:
+      id: {identifier: true, range: Id, description: Row id.}
+      project: {range: Project, required: true, description: The project.}
+      kind: {range: RunKind, required: true, description: The run kind.}
+      phase: {range: SmallInt, required: true, description: "The phase, 0-5."}
+      options: {range: RunOptions, required: true, description: Run options.}
+      debug_slice: {range: DebugSlice, description: The debug slice.}
+      corpus_hash: {required: true, description: Corpus hash.}
+      schema_version: {range: SchemaVersion, required: true, description: The schema version.}
+      guideline_version: {range: GuidelineVersion, description: The guideline version.}
+      policy_version: {range: PolicyVersion, required: true, description: The policy version.}
+      code_commit: {required: true, description: The code commit.}
+      parent_run: {range: Run, description: The golden run's parent.}
+      reference_run: {range: Run, description: The promoted run at creation.}
+      iteration: {range: integer, required: true, ifabsent: int(0), description: Current route iteration.}
+      iteration_limit: {range: integer, required: true, ifabsent: int(3), description: Iteration limit.}
+      status: {range: RunStatus, required: true, description: Run status.}
+      notes: {description: Notes.}
+      started_at: {range: Timestamp, description: Start time.}
+      finished_at: {range: Timestamp, description: Finish time.}
+      created_at:
+        range: Timestamp
+        required: true
+        description: Insertion time. Proposed ci:generated, not in TM §4.
+        annotations: {ci:generated: insert_time}
+
+  Task:
+    in_subset: [ops]
+    description: A task (D3 §5).
+    annotations: {ci:store: table}
+    attributes:
+      id: {identifier: true, range: Id, description: Row id.}
+      run: {range: Run, required: true, description: The run.}
+      stage: {required: true, description: D6 §2 stage name.}
+      unit_type: {range: UnitType, required: true, description: The unit's table.}
+      unit_id: {range: Id, description: The unit's id (polymorphic; no FK).}
+      unit_key: {description: The unit key.}
+      method_config: {range: MethodConfig, required: true, description: The resolved configuration.}
+      trigger_rule: {range: PolicyRule, description: The triggering rule.}
+      trigger_metrics: {range: TriggerMetrics, required: true, description: Metrics the rule saw.}
+      input_hash: {required: true, description: Input hash (D6 §4).}
+      packet_hash: {description: Packet hash.}
+      reused_task: {range: Task, description: The reused task.}
+      status: {range: TaskStatus, required: true, description: Task status.}
+      attempt: {range: integer, required: true, ifabsent: int(0), description: Fencing token.}
+      priority: {range: integer, required: true, ifabsent: int(0), description: Priority.}
+      claimed_by: {description: Worker id or agent session.}
+      lease_until: {range: Timestamp, description: Lease expiry.}
+      cost: {range: TaskCost, required: true, description: Cost.}
+      error: {range: TaskError, description: Failure detail.}
+      reason: {description: Why skipped or cancelled.}
+      created_at:
+        range: Timestamp
+        required: true
+        description: Insertion time. Proposed ci:generated.
+        annotations: {ci:generated: insert_time}
+      started_at: {range: Timestamp, description: Start time.}
+      finished_at: {range: Timestamp, description: Terminal write time.}
+
+  Segment:
+    in_subset: [kb]
+    description: A segment of a rendition (D1 §3.2).
+    annotations:
+      ci:store: table
+      # iff_absent is proposed: TM §4's iff_present(x, y = v) cannot state "absent iff" without negation
+      ci:invariant: "iff_absent(parse_reason, parse_status = ok); ordered_eq(start_offset, end_offset)"
+    unique_keys:
+      segment_key: {unique_key_slots: [key], description: Segment keys are unique.}
+    attributes:
+      id: {identifier: true, range: Id, description: Row id.}
+      rendition:
+        range: Rendition
+        required: true
+        description: The rendition. Proposed ci:on_delete, not in TM §4.
+        annotations: {ci:on_delete: cascade}
+      key: {required: true, description: "'seg:…'"}
+      parent: {range: Segment, description: The parent segment.}
+      kind: {range: SegmentKind, required: true, description: D1 §3.2 kind.}
+      ordinal: {range: integer, required: true, description: Position among siblings.}
+      depth: {range: integer, required: true, description: Depth.}
+      start_offset: {range: integer, required: true, description: Start offset.}
+      end_offset: {range: integer, required: true, description: End offset.}
+      text: {required: true, description: The segment text.}
+      ts_config: {range: TsConfig, required: true, ifabsent: string(english), description: Text-search configuration.}
+      attrs: {range: SegmentAttrs, required: true, description: Author markup.}
+      parse_status: {range: DelimitingStatus, required: true, ifabsent: string(ok), description: Delimiting status.}
+      parse_reason: {description: Why partial or failed.}
+
+  Claim:
+    in_subset: [kb]
+    description: A materialized claim (D3 §5).
+    annotations:
+      ci:store: table
+      ci:invariant: "exactly_one(object_entity, object_value)"
+    unique_keys:
+      claim_run_key: {unique_key_slots: [run, key], description: One key per run.}
+    attributes:
+      id: {identifier: true, range: Id, description: Row id.}
+      run:
+        range: Run
+        required: true
+        description: The run. Proposed ci:on_delete.
+        annotations: {ci:on_delete: cascade}
+      key: {required: true, description: "'clm:…'"}
+      subject: {range: Entity, required: true, description: The subject entity.}
+      predicate: {required: true, description: The prefixed predicate.}
+      object_entity: {range: Entity, description: An entity object.}
+      object_value: {range: ClaimValue, description: A value object.}
+      qualifiers: {range: Qualifiers, required: true, description: Qualifiers.}
+      statement: {range: Entity, description: The statement entity.}
+      statement_role: {range: StatementRole, description: The claim's role in its statement.}
+      status: {range: ClaimStatus, required: true, description: Claim status.}
+      establishment: {range: Establishment, required: true, description: How it was established.}
+      confidence: {range: Real, description: Confidence.}
+      completeness: {range: Completeness, required: true, description: Completeness counts.}
+
+  SchemaSlot:
+    in_subset: [meta]
+    description: A slot of a schema version (D3 §3).
+    annotations: {ci:store: table}
+    unique_keys:
+      schema_slot_pk: {unique_key_slots: [schema_version, name], description: The natural key.}
+    attributes:
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version. Proposed ci:on_delete.
+        annotations: {ci:on_delete: cascade}
+      name: {required: true, description: The prefixed name.}
+      role: {range: SlotRole, required: true, description: The slot's role.}
+      domain_class: {description: Domain class.}
+      range: {description: Range.}
+      object_kind: {description: D2 §3.2 ci:object.}
+      multivalued: {range: boolean, required: true, ifabsent: "false", description: Multivalued.}
+      qualifiers: {multivalued: true, required: true, description: Allowed qualifiers.}
+      identity_qualifiers: {multivalued: true, required: true, description: Identity qualifiers.}
+      subsets: {multivalued: true, required: true, description: Predicate subsets.}
+      extract: {description: Extraction kind.}
+      description: {description: The description.}
+      annotations: {range: SlotAnnotations, required: true, description: Scalar ci annotations.}
+
+enums:
+  RunKind:
+    description: Run kinds.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {ingest: {}, full: {}, slice: {}, experiment: {}, rescore: {}, golden: {}}
+  RunStatus:
+    description: Run statuses.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {created: {}, running: {}, awaiting_agent: {}, consolidating: {}, finished: {}, failed: {}, cancelled: {}}
+  UnitType:
+    description: Task unit types.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {document: {}, rendition: {}, segment: {}, observation: {}, entity: {}, claim: {}, alternative_group: {}, identity_group: {}, run: {}, golden_unit: {}}
+  TaskStatus:
+    description: Task statuses.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {pending: {}, running: {}, awaiting_agent: {}, done: {}, empty: {}, failed: {}, skipped: {}, reused: {}, cancelled: {}}
+  SegmentKind:
+    description: Segment kinds (D1 §3.2); search_block per D3's current BM25 predicate.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      document: {}
+      section: {}
+      unit: {}
+      paragraph: {in_subset: [search_block]}
+      list: {}
+      list_item: {in_subset: [search_block]}
+      details: {}
+      math_display: {}
+      math_inline: {}
+      heading: {in_subset: [search_block]}
+      table: {}
+      table_row: {}
+      table_cell: {}
+      caption: {in_subset: [search_block]}
+      footnote: {}
+      figure: {}
+      sentence: {}
+      email_message: {}
+      quoted_block: {}
+      signature: {}
+  DelimitingStatus:
+    description: Delimiting statuses.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {ok: {}, partial: {}, failed: {}}
+  StatementRole:
+    description: Statement roles.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {premise: {}, conclusion: {}, definiens: {}, restriction: {}, example_value: {}}
+  ClaimStatus:
+    description: Claim statuses.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {candidate: {}, accepted: {}, rejected: {}, ambiguous: {}, conflicting: {}, unsupported: {}}
+  Establishment:
+    description: How a claim was established.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {stated: {}, derived: {}, agent_asserted: {}}
+  SlotRole:
+    description: Schema slot roles.
+    annotations: {ci:lifecycle: static}
+    permissible_values: {predicate: {}, qualifier: {}, identity: {}, field: {}}

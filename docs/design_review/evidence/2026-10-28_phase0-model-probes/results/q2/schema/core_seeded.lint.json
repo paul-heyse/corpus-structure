@@ -1,0 +1,23 @@
+[
+ {
+  "level": "error",
+  "message": "Enum 'SegmentKind' permissible value 'figure' asserts membership in undeclared subset 'undeclared_property'.",
+  "rule_name": "no_undeclared_subsets",
+  "schema_name": "core",
+  "schema_source": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/results/q2/schema/core_seeded.yaml"
+ },
+ {
+  "level": "warning",
+  "message": "Slot has name 't'",
+  "rule_name": "standard_naming",
+  "schema_name": "core",
+  "schema_source": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/results/q2/schema/core_seeded.yaml"
+ },
+ {
+  "level": "warning",
+  "message": "Slot has name 'v'",
+  "rule_name": "standard_naming",
+  "schema_name": "core",
+  "schema_source": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/results/q2/schema/core_seeded.yaml"
+ }
+]

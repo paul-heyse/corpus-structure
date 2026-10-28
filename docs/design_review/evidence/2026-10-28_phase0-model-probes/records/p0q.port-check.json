@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "id": "p0q.port-check",
+  "title": "Port check: MetaData generated from a LinkML sketch of five D3 tables plus an overlay, against S6's DDL; Alembic with a CreateView table",
+  "group": "Phase 0 model probes",
+  "package": "P0-M-Q3",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does SQLAlchemy 2.1 MetaData compiled from a LinkML sketch of ops.run, ops.task, kb.segment, kb.claim and meta.schema_slot (TM §4 declarations), plus a hand overlay of their indexes, reproduce S6's applied DDL under a normalized pglast 8.7 projection; what is the residue and who carries it; and does Alembic 1.20 autogenerate treat a CreateView-registered table as a table, with and without an include_object filter?",
+  "answers": [
+    "P0-M-Q3",
+    "model-and-projections §3.4 port check",
+    "model-and-projections §3.4 overlay/compiler split"
+  ],
+  "method": "code/q3/system_sketch.yaml (LinkML, S6's shape; stubs for referenced tables) compiled by code/q3/compiler.py (SchemaView -> MetaData: digest-named CheckConstraint(col.in_()) per static enum, FKs, Identity(always=True), naming convention, ci:invariant CHECKs) and code/q3/overlay.py (12 indexes incl. partial, DESC and the BM25 index via postgresql_using/with/where; SEARCH_BLOCK from the search_block member property); CreateTable/CreateIndex compiled for the postgresql dialect; both that DDL and the five tables of S6's code/s6_ddl_applied.sql parsed by pglast 8.7 and projected to columns (type, not null, default), the set of constraints (names ignored, IN lists as sets) and indexes (USING, params, WITH, WHERE); ten seeded differences as negative controls; a strict compile that ignores the sketch's proposed declarations; the generated MetaData applied with create_all to a throwaway database p0q_portcheck (18/corpus, cloned from cs_template, dropped afterwards) and Alembic compare_metadata/produce_migrations run with a CreateView table.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q3_port_check.py"
+  ],
+  "agents": [
+    {
+      "role": "library-research probe worker",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/q3_port_check.py",
+      "role": "probe harness (projection, diff, controls, database part)",
+      "sha256": "96dc1170489fb94c4ac4a61284f65388c48dad9c7911e0e8b47adce833597708"
+    },
+    {
+      "path": "code/q3",
+      "role": "LinkML sketch, compiler and overlay",
+      "sha256": "3f70b9834da52336c5527f9a0426093b63332bccf87eb468ff36834b0ee9d90b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/q3",
+      "role": "generated DDL (with and without proposed declarations), the S6 DDL copy, both projections, residues, summary with controls and Alembic results, sketch lint",
+      "sha256": "0865867ce3b3c26337678cb85033feaef8ef6c267233531bac60f7becf2ca702"
+    }
+  ],
+  "depends_on": [
+    "2026-10-28_design-spikes/s6.ddl",
+    "p0q.member-properties"
+  ],
+  "results": [
+    {
+      "name": "tables_compared",
+      "value": 5,
+      "of": 5,
+      "unit": null,
+      "note": "84 columns, 38 constraints, 12 indexes"
+    },
+    {
+      "name": "residue_items",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "with the sketch's proposed declarations: the BM25 kind list only (S6 DDL differs by design: D3 now has caption, S6 had math_display)"
+    },
+    {
+      "name": "residue_items_strict_tm4",
+      "value": 11,
+      "of": null,
+      "unit": null,
+      "note": "TM §4 vocabulary only: 10 need a declaration TM §4 lacks (2 DEFAULT now(), regconfig type, 3 ON DELETE CASCADE as 6 items, the absent-iff CHECK) + the BM25 kind list"
+    },
+    {
+      "name": "overlay_index_residue",
+      "value": 0,
+      "of": 12,
+      "unit": "indexes",
+      "note": "partial WHERE, DESC, USING bm25, WITH text_config all equal"
+    },
+    {
+      "name": "seeded_controls_detected",
+      "value": 10,
+      "of": 10,
+      "unit": null,
+      "note": "type, nullability, default, CHECK member, FK action, UNIQUE, USING, WITH, WHERE, DESC"
+    },
+    {
+      "name": "generated_ddl_applies",
+      "value": 1,
+      "of": 1,
+      "unit": null,
+      "note": "create_all on PostgreSQL 18.6 with pg_textsearch 1.5.1, BM25 index included"
+    },
+    {
+      "name": "alembic_view_as_table_without_filter",
+      "value": 1,
+      "of": 1,
+      "unit": null,
+      "note": "add_table / op.create_table('finished_run'), whether or not the view exists in the database"
+    },
+    {
+      "name": "alembic_view_excluded_by_native_is_view",
+      "value": 1,
+      "of": 1,
+      "unit": null,
+      "note": "include_object on Table.is_view (SQLAlchemy 2.1): no ops"
+    },
+    {
+      "name": "alembic_view_excluded_by_info_flag_unmarked",
+      "value": 0,
+      "of": 1,
+      "unit": null,
+      "note": "CreateView leaves Table.info empty; info['is_view'] works only when the overlay sets it"
+    },
+    {
+      "name": "alembic_compare_server_default_regconfig",
+      "value": 0,
+      "of": 1,
+      "unit": null,
+      "note": "compare_server_default=True fails: SELECT 'english'::regconfig = 'english' raises 22P02 (S6 F1's oid resolution)"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The compiler/overlay split ports S6's five tables: with four small declarations beyond TM §4 the only residue is the BM25 kind list, which differs by design (D3 revised it after S6); the overlay carries all 12 indexes with no residue. Under TM §4's vocabulary alone, the compiler cannot carry DEFAULT now(), the regconfig column type, ON DELETE CASCADE or an 'absent iff' CHECK, so M2 needs declarations for them (the sketch's proposed ci:generated, ci:sql_type, ci:on_delete, iff_absent, or equivalents). The compiler also relies on derived conventions: schema from a meta/ops/kb subset, snake-case table names, <slot>_id FK columns, PK from a sole unique key, '{}' defaults for required nested and array slots. Alembic 1.20 has no view support: a CreateView table is autogenerated as op.create_table unless include_object filters it; filtering on SQLAlchemy 2.1's native Table.is_view works, info['is_view'] works only if the overlay sets it. Alembic's compare_server_default fails on the regconfig default, and reflection does not recognize regconfig.",
+  "consumed_by": [
+    "P0-M-2"
+  ]
+}

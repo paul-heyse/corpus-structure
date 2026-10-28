@@ -1,0 +1,148 @@
+[
+ {
+  "key": "ops.run column created_at default",
+  "generated": null,
+  "s6": "now()",
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "DEFAULT now(): LinkML ifabsent has no now(); the sketch's proposed ci:generated: insert_time carries it"
+ },
+ {
+  "key": "ops.task column created_at default",
+  "generated": null,
+  "s6": "now()",
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "DEFAULT now(): LinkML ifabsent has no now(); the sketch's proposed ci:generated: insert_time carries it"
+ },
+ {
+  "key": "kb.segment column ts_config type",
+  "generated": "text",
+  "s6": "regconfig",
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "regconfig: TM \u00a74 says types carry a projection type but names no annotation; proposed ci:sql_type on the type"
+ },
+ {
+  "key": "kb.segment constraint only generated foreign key ('rendition_id',)",
+  "generated": [
+   "foreign key",
+   [
+    "rendition_id"
+   ],
+   "kb.rendition",
+   [
+    "id"
+   ],
+   null,
+   null
+  ],
+  "s6": null,
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "ON DELETE CASCADE is deletion semantics (D3 \u00a78 delete order); proposed ci:on_delete on the reference slot"
+ },
+ {
+  "key": "kb.segment constraint only s6 check (parse_status = 'ok') = (parse_reason IS NULL)",
+  "generated": null,
+  "s6": [
+   "check",
+   "(parse_status = 'ok') = (parse_reason IS NULL)"
+  ],
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "TM \u00a74's iff_present(x, y = v) states 'x present iff y = v'; 'absent iff' needs a template (proposed iff_absent) or negation in the condition"
+ },
+ {
+  "key": "kb.segment constraint only s6 foreign key ('rendition_id',)",
+  "generated": null,
+  "s6": [
+   "foreign key",
+   [
+    "rendition_id"
+   ],
+   "kb.rendition",
+   [
+    "id"
+   ],
+   "CASCADE",
+   null
+  ],
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "ON DELETE CASCADE is deletion semantics (D3 \u00a78 delete order); proposed ci:on_delete on the reference slot"
+ },
+ {
+  "key": "kb.segment index segment_bm25 where",
+  "generated": "kind IN ('caption', 'heading', 'list_item', 'paragraph') AND ts_config = CAST('english' AS regconfig)",
+  "s6": "kind IN ('heading', 'list_item', 'math_display', 'paragraph') AND ts_config = CAST('english' AS regconfig)",
+  "class": "S6 DDL differs by design",
+  "reason": "D3 revised the BM25 kind list after S6 (D3 \u00a75: caption replaces math_display); the overlay reads SEARCH_BLOCK from the search_block member property, which follows current D3"
+ },
+ {
+  "key": "kb.claim constraint only generated foreign key ('run_id',)",
+  "generated": [
+   "foreign key",
+   [
+    "run_id"
+   ],
+   "ops.run",
+   [
+    "id"
+   ],
+   null,
+   null
+  ],
+  "s6": null,
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "ON DELETE CASCADE; proposed ci:on_delete"
+ },
+ {
+  "key": "kb.claim constraint only s6 foreign key ('run_id',)",
+  "generated": null,
+  "s6": [
+   "foreign key",
+   [
+    "run_id"
+   ],
+   "ops.run",
+   [
+    "id"
+   ],
+   "CASCADE",
+   null
+  ],
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "ON DELETE CASCADE; proposed ci:on_delete"
+ },
+ {
+  "key": "meta.schema_slot constraint only generated foreign key ('schema_version_id',)",
+  "generated": [
+   "foreign key",
+   [
+    "schema_version_id"
+   ],
+   "meta.schema_version",
+   [
+    "id"
+   ],
+   null,
+   null
+  ],
+  "s6": null,
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "ON DELETE CASCADE; proposed ci:on_delete"
+ },
+ {
+  "key": "meta.schema_slot constraint only s6 foreign key ('schema_version_id',)",
+  "generated": null,
+  "s6": [
+   "foreign key",
+   [
+    "schema_version_id"
+   ],
+   "meta.schema_version",
+   [
+    "id"
+   ],
+   "CASCADE",
+   null
+  ],
+  "class": "compiler should carry (declaration missing from TM \u00a74)",
+  "reason": "ON DELETE CASCADE; proposed ci:on_delete"
+ }
+]

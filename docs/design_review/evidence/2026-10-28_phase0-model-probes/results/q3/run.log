@@ -1,0 +1,101 @@
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q3_port_check.py:314: SAWarning: Did not recognize type 'regconfig' of column 'ts_config'
+  diffs = compare_metadata(mc, md_)
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q3_port_check.py:315: SAWarning: Did not recognize type 'regconfig' of column 'ts_config'
+  mig = produce_migrations(mc, md_)
+[S6 DDL differs by design] kb.segment index segment_bm25 where: generated="kind IN ('caption', 'heading', 'list_item', 'paragraph') AND ts_config = CAST('english' AS regconfig)" s6="kind IN ('heading', 'list_item', 'math_display', 'paragraph') AND ts_config = CAST('english' AS regconfig)"
+strict residue:
+  [compiler should carry (declaration missing from TM §4)] ops.run column created_at default: generated=None s6='now()'
+  [compiler should carry (declaration missing from TM §4)] ops.task column created_at default: generated=None s6='now()'
+  [compiler should carry (declaration missing from TM §4)] kb.segment column ts_config type: generated='text' s6='regconfig'
+  [compiler should carry (declaration missing from TM §4)] kb.segment constraint only generated foreign key ('rendition_id',): generated=['foreign key', ('rendition_id',), 'kb.rendition', ('id',), None, None] s6=None
+  [compiler should carry (declaration missing from TM §4)] kb.segment constraint only s6 check (parse_status = 'ok') = (parse_reason IS NULL): generated=None s6=['check', "(parse_status = 'ok') = (parse_reason IS NULL)"]
+  [compiler should carry (declaration missing from TM §4)] kb.segment constraint only s6 foreign key ('rendition_id',): generated=None s6=['foreign key', ('rendition_id',), 'kb.rendition', ('id',), 'CASCADE', None]
+  [S6 DDL differs by design] kb.segment index segment_bm25 where: generated="kind IN ('caption', 'heading', 'list_item', 'paragraph') AND ts_config = CAST('english' AS regconfig)" s6="kind IN ('heading', 'list_item', 'math_display', 'paragraph') AND ts_config = CAST('english' AS regconfig)"
+  [compiler should carry (declaration missing from TM §4)] kb.claim constraint only generated foreign key ('run_id',): generated=['foreign key', ('run_id',), 'ops.run', ('id',), None, None] s6=None
+  [compiler should carry (declaration missing from TM §4)] kb.claim constraint only s6 foreign key ('run_id',): generated=None s6=['foreign key', ('run_id',), 'ops.run', ('id',), 'CASCADE', None]
+  [compiler should carry (declaration missing from TM §4)] meta.schema_slot constraint only generated foreign key ('schema_version_id',): generated=['foreign key', ('schema_version_id',), 'meta.schema_version', ('id',), None, None] s6=None
+  [compiler should carry (declaration missing from TM §4)] meta.schema_slot constraint only s6 foreign key ('schema_version_id',): generated=None s6=['foreign key', ('schema_version_id',), 'meta.schema_version', ('id',), 'CASCADE', None]
+controls: {'column type': True, 'nullability': True, 'default': True, 'check member': True, 'fk action': True, 'unique': True, 'index using': True, 'index with': True, 'index where': True, 'index desc': True}
+{
+ "search_block": [
+  "paragraph",
+  "list_item",
+  "heading",
+  "caption"
+ ],
+ "counts": {
+  "ops.run": {
+   "columns": 20,
+   "constraints": 10,
+   "indexes": 0
+  },
+  "ops.task": {
+   "columns": 23,
+   "constraints": 7,
+   "indexes": 5
+  },
+  "kb.segment": {
+   "columns": 14,
+   "constraints": 8,
+   "indexes": 3
+  },
+  "kb.claim": {
+   "columns": 14,
+   "constraints": 10,
+   "indexes": 4
+  },
+  "meta.schema_slot": {
+   "columns": 13,
+   "constraints": 3,
+   "indexes": 0
+  }
+ },
+ "residue_items": 1,
+ "by_class": {
+  "S6 DDL differs by design": 1
+ },
+ "generated_constraint_names": {
+  "ops.run": [
+   "pk_run",
+   "fk_run_project_id",
+   "ck_run_kind_182380918a",
+   "fk_run_debug_slice_id",
+   "fk_run_schema_version_id",
+   "fk_run_guideline_version_id",
+   "fk_run_policy_version_id",
+   "fk_run_parent_run_id",
+   "fk_run_reference_run_id",
+   "ck_run_status_c083e937b6"
+  ],
+  "ops.task": [
+   "pk_task",
+   "fk_task_run_id",
+   "ck_task_unit_type_dbbc309bfc",
+   "fk_task_method_config_id",
+   "fk_task_trigger_rule_id",
+   "fk_task_reused_task_id",
+   "ck_task_status_9ecb3cedef"
+  ],
+  "kb.segment": [
+   "pk_segment",
+   "fk_segment_rendition_id",
+   "fk_segment_parent_id",
+   "ck_segment_kind_bc1bdabc7d",
+   "ck_segment_parse_status_ac723c743e",
+   "uq_segment_key",
+   "ck_segment_iff_absent_4921089430",
+   "ck_segment_ordered_eq_ce23619d75"
+  ],
+  "kb.claim": [
+   "pk_claim",
+   "fk_claim_run_id",
+   "fk_claim_subject_id",
+   "fk_claim_object_entity_id",
+   "fk_claim_statem
+db: 18.6 (Ubuntu 18.6-1.pgdg24.04+2) views ['ops.finished_run'] dropped True
+autogen no_filter ["('add_table', Table('finished_run', MetaData(), Column('id', BigInteger(), table=<finished_run>), Column('status', Text(), table=<finished_run>), schema='ops'))"]
+autogen include_object_native_is_view []
+autogen include_object_info_unmarked ["('add_table', Table('finished_run', MetaData(), Column('id', BigInteger(), table=<finished_run>), Column('status', Text(), table=<finished_run>), schema='ops'))"]
+autogen include_object_info_marked []
+autogen view_absent_no_filter ["('add_table', Table('finished_run', MetaData(), Column('id', BigInteger(), table=<finished_run>), Column('status', Text(), table=<finished_run>), schema='ops'))"]
+autogen view_absent_native_is_view []

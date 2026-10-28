@@ -1,0 +1,554 @@
+id: https://corpus-structure.dev/core
+name: core
+title: Core schema
+description: 'Core classes, predicates, qualifiers, value classes and enums shared by every domain pack (D2 §6).
+  The value classes are the mirror of the core Pydantic shapes, which own them; a contract test fails when the two
+  disagree. Native LinkML is used wherever it carries the meaning; the remaining ci: annotations are scalar (D2
+  §3).'
+version: 0.2.0
+license: https://creativecommons.org/publicdomain/zero/1.0/
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  core: https://corpus-structure.dev/core/
+default_prefix: core
+default_range: string
+imports:
+- linkml:types
+subsets:
+  structural:
+    description: Structural claims, about statements. They take no statement_role, are asserted, and carry no conditions
+      (guideline §10.3, §10.6, §10.7 rule 4).
+  unsupported:
+    description: Something the source states that the schema cannot express; the claim has status unsupported (D1
+      §8.1).
+  premise_forming:
+    description: 'Member property: a claim with this modality forms a premise of its statement.'
+  attribution_identifying:
+    description: 'Member property: a claim with this modality identifies who it is attributed to.'
+  conflict_bearing:
+    description: 'Member property: claims with this modality can conflict with one another.'
+  claim_bearing:
+    description: 'Member property: a statement of this kind bears claims.'
+  annotation_unit:
+    description: 'Member property: a segment of this kind can be an annotation unit.'
+  statement_anchor:
+    description: 'Member property: a segment of this kind anchors a statement''s key.'
+  search_block:
+    description: 'Member property: a segment of this kind is a BM25 search block.'
+  container:
+    description: 'Member property: a segment of this kind contains other blocks.'
+classes:
+  Entity:
+    abstract: true
+    description: Base of every entity class; instances are D1 entities.
+    slots:
+    - label
+  Statement:
+    is_a: Entity
+    description: 'An authored unit of meaning: a definition, theorem, proof, example, exercise, remark, convention
+      or assumption. Claims belong to statements as premises, conclusions, definientia or example values. Listed
+      in a batch''s statements[], never in entities[].'
+    slots:
+    - kind
+    annotations:
+      ci:scope: local
+      ci:extract: none
+      ci:reify: true
+  Value:
+    abstract: true
+    description: Base of the D1 value classes. Every value carries the tag t, which names its class; the core Pydantic
+      value union is discriminated on it.
+    slots:
+    - t
+  Formula:
+    is_a: Value
+    description: A formula as written, with its symbol bindings (D1 §6.1).
+    slot_usage:
+      t:
+        equals_string: formula
+    attributes:
+      latex:
+        required: true
+        description: The LaTeX exactly as written, macros included.
+      sympy:
+        description: The normalized SymPy form; added by M11 during consolidation.
+        annotations:
+          ci:form: consolidated
+      parse:
+        range: ParseStatus
+        description: The parse outcome; added by M11 during consolidation.
+        annotations:
+          ci:form: consolidated
+      symbols:
+        range: SymbolBinding
+        multivalued: true
+        inlined: true
+        description: The binding map, keyed by symbol in token form without backslash.
+  SetExpr:
+    is_a: Formula
+    description: A set written in LaTeX, such as \R, (0, \infty) or \R \setminus \{0\}.
+    slot_usage:
+      t:
+        equals_string: set
+  TextValue:
+    is_a: Value
+    description: Free text that is the value itself.
+    slot_usage:
+      t:
+        equals_string: text
+    attributes:
+      v:
+        required: true
+        description: The text.
+  NumberValue:
+    is_a: Value
+    description: A number with its unit and basis as stated (D1 §6.2).
+    slot_usage:
+      t:
+        equals_string: number
+    attributes:
+      v:
+        required: true
+        description: The canonical decimal string.
+      unit:
+        description: The unit as stated, or absent.
+      basis:
+        description: A reference basis the source states, such as gauge or absolute, or absent.
+  BoolValue:
+    is_a: Value
+    description: A truth value.
+    slot_usage:
+      t:
+        equals_string: bool
+    attributes:
+      v:
+        range: boolean
+        required: true
+        description: The truth value.
+  EnumValue:
+    is_a: Value
+    description: A permissible value of a schema enum.
+    slot_usage:
+      t:
+        equals_string: enum
+    attributes:
+      enum:
+        required: true
+        description: The enum's name.
+      v:
+        required: true
+        description: The permissible value.
+  DateValue:
+    is_a: Value
+    description: A date or date-time kept verbatim as ISO 8601.
+    slot_usage:
+      t:
+        equals_string: date
+    attributes:
+      v:
+        required: true
+        description: The ISO 8601 string as written.
+  IntervalValue:
+    is_a: Value
+    description: An interval of values; an absent bound is unbounded.
+    slot_usage:
+      t:
+        equals_string: interval
+    attributes:
+      start:
+        range: Value
+        inlined: true
+        description: The lower bound, a value.
+      end:
+        range: Value
+        inlined: true
+        description: The upper bound, a value.
+      start_incl:
+        range: boolean
+        description: Whether the lower bound is included.
+      end_incl:
+        range: boolean
+        description: Whether the upper bound is included.
+  PhraseValue:
+    is_a: Value
+    description: Text kept but not interpreted. The model-facing form names the sentence it lies in; the stored
+      form adds the offsets the quote cascade located.
+    slot_usage:
+      t:
+        equals_string: phrase
+    attributes:
+      text:
+        required: true
+        description: The text as written.
+      sentence:
+        description: The unit sentence (sN) or standing-context sentence (cN) holding the text.
+        annotations:
+          ci:form: model
+      start:
+        range: integer
+        description: Start offset in the rendition's canonical text.
+        annotations:
+          ci:form: stored
+          ci:required_in: stored
+      end:
+        range: integer
+        description: End offset in the rendition's canonical text.
+        annotations:
+          ci:form: stored
+          ci:required_in: stored
+      coarse:
+        range: boolean
+        description: The text was not located exactly; the span is the whole cited sentence.
+        annotations:
+          ci:form: stored
+  EntityRef:
+    description: 'A reference to an entity: a batch local ref, or an entity key once stored. It is a position type,
+      not a value; a slot whose range is an entity class takes it.'
+    attributes:
+      ref:
+        required: true
+        description: The local ref or entity key.
+  SymbolBinding:
+    description: How one symbol of a formula is bound (D1 §6.1).
+    attributes:
+      symbol:
+        identifier: true
+        description: The symbol in token form, without backslash.
+      bind:
+        range: BindKind
+        required: true
+        description: The binding kind.
+      entity:
+        description: 'variable, family_param: the entity''s local ref (key once stored).'
+      claim:
+        description: 'param_of, param_expr_of: the claim''s local ref (key once stored).'
+      param:
+        description: 'param_of, param_expr_of: the entry of the claim''s ci:param_map qualifier.'
+  Condition:
+    abstract: true
+    description: A condition tree (D1 §7). Its node shapes are owned by the core Pydantic Condition union, discriminated
+      on op; this class is the range that names it.
+  MapEntry:
+    abstract: true
+    description: 'One entry of a map qualifier (ci:object map): a string key and a value. A map qualifier ranges
+      over a subclass, multivalued and inlined, and is written as an object from key to value.'
+    attributes:
+      key:
+        identifier: true
+        description: The entry's key.
+      value:
+        description: The entry's value.
+slots:
+  label:
+    description: Canonical display label (D1 §4.1). Identity follows the key rules of D1 §10.1.
+  kind:
+    range: StatementKind
+    description: The statement's kind.
+  t:
+    description: The value's tag, naming its class.
+  modality:
+    range: ClaimModality
+    ifabsent: string(asserted)
+    description: How the source holds the claim (D1 §5.2); asserted when absent.
+    annotations:
+      ci:role: qualifier
+  polarity:
+    range: Polarity
+    ifabsent: string(positive)
+    description: Whether the claim is stated or denied; positive when absent.
+    annotations:
+      ci:role: qualifier
+  hedge:
+    range: PhraseValue
+    description: A hedging phrase the source attaches to the claim ("usually", "in some settings").
+    annotations:
+      ci:role: qualifier
+  attribution:
+    range: Entity
+    description: Who the source says states the claim, when it cites someone.
+    annotations:
+      ci:role: qualifier
+  conditions:
+    range: Condition
+    description: The condition tree under which the claim holds (D1 §7).
+    annotations:
+      ci:role: qualifier
+  scope:
+    range: ScopeExtent
+    description: How far a supposition reaches beyond its statement; model-facing a ScopeExtent value, stored {extent,
+      segment}.
+    annotations:
+      ci:role: qualifier
+  valid_time:
+    range: IntervalValue
+    description: The time interval over which the claim holds, when the source states one.
+    annotations:
+      ci:role: qualifier
+  defines:
+    domain: Statement
+    range: Entity
+    in_subset:
+    - structural
+    description: The statement defines the entity. "is called the location-scale family".
+    annotations:
+      ci:role: predicate
+      ci:extract: llm
+  proves:
+    domain: Statement
+    range: Statement
+    in_subset:
+    - structural
+    description: A proof or solution statement proves (or solves) another statement.
+    annotations:
+      ci:role: predicate
+      ci:extract: llm
+  follows_from:
+    domain: Statement
+    range: Statement
+    in_subset:
+    - structural
+    description: The statement is stated to follow from another ("a corollary of the last result").
+    annotations:
+      ci:role: predicate
+      ci:extract: llm
+  refers_to:
+    domain: Statement
+    range: Entity
+    in_subset:
+    - structural
+    description: The statement explicitly refers to an entity defined elsewhere ("recall the gamma function").
+    annotations:
+      ci:role: predicate
+      ci:extract: llm
+  unschematized:
+    domain: Entity
+    range: PhraseValue
+    in_subset:
+    - unsupported
+    description: Something the source states that the schema cannot express (D1 §8.1).
+    annotations:
+      ci:role: predicate
+      ci:extract: llm
+enums:
+  StatementKind:
+    description: What the source calls a statement (D1 §4.3).
+    annotations:
+      ci:extract: classification
+      ci:target: unit paragraph
+    permissible_values:
+      definition:
+        description: Stipulates what a term means.
+        in_subset:
+        - claim_bearing
+      theorem:
+        description: A stated result.
+        in_subset:
+        - claim_bearing
+      proposition:
+        description: A stated result.
+        in_subset:
+        - claim_bearing
+      lemma:
+        description: A stated auxiliary result.
+        in_subset:
+        - claim_bearing
+      corollary:
+        description: A result stated to follow from another.
+        in_subset:
+        - claim_bearing
+      proof:
+        description: A proof of another statement.
+      example:
+        description: A worked example with setup values.
+        in_subset:
+        - claim_bearing
+      exercise:
+        description: An exercise with setup values and an asked quantity.
+        in_subset:
+        - claim_bearing
+      solution:
+        description: A solution of an exercise.
+      remark:
+        description: A remark; explicit claims only.
+        in_subset:
+        - claim_bearing
+      convention:
+        description: A convention the source adopts.
+        in_subset:
+        - claim_bearing
+      notation:
+        description: A notation the source introduces.
+        in_subset:
+        - claim_bearing
+      assumption:
+        description: A statement whose only content is a supposition (a context premise).
+        in_subset:
+        - claim_bearing
+      narrative:
+        description: Narrative text between units that states claims.
+        in_subset:
+        - claim_bearing
+  ClaimModality:
+    description: How the source holds a claim (D1 §5.2; guideline §10.6).
+    annotations:
+      ci:extract: classification
+      ci:target: sentence
+    permissible_values:
+      asserted:
+        description: Concluded or stated as true; structural claims.
+        in_subset:
+        - conflict_bearing
+      supposed:
+        description: 'A supposition: suppose, assume, if, or let about something taken as given.'
+        in_subset:
+        - premise_forming
+      defined:
+        description: What a definition stipulates, including a formula introducing a variable.
+        in_subset:
+        - conflict_bearing
+      conventional:
+        description: A convention.
+      exemplified:
+        description: Setup values in examples and exercises.
+      posed:
+        description: Reserved until an asks_for predicate exists (OPEN-D2-15).
+      cited:
+        description: Attributed to another source.
+        in_subset:
+        - attribution_identifying
+  Polarity:
+    description: Whether a claim is stated or denied.
+    permissible_values:
+      positive:
+        description: Stated.
+      negative:
+        description: Denied.
+  StatementRole:
+    description: The part a claim plays in its statement (guideline §10.3).
+    permissible_values:
+      premise:
+        description: A supposition the statement makes.
+      conclusion:
+        description: What a theorem, corollary or remark concludes.
+      definiens:
+        description: What a definition stipulates, or a formula introducing a variable.
+      restriction:
+        description: Reserved; restrictions are condition nodes in guideline v1.
+      example_value:
+        description: A setup value of an example or exercise.
+  ScopeExtent:
+    description: How far a supposition or a local entity reaches.
+    permissible_values:
+      statement:
+        description: The statement that states it.
+      section:
+        description: The enclosing section from the stating sentence on.
+      document:
+        description: The whole document.
+  BindKind:
+    description: The kinds of symbol binding (D1 §6.1).
+    permissible_values:
+      variable:
+        description: The symbol denotes a local entity of the batch.
+      param_of:
+        description: The symbol is the value of an entry of another claim's parameter map.
+      param_expr_of:
+        description: The symbol occurs inside the value of such an entry.
+      family_param:
+        description: The symbol denotes a parameter entity of a family.
+      free:
+        description: A symbol the statement introduces, restricted by its conditions.
+      constant:
+        description: A numeric or named constant.
+      unresolved:
+        description: Not bound; a counted resolution gap.
+  ParseStatus:
+    description: The math grammar's parse outcome for a value (D4 M11).
+    permissible_values:
+      ok:
+        description: One reading.
+      partial:
+        description: Parsed in part.
+      ambiguous:
+        description: More than one reading, none chosen by declared context.
+      failed:
+        description: Not parsed.
+  EvidenceRole:
+    description: The part an evidence span plays for its claim (guideline §10.8).
+    permissible_values:
+      primary:
+        description: The minimal span that states the claim.
+      supporting:
+        description: An introducer that determines the modality.
+      condition:
+        description: The span of a condition.
+      definition:
+        description: The span of a definition the claim relies on.
+  SegmentKind:
+    description: The kinds of segment (D1 §3.2); a probe copy of the closed set.
+    permissible_values:
+      document:
+        description: The whole document.
+        in_subset:
+        - container
+      section:
+        description: A section.
+        in_subset:
+        - container
+      unit:
+        description: An author-marked unit.
+        in_subset:
+        - annotation_unit
+        - statement_anchor
+      paragraph:
+        description: A paragraph.
+        in_subset:
+        - annotation_unit
+        - search_block
+      list:
+        description: A list.
+      list_item:
+        description: A list item.
+        in_subset:
+        - search_block
+      details:
+        description: A details block.
+        in_subset:
+        - statement_anchor
+      math_display:
+        description: Display math.
+      math_inline:
+        description: Inline math.
+      heading:
+        description: A heading.
+        in_subset:
+        - search_block
+      table:
+        description: A table.
+      table_row:
+        description: A table row.
+      table_cell:
+        description: A table cell.
+      caption:
+        description: A caption.
+        in_subset:
+        - search_block
+      footnote:
+        description: A footnote.
+      figure:
+        description: A figure.
+        in_subset:
+        - undeclared_property
+      sentence:
+        description: A sentence.
+      email_message:
+        description: An email message.
+        in_subset:
+        - container
+      quoted_block:
+        description: A quoted block in an email.
+        in_subset:
+        - container
+      signature:
+        description: An email signature.

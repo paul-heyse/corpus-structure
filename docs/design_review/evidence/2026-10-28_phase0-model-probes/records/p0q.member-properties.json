@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "id": "p0q.member-properties",
+  "title": "Member properties on enum members: native in_subset versus a scalar ci:properties annotation",
+  "group": "Phase 0 model probes",
+  "package": "P0-M-Q2",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do permissible-value in_subset member properties (ClaimModality premise_forming / attribution_identifying / conflict_bearing, StatementKind claim_bearing, segment-kind annotation_unit / statement_anchor / search_block / container) pass linkml-lint per file with S4's .linkmllint.yaml and read back through SchemaView, and does the scalar ci:properties fallback round-trip?",
+  "answers": [
+    "P0-M-Q2",
+    "model-and-projections §3.1 member properties"
+  ],
+  "method": "Copies of S4's core.yaml in two forms (in_subset with the eight subsets declared; one scalar ci:properties annotation per member, space-separated) plus a SegmentKind probe enum, and a seeded copy naming an undeclared subset on one member; linkml-lint 1.12.1 per file with S4's lint config; SchemaView 1.12.1 readback of each member's in_subset or annotation compared with an independent hand-written expectation table; yaml_dumper and json_dumper round trips; gen-json-schema and gen-pydantic accept each file.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$PWD/build/probe-venv uv run --project docs/design_review/evidence/2026-10-28_phase0-model-probes python docs/design_review/evidence/2026-10-28_phase0-model-probes/code/q2_member_properties.py"
+  ],
+  "agents": [
+    {
+      "role": "library-research probe worker",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/q2_member_properties.py",
+      "role": "probe script",
+      "sha256": "43a5ef22d24302fc95a6406196b152b66897a56b8bfec62830ff9ee18162072c"
+    },
+    {
+      "path": "results/q2/schema/core_s4_baseline.yaml",
+      "role": "unchanged copy of S4's core.yaml (results/s4/schema/domains/core/schema/core.yaml)",
+      "sha256": "11a2250f36b23cdc9809920b9ff2afb1278c12deaad0e1acf3c1af4c8cce5856"
+    },
+    {
+      "path": "results/q2/schema/.linkmllint.yaml",
+      "role": "copy of S4's lint configuration",
+      "sha256": "e57bce75d4207bc396cc37f4481c970323b076cfc027844c20a55304140fb5d8"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/q2/schema",
+      "role": "the probe schema copies and their lint reports",
+      "sha256": "c5afc197a6dd58c237a7613540bfa9c55f2b142ba5e2779024af6dbd81fa74ed"
+    },
+    {
+      "path": "results/q2/result.json",
+      "role": "lint summary, readback, accessors, round trips, generators",
+      "sha256": "d7cf1519f5e7047f85b7b4aa29050abb80e88926267b5cd68590b2b885d6fab3"
+    }
+  ],
+  "depends_on": [
+    "2026-10-28_design-spikes/s4.pack-lint"
+  ],
+  "results": [
+    {
+      "name": "in_subset_lint_errors",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "2 warnings, the S4 baseline's own (standard_naming on t and v)"
+    },
+    {
+      "name": "ci_properties_lint_errors",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "same 2 baseline warnings"
+    },
+    {
+      "name": "seeded_undeclared_subset_caught",
+      "value": 1,
+      "of": 1,
+      "unit": null,
+      "note": "no_undeclared_subsets error on the permissible value"
+    },
+    {
+      "name": "in_subset_membership_equal",
+      "value": 8,
+      "of": 8,
+      "unit": "properties",
+      "note": "pv.in_subset read back equals the independent table"
+    },
+    {
+      "name": "ci_properties_membership_equal",
+      "value": 8,
+      "of": 8,
+      "unit": "properties",
+      "note": "annotation value split on spaces equals the table"
+    },
+    {
+      "name": "permissible_value_ancestors_exposes_subsets",
+      "value": 0,
+      "of": 1,
+      "unit": null,
+      "note": "returns is_a closure only (['supposed']); not a member-property accessor"
+    },
+    {
+      "name": "annotation_dict_reaches_members",
+      "value": 0,
+      "of": 1,
+      "unit": null,
+      "note": "annotation_dict takes element names; a permissible value is not one (AttributeError)"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Native in_subset works for member properties: linkml-lint 1.12.1 lints permissible-value in_subset (no_undeclared_subsets covers enums and their members, an undeclared name is an error), SchemaView returns it as get_enum(E).permissible_values[m].in_subset (also through induced_enum), and the yaml and JSON dumps that feed the revision hash keep it. The scalar ci:properties fallback also round-trips. The plan's named accessors do not apply: permissible_value_ancestors is the member is_a closure and annotation_dict does not address members; the consumer reads pv.in_subset directly. Member-property subsets share the schema's one subset namespace with element subsets (structural, unsupported), so the declaration check must tell them apart. Feeds M1: in_subset is viable as the declaration form.",
+  "consumed_by": [
+    "P0-M-1"
+  ]
+}

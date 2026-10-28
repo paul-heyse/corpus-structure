@@ -1,0 +1,314 @@
+[
+ {
+  "seed": "bad sentence id",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.evidence",
+    "too_short"
+   ],
+   [
+    "claims.0.evidence.0.sentence",
+    "string_pattern_mismatch"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.evidence",
+    "too_short"
+   ],
+   [
+    "claims.0.evidence.0.sentence",
+    "string_pattern_mismatch"
+   ]
+  ]
+ },
+ {
+  "seed": "empty quote",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.evidence",
+    "too_short"
+   ],
+   [
+    "claims.0.evidence.0.quote",
+    "string_too_short"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.evidence",
+    "too_short"
+   ],
+   [
+    "claims.0.evidence.0.quote",
+    "string_too_short"
+   ]
+  ]
+ },
+ {
+  "seed": "no evidence",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.evidence",
+    "too_short"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.evidence",
+    "too_short"
+   ]
+  ]
+ },
+ {
+  "seed": "unknown value tag",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.object.EntityRef.ref",
+    "missing"
+   ],
+   [
+    "claims.0.object.EntityRef.t",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.EntityRef.v",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.tagged-union[TextValue,NumberValue,BoolValue,EnumValue,Formula,SetValue,DateValue,IntervalValue,AuthoredPhrase]",
+    "union_tag_invalid"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.object.EntityRef.ref",
+    "missing"
+   ],
+   [
+    "claims.0.object.EntityRef.t",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.EntityRef.v",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.tagged-union[TextValue,NumberValue,BoolValue,EnumValue,Formula,SetValue,DateValue,IntervalValue,AuthoredPhrase]",
+    "union_tag_invalid"
+   ]
+  ]
+ },
+ {
+  "seed": "unknown condition op",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.qualifiers.conditions",
+    "union_tag_invalid"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.qualifiers.conditions",
+    "union_tag_invalid"
+   ]
+  ]
+ },
+ {
+  "seed": "sympy in a batch",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "",
+    "value_error"
+   ]
+  ],
+  "generated": [
+   [
+    "",
+    "value_error"
+   ]
+  ]
+ },
+ {
+  "seed": "duplicate local ref",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "",
+    "value_error"
+   ]
+  ],
+  "generated": [
+   [
+    "",
+    "value_error"
+   ]
+  ]
+ },
+ {
+  "seed": "binding without entity",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.object.EntityRef.latex",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.EntityRef.ref",
+    "missing"
+   ],
+   [
+    "claims.0.object.EntityRef.symbols",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.EntityRef.t",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.tagged-union[TextValue,NumberValue,BoolValue,EnumValue,Formula,SetValue,DateValue,IntervalValue,AuthoredPhrase].formula.symbols.x",
+    "value_error"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.object.EntityRef.latex",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.EntityRef.ref",
+    "missing"
+   ],
+   [
+    "claims.0.object.EntityRef.symbols",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.EntityRef.t",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.tagged-union[TextValue,NumberValue,BoolValue,EnumValue,Formula,SetValue,DateValue,IntervalValue,AuthoredPhrase].formula.symbols.x",
+    "value_error"
+   ]
+  ]
+ },
+ {
+  "seed": "extra field",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.surprise",
+    "extra_forbidden"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.surprise",
+    "extra_forbidden"
+   ]
+  ]
+ },
+ {
+  "seed": "null optional",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.statement",
+    "string_type"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.statement",
+    "string_type"
+   ]
+  ]
+ },
+ {
+  "seed": "non-canonical number",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": false,
+  "hand": [
+   [
+    "claims.0.object.EntityRef.ref",
+    "missing"
+   ],
+   [
+    "claims.0.object.EntityRef.t",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.EntityRef.v",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.tagged-union[TextValue,NumberValue,BoolValue,EnumValue,Formula,SetValue,DateValue,IntervalValue,AuthoredPhrase].number.v",
+    "value_error"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.object.EntityRef.ref",
+    "missing"
+   ],
+   [
+    "claims.0.object.EntityRef.t",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.EntityRef.v",
+    "extra_forbidden"
+   ],
+   [
+    "claims.0.object.tagged-union[TextValue,NumberValue,BoolValue,EnumValue,Formula,SetValue,DateValue,IntervalValue,AuthoredPhrase].number.v",
+    "string_pattern_mismatch"
+   ]
+  ]
+ },
+ {
+  "seed": "bad modality",
+  "hand_rejects": true,
+  "generated_rejects": true,
+  "errors_equal": true,
+  "hand": [
+   [
+    "claims.0.qualifiers.modality",
+    "literal_error"
+   ]
+  ],
+  "generated": [
+   [
+    "claims.0.qualifiers.modality",
+    "literal_error"
+   ]
+  ]
+ }
+]

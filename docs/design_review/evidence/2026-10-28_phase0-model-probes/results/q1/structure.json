@@ -1,0 +1,387 @@
+{
+ "compared": 45,
+ "equal": 35,
+ "classes": [
+  {
+   "class": "AlternativeItem",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredAnd",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredBatch",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Batch"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "AuthoredClaim",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Claim"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "AuthoredEntity",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Entity"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "AuthoredEvidence",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredForall",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredNot",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredOr",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredPhrase",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredPhraseNode",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredQualifiers",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Qualifiers"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    },
+    {
+     "what": "order",
+     "hand": [
+      "modality",
+      "polarity",
+      "attribution",
+      "valid_time",
+      "hedge",
+      "conditions",
+      "scope"
+     ],
+     "generated": [
+      "modality",
+      "polarity",
+      "hedge",
+      "attribution",
+      "conditions",
+      "scope",
+      "valid_time"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "AuthoredStatement",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredUnsupported",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "AuthoredUnsupportedNode",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "BoolValue",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "ClaimNode",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "CmpNode",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "DateValue",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "EntityRef",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "EnumValue",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "Formula",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "IntervalValue",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "MemberNode",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "NumberValue",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "field_validators",
+     "hand": 1,
+     "generated": 0
+    },
+    {
+     "what": "field v.metadata",
+     "hand": [],
+     "generated": [
+      "_PydanticGeneralMetadata(pattern='^(?:0|-?(?:[1-9][0-9]*(?:\\\\.[0-9]*[1-9])?|0\\\\.[0-9]*[1-9]))$')"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "PredNode",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "SetValue",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredAnd",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredBatch",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Batch"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "StoredClaim",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Claim"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "StoredEntity",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Entity"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "StoredEvidence",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Span"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "StoredForall",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredNot",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredOr",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredPhrase",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredPhraseNode",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredQualifiers",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredScope",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredStatement",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "StoredUnsupported",
+   "equal": false,
+   "diffs": [
+    {
+     "what": "bases",
+     "hand": [
+      "_Span"
+     ],
+     "generated": [
+      "CoreModel"
+     ]
+    }
+   ]
+  },
+  {
+   "class": "StoredUnsupportedNode",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "SymbolBinding",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "TextValue",
+   "equal": true,
+   "diffs": []
+  },
+  {
+   "class": "_Expression",
+   "equal": true,
+   "diffs": []
+  }
+ ],
+ "hand_only": [
+  "CitationFrame",
+  "FrameEntry",
+  "_Batch",
+  "_Claim",
+  "_Entity",
+  "_Qualifiers",
+  "_Span"
+ ],
+ "generated_only": [],
+ "aliases": {
+  "AuthoredValue": {
+   "equal": true,
+   "hand": "Annotated[TextValue | NumberValue | BoolValue | EnumValue | Formula | SetValue | DateValue | IntervalValue | AuthoredPhrase, FieldInfo(annotation=NoneType, required=True, discriminator='t')]",
+   "generated": "Annotated[TextValue | NumberValue | BoolValue | EnumValue | Formula | SetValue | DateValue | IntervalValue | AuthoredPhrase, FieldInfo(annotation=NoneType, required=True, discriminator='t')]"
+  },
+  "StoredValue": {
+   "equal": true,
+   "hand": "Annotated[TextValue | NumberValue | BoolValue | EnumValue | Formula | SetValue | DateValue | IntervalValue | StoredPhrase, FieldInfo(annotation=NoneType, required=True, discriminator='t')]",
+   "generated": "Annotated[TextValue | NumberValue | BoolValue | EnumValue | Formula | SetValue | DateValue | IntervalValue | StoredPhrase, FieldInfo(annotation=NoneType, required=True, discriminator='t')]"
+  },
+  "AuthoredCondition": {
+   "equal": true,
+   "hand": "Annotated[AuthoredAnd | AuthoredOr | AuthoredNot | AuthoredForall | ClaimNode | MemberNode | CmpNode | PredNode | AuthoredPhraseNode | AuthoredUnsupportedNode, FieldInfo(annotation=NoneType, required=True, discriminator='op')]",
+   "generated": "Annotated[AuthoredAnd | AuthoredOr | AuthoredNot | AuthoredForall | ClaimNode | MemberNode | CmpNode | PredNode | AuthoredPhraseNode | AuthoredUnsupportedNode, FieldInfo(annotation=NoneType, required=True, discriminator='op')]"
+  },
+  "StoredCondition": {
+   "equal": true,
+   "hand": "Annotated[StoredAnd | StoredOr | StoredNot | StoredForall | ClaimNode | MemberNode | CmpNode | PredNode | StoredPhraseNode | StoredUnsupportedNode, FieldInfo(annotation=NoneType, required=True, discriminator='op')]",
+   "generated": "Annotated[StoredAnd | StoredOr | StoredNot | StoredForall | ClaimNode | MemberNode | CmpNode | PredNode | StoredPhraseNode | StoredUnsupportedNode, FieldInfo(annotation=NoneType, required=True, discriminator='op')]"
+  }
+ }
+}

@@ -1,0 +1,24 @@
+{% if is_type_alias %}
+type {{ name }} = {{ type_alias_value }}
+{% else %}
+class {{ name }}({% if bases is string %}{{ bases }}{% else %}{{ bases | join(', ') }}{% endif %}):
+{% if config %}
+    model_config = ConfigDict({{ config }})
+{% endif %}
+{% if extra_decl %}
+    __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
+{% endif %}
+{% for cv in classvars %}
+    {{ cv }}
+{% endfor %}
+{% for attr in attributes.values() %}
+    {{ attr }}
+{% endfor %}
+{% for v in validators_src %}
+
+{{ v | indent(4, first=True) }}
+{% endfor %}
+{% if not attributes and not validators_src and not config and not classvars %}
+    pass
+{% endif %}
+{% endif %}

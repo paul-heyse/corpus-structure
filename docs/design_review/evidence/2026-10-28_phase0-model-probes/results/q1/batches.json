@@ -1,0 +1,10336 @@
+{
+ "batches": 135,
+ "validations": 300,
+ "verdicts_agree": 300,
+ "errors_equal": 300,
+ "valid_both": 137,
+ "dumps_equal": 137,
+ "by_form_verdict": {
+  "model/as_written/hand:valid/generated:valid": 13,
+  "model/canonical/hand:valid/generated:valid": 4,
+  "model/as_written/hand:invalid/generated:invalid": 2,
+  "stored/as_written/hand:invalid/generated:invalid": 120,
+  "stored/canonical/hand:invalid/generated:invalid": 41,
+  "stored/canonical_prefixed/hand:valid/generated:valid": 120
+ },
+ "rows": [
+  {
+   "set": "v1.model",
+   "unit": "T1",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "T1",
+   "form": "model",
+   "variant": "canonical",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "T2",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "T3",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "T4",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U10",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U11",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args",
+     "too_short"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t",
+     "extra_forbidden"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.latex",
+     "missing"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.ref",
+     "extra_forbidden"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.t",
+     "literal_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args",
+     "too_short"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t",
+     "extra_forbidden"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.latex",
+     "missing"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.ref",
+     "extra_forbidden"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.t",
+     "literal_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.model",
+   "unit": "U11",
+   "form": "model",
+   "variant": "canonical",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U12",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U5",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args",
+     "too_short"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t",
+     "extra_forbidden"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.latex",
+     "missing"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.ref",
+     "extra_forbidden"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.t",
+     "literal_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args",
+     "too_short"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.EntityRef.t",
+     "extra_forbidden"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.latex",
+     "missing"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.ref",
+     "extra_forbidden"
+    ],
+    [
+     "claims.2.qualifiers.conditions.and.args.1.pred.args.0.Formula.t",
+     "literal_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.model",
+   "unit": "U5",
+   "form": "model",
+   "variant": "canonical",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U6",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U6",
+   "form": "model",
+   "variant": "canonical",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U7",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U8",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.model",
+   "unit": "U9",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "examples",
+   "unit": "E1",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "examples",
+   "unit": "E2",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "examples",
+   "unit": "E3",
+   "form": "model",
+   "variant": "as_written",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "v1.stored",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.reference",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.adjudication_d7_s",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_a",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.12.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.12.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_b",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_h",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_p",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sg",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T1",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T2",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T3",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.10.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.11.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "T4",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U10",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U11",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U12",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U5",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.3.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.4.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U6",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "entities.0.type",
+     "string_pattern_mismatch"
+    ],
+    [
+     "entities.1.type",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U7",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.1.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U8",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "as_written",
+   "hand": "invalid",
+   "generated": "invalid",
+   "errors_equal": true,
+   "dump_equal": null,
+   "hand_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ],
+   "generated_errors": [
+    [
+     "claims.0.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.0.qualifiers",
+     "value_error"
+    ],
+    [
+     "claims.1.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.predicate",
+     "string_pattern_mismatch"
+    ],
+    [
+     "claims.2.qualifiers",
+     "value_error"
+    ]
+   ]
+  },
+  {
+   "set": "s0.stored.pass_sp",
+   "unit": "U9",
+   "form": "stored",
+   "variant": "canonical_prefixed",
+   "hand": "valid",
+   "generated": "valid",
+   "errors_equal": true,
+   "dump_equal": true,
+   "hand_errors": [],
+   "generated_errors": []
+  }
+ ]
+}

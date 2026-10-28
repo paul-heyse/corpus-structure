@@ -1,0 +1,362 @@
+# Q-1 probe: the declarations Stage B needs beyond S4's core.yaml, applied by q1_stage_b.py to a copy
+# (results/q1/schema/core_stage_b.yaml). Classes listed here replace S4's class of the same name or are
+# added; class_order fixes the declaration order (the hand unions list their members in this order).
+#
+# Edits to S4's classes, and why:
+# - Expression (new abstract base of Formula and SetExpr): the hand shapes give both a common base
+#   (_Expression); in S4 SetExpr is_a Formula, which would make a set a formula in Python.
+# - IntervalValue bounds: any_of NumberValue | DateValue | Formula (hand `Bound`), not any Value.
+# - Condition: the node classes are declared (S4 left them to the Pydantic union).
+# - New: the batch items, evidence, qualifiers class, envelope and the types and enums they use.
+# Proposed annotations, not in TM §4: ci:py_type (a type's Python alias, for constraints LinkML cannot
+# state on strings, such as min length, or a marker such as CITATION), ci:validator (a hand-written
+# behaviour hook the generated class calls), ci:py_name (the Python class name where the hand name
+# differs from the model name).
+
+types:
+  SentenceId:
+    typeof: string
+    pattern: "^[sc][0-9]+$"
+    description: A sentence id (sN) or standing-context id (cN); a citation position.
+    annotations: {ci:py_type: SentenceId}
+  Offset:
+    typeof: integer
+    minimum_value: 0
+    description: An offset in a rendition's canonical text.
+    annotations: {ci:py_type: Offset}
+  LocalRef:
+    typeof: string
+    description: A batch-local reference; non-empty.
+    annotations: {ci:py_type: LocalRef}
+  NonEmpty:
+    typeof: string
+    description: A non-empty string.
+    annotations: {ci:py_type: NonEmptyStr}
+  PrefixedName:
+    typeof: string
+    pattern: "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$"
+    description: A prefixed schema-element name.
+    annotations: {ci:py_type: PrefixedName}
+  AuthoredAnchor:
+    typeof: string
+    description: '"unit", "outside" or a non-empty tuple of sentence ids (authored statement anchor).'
+    annotations: {ci:py_type: AuthoredAnchor}
+  StoredAnchor:
+    typeof: string
+    description: '"outside" or a non-empty tuple of segment keys (stored statement anchor).'
+    annotations: {ci:py_type: StoredAnchor}
+
+enums:
+  Relation:
+    description: Comparison relations of a cmp node.
+    permissible_values:
+      "<": {description: Less than.}
+      "<=": {description: Less than or equal.}
+      "=": {description: Equal.}
+      "!=": {description: Not equal.}
+      ">": {description: Greater than.}
+      ">=": {description: Greater than or equal.}
+  EntityScope:
+    description: An entity's scope (vocab.EntityScope).
+    permissible_values:
+      global: {description: Global.}
+      local: {description: Local.}
+  EntityExtent:
+    description: How far a local entity reaches.
+    permissible_values:
+      statement: {description: The statement.}
+      section: {description: The section.}
+
+classes:
+  Expression:
+    is_a: Value
+    abstract: true
+    description: A formula or set as written, with its symbol bindings (D1 §6.1).
+    annotations: {ci:py_name: _Expression}
+    slot_usage:
+      t: {equals_string_in: [formula, set]}
+    attributes:
+      latex:
+        required: true
+        description: The LaTeX exactly as written, macros included.
+      symbols:
+        range: SymbolBinding
+        multivalued: true
+        inlined: true
+        description: The binding map, keyed by symbol in token form without backslash.
+      sympy:
+        description: The normalized SymPy form; added by M11 during consolidation.
+        annotations: {ci:form: consolidated}
+      parse:
+        range: ParseStatus
+        description: The parse outcome; added by M11 during consolidation.
+        annotations: {ci:form: consolidated}
+  Formula:
+    is_a: Expression
+    description: A formula as written (D1 §6.1).
+    slot_usage:
+      t: {equals_string: formula}
+  SetExpr:
+    is_a: Expression
+    description: A set written in LaTeX.
+    annotations: {ci:py_name: SetValue}
+    slot_usage:
+      t: {equals_string: set}
+  NumberValue:
+    is_a: Value
+    description: A number with its unit and basis as stated (D1 §6.2).
+    slot_usage:
+      t: {equals_string: number}
+    attributes:
+      v:
+        required: true
+        description: The canonical decimal string.
+        pattern: "^(?:0|-?(?:[1-9][0-9]*(?:\\.[0-9]*[1-9])?|0\\.[0-9]*[1-9]))$"
+      unit: {description: "The unit as stated, or absent."}
+      basis: {description: "A reference basis the source states, such as gauge or absolute, or absent."}
+  DateValue:
+    is_a: Value
+    description: A date or date-time kept verbatim as ISO 8601.
+    slot_usage:
+      t: {equals_string: date}
+    attributes:
+      v:
+        required: true
+        description: The ISO 8601 string as written.
+        pattern: "^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$"
+  IntervalValue:
+    is_a: Value
+    description: An interval of values; an absent bound is unbounded.
+    slot_usage:
+      t: {equals_string: interval}
+    attributes:
+      start: {any_of: [{range: NumberValue}, {range: DateValue}, {range: Formula}], inlined: true, description: The lower bound.}
+      end: {any_of: [{range: NumberValue}, {range: DateValue}, {range: Formula}], inlined: true, description: The upper bound.}
+      start_incl: {range: boolean, description: Whether the lower bound is included.}
+      end_incl: {range: boolean, description: Whether the upper bound is included.}
+  PhraseValue:
+    is_a: Value
+    description: Text kept but not interpreted.
+    annotations: {ci:py_name: Phrase, ci:invariant: "ordered(start, end)"}
+    slot_usage:
+      t: {equals_string: phrase}
+    attributes:
+      text: {required: true, description: The text as written.}
+      sentence:
+        range: SentenceId
+        description: The unit sentence (sN) or standing-context sentence (cN) holding the text.
+        annotations: {ci:form: model}
+      start:
+        range: Offset
+        description: Start offset in the rendition's canonical text.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      end:
+        range: Offset
+        description: End offset in the rendition's canonical text.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      coarse:
+        range: boolean
+        description: The text was not located exactly; the span is the whole cited sentence.
+        annotations: {ci:form: stored}
+  EntityRef:
+    description: A reference to an entity, a local ref or an entity key once stored.
+    attributes:
+      ref: {range: NonEmpty, required: true, description: The local ref or entity key.}
+  SymbolBinding:
+    description: How one symbol of a formula is bound (D1 §6.1).
+    annotations: {ci:validator: binding_fields}
+    attributes:
+      symbol:
+        identifier: true
+        description: The symbol in token form, without backslash (the map key).
+      bind: {range: BindKind, required: true, description: The binding kind.}
+      entity: {description: "variable, family_param: the entity's local ref (key once stored)."}
+      claim: {description: "param_of, param_expr_of: the claim's local ref (key once stored)."}
+      param: {description: "param_of, param_expr_of: the entry of the claim's ci:param_map qualifier."}
+
+  # ---- condition nodes (D1 §7); Condition is the tagged union over them ----
+  Condition:
+    abstract: true
+    description: A condition tree (D1 §7), discriminated on op.
+    attributes:
+      op: {required: true, description: The node's tag.}
+  AndNode:
+    is_a: Condition
+    description: Conjunction.
+    annotations: {ci:py_name: And}
+    slot_usage: {op: {equals_string: and}}
+    attributes:
+      args: {range: Condition, multivalued: true, inlined: true, inlined_as_list: true, required: true, description: The conjuncts.}
+  OrNode:
+    is_a: Condition
+    description: Disjunction.
+    annotations: {ci:py_name: Or}
+    slot_usage: {op: {equals_string: or}}
+    attributes:
+      args: {range: Condition, multivalued: true, inlined: true, inlined_as_list: true, required: true, description: The disjuncts.}
+  NotNode:
+    is_a: Condition
+    description: Negation.
+    annotations: {ci:py_name: Not}
+    slot_usage: {op: {equals_string: not}}
+    attributes:
+      arg: {range: Condition, inlined: true, required: true, description: The negated node.}
+  ForallNode:
+    is_a: Condition
+    description: Universal quantification over a set.
+    annotations: {ci:py_name: Forall}
+    slot_usage: {op: {equals_string: forall}}
+    attributes:
+      var: {required: true, description: The bound variable.}
+      set: {range: SetExpr, inlined: true, required: true, description: The set.}
+      body: {range: Condition, inlined: true, required: true, description: The body.}
+  ClaimNode:
+    is_a: Condition
+    description: A reference to another claim of the batch.
+    slot_usage: {op: {equals_string: claim}}
+    attributes:
+      ref: {range: NonEmpty, required: true, description: The claim's local ref.}
+  MemberNode:
+    is_a: Condition
+    description: Set membership.
+    slot_usage: {op: {equals_string: member}}
+    attributes:
+      x: {range: Formula, inlined: true, required: true, description: The element.}
+      set: {range: SetExpr, inlined: true, required: true, description: The set.}
+  CmpNode:
+    is_a: Condition
+    description: A comparison.
+    slot_usage: {op: {equals_string: cmp}}
+    attributes:
+      rel: {range: Relation, required: true, description: The relation.}
+      lhs: {range: Formula, inlined: true, required: true, description: Left side.}
+      rhs: {range: Formula, inlined: true, required: true, description: Right side.}
+  PredNode:
+    is_a: Condition
+    description: A schema predicate over arguments.
+    slot_usage: {op: {equals_string: pred}}
+    attributes:
+      name: {required: true, description: The predicate name.}
+      args:
+        any_of: [{range: EntityRef}, {range: Formula}]
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        required: true
+        minimum_cardinality: 1
+        description: The arguments, entity references or formulas.
+  PhraseNode:
+    is_a: Condition
+    description: A condition kept as text.
+    annotations: {ci:invariant: "ordered(start, end)"}
+    slot_usage: {op: {equals_string: phrase}}
+    attributes:
+      text: {required: true, description: The text.}
+      sentence: {range: SentenceId, description: The citing sentence., annotations: {ci:form: model}}
+      start: {range: Offset, description: Start offset., annotations: {ci:form: stored, ci:required_in: stored}}
+      end: {range: Offset, description: End offset., annotations: {ci:form: stored, ci:required_in: stored}}
+      coarse: {range: boolean, description: Not located exactly., annotations: {ci:form: stored}}
+  UnsupportedNode:
+    is_a: PhraseNode
+    description: A condition the schema cannot express.
+    slot_usage: {op: {equals_string: unsupported}}
+    attributes:
+      reason: {required: true, description: Why it is unsupported.}
+
+  # ---- qualifiers, evidence, items, envelope (TM §2: these move into core) ----
+  CoreQualifiers:
+    description: The core qualifiers; schema qualifiers are extra slots, raw JSON until S1 types them.
+    annotations: {ci:py_name: Qualifiers, ci:validator: "stored: schema_qualifiers_prefixed"}
+    extra_slots: {allowed: true}
+    slots: [modality, polarity, hedge, attribution, conditions, scope, valid_time]
+  StoredScope:
+    description: The stored scope qualifier, its extent and the segment it resolves to.
+    annotations: {ci:form: stored}
+    attributes:
+      extent: {range: ScopeExtent, required: true, description: The extent.}
+      segment: {range: NonEmpty, required: true, description: The segment key.}
+  Evidence:
+    description: An evidence span of a claim.
+    annotations: {ci:invariant: "ordered(start, end)"}
+    attributes:
+      sentence: {range: SentenceId, description: The cited sentence., annotations: {ci:form: model, ci:required_in: model}}
+      quote: {range: NonEmpty, description: The quote., annotations: {ci:form: model, ci:required_in: model}}
+      start: {range: Offset, description: Start offset., annotations: {ci:form: stored, ci:required_in: stored}}
+      end: {range: Offset, description: End offset., annotations: {ci:form: stored, ci:required_in: stored}}
+      role: {range: EvidenceRole, required: true, description: The span's role.}
+      coarse: {range: boolean, description: Not located exactly., annotations: {ci:form: stored}}
+  IdentityEntry:
+    is_a: MapEntry
+    description: One identity slot of an entity, slot to local ref or literal.
+    attributes:
+      key: {identifier: true, description: The identity slot., annotations: {ci:stored_range: PrefixedName}}
+      value: {required: true, description: The local ref or literal.}
+  EntityItem:
+    description: An entity item of a batch.
+    annotations: {ci:py_name: Entity, ci:validator: extent_only_local, ci:invariant: "stored: iff_present(scope_segment, scope = local)"}
+    attributes:
+      local_ref: {range: LocalRef, required: true, description: The local ref.}
+      type: {required: true, description: The entity class., annotations: {ci:stored_range: PrefixedName}}
+      label: {required: true, description: The label.}
+      scope: {range: EntityScope, required: true, description: The scope.}
+      extent: {range: EntityExtent, description: A local entity's extent.}
+      symbol: {description: The symbol.}
+      aliases: {multivalued: true, description: Aliases.}
+      identity: {range: IdentityEntry, multivalued: true, inlined: true, description: Identity slots.}
+      scope_segment: {description: The segment a local entity is scoped to., annotations: {ci:form: stored}}
+  StatementItem:
+    description: A statement item of a batch.
+    annotations: {ci:py_name: Statement}
+    attributes:
+      local_ref: {range: LocalRef, required: true, description: The local ref.}
+      kind: {required: true, description: The statement kind.}
+      anchor: {range: AuthoredAnchor, required: true, description: The anchor., annotations: {ci:stored_range: StoredAnchor}}
+  ClaimItem:
+    description: A claim item of a batch.
+    annotations: {ci:py_name: Claim}
+    attributes:
+      local_ref: {range: LocalRef, required: true, description: The local ref.}
+      predicate: {required: true, description: The predicate., annotations: {ci:stored_range: PrefixedName}}
+      subject: {range: LocalRef, required: true, description: The subject's local ref.}
+      statement: {description: The statement's local ref.}
+      statement_role: {range: StatementRole, description: The claim's role in its statement.}
+      object: {any_of: [{range: EntityRef}, {range: Value}], inlined: true, required: true, description: The object.}
+      qualifiers: {range: CoreQualifiers, inlined: true, description: The qualifiers.}
+      evidence: {range: Evidence, multivalued: true, inlined: true, inlined_as_list: true, required: true, minimum_cardinality: 1, description: The evidence.}
+  AlternativeItem:
+    description: Alternative readings of the same text.
+    attributes:
+      refs: {range: LocalRef, multivalued: true, required: true, minimum_cardinality: 2, description: The alternatives.}
+      reason: {required: true, description: Why.}
+  UnsupportedItem:
+    description: Something the source states that the schema cannot express.
+    annotations: {ci:py_name: Unsupported, ci:invariant: "ordered(start, end)"}
+    attributes:
+      # stored-form offsets first: the hand stored item lists start, end before local_ref (its _Span base)
+      start: {range: Offset, description: Start offset., annotations: {ci:form: stored, ci:required_in: stored}}
+      end: {range: Offset, description: End offset., annotations: {ci:form: stored, ci:required_in: stored}}
+      local_ref: {range: LocalRef, required: true, description: The local ref.}
+      sentence: {range: SentenceId, description: The sentence., annotations: {ci:form: model, ci:required_in: model}}
+      quote: {range: NonEmpty, description: The quote., annotations: {ci:form: model, ci:required_in: model}}
+      reason: {required: true, description: Why.}
+      coarse: {range: boolean, description: Not located exactly., annotations: {ci:form: stored}}
+  Batch:
+    description: A batch envelope.
+    annotations: {ci:validator: well_formed_batch}
+    attributes:
+      unit_ref: {range: NonEmpty, required: true, description: The unit ref.}
+      entities: {range: EntityItem, multivalued: true, inlined: true, inlined_as_list: true, description: Entities.}
+      statements: {range: StatementItem, multivalued: true, inlined: true, inlined_as_list: true, description: Statements.}
+      claims: {range: ClaimItem, multivalued: true, inlined: true, inlined_as_list: true, description: Claims.}
+      alternatives: {range: AlternativeItem, multivalued: true, inlined: true, inlined_as_list: true, description: Alternatives.}
+      unsupported: {range: UnsupportedItem, multivalued: true, inlined: true, inlined_as_list: true, description: Unsupported items.}
+
+# The hand unions' member order: Text, Number, Bool, Enum, Formula, Set, Date, Interval, Phrase.
+class_order: [Entity, Statement, Value, Expression, TextValue, NumberValue, BoolValue, EnumValue, Formula, SetExpr,
+              DateValue, IntervalValue, PhraseValue, EntityRef, SymbolBinding, Condition, AndNode, OrNode, NotNode,
+              ForallNode, ClaimNode, MemberNode, CmpNode, PredNode, PhraseNode, UnsupportedNode, MapEntry,
+              CoreQualifiers, StoredScope, Evidence, IdentityEntry, EntityItem, StatementItem, ClaimItem,
+              AlternativeItem, UnsupportedItem, Batch]
+# Annotations added to S4's existing slots.
+slot_annotations:
+  scope: {ci:stored_range: StoredScope}

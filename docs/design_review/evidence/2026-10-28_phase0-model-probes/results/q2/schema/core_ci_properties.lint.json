@@ -1,0 +1,16 @@
+[
+ {
+  "level": "warning",
+  "message": "Slot has name 't'",
+  "rule_name": "standard_naming",
+  "schema_name": "core",
+  "schema_source": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/results/q2/schema/core_ci_properties.yaml"
+ },
+ {
+  "level": "warning",
+  "message": "Slot has name 'v'",
+  "rule_name": "standard_naming",
+  "schema_name": "core",
+  "schema_source": "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_phase0-model-probes/results/q2/schema/core_ci_properties.yaml"
+ }
+]
