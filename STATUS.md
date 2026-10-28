@@ -22,8 +22,7 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 - **Build lane:** P0-F-1, P0-F-2a, P0-I-0 and P0-F-2b are built in `python/corpus-structure/`.
   An implementation review's findings are fixed (coordinator §11, IR-01…12, IR-15); IR-13, IR-14
   and X2-01 (authored→stored naming, P0-S-1) are open with owners.
-- **Audit** at `024bb33` ([audit](docs/design_review/audit/README.md)); **design review** (Revise) targets all 25
-  findings ([review](docs/design_review/reviews/design_review_domain-model-alignment_2026-10-28.md); RC01–RC19 await plan creation).
+- [Audit](docs/design_review/audit/README.md) at `024bb33`; [design review](docs/design_review/reviews/design_review_domain-model-alignment_2026-10-28.md) (Revise; RC01–RC19 open).
 - **PostgreSQL:** cluster `18/corpus` (port 5434, `just db-provision`, D3 §13); no backups yet
   (operator: data is regenerable; revisit trigger in D3 §13).
 - **Decisions in force:** ADR-0010–0019 accepted (0016 PostgreSQL and 0017 LinkML packs Tested;
