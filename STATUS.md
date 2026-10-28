@@ -46,8 +46,7 @@ _Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
   corrections, naming join) are proposals in the reports until X2 folds them in.
 - `docs/libraries/` holds operator overviews not yet committed (pgembed, hypothesis, jsonschema,
   html5lib, pgevector, ppi_py, vllm, postgresql-18-pg-textsearch).
-- Plans and evidence are never deleted (AGENTS.md); EVID-01 and APPARATUS-01 wait on the operator's
-  evidence-system design.
+- EVID-01 and APPARATUS-01 wait on the operator's evidence-system design.
 
 ## Next
 
