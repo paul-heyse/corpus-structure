@@ -1,0 +1,4 @@
+induced_enum BizModality ['reported']
+induced_enum Composed []
+OAK BizModality [('reported', ['attribution_identifying']), ('asserted', []), ('supposed', ['premise_forming']), ('cited', ['attribution_identifying']), ('defined', [])]
+OAK Composed [('asserted', []), ('supposed', ['premise_forming']), ('cited', ['attribution_identifying']), ('extra', []), ('extra', [])]

@@ -1,0 +1,25 @@
+id: https://example.org/e
+name: e
+prefixes: {linkml: https://w3id.org/linkml/, e: https://example.org/e/}
+default_prefix: e
+imports: [linkml:types]
+subsets:
+  premise_forming: {}
+  attribution_identifying: {}
+enums:
+  ClaimModality:
+    permissible_values:
+      asserted: {}
+      supposed: {in_subset: [premise_forming]}
+      cited: {in_subset: [attribution_identifying]}
+      defined: {}
+  BizModality:
+    inherits: [ClaimModality]
+    permissible_values:
+      reported: {in_subset: [attribution_identifying], description: business}
+  Composed:
+    include:
+      - permissible_values: {extra: {}}
+    inherits: [ClaimModality]
+    minus:
+      - permissible_values: {defined: {}}

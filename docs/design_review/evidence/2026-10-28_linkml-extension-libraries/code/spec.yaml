@@ -1,0 +1,28 @@
+id: p-v1-to-v2
+source_schema: v1.yaml
+target_schema: v2.yaml
+class_derivations:
+  Obs:
+    populated_from: Obs
+    slot_derivations:
+      id: {}
+      outcome: {populated_from: status}
+      note: {}
+      detail: {}
+      values: {}
+  Detail:
+    populated_from: Detail
+    slot_derivations:
+      token_count: {populated_from: n_tokens}
+  NumberValue:
+    populated_from: NumberValue
+    slot_derivations: {t: {}, num: {}}
+  TextValue:
+    populated_from: TextValue
+    slot_derivations: {t: {}, text: {}}
+enum_derivations:
+  OutcomeV2:
+    populated_from: StatusV1
+    permissible_value_derivations:
+      succeeded: {populated_from: ok}
+      failed: {populated_from: fail}

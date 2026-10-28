@@ -1,0 +1,109 @@
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_linkml-extension-libraries/code/run2.py:12: DeprecationWarning: 'source_schema' is set to a bare string, which is deprecated. Use the SchemaReference object form 'source_schema: {name: ...}'. The string form will be removed in a future version.
+  tr.create_transformer_specification(spec)
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_linkml-extension-libraries/code/run2.py:12: DeprecationWarning: 'target_schema' is set to a bare string, which is deprecated. Use the SchemaReference object form 'target_schema: {name: ...}'. The string form will be removed in a future version.
+  tr.create_transformer_specification(spec)
+Unknown target range Value
+Unknown target range Value
+strict field: True
+-> {"id": "o1", "outcome": "succeeded", "note": null, "detail": null, "values": [{"t": "NumberValue"}, {"t": "TextValue"}]}
+-> {"id": "o4", "outcome": null, "note": null, "detail": null, "values": null}
+name: p-derived
+id: https://example.org/p-derived
+imports:
+- linkml:types
+prefixes:
+  linkml:
+    prefix_prefix: linkml
+    prefix_reference: https://w3id.org/linkml/
+  p:
+    prefix_prefix: p
+    prefix_reference: https://example.org/p/
+default_prefix: https://example.org/p-derived/
+default_range: string
+enums:
+  OutcomeV2:
+    name: OutcomeV2
+    permissible_values:
+      ok:
+        text: ok
+      fail:
+        text: fail
+classes:
+  Obs:
+    name: Obs
+    attributes:
+      id:
+        name: id
+        identifier: true
+        domain_of:
+        - Obs
+      outcome:
+        name: outcome
+        domain_of:
+        - Obs
+        range: StatusV1
+      note:
+        name: note
+        domain_of:
+        - Obs
+      detail:
+        name: detail
+        domain_of:
+        - Obs
+        range: Detail
+        inlined: true
+      values:
+        name: values
+        domain_of:
+        - Obs
+        range: Value
+        multivalued: true
+        inlined_as_list: true
+  Detail:
+    name: Detail
+    attributes:
+      token_count:
+        name: token_count
+        domain_of:
+        - Detail
+        range: integer
+  NumberValue:
+    name: NumberValue
+    is_a: Value
+    attributes:
+      t:
+        name: t
+        designates_type: true
+        domain_of:
+        - Value
+        range: string
+      num:
+        name: num
+        domain_of:
+        - NumberValue
+        range: decimal
+  TextValue:
+    name: TextValue
+    is_a: Value
+    attributes:
+      t:
+        name: t
+        designates_type: true
+        domain_of:
+        - Value
+        range: string
+      text:
+        name: text
+        domain_of:
+        - TextValue
+  Value:
+    name: Value
+    abstract: true
+    attributes:
+      t:
+        name: t
+        designates_type: true
+        domain_of:
+        - Value
+        range: string
+

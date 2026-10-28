@@ -1,0 +1,52 @@
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_linkml-extension-libraries/code/run.py:9: DeprecationWarning: 'source_schema' is set to a bare string, which is deprecated. Use the SchemaReference object form 'source_schema: {name: ...}'. The string form will be removed in a future version.
+  tr.load_transformer_specification(f"{d}/spec.yaml")
+/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_linkml-extension-libraries/code/run.py:9: DeprecationWarning: 'target_schema' is set to a bare string, which is deprecated. Use the SchemaReference object form 'target_schema: {name: ...}'. The string form will be removed in a future version.
+  tr.load_transformer_specification(f"{d}/spec.yaml")
+Unknown target range Detail
+Unknown target range Detail
+Unknown target range Detail
+full EXC TransformationError Could not find class derivation for Value (results=0); class_derivation=Obs (from Obs); slot_derivation=values (from values)
+absent_note -> {"id": "o2", "outcome": "failed", "note": null, "detail": {"token_count": 0}, "values": null}
+null_note -> {"id": "o3", "outcome": "failed", "note": null, "detail": null, "values": null}
+unknown_status -> {"id": "o4", "outcome": null, "note": null, "detail": null, "values": null}
+inverted class derivs: [('Obs', 'Obs', {'id': 'id', 'status': 'outcome', 'note': 'note', 'detail': 'detail', 'values': 'values'}), ('Detail', 'Detail', {'n_tokens': 'token_count'}), ('NumberValue', 'NumberValue', {'t': 't', 'num': 'num'}), ('TextValue', 'TextValue', {'t': 't', 'text': 'text'})]
+inverted enum derivs: {'StatusV1': ('OutcomeV2', {'ok': ['succeeded'], 'fail': ['failed']})}
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-paul-corpus-structure/6818f823-4530-4350-a0af-fd4b7b01259f/scratchpad/linkml-ext/venv-map/lib/python3.14/site-packages/linkml_map/transformer/object_transformer.py", line 433, in _slot_error_context
+    yield
+  File "/tmp/claude-1000/-home-paul-corpus-structure/6818f823-4530-4350-a0af-fd4b7b01259f/scratchpad/linkml-ext/venv-map/lib/python3.14/site-packages/linkml_map/transformer/object_transformer.py", line 412, in map_object
+    tgt_attrs[str(slot_deriv.name)] = self._derive_slot(
+                                      ~~~~~~~~~~~~~~~~~^
+        slot_deriv, context, target_type, bindings, expr_functions
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/tmp/claude-1000/-home-paul-corpus-structure/6818f823-4530-4350-a0af-fd4b7b01259f/scratchpad/linkml-ext/venv-map/lib/python3.14/site-packages/linkml_map/transformer/object_transformer.py", line 543, in _derive_slot
+    v = self._map_value_by_range(v, source_class_slot, target_range, context.source_obj)
+  File "/tmp/claude-1000/-home-paul-corpus-structure/6818f823-4530-4350-a0af-fd4b7b01259f/scratchpad/linkml-ext/venv-map/lib/python3.14/site-packages/linkml_map/transformer/object_transformer.py", line 1064, in _map_value_by_range
+    return [self.map_object(v1, source_class_slot_range, target_range) for v1 in v]
+            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-paul-corpus-structure/6818f823-4530-4350-a0af-fd4b7b01259f/scratchpad/linkml-ext/venv-map/lib/python3.14/site-packages/linkml_map/transformer/object_transformer.py", line 394, in map_object
+    class_deriv = class_derivation or self._get_class_derivation(source_type)
+                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-paul-corpus-structure/6818f823-4530-4350-a0af-fd4b7b01259f/scratchpad/linkml-ext/venv-map/lib/python3.14/site-packages/linkml_map/transformer/transformer.py", line 462, in _get_class_derivation
+    raise ValueError(msg)
+ValueError: Could not find class derivation for Value (results=0)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/paul/corpus-structure/docs/design_review/evidence/2026-10-28_linkml-extension-libraries/code/run.py", line 25, in <module>
+    print("roundtrip:", json.dumps(tr2.map_object(tr.map_object(cases["full"], source_type="Obs"), source_type="Obs"), default=str))
+                                                  ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/claude-1000/-home-paul-corpus-structure/6818f823-4530-4350-a0af-fd4b7b01259f/scratchpad/linkml-ext/venv-map/lib/python3.14/site-packages/linkml_map/transformer/object_transformer.py", line 411, in map_object
+    with self._slot_error_context(slot_deriv, context):
+         ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/home/paul/.local/share/uv/python/cpython-3.14.10-linux-x86_64-gnu/lib/python3.14/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/tmp/claude-1000/-home-paul-corpus-structure/6818f823-4530-4350-a0af-fd4b7b01259f/scratchpad/linkml-ext/venv-map/lib/python3.14/site-packages/linkml_map/transformer/object_transformer.py", line 437, in _slot_error_context
+    raise TransformationError(
+    ...<7 lines>...
+    ) from exc
+linkml_map.transformer.errors.TransformationError: Could not find class derivation for Value (results=0); class_derivation=Obs (from Obs); slot_derivation=values (from values)

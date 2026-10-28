@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "id": "lx.fit",
+  "title": "LinkML extension libraries against the phase 0 model's bespoke pieces",
+  "group": "LinkML extension libraries",
+  "package": "focused review (coordinator §6)",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does linkml-map replace the change model's upcasters and name maps, does any extension library provide a schema diff or a correct expansion of inherits/include/minus, and does linkml-datalog fit beside the M19 rule language?",
+  "answers": [
+    "coordinator §6",
+    "model-and-projections §3.2",
+    "model-and-projections §3.6"
+  ],
+  "method": "Throwaway environments on Python 3.14.10 with linkml-runtime 1.12.1 (linkml-map 0.5.4 and 0.6.0rc1 with pint 0.25.3; oaklib 0.7.4); a v1->v2 payload mapping with a rename, an enum rename, a nested class, absent and null fields and a polymorphic designates_type list; an inherits/include/minus expansion of a ClaimModality-like enum with in_subset properties; package metadata and import checks for the other libraries; a source and GitHub search for a schema diff.",
+  "commands": [
+    "python code/run.py code",
+    "python code/run2.py code",
+    "python code/enumrun.py code"
+  ],
+  "agents": [
+    {
+      "role": "design-reviewer (focused advice)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": "read-only reviewer; scripts rerun by the coordinator into this folder"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code",
+      "role": "probe scripts and schemas",
+      "sha256": "ad6115b669fb43414c70927629e241e63e3a07e7bcf868acb1ec48b98b138a39"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results",
+      "role": "probe outputs and package metadata",
+      "sha256": "d5cfcb34a03908f39aff7538c56cf95a2db3130a92e805ae3f5bd46a53b05453"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "linkml_map_polymorphic_fields_kept",
+      "value": 0,
+      "of": 2,
+      "unit": null,
+      "note": "NumberValue.num and TextValue.text dropped"
+    },
+    {
+      "name": "oak_expansion_correct_operators",
+      "value": 1,
+      "of": 3,
+      "unit": null,
+      "note": "inherits correct; include duplicated; minus ignored"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "No LinkML extension library replaces a bespoke piece of the phase 0 model: linkml-map loses subclass fields and absent-vs-null and imports only with pint below 0.26; OAK's expander mishandles include and minus; no schema diff exists; linkml-datalog does not import on linkml-runtime 1.12.1. The plan keeps its own diff, upcasters, name maps and enum expansion, with linkml-map, schema-automator and oaklib as later options with triggers.",
+  "consumed_by": [
+    "coordinator §6",
+    "P0-M-1",
+    "P0-M-4"
+  ]
+}

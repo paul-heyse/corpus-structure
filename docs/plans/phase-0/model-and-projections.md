@@ -152,9 +152,9 @@ space-separated property names. Examples:
 | `default` | `MISSING` or a value |
 | `key_role` | `identity` \| `meaning` \| `inert` |
 | `key_role_when` | member-property name, or `None` |
-| `canonical` | `token_form` \| `text_form` \| `identifier` \| `enum` \| `entity_key` \| `interval` \| `map` \| `number` \| `verbatim` (TM §8) |
+| `canonical` | a generated `CanonicalForm`: `token_form` \| `text_form` \| `identifier` \| `member` (an enum-ranged slot's bare member value) \| `enum` (an `EnumValue`'s `{enum, v}`) \| `entity_key` \| `interval` \| `map` \| `number` \| `condition` (D1 §7's canonical tree, leaves by range) \| `scope` (extent plus segment locator, member keys only) \| `verbatim` (TM §8; `member`, `condition` and `scope` added 2026-10-28 while building M1) |
 | `case` | `fold` \| `preserve` |
-| `store` | `column` \| `json` \| `edge` |
+| `store` | `column` \| `json` \| `edge` (a qualifier whose edges are derived, such as `conditions` feeding `kb.claim_ref`, is `json`) |
 
 Core specs are generated here. Pack specs are compiled by S1 into the same type.
 | `core/_model/names.py` | Local ↔ prefixed name tables for core elements (the core half of X2-01; the pack map is S1's) |
@@ -320,7 +320,10 @@ The **change record** (TM §9) holds:
 - the from and to revisions;
 - the element changes, from a `SchemaView` diff (own code; LinkML 1.12.1 has no schema diff);
 - per change, its compatibility class, reason and authorizing circumstance;
-- the migration mapping: an Alembic revision id, an upcaster, or a name map;
+- the migration mapping: an Alembic revision id, an upcaster, or a name map. A diff cannot detect a
+  rename (it appears as a removal plus an addition), so `mapped` changes are declared in the change
+  record's name map, and the classifier checks that the declared map accounts for every removal and
+  addition pair. linkml-map remains a later option for the mapping format (record `lx.fit`);
 - the key consequences: scheme change, carry-over map, affected prefixes;
 - the judgment carry-over;
 - the compiled artifacts and source profiles it affects.

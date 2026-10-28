@@ -1,0 +1,32 @@
+id: https://example.org/p
+name: p
+prefixes: {linkml: https://w3id.org/linkml/, p: https://example.org/p/}
+default_prefix: p
+imports: [linkml:types]
+default_range: string
+classes:
+  Obs:
+    attributes:
+      id: {identifier: true}
+      status: {range: StatusV1}
+      note: {}
+      detail: {range: Detail, inlined: true}
+      values: {range: Value, multivalued: true, inlined_as_list: true}
+  Detail:
+    attributes:
+      n_tokens: {range: integer}
+  Value:
+    abstract: true
+    attributes:
+      t: {designates_type: true, range: string}
+  NumberValue:
+    is_a: Value
+    attributes:
+      num: {range: decimal}
+  TextValue:
+    is_a: Value
+    attributes:
+      text: {}
+enums:
+  StatusV1:
+    permissible_values: {ok: {}, fail: {}}
