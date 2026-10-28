@@ -81,7 +81,7 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 | regex | 2026.9.29 | M01 delimiter pattern, the quote cascade (D4 §4.3), M22 lexicons |
 | tokenizers | 0.23.3 | M02 token counts, packet caps (D4 §4.1) |
 | PyYAML | 6.0.3 | pack files |
-| jsonschema (dev) | 4.26.0 | an independent oracle in tests and `check_schema` on generated artifacts; production validates with Pydantic (D2 §7.3, D3 §6) |
+| jsonschema (dev) | 4.26.0 ([overview](../libraries/jsonschema.md)) | an independent oracle in tests and `check_schema` on generated artifacts; production validates with Pydantic (D2 §7.3, D3 §6) |
 | sympy, lark | 1.14.0 (hold, `docs/pins.md`), 1.3.1 | M11 (grammar from phase 0, SymPy conversion from phase 1), M21, alignment |
 | pint | latest | M12 |
 | z3-solver | 5.3.2.0 | M20 |
@@ -97,7 +97,7 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 | sentence-transformers | latest, only if S7 chooses in-process embeddings | M04 |
 | torch | 2.13.0 (as in the vLLM environment) | GLiNER2, embeddings (phase 1) |
 | ppi_python (`ppi_py`) | 0.2.3 ([overview](../libraries/ppi_py.md)), phase 2 | the random audit's corpus-level precision (D7 §6, OPEN-D7-4) |
-| Hypothesis (dev) | 6.170.12 | property tests (§4) |
+| Hypothesis, hypothesis-jsonschema (dev) | 6.170.12, latest at P0.1 ([overview](../libraries/hypothesis.md)) | property, stateful and grammar-generated tests (§4) |
 
 **Python 3.14.** The root requires ≥ 3.14, and the vLLM environment already runs torch 2.13 on
 3.14. Whether gliner2, spaCy, z3 and pgmpy ship 3.14 wheels is checked by the spikes' environment
@@ -129,7 +129,10 @@ in a side environment like vLLM), never by lowering the product's Python version
 
 | Layer | What | How |
 |---|---|---|
-| Types and keys | Canonical JSON, keys, condition canonicalization, value canonical forms | Unit and Hypothesis property tests (permuted keys, reordered `and` arguments give equal keys) |
+| Types and keys | Canonical JSON, keys, condition canonicalization, value canonical forms | Unit and Hypothesis property tests (permuted keys, reordered `and` arguments give equal keys); D1 models drawn by `st.builds`/`st.from_type` with strategies registered for constrained fields (`st.from_regex` where a model uses `Field(pattern=…)`, which `from_type` ignores) |
+| Math | The token form against the tree printer wherever the grammar reads a span (KEYS-01) | A corpus layer over every first-pass span, and generated layers: strings from the grammar itself (`hypothesis.extra.lark.from_lark`, with explicit strategies for the macro terminals) and metamorphic rewrites of the token form (sizing commands, spacing, brace-equivalent forms); failures shrink to a minimal formula ([Hypothesis overview](../libraries/hypothesis.md) §6.5) |
+| Batches | The compiled batch models and the exported JSON Schema agree | `hypothesis-jsonschema.from_schema` draws batches from the exported schema, where its draft support covers it, and Pydantic and jsonschema must both accept them; jsonschema errors are compared sorted by `absolute_path`, since `iter_errors` order is not guaranteed ([jsonschema overview](../libraries/jsonschema.md) §2.1, §9.2) |
+| Task lifecycle | Claiming, lease renewal and expiry, fencing, terminal writes and reuse keep the D6 §3 invariants (no task held twice, a lost lease commits nothing, reuse only of `done`/`empty` results) | A `RuleBasedStateMachine` whose bundles hold tasks and workers, `consumes` for terminal writes, invariants after every step against a small reference model, each example in its own rolled-back transaction ([Hypothesis overview](../libraries/hypothesis.md) §4, §10.1); real interleavings are S6's concurrency test, since state machines do not explore scheduling |
 | Database | Migration 0001 applies and downgrades (upgrade, downgrade to base, the four schemas empty, upgrade again); the catalog after `upgrade head` equals `create_all`'s, since `alembic check` misses index methods, partial predicates and CHECK bodies; invariants as constraints | A per-session test database cloned from a migrated template keyed by the migrations' hash (`CREATE DATABASE … TEMPLATE`), dropped `WITH (FORCE)`; most tests roll back an outer transaction ([store note](../design_review/evidence/2026-10-28_library-store/README.md) §1) |
 | Ingest | Trace segments and offsets; S1 counts | `fixtures/trace/*.segments.json`; corpus-gated tests skipped when `docs/statistics_corpus` is absent |
 | Methods | Each method on trace units | Fixtures; GPU tests marked `gpu`; LLM tests replay recorded responses (stored under `fixtures/llm/`) so they are deterministic and offline |
