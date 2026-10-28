@@ -255,8 +255,7 @@ def rewrite_links(
             if local_skill(root, original):
                 tag = re.sub(r"\s" + attr + r'="[^"]*"', "", tag, count=1)
                 tag = (
-                    tag[:-1]
-                    + ' title="Inactive central library-skill reference; '
+                    tag[:-1] + ' title="Inactive central library-skill reference; '
                     'not installed or discovered here" '
                     'class="local-reference">'
                 )
