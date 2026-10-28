@@ -1,0 +1,125 @@
+{
+ "unit_order": "sorted",
+ "units": 12,
+ "predicates": 17,
+ "core": {
+  "recorded": [
+   0.9333333333333333,
+   0.827064054366686,
+   1.0
+  ],
+  "spike_recomputed": [
+   0.9333333333333333,
+   0.8345023980815348,
+   1.0
+  ],
+  "scipy_percentile": [
+   0.9333333333333333,
+   0.8345023980815348,
+   1.0
+  ],
+  "bit_identical_spike_vs_scipy": [
+   true,
+   true
+  ],
+  "scipy_bca": [
+   0.8031599786885364,
+   0.9927007299270074
+  ]
+ },
+ "full": {
+  "recorded": [
+   0.6266666666666667,
+   0.4285441657579062,
+   0.7526071077034656
+  ],
+  "spike_recomputed": [
+   0.6266666666666667,
+   0.41654411764705884,
+   0.7630668127053669
+  ],
+  "scipy_percentile": [
+   0.6266666666666667,
+   0.41654411764705895,
+   0.7630668127053669
+  ],
+  "bit_identical_spike_vs_scipy": [
+   false,
+   true
+  ]
+ },
+ "evidence": {
+  "recorded": [
+   0.6,
+   0.36796666666666666,
+   0.7468487674883411
+  ],
+  "spike_recomputed": [
+   0.6,
+   0.36721838341635865,
+   0.7499999999999999
+  ],
+  "scipy_percentile": [
+   0.6,
+   0.3672183834163587,
+   0.7499999999999999
+  ],
+  "bit_identical_spike_vs_scipy": [
+   false,
+   true
+  ]
+ },
+ "per_predicate_core": {
+  "scipy_warnings": [
+   "DegenerateDataWarning"
+  ],
+  "predicates_with_nan_interval_scipy": [
+   "construction_formula",
+   "defines",
+   "definition_formula",
+   "derived_parameter",
+   "follows_from",
+   "has_parameter",
+   "identical_parameter",
+   "mean_value",
+   "parameter_domain",
+   "parameter_role",
+   "refers_to",
+   "takes_values_in",
+   "transformation_of",
+   "variance_value"
+  ],
+  "predicates_with_some_undefined_resamples": [
+   "construction_formula",
+   "defines",
+   "definition_formula",
+   "derived_parameter",
+   "follows_from",
+   "has_parameter",
+   "identical_parameter",
+   "mean_value",
+   "parameter_domain",
+   "parameter_role",
+   "refers_to",
+   "takes_values_in",
+   "transformation_of",
+   "variance_value"
+  ],
+  "nan_aware_from_distribution_equals_spike": true
+ },
+ "paired_difference_core_minus_full": {
+  "point": 0.30666666666666664,
+  "ci95": [
+   0.1775426058273776,
+   0.5113533834586466
+  ],
+  "share_of_resamples_le_0": 0.0
+ },
+ "page_cluster_core": {
+  "pages": 4,
+  "ci95": [
+   0.8629441624365483,
+   1.0
+  ]
+ }
+}

@@ -1,0 +1,32 @@
+{
+ "json": {
+  "exit": 0,
+  "stdout_parses": true,
+  "stderr": "connecting..."
+ },
+ "rich": {
+  "exit": 0,
+  "table_on_stdout": true,
+  "width_line": [
+   "width=80"
+  ],
+  "stderr": "connecting..."
+ },
+ "group": {
+  "exit": 0
+ },
+ "root_level_flag_rejected": {
+  "exit": 2,
+  "msg": [
+   "\u2502 No such option: --json                                                       \u2502",
+   "\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f"
+  ]
+ },
+ "settings": {
+  "env_nested": "postgresql:///ci_test_1",
+  "init_override": "postgresql:///other",
+  "secret_repr": "SecretStr('**********')",
+  "unknown_prefixed_env_var": "ignored silently",
+  "cached_identity": true
+ }
+}

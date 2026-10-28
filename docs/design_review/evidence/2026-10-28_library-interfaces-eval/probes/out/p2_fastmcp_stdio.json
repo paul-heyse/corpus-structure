@@ -1,0 +1,10 @@
+{
+ "session_id_stable_across_calls": false,
+ "lifespan_entries": 1,
+ "stderr_print": "ok",
+ "stdout_print": {
+  "is_error": false,
+  "data": "ok"
+ },
+ "call_after_stdout_print": "ok"
+}

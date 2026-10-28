@@ -1,0 +1,19 @@
+/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/hypothesis/strategies/_internal/types.py:624: HypothesisWarning: Ignoring unsupported _PydanticGeneralMetadata(pattern='^C[0-9]+$')
+  return find_annotated_strategy(thing)
+/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/hypothesis/strategies/_internal/types.py:624: HypothesisWarning: Ignoring unsupported _PydanticGeneralMetadata(pattern='^C[0-9]+$')
+  return find_annotated_strategy(thing)
+{
+ "from_type_Claim": {
+  "error": "ValidationError: 1 validation error for Claim\nlocal_ref\n  String should match pattern '^C[0-9]+$' [type=string_pattern_mismatch, input_value='', input_type=str]\n    For further "
+ },
+ "builds_Claim": {
+  "error": "ValidationError: 1 validation error for Claim\nlocal_ref\n  String should match pattern '^C[0-9]+$' [type=string_pattern_mismatch, input_value='', input_type=str]\n    For further "
+ },
+ "from_type_And": {
+  "valid": 200,
+  "invalid": 0
+ },
+ "profile_loaded": 300,
+ "dict_permutation_invariance": "passed",
+ "and_reorder_invariance": "passed"
+}

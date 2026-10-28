@@ -1,0 +1,144 @@
+[10/28/26 11:37:00] WARNING  Invalid arguments for tool           server.py:1501
+                             'propose_strict': {'error_count': 1,               
+                             'error_types': ['literal_error']}                  
+{
+ "schemas": {
+  "propose_strict": {
+   "inputSchema": true,
+   "outputSchema": true
+  },
+  "propose_claims": {
+   "inputSchema": true,
+   "outputSchema": true
+  },
+  "read_unit": {
+   "inputSchema": true,
+   "outputSchema": false
+  },
+  "which_thread": {
+   "inputSchema": true,
+   "outputSchema": true
+  }
+ },
+ "propose_claims.inputSchema.batch": {
+  "properties": {
+   "unit_ref": {
+    "type": "string"
+   },
+   "claims": {
+    "items": {
+     "properties": {
+      "local_ref": {
+       "type": "string"
+      },
+      "predicate": {
+       "enum": [
+        "has_parameter",
+        "defined_as"
+       ],
+       "type": "string"
+      },
+      "subject": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "local_ref",
+      "predicate",
+      "subject"
+     ],
+     "type": "object"
+    },
+    "type": "array"
+   }
+  },
+  "required": [
+   "unit_ref",
+   "claims"
+  ],
+  "type": "object"
+ },
+ "propose_claims.outputSchema": {
+  "properties": {
+   "accepted": {
+    "type": "integer"
+   },
+   "rejected": {
+    "items": {
+     "properties": {
+      "path": {
+       "type": "string"
+      },
+      "message": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "path",
+      "message"
+     ],
+     "type": "object"
+    },
+    "type": "array"
+   },
+   "task_open": {
+    "description": "True when one corrected resubmission is allowed",
+    "type": "boolean"
+   }
+  },
+  "required": [
+   "accepted",
+   "rejected",
+   "task_open"
+  ],
+  "type": "object"
+ },
+ "strict_bad_item": {
+  "is_error": true,
+  "content": [
+   {
+    "type": "text",
+    "text": "1 validation error for call[propose_strict]\nbatch.claims.1.predicate\n  Input should be 'has_parameter' or 'defined_as' [type=literal_error, input_value='has_parametr', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/literal_error"
+   }
+  ],
+  "structured": null
+ },
+ "loose_bad_item": {
+  "is_error": false,
+  "data_type": "Root",
+  "structured": {
+   "accepted": 1,
+   "rejected": [
+    {
+     "path": "claims[1].predicate",
+     "message": "Input should be 'has_parameter' or 'defined_as'"
+    }
+   ],
+   "task_open": true
+  },
+  "content": [
+   {
+    "type": "text",
+    "text": "{\"accepted\":1,\"rejected\":[{\"path\":\"claims[1].predicate\",\"message\":\"Input should be 'has_parameter' or 'defined_as'\"}],\"task_open\":true}"
+   }
+  ]
+ },
+ "read_unit": {
+  "content": [
+   {
+    "type": "text",
+    "text": "Suppose X is normal with mean mu ...\n[c1] Let a, b be real."
+   }
+  ],
+  "structured": {
+   "task_id": "t1",
+   "part": 0,
+   "parts": 1
+  }
+ },
+ "threads": {
+  "tool_thread": 126427938854592,
+  "loop_thread": 126428024485696
+ },
+ "lifespan_entries_after_two_clients": 2
+}

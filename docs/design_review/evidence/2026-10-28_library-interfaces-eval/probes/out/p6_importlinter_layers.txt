@@ -1,0 +1,21 @@
+== 1 D9 as written, downward imports only: exit 0
+   Contracts
+   ---------
+   Analyzed 12 files, 10 dependencies.
+   -----------------------------------
+   D9 §1 dependency direction KEPT
+   Contracts: 1 kept, 0 broken.
+== 2 D9 as written, intervene imports serve: exit 1
+   Broken contracts
+   ----------------
+   D9 §1 dependency direction
+   --------------------------
+   corpus_structure.intervene is not allowed to import corpus_structure.serve:
+   - corpus_structure.intervene -> corpus_structure.serve (l.2)
+== 3 entry points above serve (cli : intervene): exit 0
+   Contracts
+   ---------
+   Analyzed 12 files, 14 dependencies.
+   -----------------------------------
+   D9 §1 dependency direction KEPT
+   Contracts: 1 kept, 0 broken.
