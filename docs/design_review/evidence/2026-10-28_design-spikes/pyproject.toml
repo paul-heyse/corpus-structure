@@ -34,6 +34,15 @@ dependencies = [
     "numpy==2.5.4",
     "pyyaml==6.0.3",
     "pint==0.26.2",
+    # E4a (2026-10-28): S4 rules and schema oracle, S6 storage, the gliner2 and z3 wheels on 3.14
+    "rule-engine==5.1.0",
+    "jsonschema==4.26.0",
+    "z3-solver==5.3.2.0",
+    "psycopg[binary]==3.3.6",
+    "pgvector==0.5.1",
+    "gliner2[local]==2.1.0",
+    # Evidence records (repo tools/evidence), kept as the editable install the venv already had
+    "corpus-evidence==0.1.0",
 ]
 
 [tool.uv]
@@ -41,6 +50,7 @@ package = false
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
+corpus-evidence = { path = "../../../../tools/evidence", editable = true }
 en_core_web_sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
 en_core_web_trf = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl" }
 

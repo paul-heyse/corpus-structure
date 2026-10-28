@@ -1,12 +1,15 @@
-"""E0: record the spike environment and check that every library imports and loads.
+"""E0/E4: record a spike environment and check that every library imports and loads.
 
 Run from the evidence folder:
-    UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/e0_environment.py
-Writes results/environment.json. Exits non-zero if any check fails.
+    UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run python code/e0_environment.py [--name cpu]
+Without --name it runs E0's module set and writes results/environment.json (record e0.environment).
+With --name <env> it runs that environment's module set and checks and writes
+results/environment-<env>.json (E4: `cpu` is record e4.env-cpu). Exits non-zero if any check fails.
 """
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import importlib
 import importlib.metadata as md
@@ -28,6 +31,49 @@ MODULES = [
     "tokenizers", "pydantic", "linkml_runtime.utils.schemaview", "rapidfuzz", "scipy.optimize",
     "statsmodels.stats.inter_rater", "numpy", "yaml",
 ]
+# E4 environments: name -> modules beyond E0's. `cpu` adds S4 (rules, schema oracle, GLiNER2
+# dicts), S6 (PostgreSQL driver, pgvector adapter) and S5's solver.
+ENVIRONMENTS = {
+    "cpu": MODULES + [
+        "rule_engine", "jsonschema", "z3", "psycopg", "pgvector", "pgvector.psycopg", "gliner2",
+        "gliner2.inference.schema", "gliner2.inference.engine", "transformers", "corpus_evidence",
+    ],
+}
+
+
+def extra_checks(name: str, checks: dict[str, str]) -> None:
+    """Functional checks beyond imports for an E4 environment."""
+    if name != "cpu":
+        return
+    try:
+        import z3
+        x, y = z3.Ints("x y")
+        s = z3.Solver()
+        s.add(x + y == 10, x - y == 4)
+        ok = s.check() == z3.sat and s.model()[x].as_long() == 7 and s.model()[y].as_long() == 3
+        checks["z3 trivial solve (x+y=10, x-y=4)"] = "passed (x=7, y=3)" if ok else f"failed: {s.check()}"
+    except Exception as exc:
+        checks["z3 trivial solve (x+y=10, x-y=4)"] = f"failed: {exc!r}"
+    try:
+        from gliner2 import Schema
+        d = Schema().entities(["distribution", "parameter"]).to_dict()
+        ok = Schema.from_dict(d).to_dict() == d
+        checks["gliner2 Schema.from_dict(d).to_dict() == d (entities only)"] = "passed" if ok else f"failed: {d!r}"
+    except Exception as exc:
+        checks["gliner2 Schema.from_dict(d).to_dict() == d (entities only)"] = f"failed: {exc!r}"
+    try:
+        import psycopg
+        impl = psycopg.pq.__impl__
+        checks["psycopg libpq implementation"] = f"passed ({impl})" if impl == "binary" else f"failed: {impl}"
+    except Exception as exc:
+        checks["psycopg libpq implementation"] = f"failed: {exc!r}"
+    try:
+        import rule_engine
+        rule = rule_engine.Rule("kind == 'definition' and size > 2")
+        ok = rule.matches({"kind": "definition", "size": 3}) and not rule.matches({"kind": "theorem", "size": 3})
+        checks["rule_engine trivial rule"] = "passed" if ok else "failed"
+    except Exception as exc:
+        checks["rule_engine trivial rule"] = f"failed: {exc!r}"
 
 
 def snapshot(repo_dir: str) -> dict:
@@ -42,8 +88,11 @@ def snapshot(repo_dir: str) -> dict:
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--name", choices=sorted(ENVIRONMENTS), help="E4 environment; omit for E0")
+    env = ap.parse_args().name
     checks: dict[str, str] = {}
-    for name in MODULES:
+    for name in ENVIRONMENTS[env] if env else MODULES:
         try:
             importlib.import_module(name)
             checks[f"import {name}"] = "passed"
@@ -79,7 +128,11 @@ def main() -> int:
     matched = list(wrapper.query_all("div.unit > p.dfn"))
     checks["cssselect2 over an lxml.html root"] = "passed" if len(matched) == 1 else f"failed: {len(matched)} matches"
 
+    if env:
+        extra_checks(env, checks)
+
     record = {
+        **({"environment": env} if env else {}),
         "recorded": datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
         "python": sys.version,
         "platform": platform.platform(),
@@ -92,7 +145,7 @@ def main() -> int:
         "packages": dict(sorted((d.metadata["Name"].lower(), d.version) for d in md.distributions())),
         "checks": checks,
     }
-    out = HERE / "results" / "environment.json"
+    out = HERE / "results" / (f"environment-{env}.json" if env else "environment.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n")
     failed = {k: v for k, v in checks.items() if not v.startswith("passed")}
