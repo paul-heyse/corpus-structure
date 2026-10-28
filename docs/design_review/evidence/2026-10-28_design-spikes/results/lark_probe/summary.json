@@ -1,0 +1,208 @@
+{
+ "lark": "1.3.1",
+ "values": {
+  "n": 52,
+  "sympy": {
+   "ok": 37,
+   "failed": 15
+  },
+  "extended": {
+   "ok": 51,
+   "failed": 1
+  },
+  "extended_by_start": {
+   "latex_string": 45,
+   "set_expr": 6
+  },
+  "sympy_fail_tokens": [
+   [
+    "\\sigma",
+    3
+   ],
+   [
+    "\\sigma^2",
+    2
+   ],
+   [
+    "\\sigma_i^2",
+    2
+   ],
+   [
+    "\\",
+    2
+   ],
+   [
+    "\\sigma_1^2 +",
+    1
+   ],
+   [
+    "\\sigma_i",
+    1
+   ],
+   [
+    ", \\infty)",
+    1
+   ],
+   [
+    "\\N_+",
+    1
+   ],
+   [
+    "\\R",
+    1
+   ],
+   [
+    "\\R \\setminus",
+    1
+   ]
+  ],
+  "extended_fail_tokens": [
+   [
+    "\\sigma^2",
+    1
+   ]
+  ]
+ },
+ "spans": {
+  "n": 918,
+  "sympy": {
+   "ok": 446,
+   "failed": 452,
+   "ambiguous": 20
+  },
+  "extended": {
+   "ok": 707,
+   "failed": 189,
+   "ambiguous": 22
+  },
+  "extended_by_start": {
+   "latex_string": 603,
+   "member": 107,
+   "set_expr": 19
+  },
+  "sympy_fail_tokens": [
+   [
+    "\\in ",
+    37
+   ],
+   [
+    "\\in \\R",
+    34
+   ],
+   [
+    "\\E",
+    29
+   ],
+   [
+    "\\E\\left",
+    27
+   ],
+   [
+    "\\sigma",
+    21
+   ],
+   [
+    "\\Gamma",
+    16
+   ],
+   [
+    "\\P",
+    15
+   ],
+   [
+    "\\sigma \\in ",
+    14
+   ],
+   [
+    "\\var",
+    13
+   ],
+   [
+    "\\to \\infty",
+    11
+   ],
+   [
+    "\\kur",
+    10
+   ],
+   [
+    "",
+    9
+   ],
+   [
+    "\\gt 0",
+    9
+   ],
+   [
+    "\\skw",
+    8
+   ],
+   [
+    "\\in \\N",
+    8
+   ]
+  ],
+  "extended_fail_tokens": [
+   [
+    "",
+    14
+   ],
+   [
+    "e^",
+    11
+   ],
+   [
+    "\\to \\infty",
+    11
+   ],
+   [
+    ", \\quad x \\i",
+    7
+   ],
+   [
+    "\\to 0",
+    6
+   ],
+   [
+    "<EOF>",
+    6
+   ],
+   [
+    "\\pm",
+    5
+   ],
+   [
+    "= \\int_",
+    5
+   ],
+   [
+    "\\Gamma",
+    4
+   ],
+   [
+    ", X_2, \\ldot",
+    4
+   ],
+   [
+    "\\frac",
+    3
+   ],
+   [
+    "\\to -\\infty",
+    3
+   ],
+   [
+    "\\lt 1",
+    3
+   ],
+   [
+    "\\downarrow 0",
+    3
+   ],
+   [
+    "= e^",
+    3
+   ]
+  ]
+ }
+}

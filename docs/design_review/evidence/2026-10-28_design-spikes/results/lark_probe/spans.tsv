@@ -1,0 +1,919 @@
+kind	latex	sympy	sympy_error	sympy_at	extended	extended_start	extended_error	extended_at	extended_ambig_nodes
+math_inline	X	ok			ok	latex_string			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	\E\left(Z^2\right) = 1	failed	UnexpectedCharacters	\E\left(Z^2\	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	b \in \R \setminus \{0\}	failed	UnexpectedCharacters	\in \R \setm	ok	member			0
+math_inline	k_1 + k_2	ok			ok	latex_string			0
+math_inline	\skw(X) \to 0	failed	UnexpectedCharacters	\skw(X) \to 	failed	latex_string	UnexpectedCharacters	\to 0	
+math_display	\E(X) = \int_0^\infty x \frac{1}{\Gamma(k)} x^{k-1} e^{-x} \, dx = \frac{\Gamma(k + 1)}{\Gamma(k)} = k	failed	UnexpectedCharacters	\E(X) = \int	failed	latex_string	UnexpectedCharacters	e^{-x} \, dx	
+math_inline	p	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	n \in \N	failed	UnexpectedCharacters	\in \N	ok	member			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	F^{-1}(p) = \mu + \sigma \, \Phi^{-1}(p)	failed	UnexpectedCharacters	(p) = \mu + 	failed	latex_string	UnexpectedCharacters	(p) = \mu + 	
+math_inline	dx = du \big/ (1 - t)	failed	UnexpectedCharacters	\big/ (1 - t	failed	latex_string	UnexpectedCharacters	\big/ (1 - t	
+math_inline	f(x) \to 0	failed	UnexpectedCharacters	\to 0	failed	latex_string	UnexpectedCharacters	\to 0	
+math_inline	X_1 + X_2	ok			ok	latex_string			0
+math_inline	z	ok			ok	latex_string			0
+math_inline	\E(X) = b k	failed	UnexpectedCharacters	\E(X) = b k	ok	latex_string			0
+math_inline	\pm	failed	UnexpectedCharacters	\pm	failed	latex_string	UnexpectedCharacters	\pm	
+math_inline	\E(X^n) = b^n k^{[n]} = b^n k (k + 1) \cdots (k + n - 1)	failed	UnexpectedCharacters	\E(X^n) = b^	failed	latex_string	UnexpectedCharacters	k^{[n]} = b^	
+math_inline	F	ok			ok	latex_string			0
+math_inline	u = x(1 - t)	ambiguous			ambiguous	latex_string			1
+math_inline	x \mapsto x^{k-1} e^{-x}	failed	UnexpectedCharacters	\mapsto x^{k	failed	latex_string	UnexpectedCharacters	\mapsto x^{k	
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	b \gt 1	failed	UnexpectedCharacters	\gt 1	ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_display	Z_k = \frac{X_k - k b}{\sqrt{k} b}	failed	UnexpectedCharacters	}	failed	latex_string	UnexpectedCharacters	}	
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	a \le -k	ok			ok	latex_string			0
+math_inline	x \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_display	\E\left[(X - a)^n\right] = b^n \E\left(Z^n\right), \quad n \in \N	failed	UnexpectedCharacters	\E\left[(X -	failed	latex_string	UnexpectedCharacters	\E\left(Z^n\	
+math_inline	n \sigma^2	failed	UnexpectedCharacters	\sigma^2	ok	latex_string			0
+math_inline	P	ok			ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	\E \left[ (X - \mu)^{2 \, n + 1} \right] = 0	failed	UnexpectedCharacters	\E \left[ (X	ok	latex_string			0
+math_inline	b = 100	ok			ok	latex_string			0
+math_inline	c^2 = 2 \pi	failed	UnexpectedCharacters	\pi	ok	latex_string			0
+math_inline	p \in (0, 1)	failed	UnexpectedCharacters	\in (0, 1)	ok	member			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\chi(t) = m(i t)	ambiguous			ambiguous	latex_string			1
+math_inline	t \gt 0	failed	UnexpectedCharacters	\gt 0	ok	latex_string			0
+math_display	\E\left(e^{t X}\right) = \frac{1}{(1 - b t)^k}, \quad t \lt \frac{1}{b}	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	, \quad t \l	
+math_inline	\P(18 \lt X \lt 25) \approx 0.4095	failed	UnexpectedCharacters	\P(18 \lt X 	failed	latex_string	UnexpectedCharacters	\lt 25) \app	
+math_inline	z = 0	ok			ok	latex_string			0
+math_inline	\left(\sqrt{n}\right)^2 \sigma^2 = n \sigma^2	failed	UnexpectedCharacters	\sigma^2 = n	failed	latex_string	UnexpectedCharacters	\sigma^2 = n	
+math_display	\E\left(e^{t X}\right) = \int_0^\infty e^{t x} \frac{1}{\Gamma(k)} x^{k-1} e^{-x} \, dx = \int_0^\infty \frac{1}{\Gamma(k)} x^{k-1} e^{-x(1 - t)} \, dx	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	\frac{1}{\Ga	
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	1 / X = e^{-Y}	ok			ok	latex_string			0
+math_inline	p	ok			ok	latex_string			0
+math_inline	s(x) = (1 / b)r(x / b)	failed	UnexpectedCharacters	(x / b)	failed	latex_string	UnexpectedCharacters	(x / b)	
+math_inline	z \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	x	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	n \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	\phi	ok			ok	latex_string			0
+math_inline	f = F^\prime	ok			ok	latex_string			0
+math_inline	X = \mu + \sigma Z	failed	UnexpectedCharacters	\sigma Z	ok	latex_string			0
+math_display	\begin{align*}   f^\prime(x) &= \frac{1}{\Gamma(k)} x^{k-2} e^{-x}[(k - 1) - x] \\   f^{\prime \prime}(x) &= \frac{1}{\Gamma(k)} x^{k-3} e^{-x} \left[(k - 1)(k - 2) - 2 (k - 1) x + x^2\right]  \end{align*}	failed	UnexpectedCharacters	\begin{align	failed	latex_string	UnexpectedCharacters	\begin{align	
+math_inline	p = F(x)	ambiguous			ambiguous	latex_string			1
+math_inline	x \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\sigma_i^2	failed	UnexpectedCharacters	\sigma_i^2	ok	latex_string			0
+math_inline	i \in \{1, 2, \ldots, n\}	failed	UnexpectedCharacters	\in \{1, 2, 	ok	member			0
+math_inline	b = 1	ok			ok	latex_string			0
+math_inline	\sigma_i	failed	UnexpectedCharacters	\sigma_i	ok	latex_string			0
+math_inline	\sigma^2	failed	UnexpectedCharacters	\sigma^2	ok	latex_string			0
+math_inline	x = u \big/ (1 - t)	failed	UnexpectedCharacters	\big/ (1 - t	failed	latex_string	UnexpectedCharacters	\big/ (1 - t	
+math_inline	f	ok			ok	latex_string			0
+math_inline	Z = (X - \mu) / \sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	\phi^{\prime \prime}(z) = (z^2 - 1) \phi(z)	failed	UnexpectedCharacters	\prime}(z) =	failed	latex_string	UnexpectedCharacters	\prime}(z) =	
+math_inline	X	ok			ok	latex_string			0
+math_inline	c = \sqrt{2 \pi}	failed	UnexpectedCharacters	\pi}	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	n \mu	ok			ok	latex_string			0
+math_inline	\sigma^2 \in (0, \infty)	failed	UnexpectedCharacters	\sigma^2 \in	ok	member			0
+math_inline	D = (0, \infty)	failed	UnexpectedCharacters	, \infty)	failed	latex_string	UnexpectedCharacters	, \infty)	
+math_inline	R = f / \bar{F}	failed	UnexpectedCharacters	\bar{F}	failed	latex_string	UnexpectedCharacters	\bar{F}	
+math_inline	X = a + b Z	ok			ok	latex_string			0
+math_display	\Gamma\left(\frac{1}{2}\right) = \int_0^\infty x^{-1/2} e^{-x} \, dx	failed	UnexpectedCharacters	\Gamma\left(	failed	latex_string	UnexpectedCharacters	e^{-x} \, dx	
+math_inline	\sum_{i=1}^n Y_i	ok			ok	latex_string			0
+math_inline	-\mu	ok			ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	\pm	failed	UnexpectedCharacters	\pm	failed	latex_string	UnexpectedCharacters	\pm	
+math_inline	f(x) \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_display	f(x) = \frac{1}{\Gamma(k)} x^{k-1} e^{-x}, \quad x \in (0, \infty)	failed	UnexpectedCharacters	\Gamma(k)} x	failed	latex_string	UnexpectedCharacters	e^{-x}, \qua	
+math_inline	\infty	ok			ok	latex_string			0
+math_inline	M	ok			ok	latex_string			0
+math_inline	Y = \mu + \sigma Z	failed	UnexpectedCharacters	\sigma Z	ok	latex_string			0
+math_inline	a \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\E(X) = 400	failed	UnexpectedCharacters	\E(X) = 400	ok	latex_string			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	z \to -\infty	failed	UnexpectedCharacters	\to -\infty	failed	latex_string	UnexpectedCharacters	\to -\infty	
+math_inline	t \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	a + b \mu	ok			ok	latex_string			0
+math_inline	r = 1 / b	ok			ok	latex_string			0
+math_display	F(x) = \frac{\Gamma(k, x)}{\Gamma(k)}, \quad x \in (0, \infty)	failed	UnexpectedCharacters	\Gamma(k, x)	failed	latex_string	UnexpectedCharacters	, \quad x \i	
+math_inline	f	ok			ok	latex_string			0
+math_inline	\chi	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\ln X	ok			ok	latex_string			0
+math_inline	F(x) = \Phi \left( \frac{x - \mu}{\sigma} \right)	failed	UnexpectedCharacters	\Phi \left( 	ambiguous	latex_string			1
+math_inline	X	ok			ok	latex_string			0
+math_display	\E\left(\exp\left[t (X_1 + X_2)\right]\right) = \exp\left(\mu_1 t + \sigma_1^2 t^2 / 2\right) \exp\left(\mu_2 t + \sigma_2^2 t^2 / 2\right) = \exp\left[\left(\mu_1 + \mu_2\right)t + \left(\sigma_1^2 + \sigma_2^2\right) t^2 / 2\right]	failed	UnexpectedCharacters	\E\left(\exp	failed	latex_string	UnexpectedCharacters	[t (X_1 + X_	
+math_inline	x \in [0, \infty)	failed	UnexpectedCharacters	\in [0, \inf	ok	member			0
+math_inline	F(\mu) = \frac{1}{2}	ambiguous			ambiguous	latex_string			1
+math_inline	0 \lt k \lt 1	failed	UnexpectedCharacters	\lt k \lt 1	failed	latex_string	UnexpectedCharacters	\lt 1	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_display	\Gamma\left(\frac{1}{2}\right) = \int_0^\infty \sqrt{2} e^{-z^2/2} \, dz = 2 \sqrt{\pi} \int_0^\infty \frac{1}{\sqrt{2 \pi}} e^{-z^2/2} \, dz	failed	UnexpectedCharacters	\Gamma\left(	failed	latex_string	UnexpectedCharacters	^{-z^2/2} \,	
+math_inline	\left(n - \sqrt{n}\right) \mu + \sqrt{n} X	failed	UnexpectedEOF	<EOF>	failed	latex_string	UnexpectedEOF	<EOF>	
+math_inline	Z	ok			ok	latex_string			0
+math_inline	b^2 \sigma^2	failed	UnexpectedCharacters	\sigma^2	failed	latex_string	UnexpectedCharacters	\sigma^2	
+math_inline	\kur(X) = 3 + \frac{6}{k}	failed	UnexpectedCharacters	\kur(X) = 3 	ok	latex_string			0
+math_display	\var(Z) = \E(Z^2) = \int_{-\infty}^\infty z^2 \phi(z) \, dz	failed	UnexpectedCharacters	\var(Z) = \E	failed	latex_string	UnexpectedCharacters	= \int_{-\in	
+math_inline	\sigma^2 \in (0, \infty)	failed	UnexpectedCharacters	\sigma^2 \in	ok	member			0
+math_inline	\mu = 0	ok			ok	latex_string			0
+math_inline	p \in (0, 1)	failed	UnexpectedCharacters	\in (0, 1)	ok	member			0
+math_inline	P	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\phi	ok			ok	latex_string			0
+math_inline	\E\left(Z^n\right) = 0	failed	UnexpectedCharacters	\E\left(Z^n\	ok	latex_string			0
+math_inline	k - 1 \pm \sqrt{k - 1}	failed	UnexpectedCharacters	\pm \sqrt{k 	failed	latex_string	UnexpectedCharacters	\pm \sqrt{k 	
+math_display	F^{-1}(p) = \exp\left[\mu + \sigma \Phi^{-1}(p)\right], \quad p \in (0, 1)	failed	UnexpectedCharacters	(p) = \exp\l	failed	latex_string	UnexpectedCharacters	(p) = \exp\l	
+math_inline	P	ok			ok	latex_string			0
+math_inline	\E\left(e^{t Z}\right) = e^{\frac{1}{2} t^2}	failed	UnexpectedCharacters	\E\left(e^{t	ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+math_inline	G^c	ok			ok	latex_string			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	\sigma = 1	failed	UnexpectedCharacters	\sigma = 1	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	Q	ok			ok	latex_string			0
+math_inline	n \in \N_+	failed	UnexpectedCharacters	\in \N_+	ok	member			0
+math_inline	\ln X	ok			ok	latex_string			0
+math_inline	1 \lt k \le 2	failed	UnexpectedCharacters	\lt k \le 2	failed	latex_string	UnexpectedCharacters	\le 2	
+math_inline	\mu_1 + \mu_2	ok			ok	latex_string			0
+math_inline	\sd(X) = 200	failed	UnexpectedCharacters	\sd(X) = 200	ok	latex_string			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	x = e^y	ok			ok	latex_string			0
+math_inline	-a	ok			ok	latex_string			0
+math_inline	X^a = e^{a Y}	ok			ok	latex_string			0
+math_inline	g	ok			ok	latex_string			0
+math_inline	a \gt -k	failed	UnexpectedCharacters	\gt -k	ok	latex_string			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	X = e^Y	ok			ok	latex_string			0
+math_inline	x \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	z \mapsto e^{-z^2 / 2}	failed	UnexpectedCharacters	\mapsto e^{-	failed	latex_string	UnexpectedCharacters	\mapsto e^{-	
+math_inline	\mu = \sum_{i=1}^n \mu_i	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	x = \mu + \sigma z	failed	UnexpectedCharacters	\sigma z	ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	\P(X \gt 20)	failed	UnexpectedCharacters	\P(X \gt 20)	ok	latex_string			0
+math_inline	n	ok			ok	latex_string			0
+math_inline	\Omega	failed	UnexpectedCharacters	\Omega	ok	latex_string			0
+math_inline	z	ok			ok	latex_string			0
+math_inline	k \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	a \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	a \mu	ok			ok	latex_string			0
+math_inline	k \le 0	ok			ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	n \in \N	failed	UnexpectedCharacters	\in \N	ok	member			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	g	ok			ok	latex_string			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	\E(Z) = 0	failed	UnexpectedCharacters	\E(Z) = 0	ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	x = z^2 / 2	ok			ok	latex_string			0
+math_inline	v = -\phi(z)	ambiguous			ambiguous	latex_string			1
+math_inline	x \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	q = 0.995	ok			ok	latex_string			0
+math_display	m(t) = \E(e^{t Z}) = \int_{-\infty}^\infty e^{t z} \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2} \, dz = \int_{-\infty}^\infty \frac{1}{2 \pi} \exp\left(-\frac{1}{2} z^2 + t z\right) \, dz	failed	UnexpectedCharacters	\E(e^{t Z}) 	failed	latex_string	UnexpectedCharacters	= \int_{-\in	
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	z	ok			ok	latex_string			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	X_i = e^{Y_i}	ok			ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	\sigma = 1	failed	UnexpectedCharacters	\sigma = 1	ok	latex_string			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	\P	failed	UnexpectedCharacters	\P	failed	latex_string	UnexpectedEOF	<EOF>	
+math_inline	X = e^{\mu + \sigma Z}	failed	UnexpectedCharacters	\sigma Z}	ok	latex_string			0
+math_inline	a, \, c \in \R	failed	UnexpectedCharacters	, \, c \in \	failed	latex_string	UnexpectedCharacters	, \, c \in \	
+math_inline	d(x, y) = r \, d(r, \theta)	ok			ok	latex_string			0
+math_inline	g	ok			ok	latex_string			0
+math_inline	x \downarrow 0	failed	UnexpectedCharacters	\downarrow 0	failed	latex_string	UnexpectedCharacters	\downarrow 0	
+math_inline	X = e^\mu W^\sigma	failed	UnexpectedCharacters	W^\sigma	failed	latex_string	UnexpectedCharacters	W^\sigma	
+math_inline	X	ok			ok	latex_string			0
+math_inline	(Y_1, Y_2, \ldots, Y_n)	failed	UnexpectedCharacters	, Y_2, \ldot	failed	latex_string	UnexpectedCharacters	, Y_2, \ldot	
+math_inline	(0, \infty)	failed	UnexpectedCharacters	, \infty)	ok	set_expr			0
+math_inline	F	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	k = 1	ok			ok	latex_string			0
+math_inline	Q	ok			ok	latex_string			0
+math_inline	t \gt 0	failed	UnexpectedCharacters	\gt 0	ok	latex_string			0
+math_inline	t	ok			ok	latex_string			0
+math_inline	\P(X \gt 20) = 0.1597	failed	UnexpectedCharacters	\P(X \gt 20)	ok	latex_string			0
+math_display	f(x) = \P(X = x) = \P\left(Z = \frac{x - a}{b}\right) = g\left(\frac{x - a}{b}\right), \quad x \in \R	failed	UnexpectedCharacters	\P(X = x) = 	failed	latex_string	UnexpectedCharacters	= \P\left(Z 	
+math_inline	k / n	ok			ok	latex_string			0
+math_inline	\ln c + Y	ambiguous			ambiguous	latex_string			1
+math_inline	\var(Z) = 1	failed	UnexpectedCharacters	\var(Z) = 1	ok	latex_string			0
+math_inline	y = r \sin \theta	ok			ok	latex_string			0
+math_inline	a \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_display	f(x) = \frac{1}{b^k \Gamma(k)} \exp\left[(k - 1) \ln x - \frac{1}{b} x\right], \quad x \in (0, \infty)	failed	UnexpectedCharacters	\Gamma(k)} \	failed	latex_string	UnexpectedCharacters	\Gamma(k)} \	
+math_inline	X = b Z	ok			ok	latex_string			0
+math_inline	k \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	X = a + b \, Z	ok			ok	latex_string			0
+math_inline	\chi	ok			ok	latex_string			0
+math_inline	\E(X) = a + b \, \E(Z)	failed	UnexpectedCharacters	\E(X) = a + 	ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_display	c X = c e^Y = e^{\ln c} e^Y = e^{\ln c + Y}	failed	UnexpectedCharacters	= e^{\ln c} 	failed	latex_string	UnexpectedCharacters	= e^{\ln c} 	
+math_inline	X	ok			ok	latex_string			0
+math_inline	X = b Z	ok			ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	a + b X	ok			ok	latex_string			0
+math_inline	G(x) = F(a + b x) = F\left(\frac{x - (-a/b)}{1/b}\right)	failed	UnexpectedCharacters	= F\left(\fr	failed	latex_string	UnexpectedCharacters	= F\left(\fr	
+math_inline	Q	ok			ok	latex_string			0
+math_inline	q = 0.005	ok			ok	latex_string			0
+math_inline	c X	ok			ok	latex_string			0
+math_inline	g	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	s	ok			ok	latex_string			0
+math_inline	g	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	X = e^Y	ok			ok	latex_string			0
+math_inline	\E(Z) = 0	failed	UnexpectedCharacters	\E(Z) = 0	ok	latex_string			0
+math_display	F(x) = G \left( \frac{x - a}{b} \right), \quad x \in \R	failed	UnexpectedCharacters	, \quad x \i	failed	latex_string	UnexpectedCharacters	, \quad x \i	
+math_inline	H	ok			ok	latex_string			0
+math_inline	P	ok			ok	latex_string			0
+math_inline	\skw(X) = \frac{2}{\sqrt{k}}	failed	UnexpectedCharacters	\skw(X) = \f	ok	latex_string			0
+math_inline	Q	ok			ok	latex_string			0
+math_inline	W	ok			ok	latex_string			0
+math_inline	r	ok			ok	latex_string			0
+math_inline	P	ok			ok	latex_string			0
+math_inline	\mu / n	ok			ok	latex_string			0
+math_inline	0 \lt b \lt 1	failed	UnexpectedCharacters	\lt b \lt 1	failed	latex_string	UnexpectedCharacters	\lt 1	
+math_inline	f(x) \gt 0	failed	UnexpectedCharacters	\gt 0	ambiguous	latex_string			1
+math_inline	G^c = 1 - G	ok			ok	latex_string			0
+math_inline	X_1 + X_2 + \cdots + X_n	failed	UnexpectedCharacters	\cdots + X_n	failed	latex_string	UnexpectedCharacters	\cdots + X_n	
+math_display	\frac{f(x)}{g(x)} \to 1 \text{ as } x \to \infty	failed	UnexpectedCharacters	\to 1 \text{	failed	latex_string	UnexpectedCharacters	\to 1 \text{	
+math_inline	x \gt 0	failed	UnexpectedCharacters	\gt 0	ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+math_inline	Q	ok			ok	latex_string			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_display	X = e^Y = e^{\mu + \sigma Z} = e^\mu \left(e^Z\right)^\sigma = e^\mu W^\sigma	failed	UnexpectedCharacters	= e^{\mu + \	failed	latex_string	UnexpectedCharacters	= e^{\mu + \	
+math_inline	\E \left( Z^{2 n} \right) = 1 \cdot 3 \cdots (2n - 1) = (2  n)! \big/ (n! 2^n)	failed	UnexpectedCharacters	\E \left( Z^	failed	latex_string	UnexpectedCharacters	= (2  n)! \b	
+math_inline	a \gt -k	failed	UnexpectedCharacters	\gt -k	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	f(0) = 1	ambiguous			ambiguous	latex_string			1
+math_inline	\skw(X) = \frac{2}{\sqrt{k}}	failed	UnexpectedCharacters	\skw(X) = \f	ok	latex_string			0
+math_display	\int_0^1 x^{k-1} e^{-x}, \, dx \ge e^{-1} \int_0^1 x^{k-1} \, dx = \infty	failed	UnexpectedCharacters	e^{-x}, \, d	failed	latex_string	UnexpectedCharacters	e^{-x}, \, d	
+math_inline	X	ok			ok	latex_string			0
+math_inline	z = 0	ok			ok	latex_string			0
+math_inline	1 / X	ok			ok	latex_string			0
+math_inline	(X_1, X_2, \ldots, X_n)	failed	UnexpectedCharacters	, X_2, \ldot	failed	latex_string	UnexpectedCharacters	, X_2, \ldot	
+math_inline	k = 1	ok			ok	latex_string			0
+math_inline	k \gt 0	failed	UnexpectedCharacters	\gt 0	ok	latex_string			0
+math_inline	\sigma^2	failed	UnexpectedCharacters	\sigma^2	ok	latex_string			0
+math_display	H(X) = -\E[\ln f(X)] = -\E[\ln f(b Z)] = -\E(\ln [ g(Z) / b]) = -\E[\ln g(Z) - \ln b] = H(Z) + \ln b	failed	UnexpectedCharacters	\E[\ln f(X)]	failed	latex_string	UnexpectedCharacters	= -\E[\ln f(	
+math_inline	\sum_{i=1}^n X_i	ok			ok	latex_string			0
+math_inline	X_1 + X_2	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\kur(X) = 3 + \frac{6}{k}	failed	UnexpectedCharacters	\kur(X) = 3 	ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	k = 3	ok			ok	latex_string			0
+math_inline	dv = z \phi(z) \, dz	failed	UnexpectedCharacters	z	failed	latex_string	UnexpectedCharacters	z	
+math_inline	\Phi^{-1}(p) = -\Phi^{-1}(1 - p)	failed	UnexpectedCharacters	\Phi^{-1}(p)	failed	latex_string	UnexpectedCharacters	(p) = -\Phi^	
+math_inline	f, \, g: D \to (0, \infty)	failed	UnexpectedCharacters	, \, g: D \t	failed	latex_string	UnexpectedCharacters	, \, g: D \t	
+math_inline	y_{0.8} = 25.038	failed	UnexpectedCharacters	_{0.8} = 25.	failed	latex_string	UnexpectedCharacters	_{0.8} = 25.	
+math_inline	\var(X) = \sigma^2	failed	UnexpectedCharacters	\var(X) = \s	ok	latex_string			0
+math_inline	n \in \N_+	failed	UnexpectedCharacters	\in \N_+	ok	member			0
+math_inline	X = e^Y	ok			ok	latex_string			0
+math_inline	\left(n - \sqrt{n}\right) \mu + \sqrt{n} \mu = n \mu	failed	UnexpectedCharacters	= n \mu	failed	latex_string	UnexpectedCharacters	= n \mu	
+math_inline	F^c	ok			ok	latex_string			0
+math_inline	x = a + b \, z	ok			ok	latex_string			0
+math_inline	Z = \frac{X - \mu}{\sigma}	failed	UnexpectedCharacters	\sigma}	ok	latex_string			0
+math_display	\Gamma\left(\frac{2 n + 1}{2}\right) = \frac{1 \cdot 3 \cdots (2 n - 1)}{2^n} \sqrt{\pi} = \frac{(2 n)!}{4^n n!} \sqrt{\pi}	failed	UnexpectedCharacters	\Gamma\left(	failed	latex_string	UnexpectedCharacters	= \frac{(2 n	
+math_inline	\left(X, X^2\right)	failed	UnexpectedCharacters	, X^2\right)	ok	set_expr			0
+math_inline	X	ok			ok	latex_string			0
+math_display	\E\left(X^t\right) = \exp \left( \mu t + \frac{1}{2} \sigma^2 t^2 \right)	failed	UnexpectedCharacters	\E\left(X^t\	failed	latex_string	UnexpectedCharacters	t^2 \right)	
+math_display	M(t) = \E\left(e^{tX}\right) = \E\left[e^{t(a + bZ)}\right] = e^{ta} \E\left(e^{t b Z}\right) = e^{a t} m(b t)	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	= \E\left[e^	
+math_inline	P	ok			ok	latex_string			0
+math_inline	q = 0.9	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_display	\int_0^1 x^{k-1} e^{-x} \, dx \le \int_0^1 x^{k-1} \, dx = \frac{1}{k}	failed	UnexpectedCharacters	e^{-x} \, dx	failed	latex_string	UnexpectedCharacters	e^{-x} \, dx	
+math_inline	X	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	X_k	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	k = 1	ok			ok	latex_string			0
+math_inline	\var(Z) = 1	failed	UnexpectedCharacters	\var(Z) = 1	ok	latex_string			0
+math_inline	\sqrt{2 \pi}	failed	UnexpectedCharacters	\pi}	ok	latex_string			0
+math_display	F(x) = \frac{\Gamma(k, x/b)}{\Gamma(k)}, \quad x \in (0, \infty)	failed	UnexpectedCharacters	\Gamma(k, x/	failed	latex_string	UnexpectedCharacters	, \quad x \i	
+math_inline	\mu + \ln c	ok			ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	k = 1	ok			ok	latex_string			0
+math_inline	X = \mu + \sigma Z	failed	UnexpectedCharacters	\sigma Z	ok	latex_string			0
+math_inline	x = \exp\left(\mu - \frac{3}{2} \sigma^2 \pm \frac{1}{2} \sigma \sqrt{\sigma^2 + 4}\right)	failed	UnexpectedCharacters	\sigma^2 \pm	failed	latex_string	UnexpectedCharacters	\pm \frac{1}	
+math_inline	g	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	x \in [0, \infty)	failed	UnexpectedCharacters	\in [0, \inf	ok	member			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	u = z^2 / 2	ok			ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	n / 2	ok			ok	latex_string			0
+math_inline	(X_1, X_2, \ldots, X_n)	failed	UnexpectedCharacters	, X_2, \ldot	failed	latex_string	UnexpectedCharacters	, X_2, \ldot	
+math_inline	[0, \infty)	failed	UnexpectedCharacters	[0, \infty)	ok	set_expr			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\Phi	failed	UnexpectedCharacters	\Phi	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\prod_{i=1}^n X_i	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	(0, \infty)	failed	UnexpectedCharacters	, \infty)	ok	set_expr			0
+math_display	\int_1^\infty x^{k-1} e^{-x} \, dx \le \int_1^\infty x^{n-1} e^{-x} \, dx	failed	UnexpectedCharacters	e^{-x} \, dx	failed	latex_string	UnexpectedCharacters	e^{-x} \, dx	
+math_inline	n \in \N	failed	UnexpectedCharacters	\in \N	ok	member			0
+math_inline	|a| \sigma	failed	UnexpectedCharacters	\sigma	failed	latex_string	UnexpectedEOF	<EOF>	
+math_inline	G(x) = H\left(\frac{x - c}{d}\right)	ambiguous			ambiguous	latex_string			1
+math_inline	i \in \{1, 2, \ldots, n\}	failed	UnexpectedCharacters	\in \{1, 2, 	ok	member			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	\Gamma(1) = 1	failed	UnexpectedCharacters	\Gamma(1) = 	ok	latex_string			0
+math_inline	k - 1	ok			ok	latex_string			0
+math_inline	\chi(t) = e^{-t^2 / 2}	ambiguous			ambiguous	latex_string			1
+math_inline	F^{-1}	ok			ok	latex_string			0
+math_inline	a \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	a Y	ok			ok	latex_string			0
+math_inline	\E(X) = \exp\left(\mu + \frac{1}{2} \sigma^2\right)	failed	UnexpectedCharacters	\E(X) = \exp	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	x = \exp\left(\mu - \sigma^2\right)	failed	UnexpectedCharacters	\sigma^2\rig	ok	latex_string			0
+math_inline	\E(Z) = 0	failed	UnexpectedCharacters	\E(Z) = 0	ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	F	ok			ok	latex_string			0
+math_inline	\kur(Z) = 3	failed	UnexpectedCharacters	\kur(Z) = 3	ok	latex_string			0
+math_inline	k = 10	ok			ok	latex_string			0
+math_inline	\P(X \gt 300) = 13 e^{-3} \approx 0.6472	failed	UnexpectedCharacters	\P(X \gt 300	failed	latex_string	UnexpectedCharacters	\approx 0.64	
+math_inline	a \gt 0	failed	UnexpectedCharacters	\gt 0	ok	latex_string			0
+math_inline	k \in \N	failed	UnexpectedCharacters	\in \N	ok	member			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	a	ok			ok	latex_string			0
+math_inline	G	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	m	ok			ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	n \in \N_+	failed	UnexpectedCharacters	\in \N_+	ok	member			0
+math_display	c^2 = \int_{-\infty}^\infty e^{-x^2 / 2} \, dx \int_{-\infty}^\infty e^{-y^2 / 2} \, dy = \int_{\R^2} e^{-(x^2 + y^2) / 2} \, d(x, y)	failed	UnexpectedCharacters	\int_{-\inft	failed	latex_string	UnexpectedCharacters	\int_{-\inft	
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	z = \pm 1	failed	UnexpectedCharacters	\pm 1	failed	latex_string	UnexpectedCharacters	\pm 1	
+math_display	\E\left(X^2\right) = \int_0^\infty x^2 \frac{1}{\Gamma(k)} x^{k-1} e^{-x} \, dx = \frac{\Gamma(k + 2)}{\Gamma(k)} = (k + 1) k	failed	UnexpectedCharacters	\E\left(X^2\	failed	latex_string	UnexpectedCharacters	\frac{1}{\Ga	
+math_inline	X	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	(\ln X, X)	failed	UnexpectedCharacters	, X)	ok	set_expr			0
+math_inline	n \in \N	failed	UnexpectedCharacters	\in \N	ok	member			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	n	ok			ok	latex_string			0
+math_inline	\theta \in [0, 2 \pi)	failed	UnexpectedCharacters	\in [0, 2 \p	ok	member			0
+math_inline	a \le -k	ok			ok	latex_string			0
+math_inline	\phi(z) \to 0	failed	UnexpectedCharacters	\to 0	failed	latex_string	UnexpectedCharacters	\to 0	
+math_inline	\mu_i \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\E(X^a) = \infty	failed	UnexpectedCharacters	\E(X^a) = \i	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_display	f(x) = \frac{1}{\sigma} \phi\left(\frac{x - \mu}{\sigma}\right) = \frac{1}{\sqrt{2 \, \pi} \, \sigma} \exp \left[ -\frac{1}{2} \left( \frac{x - \mu}{\sigma} \right)^2 \right], \quad x \in \R	failed	UnexpectedCharacters	\sigma} \phi	failed	latex_string	UnexpectedCharacters	= \frac{1}{\	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_display	\Phi(z) = \int_{-\infty}^z \phi(t) \, dt = \int_{-\infty}^z \frac{1}{\sqrt{2 \pi}} e^{-t^2 / 2} \, dt	failed	UnexpectedCharacters	\Phi(z) = \i	failed	latex_string	UnexpectedCharacters	= \int_{-\in	
+math_inline	\sigma^2 = \sum_{i=1}^n \sigma_i^2	failed	UnexpectedCharacters	\sigma^2 = \	ok	latex_string			0
+math_inline	\E(X^a) = \Gamma(a + k) \big/ \Gamma(k)	failed	UnexpectedCharacters	\E(X^a) = \G	failed	latex_string	UnexpectedCharacters	\big/ \Gamma	
+math_inline	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+math_inline	\E\left(e^{t X}\right) = \infty	failed	UnexpectedCharacters	\E\left(e^{t	ok	latex_string			0
+math_inline	G	ok			ok	latex_string			0
+math_inline	x \gt 0	failed	UnexpectedCharacters	\gt 0	ok	latex_string			0
+math_inline	x = a + b z	ok			ok	latex_string			0
+math_inline	r = g / \bar{G}	failed	UnexpectedCharacters	\bar{G}	failed	latex_string	UnexpectedCharacters	\bar{G}	
+math_inline	\kur(X) \to 3	failed	UnexpectedCharacters	\kur(X) \to 	failed	latex_string	UnexpectedCharacters	\to 3	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	\pm	failed	UnexpectedCharacters	\pm	failed	latex_string	UnexpectedCharacters	\pm	
+math_inline	X	ok			ok	latex_string			0
+math_inline	du = dz	ok			ok	latex_string			0
+math_inline	x \gt 0	failed	UnexpectedCharacters	\gt 0	ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	F	ok			ok	latex_string			0
+math_inline	F	ok			ok	latex_string			0
+math_inline	H(X) = H(Z) + \ln b	ambiguous			ambiguous	latex_string			1
+math_inline	\mu = 2	ok			ok	latex_string			0
+math_inline	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+math_inline	b^2 \sigma^2	failed	UnexpectedCharacters	\sigma^2	failed	latex_string	UnexpectedCharacters	\sigma^2	
+math_inline	f(0) = 1	ambiguous			ambiguous	latex_string			1
+math_display	\E\left(Z^{n+1}\right) = -z^n \phi(z) \bigg|_{-\infty}^\infty + \int_{-\infty}^\infty n z^{n-1} \phi(z) \, dz = 0 + n \E\left(Z^{n-1}\right)	failed	UnexpectedCharacters	\E\left(Z^{n	failed	latex_string	UnexpectedCharacters	\phi(z) \big	
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\left(\ln^2(X), \ln X\right)	failed	UnexpectedCharacters	^2(X), \ln X	failed	latex_string	UnexpectedCharacters	^2(X), \ln X	
+math_inline	f(x) \to 0	failed	UnexpectedCharacters	\to 0	failed	latex_string	UnexpectedCharacters	\to 0	
+math_inline	\E \left( Z^{2 n + 1} \right) = 0	failed	UnexpectedCharacters	\E \left( Z^	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	M	ok			ok	latex_string			0
+math_inline	R	ok			ok	latex_string			0
+math_inline	P	ok			ok	latex_string			0
+math_inline	\skw(Z) = 0	failed	UnexpectedCharacters	\skw(Z) = 0	ok	latex_string			0
+math_inline	g	ok			ok	latex_string			0
+math_inline	X_1 + X_2 + \cdots + X_n	failed	UnexpectedCharacters	\cdots + X_n	failed	latex_string	UnexpectedCharacters	\cdots + X_n	
+math_inline	e^\mu	ok			ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	b = 1	ok			ok	latex_string			0
+math_inline	dv = e^{-x} \, dx	failed	UnexpectedCharacters	dx	failed	latex_string	UnexpectedCharacters	dx	
+math_inline	f	ok			ok	latex_string			0
+math_inline	\Phi	failed	UnexpectedCharacters	\Phi	ok	latex_string			0
+math_inline	\P(X = x) = \P\left(Z = \frac{x - a}{b}\right) = 0	failed	UnexpectedCharacters	\P(X = x) = 	failed	latex_string	UnexpectedCharacters	= 0	
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\pm	failed	UnexpectedCharacters	\pm	failed	latex_string	UnexpectedCharacters	\pm	
+math_inline	\kur(X) = 3	failed	UnexpectedCharacters	\kur(X) = 3	ok	latex_string			0
+math_inline	t \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	x \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	X_i	ok			ok	latex_string			0
+math_inline	\kur(X) = e^{4 \sigma^2} + 2 e^{3 \sigma^2} + 3 e^{2 \sigma^2} - 3	failed	UnexpectedCharacters	\kur(X) = e^	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_display	\Gamma(k + 1) = \int_0^\infty x^k e^{-x} \, dx = \left(-x^k e^{-x}\right)_0^\infty + \int_0^\infty k x^{k-1} e^{-x} \, dx = 0 + k \, \Gamma(k)	failed	UnexpectedCharacters	\Gamma(k + 1	failed	latex_string	UnexpectedCharacters	e^{-x} \, dx	
+math_inline	X_i	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	y = \ln x	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	n \sigma^2	failed	UnexpectedCharacters	\sigma^2	ok	latex_string			0
+math_inline	Q	ok			ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	k = 2	ok			ok	latex_string			0
+math_display	\E\left(X^n\right) = \sum_{k=0}^n \binom{n}{k} b^k a^{n - k} \E\left(Z^k\right), \quad n \in \N	failed	UnexpectedCharacters	\E\left(X^n\	failed	latex_string	UnexpectedCharacters	b^k a^{n - k	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	n \in \N	failed	UnexpectedCharacters	\in \N	ok	member			0
+math_inline	\sigma \gt 0	failed	UnexpectedCharacters	\sigma \gt 0	ok	latex_string			0
+math_inline	a	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	-\frac{1}{2} z^2 + t z = -\frac{1}{2}(z - t)^2 + \frac{1}{2}	ok			ok	latex_string			0
+math_inline	k = 1	ok			ok	latex_string			0
+math_inline	X^a	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	y_{0.8} \approx 25.325	failed	UnexpectedCharacters	_{0.8} \appr	failed	latex_string	UnexpectedCharacters	_{0.8} \appr	
+math_inline	b, \, d \in (0, \infty)	failed	UnexpectedCharacters	, \, d \in (	failed	latex_string	UnexpectedCharacters	, \, d \in (	
+math_inline	k	ok			ok	latex_string			0
+math_inline	F	ok			ok	latex_string			0
+math_inline	\sum_{i=1}^n \sigma_i^2	failed	UnexpectedCharacters	\sigma_i^2	ok	latex_string			0
+math_inline	\var(Z) = \int_{-\infty}^\infty \phi(z) \, dz = 1	failed	UnexpectedCharacters	\var(Z) = \i	failed	latex_string	UnexpectedCharacters	= 1	
+math_inline	f	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	X = b Z	ok			ok	latex_string			0
+math_inline	\skw(X) = \skw(Z)	failed	UnexpectedCharacters	\skw(X) = \s	ok	latex_string			0
+math_inline	P	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	k = 4	ok			ok	latex_string			0
+math_inline	\E(X_1 + X_2) = \mu_1 + \mu_2	failed	UnexpectedCharacters	\E(X_1 + X_2	ok	latex_string			0
+math_inline	n \mu	ok			ok	latex_string			0
+math_inline	R	ok			ok	latex_string			0
+math_inline	x \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	X	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	g	ok			ok	latex_string			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	a \in \R \setminus \{0\}	failed	UnexpectedCharacters	\in \R \setm	ok	member			0
+math_inline	0 \lt k \lt 1	failed	UnexpectedCharacters	\lt k \lt 1	failed	latex_string	UnexpectedCharacters	\lt 1	
+math_inline	X_1	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\E(X) = e^{5/2} \approx 12.1825	failed	UnexpectedCharacters	\E(X) = e^{5	failed	latex_string	UnexpectedCharacters	\approx 12.1	
+math_inline	X = e^Y	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	c X	ok			ok	latex_string			0
+math_inline	\skw(Z) = \E\left(Z^3\right) = 0	failed	UnexpectedCharacters	\skw(Z) = \E	failed	latex_string	UnexpectedCharacters	= 0	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\sigma_1^2 + \sigma_2^2	failed	UnexpectedCharacters	\sigma_1^2 +	ok	latex_string			0
+math_inline	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+math_inline	-Y	ok			ok	latex_string			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	F	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	D = \N_+	failed	UnexpectedCharacters	\N_+	failed	latex_string	UnexpectedCharacters	\N_+	
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	(\Omega, \ms F, \P)	failed	UnexpectedCharacters	\Omega, \ms 	failed	latex_string	UnexpectedCharacters	, \ms F, \P)	
+math_inline	\var(X) = \exp\left[2 (\mu + \sigma^2)\right] - \exp\left(2 \mu + \sigma^2\right)	failed	UnexpectedCharacters	\var(X) = \e	failed	latex_string	UnexpectedCharacters	[2 (\mu + \s	
+math_inline	\P(X \gt 45) = 0.0127	failed	UnexpectedCharacters	\P(X \gt 45)	ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	\Phi^{-1}	failed	UnexpectedCharacters	\Phi^{-1}	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	\sd(X) = \sqrt{e^6 - e^5} \approx 15.9629	failed	UnexpectedCharacters	\sd(X) = \sq	failed	latex_string	UnexpectedCharacters	\approx 15.9	
+math_inline	\frac{1}{2}	ok			ok	latex_string			0
+math_display	\Gamma(x + 1) \approx \left( \frac{x}{e} \right)^x \sqrt{2 \pi x} \text{ as } x \to \infty	failed	UnexpectedCharacters	\Gamma(x + 1	failed	latex_string	UnexpectedCharacters	\approx \lef	
+math_inline	a + b X	ok			ok	latex_string			0
+math_inline	\Phi^{-1}	failed	UnexpectedCharacters	\Phi^{-1}	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	x = \mu \pm \sigma	failed	UnexpectedCharacters	\pm \sigma	failed	latex_string	UnexpectedCharacters	\pm \sigma	
+math_inline	X	ok			ok	latex_string			0
+math_inline	0 \lt k \le 1	failed	UnexpectedCharacters	\lt k \le 1	failed	latex_string	UnexpectedCharacters	\le 1	
+math_inline	\Gamma\left(\frac{1}{2}\right) = \sqrt{\pi}	failed	UnexpectedCharacters	\Gamma\left(	ok	latex_string			0
+math_display	\E\left(e^{t X}\right) = \E\left(e^{t \mu + t \sigma Z}\right) = e^{t \mu} \E\left(e^{t \sigma Z}\right) = e^{t \mu} e^{\frac{1}{2} t^2 \sigma^2} = e^{t \mu + \frac{1}{2} \sigma^2 t^2}	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	= e^{t \mu} 	
+math_inline	a \gt -k	failed	UnexpectedCharacters	\gt -k	ok	latex_string			0
+math_inline	P	ok			ok	latex_string			0
+math_inline	\left( -1 / 2 \sigma^2, \mu / \sigma^2 \right)	failed	UnexpectedCharacters	\sigma^2, \m	failed	latex_string	UnexpectedCharacters	\sigma^2, \m	
+math_inline	X_1 + X_2 + \cdots + X_n	failed	UnexpectedCharacters	\cdots + X_n	failed	latex_string	UnexpectedCharacters	\cdots + X_n	
+math_inline	G	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	x \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_display	\E\left(Z^{n+1}\right) = \int_{-\infty}^\infty z^{n+1} \phi(z) \, dz = \int_{-\infty}^\infty z^n z \phi(z) \, dz = - \int_{-\infty}^\infty z^n \phi^\prime(z) \, dz	failed	UnexpectedCharacters	\E\left(Z^{n	failed	latex_string	UnexpectedCharacters	\phi(z) \, d	
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	k - 1 + \sqrt{k - 1}	ok			ok	latex_string			0
+math_inline	0 \lt k \le 1	failed	UnexpectedCharacters	\lt k \le 1	failed	latex_string	UnexpectedCharacters	\le 1	
+math_inline	Z	ok			ok	latex_string			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	\var(X) = b^2 \, \var(Z)	failed	UnexpectedCharacters	\var(X) = b^	failed	latex_string	UnexpectedCharacters	\var(Z)	
+math_inline	dv = \phi^\prime(z) \, dz	failed	UnexpectedCharacters	(z) \, dz	failed	latex_string	UnexpectedCharacters	(z) \, dz	
+math_inline	Z	ok			ok	latex_string			0
+math_inline	z \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	\left( \frac{\mu}{\sigma^2}, -\frac{1}{2 \, \sigma^2} \right)	failed	UnexpectedCharacters	\sigma^2}, -	ok	set_expr			0
+math_inline	\var(X)	failed	UnexpectedCharacters	\var(X)	ok	latex_string			0
+math_inline	F^{-1}(p) = a + b \, G^{-1}(p)	failed	UnexpectedCharacters	(p) = a + b 	failed	latex_string	UnexpectedCharacters	(p) = a + b 	
+math_inline	x \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	X_i	ok			ok	latex_string			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	\skw(X) = \left(e^{\sigma^2} + 2\right) \sqrt{e^{\sigma^2} - 1}	failed	UnexpectedCharacters	\skw(X) = \l	failed	latex_string	UnexpectedCharacters	\sqrt{e^{\si	
+math_inline	X	ok			ok	latex_string			0
+math_display	F(x) = \P(X \le x) = \P\left(Z \le \frac{\ln x - \mu}{\sigma}\right) = \Phi \left( \frac{\ln x - \mu}{\sigma} \right)	failed	UnexpectedCharacters	\P(X \le x) 	failed	latex_string	UnexpectedCharacters	= \P\left(Z 	
+math_inline	X = \mu + \sigma Z	failed	UnexpectedCharacters	\sigma Z	ok	latex_string			0
+math_inline	X = b Z	ok			ok	latex_string			0
+math_inline	n \in \N_+	failed	UnexpectedCharacters	\in \N_+	ok	member			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	R	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	c \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	X_2	ok			ok	latex_string			0
+math_inline	\E(X)	failed	UnexpectedCharacters	\E(X)	ok	latex_string			0
+math_inline	k \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	R	ok			ok	latex_string			0
+math_inline	\ln c + \mu	ambiguous			ambiguous	latex_string			1
+math_display	\E\left(e^{t X}\right) = \frac{1}{(1 - b t)^{k_1}} \frac{1}{(1 - b t)^{k_2}} = \frac{1}{(1 - b t)^{k_1 + k_2}}, \quad t \lt \frac{1}{b}	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	= \frac{1}{(	
+math_inline	\skw(X) = 0	failed	UnexpectedCharacters	\skw(X) = 0	ok	latex_string			0
+math_display	\Gamma(k + n) = k (k + 1) \cdots (k + n - 1) \Gamma(k), \quad n \in \N_+	failed	UnexpectedCharacters	\Gamma(k + n	failed	latex_string	UnexpectedCharacters	\Gamma(k), \	
+math_inline	X = a + b \, Z	ok			ok	latex_string			0
+math_inline	x = r \cos \theta	ok			ok	latex_string			0
+math_inline	r = 1 / b	ok			ok	latex_string			0
+math_display	f(x) = g\left(\frac{x - a}{b}\right), \quad x \in \R	failed	UnexpectedCharacters	, \quad x \i	failed	latex_string	UnexpectedCharacters	, \quad x \i	
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	n \in \N_+	failed	UnexpectedCharacters	\in \N_+	ok	member			0
+math_inline	F^c = 1 - F	ok			ok	latex_string			0
+math_inline	\E\left(e^{t X}\right) = \E\left[e^{(t b )Z}\right]	failed	UnexpectedCharacters	\E\left(e^{t	ok	latex_string			0
+math_display	f(x) = \frac{1}{\sqrt{2 \pi} \sigma} \exp\left(-\frac{\mu^2}{2 \sigma^2}\right) \exp\left(\frac{\mu}{\sigma^2} x - \frac{1}{2 \sigma^2} x^2 \right), \quad x \in \R	failed	UnexpectedCharacters	\pi} \sigma}	failed	latex_string	UnexpectedCharacters	} \exp\left(	
+math_inline	W = e^Z	ok			ok	latex_string			0
+math_inline	|a| \sigma	failed	UnexpectedCharacters	\sigma	failed	latex_string	UnexpectedEOF	<EOF>	
+math_inline	z = 0	ok			ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	x \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	a = 0	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_display	f(x) = \frac{1}{\sqrt{2 \pi} \sigma x} \exp \left[-\frac{\left(\ln x - \mu\right)^2}{2  \sigma^2} \right], \quad x \in (0, \infty)	failed	UnexpectedCharacters	\pi} \sigma 	failed	latex_string	UnexpectedCharacters	x} \exp \lef	
+math_inline	f	ok			ok	latex_string			0
+math_display	\E(Z) = \int_{-\infty}^\infty z \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2} \, dz  = \int_{-\infty}^0 z \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2} \, dz  + \int_0^\infty z \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2} \, dz	failed	UnexpectedCharacters	\E(Z) = \int	failed	latex_string	UnexpectedCharacters	= \int_{-\in	
+math_inline	G	ok			ok	latex_string			0
+math_inline	n \in \N	failed	UnexpectedCharacters	\in \N	ok	member			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	\int_0^{2 \pi} 1 \, d\theta = 2 \pi	failed	UnexpectedCharacters	\pi} 1 \, d\	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\Gamma(k + 1) = k \, \Gamma(k)	failed	UnexpectedCharacters	\Gamma(k + 1	ok	latex_string			0
+math_display	\E(e^{t Z}) = e^{\frac{1}{2} t^2} \int_{-\infty}^\infty \frac{1}{\sqrt{2 \pi}} \exp\left[-\frac{1}{2}(z - t)^2\right] \, dz	failed	UnexpectedCharacters	\E(e^{t Z}) 	failed	latex_string	UnexpectedCharacters	\int_{-\inft	
+math_inline	g	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	a	ok			ok	latex_string			0
+math_inline	\Gamma	failed	UnexpectedCharacters	\Gamma	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\int_0^\infty e^{-u} \, du = 1	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	F	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	q = 0.1	ok			ok	latex_string			0
+math_inline	W = e^Z	ok			ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	(k - 1) b	ok			ok	latex_string			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	\left(n - \sqrt{n}\right) \mu + \sqrt{n} X	failed	UnexpectedEOF	<EOF>	failed	latex_string	UnexpectedEOF	<EOF>	
+math_inline	(\Omega, \mathscr F)	failed	UnexpectedCharacters	\Omega, \mat	failed	latex_string	UnexpectedCharacters	, \mathscr F	
+math_inline	Y	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	Q	ok			ok	latex_string			0
+math_display	\phi(z) = \frac{1}{\sqrt{2 \pi}} e^{-z^2 / 2}, \quad z \in \R	failed	UnexpectedCharacters	\pi}} e^{-z^	failed	latex_string	UnexpectedCharacters	, \quad z \i	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\chi(t) =\exp \left( i \mu t - \frac{1}{2} \sigma^2 t^2 \right)	failed	UnexpectedCharacters	\sigma^2 t^2	failed	latex_string	UnexpectedCharacters	t^2 \right)	
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	m	ok			ok	latex_string			0
+math_inline	z \to -\infty	failed	UnexpectedCharacters	\to -\infty	failed	latex_string	UnexpectedCharacters	\to -\infty	
+math_inline	u = z	ok			ok	latex_string			0
+math_inline	\phi^\prime(z) = - z \phi(z)	failed	UnexpectedCharacters	(z) = - z \p	failed	latex_string	UnexpectedCharacters	(z) = - z \p	
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	a = 0	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	X_2	ok			ok	latex_string			0
+math_inline	\P(X \le x) = \P(Z \le x/b)	failed	UnexpectedCharacters	\P(X \le x) 	ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	k \gt 1	failed	UnexpectedCharacters	\gt 1	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	a \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	e^Y	ok			ok	latex_string			0
+math_inline	Q	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_display	\E(X^a) = \int_0^\infty x^a \frac{1}{\Gamma(k)} x^{k-1} e^{-x} \, dx = \frac{1}{\Gamma(k)} \int_0^\infty x^{a + k} e^{-x} \, dx = \frac{\Gamma(a + k)}{\Gamma(k)}	failed	UnexpectedCharacters	\E(X^a) = \i	failed	latex_string	UnexpectedCharacters	\frac{1}{\Ga	
+math_inline	\prod_{i=1}^n X_i = \exp\left(\sum_{i=1}^n Y_i\right)	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+math_display	F(x) = G \left( \frac{x - a}{b} \right), \quad x \in \R	failed	UnexpectedCharacters	, \quad x \i	failed	latex_string	UnexpectedCharacters	, \quad x \i	
+math_display	c^2 = \int_0^{2 \pi} \int_0^\infty r e^{-r^2 / 2} \, dr \, d\theta	failed	UnexpectedCharacters	\pi} \int_0^	ok	latex_string			0
+math_inline	k \gt 1	failed	UnexpectedCharacters	\gt 1	ok	latex_string			0
+math_inline	\E\left(X^t\right) = \E\left(e^{t Y}\right)	failed	UnexpectedCharacters	\E\left(X^t\	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	\kur(X) - 3 \to 0	failed	UnexpectedCharacters	\kur(X) - 3 	failed	latex_string	UnexpectedCharacters	\to 0	
+math_inline	\E(X^n) = k^{[n]} = k (k + 1) \cdots (k + n - 1)	failed	UnexpectedCharacters	\E(X^n) = k^	failed	latex_string	UnexpectedCharacters	[n]} = k (k 	
+math_inline	X	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\mu_i	ok			ok	latex_string			0
+math_display	\frac{X - \E(X)}{\sd(X)} = \frac{a + b Z - [a + b \E(Z)]}{b \sd(Z)} = \frac{Z - \E(Z)}{\sd(Z)}	failed	UnexpectedCharacters	\E(X)}{\sd(X	failed	latex_string	UnexpectedCharacters	[a + b \E(Z)	
+math_inline	u = z - t	ok			ok	latex_string			0
+math_inline	k \ge 1	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\E(X) = k	failed	UnexpectedCharacters	\E(X) = k	ok	latex_string			0
+math_inline	T = \{a + b z: z \in S\}	failed	UnexpectedCharacters	\{a + b z: z	failed	latex_string	UnexpectedCharacters	\{a + b z: z	
+math_inline	t \lt 1	failed	UnexpectedCharacters	\lt 1	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	k \gt 2	failed	UnexpectedCharacters	\gt 2	ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	F(x) = H\left(\frac{x - (a + bc)}{bd}\right)	ambiguous			ambiguous	latex_string			1
+math_inline	X	ok			ok	latex_string			0
+math_inline	\Phi^{-1}	failed	UnexpectedCharacters	\Phi^{-1}	ok	latex_string			0
+math_inline	F	ok			ok	latex_string			0
+math_inline	p	ok			ok	latex_string			0
+math_display	\frac{X - \E(X)}{\sd(X)} = \frac{Z - \E(Z)}{\sd(Z)}	failed	UnexpectedCharacters	\E(X)}{\sd(X	ok	latex_string			0
+math_inline	z	ok			ok	latex_string			0
+math_inline	(0, \infty)	failed	UnexpectedCharacters	, \infty)	ok	set_expr			0
+math_inline	\Phi	failed	UnexpectedCharacters	\Phi	ok	latex_string			0
+math_inline	f(x) = \frac{1}{b} g\left(\frac{x}{b}\right)	ambiguous			ambiguous	latex_string			1
+math_inline	\Gamma(k + 1) = k!	failed	UnexpectedCharacters	\Gamma(k + 1	ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	a \lt 0	failed	UnexpectedCharacters	\lt 0	ok	latex_string			0
+math_inline	\var(X_1 + X_2) = \sigma_1^2 + \sigma_2^2	failed	UnexpectedCharacters	\var(X_1 + X	ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	\E(X^a) = b^a \Gamma(a + k) \big/ \Gamma(k)	failed	UnexpectedCharacters	\E(X^a) = b^	failed	latex_string	UnexpectedCharacters	\Gamma(a + k	
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\var(X) = b^2 \var(Z) = b^2 k	failed	UnexpectedCharacters	\var(X) = b^	failed	latex_string	UnexpectedCharacters	\var(Z) = b^	
+math_inline	\chi(t) = M(i t)	ambiguous			ambiguous	latex_string			1
+math_inline	(0, \infty)	failed	UnexpectedCharacters	, \infty)	ok	set_expr			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	b \left(k - 1 \pm \sqrt{k - 1}\right)	failed	UnexpectedCharacters	\pm \sqrt{k 	failed	latex_string	UnexpectedCharacters	\pm \sqrt{k 	
+math_inline	\sigma = 1	failed	UnexpectedCharacters	\sigma = 1	ok	latex_string			0
+math_display	\int_0^\infty x^{k-1} e^{-x} \, dx = \int_0^1 x^{k-1} e^{-x} \, dx + \int_1^\infty x^{k-1} e^{-x} \, dx	failed	UnexpectedCharacters	e^{-x} \, dx	failed	latex_string	UnexpectedCharacters	e^{-x} \, dx	
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\phi^\prime(z) = - z \phi(z)	failed	UnexpectedCharacters	(z) = - z \p	failed	latex_string	UnexpectedCharacters	(z) = - z \p	
+math_display	\E\left(e^{t Y}\right) = \exp\left(\mu t + \frac{1}{2} \sigma^2 t^2\right), \quad t \in \R	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	t^2\right), 	
+math_inline	\phi	ok			ok	latex_string			0
+math_inline	x = \mu	ok			ok	latex_string			0
+math_inline	c = \sqrt{2 \pi}	failed	UnexpectedCharacters	\pi}	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	X = b Z	ok			ok	latex_string			0
+math_inline	k \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	(X_1, X_2, \ldots, X_n)	failed	UnexpectedCharacters	, X_2, \ldot	failed	latex_string	UnexpectedCharacters	, X_2, \ldot	
+math_inline	\Phi(-z) = 1 - \Phi(z)	failed	UnexpectedCharacters	\Phi(-z) = 1	ok	latex_string			0
+math_inline	E(X^a) = b^a \E(Z^a)	failed	UnexpectedCharacters	\E(Z^a)	failed	latex_string	UnexpectedCharacters	\E(Z^a)	
+math_inline	\mu = 2	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\E \left[ (X - \mu)^{2 n} \right] = 1 \cdot 3 \cdots (2n - 1) \sigma^{2n} = (2 n)! \sigma^{2n} \big/ (n! 2^n)	failed	UnexpectedCharacters	\E \left[ (X	failed	latex_string	UnexpectedCharacters	\sigma^{2n} 	
+math_inline	-\mu	ok			ok	latex_string			0
+math_inline	F(x) = G\left(\frac{x - a}{b}\right)	ambiguous			ambiguous	latex_string			1
+math_inline	x \downarrow 0	failed	UnexpectedCharacters	\downarrow 0	failed	latex_string	UnexpectedCharacters	\downarrow 0	
+math_display	\chi = \sqrt{2 \pi} \phi	failed	UnexpectedCharacters	\pi} \phi	failed	latex_string	UnexpectedEOF	<EOF>	
+math_inline	X	ok			ok	latex_string			0
+math_inline	\E(Z) = -1/\sqrt{2 \pi} + 1/\sqrt{2 \pi} = 0	failed	UnexpectedCharacters	\E(Z) = -1/\	failed	latex_string	UnexpectedCharacters	= 0	
+math_inline	\phi	ok			ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	\Gamma(k + n) = k (k + 1) \cdots (k + n - 1) \Gamma(k)	failed	UnexpectedCharacters	\Gamma(k + n	failed	latex_string	UnexpectedCharacters	\Gamma(k)	
+math_inline	\infty	ok			ok	latex_string			0
+math_inline	\int_{-\infty}^\infty \phi(u) \, du = 1	ambiguous			ambiguous	latex_string			1
+math_display	\kur(X) - 3 = e^{4 \sigma^2} + 2 e^{3 \sigma^2} + 3 e^{2 \sigma^2} - 6	failed	UnexpectedCharacters	\kur(X) - 3 	ok	latex_string			0
+math_inline	u = x^k	ok			ok	latex_string			0
+math_inline	(X_1, X_2, \ldots, X_n)	failed	UnexpectedCharacters	, X_2, \ldot	failed	latex_string	UnexpectedCharacters	, X_2, \ldot	
+math_inline	u = z^n	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	\ms F	failed	UnexpectedCharacters	\ms F	failed	latex_string	UnexpectedCharacters	\ms F	
+math_inline	X	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	1 \lt k \le 2	failed	UnexpectedCharacters	\lt k \le 2	failed	latex_string	UnexpectedCharacters	\le 2	
+math_inline	Z	ok			ok	latex_string			0
+math_inline	n \in \N	failed	UnexpectedCharacters	\in \N	ok	member			0
+math_inline	\sd(X) = b \, \sd(Z)	failed	UnexpectedCharacters	\sd(X) = b \	ok	latex_string			0
+math_inline	c = \int_{-\infty}^{\infty} e^{-z^2 / 2} dz	ok			ok	latex_string			0
+math_inline	k \le 0	ok			ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	t \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	x = \mu	ok			ok	latex_string			0
+math_inline	g	ok			ok	latex_string			0
+math_inline	X = X_1 + X_2	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	k b	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	\P(18 \lt X \lt 25)	failed	UnexpectedCharacters	\P(18 \lt X 	failed	latex_string	UnexpectedCharacters	\lt 25)	
+math_inline	\P(Y - X \lt 0) = 0.0028	failed	UnexpectedCharacters	\P(Y - X \lt	ok	latex_string			0
+math_inline	x \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	z \phi(z) \to 0	failed	UnexpectedCharacters	\to 0	failed	latex_string	UnexpectedCharacters	\to 0	
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	x \to -\infty	failed	UnexpectedCharacters	\to -\infty	failed	latex_string	UnexpectedCharacters	\to -\infty	
+math_inline	b c	ok			ok	latex_string			0
+math_inline	p \in (0, 1)	failed	UnexpectedCharacters	\in (0, 1)	ok	member			0
+math_inline	\Phi	failed	UnexpectedCharacters	\Phi	ok	latex_string			0
+math_inline	X = e^Y	ok			ok	latex_string			0
+math_inline	\E(X^a) = \infty	failed	UnexpectedCharacters	\E(X^a) = \i	ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	X = e^Y	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\phi	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	X_1 + X_2	ok			ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	t \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	F(x) = G\left(\frac{x - a}{b}\right)	ambiguous			ambiguous	latex_string			1
+math_inline	m(t) =  e^{t^2 / 2}	ambiguous			ambiguous	latex_string			1
+math_inline	a	ok			ok	latex_string			0
+math_inline	k \gt 2	failed	UnexpectedCharacters	\gt 2	ok	latex_string			0
+math_inline	X = b Z	ok			ok	latex_string			0
+math_inline	(0, 5)	failed	UnexpectedCharacters	, 5)	ok	set_expr			0
+math_inline	b \left(k - 1 + \sqrt{k - 1}\right)	ambiguous			ambiguous	latex_string			1
+math_inline	\sum_{i=1}^n \mu_i	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	X_1	ok			ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\mu_i	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	W	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\phi	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\kur(Z) = \E\left(Z^4\right) = 3	failed	UnexpectedCharacters	\kur(Z) = \E	failed	latex_string	UnexpectedCharacters	= 3	
+math_inline	g = G^\prime	ok			ok	latex_string			0
+math_inline	X = \mu + \sigma Z	failed	UnexpectedCharacters	\sigma Z	ok	latex_string			0
+math_inline	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+math_inline	\E\left(Z^6\right) = 1 \cdot 3 \cdot 5	failed	UnexpectedCharacters	\E\left(Z^6\	ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	b = 2	ok			ok	latex_string			0
+math_display	\E\left(e^{t X}\right) = \frac{1}{(1 - t)^k}, \quad t \lt 1	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	, \quad t \l	
+math_display	\Gamma(k, x) = \int_0^x t^{k-1} e^{-t} \, dt, \quad k, x \in (0, \infty)	failed	UnexpectedCharacters	\Gamma(k, x)	failed	latex_string	UnexpectedCharacters	e^{-t} \, dt	
+math_inline	S \subset \R	failed	UnexpectedCharacters	\subset \R	failed	latex_string	UnexpectedCharacters	\subset \R	
+math_inline	k	ok			ok	latex_string			0
+math_inline	[0, \infty)	failed	UnexpectedCharacters	[0, \infty)	ok	set_expr			0
+math_inline	\pm	failed	UnexpectedCharacters	\pm	failed	latex_string	UnexpectedCharacters	\pm	
+math_inline	k	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	\frac{1}{2}	ok			ok	latex_string			0
+math_inline	x = \mu	ok			ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	x \downarrow 0	failed	UnexpectedCharacters	\downarrow 0	failed	latex_string	UnexpectedCharacters	\downarrow 0	
+math_display	f(x) = \frac{1}{\Gamma(k) b^k} x^{k-1} e^{-x/b}, \quad x \in (0, \infty)	failed	UnexpectedCharacters	\Gamma(k) b^	failed	latex_string	UnexpectedCharacters	^k} x^{k-1} 	
+math_inline	X	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\Phi	failed	UnexpectedCharacters	\Phi	ok	latex_string			0
+math_inline	x \gt 0	failed	UnexpectedCharacters	\gt 0	ok	latex_string			0
+math_display	\E\left(e^{t X}\right) = \frac{1}{(1 - t)^k} \int_0^\infty \frac{1}{\Gamma(k)} u^{k-1} e^{-u} \, du = \frac{1}{(1 - t)^k}	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	e^{-u} \, du	
+math_inline	Z	ok			ok	latex_string			0
+math_inline	P	ok			ok	latex_string			0
+math_inline	\E\left(Z^n\right) = m^{(n)}(0)	failed	UnexpectedCharacters	\E\left(Z^n\	failed	latex_string	UnexpectedCharacters	(0)	
+math_display	g(y) = \frac{1}{\sqrt{2 \pi} \sigma} \exp\left[-\frac{1}{2}\left(\frac{y - \mu}{\sigma}\right)^2\right], \quad y \in \R	failed	UnexpectedCharacters	\pi} \sigma}	failed	latex_string	UnexpectedCharacters	} \exp\left[	
+math_inline	f	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	x = a + b z	ok			ok	latex_string			0
+math_inline	b	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	\E(X) = \mu	failed	UnexpectedCharacters	\E(X) = \mu	ok	latex_string			0
+math_inline	F^c(x) = G^c(x / b)	ok			ok	latex_string			0
+math_inline	q = 0.95	ok			ok	latex_string			0
+math_display	f(x) = \frac{1}{b} \, g \left( \frac{x - a}{b} \right), \quad x \in \R	failed	UnexpectedCharacters	, \quad x \i	failed	latex_string	UnexpectedCharacters	, \quad x \i	
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_display	f(x) = \frac{1}{\sqrt{2 \pi} \sigma} \exp\left(-\frac{\mu^2}{2 \sigma^2}\right) \frac{1}{x} \exp\left[-\frac{1}{2 \sigma^2} \ln^2(x) + \frac{\mu}{\sigma^2} \ln x\right], \quad x \in (0, \infty)	failed	UnexpectedCharacters	\pi} \sigma}	failed	latex_string	UnexpectedCharacters	} \exp\left(	
+math_inline	b \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_display	F(x) = \P(X \le x) = \P(a + b Z \le x) = \P\left(Z \le \frac{x - a}{b}\right) = G\left(\frac{x - a}{b}\right)	failed	UnexpectedCharacters	\P(X \le x) 	failed	latex_string	UnexpectedCharacters	= \P(a + b Z	
+math_inline	k b^2	ok			ok	latex_string			0
+math_inline	\var(X) = b^2 k	failed	UnexpectedCharacters	\var(X) = b^	failed	latex_string	UnexpectedCharacters	k	
+math_display	f(x) = g(y) \frac{dy}{dx} = g\left(\ln x\right) \frac{1}{x}	failed	UnexpectedCharacters	= g\left(\ln	failed	latex_string	UnexpectedCharacters	= g\left(\ln	
+math_inline	(k - 1, -1 / b)	failed	UnexpectedCharacters	, -1 / b)	ok	set_expr			0
+math_inline	M(t) = \exp \left( \mu t + \frac{1}{2} \sigma^2 t^2 \right)	failed	UnexpectedCharacters	\sigma^2 t^2	failed	latex_string	UnexpectedCharacters	t^2 \right)	
+math_inline	\E(X) = b \E(Z) = b k	failed	UnexpectedCharacters	\E(X) = b \E	failed	latex_string	UnexpectedCharacters	= b k	
+math_inline	\E\left(Z^{n+1}\right) = n \E\left(Z^{n-1}\right)	failed	UnexpectedCharacters	\E\left(Z^{n	ok	latex_string			0
+math_inline	\kur(X) = \kur(Z)	failed	UnexpectedCharacters	\kur(X) = \k	ok	latex_string			0
+math_inline	t \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	X = \mu + \sigma Z	failed	UnexpectedCharacters	\sigma Z	ok	latex_string			0
+math_inline	X_1	ok			ok	latex_string			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_display	\E\left(e^{t X}\right) = \E\left(e^{t e^Y}\right) = \int_{-\infty}^\infty \exp(t e^y) \frac{1}{\sqrt{2 \pi} \sigma} \exp\left[-\frac{1}{2}\left(\frac{y - \mu}{\sigma}\right)^2\right] dy = \frac{1}{\sqrt{2 \pi} \sigma} \int_{-\infty}^\infty \exp\left[t e^y - \frac{1}{2} \left(\frac{y - \mu}{\sigma}\right)^2\right] dy	failed	UnexpectedCharacters	\E\left(e^{t	failed	latex_string	UnexpectedCharacters	= \int_{-\in	
+math_inline	r \in [0, \infty)	failed	UnexpectedCharacters	\in [0, \inf	ok	member			0
+math_inline	f	ok			ok	latex_string			0
+math_inline	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+math_inline	X = b Z	ok			ok	latex_string			0
+math_inline	\var(X) = k	failed	UnexpectedCharacters	\var(X) = k	ok	latex_string			0
+math_inline	z \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	X	ok			ok	latex_string			0
+math_display	\E\left[e^{t (a + b X)}\right] = e^{ta} \E\left[e^{(t b) X}\right] = e^{ta} e^{\mu (t b) + \sigma^2 (t b)^2 / 2} = e^{(a + b \mu)t + b^2 \sigma^2 t^2 / 2}	failed	UnexpectedCharacters	\E\left[e^{t	failed	latex_string	UnexpectedCharacters	\E\left[e^{(	
+math_inline	c X = c b Z	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	\sigma_i \in (0, \infty)	failed	UnexpectedCharacters	\sigma_i \in	ok	member			0
+math_inline	\var(X) = \E\left(X^2\right) - [\E(X)]^2 = k	failed	UnexpectedCharacters	\var(X) = \E	failed	latex_string	UnexpectedCharacters	[\E(X)]^2 = 	
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	k_i \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	c \in (0, \infty)	failed	UnexpectedCharacters	\in (0, \inf	ok	member			0
+math_inline	u = r^2 / 2	ok			ok	latex_string			0
+math_inline	x_{0.95} = 0.51645	failed	UnexpectedCharacters	_{0.95} = 0.	failed	latex_string	UnexpectedCharacters	_{0.95} = 0.	
+math_inline	Z	ok			ok	latex_string			0
+math_display	M(t) = e^{a t} m(b t)	failed	UnexpectedCharacters	m(b t)	failed	latex_string	UnexpectedCharacters	m(b t)	
+math_inline	\sigma^2 / n	failed	UnexpectedCharacters	\sigma^2 / n	ok	latex_string			0
+math_inline	\P(X \gt 0.48) = 0.9772	failed	UnexpectedCharacters	\P(X \gt 0.4	ok	latex_string			0
+math_display	\Gamma(k) = \int_0^\infty x^{k-1} e^{-x} \, dx, \quad k \in (0, \infty)	failed	UnexpectedCharacters	\Gamma(k) = 	failed	latex_string	UnexpectedCharacters	e^{-x} \, dx	
+math_inline	i \in \{1, 2\}	failed	UnexpectedCharacters	\in \{1, 2\}	ok	member			0
+math_inline	\mu	ok			ok	latex_string			0
+math_inline	f(x) \approx g(x)	failed	UnexpectedCharacters	\approx g(x)	failed	latex_string	UnexpectedCharacters	\approx g(x)	
+math_inline	\phi	ok			ok	latex_string			0
+math_inline	Z	ok			ok	latex_string			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	x^2 + y^2 = r^2	ok			ok	latex_string			0
+math_inline	Y	ok			ok	latex_string			0
+math_inline	i \in \{1, 2\}	failed	UnexpectedCharacters	\in \{1, 2\}	ok	member			0
+math_inline	X	ok			ok	latex_string			0
+math_inline	a \mu	ok			ok	latex_string			0
+math_inline	k	ok			ok	latex_string			0
+math_inline	\sigma \in (0, \infty)	failed	UnexpectedCharacters	\sigma \in (	ok	member			0
+math_inline	n = \lceil k \rceil	ok			ok	latex_string			0
+math_inline	\P(18 \lt X \lt 25) = 0.3860	failed	UnexpectedCharacters	\P(18 \lt X 	failed	latex_string	UnexpectedCharacters	\lt 25) = 0.	
+math_inline	a + b \mu	ok			ok	latex_string			0
+math_inline	f(x) \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_inline	y \to \infty	failed	UnexpectedCharacters	\to \infty	failed	latex_string	UnexpectedCharacters	\to \infty	
+math_display	F(x) = \Phi \left( \frac{\ln x - \mu}{\sigma} \right), \quad x \in (0, \infty)	failed	UnexpectedCharacters	\Phi \left( 	failed	latex_string	UnexpectedCharacters	, \quad x \i	
+math_display	n! \approx \left( \frac{n}{e} \right)^n \sqrt{2 \pi n} \text{ as } n \to \infty	failed	UnexpectedCharacters	\approx \lef	failed	latex_string	UnexpectedCharacters	\approx \lef	
+math_inline	X_2	ok			ok	latex_string			0
+math_inline	\Phi(0) = \frac{1}{2}	failed	UnexpectedCharacters	\Phi(0) = \f	ok	latex_string			0
+math_inline	\mu \in \R	failed	UnexpectedCharacters	\in \R	ok	member			0
+math_inline	\Gamma(k)	failed	UnexpectedCharacters	\Gamma(k)	ok	latex_string			0
+math_inline	X = e^Y	ok			ok	latex_string			0
+math_inline	\E\left(Z^4\right) = 1 \cdot 3	failed	UnexpectedCharacters	\E\left(Z^4\	ok	latex_string			0
+math_inline	q = 0.05	ok			ok	latex_string			0
+math_inline	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+math_inline	Y_i	ok			ok	latex_string			0

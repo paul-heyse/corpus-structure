@@ -1,0 +1,53 @@
+kind	latex	sympy	sympy_error	sympy_at	extended	extended_start	extended_error	extended_at	extended_ambig_nodes
+cond_operand	\mu	ok			ok	latex_string			0
+cond_operand	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+cond_operand	a	ok			ok	latex_string			0
+cond_operand	b	ok			ok	latex_string			0
+formula	(X - \mu) / \sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+formula	0	ok			ok	latex_string			0
+formula	0.002	ok			ok	latex_string			0
+formula	0.002 cm	ok			ok	latex_string			0
+formula	0.003	ok			ok	latex_string			0
+formula	0.003 cm	ok			ok	latex_string			0
+formula	1	ok			ok	latex_string			0
+formula	1 cm	ok			ok	latex_string			0
+formula	1.01	ok			ok	latex_string			0
+formula	1.01 cm	ok			ok	latex_string			0
+formula	X = a + b \, Z	ok			ok	latex_string			0
+formula	X = e^Y	ok			ok	latex_string			0
+formula	X_1	ok			ok	latex_string			0
+formula	X_1 + X_2	ok			ok	latex_string			0
+formula	X_2	ok			ok	latex_string			0
+formula	X_n	ok			ok	latex_string			0
+formula	\mu	ok			ok	latex_string			0
+formula	\mu_1 + \mu_2	ok			ok	latex_string			0
+formula	\mu_i	ok			ok	latex_string			0
+formula	\prod_{i=1}^n X_i	ok			ok	latex_string			0
+formula	\sigma	failed	UnexpectedCharacters	\sigma	ok	latex_string			0
+formula	\sigma^2	failed	UnexpectedCharacters	\sigma^2	ok	latex_string			0
+formula	\sigma_1^2 + \sigma_2^2	failed	UnexpectedCharacters	\sigma_1^2 +	ok	latex_string			0
+formula	\sigma_i	failed	UnexpectedCharacters	\sigma_i	ok	latex_string			0
+formula	\sigma_i^2	failed	UnexpectedCharacters	\sigma_i^2	ok	latex_string			0
+formula	\sum_{i=1}^n \mu_i	ok			ok	latex_string			0
+formula	\sum_{i=1}^n \sigma_i^2	failed	UnexpectedCharacters	\sigma_i^2	ok	latex_string			0
+formula	a	ok			ok	latex_string			0
+formula	a + b X	ok			ok	latex_string			0
+formula	a + b \, Z	ok			ok	latex_string			0
+formula	a + b \mu	ok			ok	latex_string			0
+formula	b	ok			ok	latex_string			0
+formula	b Z	ok			ok	latex_string			0
+formula	b^2 \sigma^2	failed	UnexpectedCharacters	\sigma^2	failed	latex_string	UnexpectedCharacters	\sigma^2	
+formula	e^Y	ok			ok	latex_string			0
+formula	e^Z	ok			ok	latex_string			0
+formula	e^\mu	ok			ok	latex_string			0
+formula	i	ok			ok	latex_string			0
+formula	k	ok			ok	latex_string			0
+formula	k_1 + k_2	ok			ok	latex_string			0
+formula	k_i	ok			ok	latex_string			0
+formula	n	ok			ok	latex_string			0
+set	(0, \infty)	failed	UnexpectedCharacters	, \infty)	ok	set_expr			0
+set	\N_+	failed	UnexpectedCharacters	\N_+	ok	set_expr			0
+set	\R	failed	UnexpectedCharacters	\R	ok	set_expr			0
+set	\R \setminus \{0\}	failed	UnexpectedCharacters	\R \setminus	ok	set_expr			0
+set	\{1, 2, \ldots, n\}	failed	UnexpectedCharacters	\{1, 2, \ldo	ok	set_expr			0
+set	\{1, 2\}	failed	UnexpectedCharacters	\{1, 2\}	ok	set_expr			0
