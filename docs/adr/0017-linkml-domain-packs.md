@@ -1,10 +1,10 @@
 ---
 id: ADR-0017
 title: A domain is a LinkML pack compiled into every consumer
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: []
-superseded-by: null
+superseded-by: [ADR-0020]
 design: [§B5]
 evidence: Tested
 revisit: LinkML's generators block a compiler, or a domain needs logical inference over the schema.

@@ -247,7 +247,15 @@ IDs are never reused or renumbered. Changing a §B decision needs an ADR and a d
 
 | ID | Binding decision (DESIGN.md §2 is authoritative) | Bears on |
 |---|---|---|
-| — | None yet: add a row per §B decision, naming the DP/CI rules and gates it bears on | — |
+| §B1 | Every fact is one claim form | DP-02, DP-04, DP-07, CI-02, CI-03 · G1, G2 |
+| §B2 | Methods write observations; only consolidation writes knowledge, per run | DP-05, DP-09, DP-19, CI-01 · G5, G6 |
+| §B3 | The agent tier works a recorded queue; the pipeline never calls it | DP-19, DP-20, CI-10 · G4, G5 |
+| §B4 | PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure | DP-01, DP-10, DP-19, CI-13 · G1, G5 |
+| §B5 | One LinkML model is the authority; a domain is a pack of it, and every representation is generated | DP-01, DP-06, DP-24 · G1, G2 |
+| §B6 | Escalation is routed by versioned policies over measurements | DP-05, DP-15, DP-18, CI-09 · G4, G7 |
+
+Rows from the domain-model alignment review's RC18 (operator, 2026-10-28). The second column names
+each decision's subject; DESIGN.md §2 holds its current wording.
 
 ## 2. Recurring review questions, routed onto the gates
 

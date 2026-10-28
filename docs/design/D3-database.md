@@ -1,28 +1,57 @@
 # D3 · Database
 
 **Proposed (2026-10-28).** The physical realization of [D1](D1-knowledge-representation.md) and
-of the operations model in one PostgreSQL 18 database. The DDL below is the specification for
-the first Alembic migration; column comments that would repeat D1 are omitted.
+of the operations model in one PostgreSQL 18 database. PostgreSQL is the transactional authority for
+instances; the structure and meaning of the tables are the model's (ADR-0020, ADR-0021). The
+database's DDL is **generated**: SQLAlchemy `MetaData` from the model's `system` and `core` modules
+(`model/system.yaml`, `model/core.yaml`) into `core/db/_tables.py`, plus the hand-written physical
+overlay `core/db/overlay.py`, from which migration 0001 is generated once and then frozen. This
+document is not the DDL authority. Its SQL blocks state the target relational shape for the model
+to declare, in DDL form because that is the shape a reader checks; the S6-tested DDL is the
+reference the first generated `MetaData` is compared against (a pglast-normalized port check,
+probe Q-3 and package P0-M-2). Once the generated rendering exists, this document cites it by model
+revision and keeps only the explanatory prose. Column comments that would repeat D1 are omitted.
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0021](../adr/0021-instance-and-structure-authorities.md)
 
 ## 1. Choices
 
 | Need | Choice | Why not the alternatives |
 |---|---|---|
-| Authority for knowledge and operations | PostgreSQL 18.6 (installed) | One transaction links a task, its observations and the claims they change. A graph or triple store would add a second authority to keep in sync; claims with qualifiers fit relational rows plus JSONB |
-| Variable payloads: qualifiers, values, conditions, observation payloads, configs | `jsonb` with GIN indexes where queried | Variation lives in data, not in per-type tables (the old repository's 277 contract classes) |
+| Authority for instances of knowledge, operations and evaluation | PostgreSQL 18.6 (installed) | One transaction links a task, its observations and the claims they change. A graph or triple store would add a second authority to keep in sync; claims with qualifiers fit relational rows plus JSONB |
+| Authority for structure and meaning | The model (`model/core.yaml`, `model/system.yaml` and the packs; ADR-0020); the database enforces what the generated projection declares | D3's DDL text as the authority keeps two writable sources (the hand-ported `core/db` and this document) joined only by review |
+| Relationships and decision-relevant scalars | Relational: FK columns, edge tables (`kb.claim_ref`, `kb.claim_entity_ref`), identity rows (`kb.entity_identity`), `ExternalReference` rows; modality, polarity and attribution as `kb.claim` columns (§5) | References inside JSONB leave integrity to repository assertions and joins to JSON paths |
+| Values: conditions, values with bindings, schema qualifier maps, observation payloads, configs | typed `jsonb`, each class governed by the model and, where the row outlives a model revision, by the payload-schema registry (`payload_schema_id`, §3); GIN indexes only where queried | Variation lives in data, not in per-type tables (the old repository's 277 contract classes); recursive and tagged values have no lossless relational form |
 | Similarity search | pgvector 0.8.7 (installed), `halfvec`, HNSW | Joins and filters in one query. HNSW on `halfvec` supports up to 4,000 dimensions; the embedding dimension is fixed by spike S7 (`OPEN-D3-2`) |
 | Lexical search | BM25 through pg_textsearch 1.5.1 (installed: Debian `postgresql-18-pg-textsearch`): a `bm25` partial index over one block level, ranked top-k queries (§5) | Replaces the old Tantivy crate inside the one authority, with no second index to synchronize. Built-in full-text search (`tsvector`, `ts_rank_cd`) has no corpus-level term weighting. Needs preloading and a superuser once (§3; `OPEN-D3-1`) |
 | Graph traversal | Recursive CTEs; NetworkX and pgmpy projections in memory | The knowledge graph is small per project; path-heavy workloads would revisit this |
-| Analytics and evaluation reports | DuckDB reading PostgreSQL (`postgres` extension) or Parquet exports | Read-only; never a second authority |
+| Set-based consolidation steps, analytics and evaluation reports | DuckDB 2.0 in process, with no persistent state, over model-typed Arrow relations of the pool loaded as of the run's cut; beside a Python reference implementation that must be set-equal (ADR-0021). Analytics and run diffs read Parquet exports | Never a second authority. Identity and canonical forms stay in Python. The `postgres` extension maps unconstrained NUMERIC to DOUBLE, so pool loads go through ADBC or psycopg |
 | Originals | Content-addressed files under `data/originals/<sha256>`; the corpus stays where it is and is referenced by path and hash | Keeps large binaries out of the database |
-| Access from Python | SQLAlchemy Core 2.1 table metadata + psycopg 3 (COPY for bulk observation writes) | Same stack as before, without ORM |
-| Migrations | Alembic; 0001 generated once from the Core metadata, then frozen (it never imports `core/db`) | `alembic check` compares an index's uniqueness and columns only (no `USING`, `WITH`, operator classes or partial `WHERE`, CHECKs by name), so a test compares the catalog after `upgrade head` with `create_all` ([store note](../design_review/evidence/2026-10-28_library-store/README.md) §1) |
+| Access from Python | SQLAlchemy Core 2.1 `MetaData` generated from the model (`core/db/_tables.py`) plus the physical overlay (`core/db/overlay.py`: indexes and partial predicates, BM25 and HNSW, views, the extension assertion; bound by name, failing at import on a missing table or column) + psycopg 3 (COPY for bulk writes) | Same stack as before, without ORM. `gen-sqltables` is not used: native enums, no CHECKs, no JSONB |
+| Migrations | Alembic; 0001 generated once from the generated `MetaData` plus overlay, then frozen (it never imports `core/db`); every revision linked to the model revision it realizes (D2 §8) | `alembic check` compares an index's uniqueness and columns only (no `USING`, `WITH`, operator classes or partial `WHERE`, CHECKs by name), so a test compares the catalog after `upgrade head` with `create_all` ([store note](../design_review/evidence/2026-10-28_library-store/README.md) §1) |
 | Connections | one psycopg-pool `ConnectionPool` per process; SQLAlchemy borrows through `creator=pool.getconn` with `NullPool` | One owner of connections; `SET LOCAL`, never session `SET`; the JSON serializer set in the pool's `configure` callback, which `create_engine(json_serializer=)` does not reach (store note §3, §5) |
 
 Identifiers are `bigint GENERATED ALWAYS AS IDENTITY`. Deterministic keys from D1 §10 are
-`text` columns with unique constraints where identity must hold. Closed value sets are `text`
-with `CHECK` constraints rather than PostgreSQL enum types, so adding a value is a one-line
-migration.
+`text` columns with unique constraints where identity must hold. **Closed value sets have two
+lifecycles** (D2 §3.4, `ci:lifecycle`):
+- **Static sets** change with code (statuses, unit types, stages, skip reasons, segment kinds,
+  delimiting statuses, polarity, link types, evidence roles, observation kinds). They are `text`
+  columns with an explicitly named `CHECK`, never PostgreSQL enum types; the name carries a digest
+  of the member list, so a member change is a drop and an add that Alembic's opt-in
+  `checkconstraint_byname` detects, and adding a member is a generated one-line migration.
+- **Schema-version-scoped sets** can be extended by packs (statement kinds, `ClaimModality`, entity
+  classes, predicates and schema qualifiers, pack enums). They are per-version member rows (§3) that
+  the referencing rows reach through composite foreign keys `(schema_version_id, value)`, so a value
+  outside the row's schema version is refused by the store (INV-03 for predicates). `ClaimModality`
+  is version-scoped: core members plus pack members with their member properties, so a pack's
+  business modality needs only a pack declaration.
+
+Invariant templates (`ci:invariant`) become CHECKs beside their generated validators. The same-run
+foreign keys (INV-03, INV-08; §5) are enforced by FK or, if probe Q-4 shows a material COPY cost, by
+the bulk-write primitives with a test per invariant; the tables are the same either way.
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0021](../adr/0021-instance-and-structure-authorities.md)
+> Status: **Proposed** (2026-10-28). `checkconstraint_byname` is **Interface-checked** (installed
+> Alembic 1.20.0, 2026-10-28); `gen-sqltables`' native enums and missing CHECKs and JSONB are
+> **Interface-checked** (installed LinkML 1.12.1, 2026-10-28)
 
 ## 2. Layout
 
@@ -35,8 +64,8 @@ Four PostgreSQL schemas:
 | `ops` | Methods, configurations, policies, runs, tasks, measurements, interventions, experiments | Operations |
 | `eval` | Golden sets, units and items; alignments; results | Evaluation |
 
-Creation order follows foreign keys: `meta.project`, `meta.schema_version`,
-`meta.compiled_artifact`, `meta.guideline_version`, `ops.method`, `ops.method_config`,
+Creation order follows foreign keys: `meta.model_revision`, `meta.payload_schema`,
+`meta.project`, `meta.schema_version`, its per-version member tables, `meta.compiled_artifact`, `meta.guideline_version`, `ops.method`, `ops.method_config`,
 `ops.policy_version`, `ops.policy_rule`, `ops.debug_slice`, `ops.run`, `kb.document`,
 `kb.rendition`, `kb.segment`, `kb.span`, `ops.task`, `kb.rendition_build`, `kb.observation`, then
 the rest.
@@ -45,21 +74,23 @@ the rest.
 
 **Extensions.** Phase 0 needs `pg_textsearch` (1.5.1, installed from the Debian package
 `postgresql-18-pg-textsearch`) for BM25 lexical search (§5); `vector` arrives with `kb.embedding`
-in phase 1. pg_textsearch loads only through `shared_preload_libraries` (on this machine currently
-`pg_stat_statements,auto_explain`), and neither extension is trusted, so role `paul` cannot create
-them. The operator therefore, once, adds `pg_textsearch` to `shared_preload_libraries`, restarts
-the server, and creates it (and later `vector`) as `postgres` in the template database
-`cs_template`, which `ci db init` and the test databases clone. Migration 0001 does not create the
-extension: it asserts it and fails with that instruction (design authority, 2026-10-28, after the
-operator confirmed the installed package; [store note](../design_review/evidence/2026-10-28_library-store/README.md)
-§0, L-S5; [overview](../libraries/postgresql-18-pg-textsearch.md) §11.2).
+in phase 1. pg_textsearch loads only through `shared_preload_libraries`, and neither extension is
+trusted, so the project's roles cannot create them. `just db-provision` (§13) therefore preloads
+pg_textsearch in the cluster's configuration and creates both extensions as `postgres` in the
+template database `cs_template`, which `ci db init` and the test databases clone. Migration 0001
+does not create an extension: the overlay's extension assertion checks that each expected
+extension is present at its expected version, read from the one record of expected extension
+versions (DA-018), and fails naming `just db-provision` (design authority, 2026-10-28;
+[store note](../design_review/evidence/2026-10-28_library-store/README.md) §0, L-S5;
+[overview](../libraries/postgresql-18-pg-textsearch.md) §11.2).
 > Status: **Tested** (S6, 2026-10-28, PostgreSQL 18.6 on the interim project-local cluster): as a
 > non-superuser in a database cloned from the template, `CREATE EXTENSION` of either extension
 > fails with `42501`, the assertion fails with `P0001` and its instruction in a database without
-> pg_textsearch, and D3's DDL of §3–§8 with fixes F1 (the `::regconfig` cast, §5) and F2 (the
+> pg_textsearch, and D3's DDL of §3–§8 (before the model's additions) with fixes F1 (the `::regconfig` cast, §5) and F2 (the
 > segment kind CHECK, §5) applies with 0 errors in 73 statements; `task_unit` and the
 > per-`target_type` HNSW indexes came after that copy
-> ([s6.ddl](../design_review/evidence/2026-10-28_design-spikes/records/s6.ddl.json))
+> ([s6.ddl](../design_review/evidence/2026-10-28_design-spikes/records/s6.ddl.json)). Provisioning
+> by `just db-provision` and the version-checking assertion are **Proposed** (2026-10-28)
 
 **Instance.** The project runs on one dedicated PostgreSQL 18 cluster on this machine, apart
 from the `main` cluster that other projects use (§13). Its provisioning creates the extensions
@@ -69,11 +100,39 @@ server is used by setting `CORPUS_DATABASE__URL`.
 ```sql
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_extension WHERE extname = 'pg_textsearch') THEN
-    RAISE EXCEPTION 'pg_textsearch is missing: add it to shared_preload_libraries, restart, then as postgres run CREATE EXTENSION pg_textsearch in cs_template and clone the database from it';
-  END IF;
+    RAISE EXCEPTION 'pg_textsearch is missing or not at its expected version: run just db-provision, then clone the database from cs_template';
+  END IF;                                        -- the overlay's assertion; the version check reads the expected-versions record
 END $$;
 
 CREATE SCHEMA meta;  CREATE SCHEMA kb;  CREATE SCHEMA ops;  CREATE SCHEMA eval;
+
+CREATE TABLE meta.model_revision (               -- projection of model/revisions.yaml (D2 §2, §8); rows are added, never edited
+  id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  label         text NOT NULL,                   -- LinkML version of core and system
+  content_hash  text NOT NULL UNIQUE,            -- canonical JSON of the parsed core and system files (D2 §2)
+  compilers     jsonb NOT NULL,                  -- compiler name → version
+  key_scheme    integer NOT NULL,                -- ci:key_scheme (D1 §10.1)
+  parent_id     bigint REFERENCES meta.model_revision,
+  change_record jsonb,                           -- D2 §8; null for the first revision; the model source stays in Git
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE meta.payload_schema (               -- one version of one nested payload class (D2 §8); rows are added, never edited
+  id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  model_revision_id   bigint NOT NULL REFERENCES meta.model_revision,
+  class               text NOT NULL,             -- prefixed class name, e.g. 'core:MentionPayload'
+  kind                text NOT NULL,             -- what it is the payload of: an observation kind, a compiled-artifact kind, ...
+  version             integer NOT NULL,
+  parent_id           bigint REFERENCES meta.payload_schema,
+  compatibility_class text NOT NULL,             -- D2 §8: descriptive, nested-additive, mapped, ...
+  json_schema_id      text NOT NULL,             -- $id of the generated JSON Schema
+  arrow_schema        bytea NOT NULL,            -- Schema.serialize()
+  sql_visible_paths   text[] NOT NULL DEFAULT '{}',
+  upcaster            text,                      -- the upcast from the parent version; null for an initial version
+  reason              text NOT NULL,
+  authorized_by       text NOT NULL,             -- the model rule permitting the change, e.g. 'method_version:mention.gliner/3'
+  UNIQUE (class, version)
+);
 
 CREATE TABLE meta.project (
   id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -88,10 +147,11 @@ CREATE TABLE meta.schema_version (
   project_id    bigint NOT NULL REFERENCES meta.project,
   domain        text NOT NULL,
   label         text NOT NULL,                   -- version: field of the YAML, e.g. '0.1.0'
-  content_hash  text NOT NULL,                   -- D2 §2
+  content_hash  text NOT NULL,                   -- D2 §2; covers the model revision id
+  model_revision_id bigint NOT NULL REFERENCES meta.model_revision,   -- the core the pack was compiled against
   parent_id     bigint REFERENCES meta.schema_version,
-  source        jsonb NOT NULL,                  -- {"statistics.yaml": "...", "rules.yaml": "...", "core.yaml": "..."}
-  migration     jsonb,                           -- D2 §8 mapping from parent, breaking changes only
+  source        jsonb NOT NULL,                  -- the pack files' text: {"statistics.yaml": "...", "rules.yaml": "...", "core/rules.yaml": "..."}; the core module is named by model_revision_id
+  migration     jsonb,                           -- the change record from the parent (D2 §8); null for a first version
   state         text NOT NULL DEFAULT 'active' CHECK (state IN ('proposed','active','rejected','retired')),
   created_by    text NOT NULL,                   -- 'human:operator', 'agent:opus-5.5', ...
   created_at    timestamptz NOT NULL DEFAULT now(),
@@ -106,6 +166,7 @@ CREATE TABLE meta.compiled_artifact (           -- D2 §7 compiler outputs; rows
   kind              text NOT NULL,               -- which artifact of that compiler, e.g. 'batch.model_facing', 'batch.stored', 'batch.decoding'
   hash              text NOT NULL,               -- sha256 of canonical JSON of body (D1 §10.1); what method configurations reference
   body              jsonb NOT NULL,              -- the artifact (a text artifact is a JSON string)
+  payload_schema_id bigint NOT NULL REFERENCES meta.payload_schema,   -- the body's schema (D2 §8)
   created_at        timestamptz NOT NULL DEFAULT now(),
   UNIQUE (schema_version_id, compiler, compiler_version, kind)
 );
@@ -147,6 +208,22 @@ CREATE TABLE meta.schema_enum (
   PRIMARY KEY (schema_version_id, name)
 );
 
+-- one member table per schema-version-scoped closed set (§1), the target of composite FKs; the
+-- generator names them, these two are phase 0's
+CREATE TABLE meta.statement_kind (
+  schema_version_id bigint NOT NULL REFERENCES meta.schema_version ON DELETE CASCADE,
+  value             text NOT NULL,               -- core or pack member, e.g. 'definition', 'toy:clause'
+  properties        text[] NOT NULL DEFAULT '{}',   -- member properties (D2 §3.4), e.g. '{claim_bearing}'
+  PRIMARY KEY (schema_version_id, value)
+);
+
+CREATE TABLE meta.claim_modality (
+  schema_version_id bigint NOT NULL REFERENCES meta.schema_version ON DELETE CASCADE,
+  value             text NOT NULL,               -- 'asserted', 'supposed', 'cited', ..., or a pack member
+  properties        text[] NOT NULL DEFAULT '{}',   -- premise_forming, attribution_identifying, conflict_bearing
+  PRIMARY KEY (schema_version_id, value)
+);
+
 CREATE TABLE meta.schema_rule (
   schema_version_id bigint NOT NULL REFERENCES meta.schema_version ON DELETE CASCADE,
   rule_id     text NOT NULL,
@@ -179,6 +256,17 @@ CREATE TABLE meta.guideline_version (
 );
 ```
 
+**Revisions and the payload-schema registry** (ADR-0022). `meta.model_revision` projects the
+checked-in revision log, the authority, and is written by the schema registry's `ensure`; it stores
+the content hash and change record, not the model source, which stays in Git at the revision. Every
+schema version names the model revision it was compiled against, and every run records both (§4).
+`meta.payload_schema` holds each version of each nested payload class. The rows that outlive a model
+revision carry a `payload_schema_id`: `kb.observation`, `kb.rendition_build` (its `parse_detail`),
+`meta.compiled_artifact` (its body), `ops.intervention` (its `refs`) and `eval.golden_pass`. Readers
+dispatch on it and refuse an unknown id; per-run materialized rows inherit the run's recorded
+revision, schema version and key scheme and carry no id of their own.
+> Status: **Proposed** (2026-10-28)
+
 **Compiled artifacts** are identified by what produced them as well as by the sources: a
 schema version row holds sources only and never changes, and each compiler output is a
 `meta.compiled_artifact` row of (schema version, compiler, compiler version, kind). A compiler fix
@@ -190,12 +278,17 @@ Compilers are deterministic, so a lost or pruned artifact is rebuilt from the so
 hash checked, never edited (P0CL-15; operator, 2026-10-28).
 > Status: **Proposed** (2026-10-28)
 
-**The `meta.schema_*` tables are a projection** of the schema-table artifact (D2 §7.1). When a
-schema-table compiler version adds its `meta.compiled_artifact` row for a schema version, that
-version's `schema_class`, `schema_slot`, `schema_enum` and `schema_rule` rows are replaced from
-it. No run reads them as input: methods read compiled artifacts by hash, so replacing the
-projection changes nothing a run computed. They serve SQL joins from claims to their schema
-definitions and the grouping of metrics by class and predicate.
+**The `meta.schema_*` tables and the member tables are a projection** of the schema-table
+artifact (D2 §7.1). When a schema-table compiler version adds its `meta.compiled_artifact` row for
+a schema version, that version's `schema_class`, `schema_slot`, `schema_enum`, `schema_rule` and
+member rows are **upserted** from it. No run reads them as input: methods read compiled artifacts by
+hash, so the projection changes nothing a run computed. They serve SQL joins from claims to their
+schema definitions, the grouping of metrics by class and predicate, and, since the model's
+relational projection, the composite foreign keys of version-scoped values (`kb.claim.predicate` to
+`meta.schema_slot`, `kb.entity.kind` to `meta.statement_kind`, `kb.claim.modality` to
+`meta.claim_modality`). Because rows reference them, a compiler change that would remove a name
+still referenced fails, which exposes a change that would orphan data.
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0022](../adr/0022-schema-change-modelled.md)
 > Status: **Proposed** (2026-10-28). The path from pack to rows is **Tested** (S6, 2026-10-28):
 > S4's compiled tables for schema version 0.2.0 register with their content hash and artifact
 > hashes recomputed (4 of 4), all 148 compiled rows insert, and the twelve v1 core units inserted
@@ -294,7 +387,9 @@ CREATE TABLE ops.run (
   options              jsonb NOT NULL DEFAULT '{}',  -- agent_mode, agent_reuse, fresh methods, gpu mode, corpus (a slice, default 'first-pass'), scope (a slice naming the units routed, with its resolved unit list and that list's hash; the kind stays, so the run can be promoted) (D6 §2, §4, §5, §8)
   debug_slice_id       bigint REFERENCES ops.debug_slice,
   corpus_hash          text NOT NULL,            -- over the corpus's (document key, content hash) set and the ingest config hash (below)
+  model_revision_id    bigint NOT NULL REFERENCES meta.model_revision,   -- the revision the run ran under; a run under another installed revision is refused (D2 §8)
   schema_version_id    bigint NOT NULL REFERENCES meta.schema_version,
+  key_scheme           integer NOT NULL,         -- the key scheme of the run's keys (D1 §10.1); per-run rows inherit it
   guideline_version_id bigint REFERENCES meta.guideline_version,
   policy_version_id    bigint NOT NULL REFERENCES ops.policy_version,
   code_commit          text NOT NULL,
@@ -306,6 +401,8 @@ CREATE TABLE ops.run (
                             'consolidating','finished','failed','cancelled')),
   notes                text,
   started_at           timestamptz,
+  cut_at               timestamptz,              -- the run's knowledge cut, sealed in a short transaction (D6 §3.1)
+  cut_m19_task_id      bigint,                   -- the run's final M19 task, recorded by the seal; FK added after ops.task (§5)
   finished_at          timestamptz,
   created_at           timestamptz NOT NULL DEFAULT now()
 );
@@ -325,6 +422,12 @@ run's corpus selects (run option `corpus`, D6 §8), in document-key order, toget
 of the run's ingest configuration. Both are known before ingest runs, so the hash does not wait
 for renditions; two runs with equal corpus hashes read the same bytes through the same adapter
 configuration.
+> Status: **Proposed** (2026-10-28)
+
+**A run records the revisions it ran under**: its model revision, schema version and key scheme,
+beside its reference run, all written at insert. Its materialized rows inherit them. The cut
+columns are written by the seal that ends the run's knowledge (D6 §3.1 owns their semantics).
+> Decision: [ADR-0022](../adr/0022-schema-change-modelled.md)
 > Status: **Proposed** (2026-10-28)
 
 ## 5. `kb`: evidence, observations, entities and claims
@@ -555,6 +658,7 @@ CREATE INDEX task_agent   ON ops.task (run_id, priority DESC, id) WHERE status =
 CREATE INDEX task_cache ON ops.task (method_config_id, input_hash) WHERE status IN ('done','empty') AND unit_type <> 'run';   -- run-level tasks are never reused (§8)
 CREATE INDEX task_run   ON ops.task (run_id, stage);
 CREATE INDEX task_unit  ON ops.task (run_id, unit_key);   -- "why a method ran" (§9) and per-unit reads
+ALTER TABLE ops.run ADD FOREIGN KEY (cut_m19_task_id) REFERENCES ops.task;
 
 CREATE TABLE kb.rendition_build (                -- provenance: which adapter configurations produced a rendition
   document_id      bigint NOT NULL REFERENCES kb.document,
@@ -562,6 +666,7 @@ CREATE TABLE kb.rendition_build (                -- provenance: which adapter co
   rendition_id     bigint NOT NULL REFERENCES kb.rendition,
   task_id          bigint NOT NULL REFERENCES ops.task,            -- the ingest task that first built it
   parse_detail     jsonb NOT NULL DEFAULT '{}',  -- exclusions, warnings, parser diagnostics: source lines, parse errors with positions (D4 M01); never on segments
+  payload_schema_id bigint NOT NULL REFERENCES meta.payload_schema,   -- parse_detail's schema (D2 §8)
   created_at       timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (document_id, method_config_id)    -- one configuration on one document's bytes yields one rendition
 );
@@ -577,6 +682,7 @@ CREATE TABLE kb.observation (
   segment_id   bigint REFERENCES kb.segment,
   span_id      bigint REFERENCES kb.span,
   payload      jsonb NOT NULL,                   -- §6.2, by kind
+  payload_schema_id bigint NOT NULL REFERENCES meta.payload_schema,   -- the payload's class and version; readers dispatch on it (D2 §8)
   score        real,
   outcome      text NOT NULL CHECK (outcome IN ('produced','empty','failed')),
   created_at   timestamptz NOT NULL DEFAULT now(),
@@ -588,18 +694,23 @@ CREATE INDEX observation_segment ON kb.observation (segment_id, kind);
 CREATE TABLE kb.entity (
   id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   run_id            bigint NOT NULL REFERENCES ops.run ON DELETE CASCADE,
-  key               text NOT NULL,               -- 'ent:…' or 'stm:…'
+  key               text NOT NULL,               -- 'ent:…', 'stm:…' or 'xrf:…' (D1 §10.1)
   schema_version_id bigint NOT NULL REFERENCES meta.schema_version,
-  type              text NOT NULL,               -- schema class, prefixed (§3): 'stat:RandomVariable', 'core:Statement'
+  type              text NOT NULL,               -- schema class, prefixed (§3): 'stat:RandomVariable', 'core:Statement', 'core:ExternalReference'
   label             text NOT NULL,
   scope             text NOT NULL CHECK (scope IN ('global','local')),
   scope_segment_id  bigint REFERENCES kb.segment,
-  attrs             jsonb NOT NULL DEFAULT '{}', -- identity attributes only (D1 §4.1); empty for statements, which key by anchor locator
+  attrs             jsonb NOT NULL DEFAULT '{}', -- non-identity attributes; identity attributes are kb.entity_identity rows (below)
   kind              text,                        -- statements only: the StatementKind value (D1 §4.1, §4.3); a field like label, not identity
+  resolved_to_id    bigint,                      -- ExternalReference only: the statement it resolved to (same run)
   confidence        real,
   UNIQUE (run_id, key),
+  UNIQUE (run_id, id),                           -- target of the same-run composite FKs
+  FOREIGN KEY (schema_version_id, kind) REFERENCES meta.statement_kind (schema_version_id, value),   -- version-scoped kinds (§1)
+  FOREIGN KEY (run_id, resolved_to_id) REFERENCES kb.entity (run_id, id),
   CHECK ((scope = 'local') = (scope_segment_id IS NOT NULL)),
-  CHECK ((type = 'core:Statement') = (kind IS NOT NULL))
+  CHECK ((type = 'core:Statement') = (kind IS NOT NULL)),
+  CHECK ((type = 'core:ExternalReference') OR resolved_to_id IS NULL)
 );
 CREATE INDEX entity_type ON kb.entity (run_id, type);
 
@@ -632,7 +743,11 @@ CREATE TABLE kb.claim (
   predicate        text NOT NULL,                -- prefixed (§3): 'stat:has_distribution'
   object_entity_id bigint REFERENCES kb.entity,
   object_value     jsonb,                        -- D1 §6 value
-  qualifiers       jsonb NOT NULL DEFAULT '{}',  -- core + schema qualifiers, incl. conditions; keys prefixed (§3, §6.1)
+  schema_version_id bigint NOT NULL REFERENCES meta.schema_version,
+  modality         text NOT NULL DEFAULT 'asserted',   -- version-scoped: FK below (§1)
+  polarity         text NOT NULL DEFAULT 'positive' CHECK (polarity IN (/* generated from Polarity */)),
+  attribution_entity_id bigint,                  -- the attribution qualifier's resolved entity; null: the author
+  qualifiers       jsonb NOT NULL DEFAULT '{}',  -- the other core qualifiers (hedge, conditions, scope, valid_time) and the schema qualifiers; keys prefixed (§3, §6.1)
   statement_id     bigint REFERENCES kb.entity,
   statement_role   text CHECK (statement_role IN ('premise','conclusion','definiens','restriction','example_value')),
   status           text NOT NULL CHECK (status IN ('candidate','accepted','rejected','ambiguous','conflicting','unsupported')),
@@ -640,6 +755,10 @@ CREATE TABLE kb.claim (
   confidence       real,
   completeness     jsonb NOT NULL DEFAULT '{}',  -- {"unresolved_symbols": 1, "phrase_conditions": 0}
   UNIQUE (run_id, key),
+  UNIQUE (run_id, id),                           -- target of the same-run composite FKs
+  FOREIGN KEY (schema_version_id, predicate) REFERENCES meta.schema_slot (schema_version_id, name),        -- INV-03
+  FOREIGN KEY (schema_version_id, modality)  REFERENCES meta.claim_modality (schema_version_id, value),
+  FOREIGN KEY (run_id, attribution_entity_id) REFERENCES kb.entity (run_id, id),
   CHECK ((object_entity_id IS NULL) <> (object_value IS NULL))
 );
 CREATE INDEX claim_pred      ON kb.claim (run_id, predicate, status);
@@ -670,7 +789,70 @@ CREATE TABLE kb.claim_link (
   UNIQUE (from_claim_id, link_type, to_claim_id)
 );
 CREATE INDEX claim_link_to ON kb.claim_link (to_claim_id);   -- cascading deletes (store note L-S4)
+
+-- claim → claim relationships derived from typed values: condition premises and param_of targets (INV-08)
+CREATE TABLE kb.claim_ref (
+  run_id          bigint NOT NULL,
+  claim_id        bigint NOT NULL,
+  kind            text   NOT NULL CHECK (kind IN ('condition_premise','binding_param')),
+  path            text   NOT NULL,             -- JSON pointer to the node, so parallel references stay distinct (CI-03)
+  target_claim_id bigint NOT NULL,
+  PRIMARY KEY (claim_id, kind, path),
+  FOREIGN KEY (run_id, claim_id)        REFERENCES kb.claim (run_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (run_id, target_claim_id) REFERENCES kb.claim (run_id, id) ON DELETE CASCADE
+);
+CREATE INDEX claim_ref_target ON kb.claim_ref (target_claim_id);
+
+-- claim → entity relationships: entity-ranged qualifiers, pred arguments, binding entity targets
+CREATE TABLE kb.claim_entity_ref (
+  run_id    bigint NOT NULL,
+  claim_id  bigint NOT NULL,
+  role      text   NOT NULL CHECK (role IN ('qualifier','pred_arg','binding_variable','binding_family_param')),
+  slot      text,                              -- the prefixed qualifier name for role 'qualifier'
+  path      text   NOT NULL,
+  entity_id bigint NOT NULL,
+  PRIMARY KEY (claim_id, role, path),
+  FOREIGN KEY (run_id, claim_id)  REFERENCES kb.claim  (run_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (run_id, entity_id) REFERENCES kb.entity (run_id, id) ON DELETE CASCADE
+);
+CREATE INDEX claim_entity_ref_entity ON kb.claim_entity_ref (entity_id, role);
+
+-- identity attributes as rows, one per identity slot
+CREATE TABLE kb.entity_identity (
+  entity_id       bigint NOT NULL REFERENCES kb.entity ON DELETE CASCADE,
+  slot            text   NOT NULL,             -- prefixed identity slot, e.g. 'stat:family'
+  value_entity_id bigint REFERENCES kb.entity,
+  value_text      text,                        -- canonical form under the slot's case policy
+  PRIMARY KEY (entity_id, slot),
+  CHECK ((value_entity_id IS NULL) <> (value_text IS NULL))
+);
+CREATE INDEX entity_identity_value ON kb.entity_identity (slot, value_entity_id);
 ```
+
+**Relationships are relational; values stay nested** (RC06; ADR-0020). Every relationship a query
+joins on or an invariant constrains is a row or a foreign key: claim → claim premise references and
+`param_of` targets in `kb.claim_ref`, claim → entity references from qualifiers, `pred` arguments
+and binding targets in `kb.claim_entity_ref`, identity slots in `kb.entity_identity`, attribution in
+`kb.claim.attribution_entity_id`, an external reference's resolution in `kb.entity.resolved_to_id`.
+The scalars that queries, slots and conflicts read (modality, polarity, attribution) are `kb.claim`
+columns, NOT NULL with their model defaults, and leave `kb.claim.qualifiers`, so equal meaning still
+gives equal JSON. A claim carries its schema version so that its predicate and modality reach the
+version's member rows by composite foreign key (INV-03). Values stay typed JSONB governed by the
+model: condition-tree structure (whose `claim` references are also projected to `kb.claim_ref`),
+schema qualifier maps, values with their bindings, `valid_time` (ISO bounds, possibly partial, which
+a range type would lose). A schema qualifier path that a query must filter on is declared
+`sql_visible` by its pack, a relational change (D2 §8).
+- **Writers.** The consolidation bulk writer writes edge and identity rows from the typed instances
+  in the same transaction as their claims and entities; they are derived and never edited. Because
+  they serve queries, which refuse unfinished runs, they are written at the run's final pass only.
+- **Deletion.** §8's delete order holds: edge rows cascade from claims, identity rows from entities.
+- **Same-run integrity** (INV-03, INV-08) is by the composite foreign keys above or, if probe Q-4
+  shows a material COPY cost at run scale, by the bulk-write primitives with a test per invariant;
+  the tables stay either way.
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0021](../adr/0021-instance-and-structure-authorities.md)
+> Status: **Proposed** (2026-10-28). Edge rows are a few per claim, about 10⁵ per run at phase 1
+> scale, the order of S6's 40,000 support and evidence rows written in 214 ms (**Measured**, S6,
+> 2026-10-28, interim cluster); the cost of the composite FK checks is unmeasured (probe Q-4)
 
 **JSONB indexes only with a query that uses them** (store note L-S4). Earlier drafts had GIN
 `jsonb_path_ops` indexes on `kb.observation.payload` and `kb.claim.qualifiers`. Neither had a
@@ -683,15 +865,21 @@ index also slows each COPY. A JSONB index is added in the migration that adds th
 > scale (20,000 claims, no GIN index) it returns 1410 claims in about 1.0 ms on the interim
 > project-local cluster (**Measured**, [s6.volume](../design_review/evidence/2026-10-28_design-spikes/records/s6.volume.json))
 
-**A statement row always has a kind.** `entity_check` refuses a `core:Statement` entity without
-one. An external reference ("the last result", "definition [1]") names a statement outside the
-batch, which has no kind there; until the `extref` value exists (OPEN-D1-5), such a reference stays
-an `unsupported` item and is never stored as a `core:Statement` entity (operator, 2026-10-28,
-on S6).
-> Status: **Tested** (S6, 2026-10-28): the v1 reference's U6 stored "the last result" as a
+**A statement row always has a kind; an external reference is an `ExternalReference` row.**
+`entity_check` refuses a `core:Statement` entity without a kind. An external reference ("the last
+result", "definition [1]", an author `[n]` link) names something outside the batch, so it is
+neither a kind-less statement nor an `unsupported` item: it is a typed `core:ExternalReference`
+entity (D1 §4.4; RC11), local, anchored at the citing statement's anchor segment, keyed `xrf:` by
+the citing statement's key, the descriptor's text form and the author link target when present
+(D1 §10.1). Its `kind` stays null, so the statement CHECK holds, and a resolution to a statement of
+the same run sets `resolved_to_id` (D1 §4.4's `resolves_to` relation); an unresolved reference stays a
+row, and a claim that cites it is served as conditional (INV-09), never dropped.
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md)
+> Status: the refusal **Tested** (S6, 2026-10-28): the v1 reference's U6 stored "the last result" as a
 > Statement-typed entity without a kind; `entity_check` refused it, so it and its claim
 > `c_follows` were not loaded, the only misfit of the trace and golden rows
-> ([s6.constraints](../design_review/evidence/2026-10-28_design-spikes/records/s6.constraints.json))
+> ([s6.constraints](../design_review/evidence/2026-10-28_design-spikes/records/s6.constraints.json)).
+> The `ExternalReference` row is **Proposed** (2026-10-28)
 
 Remaining `ops` tables:
 
@@ -726,6 +914,7 @@ CREATE TABLE ops.intervention (
   target      jsonb NOT NULL,                    -- what it acts on (unit key, claim key, golden unit, ...)
   refs        jsonb NOT NULL DEFAULT '{}',       -- where the content is: {"observations": [...], "golden_pass": id,
                                                  --   "schema_version": id, "guideline_version": id, "policy_version": id, "experiment": id}
+  payload_schema_id bigint NOT NULL REFERENCES meta.payload_schema,   -- refs' schema (D2 §8)
   body        text,                              -- a direction's text; otherwise null (content lives where refs point)
   rationale   text,
   created_at  timestamptz NOT NULL DEFAULT now()
@@ -772,9 +961,12 @@ Keys and rendition content digests (D1 §10.1, §3.2) are computed in Python fro
 JSONB is validated once, at the Pydantic boundary where it enters (a method's output, a
 submission, a loader), never again on write: the repository layer takes validated models. The
 domain-independent shapes (values, condition trees, the observation payloads by kind, the
-operations JSON, the citation frame and the generic stored items of D1 §10.3) are core models,
-and `corpus_structure/core/schemas/*.json` ([D9 §1](D9-repository-and-phase0.md#1-layout)) are
-generated from them and hold only those shapes. What a predicate contributes (its object value
+operations JSON, the citation frame and the generic stored items of D1 §10.3) are classes of the
+model (`model/core.yaml`, `model/system.yaml`; ADR-0020) projected to the core Pydantic models, and
+`corpus_structure/core/schemas/*.json` ([D9 §1](D9-repository-and-phase0.md#1-layout)) are
+generated from them, with a `$id` naming the model revision, and hold only those shapes. Where a
+row outlives a model revision, its JSONB carries a `payload_schema_id` (§3), and readers dispatch
+on it. What a predicate contributes (its object value
 and its qualifiers, schema qualifiers included) is typed by the per-version models compiled from
 the run's schema version, which are compiled artifacts (§3), not files in `core/schemas`
 ([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-10).
@@ -788,31 +980,46 @@ Summaries of the shapes:
 - **Value** (`kb.claim.object_value`, values inside qualifiers and conditions): D1 §6, tagged by
   `t`.
 - **`kb.claim.qualifiers`**: an object whose keys are prefixed qualifier slot names (§3): the core
-  qualifiers (`core:modality`, `core:polarity`, `core:hedge`, `core:attribution`,
-  `core:conditions`, `core:scope`, `core:valid_time`) or schema qualifiers valid for the predicate
-  in the run's schema version (`stat:param_values`); values are D1 §6 values, maps of values
-  (`stat:param_values`, whose own keys are parameter names, `mean`, `variance`), or the condition
-  tree (`core:conditions`, D1 §7). Defaults are omitted (`core:modality: asserted`,
-  `core:polarity: positive` are not stored), so equal meaning gives equal JSON.
+  qualifiers that stay nested (`core:hedge`, `core:conditions`, `core:scope`, `core:valid_time`) or
+  schema qualifiers valid for the predicate in the run's schema version (`stat:param_values`);
+  values are D1 §6 values, maps of values (`stat:param_values`, whose own keys are parameter names,
+  `mean`, `variance`), or the condition tree (`core:conditions`, D1 §7). `core:modality`,
+  `core:polarity` and `core:attribution` are the `kb.claim` columns `modality`, `polarity` and
+  `attribution_entity_id` (§5) and never appear here, so equal meaning still gives equal JSON; each
+  qualifier's store placement is its qualifier specification's (D2 §6).
 - **Condition tree**: D1 §7. `claim` nodes carry claim **keys**; readers resolve them within the
-  same run.
+  same run, and each is also a `kb.claim_ref` row with its path (§5).
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md)
 
 ### 6.2 Observation payloads, by kind
 
-| Kind | Required fields | Optional |
-|---|---|---|
-| `author_markup` | `markup` (`dfn`, `unit`, `details`, `link`, `class`), `value` | `target` (link target); `synthesize` (on a block whose kind the source profile's `details_kinds.synthesize` names: the claim its containment states, `{predicate, object, evidence}`, which consolidation turns into a claim; D4 M01, D5 §3.5; P0CL-07) |
-| `mention` | `label`, `text`, `start`, `end` | `attributes` {group: {label, score}}, `math_ref`; `math` (M09 `symbol` mentions: the occurrence's decoration, such as its base, subscript and power; D4 M09) |
-| `relation` | `label` (predicate), `head` {`start`,`end`,`label`}, `tail` {…} | `joint` (bool: from `JointIE`), `feasible` |
-| `record` | `structure`, `fields` {name: [{`text`,`start`,`end`,`score`}]} | `anchor` |
-| `attribute` | `mention_ref`, `group`, `value` | — |
-| `classification` | `task`, `labels` [{label, score}] | `feasible`, `violations` (constrained classifier) |
-| `value` | `value` (D1 §6) | `parse_error`; `math_kind` (the typed start symbol that read the span: formula, relation, membership or set; D4 M11) |
-| `scope` | `mention_ref` with the mention's `start`, `end`; `binding_site` (a `mention_ref`) with its `start`, `end`; `scope_segment` (key), `extent` | `binding` (provisional kind, D4 M13); `reopens` (for a "Suppose again" binding site: the `mention_ref` and offsets of the earlier binding site it reopens, D4 M13) |
-| `link` | `mention_ref` (M14) or `pair` of entity keys (M15), `candidate` (entity key, or `{"new": {type, label}}`), `score`, `features` | `rank` |
-| `claim_proposal` | `batch` (a stored-form `ClaimProposalBatch` on the observation's rendition, D2 §7.3); for authored proposals (M10, agent) also `authored` (the model-facing batch as submitted) and `citation_frame` (D1 §10.3), which are the authority, `batch` being derived from them by the quote cascade (D4 §4.3) | `rationale`; `rejected` [{`item`, `reason`}] (D4 §4.3); `establishment: derived`, `derived_from` (claim keys) and `rule` for M23 |
-| `judgment` | `target` {`kind`: observation, claim, alternative_group, identity_group; `ref`}, `decision` (`accept`, `reject`, `choose`, `merge`, `split`, `unsure`), `rationale`, `guideline_version` | `chosen` (for `choose`), `faithful` (bool, with several chosen), `confidence` (`low`, `medium`, `high`) |
-| `verification` | `claim_key`, `verifier`, `verdict` (`consistent`, `refuted`, `not_checkable`) | `detail`, `counterexample`; M19 writes only failing outcomes, `verdict: refuted` with `detail {rule, severity, message}` (D5 §8.1) |
+Each observation kind has one payload class in the model (`ci:payload: <kind>`, D2 §3.4), registered
+by version in `meta.payload_schema` (§3); the class, not this document, is the field-level contract.
+Today the classes are `core/payloads.py` (`PAYLOADS`, one model per kind; **Implemented**, P0-F-2b),
+which the model's payload classes generate or replace at Stage A and B (ADR-0020). What each kind is
+for:
+
+- **`author_markup`**: author markup on a segment (M01); on a block the source profile marks for
+  synthesis, it also carries the claim its containment states, which consolidation turns into a
+  claim (D4 M01, D5 §3.5).
+- **`mention`**, **`relation`**, **`record`**, **`attribute`**, **`classification`**: encoder
+  outputs (M05–M07, M09) as spans, labels and scores; `math` on M09's symbol mentions holds the
+  occurrence's decoration.
+- **`value`**: a parsed value (M11), with its `math_kind`, the typed start symbol that read the span.
+- **`scope`**: a binding site and its scope (M13). A payload that refers to another task's mentions
+  records their offsets beside each reference, so a reused task's references match by offsets (§6.3).
+- **`link`**: an entity-link candidate for a mention (M14) or a pair (M15).
+- **`claim_proposal`**: a stored-form batch on the observation's rendition (D2 §7.3). For authored
+  proposals (M10, the agent) the model-facing batch as submitted and its citation frame are the
+  authority, and the stored batch is derived from them by the quote cascade (D4 §4.3); the payload
+  records the cascade version and the schema version that derived it (D2 §8). M23's derived
+  proposals record their rule and sources.
+- **`judgment`**: a decision on an observation, claim or group, under a guideline version; its
+  target records the key scheme of the key it names (D1 §10.1).
+- **`verification`**: a verifier's verdict on a claim; M19 writes only failing outcomes (D5 §8.1).
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0022](../adr/0022-schema-change-modelled.md)
+> Status: the payload classes **Implemented** in `core/payloads.py` (P0-F-2b, 2026-10-28); their
+> place in the model, the registry and the recorded derivation are **Proposed** (2026-10-28)
 
 ### 6.3 Operations JSON
 
@@ -876,25 +1083,40 @@ CREATE TABLE eval.golden_pass (                  -- the single store of authored
   golden_unit_id       bigint NOT NULL REFERENCES eval.golden_unit ON DELETE CASCADE,
   pass                 text NOT NULL CHECK (pass IN ('a','b','c')),
   guideline_version_id bigint NOT NULL REFERENCES meta.guideline_version,
-  batch                jsonb NOT NULL,           -- model-facing ClaimProposalBatch as authored (pass c: the adjudicated batch)
-  citation_frame       jsonb NOT NULL,           -- {"s1": {"locator": "…", "text": "…"}, "c1": {…}}: each cited sentence id → its locator and text (D1 §10.3)
+  batch                jsonb NOT NULL,           -- model-facing ClaimProposalBatch as authored (pass c: the adjudicated batch); never rewritten
   decisions            jsonb,                    -- pass c: per-difference decision, reason, guideline_gap marks
   session_ref          text NOT NULL,            -- authoring session; passes a and b of a unit must differ
   model                text NOT NULL,            -- authoring model (ADR-0011: Sonnet 5.5)
   inputs               jsonb NOT NULL,           -- guideline version, annotator-reference hash, packet hash, M13 version that chose the context
+  payload_schema_id    bigint NOT NULL REFERENCES meta.payload_schema,   -- the batch's and frames' schema (D2 §8)
   created_at           timestamptz NOT NULL DEFAULT now(),
   UNIQUE (golden_unit_id, pass, guideline_version_id)
+);
+
+CREATE TABLE eval.citation_frame (               -- versions of a pass's citation frame; added, never edited
+  id             bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  golden_pass_id bigint NOT NULL REFERENCES eval.golden_pass ON DELETE CASCADE,
+  version        integer NOT NULL,               -- 1: as authored, written with the pass
+  parent_id      bigint REFERENCES eval.citation_frame,   -- the version it re-locates; null for version 1
+  frame          jsonb NOT NULL,                 -- {"s1": {"locator": "…", "text": "…"}, "c1": {…}}: each cited sentence id → its locator and text (D1 §10.3)
+  reason         text NOT NULL,                  -- 'authored', or the re-location that wrote it (D7 §3.5)
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (golden_pass_id, version),
+  CHECK ((version = 1) = (parent_id IS NULL))
 );
 
 CREATE TABLE eval.golden_item (                  -- derived: one pass c batch located on one rendition
   id             bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   golden_pass_id bigint NOT NULL REFERENCES eval.golden_pass ON DELETE CASCADE,   -- the pass c it projects
+  citation_frame_id bigint NOT NULL REFERENCES eval.citation_frame,   -- the frame version it was located through
   rendition_id   bigint NOT NULL REFERENCES kb.rendition,
+  cascade_version text NOT NULL,                 -- the quote cascade that derived it (D4 §4.3)
+  schema_version_id bigint NOT NULL REFERENCES meta.schema_version,   -- the schema version it was derived under (name maps applied, D2 §8)
   item_type      text NOT NULL CHECK (item_type IN ('entity','statement','claim','alternative','unsupported')),
   local_ref      text NOT NULL,
   payload        jsonb NOT NULL,                 -- a stored item: the core stored-form batch element (D1 §10.3, D2 §7.3), offsets into rendition_id
   context        boolean NOT NULL DEFAULT false, -- a context premise stated outside the unit: scored only through claim nodes here (D7 §5.1)
-  UNIQUE (golden_pass_id, rendition_id, item_type, local_ref)
+  UNIQUE (golden_pass_id, rendition_id, cascade_version, schema_version_id, item_type, local_ref)
 );
 
 CREATE TABLE eval.alignment (
@@ -929,16 +1151,20 @@ CREATE INDEX result_run    ON eval.result (run_id);
 **Authored passes are the authority; items are derived.** A golden unit is identified by its unit
 key, a locator (D1 §3.4), so it is the same unit on every rendition of its page; the rendition its
 packets came from is provenance. Each pass stores the batch in the model-facing form its author
-wrote, with its citation frame (D1 §10.3). `eval.golden_item` is a projection of one pass c batch
-onto one rendition: before a run is aligned, evaluation resolves the frame on the run's rendition
-(`kb.run_rendition`, §8) and, when items for that pair do not yet exist, derives them by the
-production quote cascade (D4 §4.3); `write_golden` stores passes only and never derives items. A
-frame that does not resolve marks the unit `stale` and derives nothing. Re-location (D7 §3.5) rewrites only the frame's locators, keeping the batch and the
-recorded sentence texts; re-authoring adds a new pass c beside the old one. Items are never
-edited, only derived again for another rendition or pass. `eval.result` records
-the pass c ids it scored (`golden_snapshot`), so a result stays tied to the goldens it used after
-re-authoring (P0CL-03; operator, 2026-10-28).
-> Decision: [ADR-0019](../adr/0019-identity-follows-content.md)
+wrote, with its citation frame (D1 §10.3) as frame version 1. `eval.golden_item` is a projection of
+one pass c batch onto one rendition: before a run is aligned, evaluation resolves the pass's latest
+frame version on the run's rendition (`kb.run_rendition`, §8) and, when items for that pass,
+rendition, cascade version and schema version do not yet exist, derives them by the production
+quote cascade (D4 §4.3), applying the schema version's name maps; `write_golden` stores passes only
+and never derives items. A frame that does not resolve marks the unit `stale` and derives nothing.
+Re-location (D7 §3.5) **adds a frame version** with a parent link and new locators, keeping the
+batch and the recorded sentence texts; no frame is rewritten, so the frame an earlier result scored
+through stays as it was. Re-authoring adds a new pass c beside the old one. Items are never edited,
+only derived again for another rendition, pass, cascade or schema version, and each records the
+frame version it was located through. `eval.result` records the pass c ids it scored
+(`golden_snapshot`), so a result stays tied to the goldens it used after re-authoring (P0CL-03;
+operator, 2026-10-28).
+> Decision: [ADR-0019](../adr/0019-identity-follows-content.md), [ADR-0022](../adr/0022-schema-change-modelled.md)
 > Status: **Proposed** (2026-10-28)
 
 **Sampling and splits are recorded with their inputs.** `eval.golden_set.sampling` holds what

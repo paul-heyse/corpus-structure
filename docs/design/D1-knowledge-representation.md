@@ -191,7 +191,7 @@ A **locator** names a segment by what the source shows, an author id or the open
 text, instead of by offsets, so it resolves on every rendition of the document in which that text
 is unchanged. This is the one locator contract: slices ([D6 §8](D6-orchestration-metrics-policies.md#8-debug-slices-and-output-size)),
 fixtures, citation frames (§10.3), the `statement(locator)` query and evidence locators
-([D8 §5](D8-agent-and-query-interfaces.md#5-typed-queries)), `extref` targets (OPEN-D1-5) and the
+([D8 §5](D8-agent-and-query-interfaces.md#5-typed-queries)), `ExternalReference` resolution (§4.4) and the
 statement and local-entity keys (§10.1) all use it. Its owner in the build is ingest and math, as
 one core-level function over a rendition's segments that every consumer calls (P0CL-04;
 operator, 2026-10-28).
@@ -290,6 +290,39 @@ statement that defines an entity. Statement grouping is what lets a consumer rec
 affine transformation theorem, its premise, its conditions, its conclusion and its proof" from
 claims.
 
+### 4.4 External references
+
+A reference to something outside the batch ("the last result", "definition [1]", an author `[n]`
+link, an email's "as I wrote below") is a typed **`ExternalReference`** node, a core entity class,
+never an `unsupported` item and never a dropped claim:
+
+- **Authored.** It is D2 §7.3's `outside` statement item (`anchor: "outside"`, variant V2), which
+  carries a **descriptor**: the citing sentence (a sentence id of the batch) and the quote that
+  makes the reference, and the author's link target when there is one.
+- **Stored and keyed.** The quote is located on the rendition by the quote cascade and stored with
+  its span. The node is a local entity anchored at the citing statement's anchor segment, keyed
+  `xrf` by the citing statement's key, the descriptor's quote in text form and the link target when
+  present
+  (§10.1). It has no statement `kind`, so a statement row still always has one
+  ([D3 §5](D3-database.md#5-kb-evidence-observations-entities-and-claims)).
+- **Used.** Claims keep it where they cite it: as subject, object, `claim` condition target or
+  binding target.
+- **Resolved by consolidation.** Consolidation resolves it through its link target or a locator
+  (§3.4) to a statement of the run, records the `resolves_to` relation on the node and keys the
+  citing claim with the resolved statement's key in its place, so it fuses with claims that cite
+  the statement directly (a stated stability limit, §10.3). The node keeps its own key either way
+  ([D5](D5-consolidation-identity-confidence.md)).
+- **Unresolved.** An unresolved reference stays a typed node: the citing claim is served as
+  conditional on it (INV-09), it counts in coverage, and queries render it as "an unresolved
+  reference: …" ([D8 §5](D8-agent-and-query-interfaces.md#5-typed-queries)).
+
+This closes OPEN-D1-5 on one treatment shared with D2's V2 (alignment review RC11; operator,
+2026-10-28).
+> Decision: [ADR-0023](../adr/0023-declared-identity.md) for its key; the node itself is the
+> alignment review's RC11 (phase 0 coordinator decision 21)
+> Status: **Proposed** (2026-10-28); the node, its key and resolution are built by foundations
+> (F2e) and consolidation (C1)
+
 ## 5. Claims
 
 ### 5.1 Structure
@@ -321,41 +354,78 @@ to its rank.
 
 Every claim may carry these, whatever the domain. They are named here by their local names, as
 the model-facing batch writes them; stored claims, keys and compiled rows use the prefixed names
-(`core:modality`, `core:attribution`, …), like every schema element (D2 §7.1):
+(`core:modality`, `core:attribution`, …), like every schema element (D2 §7.1).
 
-| Qualifier | Values | Meaning | In the key (§10.1) |
-|---|---|---|---|
-| `modality` | `asserted` (default), `supposed`, `defined`, `conventional`, `exemplified`, `posed`, `cited` | How the source puts the claim forward; see below | yes |
-| `polarity` | `positive` (default), `negative` | "X is not normal" is a negative claim, not an absent one | yes |
-| `hedge` | null or a `phrase` value | "typically", "approximately" | no |
-| `attribution` | null (the document's author) or an entity | Who says it, when not the author | the attributed entity under modality `cited`; otherwise no |
-| `conditions` | a condition tree (§7) or null | Under what conditions the claim holds | yes, canonicalized |
-| `scope` | null or `{segment, extent}`, extent ∈ `statement`, `section`, `document` | Where a supposition applies when broader than its statement | no |
-| `valid_time` | null or an interval value | When the fact is true in the world (business domains) | yes |
+**Identity is declared, not decided by code.** Every qualifier, core and schema alike, has a
+**qualifier specification** in the model: its range, its default, its **key role**, an optional
+**role condition**, its canonical form by range (§6.2), its case policy (§6.2) and its store
+placement. The specifications compile into one `KeySchema`, which the key function (§10.1),
+consolidation's slots and conflict detection
+([D5 §5.4–§5.5](D5-consolidation-identity-confidence.md#54-slots-core-support-refinements-and-alternatives))
+and the rule view read; none of them restates the rules below. The specification's fields are
+fixed by [model and projections §3.2](../plans/phase-0/model-and-projections.md#32-stage-a-generation-m1).
+The key roles are:
+
+- `identity`: the qualifier enters the claim key in its canonical form;
+- `meaning`: it stays out of the key but carries meaning, so candidates that share a key and
+  disagree on it become alternatives (`alternative_of`), not one fused claim
+  ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion));
+- `inert`: neither.
+
+A role condition names a member property of the claim's modality under which the role becomes
+`identity`. The core specifications are:
+
+| Qualifier | Range | Default | Meaning | Key role | Condition |
+|---|---|---|---|---|---|
+| `modality` | `ClaimModality` (schema-version-scoped, below) | `asserted` | How the source puts the claim forward; see below | identity | — |
+| `polarity` | `Polarity`: `positive`, `negative` | `positive` | "X is not normal" is a negative claim, not an absent one | identity | — |
+| `hedge` | a `phrase` value | absent | "typically", "approximately" | meaning | — |
+| `attribution` | an entity reference | absent (the document's author) | Who says it, when not the author | meaning | identity when the modality has `attribution_identifying` (core: `cited`) |
+| `conditions` | a condition tree (§7) | absent | Under what conditions the claim holds | identity | — |
+| `scope` | `{segment, extent}` (authored: extent only), extent ∈ `statement`, `section`, `document` | absent | Where a supposition applies when broader than its statement | meaning | — |
+| `valid_time` | an interval value | absent | When the fact is true in the world (business domains) | identity | — |
+
+`statement` stays a key part of its own, beside the qualifiers (§10.1). A schema qualifier takes
+its role from the pack: `ci:key_role` on its slot, or the pack's `ci:identity_qualifiers` list
+compiled into the same specification (§5.3, D2 §3).
 
 `valid_time` and the cited source are identity because they change what is claimed: "ORG-101
 owns P-17" for two intervals in one table statement is two facts, and "Smith showed X" and "Jones
-showed X" are two reports. An attribution outside `cited`, and the phrasing of any attribution
-("as Smith (1990) showed"), stay out of the key. Qualifiers outside the key still carry meaning:
-candidates that share a key but disagree on `hedge`, `scope` or attribution phrasing become
-alternatives (`alternative_of`), not one fused claim ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)) (P0CL-06;
-operator, 2026-10-28).
-> Status: **Proposed** (2026-10-28)
+showed X" are two reports. An attribution under a modality without `attribution_identifying`, and
+the phrasing of any attribution ("as Smith (1990) showed"), stay out of the key; candidates that
+share a key but disagree on `hedge`, `scope` or attribution phrasing become alternatives (P0CL-06;
+operator, 2026-10-28). No member name is written in the key function: a pack modality under which
+attribution identifies gets the property, and no core edit follows.
+> Decision: [ADR-0023](../adr/0023-declared-identity.md)
+> Status: **Proposed** (2026-10-28); the role rule is hard-coded in `keys.py` at `6f31f75`
+> (Implemented, to be replaced by the compiled `KeySchema`, foundations F2d)
 
-Modalities:
+**Modalities.** `ClaimModality` is **schema-version-scoped**: the core members below plus the
+members a pack declares, each member carrying its **member properties**, so a pack's business
+modality needs only a pack declaration (phase 0 coordinator decision 18). The core members and
+their properties:
 
-| Modality | Use | Example |
+| Modality | Use | Properties | Example |
+|---|---|---|---|
+| `asserted` | The author states it as true | `conflict_bearing` | The conclusion of a theorem |
+| `supposed` | Assumed within a statement or scope; not asserted beyond it | `premise_forming` | "Suppose that X is normally distributed…" |
+| `defined` | A stipulation that makes something true by definition | `conflict_bearing` | "Then X = e^Y has the lognormal distribution" in a definition |
+| `conventional` | An author convention, explicitly optional | — | "it's convenient to consider a constant as having a normal distribution" |
+| `exemplified` | Values given in an example or exercise setup | — | "The radius of the rod is normally distributed with mean 1 cm" |
+| `posed` | A quantity or question an exercise asks for. **Reserved** until the `asks_for` predicate exists (D2 §9, OPEN-D2-15); guideline v1 records asked quantities as `unsupported` meanwhile | — | "Find the probability that…" |
+| `cited` | Reported from another source | `attribution_identifying` | "Smith (1990) showed…" |
+
+Each property has its consumers, which read the property and never a member name:
+
+| Property | Core members | Read by |
 |---|---|---|
-| `asserted` | The author states it as true | The conclusion of a theorem |
-| `supposed` | Assumed within a statement or scope; not asserted beyond it | "Suppose that X is normally distributed…" |
-| `defined` | A stipulation that makes something true by definition | "Then X = e^Y has the lognormal distribution" in a definition |
-| `conventional` | An author convention, explicitly optional | "it's convenient to consider a constant as having a normal distribution" |
-| `exemplified` | Values given in an example or exercise setup | "The radius of the rod is normally distributed with mean 1 cm" |
-| `posed` | A quantity or question an exercise asks for. **Reserved** until the `asks_for` predicate exists (D2 §9, OPEN-D2-15); guideline v1 records asked quantities as `unsupported` meanwhile | "Find the probability that…" |
-| `cited` | Reported from another source | "Smith (1990) showed…" |
+| `premise_forming` | `supposed` | INV-06 (§11); the default query filters ([D8 §5](D8-agent-and-query-interfaces.md#5-typed-queries)) |
+| `attribution_identifying` | `cited` | the claim key: attribution's role condition (above, §10.1) |
+| `conflict_bearing` | `asserted`, `defined` | conflict detection ([D5 §5.5](D5-consolidation-identity-confidence.md#55-equivalence-and-conflict-across-statements)) |
 
 `supposed` is what keeps hypothetical premises from becoming facts: a query for "what is
 normally distributed" returns nothing from a premise unless it asks for suppositions.
+> Status: **Proposed** (2026-10-28)
 
 ### 5.3 Schema-defined qualifiers
 
@@ -408,7 +478,7 @@ A value is a tagged JSON object. Every value has `t` (type). Value types:
 | `text` | `v` | `{"t":"text","v":"location-scale family"}` |
 | `number` | `v` (canonical decimal string, §6.2); optional `unit` (the unit as the source states it) and `basis` (a reference basis the source states, such as `gauge` or `absolute`) | `{"t":"number","v":"0.002","unit":"cm"}`, `{"t":"number","v":"300","unit":"kPa","basis":"gauge"}` |
 | `bool` | `v` | `{"t":"bool","v":true}` |
-| `enum` | `enum` (the enum's name: local in the model-facing batch, prefixed once stored), `v` | `{"t":"enum","enum":"stat:ParameterRole","v":"scale"}` (stored) |
+| `enum` | `enum` (the enum's name: local in the model-facing batch; prefixed, and required to be, in the stored form, one value variant per batch form), `v` (the member, verbatim) | `{"t":"enum","enum":"stat:ParameterRole","v":"scale"}` (stored). Enum names are normalized by prefixing, never by case, and the canonical form is `{enum, v}` as stored (§6.2) |
 | (entity reference) | `{ref}` (a local ref in batches, an entity key once keyed) | an entity reference, a position type, not a value: one shape, `{ref}` without `t`, in every position that may take an entity (claim objects, `pred` arguments, entity-ranged qualifiers such as `attribution` and `base_variable`), so decoding has one shape per position (D2 §7.3). Fields that only ever hold a reference (a claim's subject and statement, identity slots, binding targets) are plain ref strings. **Tested** (S4 variant V1, 2026-10-28, record `s4.batch-validation`: 135 of 135 batches valid in this shape) |
 | `formula` | `latex`, `sympy`, `parse`, `symbols` | below |
 | `set` | `latex`, `sympy`, `parse`, `symbols` | `ℝ`, `(0, ∞)`, `ℝ ∖ {0}` |
@@ -483,10 +553,44 @@ pack's map only for names the page does not define; the commands of the drop lis
 `\,`, `\;`, `\!`, `\left` and `\right`, and whitespace removed, except inside a text-mode
 argument, where whitespace collapses to one space; braces around single tokens dropped, so
 `b^{2}` is `b^2`). The SymPy
-form is never part of a key, so adding or upgrading the parser never changes keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)); text NFC-casefolded with
-collapsed whitespace; dates by their ISO 8601 string as written, never reformatted or converted
-to another time zone. Formula equivalence for evaluation uses SymPy simplification
+form is never part of a key, so adding or upgrading the parser never changes keys; consolidation fuses candidates whose formulas SymPy proves equivalent ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)); text
+NFC-normalized with collapsed whitespace and its declared case policy (below); dates by their ISO
+8601 string as written, never reformatted or converted to another time zone. Formula equivalence
+for evaluation uses SymPy simplification
 ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)), not canonical form.
+
+**Canonical form by declared range.** A value's canonical form is chosen by the range its slot or
+qualifier declares (§5.2), never by the value's JSON shape, so a map entry `{"ref": "Smith"}` under
+a string range is a string, not an entity reference:
+
+| Declared range | Canonical form |
+|---|---|
+| `formula`, `set` | token form over the rendition's effective macro table (below; ADR-0012); `symbols`, `sympy` and `parse` stay outside |
+| `text`, `phrase` | text form: NFC, whitespace collapsed, case per policy (`fold` by default); a phrase by its text alone, never its offsets, sentence or `coarse` |
+| string identifier (a `string` range with `ci:case` declared) | NFC, whitespace collapsed, the declared case |
+| `enum` | `{enum: <prefixed enum name>, v: <member>}` verbatim |
+| an entity class or `Entity` | the resolved entity key, after the resolver's kind check (§10.3) |
+| `interval` | recursive over its bounds and inclusivity flags |
+| a map-entry range (`param_values`) | an object from each key (NFC) to the canonical form of the entry's declared value range |
+| `number` | the canonical decimal (below), with `unit` and `basis` NFC and whitespace-collapsed, never converted |
+| `date`, `bool` | verbatim |
+
+**Case policy** (`ci:case`: `fold` or `preserve`) is declared on string-ranged slots and on each
+class's label, and the text form and label normalization (§10.1) apply it; nothing guesses it
+from a value's shape. `fold` is the default and applies to prose labels and prose literals.
+`preserve` applies to math-bearing text:
+
+- the labels of classes declared math-bearing, such as `RandomVariable`, whose label is its
+  defining expression when it has no symbol;
+- literal identity slots whose fallback is a symbol, such as `FamilyParameter.canonical_name`
+  under OPEN-D1-3's rule (the role word, else the symbol).
+
+So `X` and `x`, or `\Sigma` and `\sigma`, key apart where the text is declared math-bearing and
+alike under `fold`. Symbols already keep case (§10.1), and the label and symbol paths now agree.
+A business identifier such as `ORG-101` gets the case its pack declares for the slot.
+> Decision: [ADR-0023](../adr/0023-declared-identity.md)
+> Status: **Proposed** (2026-10-28); the code at `6f31f75` chooses canonical forms by JSON shape
+> and casefolds every label (Implemented; DA-001, DA-008), to be replaced by foundations F2d
 
 **Numbers** take a canonical decimal string: no exponent (`1e-3` is `0.001`), no trailing zeros
 after the point and no point without digits after it (`300.0` and `300.` are `300`), no leading
@@ -500,7 +604,7 @@ from phase 1; phase 0 evaluation compares canonical decimals with their units as
 > Status: **Proposed** (2026-10-28); Hypothesis properties over the canonicalization belong to
 > foundations (phase 0)
 
-Canonical form for keys is the **token form, for every value**: token normalization over the
+Canonical form for keys is the **token form, for every formula and set value**: token normalization over the
 rendition's macro table, by whole command name (`\P` never matches inside `\Phi`), with spacing
 and sizing commands removed (`\big`, `\Big`, `\bigg`, `\Bigg` and their `l`/`r`/`m` forms, beside
 those above). It is total and does not depend on whether the value parses, so extending the
@@ -669,6 +773,7 @@ Acceptance never changes establishment: an accepted derived claim stays derived.
 | Failed recovery | Task outcome `failed`, with error |
 | Unreviewed | No golden alignment and no judgment; reported by evaluation coverage ([D7](D7-evaluation-goldens-outer-loop.md)) |
 | Unresolved symbol | Formula symbol binding `unresolved` |
+| Unresolved external reference | An `ExternalReference` node without a `resolves_to` relation (§4.4); its citing claims are conditional on it |
 
 ## 9. Observations
 
@@ -719,7 +824,8 @@ is one function, used for keys, rendition content digests (§3.2) and configurat
 | Global entity | `ent` | type and identity attributes; the normalized canonical label only when the type's identity attributes are incomplete (a `FamilyParameter` keys by family and canonical name alone) |
 | Local entity | `ent` | type, scope locator (§3.4, structured form, which carries the document key), normalized symbol or label |
 | Statement | `stm` | the statement's anchor locator (§3.4, structured form, which carries the document key) and the ordinal, within the anchor segment, of the statement's first sentence. The anchor segment is the `unit` for a statement inside a unit, the `details` block for a proof or solution, and the `paragraph` outside units; a statement in no annotation unit (a top-level list, table, figure, caption or footnote) anchors on its enclosing top-level block, never on the document; so "the unit" and "its first sentences" key alike, two statements in one block do not collide, and an edit in another block moves no statement's key |
-| Claim | `clm` | subject key, predicate, object key or canonical value, the statement key (its own part, beside the qualifiers object), identity qualifiers by prefixed name; a member of an alternative group whose candidates share these parts adds its own canonical values of the disagreeing qualifiers and of its disagreeing bindings ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)), so claim keys stay unique within a run |
+| External reference | `xrf` | the citing statement's key, the descriptor's quote in text form (§6.2), and the author's link target, as written (NFC), when the descriptor has one (§10.3; the `outside` item of D2 §7.3). The citing sentence id is local to its batch and never a part |
+| Claim | `clm` | subject key, predicate, object key or canonical value, the statement key (its own part, beside the qualifiers object), and, by prefixed name in their range's canonical form (§6.2), the qualifiers whose specification gives them the `identity` role or whose role condition holds (§5.2); a member of an alternative group whose candidates share these parts adds its own canonical values of the disagreeing qualifiers and of its disagreeing bindings ([D5 §5.3](D5-consolidation-identity-confidence.md#53-fusion)), so claim keys stay unique within a run |
 | Alternative group | `alt` | the sorted keys of its members ([D5 §5.4](D5-consolidation-identity-confidence.md#54-slots-core-support-refinements-and-alternatives)) |
 | Identity group | `idg` | the sorted keys of its members ([D5 §3.7](D5-consolidation-identity-confidence.md#37-identity-alternatives)) |
 | Method config | `cfg` | method name, method version, canonical params |
@@ -732,13 +838,42 @@ blocks' keys. What an edit can move is stated in §10.3 (P0CL-01; operator, 2026
 > Status: **Proposed** (2026-10-28); property tests (two content-identical renditions from two
 > adapter configurations give identical claim keys; an edit inside one paragraph that leaves every
 > block's opening words unchanged leaves the other statements' keys unchanged) belong to
-> foundations (phase 0); fixture tests compare key equalities, never key values, so a fixture
-> never pins a hash
+> foundations (phase 0)
+
+**The key scheme.** The rules that turn parts into keys (the canonical forms of §6.2 and §7, the
+key roles of §5.2, label normalization, the parts listed above and `canonical_json`) form a
+numbered **key scheme**, declared in the `core` model as `ci:key_scheme: N` and carried by the
+compiled `KeySchema`. The scheme is recorded **beside** keys, never hashed into them: each run
+records the scheme of its keys ([D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks)),
+and each judgment target records the scheme of the key it names
+([D5 §7.3](D5-consolidation-identity-confidence.md#73-carrying-judgments-across-runs)). Keys are
+compared only within one scheme, or through the carry-over map below. A scheme number inside every
+key would move every key on any scheme change, even one that changes no output for most inputs,
+and orphan every judgment and cross-run diff.
+
+- **Conformance vectors pin values, per scheme.** Each scheme has a conformance vector:
+  hand-authored inputs (values of every range form, condition trees, entities with identity,
+  statements on a small rendition, an external reference) with their expected keys pinned,
+  computed from hand-written parts independently of the key function. A change to any output fails
+  the vector until the scheme moves.
+- **Fixtures still compare equalities.** Fixture tests compare key equalities, never key values, so
+  a fixture never pins a hash and never breaks on a sanctioned scheme change; only the vector of
+  the scheme in force pins values.
+- **A scheme change ships a carry-over map** (old key → new key; translation T8 of the target
+  model), computed by keying the stored authored inputs (§10.3) under both schemes. A key whose
+  input is unavailable is reported, never guessed. Cross-run comparisons, carried judgments and
+  reference-run key reuse go through the map when the schemes differ. A scheme change is a
+  key-bearing schema change (ADR-0022): a new scheme number, a new vector and the map together.
+> Decision: [ADR-0023](../adr/0023-declared-identity.md)
+> Status: **Proposed** (2026-10-28); scheme 1 is frozen with conformance vector v1 once the token
+> form is final (`s5.keys-property`) and the declared specifications are built (foundations F2d,
+> F2e); how the outgoing scheme's functions stay callable for the map is probe Q-6
 
 **Symbols and labels in keys.** A symbol enters a key in its token form (§6.2), and a symbol
 that is a lone control word drops its backslash (`\mu` is `mu`), the form symbol-map keys use
 (§6.1). Labels enter through **label normalization**, one generic core function used by keys,
-by matching and by canonical-label choice: NFC, casefold, collapsed whitespace, leading articles
+by matching and by canonical-label choice: NFC and collapsed whitespace with the class label's
+declared case policy (§6.2; casefolded under `fold`, kept under `preserve`), leading articles
 removed, the class's head words removed and the pack's rewrites applied
 ([D5 §3.3](D5-consolidation-identity-confidence.md#33-global-entities) point 5). The articles,
 head words and rewrites are pack data (the `aliases:` section of `methods.yaml`,
@@ -770,16 +905,19 @@ linking reuses the reference run's keys but not its canonical labels
 > have equal claim keys with the label rule; 3 of the rest differ only by one statement-segmentation
 > disagreement (U6), the others by the fact itself (record `s6.keys`, 2026-10-28).
 
-**Identity qualifiers** are those that change meaning: `modality`, `polarity`, `statement`,
-canonical `conditions`, `valid_time`, the attributed entity when modality is `cited`, and every
-schema qualifier the schema lists in `ci:identity_qualifiers` (for example `param_values`).
-Evidence, confidence, `hedge`, `scope`, attribution outside `cited` and attribution phrasing are
-not part of the key; candidates whose keys agree but which disagree on one of those that carries
-meaning become alternatives (§5.2, D5 §5.3), each keyed with its disagreeing values as in the
-table above (P0CL-06; operator, 2026-10-28). Symbol bindings (§6.1) are outside the key as well,
+**Identity qualifiers** are those whose qualifier specification (§5.2) gives them the `identity`
+role, or whose role condition holds; the compiled `KeySchema` is the one list, and this section
+restates none of it. For the core qualifiers that is `modality`, `polarity`, canonical
+`conditions`, `valid_time` and the attributed entity under an `attribution_identifying` modality;
+for a pack, the qualifiers it declares `identity` (for example `param_values`). Evidence,
+confidence and attribution phrasing are not part of the key, nor are `meaning`-role qualifiers;
+candidates whose keys agree but which disagree on a `meaning`-role qualifier become alternatives
+(§5.2, D5 §5.3), each keyed with its disagreeing values as in the table above (P0CL-06; operator,
+2026-10-28). Symbol bindings (§6.1) are outside the key as well,
 because formulas key by token form, and they carry meaning too: candidates with equal keys and
 different bindings become alternatives in the same way.
-> Status: **Proposed** (2026-10-28) for bindings
+> Decision: [ADR-0023](../adr/0023-declared-identity.md)
+> Status: **Proposed** (2026-10-28), bindings and the declared roles alike
 
 Group keys carry their own prefixes (`alt`, `idg`), so a group key in a task's `unit_key` or a
 judgment's target is never mistaken for a claim or entity key.
@@ -799,13 +937,30 @@ has none (bootstrap).
 
 ### 10.3 Stability limits
 
-Keys of global entities depend on the canonical label consolidation selects; a resolution change
-that merges two entities changes a key. Keys anchored by locators move when a locator does: an
-edit to a block's id or opening words moves the keys anchored there; because a generated prefix
-is the shortest unique one, an edit can also lengthen or shorten the prefix of another block of
-the same kind on the page, moving its keys; and new original bytes are a new document (§3.1),
-whose key every locator carries. Segment keys and spans move with any content change, which is
-why nothing that must outlive a rendition holds them.
+Keys are stable only within these stated limits; anything else that moves a key is a defect:
+
+- **Entity resolution.** Keys of global entities depend on the canonical label consolidation
+  selects; a resolution change that merges two entities changes a key.
+- **Locator regeneration.** Keys anchored by locators move when a locator does: an edit to a
+  block's id or opening words moves the keys anchored there; because a generated prefix is the
+  shortest unique one, an edit can also lengthen or shorten the prefix of another block of the
+  same kind on the page, moving its keys; and new original bytes are a new document (§3.1), whose
+  key every locator carries.
+- **The first-sentence ordinal within an anchor.** A statement key holds the ordinal of its first
+  sentence within its anchor (§10.1), so inserting a sentence before it in that anchor, or
+  re-segmenting an earlier sentence there, moves that statement's key and the keys of the later
+  statements in the same anchor, and no other statement's key (DA-014).
+- **External-reference resolution.** A claim that cites an `ExternalReference` (§4.4) is re-keyed
+  to the resolved statement when consolidation resolves the reference.
+- **Key-derivation changes.** A change to a canonical form, a key role, a case policy, label
+  normalization or the parts of §10.1 is handled only through a new key scheme with its carry-over
+  map (§10.1), never as a silent change to keys under the scheme in force.
+
+Segment keys and spans move with any content change, which is why nothing that must outlive a
+rendition holds them.
+> Decision: [ADR-0023](../adr/0023-declared-identity.md)
+> Status: **Proposed** (2026-10-28); a test that shows the ordinal shift belongs to foundations
+> (F2d)
 
 Goldens therefore never reference run keys: they carry their own local references and are
 aligned structurally ([D7 §5](D7-evaluation-goldens-outer-loop.md#5-alignment-and-scoring)). An
@@ -828,13 +983,26 @@ batch (an entity, statement, claim, alternative or unsupported item, D2 §7.3) w
 and segment keys on one rendition, as golden items (D3 `eval.golden_item`) and stored proposals
 (D3 §6.2 `claim_proposal`) hold them. A pack's compiled batch schema types only what a predicate
 contributes inside an item (its object and qualifiers) and the enum of entity classes; the frame
-model, the generic item models and their checks, the entity-type side table (D2 §7.3) among them,
-are domain-free, reading only schema facts, and their owner in the build is foundations, beside the
-keys.
+model and the generic item models are domain-free, reading only schema facts, and their owner in
+the build is foundations, beside the keys.
+
+**One owner of reference checks per context.** References are typed by kind (entity, statement,
+claim): a local ref when authored, a key once stored.
+
+- For **batches**, `validate` owns the reference and type checks: its batch checks, the entity-type
+  side table (D2 §7.3) among them, refuse a batch reference to an unknown or wrong-kind item
+  ([D4 §4.3](D4-method-catalog.md#43-output-form-and-post-processing),
+  [D5 §1](D5-consolidation-identity-confidence.md)).
+- For **pool candidates**, the keying resolver owns kind refusals: its per-kind lookups refuse a
+  reference of the wrong kind with a typed drop code, and the dropped claim is counted.
+
+No other component repeats either check.
 > Status: **Tested** for the generic item models and the side table (S4, 2026-10-28, record
 > `s4.batch-validation`: per-predicate branches over domain-free item models validate the 135 listed
 > batches in both forms, and the side table, reading only the pack's schema facts, catches every
-> seeded reference error); **Proposed** for the frame model, which S4 did not build
+> seeded reference error); **Proposed** for the frame model, which S4 did not build, and for the
+> single ownership of reference checks, which the side table's result does not establish
+> (2026-10-28; alignment review R04, RC19)
 
 Because an entity item is generic, the decoding form does not tie an entity's `scope` or identity
 slots to its `type`: a model can emit a global `RandomVariable`, which only the side table refuses
@@ -855,14 +1023,14 @@ run is reported as orphaned, never silently dropped ([D5 §7](D5-consolidation-i
 | INV-03 | Every predicate, class, enum value and schema qualifier used exists in the run's schema version |
 | INV-04 | Only consolidation writes entities, claims and claim links; observations are append-only |
 | INV-05 | A local entity has a scope segment; a global entity has none |
-| INV-06 | A `supposed` claim is referenced by at least one condition or has a `scope` qualifier |
+| INV-06 | A claim whose modality is `premise_forming` (core: `supposed`) is referenced by at least one condition or has a `scope` qualifier |
 | INV-07 | `derived` claims have at least one `derived_from` link; `agent_asserted` claims never appear in a corpus run |
 | INV-08 | Condition trees reference only claims in the same run |
-| INV-09 | A claim with a `phrase` or `unsupported` condition leaf is not reported as unconditional |
+| INV-09 | A claim with a `phrase` or `unsupported` condition leaf, or one that cites an unresolved `ExternalReference` (§4.4), is not reported as unconditional |
 | INV-10 | Spans lie within their rendition's canonical text and their text equals the substring |
 
 An invariant that a proposal can break is handled before anything is written: the offending item
-is dropped with a counted reason, or rejected by a core rule. A `supposed` claim that breaks INV-06
+is dropped with a counted reason, or rejected by a core rule. A `premise_forming` claim that breaks INV-06
 is rejected at submission, so its author repairs the batch (D4 §4.3, D5 §8).
 > Status: **Proposed** (2026-10-28)
 
@@ -892,7 +1060,7 @@ variance`. The standard deviation `|b|σ` is a `derived` claim, never stated as 
 | OPEN-D1-2 | Do variable scopes need a `section` extent in practice, or does `statement` scope plus "Suppose again" resolution suffice? | Spike S0 reference annotations; **answered by S0** (2026-10-28): yes; T1's "In this section", T2's "Suppose again" and U12 are section-scoped in every pass, and M13 reproduces them with section-wide and reopen binders (D4 M13) |
 | OPEN-D1-3 | Should `FamilyParameter` identity use role names or source symbols when a source names no role ("parameters μ and σ")? Current proposal: canonical name = role if stated, else symbol; later `parameter_role` claims add roles | Spike S0, D2 review; **answered by S0** (2026-10-28): the role word when the unit states one, else the symbol (guideline v1 §10.4, D2); reworded 2026-10-28 to the phrase that first names the parameter (design owner's review B2), so names hold across units; parameterizations are OPEN-D2-18; confirmed at the next guideline-revision check (D7 §2) |
 | OPEN-D1-4 | Is `section` the right scope extent for Siegrist's page-level standing assumptions (the lead-in "we fixed random variable Z")? | Spike S0; **answered by S0** (2026-10-28): `section`, under nested h3/h4 synthesis; `document` was never needed |
-| OPEN-D1-5 | References outside the batch ("the last result", "definition [1]", author `[n]` links): a value `{t: "extref", target}` whose target is a locator (§3.4) or an author link target, usable as a `refers_to`/`follows_from` object, a `claim` node target and a binding target; consolidation resolves it to a key and reports unresolved ones; INV-09 counts a claim with an unresolved external premise as conditional (S0 gap RG-1, rank 1). Until then such references are `unsupported` | Deferred (design authority, 2026-10-28) to the phase 0 boundary, with OPEN-D2-7…20: claim keys and goldens move there anyway, and phase 0 extraction emits no `extref` |
+| OPEN-D1-5 | References outside the batch ("the last result", "definition [1]", author `[n]` links): a value `{t: "extref", target}` whose target is a locator (§3.4) or an author link target, usable as a `refers_to`/`follows_from` object, a `claim` node target and a binding target; consolidation resolves it to a key and reports unresolved ones; INV-09 counts a claim with an unresolved external premise as conditional (S0 gap RG-1, rank 1). Until then such references are `unsupported` | **Closed** (2026-10-28) by the domain-model alignment review's RC11 (operator, 2026-10-28): not a value but a typed `ExternalReference` node (§4.4), authored as D2 §7.3's `outside` statement item with a descriptor, keyed `xrf` (§10.1), resolved by consolidation with a `resolves_to` relation, and served as conditional while unresolved (INV-09); such references are no longer `unsupported`. Built by foundations F2e and consolidation C1 |
 | OPEN-D1-6 | A `bound` binding kind for symbols bound inside a formula (Σ, ∏, ∫, set-builder), excluded from completeness counts (S0 gap RG-3) | D1 §6.1 and `BindKind` in core.yaml, next schema revision |
 | OPEN-D1-7 | `param_of` targeting a premise claim other than `has_distribution` (a mean stated by `mean_value`, RG-5). Any predicate whose pack declares `ci:param_map` is now a target (§6.1, 2026-10-28); a parameter value stated as a claim's object rather than as a map entry remains open | Next schema revision |
 | OPEN-D1-8 | An extent covering a run of sibling statements (RG-6) | Next schema revision |

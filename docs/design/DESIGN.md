@@ -181,7 +181,7 @@ conditions as a typed tree with escape leaves and symbol bindings as a value-lev
 only for co-equal participants, things referred to, or recurring identities; keys from canonical
 JSON of meaning-bearing parts ([D1](D1-knowledge-representation.md)).
 
-> Decision: ADR-0013
+> Decision: ADR-0013, ADR-0023
 
 <a id="section-b2"></a>
 
@@ -207,25 +207,42 @@ unresolved; golden passes go through the same tools by Sonnet subagents
 
 <a id="section-b4"></a>
 
-### §B4 PostgreSQL 18 is the single authority
+### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
-**Tested** in spike S6 (2026-10-28: DDL, trace rows, queries, BM25, halfvec and the queue on smoke
-data); accepted, migration 0001 not yet built. One database holds knowledge, operations and
-evaluation, with JSONB payloads, pgvector and BM25 text search; DuckDB serves analytics and exports
-only ([D3](D3-database.md)).
+**Tested** for the store in spike S6 (2026-10-28: DDL, trace rows, queries, BM25, halfvec and the
+queue on smoke data); the split of authority, the generated relational projection and the
+in-process engine are **Proposed** (accepted 2026-10-28; migration 0001, the pool and the engine not
+yet built). One PostgreSQL 18 database holds every instance of knowledge, operations and
+evaluation, so one transaction links a task, its observations and the claims they change, with
+pgvector and BM25 text search in the same planner. The structure and meaning of those rows
+(tables, closed sets, relationships, invariants, payload classes) are projections of the model
+(§B5): relationships that queries join on or invariants constrain are relational, decision-relevant
+scalars are columns, and other values are typed JSONB under the payload-schema registry. The
+consolidation pool is a set of model-typed Arrow relations whose set-based steps run in an
+in-process DuckDB engine with no persistent state, set-equal with a Python reference
+implementation; identity and canonical forms stay in Python. DuckDB also serves analytics and
+exports; neither it nor files hold authoritative data ([D3](D3-database.md)).
 
-> Decision: ADR-0016
+> Decision: ADR-0021
 
 <a id="section-b5"></a>
 
-### §B5 A domain is a LinkML pack compiled into every consumer
+### §B5 One LinkML model is the authority; a domain is a pack of it, and every representation is generated
 
-**Tested** in spike S4 (2026-10-28: schema v0 compiled to every consumer, 135 batches validated);
-accepted, the product compilers not yet built. Schema tables, GLiNER2 schemas, batch JSON
-Schemas, rules and the annotator reference are compiled from one pack per domain
-([D2](D2-schema-and-guidelines.md)).
+**Tested** for pack compilation in spike S4 (2026-10-28: schema v0 compiled to every consumer, 135
+batches validated); the model's authority over the core and system shapes, the generated
+projections and the change model are **Proposed** (accepted 2026-10-28; the model modules and
+compilers not yet built). The corpus-structure model has three modules: `core` and `system`,
+released with code as one model revision, and the domain packs, each a schema version held as
+data; the pack owns the domain vocabulary. Every consequential fact is declared once in it, and
+every representation (the Python `core` imports, per-version models, SQLAlchemy `MetaData` and
+Alembic revisions, CHECKs and FKs, Arrow and JSON Schemas, GLiNER2 schemas, rules and the annotator
+reference) is generated from it or is the hand-written physical overlay bound by name to generated
+tables. Change is modelled: revisions, a payload-schema registry and change records whose
+compatibility class decides the route, with no migration only for versioned payloads that nothing
+PostgreSQL enforces or reads ([D2](D2-schema-and-guidelines.md), [D3](D3-database.md)).
 
-> Decision: ADR-0017
+> Decision: ADR-0020, ADR-0022
 
 <a id="section-b6"></a>
 

@@ -116,6 +116,14 @@ What this document does not build:
 
 The annotation bar is AGENTS.md's: each declaration has a named consumer.
 
+**Pack extension of core enums.** A schema-version-scoped closed set such as `ClaimModality` is
+extended by a pack enum that declares `inherits: ClaimModality` (or composes with `include` / `minus`)
+and adds its members, each with its member properties. This is native LinkML (operator, 2026-10-28;
+linkml overview §3.4). linkml-runtime 1.12.1's `SchemaView.induced_enum` does not materialize enum
+expressions, so the compilers expand `inherits`, `include` and `minus` themselves: M1 for core enums, S1
+for pack enums into the per-version member rows. `code_set` / `code_set_version` and `meaning` remain
+available for versioned vocabularies and ontology ties.
+
 **Member properties.** These use native permissible-value `in_subset` if probe Q-2 confirms that
 `linkml-lint` accepts it and `SchemaView` reads it back (`permissible_value_ancestors`,
 `annotation_dict`). Otherwise they use one scalar `ci:properties` annotation per member, holding
@@ -224,7 +232,9 @@ TM §6:
   - identity attributes are `kb.entity_identity` rows.
 - **Invariants:** `ci:invariant` templates become CHECKs.
 - **Scalars moved out of JSONB:** `kb.claim` gains `modality`, `polarity`, `attribution_entity_id` and
-  `schema_version_id`.
+  `schema_version_id`. The compiler also ties a row's `schema_version_id` to its run's recorded schema version (a
+  composite FK `(run_id, schema_version_id)` to `ops.run`, or the bulk writer per Q-4); D3 leaves this open
+  after P0-D-1.
 - **Run and versioning tables and columns:**
   - `UNIQUE (run_id, id)` as the target of same-run composite FKs;
   - `kb.entity.resolved_to_id` for `ExternalReference`;

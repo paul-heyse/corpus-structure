@@ -1,10 +1,10 @@
 ---
 id: ADR-0016
 title: PostgreSQL 18 is the single authority for knowledge, operations and evaluation
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: []
-superseded-by: null
+superseded-by: [ADR-0021]
 design: [§B4]
 evidence: Tested
 revisit: Path queries come to dominate, write volume exceeds one database, or many corpora or tenants need separate stores.

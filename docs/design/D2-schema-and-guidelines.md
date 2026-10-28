@@ -19,15 +19,17 @@ pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-
 3. **Descriptions are functional.** GLiNER2 uses label descriptions as model input and the LLM
    reads them in its prompt. A class or predicate description is written for those readers:
    what the span or fact looks like in text, with a short example.
-4. **The schema grows by versions.** Additions are cheap; renames and splits carry a migration
-   that also rewrites claims in kept runs and goldens ([§8](#8-versioning-and-migration)).
+4. **The schema grows by versions.** Additions are cheap; renames and splits carry a name map
+   applied when items are derived or payloads read, never a rewrite of authored artifacts, and
+   every change is classified by the model ([§8](#8-versioning-and-migration)).
 
 ## 2. Domain pack layout
 
 ```text
 domains/<name>/
   schema/
-    <name>.yaml          LinkML schema; imports ../../core/schema/core.yaml
+    <name>.yaml          LinkML schema; imports the model's `core` module (§6), which the pack
+                         loader resolves to the packaged file
     rules.yaml           rule-engine rules (`rules:`), the guideline's warnings (`guideline:`), rule
                          views (`views:`), lookup tables (`tables:`) and derivations (`derive:`), §7.4
     migrations/          schema migration mappings for breaking changes, §8
@@ -46,27 +48,47 @@ domains/<name>/
   verifiers.py           optional domain verifiers implementing validate.Verifier (§7.6)
   queries.py             optional domain queries implementing serve's query protocol (§7.6, D8 §5.2)
   README.md              scope of the pack, source corpora, owner notes
-domains/core/schema/core.yaml   core classes, predicates, value classes and enums shared by all packs
 domains/core/schema/rules.yaml  domain-free rules every pack runs (such as `core.value_kind_matches_slot`,
-                                a finalize warning), §7.4
+                                a finalize warning), §7.4; a pack file of its own, hashed into every
+                                schema version
+python/corpus-structure/src/corpus_structure/model/
+  core.yaml                     the model's `core` module: core classes, predicates, value classes,
+                                qualifier specifications and enums shared by all packs (§6)
+  system.yaml                   the model's `system` module: the classes of `meta`, `ops`, `kb` and
+                                `eval`, their closed sets, invariants, relationships and payload
+                                classes, the source-profile class (D3)
+  revisions.yaml                the model-revision log with each revision's change record (§8)
 sources/<profile>.yaml          source profiles (D4 M01): how one source's HTML becomes segments;
                                 outside every pack, named by the packs that read the source (§12.1)
 ```
 
+The **model** (ADR-0020) has two lifecycles. Its `core` and `system` modules change with code
+releases and together form the **model revision**: the LinkML `version`, the SHA-256 of the
+canonical JSON of the parsed `core` and `system` files (the hashing rule below), the compiler
+versions and the key-scheme version, logged in `model/revisions.yaml` and projected to
+`meta.model_revision` (D3 §3). Each pack is data and forms a **schema version**.
+
 A **schema version** is the content hash over `<name>.yaml`, the pack's `rules.yaml` (its
-`guideline:` section included), the imported `core.yaml`, the core `rules.yaml` and the worked
-examples in `reference/E*` (each example's packet text as a string and its batch; its citation
-frame joins the inputs once the example pages have D1 §3.4 sentence locators): SHA-256 of the
-canonical JSON (D1 §10.1) of the parsed files, not of their bytes or of a SchemaView dump, which
-carries file paths and varies with the LinkML release
-([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-07). The worked examples are inside it because
+`guideline:` section included), the core `rules.yaml`, the worked examples in `reference/E*` (each
+example's packet text as a string and its batch; its citation frame joins the inputs once the
+example pages have D1 §3.4 sentence locators) and the **model revision id**, which replaces the
+mirror `core.yaml` earlier versions hashed: SHA-256 of the canonical JSON (D1 §10.1) of the parsed
+files, not of their bytes or of a SchemaView dump, which carries file paths and varies with the
+LinkML release ([schema-rules note](../design_review/evidence/2026-10-28_library-schema-rules/README.md) L-07).
+The authority over the core is then inside the hash, so a code release that changes `core` or
+`system` yields a new schema version for every pack. The core `rules.yaml` stays under
+`domains/core/schema/`, because its rules are data every pack runs, not part of the model
+revision. A project that combines several packs compiles them into one schema version, with local
+names checked unique across them at compile time. The worked examples are inside it because
 every prompt and golden pass reads them through the annotator reference (§7.5), so changing one is
 a schema change for reuse (D6 §4). The guideline is versioned separately ([D7 §2](D7-evaluation-goldens-outer-loop.md#2-guidelines)),
 because guideline wording changes far more often than the schema.
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0022](../adr/0022-schema-change-modelled.md)
 > Status: **Tested** (S4, 2026-10-28, record `s4.schema-hash`): over the pack files of §6 and §9,
 > both `rules.yaml` files and `reference/E1…E3` (packet text and batch), the hash reproduced in 3
-> of 3 subprocess runs with different hash seeds and a copy at another location. The citation-frame
-> input is **Proposed**
+> of 3 subprocess runs with different hash seeds and a copy at another location. The model-revision
+> input, the model's location and the several-packs rule are **Proposed** (2026-10-28); the
+> citation-frame input is **Proposed**
 
 ## 3. The `ci:` annotation vocabulary
 
@@ -80,7 +102,10 @@ no element for are annotations with prefix `ci: https://corpus-structure.dev/ci/
 (schema-rules note L-06). The three list annotations (`ci:qualifiers`, `ci:identity_qualifiers`,
 `ci:target`) are space-separated strings, which the pack loader splits. Strings read back through
 `SchemaView` are LinkML's `extended_str`; the loader casts them to `str` before they reach a compiler
-or rule-engine (§7.4).
+or rule-engine (§7.4). The vocabulary is used in the model's `core` and `system` modules and in the
+packs alike; §3.4 adds the declarations the model needs. **Every project annotation has a named
+consumer**: the model loader's declaration check refuses an annotation outside this vocabulary, one
+without a consumer, and a member property the consuming code's generated set does not hold.
 > Status: **Tested** (S4, 2026-10-28, record `s4.pack-lint`): the pack files of §6 and §9 lint with
 > 0 errors (2 `standard_naming` warnings on D1's field names `t` and `v`, kept), and 129 of 129 `ci:`
 > annotations read back through `SchemaView` equal to the file's value and type
@@ -117,7 +142,7 @@ states them:
 |---|---|---|
 | `ci:role` | `predicate`, `qualifier` | `predicate`: claims use it. `qualifier`: usable as a qualifier on the predicates that list it. Written on predicates and qualifiers only; identity and field roles are derived (above) |
 | `ci:qualifiers` | space-separated qualifier slot names | Schema qualifiers allowed on this predicate (D1 §5.3) |
-| `ci:identity_qualifiers` | space-separated | Which of them enter the claim key (D1 §10.1) |
+| `ci:identity_qualifiers` | space-separated | Which of them enter the claim key (D1 §10.1). Compiled into the same qualifier specification as `ci:key_role` (§3.4): `identity` for each listed qualifier, `meaning` for the predicate's other listed qualifiers unless a slot declares otherwise; a slot whose `ci:key_role` contradicts the list is refused |
 | `ci:extract` | `relation`, `llm`, `none` | How extraction proposes claims of this predicate: GLiNER2 relation, LLM only, or not extracted (derived only) |
 | `symmetric` (native) | `true` | `identical_parameter`-style predicates; consolidation orders subject and object canonically |
 | `transitive` (native) | `true` | The predicate is transitive (`special_case_of`); derivations may close over it (§7.4 `derive:`) |
@@ -126,7 +151,7 @@ states them:
 | `in_subset` (native) | subset names | The predicate subsets that hold the predicate (below) |
 | `examples` (native) | `- value: …` items | As on classes |
 | `ifabsent` (native) | a default | The value a qualifier takes when absent: `modality` `asserted`, `polarity` `positive`. Defaults are filled in for rules (D5 §8.2) and omitted in storage |
-| `ci:form` | `model`, `stored`, `consolidated` | On a value-class attribute present in one form only: `PhraseValue.sentence` (model-facing), its offsets and `coarse` (stored), `Formula.sympy` and `parse` (added by consolidation, in neither batch form). The batch models and the contract test (§6) compare each form with its own fields |
+| `ci:form` | `model`, `stored`, `consolidated` | On a value-class attribute present in one form only: `PhraseValue.sentence` (model-facing), its offsets and `coarse` (stored), `Formula.sympy` and `parse` (added by consolidation, in neither batch form). The generated shapes take each form's fields from it (§6; until Stage B, the interim mirror guard compares each form with its own fields) |
 | `ci:required_in` | `stored` | The attribute is required in that form only (`PhraseValue.start`, `end`) |
 | `ci:extract: record`, `ci:record`, `ci:anchor` | — | Reserved for GLiNER2 record structures (§7.2). **No v0 predicate uses them**: a record needs fields that one predicate cannot supply, so records are declared only when spike S2 or a measured gap shows a structure earns its place |
 
@@ -173,7 +198,38 @@ A second pack with parameterized entities declares the same three things and nee
 | `ci:args` (same) | The class of the arguments |
 | `ci:symmetric` (same) | `true` when argument order does not matter: D1 §7's canonical form sorts the arguments of a symmetric condition predicate. A permissible value has no native `symmetric` |
 | `ci:z3` (same) | Name of the z3 encoding for this condition predicate, or absent if not encodable |
-| `ci:claim_bearing` (on a permissible value of `StatementKind`) | `true` when units of this kind are expected to state claims; policies route proposals by it ([D6 §7.2](D6-orchestration-metrics-policies.md#72-unit-context)). Core defaults: true for every kind except `proof` and `solution` (narrative paragraphs such as T2 state claims) |
+| member property `claim_bearing` (on a permissible value of `StatementKind`, §3.4) | The member's units are expected to state claims; policies route proposals by it ([D6 §7.2](D6-orchestration-metrics-policies.md#72-unit-context)). Core members: every kind except `proof` and `solution` (narrative paragraphs such as T2 state claims). It replaces the scalar `ci:claim_bearing` annotation |
+
+### 3.4 Model declarations: lifecycles, member properties, identity, placement and payloads
+
+The model (ADR-0020) adds these declarations to the vocabulary above. Native LinkML carries each
+meaning it can; every value stays a scalar (§3), so list-valued declarations are space-separated
+strings. The table states what each declaration means and who reads it; the declarations
+themselves live in `model/core.yaml`, `model/system.yaml` and the packs.
+
+| Declaration | On | Meaning | Consumers |
+|---|---|---|---|
+| `ci:lifecycle: static \| schema_version` | enum | `static` sets change with code and are enforced by named CHECKs; `schema_version` sets can be extended by packs and are enforced by per-version member rows and composite FKs (D3 §1). A pack extends one natively, by a pack enum with `inherits: <core enum>` (or `include` / `minus`) that adds members with their properties; the compilers expand the expression themselves, since `SchemaView.induced_enum` does not. A static set refuses pack members | the `MetaData` compiler, the per-version models, the Python generator |
+| member properties: permissible-value `in_subset: [<property>]` (native), or the fallback `ci:properties: <space-separated names>` | enum member | What a member does: `ClaimModality` `premise_forming`, `attribution_identifying`, `conflict_bearing`; `SegmentKind` `annotation_unit`, `top_level_annotation_unit`, `statement_anchor`, `search_block`, `section_like`, `label`, `container`; `StatementKind` `claim_bearing`. A pack member of a `schema_version` set carries its properties the same way. Native `in_subset` is used if probe Q-2 confirms that `linkml-lint` accepts it and `SchemaView` reads it back; otherwise the scalar fallback | keys, locators, consolidation, queries, the generated SQL constants (the BM25 kind list), the rule view, the annotator reference |
+| `ci:key_role: identity \| meaning \| inert` | qualifier slot | Whether the qualifier enters the claim key, carries meaning outside it (disagreement makes alternatives), or neither. The core qualifiers' roles are the model's qualifier specifications (D1 §10.1) | `KeySchema`; slots, alternatives and conflicts; the rule view |
+| `ci:key_role_when: <member property>` | qualifier slot | The role applies only when the claim's modality has that property, as attribution is identity under an `attribution_identifying` modality | `KeySchema` |
+| `ci:case: fold \| preserve` | a string-ranged slot; a class (for its label) | Case policy for canonical forms and label normalization; `fold` by default, `preserve` for math-bearing labels and identifier slots | `KeySchema`, label normalization |
+| `ci:stored_range: <class>` | slot | The stored form's range where it differs from the authored one (`scope`: `ScopeExtent` authored, `StoredScope` stored) | the Python generator |
+| `ci:invariant: <template>(…)` | class | One of a closed set of templates: `ordered(a, b)`, `ordered_eq(a, b)`, `iff_present(x, y = v)`, `together(a, b)`, `exactly_one(a, b)` | a generated validator **and** a generated CHECK |
+| `ci:store: table \| nested \| edge` | class or slot | Relational placement, written only to override the derived default: system classes are tables, scalar slots columns, single-valued class-ranged references FKs, multivalued or nested references edges, inlined value classes nested | the `MetaData` and Arrow compilers |
+| `ci:payload: <kind>` | nested class | The class is a registered payload schema of that kind (an observation kind, a compiled-artifact kind, …) | the payload-schema registry writer, readers' upcast dispatch (§8) |
+| `ci:sql_visible: <space-separated paths>` | nested class | The paths PostgreSQL reads (a CHECK, index, generated column, view or D3 §9 query); a pack may declare a schema qualifier path, which makes it a relational change (§8) | the change classifier (§8), the overlay check |
+| `ci:null: never \| json` | nested slot | Whether Arrow null may stand for "absent" (`never`: null forbidden) or the value travels as `arrow.json` text, where JSON null is a value | the Arrow compiler |
+| `ci:key_scheme: N` | the `core` schema | The key-scheme version (ADR-0023) | runs, judgment targets, conformance vectors |
+| `types:` (native) | schema | `Key`, `Locator`, `CanonicalDecimal`, `SentenceId`, `Timestamp`, each with its base type, pattern and projection type | every compiler |
+
+No declaration names an index, a BM25 setting, an operator class or a partial predicate: those are
+physical choices, which live in the hand-written overlay (D3 §1). Behaviour is never declared: the
+model holds what things are and which rules apply, and canonical forms, keys, locators and
+consolidation stay ordinary functions over the generated types.
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0022](../adr/0022-schema-change-modelled.md)
+> Status: **Proposed** (2026-10-28). `in_subset` as a native permissible-value metaslot is
+> Documented (LinkML metamodel); its lint and read-back are probe Q-2
 
 ## 4. Predicates and qualifiers
 
@@ -215,417 +271,77 @@ checks each `pred` node's name, its arity against `ci:arity` and its arguments' 
 
 ## 6. The core schema
 
-`domains/core/schema/core.yaml` is imported by every pack. It declares:
+The `core` module of the model, `python/corpus-structure/src/corpus_structure/model/core.yaml`, is
+imported by every pack and is the authority for the domain-independent D1 shapes and vocabulary
+(ADR-0020). Its revision is the model revision (§2); the file is cited here by path and revision and
+not copied. **Until P0-M-1 promotes it**, the reference is S4's file at `version: 0.2.0`
+(`results/s4/schema/domains/core/schema/core.yaml` in the
+[design-spikes evidence](../design_review/evidence/2026-10-28_design-spikes/S4-report.md), commit
+`dfe1b57`), with one correction the promotion applies: the `MapEntry` description cites "object kind
+map, D2 §3" rather than the retired `ci:object map` annotation (**Proposed**).
+
+It declares, in outline:
 
 | Element | Kind | Content |
 |---|---|---|
 | `Entity` | abstract class | Base of all entity classes; slot `label` |
 | `Statement` | entity class, local | D1 §4.3; slot `kind` (enum `StatementKind`), an ordinary attribute: a statement is identified by its anchor segments (D1 §10.1). Listed in a batch's `statements[]`, never in `entities[]` (§7.3). Label: `<kind> <unit id>`; `<kind> unit <n>` for a unit without an id (n its ordinal among the page's units); else `<kind> ¶<n>` with n the paragraph's ordinal in its section |
+| `ExternalReference` | entity class, local | A reference to something outside the batch ("the last result", an author `[n]` link): a typed node with a descriptor and a resolution, anchored at the citing statement's anchor, never a dropped claim; authored as the `outside` statement item (§7.3, D1 §4.4) |
 | `Value` | abstract class | Base of the D1 values; slot `t`, which each value class fixes by `equals_string` |
 | `Formula`, `SetExpr`, `TextValue`, `NumberValue`, `BoolValue`, `EnumValue`, `DateValue`, `IntervalValue`, `PhraseValue` | value classes | Fields as D1 §6; form-specific fields marked `ci:form` (§3.2) |
 | `EntityRef` | shape class | `{ref}`: the one entity-reference shape, a position type, not a value (D1 §6, §7.3) |
 | `SymbolBinding` | shape class | D1 §6.1 binding kinds |
-| `Condition` | abstract class | Names the condition-tree range; the node shapes are the core Pydantic `Condition` union |
+| `Condition` | class | The condition-tree range; its node shapes, discriminated on `op` |
 | `MapEntry` | abstract class | `key` and `value`; the base of every map qualifier's range (§4) |
 | `structural`, `unsupported` | subsets | §3.2 |
-| `StatementKind` | enum, `ci:extract: classification`, `ci:target: unit paragraph` | Values in D1 §4.3, with `ci:claim_bearing` |
-| `ClaimModality` | enum, `ci:extract: classification`, `ci:target: sentence` | D1 §5.2 |
-| `Polarity`, `StatementRole`, `ScopeExtent`, `BindKind`, `ParseStatus`, `EvidenceRole` | enums | D1 §5.2, §6.1, D4 M11 (`ambiguous` included), guideline §10.3, §10.8 |
-| `modality`, `polarity`, `hedge`, `attribution`, `conditions`, `scope`, `valid_time` | core qualifiers | `modality` defaults to `asserted` and `polarity` to `positive` by `ifabsent` |
+| `StatementKind` | enum, `schema_version` lifecycle, `ci:extract: classification`, `ci:target: unit paragraph` | Core members in D1 §4.3, with the member property `claim_bearing`; packs add members (§3.4) |
+| `ClaimModality` | enum, `schema_version` lifecycle, `ci:extract: classification`, `ci:target: sentence` | D1 §5.2: core members with `premise_forming`, `attribution_identifying` and `conflict_bearing`; a pack may add a member with its properties |
+| `Polarity`, `StatementRole`, `ScopeExtent`, `EntityExtent`, `BindKind`, `ParseOutcome`, `EvidenceRole`, `SegmentKind`, `DelimitingStatus` | enums, `static` lifecycle | D1 §3.2, §5.2, §6.1, D4 M11 (`ParseOutcome`, the formula outcome with `ambiguous`, renamed from `ParseStatus`), guideline §10.3, §10.8; `DelimitingStatus` is the one segment and rendition delimiting status; `SegmentKind` carries its member properties (§3.4) |
+| `modality`, `polarity`, `hedge`, `attribution`, `conditions`, `scope`, `valid_time` | core qualifiers | Each with its qualifier specification: range, default (`modality` `asserted`, `polarity` `positive`, by `ifabsent`), key role and condition, canonical form, case and store (D1 §10.1) |
 | `defines`, `refers_to` | predicates, `structural` | `Statement` → `Entity` |
 | `proves`, `follows_from` | predicates, `structural` | `Statement` → `Statement` |
 | `unschematized` | predicate, `unsupported` | `Entity` → `PhraseValue`; D1 §8.1 status `unsupported` |
+| `ci:key_scheme` | schema annotation | The key-scheme version (§3.4) |
 
-**Who owns the value shapes** (schema-rules note L-01; design authority, 2026-10-28). The D1 shapes
-that every domain shares, the value union discriminated on `t`, condition nodes discriminated on
-`op` (one named recursive `Condition` via `TypeAliasType`), the entity reference, symbol bindings
-and the batch items, are hand-written Pydantic models in `core` (frozen, `extra="forbid"`, tuples
-for lists). They are domain-independent, so no domain meaning moves into code. The value classes in
-`core.yaml` are their **mirror**: an abstract `Value` base with `t` declared through
-`equals_string`, and `conditions` and `param_constraints` ranged on the `Condition` class. LinkML
-owns the domain vocabulary: classes, predicates, qualifiers, enums and identity. `gen-pydantic`
-cannot be the source: on LinkML 1.12.1 it rejects the binding shape every batch uses, emits no
-discriminated unions, defaults missing tags silently and does not freeze models, and it disagrees
-with `gen-json-schema` on the same input.
+**Who owns the shapes** (ADR-0020). The model does. Generation runs from `core.yaml` to the Python
+`core` imports, in two stages:
+- **Stage A** generates the closed sets with their member-property sets (`core/vocab.py`), and the
+  qualifier specifications, defaults, local ↔ prefixed name tables, SQL-literal constants and
+  templated invariant validators (`core/_model/`). The hand-written shapes import them instead of
+  restating them.
+- **Stage B**, after probe Q-1, generates the shape structure: the value union discriminated on
+  `t`, the named recursive `Condition` discriminated on `op` (through `TypeAliasType`), the authored
+  and stored forms from `ci:form`, `MISSING` defaults, frozen models with `extra="forbid"` and
+  tuples, and the stored prefixed aliases. **If Q-1 fails**, the shapes stay hand-written Pydantic
+  and `core.yaml`'s shape classes are emitted from their `model_fields` by an own emitter. Either
+  way no hand-kept mirror remains.
 
-The **mirror contract test** is the contract between the two (P0-F-2b, P0-S-1): per batch form, it
-compares each value tag's fields, their required-ness, multivalued-ness and range between the core
-Pydantic shapes and `core.yaml`'s value classes through `SchemaView` (an attribute counts in a form
-by its `ci:form`, and is required there by `required` or `ci:required_in`), and also the bind
-kinds, the binding fields, `EntityRef` and the evidence roles. The `scope` qualifier is the one
-form-dependent shape LinkML cannot express (model-facing a `ScopeExtent` value, stored
-`{extent, segment}`); its range stays `ScopeExtent` and the stored shape is the core Pydantic one.
-> Status: **Tested** (S4, 2026-10-28, record `s4.batch-validation`): the contract test passes on the
-> file below and fails when `NumberValue.basis` is dropped on the Pydantic side or `TextValue.lang`
-> added on the LinkML side
+LinkML 1.12.1's `gen-pydantic` cannot be used as it is: it rejects the binding shape every batch
+uses, emits no discriminated unions, defaults missing tags silently and does not freeze models, and
+it disagrees with `gen-json-schema` on the same input (Interface-checked, 2026-10-28). Stage B is
+therefore a `PydanticGenerator` subclass or an own emitter over `SchemaView`.
 
-The design copy of `domains/core/schema/core.yaml` (S4's pack file,
-`results/s4/schema/domains/core/schema/core.yaml` in the
-[design-spikes evidence](../design_review/evidence/2026-10-28_design-spikes/S4-report.md)):
+**The interim mirror guard.** Until Stage B or its fallback lands, the mirror contract test compares
+every shape fact Stage A does not generate: per batch form, each value tag's fields, their
+required-ness, multivalued-ness and range between the core Pydantic shapes and `core.yaml`'s value
+classes through `SchemaView` (an attribute counts in a form by its `ci:form`, and is required there
+by `required` or `ci:required_in`), the bind kinds, the binding fields, `EntityRef` and the evidence
+roles. `scope` is form-dependent (authored a `ScopeExtent` value, stored `{extent, segment}`),
+declared by `ci:stored_range` (§3.4).
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md)
+> Status: the mirror contract test **Tested** (S4, 2026-10-28, record `s4.batch-validation`): it
+> passes on S4's file and fails when `NumberValue.basis` is dropped on the Pydantic side or
+> `TextValue.lang` added on the LinkML side. The model's authority, Stage A and B and the new
+> elements (`ExternalReference`, lifecycles, member properties, qualifier specifications,
+> `ci:key_scheme`) are **Proposed** (2026-10-28)
 
-```yaml
-id: https://corpus-structure.dev/core
-name: core
-title: Core schema
-description: >-
-  Core classes, predicates, qualifiers, value classes and enums shared by every domain pack (D2 §6).
-  The value classes are the mirror of the core Pydantic shapes, which own them; a contract test fails
-  when the two disagree. Native LinkML is used wherever it carries the meaning; the remaining ci:
-  annotations are scalar (D2 §3).
-version: 0.2.0
-license: https://creativecommons.org/publicdomain/zero/1.0/
-prefixes:
-  linkml: https://w3id.org/linkml/
-  ci: https://corpus-structure.dev/ci/
-  core: https://corpus-structure.dev/core/
-default_prefix: core
-default_range: string
-imports:
-  - linkml:types
-
-subsets:
-  structural:
-    description: >-
-      Structural claims, about statements. They take no statement_role, are asserted, and carry no
-      conditions (guideline §10.3, §10.6, §10.7 rule 4).
-  unsupported:
-    description: >-
-      Something the source states that the schema cannot express; the claim has status unsupported
-      (D1 §8.1).
-
-classes:
-  Entity:
-    abstract: true
-    description: Base of every entity class; instances are D1 entities.
-    slots: [label]
-
-  Statement:
-    is_a: Entity
-    description: >-
-      An authored unit of meaning: a definition, theorem, proof, example, exercise, remark,
-      convention or assumption. Claims belong to statements as premises, conclusions, definientia
-      or example values. Listed in a batch's statements[], never in entities[].
-    slots: [kind]
-    annotations:
-      ci:scope: local
-      ci:extract: none
-      ci:reify: true
-
-  Value:
-    abstract: true
-    description: >-
-      Base of the D1 value classes. Every value carries the tag t, which names its class; the core
-      Pydantic value union is discriminated on it.
-    slots: [t]
-
-  Formula:
-    is_a: Value
-    description: A formula as written, with its symbol bindings (D1 §6.1).
-    slot_usage:
-      t: {equals_string: formula}
-    attributes:
-      latex:
-        required: true
-        description: The LaTeX exactly as written, macros included.
-      sympy:
-        description: The normalized SymPy form; added by M11 during consolidation.
-        annotations: {ci:form: consolidated}
-      parse:
-        range: ParseStatus
-        description: The parse outcome; added by M11 during consolidation.
-        annotations: {ci:form: consolidated}
-      symbols:
-        range: SymbolBinding
-        multivalued: true
-        inlined: true
-        description: The binding map, keyed by symbol in token form without backslash.
-
-  SetExpr:
-    is_a: Formula
-    description: A set written in LaTeX, such as \R, (0, \infty) or \R \setminus \{0\}.
-    slot_usage:
-      t: {equals_string: set}
-
-  TextValue:
-    is_a: Value
-    description: Free text that is the value itself.
-    slot_usage:
-      t: {equals_string: text}
-    attributes:
-      v: {required: true, description: The text.}
-
-  NumberValue:
-    is_a: Value
-    description: A number with its unit and basis as stated (D1 §6.2).
-    slot_usage:
-      t: {equals_string: number}
-    attributes:
-      v: {required: true, description: The canonical decimal string.}
-      unit: {description: "The unit as stated, or absent."}
-      basis: {description: "A reference basis the source states, such as gauge or absolute, or absent."}
-
-  BoolValue:
-    is_a: Value
-    description: A truth value.
-    slot_usage:
-      t: {equals_string: bool}
-    attributes:
-      v: {range: boolean, required: true, description: The truth value.}
-
-  EnumValue:
-    is_a: Value
-    description: A permissible value of a schema enum.
-    slot_usage:
-      t: {equals_string: enum}
-    attributes:
-      enum: {required: true, description: The enum's name.}
-      v: {required: true, description: The permissible value.}
-
-  DateValue:
-    is_a: Value
-    description: A date or date-time kept verbatim as ISO 8601.
-    slot_usage:
-      t: {equals_string: date}
-    attributes:
-      v: {required: true, description: The ISO 8601 string as written.}
-
-  IntervalValue:
-    is_a: Value
-    description: An interval of values; an absent bound is unbounded.
-    slot_usage:
-      t: {equals_string: interval}
-    attributes:
-      start: {range: Value, inlined: true, description: "The lower bound, a value."}
-      end: {range: Value, inlined: true, description: "The upper bound, a value."}
-      start_incl: {range: boolean, description: Whether the lower bound is included.}
-      end_incl: {range: boolean, description: Whether the upper bound is included.}
-
-  PhraseValue:
-    is_a: Value
-    description: >-
-      Text kept but not interpreted. The model-facing form names the sentence it lies in; the stored
-      form adds the offsets the quote cascade located.
-    slot_usage:
-      t: {equals_string: phrase}
-    attributes:
-      text: {required: true, description: The text as written.}
-      sentence:
-        description: The unit sentence (sN) or standing-context sentence (cN) holding the text.
-        annotations: {ci:form: model}
-      start:
-        range: integer
-        description: Start offset in the rendition's canonical text.
-        annotations: {ci:form: stored, ci:required_in: stored}
-      end:
-        range: integer
-        description: End offset in the rendition's canonical text.
-        annotations: {ci:form: stored, ci:required_in: stored}
-      coarse:
-        range: boolean
-        description: The text was not located exactly; the span is the whole cited sentence.
-        annotations: {ci:form: stored}
-
-  EntityRef:
-    description: >-
-      A reference to an entity: a batch local ref, or an entity key once stored. It is a position
-      type, not a value; a slot whose range is an entity class takes it.
-    attributes:
-      ref: {required: true, description: The local ref or entity key.}
-
-  SymbolBinding:
-    description: How one symbol of a formula is bound (D1 §6.1).
-    attributes:
-      symbol:
-        identifier: true
-        description: The symbol in token form, without backslash.
-      bind: {range: BindKind, required: true, description: The binding kind.}
-      entity: {description: "variable, family_param: the entity's local ref (key once stored)."}
-      claim: {description: "param_of, param_expr_of: the claim's local ref (key once stored)."}
-      param: {description: "param_of, param_expr_of: the entry of the claim's ci:param_map qualifier."}
-
-  Condition:
-    abstract: true
-    description: >-
-      A condition tree (D1 §7). Its node shapes are owned by the core Pydantic Condition union,
-      discriminated on op; this class is the range that names it.
-
-  MapEntry:
-    abstract: true
-    description: >-
-      One entry of a map qualifier (object kind map, D2 §3): a string key and a value. A map
-      qualifier ranges over a subclass, multivalued and inlined, and is written as an object from
-      key to value.
-    attributes:
-      key: {identifier: true, description: The entry's key.}
-      value: {description: The entry's value.}
-
-slots:
-  label:
-    description: Canonical display label (D1 §4.1). Identity follows the key rules of D1 §10.1.
-  kind:
-    range: StatementKind
-    description: The statement's kind.
-  t:
-    description: The value's tag, naming its class.
-
-  # core qualifiers: allowed on every predicate, never listed in ci:qualifiers (D2 §4)
-  modality:
-    range: ClaimModality
-    ifabsent: string(asserted)
-    description: How the source holds the claim (D1 §5.2); asserted when absent.
-    annotations: {ci:role: qualifier}
-  polarity:
-    range: Polarity
-    ifabsent: string(positive)
-    description: Whether the claim is stated or denied; positive when absent.
-    annotations: {ci:role: qualifier}
-  hedge:
-    range: PhraseValue
-    description: A hedging phrase the source attaches to the claim ("usually", "in some settings").
-    annotations: {ci:role: qualifier}
-  attribution:
-    range: Entity
-    description: Who the source says states the claim, when it cites someone.
-    annotations: {ci:role: qualifier}
-  conditions:
-    range: Condition
-    description: The condition tree under which the claim holds (D1 §7).
-    annotations: {ci:role: qualifier}
-  scope:
-    range: ScopeExtent
-    description: >-
-      How far a supposition reaches beyond its statement; model-facing a ScopeExtent value, stored
-      {extent, segment}.
-    annotations: {ci:role: qualifier}
-  valid_time:
-    range: IntervalValue
-    description: The time interval over which the claim holds, when the source states one.
-    annotations: {ci:role: qualifier}
-
-  # core predicates
-  defines:
-    domain: Statement
-    range: Entity
-    in_subset: [structural]
-    description: The statement defines the entity. "is called the location-scale family".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  proves:
-    domain: Statement
-    range: Statement
-    in_subset: [structural]
-    description: A proof or solution statement proves (or solves) another statement.
-    annotations: {ci:role: predicate, ci:extract: llm}
-  follows_from:
-    domain: Statement
-    range: Statement
-    in_subset: [structural]
-    description: The statement is stated to follow from another ("a corollary of the last result").
-    annotations: {ci:role: predicate, ci:extract: llm}
-  refers_to:
-    domain: Statement
-    range: Entity
-    in_subset: [structural]
-    description: The statement explicitly refers to an entity defined elsewhere ("recall the gamma function").
-    annotations: {ci:role: predicate, ci:extract: llm}
-  unschematized:
-    domain: Entity
-    range: PhraseValue
-    in_subset: [unsupported]
-    description: Something the source states that the schema cannot express (D1 §8.1).
-    annotations: {ci:role: predicate, ci:extract: llm}
-
-enums:
-  StatementKind:
-    description: What the source calls a statement (D1 §4.3).
-    annotations: {ci:extract: classification, ci:target: unit paragraph}
-    permissible_values:
-      definition: {description: Stipulates what a term means., annotations: {ci:claim_bearing: true}}
-      theorem: {description: A stated result., annotations: {ci:claim_bearing: true}}
-      proposition: {description: A stated result., annotations: {ci:claim_bearing: true}}
-      lemma: {description: A stated auxiliary result., annotations: {ci:claim_bearing: true}}
-      corollary: {description: A result stated to follow from another., annotations: {ci:claim_bearing: true}}
-      proof: {description: A proof of another statement., annotations: {ci:claim_bearing: false}}
-      example: {description: A worked example with setup values., annotations: {ci:claim_bearing: true}}
-      exercise: {description: An exercise with setup values and an asked quantity., annotations: {ci:claim_bearing: true}}
-      solution: {description: A solution of an exercise., annotations: {ci:claim_bearing: false}}
-      remark: {description: A remark; explicit claims only., annotations: {ci:claim_bearing: true}}
-      convention: {description: A convention the source adopts., annotations: {ci:claim_bearing: true}}
-      notation: {description: A notation the source introduces., annotations: {ci:claim_bearing: true}}
-      assumption: {description: A statement whose only content is a supposition (a context premise)., annotations: {ci:claim_bearing: true}}
-      narrative: {description: Narrative text between units that states claims., annotations: {ci:claim_bearing: true}}
-  ClaimModality:
-    description: How the source holds a claim (D1 §5.2; guideline §10.6).
-    annotations: {ci:extract: classification, ci:target: sentence}
-    permissible_values:
-      asserted: {description: Concluded or stated as true; structural claims.}
-      supposed: {description: "A supposition: suppose, assume, if, or let about something taken as given."}
-      defined: {description: "What a definition stipulates, including a formula introducing a variable."}
-      conventional: {description: A convention.}
-      exemplified: {description: Setup values in examples and exercises.}
-      posed: {description: Reserved until an asks_for predicate exists (OPEN-D2-15).}
-      cited: {description: Attributed to another source.}
-  Polarity:
-    description: Whether a claim is stated or denied.
-    permissible_values:
-      positive: {description: Stated.}
-      negative: {description: Denied.}
-  StatementRole:
-    description: The part a claim plays in its statement (guideline §10.3).
-    permissible_values:
-      premise: {description: A supposition the statement makes.}
-      conclusion: {description: "What a theorem, corollary or remark concludes."}
-      definiens: {description: "What a definition stipulates, or a formula introducing a variable."}
-      restriction: {description: Reserved; restrictions are condition nodes in guideline v1.}
-      example_value: {description: A setup value of an example or exercise.}
-  ScopeExtent:
-    description: How far a supposition or a local entity reaches.
-    permissible_values:
-      statement: {description: The statement that states it.}
-      section: {description: The enclosing section from the stating sentence on.}
-      document: {description: The whole document.}
-  BindKind:
-    description: The kinds of symbol binding (D1 §6.1).
-    permissible_values:
-      variable: {description: The symbol denotes a local entity of the batch.}
-      param_of: {description: The symbol is the value of an entry of another claim's parameter map.}
-      param_expr_of: {description: The symbol occurs inside the value of such an entry.}
-      family_param: {description: The symbol denotes a parameter entity of a family.}
-      free: {description: "A symbol the statement introduces, restricted by its conditions."}
-      constant: {description: A numeric or named constant.}
-      unresolved: {description: Not bound; a counted resolution gap.}
-  ParseStatus:
-    description: The math grammar's parse outcome for a value (D4 M11).
-    permissible_values:
-      ok: {description: One reading.}
-      partial: {description: Parsed in part.}
-      ambiguous: {description: "More than one reading, none chosen by declared context."}
-      failed: {description: Not parsed.}
-  EvidenceRole:
-    description: The part an evidence span plays for its claim (guideline §10.8).
-    permissible_values:
-      primary: {description: The minimal span that states the claim.}
-      supporting: {description: An introducer that determines the modality.}
-      condition: {description: The span of a condition.}
-      definition: {description: The span of a definition the claim relies on.}
-```
-
-The core `domains/core/schema/rules.yaml` has the same form as a pack's (§7.4), with rules only:
-
-```yaml
-# Core rules: domain-free rules every pack runs beside its own (D2 §2, §7.4). Same form as a pack's
-# rules.yaml; the core file has no views:, guideline: or tables: of its own.
-rules:
-  - id: core.value_kind_matches_slot
-    applies_to: any
-    severity: warning
-    at: [finalize]
-    description: >-
-      A formula or set object parses under its slot's declared kind; the grammar's reading of a
-      different kind (a set in a Formula slot, a relation where a formula belongs) is a warning,
-      and the value is kept as written. Reads the grammar's parse, so it runs at finalize only.
-    when: "(claim.value&.slot_kind ?? '') in ['formula', 'set']"
-    check: "claim.value&.math_kind == null or claim.value&.math_kind == claim.value&.slot_kind"
-```
+**The core rules.** `domains/core/schema/rules.yaml` has the same form as a pack's `rules.yaml`
+(§7.4), with rules only and no `views:`, `guideline:` or `tables:` of its own; it is hashed into
+every schema version (§2). Its reference is S4's file (`results/s4/schema/domains/core/schema/rules.yaml`,
+commit `dfe1b57`). Its one rule, `core.value_kind_matches_slot`, is a finalize warning: a formula or
+set object parses under its slot's declared kind, and the grammar's reading of a different kind (a
+set in a `Formula` slot, a relation where a formula belongs) is a warning, the value kept as
+written. It reads the grammar's parse, so it runs at finalize only.
 > Status: **Tested** (S4, 2026-10-28, records `s4.pack-lint`, `s4.rules`): both files load, lint
 > and compile; `core.value_kind_matches_slot` evaluated 24 times on the unseeded pool with 0
 > unexpected fires and caught its seed
@@ -1093,25 +809,105 @@ statistics queries live in the statistics pack
 
 ## 8. Versioning and migration
 
-| Change | Classification | What happens |
-|---|---|---|
-| Add a class, predicate, qualifier, enum value or rule | Additive | New schema version. Cached work whose compiled artifacts did not change is reused (most of it: extraction schemas change, so extraction re-runs; ingest does not) |
-| Edit a description or examples | Additive | New version; extraction re-runs, because descriptions are model input |
-| Rename, split, merge or remove a class or predicate | Breaking | New version plus a migration: a YAML mapping (`old → new`, with a split rule for splits) applied to golden items and, optionally, to kept runs' claims. Orphans are reported |
-| Change an identity key or identity qualifier | Breaking | As above; claim keys change, so cross-run comparison uses alignment, not keys |
+Change is part of the model (ADR-0022). Every stored representation records the revision it was
+written under: a model revision (`core` and `system`, §2), a schema version (a pack, §2), a payload
+schema (a versioned nested class in `meta.payload_schema`, D3 §3) or a key scheme (D1 §10.1). Rows
+that outlive a model revision carry a `payload_schema_id`; per-run rows inherit the run's recorded
+revision, schema version and key scheme. Readers dispatch by the recorded schema and refuse an
+unknown id with a typed error, never reading a stored value under today's defaults.
+
+**Change records.** Each revision step has one: for `core` and `system` in the revision log
+(`model/revisions.yaml`, projected to `meta.model_revision`), for a pack in
+`meta.schema_version.migration`. It holds the from and to revisions; the element changes from a
+`SchemaView` diff (own code: added, removed, renamed as declared, range changed, member added or
+removed, property changed, key role changed, placement changed, invariant changed); per change, its
+compatibility class, reason and **authorizing circumstance** (the model rule under which that kind
+of change is allowed, such as `method_version:<method>/<n>` for a payload field); the migration
+mapping (an Alembic revision, an upcaster, or an `old → new` name map with a split rule for splits);
+the key consequences (scheme change, carry-over map, affected key prefixes); the judgment carry-over
+(by the map, or orphaned with a report); and the compiled artifacts and source profiles affected.
+
+**The compatibility class decides the route:**
+
+| Class | Examples | Route | Keys |
+|---|---|---|---|
+| `descriptive` | a description, example or title | new revision or schema version, no DDL; the compiled artifacts change, so dependent work re-runs (descriptions are model input: extraction re-runs, ingest does not) | unchanged |
+| `nested-additive` | an optional field on a payload class; a nested closed-set member no CHECK lists | a registry row with upcast "absent"; no DDL, no data rewrite (below) | unchanged for existing data |
+| `relational-additive` | a column, table, static enum member, index or edge kind; a path newly declared `sql_visible` | a generated Alembic revision; no data rewrite | unchanged |
+| `version-scoped-additive` | a pack adds a class, predicate, qualifier, statement kind, enum member or rule | a new schema version with its per-version vocabulary rows; cached work whose compiled artifacts did not change is reused | unchanged |
+| `mapped` | a rename, split or merge of a class, predicate, qualifier or member | a new revision or schema version with a name map, applied when items are derived or payloads read; authored artifacts (golden passes, fixtures, proposals) are never rewritten; an Alembic data step only for relational data; orphans are reported | prefixed names enter keys, so affected keys move with a carry-over map |
+| `key-bearing` | an identity qualifier, a canonical form or a key part | a new key scheme (core) or schema version (pack identity) with a carry-over map and new conformance vectors; cross-run comparison and carried judgments go through the map | keys move by the map |
+| `breaking` | a removal or narrowing without a mapping | refused unless an explicit decision is recorded (DP-24) | — |
+
+The classifier checks each declared class against the diff; a `nested-additive` change that touches
+an `sql_visible` path or a key-bearing path is refused.
+
+**The no-migration route** (the operator's question, answered by the
+[domain-model alignment review §4.6](../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md#callout))
+is the `nested-additive` class. A change takes it only when **all** of these hold:
+- the class is a registered nested payload class (`ci:payload`, §3.4);
+- the change is backward-readable: an added optional field, or a new member of a nested closed set
+  that no CHECK lists;
+- no PostgreSQL CHECK, FK, index, generated column, view, D3 §9 query path or partial-index predicate
+  reads the changed path, checked mechanically against the class's declared `sql_visible` paths and
+  the overlay;
+- no key, digest or identity reads the path in a way the change alters (a new optional field
+  changes the canonical JSON, and so the digests, of new payloads only, which is expected);
+- an upcast from every still-referenced older version to the current model is declared in the change
+  record ("absent" for an added optional field).
+
+It applies to observation payloads, compiled-artifact bodies, golden batches and frames,
+`parse_detail` and measurement `detail`, and to their Parquet and DuckDB projections, where payload
+fields become typed analysis columns with no PostgreSQL DDL. It does not apply to anything a
+constraint, key, index or query reads: static closed sets, relational columns and relationships, the
+BM25 block kinds, the run-view predicates, identity qualifiers, canonical forms and key parts. The
+decision-relevant structure of knowledge rows is rebuilt per run under the run's recorded revision,
+so its "migration" is re-consolidation. Renames, removals, narrowings and splits of nested fields go
+through versioned upcasts, never in-place rewrites, because observations are immutable and reused by
+content. Authoritative payloads are never stored as files outside PostgreSQL, which would put them
+outside the transaction; files serve exports only.
+
+**Derived artifacts are keyed on their derivation.** A `claim_proposal` payload records the cascade
+version and schema version that derived its stored `batch`; a golden item is keyed by pass,
+rendition, cascade version and schema version (D3 §7); a re-location adds a citation-frame version
+with a parent link instead of editing a frame a result already scored. Source profiles are
+validated against the `system` profile class, typed against core vocabulary, and checked against
+the run's schema version; change records list the profiles a change affects.
+
+**Alembic** revisions are linked to model revisions: each carries the revision it realizes
+(`template_args`), an unregistered revision cannot be generated (`process_revision_directives`), and
+applications are recorded (`on_version_apply`); static-set CHECKs are digest-named, so
+`checkconstraint_byname` sees a changed member list as a drop and an add.
+> Decision: [ADR-0022](../adr/0022-schema-change-modelled.md)
+> Status: **Proposed** (2026-10-28). The Alembic hooks are **Interface-checked** (installed Alembic
+> 1.20.0 source, 2026-10-28); DuckDB 2.0.0's VARIANT and `KV_METADATA` round trips are
+> **Interface-checked** by a review contributor on scratch data (2026-10-28)
 
 Opus proposes schema changes through `propose_schema_change` ([D8](D8-agent-and-query-interfaces.md));
-a proposal is a diff plus rationale plus, for breaking changes, the migration mapping. The
+a proposal is a diff plus rationale plus its change record, with the migration mapping its class needs. The
 operator does not approve content but sets direction through the guideline ([D7 §8](D7-evaluation-goldens-outer-loop.md#8-the-operators-outer-loop));
 promotion of a schema version follows the experiment rule ([D7 §7](D7-evaluation-goldens-outer-loop.md#7-experiments-and-promotion)).
 
 ## 9. Statistics schema v0
 
-The design copy of `domains/statistics/schema/statistics.yaml` and its `rules.yaml`: S4's pack files
-(`results/s4/schema/domains/statistics/schema/` in the
-[design-spikes evidence](../design_review/evidence/2026-10-28_design-spikes/S4-report.md)), with
-one sentence added to the `family_structure` subset description (§7.5) and the rule view's names
-prefixed (§7.1, §7.4). It covers the trace and the spike pages (LocationScale, Normal, LogNormal, Gamma).
+The statistics pack is `domains/statistics/schema/statistics.yaml` with its `rules.yaml`, cited
+here by path and revision and not copied (ADR-0020). **Until P0-S-1 ports them**, the reference is
+S4's pack files at `version: 0.2.0` (`results/s4/schema/domains/statistics/schema/` in the
+[design-spikes evidence](../design_review/evidence/2026-10-28_design-spikes/S4-report.md), commit
+`dfe1b57`). The port applies these corrections to them, each **Proposed** (2026-10-28):
+- `statistics.yaml`: the `family_structure` subset description gains the sentence "In a definition
+  their role is definiens and their modality defined." (§7.5);
+- `statistics.yaml`: `ci:case preserve` on `RandomVariable` (its label) and on
+  `FamilyParameter.canonical_name` (§3.4; D1 §10.1, under OPEN-D1-3's rule), and `StatementKind`
+  and member properties as the model declares them (§3.4, §6);
+- `rules.yaml`: the rule view's names are prefixed (§7.1, §7.4): the `views:` projection path
+  `object.identity.stat:canonical_name`, `$enums['stat:ParameterRole']` in
+  `stat.param_keys_known`'s check, `$is_a(claim.subject.type, 'stat:RandomVariable')` in
+  `stat.no_family_on_variable`, and the identity key `stat:canonical_name` in
+  `guideline.parameter_role_differs`;
+- `rules.yaml`: the `derive: []` comment reads "derivation rules (D2 §7.4, M23); none in v0".
+
+The pack covers the trace and the spike pages (LocationScale, Normal, LogNormal, Gamma).
 Descriptions are model input (§1.3), first versions for spikes S2 and S3 to test and improve.
 
 Modelling choices in the pack file, and why:
@@ -1134,562 +930,14 @@ Modelling choices in the pack file, and why:
 > after migration (§7.3), and every `has_parameter` subject and parameter `family` in them is a
 > `Parameterized` class. The added subset sentence is **Proposed**
 
-```yaml
-id: https://corpus-structure.dev/domains/statistics
-name: statistics
-title: Statistics schema
-description: >-
-  Statistics schema v0 (D2 §9) in the native form of D2 §3: it covers the trace and the spike pages
-  (LocationScale, Normal, LogNormal, Gamma). Descriptions are model input (D2 §1.3).
-version: 0.2.0
-license: https://creativecommons.org/publicdomain/zero/1.0/
-prefixes:
-  linkml: https://w3id.org/linkml/
-  ci: https://corpus-structure.dev/ci/
-  stat: https://corpus-structure.dev/domains/statistics/
-  core: https://corpus-structure.dev/core/
-default_prefix: stat
-default_range: string
-imports:
-  - linkml:types
-  - ../../core/schema/core
-
-subsets:
-  formula_definition:
-    description: >-
-      Formula claims that define a variable, a concept or a construction by a formula, or a family
-      by a transformation. They hold by the form of the formula: role definiens in a definition or
-      for a formula introducing a variable; modality defined when stipulated, asserted when
-      concluded; no claim nodes, only the restrictions stated with them on their own symbols
-      (guideline §10.7 rule 2).
-  family_structure:
-    description: >-
-      Claims about a family's parameters as such. They hold by the structure of the family: no claim
-      nodes, only the restrictions stated with them on their own symbols (guideline §10.7 rule 2);
-      a parameter symbol binds family_param (§10.7 row 2); stated only in a definition of the family
-      (§10.4). In a definition their role is definiens and their modality defined.
-  distribution:
-    description: >-
-      Distribution claims: the parameter values a sentence states, keyed by the family's canonical
-      parameter names (guideline §10.5).
-
-classes:
-  DistributionFamily:
-    is_a: Entity
-    mixins: [Distributed, Parameterized]
-    title: distribution family
-    description: >-
-      A named family of probability distributions, possibly with parameters: the normal
-      distribution, the gamma distribution, the standard normal distribution. Mentions include
-      adjectival forms ("normally distributed", "has a gamma distribution").
-    examples:
-      - value: the normal distribution
-      - value: lognormal distribution
-      - value: normally distributed
-    annotations:
-      ci:scope: global
-      ci:extract: mention
-
-  FamilyConstruction:
-    is_a: Entity
-    mixins: [Parameterized]
-    title: family construction
-    description: >-
-      A way of generating a family of distributions from a base distribution, such as the
-      location-scale family, the location family or the scale family associated with a
-      distribution, or the general exponential family. Not itself a single distribution family.
-    examples:
-      - value: location-scale family
-      - value: scale family associated with the given distribution
-    annotations:
-      ci:scope: global
-      ci:extract: mention
-
-  FamilyParameter:
-    is_a: Entity
-    title: distribution parameter
-    description: >-
-      A parameter of a distribution family or construction, such as the location parameter, the
-      scale parameter, the shape parameter k, the rate, the mean or the standard deviation when
-      these parameterize the family.
-    slots: [family, canonical_name]
-    slot_usage:
-      family: {required: true}
-      canonical_name: {required: true}
-    unique_keys:
-      identity:
-        unique_key_slots: [family, canonical_name]
-    examples:
-      - value: location parameter
-      - value: shape parameter k
-      - value: the rate parameter
-    annotations:
-      ci:scope: global
-      ci:extract: mention
-      ci:parameter_class: family
-
-  RandomVariable:
-    is_a: Entity
-    mixins: [Distributed]
-    title: random variable
-    description: >-
-      A random variable denoted by a symbol (X, Y, Z, X_1, W) or by an expression in other random
-      variables (a + b X, e^Y, X_1 + X_2). Local to the statement or section that introduces it.
-    slots: [symbol]
-    examples:
-      - value: X
-      - value: a + b X
-      - value: X_1 + X_2
-    annotations:
-      ci:scope: local
-      ci:extract: mention
-
-  Concept:
-    is_a: Entity
-    title: mathematical concept
-    description: >-
-      A defined mathematical term that is not a distribution family, construction or parameter: the
-      gamma function, the standard score, the moment generating function.
-    examples:
-      - value: the gamma function
-      - value: the standard score
-    annotations:
-      ci:scope: global
-      ci:extract: mention
-
-  Distributed:
-    mixin: true
-    description: Things that have a distribution and its characteristics.
-
-  Parameterized:
-    mixin: true
-    description: Things that have parameters, a family or a construction.
-
-  ParamValue:
-    is_a: MapEntry
-    description: >-
-      One entry of a param_values or param_symbols map: key a canonical parameter name, value the
-      formula it takes.
-    slot_usage:
-      value: {range: Formula, inlined: true}
-
-  ParamMapping:
-    is_a: MapEntry
-    description: >-
-      One entry of a param_mapping map: key the target family's parameter canonical name, value the
-      canonical name of the base family's parameter it corresponds to.
-    slot_usage:
-      value: {range: string}
-
-slots:
-  # entity attributes
-  family:
-    range: Parameterized
-    description: The family or construction the parameter belongs to (a local ref in batches).
-  canonical_name:
-    description: >-
-      The parameter's name from the phrase that first names its symbol as a parameter of the
-      family: its role word spelled as the ParameterRole value, else the symbol without backslash
-      (guideline §10.4).
-  symbol:
-    description: The symbol or expression that denotes the random variable, as written.
-
-  # predicates
-  has_distribution:
-    domain: RandomVariable
-    range: DistributionFamily
-    in_subset: [distribution]
-    description: >-
-      The random variable has a distribution in the family, optionally with stated parameter
-      values. "X is normally distributed with mean μ and variance σ²".
-    annotations:
-      ci:role: predicate
-      ci:qualifiers: param_values
-      ci:identity_qualifiers: param_values
-      ci:param_map: param_values
-      ci:extract: relation
-      ci:functional: true
-  defined_as:
-    domain: RandomVariable
-    range: Formula
-    in_subset: [formula_definition]
-    description: The random variable is defined by a formula in other variables. "let X = a + b Z".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  takes_values_in:
-    domain: RandomVariable
-    range: SetExpr
-    description: The random variable's values lie in the set. "with values in ℝ".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  has_parameter:
-    domain: Parameterized
-    range: FamilyParameter
-    in_subset: [family_structure]
-    description: A family or construction has this parameter. "with shape parameter k and scale parameter b".
-    annotations: {ci:role: predicate, ci:extract: relation}
-  parameter_role:
-    domain: FamilyParameter
-    range: ParameterRole
-    in_subset: [family_structure]
-    description: >-
-      The parameter plays this role, stated when it differs from its canonical name. "σ is the shape
-      parameter".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  parameter_domain:
-    domain: FamilyParameter
-    range: SetExpr
-    in_subset: [family_structure]
-    description: The set of the parameter's allowed values. "b ∈ (0, ∞)".
-    annotations: {ci:role: predicate, ci:extract: llm, ci:functional: true}
-  identical_parameter:
-    domain: FamilyParameter
-    range: FamilyParameter
-    symmetric: true
-    in_subset: [family_structure]
-    description: >-
-      Two parameter names denote the same parameter of the family. "the location and scale
-      parameters are also the mean and standard deviation, respectively".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  derived_parameter:
-    domain: FamilyParameter
-    range: Formula
-    in_subset: [family_structure]
-    description: The parameter equals a formula in the family's other parameters. "e^μ is the scale parameter".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  special_case_of:
-    domain: DistributionFamily
-    range: Entity
-    transitive: true
-    in_subset: [family_structure]
-    description: >-
-      The family is the special case of another family or construction obtained under parameter
-      constraints. "The exponential distribution is the gamma distribution with k = 1".
-    annotations:
-      ci:role: predicate
-      ci:qualifiers: param_constraints
-      ci:identity_qualifiers: param_constraints
-      ci:extract: llm
-  transformation_of:
-    domain: DistributionFamily
-    range: DistributionFamily
-    in_subset: [formula_definition, family_structure]
-    description: >-
-      Variables in this family arise by transforming a variable of the other family. "X = e^Y has
-      the lognormal distribution".
-    annotations:
-      ci:role: predicate
-      ci:qualifiers: transform param_mapping
-      ci:identity_qualifiers: transform
-      ci:extract: llm
-  limit_of:
-    domain: DistributionFamily
-    range: DistributionFamily
-    description: The family is a limit of the other under a stated limiting operation.
-    annotations:
-      ci:role: predicate
-      ci:qualifiers: limit param_mapping
-      ci:extract: llm
-  member_of_construction:
-    domain: DistributionFamily
-    range: FamilyConstruction
-    description: >-
-      The family is the construction applied to a base. "The general normal distribution is the
-      location-scale family associated with the standard normal distribution".
-    annotations:
-      ci:role: predicate
-      ci:qualifiers: base
-      ci:identity_qualifiers: base
-      ci:extract: llm
-  construction_formula:
-    domain: FamilyConstruction
-    range: Formula
-    in_subset: [formula_definition, family_structure]
-    description: >-
-      The formula generating members of the construction, without the variable it defines. "X = a +
-      b Z" gives a + b Z.
-    annotations:
-      ci:role: predicate
-      ci:qualifiers: base_variable param_symbols
-      ci:extract: llm
-  support:
-    domain: Distributed
-    range: SetExpr
-    description: The support of the distribution, the set of values with positive density or mass. "on (0, ∞)".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  pdf:
-    domain: Distributed
-    range: Formula
-    description: The probability density (or mass) function, with its argument domain as a condition.
-    annotations: {ci:role: predicate, ci:extract: llm}
-  cdf:
-    domain: Distributed
-    range: Formula
-    description: The cumulative distribution function, with its argument domain as a condition.
-    annotations: {ci:role: predicate, ci:extract: llm}
-  mgf:
-    domain: Distributed
-    range: Formula
-    description: The moment generating function, with the set of arguments where it is finite as a condition.
-    annotations: {ci:role: predicate, ci:extract: llm}
-  mean_value:
-    domain: Distributed
-    range: Formula
-    description: The mean (expected value) as a formula. "E(X) = μ".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  variance_value:
-    domain: Distributed
-    range: Formula
-    description: The variance as a formula. "var(X) = σ²".
-    annotations: {ci:role: predicate, ci:extract: llm}
-  definition_formula:
-    domain: Concept
-    range: Formula
-    in_subset: [formula_definition]
-    description: The formula defining the concept. "the standard score is (X - μ) / σ".
-    annotations: {ci:role: predicate, ci:extract: llm}
-
-  # qualifiers
-  param_values:
-    range: ParamValue
-    multivalued: true
-    inlined: true
-    description: >-
-      The parameter values the sentence states, an object from the family's canonical parameter
-      names to formulas: {"shape": <formula>, "scale": <formula>} (guideline §10.5).
-    annotations: {ci:role: qualifier}
-  param_constraints:
-    range: Condition
-    description: A condition tree (D1 §7) over the base family's parameters under which the special case holds (k = 1).
-    annotations: {ci:role: qualifier}
-  transform:
-    range: Formula
-    description: The transformation, as a formula in the base variable. "e^Y".
-    annotations: {ci:role: qualifier}
-  param_mapping:
-    range: ParamMapping
-    multivalued: true
-    inlined: true
-    description: >-
-      An object from the target family's canonical parameter names to the base family's canonical
-      parameter names they correspond to: {"shape": "sigma"}.
-    annotations: {ci:role: qualifier}
-  limit:
-    range: PhraseValue
-    description: The limiting operation as stated. "as n → ∞".
-    annotations: {ci:role: qualifier}
-  base:
-    range: Entity
-    description: The base family the construction is applied to.
-    annotations: {ci:role: qualifier}
-  base_variable:
-    range: RandomVariable
-    description: The base variable the construction formula transforms (Z in a + b Z).
-    annotations: {ci:role: qualifier}
-  param_symbols:
-    range: ParamValue
-    multivalued: true
-    inlined: true
-    description: >-
-      An object from the construction's canonical parameter names to the symbols that stand for
-      them in its formula: {"location": <formula a>, "scale": <formula b>}.
-    annotations: {ci:role: qualifier}
-
-enums:
-  ParameterRole:
-    description: The role a parameter plays in its family.
-    annotations: {ci:extract: attribute, ci:applies_to: FamilyParameter}
-    permissible_values:
-      location: {description: A location parameter.}
-      scale: {description: A scale parameter.}
-      shape: {description: A shape parameter.}
-      rate: {description: A rate parameter.}
-      mean: {description: The mean as a parameter.}
-      variance: {description: The variance as a parameter.}
-      standard_deviation: {description: The standard deviation as a parameter.}
-      precision: {description: The precision (reciprocal variance) as a parameter.}
-      degrees_of_freedom: {description: Degrees of freedom.}
-      success_probability: {description: A success probability.}
-      number_of_trials: {description: A number of trials.}
-      lower_bound: {description: A lower bound of the support.}
-      upper_bound: {description: An upper bound of the support.}
-      other: {description: Another stated role.}
-  ConditionPredicate:
-    description: The condition predicates of pred nodes (D2 §5).
-    permissible_values:
-      independent:
-        description: The arguments are independent.
-        annotations: {ci:arity: 2+, ci:args: RandomVariable, ci:symmetric: true}
-      identically_distributed:
-        description: The arguments have the same distribution.
-        annotations: {ci:arity: 2+, ci:args: RandomVariable, ci:symmetric: true}
-      iid:
-        description: The arguments are independent and identically distributed.
-        annotations: {ci:arity: 2+, ci:args: RandomVariable, ci:symmetric: true}
-```
-
-`domains/statistics/schema/rules.yaml`:
-
-```yaml
-# Statistics pack rules (D2 §7.4, §9). Sections: views (pool facts compiled for the generic view
-# builder), rules (named checks with severity and call sites), guideline (the guideline rules code can
-# check: always warnings, at both call sites), tables (lookup tables compiled to typed $ builtins and
-# rendered by the annotator reference), derive (derivations, M23; none in v0).
-#
-# Rule language (one helper, shared with policies): rule-engine 5.1 under a typed context generated
-# from the schema version; OBJECT symbols read through getattr; no mapping dot-access; UTC; one
-# context per rule; $now, $today and $random rejected. Symbols are the claim view's (D5 §8.2).
-
-views:
-  family_params:
-    description: Canonical names of the parameters the claim's object family has.
-    applies_to: stat:has_distribution
-    source: stat:has_parameter                 # the source predicate
-    match: {source: subject, claim: object}    # source claims whose subject is this claim's object
-    project: object.identity.stat:canonical_name   # what each matching source claim contributes
-
-rules:
-  - id: stat.param_keys_known
-    applies_to: stat:has_distribution
-    severity: warning
-    at: [finalize]
-    description: >-
-      Every param_values key is the canonical name of a parameter the family has in this run, or a
-      ParameterRole value. A family's parameters are complete only at finalize.
-    check: >-
-      $all([k in claim.family_params or k in $enums['stat:ParameterRole']
-            for k in (claim.qualifiers.param_values ?? {}).keys])
-
-  - id: stat.one_distribution_per_statement
-    applies_to: stat:has_distribution
-    severity: error
-    at: [batch, finalize]
-    description: >-
-      At most one asserted or defined stated has_distribution per variable per statement, unless the
-      claims are marked as alternatives; derived claims are exempt.
-    when: "claim.establishment == 'stated' and claim.qualifiers.modality in ['asserted', 'defined']"
-    check: "$all([o in claim.alternative_of for o in claim.same_slot])"
-
-  - id: stat.domain_is_set
-    applies_to: [stat:parameter_domain, stat:takes_values_in, stat:support]
-    severity: warning
-    at: [finalize]
-    description: >-
-      The object parses as a set (parse ok under the set kind); otherwise a warning, and the object is
-      kept as written. Reads the grammar's parse status, so it runs at finalize only.
-    check: "(claim.value&.parse ?? '') == 'ok'"
-
-  - id: stat.no_family_on_variable
-    applies_to: stat:has_parameter
-    severity: error
-    at: [batch, finalize]
-    description: >-
-      The subject of has_parameter is not a random variable. Subsumed by the predicate's domain
-      (Parameterized) once the side-table type check runs; kept as the check of the $is_a builtin.
-    check: "not $is_a(claim.subject.type, 'stat:RandomVariable')"
-
-guideline:
-  - id: guideline.structural_role_modality
-    applies_to: subset:structural
-    description: Structural claims take no statement_role and are asserted (guideline §10.3, §10.6).
-    check: "claim.statement_role == null and claim.qualifiers.modality == 'asserted'"
-
-  - id: guideline.role_by_kind
-    applies_to: any
-    description: A claim's statement_role is one its statement's kind gives (guideline §10.3).
-    when: "not ('structural' in claim.groups) and claim.statement_kind != null"
-    check: >-
-      not (claim.statement_kind in $roles_by_kind)
-      or (claim.statement_role ?? 'none') in $roles_by_kind[claim.statement_kind]
-
-  - id: guideline.modality_by_role
-    applies_to: any
-    description: A claim's modality follows from its statement_role (guideline §10.6).
-    when: "not ('structural' in claim.groups) and claim.statement_role != null"
-    check: >-
-      not (claim.statement_role in $modality_by_role)
-      or claim.qualifiers.modality == $modality_by_role[claim.statement_role]
-
-  - id: guideline.structural_no_conditions
-    applies_to: subset:structural
-    description: Structural claims carry no conditions (guideline §10.7 rule 4).
-    check: "claim.condition_nodes.is_empty"
-
-  - id: guideline.premise_conditions_index_only
-    applies_to: any
-    description: >-
-      Premises and example values carry no conditions except the range of an index they are stated
-      for; restrictions go to the claims that depend on them (guideline §10.7 rule 1).
-    when: "not ('structural' in claim.groups) and claim.statement_role in ['premise', 'example_value']"
-    check: >-
-      $all([n.op == 'and' or (n.op == 'member' and (n.x_latex ?? '') in claim.subject.index_symbols)
-            for n in claim.condition_nodes])
-
-  - id: guideline.no_claim_nodes_on_form
-    applies_to: [subset:formula_definition, subset:family_structure]
-    description: >-
-      Formula and family-structure claims carry no claim nodes, only restrictions on their own
-      symbols (guideline §10.7 rule 2).
-    when: "not (claim.statement_role in ['premise', 'example_value'])"
-    check: "claim.claim_refs.is_empty"
-
-  - id: guideline.references_a_premise
-    applies_to: any
-    description: >-
-      Every other claim carries a claim node for the premises it depends on: it references at least
-      one premise of its statement or of a context-premise assumption (guideline §10.7 rule 3).
-    when: >-
-      not ('structural' in claim.groups or 'formula_definition' in claim.groups
-           or 'family_structure' in claim.groups)
-      and not (claim.statement_role in ['premise', 'example_value'])
-    check: "claim.statement_premises.is_empty or $any([p in claim.claim_refs for p in claim.statement_premises])"
-
-  - id: guideline.parameter_role_differs
-    applies_to: stat:parameter_role
-    description: A parameter_role claim is stated only when the role differs from the canonical name (guideline §10.4).
-    check: "(claim.value&.v ?? '') == '' or (claim.value&.v ?? '') != (claim.subject.identity&['stat:canonical_name'] ?? '')"
-
-  - id: guideline.formula_excludes_defined_variable
-    applies_to: [stat:defined_as, stat:construction_formula]
-    description: A formula that defines a variable or generates a family excludes the variable it defines (guideline §10.7).
-    check: "not ((claim.value&.latex ?? '') =~ r'\\s*[A-Za-z]\\w*(_\\{?\\w+\\}?)?\\s*=')"
-
-  - id: guideline.symbol_keys_no_backslash
-    applies_to: any
-    description: Symbol-map keys are written without backslash (guideline §10.7).
-    check: "$all([not (b.symbol =~ r'\\\\') for b in claim.bindings])"
-
-  - id: guideline.binding_priority
-    applies_to: any
-    description: >-
-      A symbol another claim gives as a parameter value binds param_of, not free or family_param,
-      unless the claim is about the family as such (guideline §10.7 rows 2-4).
-    check: >-
-      $all([not (b.symbol in claim.given_by_others and b.bind in ['free', 'family_param']
-                 and not (b.symbol in claim.gives_symbols)
-                 and not ('family_structure' in claim.groups and b.bind == 'family_param'))
-            for b in claim.bindings])
-
-tables:
-  roles_by_kind:                 # statement kind -> statement roles its non-structural claims take; none: no role
-    definition: [definiens, premise]
-    theorem: [premise, conclusion, definiens]
-    proposition: [premise, conclusion, definiens]
-    corollary: [premise, conclusion, definiens]
-    lemma: [premise, conclusion, definiens]
-    remark: [premise, conclusion, definiens, none]
-    example: [example_value]
-    exercise: [example_value]
-    convention: [none]
-    assumption: [premise]
-    proof: []
-    solution: []
-  modality_by_role:              # statement role -> the modality it takes
-    premise: supposed
-    definiens: defined
-    conclusion: asserted
-    example_value: exemplified
-
-derive: []                       # derivation rules (D2 §7.4, M23); none in v0
-```
+**The rules file** (`rules.yaml`) holds, in S4's form: `views:` (the pool fact `family_params`, from
+`stat:has_parameter` claims, compiled for the generic view builder, §7.4); `rules:` (the warnings
+`stat.param_keys_known` and `stat.domain_is_set` at finalize, and `stat.one_distribution_per_statement`
+and `stat.no_family_on_variable` as errors at both call sites); `guideline:` (the eleven S0-R2
+checks, always warnings, at both call sites, such as `guideline.references_a_premise`, `guideline.parameter_role_differs` and
+`guideline.binding_priority`); `tables:` (`roles_by_kind`, statement kind to the statement roles its
+non-structural claims take, and `modality_by_role`, statement role to its modality, both rendered by
+the annotator reference); and `derive: []`.
 > Status: **Tested** (S4, 2026-10-28, record `s4.rules`), as §7.4 reports; the prefixed names in
 > `$enums['stat:ParameterRole']`, `$is_a(…, 'stat:RandomVariable')`, the identity key
 > `stat:canonical_name` and the `family_params` projection path are **Proposed** (S4's file used

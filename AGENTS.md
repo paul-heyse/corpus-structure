@@ -167,6 +167,9 @@ process scripts are stdlib-only and run without a project environment.
 - Report outcomes as `passed`, `failed`, `blocked` (name the missing prerequisite) or `not_run`,
   and give the command that produced each. A mocked provider is never `passed`. Never turn
   outcomes into a percentage.
+- Evidence records (`tools/evidence` `Record.outcome`) may also be `partial`: the investigation
+  settled part of its question, and its conclusion names which part and what remains or moved
+  elsewhere.
 - Design claims carry a principles §D label (`Proposed` … `Tested` … `Measured`). An unlabelled
   claim is a defect; `Proposed` is not.
 - Date every "verified" claim.

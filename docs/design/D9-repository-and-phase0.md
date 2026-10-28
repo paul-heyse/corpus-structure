@@ -15,13 +15,24 @@ verifier plug-ins.
 python/corpus-structure/                 uv workspace member; distribution corpus-structure
   pyproject.toml
   src/corpus_structure/
+    model/           the corpus-structure model (ADR-0020): core.yaml and system.yaml, the model
+                     revision's modules, and revisions.yaml, the revision log (D2 §2, §8); data
+                     packaged with the code, read only by schema/ and the generators
     core/            D1 types (Pydantic): values, conditions, claims, the keyed candidate claim,
                      the citation frame and stored-item models, keys, canonical JSON, label
                      normalization; locators (D1 §3.4); tex.py (the TeX tokenizer and token form);
-                     method.py (the D4 §1 method-contract types and the registry interface);
-                     db/ (SQLAlchemy Core table metadata from D3), schemas/ (JSON Schemas of D3 §6)
-    schema/          LinkML loading (SchemaView), the D2 §7 compilers, and the one rule-language
-                     helper that M19's rules and the policy chains share (D2 §7.4)
+                     method.py (the D4 §1 method-contract types and the registry interface).
+                     Generated from the model, checked in, never edited, each with a drift test:
+                     vocab.py (the closed sets with member-property sets), _model/ (qualifiers.py,
+                     names.py, sql.py, validators.py), db/_tables.py (the SQLAlchemy MetaData),
+                     schemas/ (JSON Schemas with a revision $id, D3 §6). Hand-written beside them:
+                     db/overlay.py (the physical overlay: indexes, BM25, views, the extension
+                     assertion, bound by name to db/_tables.py, D3 §1)
+    schema/          LinkML loading (SchemaView): model.py (the model loader, the declaration check
+                     and the model revision), relational.py (the MetaData compiler), the Stage A
+                     and B generators and the interchange projections (Arrow, JSON Schema, DuckDB),
+                     the change classifier (D2 §8); the D2 §7 pack compilers; and the one
+                     rule-language helper that M19's rules and the policy chains share (D2 §7.4)
     validate/        the batch-to-candidate adapter and the reference, type and conformance checks
                      on a batch (D4 §4.3); M19's runner and the rule-view builder over core types;
                      M20; the Verifier protocol and runner (M21's host)
@@ -34,10 +45,11 @@ python/corpus-structure/                 uv workspace member; distribution corpu
     intervene/       MCP server and tool implementations (D8 §2); testing (the in-process harness the
                      acceptance test and live-run answers submit through)
     cli/             the Typer app and every `ci` command group (D8 §4)
-  alembic/           migrations; 0001 is D3
+  alembic/           migrations, each linked to a model revision; 0001 generated once from
+                     core/db/_tables.py plus core/db/overlay.py, then frozen (D3 §1)
   tests/
 domains/
-  core/schema/core.yaml
+  core/schema/rules.yaml   the core rules, hashed into every schema version (D2 §2, §6)
   statistics/        schema/ (statistics.yaml, rules.yaml, migrations/), guideline.md,
                      policies.yaml, methods.yaml, slices.yaml, verifiers.py, queries.py,
                      reference/ (the worked examples E*, D2 §7.5), eval/ (split.yaml,
@@ -72,7 +84,9 @@ nor `methods/math`. Domain
 plug-ins implement protocols declared in the generic packages: `domains/<name>/verifiers.py`
 `validate`'s Verifier, `domains/<name>/queries.py` `serve`'s query protocol (D2 §7.6, D8 §5.2), so
 no generic package names a domain predicate (P0CL-07). Source profiles are data in `sources/`,
-outside every pack (D2 §12.1).
+outside every pack (D2 §12.1). `core` keeps its runtime dependencies (Pydantic and `regex`): its
+generated modules import nothing from LinkML, which only `schema/` and the generators need.
+> Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md)
 > Status: **Proposed** (2026-10-28)
 
 The entry points sit on top: the MCP tools call `serve`'s queries (D8 `query`, `explain`, from
@@ -101,10 +115,14 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 | Package | Version | Used by |
 |---|---|---|
 | pydantic, pydantic-settings | 2.14.1, 2.16.1 | core types, method configs, settings |
-| sqlalchemy, psycopg[binary], psycopg-pool, alembic | 2.1.5, 3.3.6, 3.3.3, 1.20.0 | core.db, migrations, bulk COPY |
+| sqlalchemy, psycopg[binary], psycopg-pool, alembic | 2.1.5, 3.3.6, 3.3.3, 1.20.0 | core.db (generated `MetaData`, overlay), migrations, bulk COPY; one psycopg-pool `ConnectionPool` per process (D3 §1) |
 | pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/pgevector.md)) | `halfvec` column type (phase 1, with `kb.embedding`) |
 | pg_textsearch (server extension) | 1.5.1 (Debian package `postgresql-18-pg-textsearch`; [overview](../libraries/postgresql-18-pg-textsearch.md)) | BM25 lexical search for `find` (D3 §5, D8 §5.1). A phase 0 server prerequisite: in `shared_preload_libraries`, and created once by the operator in the template database, so the cloned test databases (§4) carry it |
-| linkml-runtime; linkml (dev) | 1.12.1, 1.12.1 (as probed, schema-rules note) | `schema` loads packs with `linkml-runtime`'s `SchemaView`; `linkml` (the linter and generators) is a dev dependency, used in tests and pack checks only |
+| linkml-runtime; linkml (dev) | 1.12.1, 1.12.1 (as probed, schema-rules note) | `schema` loads the model and packs with `linkml-runtime`'s `SchemaView` and generates every projection from it (ADR-0020; added by P0-M-1); `linkml` (the linter, the `PydanticGenerator` Stage B may subclass) is a dev dependency, used in generation, tests and pack checks only |
+| pglast (dev) | 8.7 ([overview](../libraries/pglast.md)) | the port check of the generated DDL against S6's and the query check of D3 §9 (P0-M-2) |
+| pyarrow | 26.0.0 ([overview](../libraries/pyarrow.md)) | Arrow schemas generated from the model; the pool relations; exports (P0-M-3, pool and interchange) |
+| adbc-driver-postgresql | 1.13.0 ([overview](../libraries/adbc-driver-postgresql.md)) | the pool loader, if probe Q-5 chooses it over psycopg |
+| pgpq | 0.12.0 ([overview](../libraries/pgpq.md)) | only if probe Q-5 shows absent versus null, JSONB, numeric and `timestamptz` survive: Arrow-native bulk writes |
 | rule-engine | 5.1.0 | M19, policies |
 | gliner2 | 2.1.0 | M05–M07 (phase 1; the product environment carries no gliner2 or torch in phase 0) |
 | spacy, en_core_web_sm | 3.8.18, 3.8.0 | M03, M08, M13, M22 |
@@ -119,7 +137,7 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 | z3-solver | 5.3.2.0 | M20 |
 | scipy, numpy | 1.18.1, 2.5.4 | M21, alignment |
 | rapidfuzz | 3.14.6 | M14, quote location |
-| splink, duckdb | 5.0.0, 2.0.0 | M15, analytics, Parquet export |
+| splink, duckdb | 5.0.0, 2.0.0 | M15, analytics, Parquet export; duckdb is a product dependency as consolidation's in-process engine (ADR-0021), with a hold row in `docs/pins.md` (a new major release), added by the package that first uses it |
 | pgmpy, scikit-learn | 1.1.2, 1.9.1 | confidence model, calibration |
 | networkx | 3.7 | statement and claim graph utilities |
 | fastmcp | 4.1.3 | intervene |

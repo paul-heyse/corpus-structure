@@ -19,24 +19,19 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0013](0013-claim-model.md) | "Every fact is one claim form: subject, predicate, object, typed qualifiers, evidence, supports and status" | 2026-10-28 | [§B1](../design/DESIGN.md#section-b1) | Tested |  |
 | [ADR-0014](0014-observations-and-run-materialization.md) | Methods write observations; only consolidation writes knowledge, materialized per run | 2026-10-28 | [§B2](../design/DESIGN.md#section-b2) | Proposed |  |
 | [ADR-0015](0015-agent-work-queue.md) | The agent tier works a recorded queue; the pipeline never calls it | 2026-10-28 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
-| [ADR-0016](0016-postgresql-single-authority.md) | PostgreSQL 18 is the single authority for knowledge, operations and evaluation | 2026-10-28 | [§B4](../design/DESIGN.md#section-b4) | Tested |  |
-| [ADR-0017](0017-linkml-domain-packs.md) | A domain is a LinkML pack compiled into every consumer | 2026-10-28 | [§B5](../design/DESIGN.md#section-b5) | Tested |  |
 | [ADR-0018](0018-policy-routed-escalation.md) | Escalation is routed by versioned policies over measurements | 2026-10-28 | [§B6](../design/DESIGN.md#section-b6) | Interface-checked |  |
 | [ADR-0019](0019-identity-follows-content.md) | "Identity follows content: renditions are content-addressed, statements and scopes are anchored by locators, authored batches are the authority" | 2026-10-28 |  | Proposed |  |
-
-## Proposed: open choices, not accepted decisions
-
-| ADR | Title | Date | Governs | Evidence | Replaces |
-|---|---|---|---|---|---|
-| [ADR-0020](0020-one-model-generated-projections.md) | One LinkML model is the authority; every representation is a governed projection | 2026-10-28 |  | Proposed |  |
-| [ADR-0021](0021-instance-and-structure-authorities.md) | PostgreSQL is the transactional authority for instances, the model for structure and meaning; set-based steps run in an in-process engine | 2026-10-28 |  | Proposed |  |
-| [ADR-0022](0022-schema-change-modelled.md) | Schema change is modelled: revisions, a payload-schema registry and change records with compatibility classes | 2026-10-28 |  | Proposed |  |
-| [ADR-0023](0023-declared-identity.md) | Identity is declared: qualifier key roles, canonical forms by range, case policy and a versioned key scheme | 2026-10-28 |  | Proposed |  |
+| [ADR-0020](0020-one-model-generated-projections.md) | One LinkML model is the authority; every representation is a governed projection | 2026-10-28 | [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0017](0017-linkml-domain-packs.md) |
+| [ADR-0021](0021-instance-and-structure-authorities.md) | PostgreSQL is the transactional authority for instances, the model for structure and meaning; set-based steps run in an in-process engine | 2026-10-28 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0016](0016-postgresql-single-authority.md) |
+| [ADR-0022](0022-schema-change-modelled.md) | Schema change is modelled: revisions, a payload-schema registry and change records with compatibility classes | 2026-10-28 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0023](0023-declared-identity.md) | Identity is declared: qualifier key roles, canonical forms by range, case policy and a versioned key scheme | 2026-10-28 | [§B1](../design/DESIGN.md#section-b1) | Proposed |  |
 
 ## Superseded, still in the tree
 
 | ADR | Title | Date | Governs | Evidence | Replaces |
 |---|---|---|---|---|---|
 | [ADR-0009](0009-math-grammar-authority.md) | Read math through one extended Lark grammar; source facts as profile data; offset-preserving quote location | 2026-10-28 |  | Tested |  |
+| [ADR-0016](0016-postgresql-single-authority.md) | PostgreSQL 18 is the single authority for knowledge, operations and evaluation | 2026-10-28 | [§B4](../design/DESIGN.md#section-b4) | Tested |  |
+| [ADR-0017](0017-linkml-domain-packs.md) | A domain is a LinkML pack compiled into every consumer | 2026-10-28 | [§B5](../design/DESIGN.md#section-b5) | Tested |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).
