@@ -112,8 +112,12 @@ annotations, before any code depends on them.
   operator direction after reviewing the reports): ADR-0011 (Sonnet golden author, annotator inputs v1);
   D2 §10 is guideline v1, D2 §7.3–§7.5, D4 §4.1–§4.2, D7, D8, D0 and the trace amended; S1's HTML rules in D1 §3
   and D4 M01–M03; dispositions in the design-phase findings table. The S0/S1 scope is complete.
-- **Planned (2026-10-28):** S2–S7 and their shared prerequisites (rows 23–34), developed in the
-  S2–S7 supporting documents. Nothing of them has executed.
+- **Executed (2026-10-28):** E5 (`not_run` outcome), E4a (CPU environment; record `e4.env-cpu`),
+  I-R2 (token-form keys; S0/S0-R2 figures unchanged; records `*-ir2`, `i-r2.token-form-parity`),
+  S4 (records `s4.*`, [S4 report](../design_review/evidence/2026-10-28_design-spikes/S4-report.md)) and
+  S6 (records `s6.*`, [S6 report](../design_review/evidence/2026-10-28_design-spikes/S6-report.md)).
+  Their fold-in (X2) waits on the operator's review of the reports.
+- **Planned:** E4b (ANTLR, GPU, vLLM environments), C1, I-R3, S5, S2, S3, S7, G1 (rows 23–34).
 - **Pre-execution facts established while planning (2026-10-28)**, recorded so execution does
   not rediscover them:
   - A read-only inventory of all 78 first-pass pages (stdlib parser; summarized in
