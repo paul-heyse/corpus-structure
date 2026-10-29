@@ -3,12 +3,17 @@
 from dataclasses import replace
 
 import pytest
-from sqlalchemy import insert, text
+from sqlalchemy import insert, select, text
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import PublicationBatch, RoleRow, ValueRow, publish_batch
 from .test_publication import C, R, Z, batch, seed
+
+
+class NativeTestConfig(BaseModel):
+    model_config = ConfigDict(frozen=True,extra="forbid",strict=True)
 
 
 @pytest.mark.parametrize(
@@ -74,7 +79,7 @@ def test_native_attempt_and_nonterminal_transition_fences(semantic_db_engine,sem
     prepared=setup(semantic_db_engine)
     with semantic_writer_engine.begin() as conn:
         run=create_run(conn,project_id="p",binding=OperationBinding(prepared.release_id,"z",0,b"{}"),kind="full",options={},code_commit="test")
-        config=record_method(conn,SimpleNamespace(name="read",version="1",family="ingest",tier="deterministic",confidence_source=None),"default",{},"config:one")
+        config=record_method(conn,SimpleNamespace(name="read",version="1",family="ingest",tier="deterministic",confidence_source=None,unit_type="run",Config=NativeTestConfig),"default",{},"config:one")
         task=create_task(conn,run_id=run,config_id=config,stage="ingest",unit_type="run",input_hash="one")
     # Exercise the composed guard on existing rows without weakening construction admission.
     with semantic_db_engine.begin() as conn:
@@ -98,7 +103,7 @@ def test_protected_release_and_reclaim_preserve_held_progress(semantic_db_engine
     prepared=setup(semantic_db_engine)
     with semantic_writer_engine.begin() as conn:
         run=create_run(conn,project_id="p",binding=OperationBinding(prepared.release_id,"z",0,b"{}"),kind="full",options={},code_commit="test")
-        config=record_method(conn,SimpleNamespace(name="agent",version="1",family="agent",tier="agent",confidence_source=None),"default",{},"agent")
+        config=record_method(conn,SimpleNamespace(name="agent",version="1",family="agent",tier="agent",confidence_source=None,unit_type="run",Config=NativeTestConfig),"default",{},"agent")
         task=create_task(conn,run_id=run,config_id=config,stage="propose",unit_type="run",input_hash="one",packet_hash="packet",agent=True)
     with semantic_db_engine.begin() as conn:
         conn.execute(table("sem.release").update().where(table("sem.release").c.release_id==prepared.release_id).values(profile="semantic-2"))
@@ -140,3 +145,33 @@ def test_method_version_binds_unit_and_configuration_schema(semantic_writer_engi
     method.unit_type = "segment"
     with semantic_writer_engine.begin() as conn, pytest.raises(OperationConflict):
         record_method(conn, method, "default", {}, "method-config")
+
+
+@pytest.mark.parametrize("release_before_end",[False,True])
+@pytest.mark.parametrize("failure",[None,{"message":"source failed","semantic_proposal_first_result":{"forged":True}}])
+def test_held_progress_survives_cancel_and_fail(
+    semantic_db_engine,semantic_writer_engine,release_before_end,failure
+):
+    from types import SimpleNamespace
+    from corpus_structure.semantic.operations import (OperationBinding,create_run,create_task,
+        record_method,claim_tasks,hold_agent_result,release_claim,end_source_run)
+    from .test_operations import setup
+
+    prepared=setup(semantic_db_engine)
+    with semantic_writer_engine.begin() as conn:
+        run=create_run(conn,project_id="p",binding=OperationBinding(prepared.release_id,"z",0,b"{}"),kind="full",options={},code_commit="test")
+        config=record_method(conn,SimpleNamespace(name="agent",version="1",family="agent",tier="agent",confidence_source=None,unit_type="run",Config=NativeTestConfig),"default",{},"agent")
+        task=create_task(conn,run_id=run,config_id=config,stage="propose",unit_type="run",input_hash="one",packet_hash="packet",agent=True)
+    with semantic_db_engine.begin() as conn:
+        conn.execute(table("sem.release").update().where(table("sem.release").c.release_id==prepared.release_id).values(profile="semantic-2"))
+    with semantic_writer_engine.begin() as conn:
+        claim=claim_tasks(conn,run_id=run,config_id=config,holder="agent",agent=True)[0]
+        assert hold_agent_result(conn,task_id=task,attempt=claim.attempt,holder="agent",
+                                 packet_hash="packet",clean=False,result={"issues":["uncertain"]}).disposition=="held"
+        if release_before_end:
+            release_claim(conn,task_id=task,attempt=claim.attempt,holder="agent",reason="handoff")
+        assert end_source_run(conn,run,failure=failure)==1
+        task_state=conn.execute(select(table("ops.task").c.status,table("ops.task").c.error).where(table("ops.task").c.id==task)).one()
+        assert task_state.status=="cancelled"
+        assert task_state.error["semantic_proposal_first_result"]["result"]=={"issues":["uncertain"]}
+        assert conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id==run))==("cancelled" if failure is None else "failed")
