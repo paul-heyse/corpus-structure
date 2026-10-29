@@ -39,6 +39,28 @@ class EntitySourceRow:
 
 
 @dataclass(frozen=True)
+class IdentityExclusionRow:
+    exclusion_id: str
+    observation_id: int
+    local_id: str
+    left_kind: str
+    left_ref: str
+    right_kind: str
+    right_ref: str
+    left_entity_id: str
+    right_entity_id: str
+    reason: str
+    operation_id: str
+    operation_version: str
+
+
+@dataclass(frozen=True)
+class IdentityExclusionEvidenceRow:
+    exclusion_id: str
+    evidence_id: str
+
+
+@dataclass(frozen=True)
 class MembershipRow:
     entity_id: str
     class_id: str
@@ -228,6 +250,8 @@ class CoverageRow:
 _ROW_TYPES = {
     "entity": EntityRow,
     "entity_source": EntitySourceRow,
+    "identity_exclusion": IdentityExclusionRow,
+    "identity_exclusion_evidence": IdentityExclusionEvidenceRow,
     "membership": MembershipRow,
     "typed_value": ValueRow,
     "value_role": RoleRow,
@@ -273,6 +297,8 @@ class PublicationBatch:
     batch_id: str
     entity: tuple[EntityRow, ...] = ()
     entity_source: tuple[EntitySourceRow, ...] = ()
+    identity_exclusion: tuple[IdentityExclusionRow, ...] = ()
+    identity_exclusion_evidence: tuple[IdentityExclusionEvidenceRow, ...] = ()
     membership: tuple[MembershipRow, ...] = ()
     typed_value: tuple[ValueRow, ...] = ()
     value_role: tuple[RoleRow, ...] = ()
