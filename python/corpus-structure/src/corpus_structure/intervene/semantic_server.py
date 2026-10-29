@@ -12,7 +12,7 @@ from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
-from pydantic import JsonValue, ValidationError
+from pydantic import BaseModel, ConfigDict, JsonValue, ValidationError
 from sqlalchemy import Engine, func, select, text, update
 
 from corpus_structure.intervene import service, submission
@@ -20,6 +20,17 @@ from corpus_structure.intervene.semantic import ProposalSession
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import Settings
+
+
+class SemanticUnitPart(BaseModel):
+    """One exact fragment; concatenate all numbered parts before decoding the unit JSON."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    task_id: int
+    part: int
+    parts: int
+    hash: str
+    text: str
 
 
 class ProposalTaskNotOpen(ProposalRefused):
@@ -190,7 +201,8 @@ def build_semantic_server(
             "Automated extraction for a release-bound run. Lease a unit using queue_next, "
             "read every "
             "instruction page (including schema) with read_instructions and every unit part with "
-            "read_unit, then submit the rich authored batch with propose_claims. "
+            "read_unit. Concatenate numbered unit text fragments and parse their JSON after every "
+            "part is read, then submit the rich authored batch with propose_claims. "
             "Source issues require "
             "automated correction; no human grading is required."
         ),
@@ -230,18 +242,12 @@ def build_semantic_server(
             pages = active.packet.part_pages(
                 next(item for item in active.packet.parts() if item.name == "unit")
             )
-            sentences = [
-                service.SentenceView(
-                    id=s.id, locator=s.locator, text=active.packet.frame.text[s.start : s.end]
-                )
-                for s in active.packet.frame.sentences
-            ]
-            structured = service.UnitPart(
+            structured = SemanticUnitPart(
                 task_id=task_id,
                 part=part,
                 parts=len(pages),
                 hash=active.packet.hash,
-                sentences=sentences,
+                text=body,
             )
             return ToolResult(content=body, structured_content=structured.model_dump(mode="json"))
         except ProposalRefused as error:
