@@ -5,6 +5,7 @@ from hashlib import sha256
 
 
 import pytest
+import yaml
 from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError
 
@@ -14,31 +15,40 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import (
     PublicationBatch, EntityRow, MembershipRow, MembershipSupportRow, EvidenceRow,
     ValueRow, RoleRow, FactRow, OccurrenceRow, SupportRow, SelectionRow,
-    DerivationRow, DerivationPremiseRow, OccurrenceEstablishmentRow, publish_batch,
+    DerivationRow, DerivationPremiseRow, OccurrenceEstablishmentRow, OccurrenceEvidenceRow, publish_batch,
 )
 from corpus_structure.semantic.query import SnapshotBinding
 
 R,Z,C,P,Q='release:infer','realization:infer','https://example/Thing','https://example/p','https://example/q'
 
 
-def setup(admin, writer, edges, *, rules=('transitive','inverse'), contexts=None, positive=True):
-    with admin.begin() as conn:
-        conn.execute(insert(table('sem.release')).values(release_id=R,content_digest='test',
-            profile='test',prepared_bytes=b'{}',manifest_bytes=b'{}'))
-        conn.execute(insert(table('data.project')).values(project_id='p'))
-        conn.execute(insert(table('data.realization')).values(realization_id=Z,project_id='p',release_id=R))
-        conn.execute(insert(table('sem.class_definition')).values(release_id=R,class_id=C,name='Thing',iri=C))
-        for p in (P,Q):
-            conn.execute(insert(table('sem.property_definition')).values(release_id=R,property_id=p,name=p[-1],iri=p))
-            conn.execute(insert(table('sem.property_applicability')).values(release_id=R,class_id=C,
-                property_id=p,range_name='Thing',required=False,multivalued=True,constraint_scope='shape',
-                constraints={'name':p[-1],'inlined':False}))
-        for kind in rules:
-            rid='rule:'+kind
-            body={'kind':kind,'predicate':P,'rule_id':rid,'rule_version':'1'}
-            if kind=='inverse':body['target']=Q
-            conn.execute(insert(table('sem.registry_row')).values(release_id=R,kind='inference_rule',
-                name=rid,body=canonical_bytes(body)))
+def setup(admin, writer, edges, *, rules=('transitive','inverse'), contexts=None, positive=True, prepared=None, bundle=None, evidence=True, predicate=P):
+    r=prepared.release_id if prepared is not None else R
+    if prepared is not None:
+        from corpus_structure.semantic.releases import persist_release
+        from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
+        with admin.begin() as conn:
+            persist_release(conn,bundle,ResolvedDependencies(),PreparationProfile(),prepared)
+            conn.execute(insert(table('data.project')).values(project_id='p'))
+            conn.execute(insert(table('data.realization')).values(realization_id=Z,project_id='p',release_id=r))
+    else:
+        with admin.begin() as conn:
+            conn.execute(insert(table('sem.release')).values(release_id=r,content_digest='test',
+                profile='test',prepared_bytes=b'{}',manifest_bytes=b'{}'))
+            conn.execute(insert(table('data.project')).values(project_id='p'))
+            conn.execute(insert(table('data.realization')).values(realization_id=Z,project_id='p',release_id=r))
+            conn.execute(insert(table('sem.class_definition')).values(release_id=r,class_id=C,name='Thing',iri=C))
+            for p in (P,Q):
+                conn.execute(insert(table('sem.property_definition')).values(release_id=r,property_id=p,name=p[-1],iri=p))
+                conn.execute(insert(table('sem.property_applicability')).values(release_id=r,class_id=C,
+                    property_id=p,range_name='Thing',required=False,multivalued=True,constraint_scope='shape',
+                    constraints={'name':p[-1],'inlined':False}))
+            for kind in rules:
+                rid='rule:'+kind
+                body={'kind':kind,'predicate':P,'rule_id':rid,'rule_version':'1'}
+                if kind=='inverse':body['target']=Q
+                conn.execute(insert(table('sem.registry_row')).values(release_id=r,kind='inference_rule',
+                    name=rid,body=canonical_bytes(body)))
     entities=sorted({e for edge in edges for e in edge})
     contexts=contexts or ['same']*len(edges)
     values=[ValueRow('v:'+e,'entity',entity_id=e) for e in entities]
@@ -46,22 +56,23 @@ def setup(admin, writer, edges, *, rules=('transitive','inverse'), contexts=None
     roles=[]; facts=[]; occurrences=[]; supports=[]
     for i,((s,o),ctx) in enumerate(zip(edges,contexts,strict=True)):
         q='qual:'+str(i)
-        values.extend((ValueRow(q,'mapping'),ValueRow('scope:'+str(i),'string',text_value=ctx)))
+        values.extend((ValueRow(q,'record' if prepared else 'mapping',datatype='https://example/Qualification' if prepared else None),ValueRow('scope:'+str(i),'string',text_value=ctx)))
         roles.extend((RoleRow(q,'modality',0,'modality'),RoleRow(q,'polarity',0,'polarity'),RoleRow(q,'scope',0,'scope:'+str(i))))
-        fid=fact_key(R,Z,s,P,o,{'modality':'asserted','polarity':positive,'scope':ctx})
-        facts.append(FactRow(fid,s,P,'v:'+o,q))
-        oid=occurrence_key(R,Z,'source',str(i))
+        fid=fact_key(r,Z,s,predicate,o,{'modality':'asserted','polarity':positive,'scope':ctx})
+        facts.append(FactRow(fid,s,predicate,'v:'+o,q))
+        oid=occurrence_key(r,Z,'source',str(i))
         occurrences.append(OccurrenceRow(oid,fid,'source',str(i),'v:'+o,q))
         supports.append(SupportRow(fid,oid))
-    batch=PublicationBatch(R,Z,'sources',entity=tuple(EntityRow(e) for e in entities),
+    batch=PublicationBatch(r,Z,'sources',entity=tuple(EntityRow(e) for e in entities),
         membership=tuple(MembershipRow(e,C,'stated') for e in entities),
         membership_support=tuple(MembershipSupportRow(e,C,'ev') for e in entities),
+        occurrence_evidence=tuple(OccurrenceEvidenceRow(o.occurrence_id,'ev') for o in occurrences) if evidence else (),
         evidence=(EvidenceRow('ev','source','page#unit','test','1'),),
         typed_value=tuple(values),value_role=tuple(roles),fact=tuple(facts),occurrence=tuple(occurrences),
         occurrence_establishment=tuple(OccurrenceEstablishmentRow(o.occurrence_id,'stated') for o in occurrences),
         support=tuple(supports),selection=tuple(SelectionRow(f.fact_id) for f in facts))
     receipt=publish_batch(writer,batch)
-    return SnapshotBinding(R,Z,receipt.data_revision,'test'),batch
+    return SnapshotBinding(r,Z,receipt.data_revision,'test'),batch
 
 
 def compute(writer,binding):
@@ -138,3 +149,50 @@ def test_forged_cycle_and_ungrounded_alternate_proof_refuse(semantic_db_engine,s
         derivation=(d,),derivation_premise=ps)
     with pytest.raises(DBAPIError,match='ungrounded'):
         publish_batch(semantic_writer_engine,bad)
+
+
+def test_unlocated_stated_support_cannot_seed(semantic_db_engine,semantic_writer_engine):
+    binding,_=setup(semantic_db_engine,semantic_writer_engine,[('a','b'),('b','c')],evidence=False)
+    assert compute(semantic_writer_engine,binding).batch.fact==()
+
+
+@pytest.mark.parametrize('seed_predicate',[P,Q])
+def test_real_archived_binary_release_round_trip(semantic_db_engine,semantic_writer_engine,seed_predicate):
+    from corpus_structure.semantic import SourceArtifact,SourceBundle,prepare_release
+    from corpus_structure.semantic.releases import load_release
+    schema={'id':'https://example/model','name':'inference',
+        'prefixes':{'ex':'https://example/'},'default_prefix':'ex',
+        'types':{'string':{'base':'str','uri':'http://www.w3.org/2001/XMLSchema#string'},
+                 'boolean':{'base':'bool','uri':'http://www.w3.org/2001/XMLSchema#boolean'}},
+        'classes':{'Thing':{'slots':['p','q']},'Qualification':{'attributes':{
+            'modality':{'required':True},'polarity':{'range':'boolean','required':True},
+            'scope':{'required':True}}}},
+        'slots':{'p':{'range':'Thing','multivalued':True,'transitive':True,'inverse':'q'},
+                 'q':{'range':'Thing','multivalued':True}}}
+    bundle=SourceBundle('model',(SourceArtifact('model',yaml.safe_dump(schema).encode()),))
+    prepared=prepare_release(bundle)
+    binding,_=setup(semantic_db_engine,semantic_writer_engine,[('a','b'),('b','c')],prepared=prepared,bundle=bundle,predicate=seed_predicate)
+    with semantic_db_engine.connect() as conn:
+        assert load_release(conn,prepared.release_id)==prepared
+    result=compute(semantic_writer_engine,binding)
+    publish_inference(semantic_writer_engine,result)
+    expected=({('a',P,'b'),('b',P,'c'),('a',P,'c'),('b',Q,'a'),('c',Q,'b'),('c',Q,'a')}
+              if seed_predicate==P else
+              {('b',P,'a'),('c',P,'b'),('c',P,'a'),('a',Q,'b'),('b',Q,'c'),('a',Q,'c')})
+    assert projected(semantic_writer_engine)==expected
+    if seed_predicate==P:
+        from corpus_structure.semantic.query import read_session
+        r=prepared.release_id
+        qual={'modality':'asserted','polarity':True,'scope':'same'}
+        head=fact_key(r,Z,'a',P,'c',qual)
+        expected_premises=(fact_key(r,Z,'a',P,'b',qual),fact_key(r,Z,'b',P,'c',qual))
+        with read_session(semantic_writer_engine,Z) as session:
+            explanation=session.explain(head)
+            assert any(d.premise_fact_ids==expected_premises for d in explanation.derivations)
+    # Preserve source modality and prevent required scalar graph flags being admitted.
+    schema['slots']['p']['range']='string'
+    bad_bundle=SourceBundle('model',(SourceArtifact('model',yaml.safe_dump(schema).encode()),))
+    bad=prepare_release(bad_bundle)
+    from corpus_structure.semantic.publication import admit_release
+    with pytest.raises(ValueError,match='binary entity'):
+        admit_release(bad)

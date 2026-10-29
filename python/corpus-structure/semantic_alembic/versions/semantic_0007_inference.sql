@@ -7,6 +7,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
  JOIN data.occurrence_establishment e ON (e.release_id,e.realization_id,e.occurrence_id)=
    (s.release_id,s.realization_id,s.occurrence_id) AND e.establishment='stated'
  WHERE f.release_id=r AND f.realization_id=z
+ AND EXISTS(SELECT FROM data.occurrence_evidence oe JOIN data.evidence ev
+  ON (ev.release_id,ev.realization_id,ev.evidence_id)=(oe.release_id,oe.realization_id,oe.evidence_id)
+  WHERE (oe.release_id,oe.realization_id,oe.occurrence_id)=(s.release_id,s.realization_id,s.occurrence_id)
+   AND ev.source_uri<>'' AND ev.locator<>'' AND ev.provider<>'' AND ev.operation_version<>'')
  AND EXISTS(SELECT FROM data.value_role vr JOIN data.typed_value v
   ON (v.release_id,v.realization_id,v.value_id)=(vr.release_id,vr.realization_id,vr.child_value_id)
   WHERE vr.release_id=r AND vr.realization_id=z AND vr.parent_value_id=f.qualification_value_id
