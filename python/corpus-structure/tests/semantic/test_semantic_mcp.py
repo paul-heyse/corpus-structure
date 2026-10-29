@@ -272,8 +272,11 @@ classes:
             with engine.begin() as conn:
                 old=conn.execute(select(table('ops.task')).where(table('ops.task').c.id==agent_task)).mappings().one()
                 agent_task=create_task(conn,run_id=run,config_id=old['method_config_id'],stage='propose',unit_type=old['unit_type'],unit_id=old['unit_id'],unit_key=old['unit_key'],input_hash=old['input_hash'],packet_hash=old['packet_hash'],agent=True,fresh=True)
-            fresh_lease=(await client.call_tool('queue_next',{'run':run})).structured_content['tasks'][0]
+            fresh_queue=(await client.call_tool('queue_next',{'run':run})).structured_content
+            assert fresh_queue is not None
+            fresh_lease=fresh_queue['tasks'][0]
             fresh_manifest=(await client.call_tool('read_instructions',{'task_id':agent_task})).structured_content
+            assert fresh_manifest is not None
             for part in fresh_manifest['parts']:
                 for page in range(1,part['pages']+1):await client.call_tool('read_instructions',{'task_id':agent_task,'part':part['name'],'page':page})
             for part in range(1,fresh_lease['parts']+1):await client.call_tool('read_unit',{'task_id':agent_task,'part':part})

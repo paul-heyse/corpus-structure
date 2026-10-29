@@ -1,6 +1,7 @@
 """Source-report fidelity and identity, independent from admitted fact meaning."""
 
 import math
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
@@ -8,7 +9,7 @@ from pydantic import BaseModel
 
 from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, TaskUnitType
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic import PreparedRelease, SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.observations import bind_result, observation_inputs, source_python, source_value
 
 
@@ -47,17 +48,26 @@ class Payload(BaseModel):
     text: str
 
 
-def result():
+def unit_result():
     draft = ObservationDraft(kind=ObservationKind.MENTION, payload=Payload(text="μ"),
                              payload_class=Payload, payload_version="1", span=(4, 5))
     return UnitResult(ref=UnitRef(TaskUnitType.SEGMENT, 99, "page#unit1"),
                       outcome=ObservationOutcome.PRODUCED, observations=(draft, draft))
 
 
-def bind(release, **changes):
-    kwargs = dict(source="source:original-content", method="extract", operation_version="2",
-                  configuration_hash="config:1", input_hash="input:1", invocation_key="invocation:test", result=result())
-    return bind_result(release, **(kwargs | changes)).model_dump(mode="python")
+def bind(
+    release: PreparedRelease,
+    *,
+    input_hash: str = "input:1",
+    invocation_key: str = "invocation:test",
+    result: UnitResult | None = None,
+    coverage: Sequence[Mapping[str, str]] = (),
+):
+    return bind_result(
+        release, source="source:original-content", method="extract", operation_version="2",
+        configuration_hash="config:1", input_hash=input_hash, invocation_key=invocation_key,
+        result=unit_result() if result is None else result, coverage=coverage,
+    ).model_dump(mode="python")
 
 
 def test_binding_retains_repeated_items_and_replays_stable_keys():

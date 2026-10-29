@@ -1,5 +1,6 @@
 """The packet's short read transaction serializes a concurrent native input publication."""
 import pytest
+from psycopg import Error as PsycopgError
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic.operations import OperationBinding,OperationConflict,create_run,lock_input_snapshot
@@ -18,6 +19,7 @@ def test_native_packet_read_blocks_input_publication_then_rejects_stale_run(sema
             with engine.connect().execution_options(isolation_level='SERIALIZABLE') as publication,publication.begin():
                 publication.execute(text("SET LOCAL lock_timeout='100ms'"))
                 publish_on_connection(publication,batch)
+        assert isinstance(conflict.value.orig, PsycopgError)
         assert conflict.value.orig.sqlstate=='55P03'
     assert publish_batch(engine,batch).data_revision==1
     with pytest.raises(OperationConflict,match='snapshot changed'):
