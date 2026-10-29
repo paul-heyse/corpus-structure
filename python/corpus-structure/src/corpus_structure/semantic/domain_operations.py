@@ -13,6 +13,7 @@ from typing import Any, Mapping, Protocol
 
 import pyarrow as pa
 import yaml
+from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from sqlalchemy import select, text, and_, case, func, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine
@@ -24,6 +25,7 @@ from .metadata import table
 from .operations import OperationConflict, cut_observations
 from .publication import AssessmentRow, CoverageRow, EvidenceRow, EvidenceSourceRow, PublicationBatch, PublicationReceipt, SelectionRow, _publish, publish_on_connection
 from .query import SnapshotBinding
+from .references import read_reference_classes
 from .releases import load_release
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
@@ -37,8 +39,8 @@ class DomainOperationRefused(ValueError):
 
 def domain_rule_inputs(dependencies: ResolvedDependencies, domain: bytes, core: bytes = b'', *, aliases: Mapping[str,Any] | None = None) -> ResolvedDependencies:
     """Archive existing rules as one operation dependency, never read latest files in a run."""
-    source=yaml.safe_load(domain) or {}
-    base=yaml.safe_load(core) or {}
+    source=yaml.load(domain,Loader=DupCheckYamlLoader) or {}
+    base=yaml.load(core,Loader=DupCheckYamlLoader) or {}
     if set(base)-{'rules'}:
         raise ValueError('core operation rules must contain only rules')
     source['rules']=[*base.get('rules',()),*source.get('rules',())]
@@ -67,6 +69,10 @@ class ClaimCandidate:
     alternatives: tuple[str,...]
     evidence_count: int
     macros: Mapping[str,Any]
+    qualification_class: str = "Qualification"
+    unresolved_references: tuple[str,...] = ()
+    rule_object: Any = None
+    rule_qualification: Mapping[str,Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -115,34 +121,158 @@ def _plain(value):
     return value
 
 
-def _reference(value,mapping):
-    if isinstance(value,str):return mapping.get(value,value)
-    if isinstance(value,list):return [_reference(v,mapping) for v in value]
-    if isinstance(value,dict):
-        # Only typed reference positions are rewritten; source strings and labels remain literal.
-        result={k:_reference(v,mapping) if isinstance(v,(dict,list)) else v for k,v in value.items()}
-        for field in ('target','entity','claim','ref'):
-            if field in result and isinstance(result[field],str):
-                result[field]=mapping.get(result[field],result[field])
+def _reference(prepared,range_name,value,entities,claims=None):
+    """Rewrite only references declared by the admitted class/property descriptors."""
+    from pydantic import BaseModel
+    definitions={d.name:d for d in prepared.definitions}
+    if value is None or range_name not in definitions:return value
+    def visit(model):
+        definition=definitions[type(model).__name__];result:dict[str,Any]={}
+        for prop in definition.properties:
+            if prop.name not in model.model_fields_set:continue
+            member=getattr(model,prop.name)
+            claim_ref=(definition.name=='ClaimCondition' or 'ClaimCondition' in definition.ancestors) and prop.name=='ref'
+            claim_ref=claim_ref or (any(name in {'ParameterOfBinding','ParameterExpressionOfBinding'} for name in (definition.name,*definition.ancestors)) and prop.name=='claim')
+            def lower(item):
+                if claim_ref:return (claims or {}).get(item,item)
+                if prop.range not in definitions:return _plain(item)
+                if not prop.inlined:return entities.get(item,item)
+                return visit(item) if isinstance(item,BaseModel) else _plain(item)
+            if prop.collection_key:result[prop.name]={key:lower(item) for key,item in member.items()}
+            elif prop.multivalued:result[prop.name]=[lower(item) for item in member]
+            else:result[prop.name]=lower(member)
         return result
-    return value
+    return visit(prepared.validate_python(range_name,value))
 
 
-def _property_value(prepared,definition,prop,value,mapping):
-    value=_reference(_plain(value),mapping)
+def _entity_references(prepared,range_name,value):
+    """Entity IDs in declared range positions; plain strings never become references."""
+    from pydantic import BaseModel
+    definitions={d.name:d for d in prepared.definitions};found=set()
+    if value is None or range_name not in definitions:return found
+    def visit(model):
+        definition=definitions[type(model).__name__]
+        for prop in definition.properties:
+            if prop.name not in model.model_fields_set or prop.range not in definitions:continue
+            child=getattr(model,prop.name)
+            members=child.values() if prop.collection_key else child if prop.multivalued else (child,)
+            for member in members:
+                if prop.inlined and isinstance(member,BaseModel):visit(member)
+                elif not prop.inlined:found.add(member)
+    visit(prepared.validate_python(range_name,value))
+    return found
+
+
+def _claim_references(prepared,range_name,value):
+    from pydantic import BaseModel
+    definitions={d.name:d for d in prepared.definitions};found=set()
+    if value is None or range_name not in definitions:return found
+    def visit(model):
+        definition=definitions[type(model).__name__]
+        for prop in definition.properties:
+            if prop.name not in model.model_fields_set:continue
+            member=getattr(model,prop.name)
+            is_ref=(definition.name=='ClaimCondition' or 'ClaimCondition' in definition.ancestors) and prop.name=='ref'
+            is_ref=is_ref or (any(name in {'ParameterOfBinding','ParameterExpressionOfBinding'} for name in (definition.name,*definition.ancestors)) and prop.name=='claim')
+            if is_ref:found.add(member)
+            elif prop.inlined and prop.range in definitions:
+                values=member.values() if prop.collection_key else member if prop.multivalued else (member,)
+                for child in values:
+                    if isinstance(child,BaseModel):visit(child)
+    visit(prepared.validate_python(range_name,value))
+    return found
+
+
+def _source_fact_id(prepared,output,item):
+    definition=next(d for d in prepared.definitions if d.name==item.class_name)
+    prop=next(p for p in definition.properties if p.name==item.property_name)
+    obj=_plain(prepared.property_adapter(item.class_name,item.property_name,item=prop.multivalued).validate_python(item.object,strict=True))
+    qualification=_plain(prepared.validate_python(item.qualification_class,item.qualification))
+    return prepared.fact_identity(output,item.subject,prop.iri,obj,qualification,qualification_class=item.qualification_class)
+
+
+def _property_value(prepared,definition,prop,value,mapping,claims=None):
+    from .publication import native_constraints
+    from .proposals import _property_value as scalar_projection
+    value=_plain(value)
     by_name={d.name:d for d in prepared.definitions}
-    if prop.range in by_name and not prop.inlined:
-        if not isinstance(value,dict) or value.get('kind')!='entity':
-            raise DomainOperationRefused('entity relation needs explicit EntityValue')
-        return value['target']
-    if prop.range in by_name:return value
-    kind=value.get('kind') if isinstance(value,dict) else None
-    primitive={'text':'text','number':'number','boolean':'boolean','date':'date','datetime':'instant'}
-    if kind not in primitive:raise DomainOperationRefused('no admitted primitive projection for source value')
-    raw=value[primitive[kind]]
-    # The generated adapter remains authoritative for aliases, enums and exact bounds.
-    if prop.range=='integer' and kind=='number' and raw==int(raw):raw=int(raw)
-    return raw
+    if prop.range in by_name:
+        if not prop.inlined:
+            if not isinstance(value,dict) or value.get('kind')!='entity':
+                raise DomainOperationRefused('entity relation needs explicit EntityValue')
+            return mapping.get(value['target'],value['target'])
+        return _reference(prepared,prop.range,value,mapping,claims)
+    native_range=native_constraints(prepared)[definition.iri,prop.iri]['native_range']
+    if prop.range in {v.enum for v in prepared.vocabularies}:native_range='string'
+    return scalar_projection(value,native_range)
+
+
+def _known_input(conn,prepared,job,observations):
+    """Read selected input metadata once under the same exact revision as the sealed cut."""
+    from dataclasses import fields
+    from .publication import STAGE_TYPES
+    from .query import ReadSession
+    references=set();classes=set()
+    def refs(value):
+        if isinstance(value,dict):
+            for name,child in value.items():
+                if name in {'target','entity','subject'} and isinstance(child,str):references.add(child)
+                else:refs(child)
+        elif isinstance(value,(list,tuple)):
+            for child in value:refs(child)
+    for observation in observations:
+        if observation['payload_definition']=='AgentStoredBatch':
+            refs(observation['payload'])
+            classes.update(e['class_iri'] for e in observation['payload'].get('entities',()))
+    realization=table('data.realization');m=table('data.membership')
+    revision=conn.execute(select(realization.c.data_revision).where(realization.c.realization_id==job['input_realization_id'],realization.c.release_id==job['release_id'])).scalar_one()
+    if revision!=job['input_revision']:raise DomainOperationRefused('input realization revision differs from bound operation')
+    memberships=conn.execute(select(m).where(m.c.release_id==job['release_id'],m.c.realization_id==job['input_realization_id'],
+        m.c.entity_id.is_not(None))).mappings().all()
+    ids={row['entity_id'] for row in memberships}
+    if not ids:return {},{}
+    f,s=table('data.fact'),table('data.selection')
+    facts=conn.execute(select(f).join(s,(s.c.release_id==f.c.release_id)&(s.c.realization_id==f.c.realization_id)&(s.c.fact_id==f.c.fact_id))
+        .where(f.c.release_id==job['release_id'],f.c.realization_id==job['input_realization_id'],f.c.subject_id.in_(ids))).mappings().all()
+    session=ReadSession(conn,SnapshotBinding(job['release_id'],job['input_realization_id'],revision,'input:'+str(job['id'])),prepared)
+    values,nodes,_=session._values({value for row in facts for value in (row['object_value_id'],row['qualification_value_id']) if value is not None},ids)
+    node_by_id={node.value_id:node for node in nodes}
+    from collections import defaultdict
+    facts_by_entity=defaultdict(list)
+    for fact in facts:facts_by_entity[fact['subject_id']].append(fact)
+    definitions={d.iri:d for d in prepared.definitions};metadata:dict[str,dict[str,Any]]={}
+    for row in memberships:
+        d=definitions[row['class_id']]
+        item=metadata.setdefault(row['entity_id'],{'id':row['entity_id'],'class_iris':[], 'known':True,'fields':{},'attributes':[],'input_facts':[]})
+        item['class_iris'].append(d.iri)
+    for identity,item in metadata.items():
+        item['class_iris']=tuple(sorted(set(item['class_iris'])))
+        d=min((definitions[iri] for iri in item['class_iris']),key=lambda d:(-len(d.ancestors),d.iri))
+        item['class_iri']=d.iri
+        properties={p.iri:p for iri in item['class_iris'] for p in definitions[iri].properties}
+        for fact in facts_by_entity[identity]:
+            prop=properties.get(fact['property_id'])
+            if prop is None:continue
+            value=values[fact['object_value_id']]
+            required={name for iri in item['class_iris'] for group in definitions[iri].identity_groups for name in group}
+            display=any(row.kind=='operation_property' and (body:=json.loads(row.body)).get('class')==d.name and body.get('property')==prop.iri and body.get('cs:role')=='display' for row in prepared.registry_rows)
+            if prop.name in required or prop.required or display:
+                item['input_facts'].append((fact,prop,value,values[fact['qualification_value_id']],definitions[node_by_id[fact['qualification_value_id']].datatype].name))
+            item['fields'][prop.name]=value
+            if isinstance(value,str):
+                item['attributes'].append({'predicate':prop.iri,'value':{'kind':'entity','target':value} if prop.range in {d.name for d in prepared.definitions} and not prop.inlined else {'kind':'text','text':value}})
+                if any(row.kind=='operation_property' and (body:=json.loads(row.body)).get('class')==d.name and body.get('property')==prop.iri and body.get('cs:role')=='display' and not prop.multivalued for row in prepared.registry_rows):item['label']=value
+    copied={}
+    support=table('data.membership_support')
+    supports=conn.execute(select(support).where(support.c.release_id==job['release_id'],support.c.realization_id==job['input_realization_id'],support.c.entity_id.in_(ids))).mappings().all()
+    evidence_ids={row['evidence_id'] for row in supports}
+    for name,rows in [('membership',memberships),('membership_support',supports)]:
+        row_type=STAGE_TYPES[name][0];copied[name]=tuple(row_type(**{f.name:row[f.name] for f in fields(row_type)}) for row in rows)
+    for name in ('evidence','evidence_source'):
+        target=table('data.'+name);row_type=STAGE_TYPES[name][0]
+        rows=conn.execute(select(target).where(target.c.release_id==job['release_id'],target.c.realization_id==job['input_realization_id'],target.c.evidence_id.in_(evidence_ids))).mappings()
+        copied[name]=tuple(row_type(**{f.name:row[f.name] for f in fields(row_type)}) for row in rows)
+    return metadata,copied
 
 
 def _cut_input(engine:Engine,cut_id:int,output:str)->CutInput:
@@ -186,17 +316,18 @@ def _cut_input(engine:Engine,cut_id:int,output:str)->CutInput:
         envelopes=conn.execute(select(table('ops.task_result')).join(table('ops.cut_task'),
             table('ops.cut_task').c.origin_task_id==table('ops.task_result').c.task_id).where(
             table('ops.cut_task').c.cut_id==cut_id)).mappings().all()
-    return _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,output)
+        known,copied=_known_input(conn,prepared,job,observations)
+    return _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,output,known,copied)
 
 
-def _entity_mappings(prepared,observations,output):
+def _entity_mappings(prepared,observations,output,known):
     """Exact declared identity keys and explicitly global label policy, never fuzzy identity."""
     from corpus_structure.core.keys import LabelRules,normalize_label
     from corpus_structure.core.vocab import CaseRule
     by_iri={d.iri:d for d in prepared.definitions}
     meta={row.name:json.loads(row.body) for row in prepared.registry_rows if row.kind=='operation_class'}
     artifact=next((a for a in prepared.artifacts if a.kind==RULE_INPUT),None)
-    policy=yaml.safe_load(artifact.content) if artifact is not None else {}
+    policy=yaml.load(artifact.content,Loader=DupCheckYamlLoader) if artifact is not None else {}
     aliases=LabelRules.model_validate((policy.get('identity') or {}).get('aliases',{}))
     prefixes={row.name:json.loads(row.body)['uri'] for row in prepared.registry_rows if row.kind=='prefix'}
     def compact(iri):
@@ -211,7 +342,23 @@ def _entity_mappings(prepared,observations,output):
                  for i,e in enumerate(payload.get('entities',()))}
         mappings[observation['id']]=mapping
         for e in payload.get('entities',()):entries.append((observation,e,by_iri[e['class_iri']]))
-    resolved=set();keys={}
+    resolved=set();keys={};known_labels={}
+    for identity,item in known.items():
+        for iri in item['class_iris']:
+            definition=by_iri[iri]
+            groups=[g for g in definition.identity_groups if g!=definition.identity_slots]
+            if not groups:
+                if meta.get(definition.name,{}).get('cs:scope')=='global' and item.get('label'):
+                    case=CaseRule.PRESERVE if meta[definition.name].get('cs:case')=='preserve' else CaseRule.FOLD
+                    label=normalize_label(item['label'],compact(iri),aliases,case)
+                    match=(iri,label)
+                    if match in known_labels and known_labels[match]!=identity:raise DomainOperationRefused('input global names identify multiple entities')
+                    known_labels[match]=identity
+                continue
+            if not all(all(name in item['fields'] for name in g) for g in groups):continue
+            for key in prepared.entity_keys(definition.name,output,item['fields'],include_identifier=False):
+                if key in keys and keys[key]!=identity:raise DomainOperationRefused('input contains incompatible declared entity keys')
+                keys[key]=identity
     pending=list(entries)
     while pending:
         progress=False;remaining=[]
@@ -243,7 +390,7 @@ def _entity_mappings(prepared,observations,output):
             elif not groups and meta.get(definition.name,{}).get('cs:scope')=='global' and e.get('label'):
                 case=CaseRule.PRESERVE if meta[definition.name].get('cs:case')=='preserve' else CaseRule.FOLD
                 label=normalize_label(e['label'],compact(definition.iri),aliases,case)
-                mapping[e['id']]='entity:'+sha256(canonical_bytes([prepared.release_id,output,definition.iri,'label',label])).hexdigest()
+                mapping[e['id']]=known_labels.get((definition.iri,label),'entity:'+sha256(canonical_bytes([prepared.release_id,output,definition.iri,'label',label])).hexdigest())
             # An absent/incomplete semantic key never licenses a label merge for a keyed class.
             resolved.add((oid,e['id']));progress=True
         if not progress:
@@ -253,11 +400,12 @@ def _entity_mappings(prepared,observations,output):
     return mappings,extra,parsed
 
 
-def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,output):
+def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,output,known,copied):
     definitions={d.iri:d for d in prepared.definitions}
     by_name={d.name:d for d in prepared.definitions}
-    reports=[];items=[];claims=[];metadata={};coverage=[];source_links={};evidence_roles={};contents={}
-    entity_mappings,extra_attributes,parsed=_entity_mappings(prepared,observations,output)
+    reports=[];items=[];claims=[];metadata=dict(known);coverage=[];source_links={};evidence_roles={};contents={}
+    entity_mappings,extra_attributes,parsed=_entity_mappings(prepared,observations,output,known)
+    operation_props={(body['class'],body['property']):body for row in prepared.registry_rows if row.kind=='operation_property' for body in (json.loads(row.body),)}
     def coverage_row(family,scope,outcome,reason=None):
         key='coverage:'+sha256(canonical_bytes([cut['id'],family,scope,outcome,reason])).hexdigest()
         coverage.append(CoverageRow(key,family,scope,outcome,reason))
@@ -321,20 +469,46 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
             entity_id=mapping[e['id']]
             declared_attributes=list(e.get('attributes',()))
             definition=definitions[e['class_iri']]
+            if e.get('label'):
+                for p in definition.properties:
+                    if operation_props.get((definition.name,p.iri),{}).get('cs:role')=='display':
+                        declared_attributes.append({'predicate':p.iri,'value':{'kind':'text','text':e['label']}})
             for name,value in extra_attributes.get((observation['id'],e['id']),{}).items():
                 if not any(a['predicate']==next(p.iri for p in definition.properties if p.name==name) for a in declared_attributes):
                     declared_attributes.append({'predicate':next(p.iri for p in definition.properties if p.name==name),'value':{'kind':'text','text':value}})
             source_attributes[e['id']]=declared_attributes
-            current={**e,'id':entity_id,'attributes':declared_attributes}
+            present={p.name for p in definition.properties if any(a['predicate']==p.iri for a in declared_attributes)}|{'id'}
+            required={p.name for p in definition.properties if p.required or (p.minimum_cardinality or 0)>0}|{n for group in definition.identity_groups for n in group}
+            complete=required<=present
+            if not complete:coverage_row('entity',source+'/'+e['id'],'partial','declared entity lacks required identifying fields: '+','.join(sorted(required-present)))
+            current={**e,'id':entity_id,'attributes':declared_attributes,'representable':complete}
             prior=metadata.get(entity_id)
             # Rule display projection is deterministic; each source's own attributes
             # below remain distinct and never inherit the last report's values.
+            if prior is not None and prior.get('known'):continue
             if prior is None or canonical_bytes(current)<canonical_bytes(prior):metadata[entity_id]=current
         from corpus_structure.core.evidence import MacroDef
         from .expression_context import bind_expression_context
         macros={name:MacroDef.model_validate(value) for name,value in descriptor['content'].get('macros',{}).items()}
-        claim_rows=[];evidence_by_entity={};claim_refs={}
-        for i,claim in enumerate(payload.get('claims',())):
+        claim_rows=[];evidence_by_entity={};item_by_entity={};claim_refs={}
+        source_claims={c['id']:(i,c) for i,c in enumerate(payload.get('claims',()))}
+        occurrence_refs={ref:occurrence_key(prepared.release_id,output,source,'claims/'+str(i)) for ref,(i,c) in source_claims.items()}
+        qclass=next(p.range for p in by_name['AgentClaim'].properties if p.name=='qualification')
+        qualification_class=qclass
+        dependencies={ref:_claim_references(prepared,'Value',claim['object'])|_claim_references(prepared,qclass,claim['qualification']) for ref,(i,claim) in source_claims.items()}
+        from graphlib import TopologicalSorter,CycleError
+        topology=TopologicalSorter({ref:refs&source_claims.keys() for ref,refs in dependencies.items()})
+        try:topology.prepare()
+        except CycleError:pass
+        ordered=[]
+        while ready:=topology.get_ready():
+            ordered.extend(sorted(ready));topology.done(*ready)
+        for ref in source_claims.keys()-set(ordered):coverage_row('claim',source+'/'+ref,'partial','cyclic source claim reference')
+        for ref in ordered:
+            i,claim=source_claims[ref]
+            if not dependencies[ref]<=claim_refs.keys():
+                coverage_row('claim',source+'/'+ref,'partial','unavailable source claim premise')
+                continue
             located=[]
             for j,e in enumerate(claim['evidence']):
                 if e.get('outcome')!='located' or e.get('start') is None or e.get('end') is None:continue
@@ -351,32 +525,39 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
                 coverage_row('claim',source+'/'+claim['id'],'partial','no located primary evidence')
                 continue
             subject=mapping.get(claim['subject'],claim['subject'])
-            if subject not in metadata:
+            if subject not in metadata or metadata[subject].get('representable') is False:
                 coverage_row('claim',source+'/'+claim['id'],'partial','bound reference membership projection unavailable')
                 continue
             definition=definitions[metadata[subject]['class_iri']]
             prop=next(p for p in definition.properties if p.iri==claim['predicate'])
-            obj=_property_value(prepared,definition,prop,bind_expression_context(claim['object'],macros),mapping)
-            qual=_reference(bind_expression_context(_plain(claim['qualification']),macros),{**mapping,**statement_ids})
+            obj=_property_value(prepared,definition,prop,bind_expression_context(claim['object'],macros),{**mapping,**statement_ids},claim_refs)
             qclass=next(d.name for d in prepared.definitions if d.name=='AgentClaim')
             qualification_class=next(p.range for p in by_name[qclass].properties if p.name=='qualification')
+            qual=_reference(prepared,qualification_class,bind_expression_context(_plain(claim['qualification']),macros),{**mapping,**statement_ids},claim_refs)
+            if not isinstance(qual,dict):raise DomainOperationRefused('qualification must be an explicit typed record')
+            referenced=({obj} if prop.range in by_name and not prop.inlined else _entity_references(prepared,prop.range,obj))|_entity_references(prepared,qualification_class,qual)
+            if any(ref not in metadata or metadata[ref].get('representable') is False for ref in referenced):
+                coverage_row('claim',source+'/'+claim['id'],'partial','declared endpoint lacks representable class identity')
+                continue
             item=SourceItem(subject,definition.name,prop.name,obj,qual,source,'claims/'+str(i),claim['establishment'],tuple(located),qualification_class)
+            claim_refs[claim['id']]=_source_fact_id(prepared,output,item)
             items.append(item);claim_rows.append((claim,item))
-            evidence_by_entity.setdefault(subject,tuple(located))
-            if isinstance(obj,str) and obj in metadata:evidence_by_entity.setdefault(obj,tuple(located))
-            claim_refs[claim['id']]=item
+            evidence_by_entity.setdefault(subject,tuple(located));item_by_entity.setdefault(subject,item)
+            for target in referenced:
+                if target in metadata:
+                    evidence_by_entity.setdefault(target,tuple(located));item_by_entity.setdefault(target,item)
         # Source-declared entity fields use the actual qualified source assertion that names them.
         for local,e in ((e['id'],e) for e in payload.get('entities',())):
             subject=mapping[local]
             if subject not in evidence_by_entity:continue
             evidence=evidence_by_entity[subject]
-            qitem=next((it for _,it in claim_rows if it.subject==subject or it.object==subject),None)
+            qitem=item_by_entity.get(subject)
             if qitem is None:continue
             definition=definitions[e['class_iri']]
             for index,attribute in enumerate(({'predicate':next(p.iri for p in definition.properties if p.name=='id'),
                                                 'value':{'kind':'text','text':subject}},*source_attributes[local])):
                 prop=next(p for p in definition.properties if p.iri==attribute['predicate'])
-                value=_property_value(prepared,definition,prop,bind_expression_context(attribute['value'],macros),mapping)
+                value=_property_value(prepared,definition,prop,bind_expression_context(attribute['value'],macros),{**mapping,**statement_ids},claim_refs)
                 items.append(replace(qitem,subject=subject,class_name=definition.name,property_name=prop.name,
                     object=value,item=f'entities/{local}/attributes/{index}',evidence=evidence))
         for claim,item in claim_rows:
@@ -388,23 +569,47 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
                 for name,value in props.items():
                     items.append(replace(item,subject=sid,class_name='SourceStatement',property_name=name,
                         object=value,item='statements/'+claim['statement']+'/'+name))
-            fid=prepared.fact_identity(output,item.subject,
-                next(p.iri for p in by_name[item.class_name].properties if p.name==item.property_name),
-                _plain(prepared.property_adapter(item.class_name,item.property_name,
-                    item=next(p.multivalued for p in by_name[item.class_name].properties if p.name==item.property_name)).validate_python(item.object,strict=True)),
-                _plain(prepared.validate_python(item.qualification_class,item.qualification)),qualification_class=item.qualification_class)
+            fid=_source_fact_id(prepared,output,item)
+            prop=next(p for p in by_name[item.class_name].properties if p.name==item.property_name)
             alternatives=tuple(a['id'] for a in payload.get('alternatives',()) if claim['id'] in a['members'])
             statement=statements.get(claim.get('statement'))
+            definition=by_name[item.class_name]
+            rule_object=_property_value(prepared,definition,prop,bind_expression_context(claim['object'],macros),{**mapping,**statement_ids},occurrence_refs)
+            rule_qualification=_reference(prepared,qualification_class,bind_expression_context(_plain(claim['qualification']),macros),{**mapping,**statement_ids},occurrence_refs)
             claims.append(ClaimCandidate(fid,occurrence_key(prepared.release_id,output,source,item.item),source,
                 claim['id'],item.subject,item.class_name,claim['predicate'],item.object,item.qualification,
                 item.establishment,statement_ids.get(claim.get('statement')),statement.get('kind') if statement else None,
-                claim.get('statement_role'),alternatives,len(item.evidence),descriptor['content'].get('macros',{})))
+                claim.get('statement_role'),alternatives,len(item.evidence),descriptor['content'].get('macros',{}),qualification_class,tuple(sorted(ref for ref in {item.subject,*_entity_references(prepared,qualification_class,item.qualification),*(_entity_references(prepared,prop.range,item.object) if prop.inlined else {item.object} if prop.range in by_name else set())} if ref in metadata and metadata[ref].get('reference') and not metadata[ref].get('known'))),rule_object,rule_qualification))
         for unsupported in payload.get('unsupported',()):
             coverage_row('unsupported',source+'/'+unsupported['id'],'partial',unsupported['reason'])
     batch_id='cut:'+sha256(canonical_bytes([prepared.release_id,output,
         [(o['observation_key'],o['payload']) for o in observations],VERSION])).hexdigest()
     batch=assemble(prepared,output,batch_id,tuple(items))
-    batch=replace(batch,coverage=tuple(sorted(coverage,key=lambda c:c.coverage_id)))
+    from .publication import EntityInputRow,FactInputRow,EntityRow
+    used={e.entity_id for e in batch.entity}&known.keys()
+    # Carry admitted input metadata as facts with explicit native lineage, never as
+    # new source occurrences or as assertions attributed to the current report.
+    input_items=[];input_fact_links=[]
+    for identity in sorted(used):
+        d=definitions[known[identity]['class_iri']]
+        for original,prop,value,qualification,qclass in known[identity]['input_facts']:
+            input_items.append(SourceItem(identity,d.name,prop.name,value,qualification,'input:'+job['input_realization_id'],original['fact_id'],'stated',tuple(copied.get('evidence',())),qclass))
+            fid=prepared.fact_identity(output,identity,prop.iri,value,qualification,qualification_class=qclass)
+            input_fact_links.append(FactInputRow(fid,job['input_realization_id'],job['input_revision'],original['fact_id'],job['id']))
+    inherited=assemble(prepared,output,'input-metadata',tuple(input_items))
+    incoming:dict[str,Any]={}
+    for name in ('entity','typed_value','value_role','fact'):
+        merged=(*getattr(batch,name),*getattr(inherited,name))
+        if name=='fact':
+            by_fact={}
+            for fact in merged:
+                if fact.fact_id not in by_fact or (fact.object_value_id,fact.qualification_value_id)<(by_fact[fact.fact_id].object_value_id,by_fact[fact.fact_id].qualification_value_id):by_fact[fact.fact_id]=fact
+            incoming[name]=tuple(sorted(by_fact.values(),key=lambda f:f.fact_id))
+        else:incoming[name]=tuple(sorted(set(merged),key=lambda row:canonical_bytes(__import__('dataclasses').astuple(row))))
+    for name,rows in copied.items():
+        if name.startswith('membership'):rows=tuple(row for row in rows if row.entity_id in used)
+        incoming[name]=tuple(sorted(set((*(row for row in getattr(batch,name) if name!='membership' or (row.entity_id,row.class_id) not in {(r.entity_id,r.class_id) for r in rows}),*rows)),key=lambda row:canonical_bytes(__import__('dataclasses').astuple(row))))
+    batch=replace(batch,**incoming,fact_input=tuple(sorted(set(input_fact_links),key=lambda row:row.fact_id)),entity_input=tuple(EntityInputRow(identity,job['input_realization_id'],job['input_revision'],identity,job['id']) for identity in sorted(used)),coverage=tuple(sorted(coverage,key=lambda c:c.coverage_id)))
     # Source links are resolved to native spans only in the final short publication transaction.
     from .publication import OccurrenceContextRow,OccurrenceEvidenceRoleRow
     batch=replace(batch,occurrence_context=tuple(OccurrenceContextRow(c.occurrence_id,c.statement,c.statement_role) for c in claims if c.statement is not None or c.statement_role is not None),
@@ -413,6 +618,7 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
     from .publication import EntitySourceRow
     declared={m.entity_id for m in batch.membership}
     batch=replace(batch,entity_source=tuple(sorted({EntitySourceRow(mapping[e['id']],observation['id'],e['id']) for observation in observations if observation['payload_definition']=='AgentStoredBatch' for mapping in (entity_mappings[observation['id']],) for e in parsed[observation['id']].get('entities',()) if mapping[e['id']] in declared},key=lambda row:(row.entity_id,row.observation_id,row.local_id))))
+    source_links={eid:link for eid,link in source_links.items() if eid in {e.evidence_id for e in batch.evidence}}
     return CutInput(cut['id'],job['id'],job['project_id'],prepared,output,tuple(reports),tuple(claims),batch,MappingProxyType(metadata),MappingProxyType(source_links))
 
 
@@ -468,7 +674,7 @@ def consolidate_cut(engine:Engine,cut_id:int,output_realization_id:str,*,policy:
                 select(span).where(tuple_(span.c.rendition_id,span.c.start_offset,span.c.end_offset).in_(coordinates)))}
             for eid,(oid,rid,start,end) in sorted(source_links.items()):
                 rows.append(EvidenceSourceRow(eid,oid,rid,ids[rid,start,end]))
-        batch=replace(batch,evidence_source=tuple(rows))
+        batch=replace(batch,evidence_source=tuple(sorted(set((*batch.evidence_source,*rows)),key=lambda row:row.evidence_id)))
     receipt=_publish(engine,batch,publish,attempts=attempts)
     with engine.connect() as conn:
         revision=conn.execute(select(table('data.realization').c.data_revision).where(
@@ -481,6 +687,70 @@ def consolidate_cut(engine:Engine,cut_id:int,output_realization_id:str,*,policy:
     return DomainResult(inputs.run_id,cut_id,output_realization_id,receipt,len(inputs.reports),len(batch.occurrence),revision,proofs)
 
 
+def _comparison_value(raw):
+    """Project only shared scientific operand shapes into the existing comparator.
+
+    This is an operation adapter. It does not change the source record or install legacy
+    schema authority. Shapes without a faithful comparator operand remain undecided.
+    """
+    from datetime import date,datetime
+    from decimal import Decimal
+    from corpus_structure.core import values as V
+    if isinstance(raw,str):return V.TextValue(t='text',v=raw)
+    if isinstance(raw,bool):return V.BoolValue(t='bool',v=raw)
+    if isinstance(raw,(Decimal,int)):
+        text=format(Decimal(raw),'f')
+        if '.' in text:text=text.rstrip('0').rstrip('.')
+        return V.NumberValue(t='number',v=text if Decimal(raw) else '0')
+    if isinstance(raw,(date,datetime)):return V.DateValue(t='date',v=raw.isoformat())
+    if not isinstance(raw,dict):raise DomainOperationRefused('scientific operand has no faithful comparator shape')
+    kind=raw.get('kind')
+    if kind=='text':return V.TextValue(t='text',v=raw['text'])
+    if kind in {'number','quantity'}:
+        value=_comparison_value(raw['number'])
+        return value.model_copy(update={k:raw[k] for k in ('unit','basis') if k in raw})
+    if kind=='boolean':return V.BoolValue(t='bool',v=raw['boolean'])
+    if kind=='entity':return V.EntityRef(ref=raw['target'])
+    if kind in {'formula','set','expression'}:
+        if raw.get('language')!='latex':raise DomainOperationRefused('scientific expression language has no comparator')
+        bindings={b['symbol']:V.SymbolBinding.model_validate({'bind':b['kind'],**{k:b[k] for k in ('entity','claim') if k in b},**({'param':b['parameter']} if 'parameter' in b else {})}) for b in raw.get('bindings',())}
+        if kind=='set' or raw.get('form')=='set':return V.SetValue(t='set',latex=raw['expression'],symbols=bindings)
+        return V.Formula(t='formula',latex=raw['expression'],symbols=bindings)
+    if kind=='interval':
+        return V.IntervalValue.model_validate({'t':'interval','start_incl':raw['lower_closed'],'end_incl':raw['upper_closed'],
+            **({'start':_comparison_value(raw['lower'])} if 'lower' in raw else {}),
+            **({'end':_comparison_value(raw['upper'])} if 'upper' in raw else {})})
+    raise DomainOperationRefused('scientific '+str(kind)+' operand has no faithful comparator shape')
+
+
+def _comparison_condition(raw):
+    """Project typed mathematical conditions; unknown predicates remain undecided."""
+    from corpus_structure.core import values as V
+    kind=raw['kind']
+    if kind in {'all','any'}:
+        terms=tuple(_comparison_condition(t) for t in raw['terms'])
+        return V.StoredAnd(op='and',args=terms) if kind=='all' else V.StoredOr(op='or',args=terms)
+    if kind=='not':return V.StoredNot(op='not',arg=_comparison_condition(raw['term']))
+    if kind=='member':return V.MemberNode(op='member',x=_comparison_value(raw['x']),set=_comparison_value(raw['set']))
+    if kind=='compare':return V.CmpNode(op='cmp',rel=raw['relation'],lhs=_comparison_value(raw['lhs']),rhs=_comparison_value(raw['rhs']))
+    if kind=='forall':return V.StoredForall(op='forall',var=raw['variable'],set=_comparison_value(raw['set']),body=_comparison_condition(raw['body']))
+    raise DomainOperationRefused('condition '+kind+' has no mathematical restriction projection')
+
+
+def _bindings(value):
+    if isinstance(value,dict):
+        found=[value['bindings']] if 'bindings' in value else []
+        return [*found,*(b for k,v in value.items() if k!='bindings' for b in _bindings(v))]
+    if isinstance(value,(list,tuple)):return [b for member in value for b in _bindings(member)]
+    return []
+
+
+def _without_bindings(value):
+    if isinstance(value,dict):return {k:_without_bindings(v) for k,v in value.items() if k!='bindings'}
+    if isinstance(value,(list,tuple)):return [_without_bindings(v) for v in value]
+    return value
+
+
 class ReleasedRulesPolicy:
     """The existing rule language and finalize decision table over release-derived views."""
     version=VERSION
@@ -491,7 +761,7 @@ class ReleasedRulesPolicy:
         self.prepared=prepared;self.release_id=prepared.release_id
         artifact=next((a for a in prepared.artifacts if a.kind==RULE_INPUT),None)
         if artifact is None:raise DomainOperationRefused('release has no declared domain rules operation')
-        self.source=yaml.safe_load(artifact.content) or {}
+        self.source=yaml.load(artifact.content,Loader=DupCheckYamlLoader) or {}
         if not isinstance(self.source,dict):raise DomainOperationRefused('domain rule artifact is not an object')
         self.definitions={d.name:d for d in prepared.definitions}
         self.metadata={}
@@ -500,6 +770,7 @@ class ReleasedRulesPolicy:
                 body=json.loads(row.body)
                 self.metadata[body['class'],body['property']]=body
         self.prefixes={row.name:json.loads(row.body)['uri'] for row in prepared.registry_rows if row.kind=='prefix'}
+        self.validate_source()
         self.enums={}
         for row in prepared.registry_rows:
             if row.kind=='enum_definition':
@@ -565,6 +836,54 @@ class ReleasedRulesPolicy:
                 self.rules.append((raw,self.language.compile(rid,raw.get('when','true')),
                                    self.language.compile(rid,raw['check'])))
 
+    def validate_source(self):
+        from corpus_structure.core.keys import LabelRules
+        from corpus_structure.pool.steps import ViewSpec,SAME_SLOT,ALTERNATIVE_OF
+        source=self.source
+        if set(source)-{'rules','guideline','views','tables','derive','identity'}:raise DomainOperationRefused('unknown domain operation policy section')
+        if source.get('derive'):raise DomainOperationRefused('operation derive rules require an admitted inference profile')
+        identity=source.get('identity',{})
+        if not isinstance(identity,dict) or set(identity)-{'aliases'}:raise DomainOperationRefused('invalid operation identity policy')
+        LabelRules.model_validate(identity.get('aliases',{}))
+        props={p.iri for d in self.prepared.definitions for p in d.properties}
+        groups={g for body in self.metadata.values() for g in body.get('groups',())}
+        def applies(value):
+            values=[value] if isinstance(value,str) else value
+            if not isinstance(values,(tuple,list)) or not values or any(not isinstance(v,str) for v in values):raise DomainOperationRefused('invalid rule applies_to')
+            selected=set()
+            for token in values:
+                if token=='any':selected.update(props)
+                elif token.startswith('subset:'):
+                    group=token[7:]
+                    if group not in groups:raise DomainOperationRefused('unknown operation predicate subset '+group)
+                    selected.update(body['property'] for body in self.metadata.values() if group in body.get('groups',()))
+                else:
+                    iri=self.prepared.expand_name(token)
+                    if iri not in props:raise DomainOperationRefused('unknown operation predicate '+token)
+                    selected.add(iri)
+            return selected
+        for section in ('rules','guideline'):
+            if not isinstance(source.get(section,[]),list):raise DomainOperationRefused('operation rules must be a list')
+            for rule in source.get(section,()):
+                if not isinstance(rule,dict) or set(rule)-{'id','applies_to','at','severity','when','check','description'}:raise DomainOperationRefused('invalid operation rule shape')
+                if not isinstance(rule.get('id'),str) or not rule['id'] or not isinstance(rule.get('check'),str):raise DomainOperationRefused('operation rule requires id and check')
+                sites=rule.get('at',('batch','finalize'))
+                if not isinstance(sites,(list,tuple)) or not sites or any(s not in {'batch','finalize'} for s in sites):raise DomainOperationRefused('unknown operation rule call site')
+                if rule.get('severity','error') not in {'error','warning'}:raise DomainOperationRefused('unknown operation rule severity')
+                applies(rule.get('applies_to','any'))
+        tables=source.get('tables',{})
+        if not isinstance(tables,dict) or any(not isinstance(key,str) or not isinstance(value,dict) or any(not isinstance(k,str) for k in value) or not (all(isinstance(v,str) for v in value.values()) or all(isinstance(v,list) and all(isinstance(x,str) for x in v) for v in value.values())) for key,value in tables.items()):raise DomainOperationRefused('invalid released rule lookup table')
+        views=source.get('views',{})
+        if not isinstance(views,dict):raise DomainOperationRefused('operation views must be a mapping')
+        for name,decl in views.items():
+            if not isinstance(name,str) or not name.isidentifier() or name in {SAME_SLOT,ALTERNATIVE_OF} or not isinstance(decl,dict) or set(decl)-{'description','applies_to','source','match','project'}:raise DomainOperationRefused('invalid operation view declaration')
+            if not {'applies_to','source','match','project'}<=decl.keys():raise DomainOperationRefused('incomplete operation view declaration')
+            match=decl['match']
+            if not isinstance(match,dict) or set(match)!={'source','claim'} or any(v not in {'subject','object'} for v in match.values()):raise DomainOperationRefused('unknown operation view match side')
+            if not isinstance(decl['source'],str) or self.prepared.expand_name(decl['source']) not in props:raise DomainOperationRefused('unknown operation view source property')
+            spec=ViewSpec.from_declaration(name,decl,applies(decl['applies_to']))
+            if spec.attr=='identity' and (spec.slot is None or self.prepared.expand_name(spec.slot) not in props):raise DomainOperationRefused('unknown operation view identity projection')
+
     def compact(self,iri):
         choices=[(len(uri),prefix+':'+iri[len(uri):]) for prefix,uri in self.prefixes.items() if iri.startswith(uri)]
         return max(choices)[1] if choices else iri
@@ -582,12 +901,99 @@ class ReleasedRulesPolicy:
         return any(value=='any' or (value.startswith('subset:') and value[7:] in groups)
                    or self.prepared.expand_name(value)==candidate.predicate for value in source)
 
+    def scientific_decisions(self,inputs,scope):
+        """Declared source disagreements and existing scientific value comparisons.
+
+        Equivalence is an assessment between retained facts. It never rewrites fact meaning
+        or turns an undecided comparison into inequality.
+        """
+        from collections import defaultdict
+        from corpus_structure.core.evidence import MacroDef
+        from corpus_structure.evaluate.equivalence import ValueComparator,Tier
+        from .identity import _meaning
+        groups=defaultdict(list);rows=[];by_group=defaultdict(list);assessments=[]
+        generated=defaultdict(set);unresolved=set();equivalent_components=[]
+        for c in inputs.candidates:
+            props={p.name:p for p in self.prepared.qualification_definition(c.qualification_class).properties}
+            qual={n:v for n,v in c.qualification.items() if props[n].key_role!='provenance'}
+            meta=self.metadata.get((c.class_name,c.predicate),{})
+            meaning_names=set(str(meta.get('cs:qualifiers','')).split())-set(str(meta.get('cs:identity_qualifiers','')).split())
+            # Scope, modality, conditions and time stay exact context boundaries.
+            identity={n:v for n,v in qual.items() if n not in meaning_names}
+            key=sha256(canonical_bytes(_meaning([c.subject,c.predicate,c.statement,_without_bindings(c.object),identity]))).hexdigest()
+            meaning=canonical_bytes(_meaning({'qualifiers':{n:v for n,v in qual.items() if n in meaning_names},
+                'bindings':_bindings([c.object,c.qualification])})).decode()
+            rows.append({'key':key,'meaning':meaning});by_group[key].append(c)
+            prop=next(p for p in self.definitions[c.class_name].properties if p.iri==c.predicate)
+            if prop.constraint_scope=='accepted_value' and meta.get('cs:role')=='predicate':
+                slot=canonical_bytes(_meaning([c.subject,c.predicate,qual]))
+                groups[slot].append(c)
+        relation=pa.Table.from_pylist(rows,schema=pa.schema([pa.field('key',pa.string()),pa.field('meaning',pa.string())]))
+        split={row['key'] for row in scope.operation_disagreements(scope.connection.from_arrow(relation)).to_arrow_table().to_pylist()}
+        for key in split:
+            members=by_group[key]
+            if len({c.fact_id for c in members})>1:
+                for c in members:generated[c.occurrence_id].add('disagreement:'+key)
+        def assessment(a,b,outcome,reason,tier):
+            for c,other in ((a,b),(b,a)):
+                detail=canonical_bytes({'other_fact_id':other.fact_id,'other_occurrence_id':other.occurrence_id,
+                    'tier':tier,'detail':reason}).decode()
+                aid='assessment:'+sha256(canonical_bytes([VERSION,'value_equivalence',c.occurrence_id,detail,outcome])).hexdigest()
+                assessments.append(AssessmentRow(aid,'scientific.value_equivalence',VERSION,outcome,
+                    occurrence_id=c.occurrence_id,reason=detail,uncertainty=reason if outcome=='undecided' else None))
+        for slot,members in groups.items():
+            # Distinct report occurrences of one fact need no scientific comparison.
+            distinct={c.fact_id:c for c in sorted(members,key=lambda c:c.occurrence_id,reverse=True)}
+            ordered=sorted(distinct.values(),key=lambda c:(canonical_bytes(_meaning(c.object)),c.fact_id))
+            if len(ordered)<2:continue
+            parent={c.fact_id:c.fact_id for c in ordered}
+            def root(key):
+                while parent[key]!=key:key=parent[key]
+                return key
+            for index,a in enumerate(ordered):
+                for b in ordered[index+1:]:
+                    reason=None;comparison=None
+                    if _bindings(a.object)!=_bindings(b.object):reason='distinct explicit expression bindings'
+                    elif isinstance(a.object,dict) and isinstance(b.object,dict) and a.object.get('macro_context')!=b.object.get('macro_context'):
+                        reason='different referenced source macro contexts'
+                    if reason is None:
+                        try:
+                            left,right=_comparison_value(a.object),_comparison_value(b.object)
+                            comparator=ValueComparator({name:MacroDef.model_validate(value) for name,value in a.macros.items()})
+                            condition=a.qualification.get('condition')
+                            conditions=(_comparison_condition(condition),) if condition is not None else ()
+                            comparison=comparator.compare(left,right,conditions,ref_eq=lambda x,y:x==y)
+                        except (DomainOperationRefused,ValueError) as exc:reason=str(exc)
+                    if comparison is None:
+                        assessment(a,b,'undecided',reason or 'no faithful comparison operand','undecided')
+                        unresolved.update(c.occurrence_id for c in members)
+                        continue
+                    if comparison.tier is Tier.UNDECIDED:
+                        detail=comparison.detail
+                        assessment(a,b,'undecided',detail,'undecided')
+                        unresolved.update(c.occurrence_id for c in members)
+                    elif comparison.equal:
+                        assessment(a,b,'equivalent',comparison.detail,comparison.tier.value)
+                        ra,rb=root(a.fact_id),root(b.fact_id)
+                        parent[max(ra,rb)]=min(ra,rb)
+                    else:
+                        assessment(a,b,'different',comparison.detail,comparison.tier.value)
+                        group='value_disagreement:'+sha256(slot).hexdigest()
+                        for c in members:generated[c.occurrence_id].add(group)
+            components=defaultdict(list)
+            for c in ordered:components[root(c.fact_id)].append(c)
+            for component in components.values():
+                if len(component)>1:equivalent_components.append(tuple(c.fact_id for c in sorted(component,key=lambda c:(canonical_bytes(_meaning(c.object)),c.fact_id))))
+        return generated,unresolved,equivalent_components,assessments
+
     def evaluate(self,inputs:CutInput,scope:AnalysisScope,fused:pa.Table)->PolicyDecision:
         from corpus_structure.validate.views import EntityView,ValueView,StatementView,BindingView,NodeView,QualifiersView,_BARE,MAX_SYMBOL
         from corpus_structure.methods.math import grammar
         from corpus_structure.consolidate.finalize import GRAMMAR_KINDS
         from corpus_structure.validate.views import Reading
         errors=set();ambiguous=set();assessments=[];views={};readings={}
+        generated,unresolved,equivalent_components,scientific=self.scientific_decisions(inputs,scope)
+        assessments.extend(scientific)
         candidates=inputs.candidates
         candidate_facts={c.fact_id for c in candidates}
         by_occurrence={c.occurrence_id:c.fact_id for c in candidates}
@@ -601,19 +1007,16 @@ class ReleasedRulesPolicy:
                               identity.get(next((k for k in identity if k.endswith(':symbol')),'')),identity)
         def nodes(value):
             if value is None:return []
-            kind=value.get('kind')
+            kind=value['kind']
             if kind in {'all','any'}:
-                return [NodeView('and' if kind=='all' else 'or',None,None,None,None),
-                        *(n for term in value.get('terms',()) for n in nodes(term))]
-            if kind=='not':return nodes(value['term'])
-            # Atomic relation nodes preserve the declared predicate and actual expression argument.
-            if kind=='atomic':
-                predicate=value['predicate'];op=predicate.rsplit(':',1)[-1].rsplit('/',1)[-1]
-                if op not in {'member','compare','predicate'}:
-                    raise DomainOperationRefused('condition operation has no declared legacy rule-view projection')
-                args=value.get('arguments',())
-                latex=args[0].get('expression') if args and isinstance(args[0],dict) else None
-                return [NodeView(op,None,predicate,None,latex)]
+                return [NodeView('and' if kind=='all' else 'or',None,None,None,None),*(n for term in value['terms'] for n in nodes(term))]
+            if kind=='not':return [NodeView('not',None,None,None,None),*nodes(value['term'])]
+            if kind=='claim':return [NodeView('claim',value['ref'],None,None,None)]
+            if kind=='member':return [NodeView('member',None,None,None,value['x']['expression'])]
+            if kind=='compare':return [NodeView('cmp',None,None,value['relation'],value['lhs']['expression'])]
+            if kind=='forall':return [NodeView('forall',None,value['variable'],None,None),*nodes(value['body'])]
+            if kind=='atomic':return [NodeView('pred',None,value['predicate'],None,None)]
+            if kind=='escape':raise DomainOperationRefused('source condition remains uninterpreted: '+value['reason'])
             raise DomainOperationRefused('condition structure has no admitted rule projection')
         gives={}
         for candidate in candidates:
@@ -646,26 +1049,28 @@ class ReleasedRulesPolicy:
             pa.Table.from_pylist([{'entity':e.id,'slot':slot,'value':value} for e in entities.values()
                 for slot,value in e.identity.items()],schema=VIEW_IDENTITY),
             pa.Table.from_pylist([{'group':c.observation_key+'/'+group,'claim':c.occurrence_id}
-                for c in candidates for group in c.alternatives],schema=VIEW_ALTERNATIVES),
+                for c in candidates for group in (*c.alternatives,*sorted(generated[c.occurrence_id]))],schema=VIEW_ALTERNATIVES),
         )
         facts={(row['claim'],row['view']):tuple(row['facts']) for row in scope.views(
-            *(scope.connection.from_arrow(t) for t in tables),specs).to_arrow_table().to_pylist()}
+            scope.connection.from_arrow(tables[0]),scope.connection.from_arrow(tables[1]),
+            scope.connection.from_arrow(tables[2]),scope.connection.from_arrow(tables[3]),specs).to_arrow_table().to_pylist()}
         fused_ids=set(fused['fact_id'].to_pylist())
         if candidate_facts-fused_ids:raise DomainOperationRefused('fusion omitted a source-supported fact')
         for c in candidates:
-            qvalues={name:None for name in self.qprops};qvalues.update(c.qualification)
+            qvalues:dict[str,Any]={name:None for name in self.qprops};qvalues.update(c.rule_qualification if c.rule_qualification is not None else c.qualification)
             for name,value in tuple(qvalues.items()):
                 if isinstance(value,(list,tuple)) and all(isinstance(v,dict) and {'key','value'}<=v.keys() for v in value):
                     qvalues[name]={v['key']:v['value'] for v in value}
             obj=None;value=None;bindings=[];unknown=None;reading_note=None
             if isinstance(c.object,str) and c.object in inputs.entity_metadata:obj=entity(c.object)
             else:
-                raw=c.object
-                kind=raw.get('kind') if isinstance(raw,dict) else 'text'
+                raw=c.rule_object if c.rule_object is not None else c.object
+                kind=str(raw.get('kind')) if isinstance(raw,dict) else 'text'
                 latex=raw.get('expression') if isinstance(raw,dict) else None
                 scalar=str(raw.get('text',raw.get('number',''))) if isinstance(raw,dict) else str(raw)
                 reading=None
-                if latex is not None:
+                if isinstance(raw,dict) and latex is not None and raw.get('language')!='latex':reading_note='scientific expression language has no declared reading operation'
+                if isinstance(raw,dict) and latex is not None and raw.get('language')=='latex':
                     key=(latex,kind,canonical_bytes(c.macros))
                     if key not in readings:
                         from corpus_structure.core.evidence import MacroDef
@@ -687,16 +1092,16 @@ class ReleasedRulesPolicy:
             alternatives=tuple(sorted({by_occurrence[oid] for oid in facts.get((c.occurrence_id,'alternative_of'),())
                                        if by_occurrence[oid]!=c.fact_id}))
             if alternatives:ambiguous.add(c.occurrence_id)
-            try:condition_nodes=tuple(nodes(c.qualification.get('condition')))
+            try:condition_nodes=tuple(nodes((c.rule_qualification if c.rule_qualification is not None else c.qualification).get('condition')))
             except DomainOperationRefused as exc:condition_nodes=();unknown=str(exc)
             statement=StatementView(c.statement,c.statement,c.statement_kind or '') if c.statement else None
             meta=self.metadata.get((c.class_name,c.predicate),{})
-            view=SimpleNamespace(id=c.fact_id,key=c.fact_id,predicate=self.compact(c.predicate),
+            view=SimpleNamespace(id=c.occurrence_id,key=c.occurrence_id,predicate=self.compact(c.predicate),
                 groups=tuple(meta.get('groups',())),subject=entity(c.subject),object=obj,value=value,
                 qualifiers=QualifiersView(qvalues),statement=statement,statement_kind=c.statement_kind,
                 statement_role=c.statement_role,establishment=c.establishment,bindings=tuple(bindings),
                 condition_nodes=condition_nodes,claim_refs=tuple(n.ref for n in condition_nodes if n.ref is not None),
-                statement_premises=tuple(sorted({o.fact_id for o in candidates if o.fact_id!=c.fact_id and
+                statement_premises=tuple(sorted({o.occurrence_id for o in candidates if o.occurrence_id!=c.occurrence_id and
                     o.statement_role=='premise' and (o.statement==c.statement or o.statement_kind=='assumption')})),
                 gives_symbols=tuple(sorted(gives[c.occurrence_id])),
                 given_by_others=tuple(sorted({symbol for o in candidates if o.occurrence_id!=c.occurrence_id for symbol in gives[o.occurrence_id]})),
@@ -705,6 +1110,8 @@ class ReleasedRulesPolicy:
             for name in self.source.get('views',{}):
                 setattr(view,name,facts.get((c.occurrence_id,name),()))
             findings=[]
+            if c.unresolved_references:
+                unknown='unresolved declared source endpoint: '+','.join(c.unresolved_references)
             if reading_note:findings.append(('operation.not_checkable','warning',reading_note))
             if unknown:
                 # Unchecked projection/reading is not a passing rule result or scientific refutation.
@@ -720,7 +1127,7 @@ class ReleasedRulesPolicy:
                 assessments.append(AssessmentRow(aid,rule,VERSION,'refuted' if severity=='error' else 'warning',
                     occurrence_id=c.occurrence_id,reason=message,uncertainty=unknown or reading_note))
                 if severity=='error':errors.add(c.occurrence_id)
-            status=('rejected' if c.occurrence_id in errors else 'candidate' if unknown else
+            status=('rejected' if c.occurrence_id in errors else 'candidate' if unknown or c.occurrence_id in unresolved else
                     'ambiguous' if c.occurrence_id in ambiguous else 'accepted')
             aid='assessment:'+sha256(canonical_bytes([VERSION,c.occurrence_id,status])).hexdigest()
             assessments.append(AssessmentRow(aid,'consolidate.status',VERSION,status,
@@ -728,5 +1135,18 @@ class ReleasedRulesPolicy:
             views[c.occurrence_id]=status
         # Structural source declarations are independent of the scientific claim decision table.
         selected={f.fact_id for f in inputs.batch.fact if f.fact_id not in candidate_facts}
+        display={}
+        values={v.value_id:v for v in inputs.batch.typed_value}
+        for fact in inputs.batch.fact:
+            if fact.fact_id not in selected:continue
+            prop=next((p for d in self.prepared.definitions for p in d.properties if p.iri==fact.property_id),None)
+            if prop is not None and not prop.multivalued and any(m.get('cs:role')=='display' and m['property']==fact.property_id for m in self.metadata.values()):
+                display.setdefault((fact.subject_id,fact.property_id),[]).append(fact)
+        for group in display.values():
+            keep=min(group,key=lambda fact:(values[fact.object_value_id].text_value or '',fact.fact_id))
+            selected.difference_update(fact.fact_id for fact in group if fact.fact_id!=keep.fact_id)
         selected.update(c.fact_id for c in candidates if views[c.occurrence_id]=='accepted')
+        for component in equivalent_components:
+            accepted=[fact for fact in component if fact in selected]
+            if accepted:selected.difference_update(accepted[1:])
         return PolicyDecision(frozenset(selected),tuple(sorted(assessments,key=lambda a:a.assessment_id)))
