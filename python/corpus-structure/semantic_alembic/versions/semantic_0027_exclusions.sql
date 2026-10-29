@@ -300,7 +300,8 @@ BEGIN
     CROSS JOIN LATERAL jsonb_array_elements(candidate->'evidence') WITH ORDINALITY citation(value,position)
     JOIN data.fact f ON f.release_id=r AND f.realization_id=z AND f.fact_id=o.fact_id
     JOIN data.entity_source src ON src.release_id=r AND src.realization_id=z AND src.observation_id=observation.id AND src.entity_id=f.subject_id
-    WHERE o.item LIKE 'entities/'||src.local_id||'/attributes/%'
+    WHERE starts_with(o.item,'entities/'||src.local_id||'/attributes/')
+     AND substring(o.item FROM length('entities/'||src.local_id||'/attributes/')+1) ~ '^[0-9]+$'
      AND ((candidate->'left'->>'kind'='local' AND candidate->'left'->>'target'=src.local_id)
        OR (candidate->'right'->>'kind'='local' AND candidate->'right'->>'target'=src.local_id))
      AND citation.value->>'outcome'='located'

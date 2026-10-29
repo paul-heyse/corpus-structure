@@ -9,7 +9,7 @@ from corpus_structure.semantic.metadata import table
 from .test_agent_resubmission import lease_and_read, source_task
 
 
-def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1, keyed=False):
+def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1, keyed=False, local_ids=("p", "q")):
     prepared, run, task, locator = source_task(admin, writer, tmp_path / "exclusions.html", composed=True, identity_keyed=keyed)
     session = SemanticAgentSession(writer, run)
     async def submit():
@@ -17,9 +17,9 @@ def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1, key
             unit = await lease_and_read(client, run, task)
             response = await client.call_tool("propose_claims", {"task_id": task, "batch": {
                 "unit_ref": locator,
-                "entities": [{"id": ref, "class_iri": "https://example.org/Person", "label": "Alice", "attributes": [{"predicate": "https://example.org/name", "value": {"kind": "text", "text": "Alice"}}] if keyed else []} for ref in ("p", "q")],
-                "identity_exclusions": [{"id": "different", "left": {"kind": "local", "target": "p"},
-                    "right": {"kind": "local", "target": "q"}, "reason": "separate source identities",
+                "entities": [{"id": ref, "class_iri": "https://example.org/Person", "label": "Alice", "attributes": [{"predicate": "https://example.org/name", "value": {"kind": "text", "text": "Alice"}}] if keyed else []} for ref in local_ids],
+                "identity_exclusions": [{"id": "different", "left": {"kind": "local", "target": local_ids[0]},
+                    "right": {"kind": "local", "target": local_ids[1]}, "reason": "separate source identities",
                     "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}, *([{ "sentence": unit["sentences"][0]["id"], "quote": "Alice", "role": "supporting"}] if citations == 2 else [])]}]}})
             assert response.structured_content is not None
             assert response.structured_content["submission_disposition"] == "completed_accepted"
