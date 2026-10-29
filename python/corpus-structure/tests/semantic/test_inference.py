@@ -28,6 +28,7 @@ def setup(admin, writer, edges, *, rules=('transitive','inverse'), contexts=None
         from corpus_structure.semantic.releases import persist_release
         from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
         with admin.begin() as conn:
+            assert bundle is not None
             persist_release(conn,bundle,ResolvedDependencies(),PreparationProfile(),prepared)
             conn.execute(insert(table('data.project')).values(project_id='p'))
             conn.execute(insert(table('data.realization')).values(realization_id=Z,project_id='p',release_id=r))

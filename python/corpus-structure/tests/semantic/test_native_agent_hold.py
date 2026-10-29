@@ -21,7 +21,7 @@ def test_native_hold_fences_cancellation_and_refuses_forged_error_seed(semantic_
             with engine.begin() as cancellation:
                 cancellation.execute(text("SET LOCAL lock_timeout='100ms'"))
                 end_source_run(cancellation,run)
-        assert blocked.value.orig.sqlstate=='55P03'
+        assert getattr(blocked.value.orig, 'sqlstate', None)=='55P03'
     with pytest.raises(DBAPIError):
         with engine.begin() as conn:conn.execute(update(t).where(t.c.id==task).values(error=None))
     with pytest.raises(DBAPIError,match='protected submission'):

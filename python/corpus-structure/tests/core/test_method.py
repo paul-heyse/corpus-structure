@@ -35,6 +35,7 @@ from corpus_structure.core.method import (
     Resources,
     RunView,
     SourceProfileRef,
+    SourceRunContext,
     UnitRef,
     UnitResult,
     UnitView,
@@ -78,7 +79,7 @@ class StubMethod:
         self.name = f"stub.{unit_type}"
         self.unit_type = unit_type
 
-    def select(self, run: RunView, cfg: StubConfig) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: StubConfig) -> Iterable[UnitRef]:
         return [UnitRef(self.unit_type, 1, "u1")]
 
     def input_digest(self, unit: UnitView, cfg: StubConfig) -> Digest:
@@ -102,7 +103,7 @@ class StubPacketMethod:
     Config = StubConfig
     resources = Resources(worker="agent")
 
-    def select(self, run: RunView, cfg: StubConfig) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: StubConfig) -> Iterable[UnitRef]:
         return []
 
     def input_digest(self, unit: UnitView, cfg: StubConfig) -> Digest:

@@ -39,7 +39,7 @@ from corpus_structure.core.method import (
     Digest,
     MethodContext,
     Resources,
-    RunView,
+    SourceRunContext,
     UnitRef,
     UnitResult,
     UnitView,
@@ -247,7 +247,7 @@ class RulesMethod:
     Config = RulesConfig
     resources = Resources()
 
-    def select(self, run: RunView, cfg: RulesConfig) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: RulesConfig) -> Iterable[UnitRef]:
         return [UnitRef(TaskUnitType.RUN)]
 
     def input_digest(self, unit: UnitView, cfg: RulesConfig) -> Digest:

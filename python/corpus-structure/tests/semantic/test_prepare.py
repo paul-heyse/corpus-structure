@@ -503,3 +503,26 @@ def test_unknown_functional_semantics_refuse():
         prepare_release(source)
     assert failure.value.diagnostics[0].code == 'functional_policy'
     assert failure.value.diagnostics[0].outcome == 'unsupported'
+
+
+def test_pure_preparation_reuses_only_identical_inputs_and_compiler_stack(monkeypatch):
+    import corpus_structure.semantic.prepare as compiler
+    compiler._prepare_release_cached.cache_clear()
+    original = compiler._prepare_release_uncached
+    calls = []
+
+    def counted(*args):
+        calls.append(args[3])
+        return original(*args)
+
+    monkeypatch.setattr(compiler, '_prepare_release_uncached', counted)
+    source = bundle()
+    first = compiler.prepare_release(source)
+    assert compiler.prepare_release(SourceBundle(source.root, tuple(source.sources))) is first
+    changed = SourceBundle(source.root, (SourceArtifact(source.sources[0].name, source.sources[0].content + b'\n'),))
+    assert compiler.prepare_release(changed).release_id != first.release_id
+    stack = compiler._compiler_stack()
+    monkeypatch.setattr(compiler, '_compiler_stack', lambda: tuple((name, version + '-changed') if name == 'pydantic' else (name, version) for name, version in stack))
+    assert compiler.prepare_release(source) is not first
+    assert len(calls) == 3
+    compiler._prepare_release_cached.cache_clear()

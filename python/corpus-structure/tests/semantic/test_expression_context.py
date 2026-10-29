@@ -16,9 +16,9 @@ def test_only_referenced_macro_closure_changes_expression_meaning():
     assert 'macro_context' not in raw
     root=Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml'
     prepared=prepare_release(SourceBundle('core',(SourceArtifact('core',root.read_bytes()),)))
-    qualification={'modality':'asserted','polarity':True}
+    qualification: dict[str, object] = {'modality':'asserted','polarity':True}
     assert prepared.fact_identity('z','s','p',a,qualification) != prepared.fact_identity('z','s','p',b,qualification)
     value=prepared.validate_python('Value',a)
-    assert value.macro_context[r'\A'].body=='1'
+    assert value.model_dump(exclude_unset=True)['macro_context'][r'\A']['body']=='1'
     cyclic=bind_expression_context(raw,{r'\E':MacroDef(body=r'\E')})
     assert set(cyclic['macro_context'])=={r'\E'}
