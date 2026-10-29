@@ -1245,6 +1245,11 @@ classes:
     in_subset:
     - ops
     attributes:
+      trigger:
+        range: json_payload
+        required: true
+        annotations:
+          ph:default: "'{}'::jsonb"
       invocation_key:
         required: true
         annotations:
@@ -1328,11 +1333,14 @@ classes:
         unique_key_slots:
         - id
         - release_id
+      unique_invocation:
+        unique_key_slots:
+        - invocation_key
     annotations:
       ph:foreign_keys: '[{"columns": ["run_id", "release_id"], "target": "ops.run.id,release_id"},
         {"columns": ["method_config_id"], "target": "ops.method_config.id"}, {"columns":
         ["reused_task_id"], "target": "ops.task.id"}]'
-      ph:checks: '["attempt >= 0", "status IN (''pending'',''running'',''awaiting_agent'',''done'',''empty'',''failed'',''reused'',''skipped'',''cancelled'')"]'
+      ph:checks: '["invocation_key <> ''''", "attempt >= 0", "status IN (''pending'',''running'',''awaiting_agent'',''done'',''empty'',''failed'',''reused'',''skipped'',''cancelled'')"]'
   observation:
     in_subset:
     - kb
