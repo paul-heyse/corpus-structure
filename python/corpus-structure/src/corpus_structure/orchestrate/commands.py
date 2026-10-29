@@ -299,3 +299,25 @@ def task_listing(
         total=total,
         limit=limit,
     )
+
+
+def start_bound_run(engine: Engine, *, release_id: str, realization_id: str,
+                    project_id: str, domain: str, method_settings: Any,
+                    phase: int = 0, domains: Path | None = None):
+    """Explicit semantic source execution through the current command entry point."""
+    from corpus_structure.semantic.releases import load_release
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.operations import OperationBinding
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.orchestrate.semantic import run_source_methods
+    from corpus_structure.orchestrate.phase0 import registry, PHASE0
+    from corpus_structure.schema.pack import DOMAINS
+    from sqlalchemy import select
+    with engine.connect() as conn:
+        prepared=load_release(conn,release_id)
+        r=table('data.realization')
+        row=conn.execute(select(r).where(r.c.realization_id==realization_id,r.c.project_id==project_id)).mappings().one()
+        if row['release_id']!=release_id:raise CommandError('requested realization has another semantic release')
+        binding=OperationBinding(release_id,realization_id,row['data_revision'],canonical_bytes({'domain':domain,'release':release_id}))
+    return run_source_methods(engine,project_id=project_id,prepared=prepared,binding=binding,
+        registry=registry((domains or DOMAINS)/domain),graph=PHASE0,method_settings=method_settings,phase=phase)

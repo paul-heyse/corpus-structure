@@ -923,3 +923,788 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["release_id", "input_kind", "input_name"], "target": "sem.input.release_id,input_kind,input_name"}]'
       ph:checks: '["input_kind = ''dependency''"]'
+
+  document:
+    in_subset:
+    - kb
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      project_id:
+        range: string
+        required: true
+      key:
+        range: string
+        required: true
+      source_uri:
+        range: string
+        required: true
+      content_hash:
+        range: string
+        required: true
+      original_path:
+        range: string
+        required: true
+      mime:
+        range: string
+        required: true
+      title:
+        range: string
+        required: false
+      meta:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - project_id
+        - key
+      unique_1:
+        unique_key_slots:
+        - project_id
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}]'
+      ph:checks: '[]'
+  rendition:
+    in_subset:
+    - kb
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      document_id:
+        range: integer
+        required: true
+      key:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      canonical_text:
+        range: string
+        required: true
+      content:
+        range: json_payload
+        required: true
+      parse_status:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - key
+      unique_1:
+        unique_key_slots:
+        - document_id
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["document_id"], "target": "kb.document.id"}]'
+      ph:checks: '[]'
+  segment:
+    in_subset:
+    - kb
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      rendition_id:
+        range: integer
+        required: true
+      segment_key:
+        range: string
+        required: true
+      parent_key:
+        range: string
+        required: false
+      kind:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      start_offset:
+        range: integer
+        required: true
+      end_offset:
+        range: integer
+        required: true
+      attrs:
+        range: json_payload
+        required: true
+      parse_status:
+        range: string
+        required: true
+      parse_reason:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - rendition_id
+        - segment_key
+      unique_1:
+        unique_key_slots:
+        - rendition_id
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["rendition_id"], "target": "kb.rendition.id"}]'
+      ph:checks: '["start_offset >= 0 AND end_offset >= start_offset"]'
+  span:
+    in_subset:
+    - kb
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      rendition_id:
+        range: integer
+        required: true
+      segment_id:
+        range: integer
+        required: false
+      start_offset:
+        range: integer
+        required: true
+      end_offset:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - rendition_id
+        - start_offset
+        - end_offset
+      unique_1:
+        unique_key_slots:
+        - rendition_id
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["rendition_id"], "target": "kb.rendition.id"},
+        {"columns": ["rendition_id", "segment_id"], "target": "kb.segment.rendition_id,id"}]'
+      ph:checks: '["start_offset >= 0 AND end_offset > start_offset"]'
+  method:
+    in_subset:
+    - ops
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      name:
+        range: string
+        required: true
+      version:
+        range: string
+        required: true
+      family:
+        range: string
+        required: true
+      tier:
+        range: string
+        required: true
+      confidence_source:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - name
+        - version
+    annotations:
+      ph:foreign_keys: '[]'
+      ph:checks: '[]'
+  method_config:
+    in_subset:
+    - ops
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      method_id:
+        range: integer
+        required: true
+      name:
+        range: string
+        required: true
+      params:
+        range: json_payload
+        required: true
+      config_hash:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - method_id
+        - config_hash
+    annotations:
+      ph:foreign_keys: '[{"columns": ["method_id"], "target": "ops.method.id"}]'
+      ph:checks: '[]'
+  run:
+    in_subset:
+    - ops
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      project_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      input_realization_id:
+        range: string
+        required: true
+      input_revision:
+        range: integer
+        required: true
+      dependency_digest:
+        range: string
+        required: true
+      dependencies:
+        range: bytes
+        required: true
+      kind:
+        range: string
+        required: true
+      phase:
+        range: integer
+        required: true
+      options:
+        range: json_payload
+        required: true
+      guideline:
+        range: string
+        required: true
+      status:
+        range: string
+        required: true
+      code_commit:
+        range: string
+        required: true
+      result_realization_id:
+        range: string
+        required: false
+      sealed:
+        range: boolean
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - id
+        - release_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
+        {"columns": ["release_id", "input_realization_id"], "target": "data.realization.release_id,realization_id"}]'
+      ph:checks: '["input_revision >= 0", "status IN (''created'',''running'',''consolidating'',''finished'',''failed'',''cancelled'')"]'
+  task:
+    in_subset:
+    - ops
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      run_id:
+        range: integer
+        required: true
+      release_id:
+        range: string
+        required: true
+      stage:
+        range: string
+        required: true
+      unit_type:
+        range: string
+        required: true
+      unit_id:
+        range: integer
+        required: false
+      unit_key:
+        range: string
+        required: false
+      method_config_id:
+        range: integer
+        required: true
+      input_hash:
+        range: string
+        required: true
+      packet_hash:
+        range: string
+        required: false
+      reused_task_id:
+        range: integer
+        required: false
+      status:
+        range: string
+        required: true
+      attempt:
+        range: integer
+        required: true
+      claimed_by:
+        range: string
+        required: false
+      lease_until:
+        range: timestamp
+        required: false
+      result_digest:
+        range: string
+        required: false
+      error:
+        range: json_payload
+        required: false
+      cost:
+        range: json_payload
+        required: true
+      reason:
+        range: string
+        required: false
+      priority:
+        range: integer
+        required: true
+      created_at:
+        range: timestamp
+        required: true
+      started_at:
+        range: timestamp
+        required: false
+      finished_at:
+        range: timestamp
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - id
+        - release_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["run_id", "release_id"], "target": "ops.run.id,release_id"},
+        {"columns": ["method_config_id"], "target": "ops.method_config.id"}, {"columns":
+        ["reused_task_id"], "target": "ops.task.id"}]'
+      ph:checks: '["attempt >= 0", "status IN (''pending'',''running'',''awaiting_agent'',''done'',''empty'',''failed'',''reused'',''skipped'',''cancelled'')"]'
+  observation:
+    in_subset:
+    - kb
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      task_id:
+        range: integer
+        required: true
+      release_id:
+        range: string
+        required: true
+      observation_key:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      kind:
+        range: string
+        required: true
+      payload_definition:
+        range: string
+        required: true
+      payload:
+        range: json_payload
+        required: true
+      rendition_id:
+        range: integer
+        required: false
+      segment_id:
+        range: integer
+        required: false
+      span_id:
+        range: integer
+        required: false
+      score:
+        range: exact_numeric
+        required: false
+      outcome:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - observation_key
+      unique_1:
+        unique_key_slots:
+        - task_id
+        - ordinal
+      bound_observation:
+        unique_key_slots:
+        - release_id
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
+        {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["rendition_id",
+        "segment_id"], "target": "kb.segment.rendition_id,id"}, {"columns": ["rendition_id",
+        "span_id"], "target": "kb.span.rendition_id,id"}]'
+      ph:checks: '["ordinal >= 0"]'
+  run_rendition:
+    in_subset:
+    - ops
+    attributes:
+      run_id:
+        range: integer
+        required: true
+      document_id:
+        range: integer
+        required: true
+      rendition_id:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - run_id
+        - document_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns":
+        ["document_id", "rendition_id"], "target": "kb.rendition.document_id,id"}]'
+      ph:checks: '[]'
+  rendition_build:
+    in_subset:
+    - ops
+    attributes:
+      document_id:
+        range: integer
+        required: true
+      method_config_id:
+        range: integer
+        required: true
+      rendition_id:
+        range: integer
+        required: true
+      task_id:
+        range: integer
+        required: true
+      parse_detail:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - document_id
+        - method_config_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["document_id", "rendition_id"], "target": "kb.rendition.document_id,id"},
+        {"columns": ["method_config_id"], "target": "ops.method_config.id"}, {"columns":
+        ["task_id"], "target": "ops.task.id"}]'
+      ph:checks: '[]'
+  measurement:
+    in_subset:
+    - ops
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      run_id:
+        range: integer
+        required: true
+      task_id:
+        range: integer
+        required: true
+      metric:
+        range: string
+        required: true
+      scope_type:
+        range: string
+        required: true
+      scope_id:
+        range: integer
+        required: false
+      scope_key:
+        range: string
+        required: false
+      value:
+        range: exact_numeric
+        required: false
+      detail:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns":
+        ["task_id"], "target": "ops.task.id"}]'
+      ph:checks: '[]'
+  input_cut:
+    in_subset:
+    - ops
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      run_id:
+        range: integer
+        required: true
+      name:
+        range: string
+        required: true
+      final:
+        range: boolean
+        required: true
+      release_id:
+        range: string
+        required: true
+      source_revision:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - run_id
+        - name
+    annotations:
+      ph:foreign_keys: '[{"columns": ["run_id", "release_id"], "target": "ops.run.id,release_id"}]'
+      ph:checks: '[]'
+  cut_task:
+    in_subset:
+    - ops
+    attributes:
+      cut_id:
+        range: integer
+        required: true
+      task_id:
+        range: integer
+        required: true
+      origin_task_id:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - cut_id
+        - task_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["cut_id"], "target": "ops.input_cut.id"}, {"columns":
+        ["task_id"], "target": "ops.task.id"}, {"columns": ["origin_task_id"], "target":
+        "ops.task.id"}]'
+      ph:checks: '[]'
+  intervention:
+    in_subset:
+    - ops
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      run_id:
+        range: integer
+        required: true
+      task_id:
+        range: integer
+        required: false
+      actor:
+        range: string
+        required: true
+      session_ref:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      body:
+        range: json_payload
+        required: true
+      rationale:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns":
+        ["task_id"], "target": "ops.task.id"}]'
+      ph:checks: '[]'
+  evidence_source:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      evidence_id:
+        range: string
+        required: true
+      observation_id:
+        range: integer
+        required: true
+      rendition_id:
+        range: integer
+        required: true
+      span_id:
+        range: integer
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - evidence_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "evidence_id"],
+        "target": "data.evidence.realization_id,release_id,evidence_id"}, {"columns":
+        ["release_id", "observation_id"], "target": "kb.observation.release_id,id"},
+        {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["rendition_id",
+        "span_id"], "target": "kb.span.rendition_id,id"}, {"columns": ["realization_id",
+        "release_id"], "target": "data.realization.realization_id,release_id"}]'
+      ph:checks: '[]'
+  occurrence_establishment:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      establishment:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - occurrence_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "occurrence_id"],
+        "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns":
+        ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
+      ph:checks: '["establishment IN (''stated'',''derived'',''agent_asserted'')"]'
+  assessment:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      assessment_id:
+        range: string
+        required: true
+      fact_id:
+        range: string
+        required: false
+      occurrence_id:
+        range: string
+        required: false
+      operation_id:
+        range: string
+        required: true
+      operation_version:
+        range: string
+        required: true
+      outcome:
+        range: string
+        required: true
+      confidence:
+        range: exact_numeric
+        required: false
+      reason:
+        range: string
+        required: false
+      uncertainty:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - assessment_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "fact_id"], "target":
+        "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id",
+        "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"},
+        {"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
+      ph:checks: '["(fact_id IS NULL) <> (occurrence_id IS NULL)", "confidence IS NULL
+        OR (confidence >= 0 AND confidence <= 1)"]'
+  task_result:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      release_id:
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"}]'
