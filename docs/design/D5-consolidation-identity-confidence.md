@@ -1,5 +1,16 @@
 # D5 · Consolidation, identity and confidence
 
+**Accepted semantic target (2026-10-29; Proposed until implemented).**
+[ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
+occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
+remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
+migrates their consumers. They do not constrain new releases or require historical compatibility.
+SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer adoption belong
+to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
+instance authority and consolidation ownership.
+
+> Decision: ADR-0024
+
 **Proposed (2026-10-28).** How a run's observations become entities, claims and claim links
 ([D1 §4–§8](D1-knowledge-representation.md#4-entities)); how identity, fusion, alternatives and
 conflicts are decided; how confidence is estimated and calibrated; how judgments and

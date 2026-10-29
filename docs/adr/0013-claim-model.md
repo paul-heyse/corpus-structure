@@ -1,10 +1,10 @@
 ---
 id: ADR-0013
 title: "Every fact is one claim form: subject, predicate, object, typed qualifiers, evidence, supports and status"
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0024
 design: [§B1]
 evidence: Tested
 ---

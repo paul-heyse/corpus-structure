@@ -173,15 +173,15 @@ it. Changing one needs an ADR and a design/target review.
 
 <a id="section-b1"></a>
 
-### §B1 Every fact is one claim form
+### §B1 Qualified assertion occurrences and semantic facts have distinct identities
 
-**Tested** on the S0 and S0-R2 units (records `s0.gaps`, `s0r2.scores-ir2`); not yet built. A claim is
-subject, predicate, object or typed value, qualifiers, evidence, supports and status, with
-conditions as a typed tree with escape leaves and symbol bindings as a value-level map; reification
-only for co-equal participants, things referred to, or recurring identities; keys from canonical
-JSON of meaning-bearing parts ([D1](D1-knowledge-representation.md)).
+**Proposed · accepted target, 2026-10-29.** Source occurrences preserve independent evidence,
+conditions, modality, polarity, attribution and typed values. Semantic facts group compatible
+occurrences under a release-scoped meaning key; confidence/support do not erase occurrences.
+Repetition and retry are distinct. D1 owns this contract. The selected pre-pivot runtime still
+uses its frozen claim form until scheduled consumer migration.
 
-> Decision: ADR-0013, ADR-0023
+> Decision: ADR-0024
 
 <a id="section-b2"></a>
 
@@ -193,6 +193,12 @@ materialized per run, immutable once the run finishes; promotion picks the run q
 ([D5](D5-consolidation-identity-confidence.md), [D1 §10.2](D1-knowledge-representation.md)).
 
 > Decision: ADR-0014
+
+**Accepted target clarification (2026-10-29).** ADR-0024 preserves instance authority and
+consolidation policy ownership while separating pure release preparation, protected publication
+and later consumer adoption. SP-01 deploys no database or engine change.
+
+> Decision: ADR-0024
 
 <a id="section-b3"></a>
 
@@ -225,24 +231,24 @@ exports; neither it nor files hold authoritative data ([D3](D3-database.md)).
 
 > Decision: ADR-0021
 
+**Accepted target clarification (2026-10-29).** ADR-0024 preserves instance authority and
+consolidation policy ownership while separating pure release preparation, protected publication
+and later consumer adoption. SP-01 deploys no database or engine change.
+
+> Decision: ADR-0024
+
 <a id="section-b5"></a>
 
-### §B5 One LinkML model is the authority; a domain is a pack of it, and every representation is generated
+### §B5 One LinkML semantic release governs interpretation and generated representations
 
-**Tested** for pack compilation in spike S4 (2026-10-28: schema v0 compiled to every consumer, 135
-batches validated); the model's authority over the core and system shapes, the generated
-projections and the change model are **Proposed** (accepted 2026-10-28; the model modules and
-compilers not yet built). The corpus-structure model has three modules: `core` and `system`,
-released with code as one model revision, and the domain packs, each a schema version held as
-data; the pack owns the domain vocabulary. Every consequential fact is declared once in it, and
-every representation (the Python `core` imports, per-version models, SQLAlchemy `MetaData` and
-Alembic revisions, CHECKs and FKs, Arrow and JSON Schemas, GLiNER2 schemas, rules and the annotator
-reference) is generated from it or is the hand-written physical overlay bound by name to generated
-tables. Change is modelled: revisions, a payload-schema registry and change records whose
-compatibility class decides the route, with no migration only for versioned payloads that nothing
-PostgreSQL enforces or reads ([D2](D2-schema-and-guidelines.md), [D3](D3-database.md)).
+**Proposed · accepted target, 2026-10-29.** Local LinkML and pinned external ontology dependencies
+prepare an immutable binding of types, scoped constraints, identities and operations. Dynamic
+domain definitions become registry data over a stable relational core. SQLAlchemy metadata,
+Pydantic boundaries, RDF/SHACL and Arrow schemas are derived, not independently editable meanings.
+Preparation is explicit and separate from persistence/activation and transactional publication.
+The currently selected installed projection remains until its dependent packages migrate.
 
-> Decision: ADR-0020, ADR-0022
+> Decision: ADR-0024
 
 <a id="section-b6"></a>
 

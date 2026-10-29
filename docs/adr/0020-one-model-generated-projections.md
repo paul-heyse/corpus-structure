@@ -1,10 +1,10 @@
 ---
 id: ADR-0020
 title: One LinkML model is the authority; every representation is a governed projection
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: [ADR-0017]
-superseded-by: null
+superseded-by: ADR-0024
 design: [§B5]
 evidence: Proposed
 revisit: Probe Q-1 and its fallback emitter both leave a hand-kept mirror; the physical overlay grows a second physical vocabulary that mirrors SQLAlchemy; LinkML's introspection (`SchemaView`) blocks a compiler; or a domain needs logical inference over the schema.

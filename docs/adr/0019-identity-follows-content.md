@@ -1,10 +1,10 @@
 ---
 id: ADR-0019
 title: "Identity follows content: renditions are content-addressed, statements and scopes are anchored by locators, authored batches are the authority"
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0024
 design: []
 evidence: Proposed
 revisit: Locator regeneration moves statement or local-entity keys on real content edits often enough to orphan judgments or goldens, or a source's blocks have neither author ids nor distinctive opening text, so locators become long or ordinal-heavy.

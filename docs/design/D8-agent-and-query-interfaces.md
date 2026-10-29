@@ -1,5 +1,16 @@
 # D8 · Agent and query interfaces
 
+**Accepted semantic target (2026-10-29; Proposed until implemented).**
+[ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
+occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
+remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
+migrates their consumers. They do not constrain new releases or require historical compatibility.
+SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer adoption belong
+to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
+instance authority and consolidation ownership.
+
+> Decision: ADR-0024
+
 **Proposed (2026-10-28).** The surfaces through which Opus, the operator and consumers act on
 the system: the MCP server Opus works through, work packets and their size caps, the CLI, the
 typed query API and exports. Every write through these surfaces becomes an observation, an

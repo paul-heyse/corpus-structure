@@ -1,10 +1,10 @@
 ---
 id: ADR-0022
 title: Schema change is modelled: revisions, a payload-schema registry and change records with compatibility classes
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0024
 design: [§B5]
 evidence: Proposed
 revisit: A change PostgreSQL enforces or reads is wanted on the no-migration route; a real change fits none of the compatibility classes; readers come to carry upcast chains across many payload versions; or a pack change needs a data rewrite of authored artifacts.

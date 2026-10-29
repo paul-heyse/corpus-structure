@@ -1,10 +1,10 @@
 ---
 id: ADR-0021
 title: PostgreSQL is the transactional authority for instances, the model for structure and meaning; set-based steps run in an in-process engine
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: [ADR-0016]
-superseded-by: null
+superseded-by: ADR-0024
 design: [§B4]
 evidence: Proposed
 revisit: Path queries come to dominate, write volume exceeds one database, or many corpora or tenants need separate stores; or the in-process engine cannot be kept set-equal with the Python reference implementation, or a pass's pool no longer fits in process memory on this host.

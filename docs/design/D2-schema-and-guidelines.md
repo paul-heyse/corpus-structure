@@ -1,5 +1,16 @@
 # D2 · Schema conventions, compilers and the statistics pack
 
+**Accepted semantic target (2026-10-29; Proposed until implemented).**
+[ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
+occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
+remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
+migrates their consumers. They do not constrain new releases or require historical compatibility.
+SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer adoption belong
+to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
+instance authority and consolidation ownership.
+
+> Decision: ADR-0024
+
 **Proposed (2026-10-28).** How a domain is declared, how one declaration drives extraction,
 LLM output, validation and the annotation guideline, and the first version of the statistics
 pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-representation.md).

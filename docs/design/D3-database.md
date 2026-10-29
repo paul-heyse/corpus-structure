@@ -1,5 +1,16 @@
 # D3 · Database
 
+**Accepted semantic target (2026-10-29; Proposed until implemented).**
+[ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
+occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
+remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
+migrates their consumers. They do not constrain new releases or require historical compatibility.
+SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer adoption belong
+to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
+instance authority and consolidation ownership.
+
+> Decision: ADR-0024
+
 **Proposed (2026-10-28).** The physical realization of [D1](D1-knowledge-representation.md) and
 of the operations model in one PostgreSQL 18 database. PostgreSQL is the transactional authority for
 instances; the structure and meaning of the tables are the model's (ADR-0020, ADR-0021). The

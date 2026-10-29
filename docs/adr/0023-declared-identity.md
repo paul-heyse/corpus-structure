@@ -1,10 +1,10 @@
 ---
 id: ADR-0023
 title: Identity is declared: qualifier key roles, canonical forms by range, case policy and a versioned key scheme
-status: accepted
+status: superseded
 date: 2026-10-28
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0024
 design: [§B1]
 evidence: Proposed
 revisit: A pack needs a key role that the three roles and a member-property condition cannot express, or the outgoing scheme's key functions cannot be kept callable to compute a carry-over map (probe Q-6), or scheme changes become frequent enough that cross-scheme comparisons dominate run diffs and carried judgments.
