@@ -400,7 +400,6 @@ classes:
     attributes:
       statement_kind:
         range: StatementKind
-        required: true
       locator:
         required: true
       proves:
@@ -409,6 +408,9 @@ classes:
         slot_uri: core:proves
         annotations:
           cs:constraint_scope: accepted_value
+          cs:role: predicate
+        in_subset:
+        - structural
 enums:
   ExpressionForm:
     permissible_values:
