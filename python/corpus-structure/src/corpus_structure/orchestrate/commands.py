@@ -320,4 +320,5 @@ def start_bound_run(engine: Engine, *, release_id: str, realization_id: str,
         if row['release_id']!=release_id:raise CommandError('requested realization has another semantic release')
         binding=OperationBinding(release_id,realization_id,row['data_revision'],canonical_bytes({'domain':domain,'release':release_id}))
     return run_source_methods(engine,project_id=project_id,prepared=prepared,binding=binding,
-        registry=registry((domains or DOMAINS)/domain),graph=PHASE0,method_settings=method_settings,phase=phase)
+        registry=registry((domains or DOMAINS)/domain),graph=PHASE0,method_settings=method_settings,phase=phase,
+        guideline=((domains or DOMAINS)/domain/'guideline.md').read_text())

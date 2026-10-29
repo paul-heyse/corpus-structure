@@ -24,6 +24,10 @@ classes:
 '''),))
     if observations:
         from corpus_structure.semantic.observations import observation_inputs
+        from pathlib import Path
+        core=SourceArtifact('core',(Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml').read_bytes())
+        root=bundle.sources[0]
+        bundle=SourceBundle('m',(core,SourceArtifact(root.name,root.content.split(b'types:',1)[0].replace(b'default_prefix: ex',b'default_prefix: ex\nimports: [core]')+b'classes:'+root.content.split(b'classes:',1)[1])))
         bundle=observation_inputs(bundle)
     p=prepare_release(bundle)
     with engine.begin() as c:
@@ -127,6 +131,7 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
     from corpus_structure.core.method import MethodSettings
     from corpus_structure.core.vocab import Stage
     from corpus_structure.ingest.methods import METHODS
+    from corpus_structure.methods.math.methods import METHODS as MATH_METHODS
     from corpus_structure.orchestrate.registry import MethodRegistry,MethodsFile
     from corpus_structure.orchestrate.runner import Graph,Step
     from corpus_structure.orchestrate.semantic import run_source_methods
@@ -135,15 +140,16 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
     raw=tmp_path/'input.html';raw.write_text('<html><body><h1>Source</h1><p>A paragraph with two sentences. Another sentence.</p></body></html>')
     sources=tmp_path/'sources';sources.mkdir()
     (sources/'test.yaml').write_text("version: '1'\nroot: toy\napplies_to: 'toy/*.html'\nlanguage: english\ntitle: h1\nsections: [h1]\n")
-    registry=MethodRegistry(METHODS,MethodsFile(configs={'ingest.html':{'default':{'source_profile':'test'}},'segment.sentences':{'default':{}},'profile.segments':{'default':{}}}),sources=sources)
+    registry=MethodRegistry((*METHODS,*MATH_METHODS),MethodsFile(sections={'math':{'macros':{},'constants':[]},'binders':{'sentence_initial':['let'],'clause':[],'reopen':[],'section_wide':[]}},configs={'ingest.html':{'default':{'source_profile':'test'}},'segment.sentences':{'default':{}},'profile.segments':{'default':{}}}),sources=sources)
     with e.begin() as c:register_document(c,project_id='p',source_uri='toy/input.html',original_path=str(raw),original=raw.read_bytes())
-    graph=Graph(((Stage.INGEST,(Step('ingest.html/default'),Step('profile.segments/default',upstream=('ingest.html',)))),))
+    from corpus_structure.orchestrate.phase0 import PHASE0
+    graph=PHASE0
     report=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path))
     assert report.status=='source_ready' and report.cut_id is not None
     with e.connect() as c:
         assert c.execute(select(table('kb.rendition').c.canonical_text)).scalar_one()=='Source\n\nA paragraph with two sentences. Another sentence.'
         assert c.execute(select(table('ops.measurement').c.metric)).first()
-        assert len(c.execute(select(table('ops.cut_task'))).all())==2
+        assert len(c.execute(select(table('ops.cut_task'))).all())==5
 
 
 def test_reuse_requires_complete_bound_meaning(semantic_db_engine,semantic_writer_engine):

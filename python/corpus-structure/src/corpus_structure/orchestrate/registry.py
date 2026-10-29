@@ -128,10 +128,12 @@ class MethodRegistry:
         methods: Iterable[Method[Any]],
         file: MethodsFile | None = None,
         sources: Path | None = None,
+        prepared: Any = None,
     ) -> None:
         self._methods = {m.name: m for m in methods}
         self.file = file = file or MethodsFile()
         self.sources = sources
+        self.prepared = prepared
         unregistered = sorted(set(file.configs) - set(self._methods))
         if unregistered:
             raise RegistryError([f"configs.{m}: no registered method {m!r}" for m in unregistered])
@@ -230,14 +232,17 @@ class MethodRegistry:
             if isinstance(marker, SourceProfileRef)
         ]
 
+    def bind_release(self,prepared:Any)->MethodRegistry:
+        return MethodRegistry(self.methods(),self.file,self.sources,prepared=prepared)
+
     def _profile(self, name: str, where: str) -> Any:
         from corpus_structure.ingest.profile import SOURCES_DIR, ProfileError, load_profile
 
         try:
-            profile = load_profile(name, self.sources or SOURCES_DIR)
+            profile = load_profile(name, self.sources or SOURCES_DIR,prepared=self.prepared)
         except (ProfileError, FileNotFoundError) as error:
             raise RegistryError([f"{where}: source profile {name!r}: {error}"]) from None
-        return profile.model_dump(mode="json")
+        return profile if self.prepared is not None else profile.model_dump(mode="json")
 
     def resolve_all(self, artifacts: Mapping[tuple[str, str], str]) -> dict[str, ResolvedConfig]:
         """Every named configuration of every registered method, by `<method>/<name>`."""
