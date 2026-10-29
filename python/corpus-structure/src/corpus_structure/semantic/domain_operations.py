@@ -1564,9 +1564,10 @@ def _project_cut(
             left, right = endpoint(exclusion["left"]), endpoint(exclusion["right"])
             if any(identity not in metadata or metadata[identity].get("representable") is False
                    for identity in (left, right)):
-                coverage_row("identity_exclusion", source + "/" + exclusion["id"],
-                             "partial", "identity endpoint lacks representable identity")
-                continue
+                raise DomainOperationRefused(
+                    "identity exclusion endpoint lacks representable required identity: "
+                    + exclusion["id"]
+                )
             xid = "identity-exclusion:" + sha256(canonical_bytes(
                 [prepared.release_id, output, source, exclusion["id"]])).hexdigest()
             exclusion_rows.append(IdentityExclusionRow(
