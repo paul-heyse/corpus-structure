@@ -26,7 +26,8 @@ the run and its open tasks (`run_cancelled`).
 **Liveness.** `ci run` holds `pg_advisory_lock(LIVENESS, run_id)` on one dedicated autocommit
 connection for the run's life (`Liveness`); a session-level lock is released when the session ends,
 however it ends. A run in `running`, `awaiting_agent` or `consolidating` whose lock no session
-holds is orphaned (`pg_locks`: advisory, `classid` the namespace, `objid` the run, `objsubid` 2).
+holds is orphaned (`pg_locks`: advisory, in this database, `classid` the namespace, `objid` the run,
+`objsubid` 2; `pg_locks` lists every database's locks, and another database's run ids collide).
 """
 
 from __future__ import annotations
@@ -385,8 +386,9 @@ def orphaned(conn: Connection) -> list[int]:
     rows = conn.execute(
         text(
             "SELECT r.id FROM ops.run r WHERE r.status = ANY(:live) AND NOT EXISTS (SELECT 1 FROM "
-            "pg_locks l WHERE l.locktype = 'advisory' AND l.classid = :ns AND l.objid = r.id AND "
-            "l.objsubid = 2 AND l.granted) ORDER BY r.id"
+            "pg_locks l WHERE l.locktype = 'advisory' AND l.database = (SELECT oid FROM "
+            "pg_database WHERE datname = current_database()) AND l.classid = :ns AND "
+            "l.objid = r.id AND l.objsubid = 2 AND l.granted) ORDER BY r.id"
         ),
         {"live": [s.value for s in LIVE_STATUSES], "ns": LIVENESS},
     )

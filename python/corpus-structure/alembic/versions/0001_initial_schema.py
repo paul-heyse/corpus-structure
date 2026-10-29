@@ -32,7 +32,7 @@ down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 # the model revision (content hash) this migration realizes (core/db/migrations.py)
-model_revision: str = "3c67a242141418f0a0988c3669f92b0afebf92d939e19170a5f2ca52ad5a2af7"
+model_revision: str = "a59196c4a894dbfaf400567a6d9e9ac9ed991580745ea48bfda1c11be1274d03"
 
 
 EXTENSION_ASSERTION = """

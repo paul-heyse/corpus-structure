@@ -42,8 +42,14 @@ def direct(
     try:
         with orchestrate.ENGINE(state(ctx).settings()) as engine:
             seams = orchestrate.PHASE0()
-            report = record_direction(engine, text, scope, actor="human:operator",
-                                      project=project, domains=seams["domains"])  # fmt: skip
+            report = record_direction(
+                engine,
+                text,
+                scope,
+                actor="human:operator",
+                project=project,
+                domains=seams["domains"],
+            )
     except (ToolFailure, CommandError) as error:
         stderr_console().print(f"refused: {error}")
         raise typer.Exit(code=1) from None

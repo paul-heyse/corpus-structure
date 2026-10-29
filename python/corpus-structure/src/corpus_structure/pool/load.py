@@ -21,7 +21,7 @@ NUMERIC or an infinite timestamp. `connect(url)` opens a connection on a libpq U
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
@@ -33,6 +33,7 @@ from corpus_structure.core.payload_schemas import PayloadSchemaRow
 from corpus_structure.core.vocab import ObservationKind
 from corpus_structure.pool import contract
 from corpus_structure.pool.contract import ALL_KINDS, Pool, RunRow
+from corpus_structure.schema import interchange
 
 
 class RunNotFound(LookupError):
@@ -116,3 +117,35 @@ def load(
         cur.close()
         conn.rollback()
     return contract.build(run, registry, observations, entities, aliases, selected)
+
+
+def read_tables(
+    conn: adbc.Connection, queries: Mapping[str, tuple[str, str]]
+) -> dict[str, pa.Table]:
+    """Generated tables' rows, each `name -> (from_and_where, order_by)` read as
+    `SELECT <the table's columns> FROM <from_and_where> ORDER BY <order_by>` with the table
+    aliased `t`, in one `REPEATABLE READ, READ ONLY` snapshot, and conformed to M3's schema of the
+    table (`cs.table` names it)."""
+    tables = interchange.installed().tables
+    out = {}
+    cur = conn.cursor()
+    try:
+        cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        for name, (source, order) in queries.items():
+            schema = tables[name]
+            rows = _read(cur, f"SELECT {_columns(schema, 't')} FROM {source} ORDER BY {order}")
+            meta = {**(schema.metadata or {}), b"cs.relation": name.encode()}
+            target = schema.with_metadata(meta)
+            # ADBC's array items are nullable where M3's are not; the values cast unchanged
+            rows = pa.Table.from_arrays(
+                [
+                    c.cast(f.type) if c.type != f.type and pa.types.is_list(f.type) else c
+                    for c, f in zip(rows.columns, target, strict=True)
+                ],
+                names=target.names,
+            )
+            out[name] = contract.conform(rows, target)
+    finally:
+        cur.close()
+        conn.rollback()
+    return out

@@ -109,9 +109,7 @@ def consistent(profile: Any) -> None:
     """`applies_to` lies under `root`, each keyed list names an entry once, and every selector
     compiles."""
     if not profile.applies_to.startswith(profile.root + "/"):
-        raise ValueError(
-            f"applies_to {profile.applies_to!r} must lie under root {profile.root!r}"
-        )
+        raise ValueError(f"applies_to {profile.applies_to!r} must lie under root {profile.root!r}")
     for field, values in (
         ("exclude", [r.name for r in profile.exclude]),
         ("render.list_markers", [r.selector for r in profile.render.list_markers]),

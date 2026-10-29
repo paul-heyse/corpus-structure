@@ -195,7 +195,8 @@ def queue_status(session: Session, run: int | None = None) -> QueueStatus:
     with session.engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT t.run_id, c.params->>'mode' AS mode, t.stage, count(*) AS n FROM ops.task t "
+                "SELECT t.run_id, c.params->>'mode' AS mode, t.stage, count(*) AS n FROM ops.task "
+                "t "
                 "JOIN ops.method_config c ON c.id = t.method_config_id JOIN ops.method m ON "
                 "m.id = c.method_id WHERE m.name = :m AND t.status = 'awaiting_agent' AND "
                 "(CAST(:run AS bigint) IS NULL OR t.run_id = :run) "
@@ -209,7 +210,7 @@ def queue_status(session: Session, run: int | None = None) -> QueueStatus:
                     run_id=r.run_id, mode=r.mode or "extract", stage=r.stage, awaiting=int(r.n)
                 )
                 for r in rows
-            ]  # fmt: skip
+            ]
         )
 
 
@@ -263,7 +264,7 @@ def queue_next(
                 unit_key=task.unit_key,
                 parts=len(packet.parts),
                 chars=packet.chars,
-            )  # fmt: skip
+            )
         )
     return QueueNext(tasks=out)
 
@@ -301,8 +302,10 @@ def read_unit(session: Session, task_id: int, part: int = 1) -> tuple[str, UnitP
         if served is None or served.attempt != task.attempt or served.packet.hash != packet.hash:
             served = session.served[task_id] = Served(task.attempt, packet)
         served.parts_read.add(part)
-    sentences = [SentenceView(id=s.id, locator=s.locator, text=s.text)
-                 for s in packet.part_sentences(part - 1)]  # fmt: skip
+    sentences = [
+        SentenceView(id=s.id, locator=s.locator, text=s.text)
+        for s in packet.part_sentences(part - 1)
+    ]
     return packet.parts[part - 1], UnitPart(
         task_id=task_id, part=part, parts=len(packet.parts), hash=packet.hash, sentences=sentences
     )
@@ -338,8 +341,10 @@ def read_instructions(
         require_lease(session, task)
         found = run_parts(session, task)
         _renew(conn, task)
-    infos = [PartInfo(name=p.name, chars=len(p.text), pages=len(p.pages()), hash=p.hash)
-             for p in found.values()]  # fmt: skip
+    infos = [
+        PartInfo(name=p.name, chars=len(p.text), pages=len(p.pages()), hash=p.hash)
+        for p in found.values()
+    ]
     if part is None:
         return Instructions(task_id=task_id, parts=infos)
     if part not in found:
@@ -347,8 +352,14 @@ def read_instructions(
     paged = found[part].pages()
     if not 1 <= page <= len(paged):
         raise ToolFailure(f"part {part!r} has {len(paged)} page(s), not page {page}")
-    return Instructions(task_id=task_id, parts=infos, part=part, page=page,
-                        page_count=len(paged), text=paged[page - 1])  # fmt: skip
+    return Instructions(
+        task_id=task_id,
+        parts=infos,
+        part=part,
+        page=page,
+        page_count=len(paged),
+        text=paged[page - 1],
+    )
 
 
 # --- release, record_direction ----------------------------------------------------------------

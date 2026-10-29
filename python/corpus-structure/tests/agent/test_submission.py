@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from sqlalchemy import Engine, text
+from sqlalchemy import text
 
 from corpus_structure.intervene.testing import submit_batches
 
@@ -27,10 +27,14 @@ def test_the_harness_submits_every_trace_batch_and_each_completes_first_time(
         assert result.status == "done" and not result.task_open, (key, result)
         assert result.clean, (key, result.model_dump())
     with world.engine.connect() as conn:
-        rows = conn.execute(text(
-            "SELECT o.payload, t.unit_key, i.kind, i.session_ref FROM kb.observation o "
-            "JOIN ops.task t ON t.id = o.task_id JOIN ops.intervention i ON i.task_id = t.id "
-            "WHERE o.kind = 'claim_proposal' AND t.run_id = :r"), {"r": world.run}).all()  # fmt: skip
+        rows = conn.execute(
+            text(
+                "SELECT o.payload, t.unit_key, i.kind, i.session_ref FROM kb.observation o "
+                "JOIN ops.task t ON t.id = o.task_id JOIN ops.intervention i ON i.task_id = t.id "
+                "WHERE o.kind = 'claim_proposal' AND t.run_id = :r"
+            ),
+            {"r": world.run},
+        ).all()
     assert len(rows) == len(batches)
     for payload, unit_key, kind, session_ref in rows:
         assert kind == "extract" and session_ref == tools.session.instance

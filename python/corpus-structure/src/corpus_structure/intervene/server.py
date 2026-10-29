@@ -1,4 +1,4 @@
-"""The main MCP profile (agent interface §3.5; D8 §1–§3; ADR-0015): `ci mcp serve` runs it on stdio,
+"""The main MCP profile (agent interface §3.5; D8 §1-§3; ADR-0015): `ci mcp serve` runs it on stdio,
 one process per Claude Code session, registered in `.mcp.json`.
 
 The lifespan builds settings once, opens the store (a small pool), mints the instance id and holds
@@ -6,7 +6,8 @@ the `Session`; tools are synchronous, run on FastMCP's worker threads and call `
 `submission`. Nothing is printed at import or lifespan time; logs go to stderr. The profile
 registers no golden tools and imports nothing that imports the math grammar.
 
-`ToolFailure` and database errors become `ToolError` (`isError`); content problems are typed results.
+`ToolFailure` and database errors become `ToolError` (`isError`); content problems are typed
+results.
 `ResponseLimitingMiddleware` is a byte backstop well above the 24,000-character pages.
 """
 

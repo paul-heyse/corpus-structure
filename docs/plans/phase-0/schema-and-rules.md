@@ -1,6 +1,8 @@
 # Phase 0 · Schema and rules
 
-**Status:** Proposed; nothing is built. Part of the [phase 0 series](../phase-0_2026-10-28.md), which
+**Status:** Active. **Built (2026-10-29):** P0-S-1 (packs, loader, compilers, `ci schema compile`), P0-S-1b
+(registration) and P0-S-2 (the rule language, rules compiler, T4 view builder, batch checks, M19
+runner). Part of the [phase 0 series](../phase-0_2026-10-28.md), which
 owns shared decisions, contracts, the dependency graph and build findings (§11). Its packages are
 P0-S-1, P0-S-1b and P0-S-2.
 

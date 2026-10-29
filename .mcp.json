@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "corpus-structure": {
+      "command": "uv",
+      "args": ["run", "--project", "python/corpus-structure", "ci", "mcp", "serve"]
+    }
+  }
+}

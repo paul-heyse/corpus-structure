@@ -38,8 +38,16 @@ def ci_on(committing_db: Engine, monkeypatch: pytest.MonkeyPatch) -> Any:
 def test_the_statistics_pack_inits_with_the_phase0_registry(
     cli: Any, ci_on: Any, committing_db: Engine, tmp_path: Path
 ) -> None:
-    result = cli("project", "init", "--domain", "statistics", "--corpus", str(TRACE), "--json",
-                 settings=ci_on)  # fmt: skip
+    result = cli(
+        "project",
+        "init",
+        "--domain",
+        "statistics",
+        "--corpus",
+        str(TRACE),
+        "--json",
+        settings=ci_on,
+    )
     assert result.exit_code == 0, result.output
     made = json.loads(result.stdout)
     assert made["documents"] == 4 and made["profiles"] == ["siegrist"]
@@ -47,25 +55,44 @@ def test_the_statistics_pack_inits_with_the_phase0_registry(
     # the real ingest step over the trace pages: its markup lies on the segments it names
     registry = phase0.registry(DOMAINS / "statistics")
     with committing_db.begin() as conn:
-        versions = project.ensure_pack_versions(conn, made["project_id"], DOMAINS / "statistics",
-                                                "human:test")  # fmt: skip
-        documents = [tuple(r) for r in conn.execute(text("SELECT key, content_hash FROM "
-                                                         "kb.document ORDER BY key"))]  # fmt: skip
-        run = runs.create_run(conn, project_id=made["project_id"], kind=RunKind.FULL,
-                              versions=versions, registry=registry, documents=documents,
-                              commit="t").id  # fmt: skip
+        versions = project.ensure_pack_versions(
+            conn, made["project_id"], DOMAINS / "statistics", "human:test"
+        )
+        documents = [
+            tuple(r)
+            for r in conn.execute(text("SELECT key, content_hash FROM kb.document ORDER BY key"))
+        ]
+        run = runs.create_run(
+            conn,
+            project_id=made["project_id"],
+            kind=RunKind.FULL,
+            versions=versions,
+            registry=registry,
+            documents=documents,
+            commit="t",
+        ).id
         runs.transition(conn, run, [RunStatus.CREATED], RunStatus.RUNNING)
-    runner = Runner(committing_db, registry, Graph(()), phase0.stub_pass, None,
-                    MethodSettings(data_dir=tmp_path, model_cache=tmp_path))  # fmt: skip
+    runner = Runner(
+        committing_db,
+        registry,
+        Graph(()),
+        phase0.stub_pass,
+        None,
+        MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+    )
     runner.step(run, Stage.INGEST, Step("ingest.html/default"))
     with committing_db.connect() as conn:
-        statuses = conn.execute(text("SELECT status, count(*) FROM ops.task WHERE run_id = :r "
-                                     "GROUP BY 1"), {"r": run}).all()  # fmt: skip
+        statuses = conn.execute(
+            text("SELECT status, count(*) FROM ops.task WHERE run_id = :r GROUP BY 1"), {"r": run}
+        ).all()
         assert dict(statuses) == {"done": 4}
-        rows = conn.execute(text(
-            "SELECT o.segment_id, o.payload -> 'value' ->> 'segment' AS named, s.key "
-            "FROM kb.observation o LEFT JOIN kb.segment s ON s.id = o.segment_id "
-            "WHERE o.kind = 'author_markup'")).all()  # fmt: skip
+        rows = conn.execute(
+            text(
+                "SELECT o.segment_id, o.payload -> 'value' ->> 'segment' AS named, s.key "
+                "FROM kb.observation o LEFT JOIN kb.segment s ON s.id = o.segment_id "
+                "WHERE o.kind = 'author_markup'"
+            )
+        ).all()
     assert rows and all(r.segment_id is not None and r.key == r.named for r in rows)
 
 
@@ -77,13 +104,22 @@ def test_a_real_run_passes_through_consolidation_with_the_registered_config(
     registry = phase0.registry(DOMAINS / "statistics")
     with committing_db.begin() as conn:
         made = project.init_project(conn, domain="statistics", corpus=TRACE, registry=registry)
-        versions = project.ensure_pack_versions(conn, made.project_id, DOMAINS / "statistics",
-                                                "human:test")  # fmt: skip
-        documents = [tuple(r) for r in conn.execute(text("SELECT key, content_hash FROM "
-                                                         "kb.document ORDER BY key"))]  # fmt: skip
-        run = runs.create_run(conn, project_id=made.project_id, kind=RunKind.FULL,
-                              versions=versions, registry=registry, documents=documents,
-                              commit="t").id  # fmt: skip
+        versions = project.ensure_pack_versions(
+            conn, made.project_id, DOMAINS / "statistics", "human:test"
+        )
+        documents = [
+            tuple(r)
+            for r in conn.execute(text("SELECT key, content_hash FROM kb.document ORDER BY key"))
+        ]
+        run = runs.create_run(
+            conn,
+            project_id=made.project_id,
+            kind=RunKind.FULL,
+            versions=versions,
+            registry=registry,
+            documents=documents,
+            commit="t",
+        ).id
     calls: list[tuple[str, int | None]] = []
 
     def run_pass(conn: Any, run_id: int, pass_: str, m19: int | None) -> Any:
@@ -91,12 +127,19 @@ def test_a_real_run_passes_through_consolidation_with_the_registered_config(
         return consolidate.run_pass(conn, run_id, pass_, m19)
 
     graph = Graph(((Stage.INGEST, (Step("ingest.html/default"),)),))
-    runner = Runner(committing_db, registry, graph, run_pass, phase0.stub_evaluate,
-                    MethodSettings(data_dir=tmp_path, model_cache=tmp_path))  # fmt: skip
+    runner = Runner(
+        committing_db,
+        registry,
+        graph,
+        run_pass,
+        phase0.stub_evaluate,
+        MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+    )
     assert runner.run(run) == RunStatus.FINISHED
     with committing_db.connect() as conn:
-        m19 = conn.execute(text("SELECT cut_m19_task_id FROM ops.run WHERE id = :r"),
-                           {"r": run}).scalar_one()  # fmt: skip
+        m19 = conn.execute(
+            text("SELECT cut_m19_task_id FROM ops.run WHERE id = :r"), {"r": run}
+        ).scalar_one()
         assert calls == [("assemble", None), ("finalize", m19)]
         config = consolidate.config_of(conn, run, "finalize")
     assert config.aliases["articles"] == ["the", "a", "an"]

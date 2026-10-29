@@ -1,6 +1,8 @@
 # Phase 0 model and projections: the one model, its revision and every generated representation
 
-**Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns
+**Status:** Active. **Built (2026-10-29):** P0-M-1…M-5: the one model, Stage A and Stage B generation
+(no hand-kept mirror; `RunOptions` included; one-pass `just model generate`), the relational
+projection, Arrow and DuckDB schemas, the change model and registry. Probes Q-1…Q-3 done. Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns
 shared decisions, contracts, the dependency graph and the findings table (§11), including every row of
 the domain-model alignment review.
 

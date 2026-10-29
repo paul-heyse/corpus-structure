@@ -65,16 +65,21 @@ class Claimed:
     unit_key: str | None
 
 
+# The candidates are a MATERIALIZED CTE, evaluated once: a LIMIT ... SKIP LOCKED subquery joined
+# in UPDATE ... FROM can be rescanned under a nested-loop plan and claim more than `n` rows.
 _CLAIM = text("""
+WITH c AS MATERIALIZED (
+  SELECT id FROM ops.task
+  WHERE run_id = :run AND stage = :stage AND method_config_id = :config
+    AND (status = 'pending' OR (status = 'running' AND lease_until < now()))
+  ORDER BY priority DESC, id
+  LIMIT :n FOR UPDATE SKIP LOCKED
+)
 UPDATE ops.task t
 SET status = 'running', attempt = t.attempt + 1, claimed_by = :holder,
     lease_until = now() + CAST(:lease AS interval), started_at = coalesce(t.started_at,
     clock_timestamp())
-FROM (SELECT id FROM ops.task
-      WHERE run_id = :run AND stage = :stage AND method_config_id = :config
-        AND (status = 'pending' OR (status = 'running' AND lease_until < now()))
-      ORDER BY priority DESC, id
-      LIMIT :n FOR UPDATE SKIP LOCKED) c
+FROM c
 WHERE t.id = c.id
 RETURNING t.id, t.attempt, t.unit_type, t.unit_id, t.unit_key
 """)

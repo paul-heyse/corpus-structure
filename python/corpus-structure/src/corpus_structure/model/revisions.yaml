@@ -2,7 +2,7 @@
 # meta.model_revision projects. Each entry is a revision of model/core.yaml and
 # model/system.yaml; a revision after the first names its parent and its change record.
 - label: 0.3.0
-  content_hash: 3c67a242141418f0a0988c3669f92b0afebf92d939e19170a5f2ca52ad5a2af7
+  content_hash: a59196c4a894dbfaf400567a6d9e9ac9ed991580745ea48bfda1c11be1274d03
   key_scheme: 1
   compilers:
     corpus_structure.schema.generate: '1'

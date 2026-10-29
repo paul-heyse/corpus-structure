@@ -286,7 +286,9 @@ def test_carry_over_maps_old_keys_to_new_and_reports_missing_inputs() -> None:
     new = PACK.model_copy(update={"key_scheme": 2, "label_case": {}})
     entities = [{"id": "e", "type": "biz:Symbolic", "label": "X", "scope": "global"}]
     ctx = context()
-    cands = KeyedCandidateSet.model_validate({"renditions": [ctx.rendition_key], "entities": entities})
+    cands = KeyedCandidateSet.model_validate(
+        {"renditions": [ctx.rendition_key], "entities": entities}
+    )
 
     def keyer(schema: KeySchema):
         return lambda c, x: key_claims(c, x, schema, LabelRules())

@@ -46,6 +46,7 @@ from corpus_structure.core.vocab import (
 )
 from corpus_structure.ingest import methods as ingest_methods
 from corpus_structure.methods.llm.agent_opus import AgentOpus
+from corpus_structure.methods.math import methods as math_methods
 from corpus_structure.orchestrate.registry import MethodRegistry, load_methods
 from corpus_structure.orchestrate.runner import Graph, PassReport, Step
 from corpus_structure.validate.runner import RulesMethod
@@ -96,6 +97,7 @@ class EvaluateStub:
 # The phase 0 methods, registered as their packages land (P0-I-1b, P0-I-2b, …).
 METHODS: tuple[Any, ...] = (
     *ingest_methods.METHODS,
+    *math_methods.METHODS,
     AgentOpus(),
     ConsolidateMethod(),
     RulesMethod(),

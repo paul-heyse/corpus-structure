@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/run_options.json",
+  "$id": "https://corpus-structure.dev/schemas/a59196c4a894/run_options.json",
   "$defs": {
     "AgentMode": {
       "description": "Which agent tasks a run resolves (D6 §2); no setting supplies it. Lifecycle: static.",
@@ -30,7 +30,7 @@
     "JsonValue": {}
   },
   "additionalProperties": false,
-  "description": "The run's resolved options (module doc).",
+  "description": "The run's options (orchestration §3.4), stored resolved in ops.run.options. agent_mode\ndefaults to wait for kind slice and complete otherwise; no setting supplies it.",
   "properties": {
     "agent_mode": {
       "$ref": "#/$defs/AgentMode"
@@ -47,8 +47,7 @@
       "$ref": "#/$defs/JsonValue"
     },
     "scope": {
-      "$ref": "#/$defs/JsonValue",
-      "default": null
+      "$ref": "#/$defs/JsonValue"
     },
     "fresh": {
       "default": [],
@@ -72,7 +71,9 @@
   },
   "required": [
     "agent_mode",
-    "corpus"
+    "corpus",
+    "configs",
+    "method_configs"
   ],
   "type": "object"
 }

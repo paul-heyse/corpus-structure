@@ -48,6 +48,7 @@ from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.locators import parse as parse_locator
 from corpus_structure.core.payloads import MentionAt, MentionPayload, ScopePayload
 from corpus_structure.core.vocab import SegmentKind
+from corpus_structure.methods.llm.parts import hint_of
 from corpus_structure.methods.math.context import ContextSentence, standing_context
 
 if TYPE_CHECKING:
@@ -159,11 +160,11 @@ def title_of(content: RenditionContent) -> str:
 def header(content: RenditionContent, unit_key: str, unit: Sequence[Segment]) -> str:
     first = unit[0]
     sections = [s for s in _ancestors(content.document, first) if s.kind is SegmentKind.SECTION]
-    path = " › ".join(
+    path = " › ".join(  # noqa: RUF001 - the rendering's separator (S0-R2 v1)
         str((s.attrs or {}).get("title") or content.text(s).split("\n", 1)[0]) for s in sections
     )
-    place = f"{title_of(content)} › {path}" if path else title_of(content)
-    hint = ((first.attrs or {}).get("hint") or {}).get("statement_kind")
+    place = f"{title_of(content)} › {path}" if path else title_of(content)  # noqa: RUF001
+    hint = hint_of(first).get("statement_kind")
     return f"# Unit {unit_key}  ·  {place}" + (f"  ·  the source marks it: {hint}" if hint else "")
 
 
@@ -332,9 +333,12 @@ def bootstrap_terms(content: RenditionContent) -> list[KnownEntity]:
         seen[title] = None
     spans: list[tuple[int, int]] = []
     for s in content.document.walk():
-        for mark in (s.attrs or {}).get("markup") or ():
-            if isinstance(mark, Mapping) and mark.get("markup") == "dfn":
-                spans.append((int(mark["start"]), int(mark["end"])))
+        marks = (s.attrs or {}).get("markup")
+        for mark in marks if isinstance(marks, list) else ():
+            if isinstance(mark, dict) and mark.get("markup") == "dfn":
+                start, end = mark.get("start"), mark.get("end")
+                if isinstance(start, int) and isinstance(end, int):
+                    spans.append((start, end))
     for a, b in sorted(set(spans)):
         term = " ".join(content.canonical_text[a:b].split())
         if term:

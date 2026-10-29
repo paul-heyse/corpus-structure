@@ -1,6 +1,8 @@
 # Phase 0: consolidation and queries
 
-**Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md),
+**Status:** Active. **Built (2026-10-29):** P0-C-1 (`consolidate/` run_pass; `derived_from` links wait on
+§11 F2E-01). **Partly built:** P0-C-2 (`serve/` protocol, registry, selector, page tokens, coverage;
+queries, `explain`, the statistics plug-in and the CLI are left; §11 C2-01). Not started: C3, C4. Part of the [phase 0 series](../phase-0_2026-10-28.md),
 which owns shared decisions, contracts, the dependency graph and build findings. Nothing here is
 built. **Revised** 2026-10-28 for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md)
 and its [target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md)

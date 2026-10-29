@@ -49,6 +49,8 @@ from corpus_structure.core._model.types import (
 )
 from corpus_structure.core.shape_support import CitationFrame
 from corpus_structure.core.vocab import (
+    AgentMode,
+    AgentReuse,
     Awaiting,
     BindKind,
     ClaimModality,
@@ -56,6 +58,7 @@ from corpus_structure.core.vocab import (
     EntityScope,
     Establishment,
     EvidenceRole,
+    GpuMode,
     InterventionTargetKind,
     JudgmentConfidence,
     JudgmentDecision,
@@ -945,6 +948,21 @@ class MentionRef(CoreModel):
     ordinal: Offset
 
 
+class RunOptions(CoreModel):
+    """The run's options (orchestration §3.4), stored resolved in ops.run.options. agent_mode
+    defaults to wait for kind slice and complete otherwise; no setting supplies it.
+    """
+
+    agent_mode: AgentMode
+    agent_reuse: AgentReuse = AgentReuse.FULL
+    gpu_mode: GpuMode = GpuMode.AUTO
+    corpus: Json
+    scope: Json | MISSING = MISSING  # type: ignore[valid-type]
+    fresh: tuple[str, ...] = ()
+    configs: dict[str, str]
+    method_configs: dict[str, str]
+
+
 class InterventionRefs(CoreModel):
     """`ops.intervention.refs`: the ids an intervention names, by what they reference (D3 §6.3). An
     extract or adjudicate intervention names its observations (a claim_proposal or judgment); a
@@ -1374,6 +1392,7 @@ CandidateAlternative.model_rebuild()
 CandidateUnsupported.model_rebuild()
 KeyedCandidateSet.model_rebuild()
 MentionRef.model_rebuild()
+RunOptions.model_rebuild()
 InterventionRefs.model_rebuild()
 Cost.model_rebuild()
 PolicyAction.model_rebuild()

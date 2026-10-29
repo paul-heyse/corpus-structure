@@ -122,7 +122,8 @@ def copy_rows(
 ) -> int:
     """Binary COPY of `rows` into `table`'s `columns`, typed from the generated columns, inside
     the caller's transaction (through `driver_connection`, never its own commit). JSONB values are
-    dumped; None is NULL. Explicit identity values are written as given (COPY overrides them)."""
+    dumped; None is NULL, and a JSON null is passed as `Jsonb(None)`. Explicit identity values are
+    written as given (COPY overrides them)."""
     cols = [table.c[c] for c in columns]
     types = [_pg_type(c.type) for c in cols]
     json_at = [i for i, c in enumerate(cols) if isinstance(c.type, JSONB)]
@@ -143,8 +144,8 @@ def copy_rows(
     with raw.cursor() as cursor, cursor.copy(statement) as copy:
         copy.set_types(types)
         for values in prepared:
-            for i in json_at:
-                if values[i] is not None:
+            for i in json_at:  # a value already wrapped (a JSON null as `Jsonb(None)`) is kept
+                if values[i] is not None and not isinstance(values[i], Jsonb):
                     values[i] = Jsonb(values[i])
             for i in reg_at:
                 if values[i] is not None:

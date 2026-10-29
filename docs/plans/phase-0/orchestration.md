@@ -1,6 +1,9 @@
 # Phase 0: orchestration
 
-**Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md), which
+**Status:** Active. **Built (2026-10-29):** P0-O-0 and P0-O-1 (all ten endpoints). **Partly built:**
+P0-O-2 (the policy loader with typed symbols, literal checks and confidence blocks; slices and scope,
+the CLI flags, the agent barrier, the `complete`-run protocol and the run driver are left; §11 O2-01,
+O2-02). Part of the [phase 0 series](../phase-0_2026-10-28.md), which
 owns shared decisions, contracts, the dependency graph and build findings. S4 and S6 have reported
 and were folded in (X2 accepted, 2026-10-28; ADR-0016–0018 accepted). Nothing here is built.
 **Revised** 2026-10-28 for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md)

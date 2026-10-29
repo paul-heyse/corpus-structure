@@ -1,0 +1,10 @@
+# The statistics pack's phase 0 policy (D6 §7.1, §7.5; orchestration §3.10): only the propose
+# chain, with its phase 0 entry. The run's scope bounds it (D6 §7.4, §8), not a split. Budgets,
+# thresholds and the confidence block (keyed by ConfidenceSource members) join with the methods
+# that read them (phase 1).
+version: 0.1.0
+chains:
+  propose:
+    - key: propose.phase0.agent_all
+      when: "phase == 0 and unit.claim_bearing"
+      do: {method: agent.opus/extract, then: stop}

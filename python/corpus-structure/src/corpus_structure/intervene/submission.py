@@ -112,6 +112,12 @@ def _path(path: Any) -> str:
     return out
 
 
+def _code(q: Any) -> str | None:
+    """A quote's drop code, else its sentence's frame code."""
+    code = q.dropped if q.dropped is not None else q.frame
+    return None if code is None else str(code.value)
+
+
 def _empty_authored(unit_key: str) -> dict[str, Any]:
     return {"unit_ref": unit_key}
 
@@ -133,7 +139,7 @@ def check(
     schema_hash: str | None,
     rationale: str | None,
 ) -> _Checked:
-    """Steps 1–4 of the module doc (no transaction)."""
+    """Steps 1 to 4 of the module doc (no transaction)."""
     require_lease(session, task)
     with session._lock:
         served = session.served.get(task.id)
@@ -162,7 +168,7 @@ def check(
                 category="envelope",
                 code="unit_ref_mismatch",
                 message=f"unit_ref must be the task's unit key {task.unit_key!r}",
-            )  # fmt: skip
+            )
         )
         accepted: dict[str, Any] = _empty_authored(task.unit_key)
         rejected_items = [RejectedItem(item=raw, reason="unit_ref_mismatch")]
@@ -170,7 +176,7 @@ def check(
         report = check_authored(raw, ids, compiled)
         result.rejected += [
             ItemIssue(path=_path(i.path), category=i.category.value, code=i.code, message=i.message)
-            for i in report.issues  # fmt: skip
+            for i in report.issues
         ]
         if any(len(i.path) < 2 for i in report.issues):  # the envelope itself is refused
             accepted = _empty_authored(task.unit_key)
@@ -201,17 +207,19 @@ def check(
                     quote=q.quote,
                     sentence=q.sentence,
                     outcome="dropped" if q.dropped is not None else "coarse",
-                    code=(q.dropped or q.frame).value if (q.dropped or q.frame) else None,
-                )  # fmt: skip
+                    code=_code(q),
+                )
             )
     for p in parsed.report.problems:
         result.dropped.append(
             ItemIssue(path=p.path, category="parse", code=p.code.value, message=p.detail)
         )
     stored = check_stored(
-        parsed.stored, compiled, canonical_text=content.canonical_text,
+        parsed.stored,
+        compiled,
+        canonical_text=content.canonical_text,
         unit_ranges=[(segment.start, segment.end)],
-    )  # fmt: skip
+    )
     result.rejected += [
         ItemIssue(path=_path(i.path), category=i.category.value, code=i.code, message=i.message)
         for i in stored.report.issues
@@ -234,7 +242,7 @@ def check(
                 B.AuthoredBatch.model_validate(_empty_authored(task.unit_key)),
                 packet.frame(()),
                 dict(compiled.names.to_prefixed),
-            ).stored.model_dump(mode="json", by_alias=True)  # fmt: skip
+            ).stored.model_dump(mode="json", by_alias=True)
         )
     sections = ("entities", "statements", "claims", "alternatives", "unsupported")
     result.accepted = {s: len(getattr(kept, s, ()) or ()) for s in sections}
@@ -282,8 +290,9 @@ def propose_claims(
         task = task_context(conn, task_id)
         if task.status in (TaskStatus.REUSED, TaskStatus.CANCELLED):
             reason = "twin_settled" if task.status == TaskStatus.REUSED else "cancelled"
-            return SubmissionResult(task_id=task_id, status="not_open", task_open=False,
-                                    reason=reason)  # fmt: skip
+            return SubmissionResult(
+                task_id=task_id, status="not_open", task_open=False, reason=reason
+            )
         checked = check(session, task, batch, schema_hash, rationale)
     result = checked.result
     clean = result.clean
@@ -291,9 +300,14 @@ def propose_claims(
     try:
         with session.engine.begin() as conn:
             got = agent.complete_agent_task(
-                conn, task.id, task.attempt, session.instance, clean=clean, outcome=outcome,
+                conn,
+                task.id,
+                task.attempt,
+                session.instance,
+                clean=clean,
+                outcome=outcome,
                 first_result=result.model_dump(mode="json"),
-            )  # fmt: skip
+            )
             if got == "held":
                 result.status, result.task_open = "held", True
                 return result
@@ -303,8 +317,9 @@ def propose_claims(
     except agent.TaskNotOpen as error:
         with session._lock:
             session.served.pop(task_id, None)
-        return SubmissionResult(task_id=task_id, status="not_open", task_open=False,
-                                reason=error.reason)  # fmt: skip
+        return SubmissionResult(
+            task_id=task_id, status="not_open", task_open=False, reason=error.reason
+        )
     with session._lock:
         session.served.pop(task_id, None)
     return result
@@ -313,9 +328,12 @@ def propose_claims(
 def _write(conn: Any, session: Session, task: TaskContext, checked: _Checked) -> int:
     assert checked.payload is not None
     row = repo.ObservationRow(
-        0, ObservationKind.CLAIM_PROPOSAL.value, checked.payload,
-        rendition_id=task.unit.rendition_id, segment_id=task.unit_id,
-    )  # fmt: skip
+        0,
+        ObservationKind.CLAIM_PROPOSAL.value,
+        checked.payload,
+        rendition_id=task.unit.rendition_id,
+        segment_id=task.unit_id,
+    )
     repo.write_observations(conn, task.id, task.attempt, [row])
     observation = int(
         conn.execute(

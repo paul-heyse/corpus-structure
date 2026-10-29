@@ -7,7 +7,7 @@ D4 §4.2; D2 §10).
 | `guideline` | the run's guideline version: its sections tagged `<!-- core -->`, whole |
 | `reference` | the compiled annotator reference (artifact `annotator_reference`/`reference`) |
 | `format` | `prompts/format.md` |
-| `schema` | the compiled model-facing JSON Schema (`json_schema`/`batch.model_facing`), with the `$id` of the run's model revision |
+| `schema` | the model-facing JSON Schema (`json_schema`/`batch.model_facing`), with its `$id` |
 
 A part's hash is its text's, or for `reference` and `schema` the compiled artifact's hash (which
 covers the `$id`, so a new model revision is a new part). Parts are served in pages of at most
@@ -120,9 +120,15 @@ def core_guideline(guideline: str) -> str:
     return "\n".join(s.text for s in sections(guideline) if s.core)
 
 
+def hint_of(segment: Segment) -> Mapping[str, Any]:
+    """A segment's source hint (`attrs.hint`), or an empty mapping."""
+    hint = (segment.attrs or {}).get("hint")
+    return hint if isinstance(hint, dict) else {}
+
+
 def unit_features(segment: Segment) -> dict[str, str]:
     """The unit's recorded features (module doc), as strings."""
-    hint = (segment.attrs or {}).get("hint") or {}
+    hint = hint_of(segment)
     out = {UnitFeatureKind.SEGMENT_KIND.value: segment.kind.value}
     if hint.get("statement_kind"):
         out[UnitFeatureKind.STATEMENT_KIND.value] = str(hint["statement_kind"])

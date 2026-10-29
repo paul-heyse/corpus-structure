@@ -1,6 +1,8 @@
 # Phase 0: evaluation and goldens
 
-**Status:** Proposed (2026-10-28); nothing built. Part of the [phase 0 series](../phase-0_2026-10-28.md), which
+**Status:** Active. **Built (2026-10-29):** P0-E-1 (split in `eval/split.yaml`, sampler, sets, the golden
+store, `ci golden`) and P0-E-2a (equivalence, alignment, agreement; S0 parity exact). Not started:
+E2b (scoring; replaces O1's `evaluate.score` stub), E3. Part of the [phase 0 series](../phase-0_2026-10-28.md), which
 owns shared decisions, contracts, the dependency graph and build findings.
 **Revised:** 2026-10-28, for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md) and its
 [target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md) ("TM"), following coordinator decisions 2, 16, 19, 20 and 22: re-location adds a

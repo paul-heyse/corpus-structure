@@ -10,7 +10,11 @@
 - `core/_model/validators.py`: one validator per class with `ci:invariant`, calling
   `core/invariants.py`'s templates;
 - `core/_model/revision.py`: the model revision the files were generated from;
-- `core/db/_tables.py`: the relational projection's `MetaData` (`schema/relational.py`, M2).
+- `core/db/_tables.py`: the relational projection's `MetaData` (`schema/relational.py`, M2);
+- Stage B's shapes (`schema/stage_b.py`, P0-M-5): `core/_model/types.py`, `core/_model/shapes.py`
+  and `ingest/_shapes.py`;
+- `core/schemas/*.json`: the shapes' JSON Schemas, rendered from the shapes just generated (in a
+  fresh interpreter over a copy of the package), so one run reflects a shape-changing edit.
 
 The output is a pure function of the model and this module (`GENERATOR_VERSION`), formatted by the
 repository's pinned ruff so `just turn-end` leaves it unchanged; a drift test regenerates it.
@@ -18,10 +22,13 @@ repository's pinned ruff so `just turn-end` leaves it unchanged; a drift test re
 
 from __future__ import annotations
 
+import json
 import keyword
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -550,13 +557,39 @@ def render(model: Model) -> dict[str, str]:
     }
     out = {path: _format(str(PACKAGE / path), text) for path, text in raw.items()}
     # The core shapes' JSON Schemas carry the revision in their `$id` (P0-M-3), so a model change
-    # regenerates them. They are rendered from the shapes as imported, so a change of the shapes'
-    # generated vocabulary shows in them on the next run.
-    from corpus_structure.core import schemas
-
-    for name, adapter in schemas.SCHEMAS().items():
-        out[f"core/schemas/{name}.json"] = schemas.render(name, adapter, current.content_hash)
+    # regenerates them; they are rendered from the shapes just generated, in one pass.
+    out |= _schemas(out, current.content_hash)
     return out
+
+
+_SCHEMAS_SCRIPT = """
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from corpus_structure.core import schemas
+assert schemas.__file__.startswith(sys.argv[1]), schemas.__file__
+out = {n: schemas.render(n, a, sys.argv[2]) for n, a in schemas.SCHEMAS().items()}
+sys.stdout.write(json.dumps(out))
+"""
+
+
+def _schemas(generated: Mapping[str, str], content_hash: str) -> dict[str, str]:
+    """The committed JSON Schemas as the generated modules give them: rendered in a fresh
+    interpreter over a copy of the package that holds `generated` in place of the files on disk,
+    so a shape-changing model edit regenerates and checks clean in one pass."""
+    with tempfile.TemporaryDirectory(prefix="cs-schemas-") as tmp:
+        root = Path(tmp) / PACKAGE.name
+        shutil.copytree(PACKAGE, root, ignore=shutil.ignore_patterns("__pycache__"))
+        for rel, text in generated.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text, encoding="utf-8")
+        done = subprocess.run(
+            [sys.executable, "-c", _SCHEMAS_SCRIPT, tmp, content_hash],
+            capture_output=True, text=True, cwd=tmp, check=False,
+        )  # fmt: skip
+        if done.returncode != 0:
+            raise RuntimeError(f"rendering the JSON Schemas failed: {done.stderr}")
+        rendered: dict[str, str] = json.loads(done.stdout)
+    return {f"core/schemas/{name}.json": text for name, text in rendered.items()}
 
 
 def write(files: Mapping[str, str], root: Path = PACKAGE) -> list[str]:

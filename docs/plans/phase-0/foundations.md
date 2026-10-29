@@ -1,9 +1,10 @@
 # Phase 0 foundations: package, core types and keys, fixtures, store
 
-**Status:** Active in part. Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns shared
-decisions, contracts, the dependency graph and build findings (§11). P0-F-1, P0-F-2a and P0-F-2b were
-built and reviewed on 2026-10-28, together with ingest and math's P0-I-0 (coordinator §11, rows
-IR-01…IR-15). **Revised** on 2026-10-28 by the
+**Status:** Active. Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns shared
+decisions, contracts, the dependency graph and build findings (§11). **Built (2026-10-29):** P0-F-1,
+F-2a, F-2b, F-2c, F-2d, F-2e (key scheme 1 frozen with conformance vector v1), F-3, F-4 (migration
+0001, the store and repository) and F-5; Q-4 done, Q-6 withdrawn into unit tests (`tests/core`).
+Open rows in coordinator §11 (F3-02, Q4-01, IR-13, IR-14). **Revised** on 2026-10-28 by the
 [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md)
 and its [target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md)
 ("TM"), decision Revise, with the rule changes decided in coordinator §9.2:

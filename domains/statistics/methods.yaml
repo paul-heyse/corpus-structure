@@ -1,8 +1,7 @@
 # The statistics pack's method configuration (D2 §12.1), phase 0 methods only.
-# Only registered methods are configured (a configuration for an unregistered method is refused);
-# normalize.formula ({backend: lark}) joins when P0-I-2b registers M11. Phase 1 configurations
-# (llm.*, classify.segments, extract.gliner_*, resolve.concept_link, consolidate.entities) and the
-# M08 patterns and M22 cues join with their methods.
+# Only registered methods are configured (a configuration for an unregistered method is refused).
+# Phase 1 configurations (llm.*, classify.segments, extract.gliner_*, resolve.concept_link,
+# consolidate.entities) and the M08 patterns and M22 cues join with their methods.
 version: 0.1.0
 
 math:
@@ -58,3 +57,5 @@ configs:                                               # named configurations, r
     adjudicate: {mode: adjudicate, packet_cap_chars: 9000, max_alternatives: 6}
     expectation: {mode: extract, role: expectation, examples: reference, hints: none, packet_cap_chars: 18000}
                                                        # golden-expectation runs (D7 §9); `role` keeps its digests apart from live tasks'
+  normalize.formula:
+    default: {backend: lark}                           # M11; math and the deadline from the pack and the method's defaults

@@ -16,11 +16,13 @@ row (`twin_settled`, `cancelled`, `leased_again`, `finished`). On `done` or `emp
 twins, and it sends `pg_notify('cs_agent_task_done', <run id>)`, delivered at commit. A `failed`
 outcome settles nothing (failed tasks are never reused).
 
-**Twins** (`settle_twins`): an `awaiting_agent` task whose twin is `done` or `empty` becomes
-`reused` pointing at it, its lease cleared and `finished_at = clock_timestamp()`. The rows of the
-runs that own the settled tasks are locked `FOR SHARE` in id order first. The share locks and the
-stamp taken after them order every completion and settlement against each run's seal (§3.8), which
-takes the run row's update lock: each falls on one side of `cut_at`."""
+**Twins** (`settle_twins`): an `awaiting_agent` task, of a run whose `fresh` option does not name
+its method (`--fresh` asks again, and settlement would undo it), whose twin is `done` or `empty`
+becomes `reused` pointing at it, its lease cleared and `finished_at = clock_timestamp()`. The rows
+of the runs that own the settled tasks are locked `FOR SHARE` in id order first. The share locks and
+the stamp taken after them order every completion and settlement against each run's seal (§3.8),
+which takes the run row's update lock: each falls on one side of `cut_at`.
+"""
 
 from __future__ import annotations
 
@@ -65,13 +67,18 @@ def _interval(delta: timedelta) -> str:
 _TWINS = """
 SELECT a.id AS task_id, a.run_id, f.id AS twin_id
 FROM ops.task a
+JOIN ops.run r ON r.id = a.run_id
+JOIN ops.method_config c ON c.id = a.method_config_id
+JOIN ops.method m ON m.id = c.method_id
 JOIN LATERAL (
   SELECT f.id FROM ops.task f
   WHERE f.method_config_id = a.method_config_id AND f.input_hash = a.input_hash
     AND f.status IN ('done', 'empty')
   ORDER BY f.id LIMIT 1
 ) f ON true
-WHERE a.status = 'awaiting_agent' {filter}
+WHERE a.status = 'awaiting_agent'
+  AND NOT coalesce(r.options -> 'fresh' ? m.name, false)  -- a fresh run asks again
+  {filter}
 """
 
 
@@ -115,17 +122,20 @@ def settle_twins(
 
 
 _LEASE = """
+WITH c AS MATERIALIZED (  -- evaluated once: a rescanned LIMIT subquery could lease more
+  SELECT x.id FROM ops.task x
+  WHERE x.status = 'awaiting_agent' AND x.method_config_id = ANY(:configs) {run}
+    AND (x.lease_until IS NULL OR x.lease_until < now())
+    AND NOT EXISTS (SELECT 1 FROM ops.task y WHERE y.method_config_id = x.method_config_id
+                    AND y.input_hash = x.input_hash AND y.id <> x.id
+                    AND y.status = 'awaiting_agent' AND y.lease_until > now())
+    {where}
+  ORDER BY x.run_id DESC, x.priority DESC, x.id
+  LIMIT 1 FOR UPDATE SKIP LOCKED
+)
 UPDATE ops.task t
 SET claimed_by = :holder, lease_until = now() + CAST(:lease AS interval), attempt = t.attempt + 1
-FROM (SELECT x.id FROM ops.task x
-      WHERE x.status = 'awaiting_agent' AND x.method_config_id = ANY(:configs) {run}
-        AND (x.lease_until IS NULL OR x.lease_until < now())
-        AND NOT EXISTS (SELECT 1 FROM ops.task y WHERE y.method_config_id = x.method_config_id
-                        AND y.input_hash = x.input_hash AND y.id <> x.id
-                        AND y.status = 'awaiting_agent' AND y.lease_until > now())
-        {where}
-      ORDER BY x.run_id DESC, x.priority DESC, x.id
-      LIMIT 1 FOR UPDATE SKIP LOCKED) c
+FROM c
 WHERE t.id = c.id
 RETURNING t.id, t.run_id, t.attempt, t.unit_type, t.unit_id, t.unit_key, t.packet_hash
 """

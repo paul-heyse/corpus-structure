@@ -46,10 +46,10 @@ classes, `_get_classes`) for no rule the emitter needs, so this module emits the
 - *Collections.* A multivalued slot is a tuple (`minimum_cardinality`, and `maximum_cardinality`
   equal to it, as Pydantic constraints); a `MapEntry` range is a dict from its key to its value; a
   dict-inlined class with an identifier is a tuple of records that also loads the mapping form.
-- *Defaults.* Required slots (`required`, `identifier`, a fixed tag, `ci:required_in` the form)
-  have none. Otherwise `ci:py_default` (a Python expression; `None` admits `None`), `ifabsent`
-  (left out of dumps under `ci:omit_default`), an empty collection, a fresh instance of a class
-  with no required slot, else `MISSING`: absent, never null.
+- *Defaults.* Required slots (`required` without `ifabsent`, `identifier`, a fixed tag,
+  `ci:required_in` the form) have none. Otherwise `ci:py_default` (a Python expression; `None`
+  admits `None`), `ifabsent` (left out of dumps under `ci:omit_default`), an empty collection, a
+  fresh instance of a class with no required slot, else `MISSING`: absent, never null.
 - *Validation.* A class with an invariant or a slot pattern calls its Stage A validator
   (`_model/validators.py`); `ci:validator` hooks follow, on the class (after the model) or on a
   slot (`before` or after the field). A slot with a hook keeps its type's pattern for the JSON
@@ -96,10 +96,10 @@ CORE_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("KeyedCandidateSet", ("stored",)), ("MentionRef", ("stored",)),
 )  # fmt: skip
 PROFILE_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (("SourceProfile", ("stored",)),)
-# Payload classes whose Python form is not generated here: the run options are orchestration's
-# settings-free model (`core/options.py`), the trigger metrics and a compiled artifact's body are
-# JSON aliases, and the citation frame is the hand-written `CitationFrame` (`ci:py_type`).
-HAND_PAYLOADS = frozenset({"RunOptions", "TriggerMetrics", "CompiledArtifactBody", "FrameEntries"})
+# Payload classes whose Python form is not a generated class: the trigger metrics and a compiled
+# artifact's body are JSON aliases, and the citation frame is the hand-written `CitationFrame`
+# (`ci:py_type`).
+HAND_PAYLOADS = frozenset({"TriggerMetrics", "CompiledArtifactBody", "FrameEntries"})
 
 BUILTIN = {"string": "str", "integer": "int", "boolean": "bool", "float": "float",
            "double": "float", "datetime": "datetime", "date": "date"}  # fmt: skip
@@ -377,7 +377,7 @@ class Plan:
         for name in self.system_classes:
             payload = ci_annotations(self.cls(name)).get("ci:payload")
             if payload and name not in HAND_PAYLOADS and name not in self.profile_classes:
-                    self.visit(name, "stored", SHAPES)
+                self.visit(name, "stored", SHAPES)
         for root, forms in PROFILE_ROOTS:
             for form in forms:
                 self.visit(root, form, PROFILE)
@@ -775,9 +775,11 @@ class Emitter:
         """The field with its default (module doc: Defaults); `MISSING` admits absence."""
         name, ann = str(slot.name), ci_annotations(slot)
         plan = self.plan
+        # a required slot with `ifabsent` is always present once its default is applied
         required = (
-            bool(slot.required) or bool(slot.identifier) or bool(slot.equals_string)
-            or bool(slot.equals_string_in) or ann.get("ci:required_in") == form
+            (bool(slot.required) and not slot.ifabsent) or bool(slot.identifier)
+            or bool(slot.equals_string) or bool(slot.equals_string_in)
+            or ann.get("ci:required_in") == form
         )  # fmt: skip
         if required:
             return FieldSource(name, text, None)
@@ -849,9 +851,7 @@ class Emitter:
             self.use("typing", "Annotated")
             self.use("pydantic", "Field")
             union = " | ".join(members)
-            self.body.append(
-                f'type {name} = Annotated[{union}, Field(discriminator="{tag}")]'
-            )
+            self.body.append(f'type {name} = Annotated[{union}, Field(discriminator="{tag}")]')
             self.defined.add(name)
             return
         cls = plan.cls(origin)
@@ -1086,7 +1086,7 @@ def _types(plan: Plan) -> tuple[str, dict[str, str]]:
         "",
         "def keyed(key: str, single: str | None = None) -> Callable[[object], object]:",
         '    """The loader of a dict-inlined collection: `{<key>: {…}}`, or `{<key>: <single>}`',
-        '    when the record has one other slot, as the list of records with `key`; a list',
+        "    when the record has one other slot, as the list of records with `key`; a list",
         '    passes."""',
         "",
         "    def load(value: object) -> object:",
@@ -1195,5 +1195,3 @@ def iter_classes(model: Model) -> Iterator[tuple[str, str, str]]:
     for key in plan.order:
         e = plan.emits[key]
         yield plan.name(e.origin, e.form), e.origin, e.module
-
-

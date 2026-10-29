@@ -58,6 +58,12 @@ TERMINAL = (
 )
 
 
+def pick_from[T](data: st.DataObject, options: list[T]) -> T:
+    """An element of the model's ordered list, drawn by index: the database's ids differ between
+    replays (sequences never roll back), so the draw must not see them."""
+    return options[data.draw(st.integers(0, len(options) - 1))]
+
+
 @dataclass
 class Model:
     id: int
@@ -202,7 +208,7 @@ class Lifecycle(RuleBasedStateMachine):
     @rule(target=worker_leases, data=st.data())
     def claim(self, data: st.DataObject) -> Any:
         worker = [t for t in self.tasks.values() if t.kind == "worker"]
-        pick = data.draw(st.sampled_from(sorted({(t.run, t.config) for t in worker})))
+        pick = pick_from(data, sorted({(t.run, t.config) for t in worker}))
         holder = f"w{len(self.attempts)}"
         candidates = sorted(
             (
@@ -289,7 +295,7 @@ class Lifecycle(RuleBasedStateMachine):
     @rule(data=st.data())
     def expire(self, data: st.DataObject) -> None:
         held = sorted(t.id for t in self.tasks.values() if t.holder)
-        t = self.tasks[data.draw(st.sampled_from(held))]
+        t = self.tasks[pick_from(data, held)]
         self.conn.execute(
             text("UPDATE ops.task SET lease_until = now() - interval '1 second' WHERE id = :i"),
             {"i": t.id},
@@ -302,7 +308,7 @@ class Lifecycle(RuleBasedStateMachine):
     @rule(target=agent_leases, data=st.data())
     def agent_lease(self, data: st.DataObject) -> Any:
         mine = [t for t in self.tasks.values() if t.kind == "agent"]
-        run, config = data.draw(st.sampled_from(sorted({(t.run, t.config) for t in mine})))
+        run, config = pick_from(data, sorted({(t.run, t.config) for t in mine}))
         self.sessions += 1
         session = f"s{self.sessions}"
         self.settle_model(run=run)
@@ -417,7 +423,7 @@ class Lifecycle(RuleBasedStateMachine):
     @precondition(lambda self: bool(self.live_runs()))
     @rule(data=st.data())
     def seal_run(self, data: st.DataObject) -> None:
-        run = data.draw(st.sampled_from(self.live_runs()))
+        run = pick_from(data, self.live_runs())
         with self.conn.begin_nested():
             sealed = seal(
                 self.conn,

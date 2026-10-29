@@ -1,6 +1,8 @@
 # Phase 0: agent interface
 
-**Status:** Proposed (2026-10-28); nothing built. Part of the [phase 0 series](../phase-0_2026-10-28.md), which
+**Status:** Active. **Built (2026-10-29):** P0-A-0 (parse and the quote cascade) and P0-A-1 (M24, the
+packet, prompts, the MCP server, submission and `ci mcp serve`). Not started: A2 (golden server), A3.
+Open: coordinator §11 A1-01. Part of the [phase 0 series](../phase-0_2026-10-28.md), which
 owns shared decisions, contracts, the dependency graph and build findings.
 **Revised:** 2026-10-28, for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md) and its
 [target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md) ("TM"), following coordinator decisions 2, 15, 16, 21 and 23 and

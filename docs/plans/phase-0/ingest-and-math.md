@@ -1,7 +1,8 @@
 # Phase 0: ingest and math
 
-**Status:** Proposed (2026-10-28); P0-I-0 built and reviewed on 2026-10-28 (coordinator §11, IR
-rows), the rest not built. Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns shared
+**Status:** Active. **Built (2026-10-29):** P0-I-0, I-1a, I-1b (ingest methods registered), I-2a (the
+grammar port; H3's standing context at its corrected value) and I-2b (math methods registered). Open
+rows in coordinator §11: I2A-01 (the coverage test's process pool), I2B-01. Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns shared
 decisions, contracts, the dependency graph and build findings.
 **Revised:** 2026-10-28, for the [domain-model alignment review](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28.md) and its
 [target model](../../design_review/reviews/design_review_domain-model-alignment_2026-10-28_target-model.md) ("TM"), following coordinator decisions 1, 19 and 23 and §9.2's RC12: I0's

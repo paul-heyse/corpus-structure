@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/golden_batch.json",
+  "$id": "https://corpus-structure.dev/schemas/a59196c4a894/golden_batch.json",
   "$defs": {
     "AlternativeItem": {
       "additionalProperties": false,

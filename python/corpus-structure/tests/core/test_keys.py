@@ -481,7 +481,9 @@ def entity_keys(entities: list[dict], schema: KeySchema = SCHEMA) -> dict[str, s
     for e in entities:
         if e.get("scope") == "local":
             e.setdefault("scope_segment", seg_key(ctx, unit))
-    cands = KeyedCandidateSet.model_validate({"renditions": [ctx.rendition_key], "entities": entities})
+    cands = KeyedCandidateSet.model_validate(
+        {"renditions": [ctx.rendition_key], "entities": entities}
+    )
     return key_claims(cands, ctx, schema, RULES).entities
 
 

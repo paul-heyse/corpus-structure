@@ -1,4 +1,4 @@
-"""The MCP servers the Claude Code session works through (agent interface §3.5–§3.6; D8 §1–§3;
+"""The MCP servers the Claude Code session works through (agent interface §3.5, §3.6; D8 §1-§3;
 ADR-0015).
 
 - `service`: the application functions behind the main profile's tools (`queue_status`,

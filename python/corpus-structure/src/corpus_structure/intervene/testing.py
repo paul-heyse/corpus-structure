@@ -20,7 +20,7 @@ caller's decision (for fixtures, a failure to report).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import anyio
@@ -35,7 +35,7 @@ class HarnessError(RuntimeError):
 
 
 def map_ids(
-    unit_key: str, frame: Mapping[str, Mapping[str, str]], served: list[Mapping[str, str]]
+    unit_key: str, frame: Mapping[str, Mapping[str, str]], served: Sequence[Mapping[str, Any]]
 ) -> dict[str, str]:
     """The fixture's sentence id -> the served id (module doc)."""
     out = {}

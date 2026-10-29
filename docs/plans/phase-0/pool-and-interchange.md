@@ -1,6 +1,9 @@
 # Phase 0 pool and interchange: the relational pool, the in-process engine, writes and exports
 
-**Status:** Proposed (2026-10-28). Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns
+**Status:** Active. **Built (2026-10-29):** P0-P-1 (pool contract and ADBC loader), P0-P-2 (DuckDB engine,
+set-equality harness) and P0-P-4. **Partly built:** P0-P-3 (bulk writer; `ci export` and the
+`referencing.Registry` left; pgpq not adopted, §11 P3-01). Q-5 done; Q-7 deferred to P2's merge test;
+Q-8 withdrawn. Part of the [phase 0 series](../phase-0_2026-10-28.md), which owns
 shared decisions, contracts, the dependency graph and the findings table (§11).
 
 **Basis.** This document builds the alignment review's R09 and the runtime half of R10:

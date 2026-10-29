@@ -109,8 +109,8 @@ classes:
       corpus: {range: Json, required: true, description: The corpus slice and its expanded document keys (D6 §8).}
       scope: {range: Json, description: The scope slice with its expanded entries and their hash (D6 §8); absent for a run over its whole corpus.}
       fresh: {multivalued: true, description: Methods whose tasks skip reuse.}
-      configs: {range: Json, required: true, description: "The resolved configuration map, <method>/<name> to config hash (orchestration §3.2)."}
-      method_configs: {range: Json, required: true, description: "Method to configuration name, for this run only."}
+      configs: {range: Json, required: true, description: "The resolved configuration map, <method>/<name> to config hash (orchestration §3.2).", annotations: {ci:py_type: "dict[str, str]"}}
+      method_configs: {range: Json, required: true, description: "Method to configuration name, for this run only.", annotations: {ci:py_type: "dict[str, str]"}}
   InterventionRefs:
     description: >-
       `ops.intervention.refs`: the ids an intervention names, by what they reference (D3 §6.3). An

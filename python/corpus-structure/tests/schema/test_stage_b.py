@@ -4,18 +4,20 @@ The generated shapes themselves are tested where they are used (`tests/core`, `t
 `tests/validate`, …) and their files by the drift test (`test_model.py`); the committed JSON
 Schemas by `tests/core/test_shapes.py`. Here: Stage B's declarations are checked like every
 other (a malformed hook or Python expression is refused), a hook that names no hand-written
-function fails generation, and the `parse_detail` payload has its registry entry.
+function fails generation, a shape-changing edit generates and checks clean in one pass, and the
+`parse_detail` payload has its registry entry.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 import yaml
 
-from corpus_structure.schema import model, stage_b
+from corpus_structure.schema import generate, model, stage_b
 from corpus_structure.schema.model import CORE, SYSTEM, ModelError
 
 
@@ -59,6 +61,23 @@ def test_a_hook_without_its_function_fails_generation(tmp_path: Path) -> None:
     assert model.check(loaded) == []  # well-formed; the reference is what fails
     with pytest.raises(ModelError, match="defines no no_such_hook"):
         stage_b.render(loaded)
+
+
+def test_a_shape_changing_edit_generates_and_checks_clean_in_one_pass(tmp_path: Path) -> None:
+    """The JSON Schemas are rendered from the shapes just generated, not the ones imported: one
+    `generate` reflects a new field, and the check that follows finds no drift."""
+
+    def add_lang(data: dict) -> None:
+        data["classes"]["TextValue"]["attributes"]["lang"] = {"description": "The language."}
+
+    loaded = edited_model(tmp_path, add_lang)
+    files = generate.render(loaded)
+    assert "    lang: str | MISSING = MISSING" in files["core/_model/shapes.py"]
+    schema = json.loads(files["core/schemas/value.authored.json"])
+    assert "lang" in schema["$defs"]["TextValue"]["properties"]  # in the same run
+    out = tmp_path / "package"
+    generate.write(files, out)
+    assert generate.drift(generate.render(loaded), out) == []  # check: clean after one generate
 
 
 def test_the_parse_detail_payload_has_a_registry_entry() -> None:

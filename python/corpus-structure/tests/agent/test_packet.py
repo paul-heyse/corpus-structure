@@ -1,5 +1,5 @@
 """The packet, the stored-scope adapter, the prompt parts and the `by_unit` sections (P0-A-1; agent
-interface §3.2–§3.4, §6). No database: renditions and M13's scopes come from I1a's and I2a's
+interface §3.2-§3.4, §6). No database: renditions and M13's scopes come from I1a's and I2a's
 functions in this process, as I2a's own tests build them.
 
 - **Golden mode** reproduces S0-R2's v1 packets (`packet_v1/units/*.md`, unit key in the header) and
@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -30,8 +30,12 @@ REPO = Path(__file__).resolve().parents[4]
 SPIKE = REPO / "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/inputs/packet_v1"
 CONTEXTS = REPO / "python/corpus-structure/tests/math/data/s0r2_contexts.json"
 CORRECTED = {"H3": [(9504, 9648), (11267, 11410)]}  # I2a's corrected H3 context (test_scope.py)
-VENDORED_PAGES = {"special/LocationScale.html", "special/Normal.html", "special/LogNormal.html",
-                  "special/Gamma.html"}  # fmt: skip
+VENDORED_PAGES = {
+    "special/LocationScale.html",
+    "special/Normal.html",
+    "special/LogNormal.html",
+    "special/Gamma.html",
+}
 
 
 def units() -> dict[str, Any]:
@@ -60,7 +64,7 @@ def expected(uid: str) -> str:
 
 
 def _cases() -> list[Any]:
-    names = sorted(p.stem for p in (SPIKE / "units").glob("*.md")) + ["E1", "E2", "E3"]
+    names = [*sorted(p.stem for p in (SPIKE / "units").glob("*.md")), "E1", "E2", "E3"]
     pages = units()
     return [
         pytest.param(n, marks=[] if pages[n]["page"] in VENDORED_PAGES else [pytest.mark.corpus])
@@ -86,15 +90,19 @@ def test_golden_packets_reproduce_v1_and_the_worked_examples(
     assert [s.id for s in got.sentences if s.id.startswith("s")] == list(got.part_ids[0])
 
 
-def stored(agent: SimpleNamespace, content: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def stored(
+    agent: SimpleNamespace, content: Any
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """The page's M09 and M13 payloads in their stored JSON form, validated by their classes."""
     mentions = agent.mention_payloads(content, "ren:test")
     ordinals = {(m.start, m.end): i for i, m in enumerate(mentions)}
     scopes = agent.scope_payloads(content, "ren:test", 7, ordinals)
     as_rows = [MentionPayload.model_validate_json(m.model_dump_json()) for m in mentions]
     scope_rows = [ScopePayload.model_validate_json(s.model_dump_json()) for s in scopes]
-    return ([m.model_dump(mode="json") for m in as_rows],
-            [s.model_dump(mode="json") for s in scope_rows])  # fmt: skip
+    return (
+        [m.model_dump(mode="json") for m in as_rows],
+        [s.model_dump(mode="json") for s in scope_rows],
+    )
 
 
 def test_the_stored_scope_adapter_gives_the_in_memory_standing_context(
@@ -134,8 +142,14 @@ def test_a_packet_over_the_cap_splits_at_sentences_with_shared_context(
     assert split.sentences == whole.sentences and split.hash != whole.hash
     with pytest.raises(P.PacketTooLarge):
         P.render(content, unit["page"], "T2", segments, context, cap=200)
-    tight = P.render(content, unit["page"], "T2", segments, context,
-                     cap=len(split.parts[0].split("## Text")[0]) + 40)  # fmt: skip
+    tight = P.render(
+        content,
+        unit["page"],
+        "T2",
+        segments,
+        context,
+        cap=len(split.parts[0].split("## Text")[0]) + 40,
+    )
     assert tight.oversize  # a sentence longer than the room is served whole and flagged
 
 
@@ -153,10 +167,16 @@ units = json.loads(open({str(CONTEXTS)!r}).read())["units"]
 u = units["T3"]; content = m.page_content(u["page"]); a = m.analyse(content)
 want = {{(p["kind"], p["start"], p["end"]) for p in u["parts"]}}
 segs = [s for s in content.document.walk() if (s.kind.value, s.start, s.end) in want]
-print(P.render(content, u["page"], "T3", segs, standing_context(content, u["page"], a.scopes, segs)).hash)
+ctx = standing_context(content, u["page"], a.scopes, segs)
+print(P.render(content, u["page"], "T3", segs, ctx).hash)
 """
-    out = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True,
-                         env={**__import__("os").environ, "PYTHONHASHSEED": "12345"}, check=True)  # fmt: skip
+    out = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**__import__("os").environ, "PYTHONHASHSEED": "12345"},
+        check=True,
+    )
     assert out.stdout.strip() == here
 
 
@@ -235,7 +255,9 @@ def test_a_section_applies_by_feature_or_when_the_unit_cannot_exclude_it() -> No
 
 
 def test_by_unit_guideline_input_moves_only_where_an_edit_applies() -> None:
-    definition = unit_segment(SegmentKind.UNIT, {"statement_kind": "definition", "claim_bearing": True})
+    definition = unit_segment(
+        SegmentKind.UNIT, {"statement_kind": "definition", "claim_bearing": True}
+    )
     theorem = unit_segment(SegmentKind.UNIT, {"statement_kind": "theorem", "claim_bearing": True})
     edited = GUIDELINE.replace("annotated as such", "annotated with care")
     assert parts_.by_unit_guideline(edited, theorem) == parts_.by_unit_guideline(GUIDELINE, theorem)
@@ -255,3 +277,63 @@ def test_parts_page_at_line_ends_within_the_bound() -> None:
     paged = parts_.pages(text)
     assert "".join(paged) == text and len(paged) == 4
     assert all(len(p) <= parts_.PAGE_CHARS and p.endswith("\n") for p in paged)
+
+
+# --- M24's digest ------------------------------------------------------------------------------
+
+
+class FakeReader:
+    """Just what M24's parts read: the guideline and two artifact bodies."""
+
+    def __init__(self, guideline: str) -> None:
+        self._guideline = guideline
+
+    def guideline(self) -> str:
+        return self._guideline
+
+    def artifact(self, artifact_hash: str) -> bytes:
+        body: Any = {"$id": "x", "title": "schema"} if artifact_hash == "b" * 64 else "# Reference"
+        return json.dumps(body).encode()
+
+
+def test_a_prompt_part_change_gives_a_new_digest_and_identical_inputs_the_same(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from corpus_structure.core.method import RunView, UnitRef, UnitView
+    from corpus_structure.core.vocab import RunKind, TaskUnitType
+    from corpus_structure.methods.llm.agent_opus import AgentOpus, AgentOpusConfig
+
+    cfg = AgentOpusConfig(reference="a" * 64, json_schema="b" * 64, rules="c" * 64)
+    packet = P.Packet("u", ("# Unit u\n",), P.packet_hash(["# Unit u\n"]), (), ((),))
+
+    def digest(guideline: str, run_id: int = 1, config: AgentOpusConfig = cfg) -> bytes:
+        view = RunView(
+            run_id=run_id,
+            kind=RunKind.FULL,
+            phase=0,
+            reference_run_id=None,
+            model_revision="m",
+            schema_version_id=1,
+            guideline_version_id=1,
+            policy_version_id=None,
+            key_scheme=1,
+            options={"agent_reuse": "full"},
+            reader=cast(Any, FakeReader(guideline)),
+        )  # type: ignore[arg-type]
+        unit = UnitView(UnitRef(TaskUnitType.SEGMENT, 1, "u"), view, rendition_id=1)
+        from corpus_structure.core.canonical import canonical_json
+
+        return canonical_json(AgentOpus().digest_inputs(unit, config, packet))
+
+    assert digest(GUIDELINE) == digest(GUIDELINE, run_id=2)  # nothing run-specific enters
+    assert digest(GUIDELINE.replace("Claims carry", "Claims always carry")) != digest(GUIDELINE)
+    assert digest(GUIDELINE.replace("Never served", "Not served")) == digest(GUIDELINE)  # not core
+    assert digest(GUIDELINE, config=cfg.model_copy(update={"model": "other"})) != digest(GUIDELINE)
+    original = parts_.prompt
+
+    def edited(name: str) -> str:
+        return original(name) + ("\nOne more note.\n" if name == "format.md" else "")
+
+    before = digest(GUIDELINE)
+    monkeypatch.setattr(parts_, "prompt", edited)
+    assert digest(GUIDELINE) != before  # a prompt part's change asks again

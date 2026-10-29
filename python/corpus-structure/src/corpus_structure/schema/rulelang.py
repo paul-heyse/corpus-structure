@@ -26,7 +26,9 @@ OBJECTs read through `getattr` over plain view objects.
 private rule-engine surface, so constant folding has already happened) for equality comparisons,
 memberships, subscripts and function arguments that meet a vocabulary-typed operand and a string
 literal. A vocabulary-typed operand is an attribute of a declared OBJECT (its type name and the
-attribute name identify it, so comprehension variables are covered) or a `$` builtin; a coalesce
+attribute name identify it, so comprehension variables are covered), a `$` builtin, or the result
+of a function symbol (`decision(m)`, keyed `("()", name)`); function arguments are checked by the
+function's name, builtin or symbol; a coalesce
 `x ?? 'default'` keeps `x`'s vocabulary and admits its own default. The walk is the built option;
 the `$enums` membership fallback of §3.5 is not needed (settled by the tests over the pack's rules).
 """
@@ -60,8 +62,9 @@ from rule_engine.builtins import Builtins
 
 NONDETERMINISTIC = frozenset({"now", "today", "random"})
 BUILTIN = "$"  # the owner part of a builtin's reference, `("$", name)`
+CALL = "()"  # the owner part of a function symbol's result, `("()", name)`
 
-Ref = tuple[str, str]  # (OBJECT type name, attribute) or ("$", builtin name)
+Ref = tuple[str, str]  # (OBJECT type name, attribute), ("$", builtin) or ("()", function result)
 
 
 class RuleErrorCode(enum.StrEnum):
@@ -171,15 +174,15 @@ class _Types:
 
     def parse(self, text: str) -> Any:
         text = text.strip()
-        if text.endswith("?"):
-            return DataType.NULLABLE(self.parse(text[:-1]))
-        if text.startswith("function(") and ")->" in text:
+        if text.startswith("function(") and ")->" in text:  # before `?`: the result may be nullable
             args, ret = text[len("function(") :].rsplit(")->", 1)
             return DataType.FUNCTION(
                 "function",
                 return_type=self.parse(ret),
                 argument_types=tuple(self.parse(a) for a in _split_args(args)),
             )
+        if text.endswith("?"):
+            return DataType.NULLABLE(self.parse(text[:-1]))
         if text.startswith("list[") and text.endswith("]"):
             return DataType.ARRAY(self.parse(text[5:-1]))
         if text.startswith("map[") and text.endswith("]"):
@@ -307,6 +310,8 @@ def _ref(expr: Any) -> Ref | None:
         return (owner.name, expr.name) if owner is not None else None
     if isinstance(expr, SymbolExpression) and expr.scope == "built-in":
         return (BUILTIN, expr.name)
+    if isinstance(expr, FunctionCallExpression) and isinstance(expr.function, SymbolExpression):
+        return (CALL, expr.function.name)  # a function symbol's result: `decision(m)`
     return None
 
 
@@ -395,8 +400,10 @@ class _Walk:
         elif isinstance(node, GetItemExpression) and isinstance(node.item, StringExpression):
             self.check(node.container, [node.item.value], self.vocabulary(node.container, keys))
         elif isinstance(node, FunctionCallExpression):
-            ref = _ref(node.function)
-            declared = self.language.arguments.get(ref[1]) if ref and ref[0] == BUILTIN else None
+            fn = node.function
+            declared = (
+                self.language.arguments.get(fn.name) if isinstance(fn, SymbolExpression) else None
+            )
             for arg, vocab in zip(node.arguments, declared or (), strict=False):
                 if isinstance(arg, StringExpression):
                     self.check(node.function, [arg.value], vocab)

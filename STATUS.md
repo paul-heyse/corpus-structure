@@ -1,58 +1,61 @@
 # Status
 
-_Updated 2026-10-28 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
+_Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
 
 ## Increment and slice
 
 - **Three active plans** ([plans index](docs/plans/README.md)):
-  [design-phase](docs/plans/design-phase_2026-10-28.md) (design findings, OPEN dispositions),
-  [spike series](docs/plans/design-spikes-s0-s1_2026-10-28.md) (spike execution) and
+  [design-phase](docs/plans/design-phase_2026-10-28.md),
+  [spike series](docs/plans/design-spikes-s0-s1_2026-10-28.md) and
   [phase 0 series](docs/plans/phase-0_2026-10-28.md) (the build); a
   [roadmap](docs/plans/roadmap-phases-1-5_2026-10-28.md) for phases 1–5.
-- **Spike lane, this tranche:**
-  - E5 added the `not_run` record outcome; E4a built the CPU spike environment (`e4.env-cpu`).
-  - I-R2 moved the instruments to token-form keys: every S0/S0-R2 figure is unchanged
-    (`*-ir2` records).
-  - S4 compiled schema v0 to every phase 0 consumer
-    ([report](docs/design_review/evidence/2026-10-28_design-spikes/S4-report.md)).
-  - S6 smoke-tested D3's DDL, BM25, vectors, queue and keys
-    ([report](docs/design_review/evidence/2026-10-28_design-spikes/S6-report.md)).
-  - X2 for S4 and S6: the operator accepted both reports; D1–D6 and D8 amended (prefixed names in
-    everything stored, local names in authored batches).
-- **Build lane:** P0-F-1, P0-F-2a, P0-I-0 and P0-F-2b are built in `python/corpus-structure/`.
-  An implementation review's findings are fixed (coordinator §11, IR-01…12, IR-15); IR-13, IR-14
-  and X2-01 (authored→stored naming, P0-S-1) are open with owners.
-- [Audit](docs/design_review/audit/README.md) at `024bb33`; [design review](docs/design_review/reviews/design_review_domain-model-alignment_2026-10-28.md) (Revise; RC01–RC19 open).
-- **PostgreSQL:** cluster `18/corpus` (port 5434, `just db-provision`, D3 §13); no backups yet
-  (operator: data is regenerable; revisit trigger in D3 §13).
-- **Decisions in force:** ADR-0010–0019 accepted (0016 PostgreSQL and 0017 LinkML packs Tested;
-  0018 policy routing Interface-checked).
+- **Build lane:** the phase 0 series' tiers 0–3 (the domain-model alignment review integrated).
+  The coordinator's header and §7 list what is built.
+  - **Built:** the one LinkML model with Stage A and Stage B generation (no hand-kept mirror), with key
+    scheme 1 frozen; migration 0001, the store and the repository; packs, rules and registration;
+    ingest and math as registered methods; orchestration (runs, tasks, leases, the seal, fates, commands);
+    parse and the MCP agent interface; the golden split and agreement; consolidation; the pool and its
+    two engines.
+  - **Partly built:** O2 (policy loader only), P3 (bulk writer only) and C2 (`serve/` core only).
+- **Process:** probes only for fundamental uncertainty (operator, 2026-10-28).
+- **PostgreSQL:** cluster `18/corpus` (port 5434, D3 §13); no backups (data regenerable).
+- **Decisions in force:** ADR-0010–0015, 0018–0023 accepted (0020 one model, 0021 authorities,
+  0022 schema change, 0023 declared identity; 0016 and 0017 superseded).
 
-## Last verified (2026-10-28)
+## Last verified (2026-10-29)
 
 | Command | Outcome and scope |
 |---|---|
-| `just check` | `passed`: pytest 453 (incl. 388 package tests on `18/corpus`), nextest 0, at `124473d` |
-| `HYPOTHESIS_PROFILE=ci uv run pytest python/corpus-structure/tests` | `passed` (388) |
-| `uv run ruff check python/`, `uv run pyrefly check python/corpus-structure` | `passed` (0 errors) |
-| `just evidence` | `passed`: 77 records, 0 errors (warnings on superseded records and changed inputs, expected) |
-| Spike `code/tests_instruments/run_all.py` | `passed`: 79 |
-| `just db-status` | `passed`: PG 18.6; preload pg_textsearch, pg_stat_statements, auto_explain; checksums on |
+| `uv run ruff check python/`, `uv run ruff format --check python/` | `passed` |
+| `uv run pyrefly check python/corpus-structure` | `passed` (0 errors) |
+| `just model check` | `passed` (revision 0.3.0 `a59196c4a894`) |
+| `uv run pytest python/corpus-structure/tests` | `passed` except `test_db_fixtures.py::test_sweep_honours_leases_and_template_age`, which failed while a stale run was being killed; rerun alone `passed` (12) |
+| Workers' final targeted runs (A1 192, I2b 131, O2 195, C2 5, P3 and M5 suites) | `passed`, per their reports |
 | `just test-all`, `just hygiene` | `not_run`: phase-end checks (AGENTS.md) |
 
 ## Known failures, blocks and decisions
 
-- S6 follow-ups (BM25 coverage on 78 pages, vector recall, two-branch claim at 10⁵ tasks, volume
-  rerun on `18/corpus`) are listed in the S6 report.
-- `docs/libraries/pgevector.md` → `pgvector.md` rename uncommitted: D9 and S7 links fail docs-check.
-- EVID-01 and APPARATUS-01 wait on the operator's evidence-system design.
+- Open build findings are rows in the coordinator's
+  [§11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition):
+  - **F2E-01:** what evidence a derived claim carries. It blocks `derived_from` links.
+  - **C2-01:** the `ExternalReference` descriptor is not stored.
+  - **O2-01:** `PolicyAction.limit` is required, but a policy entry may omit it.
+  - **O2-02:** D6 §7.1 and orchestration §3.10 disagree on how confidence `caps` are keyed. The
+    design owner decides.
+  - **I2A-01:** the 78-page coverage test can hang, because it forks its process pool from a
+    multi-threaded process.
+  - Also open: I2B-01, A1-01, P3-01, F3-02, Q4-01, IR-13, IR-14 and X2-01.
+- The `docs/libraries/pgevector.md` → `pgvector.md` rename is uncommitted (the operator's), so the D9
+  and S7 links fail `docs-check`.
+- Q-7's partial outputs (`results/q7/`) are uncommitted and unfinalized.
 
 ## Next
 
-- **Spike lane:**
-  - E4b environments as S5, S2, S3 and S7 start;
-  - S5-A next, because `core/tex.py` freezes on `s5.keys-property` and the grammar port waits on it;
-  - then C1, I-R3, S2, S3, S7.
-- **Build lane** (phase 0 series revised for the alignment review, `b874e3e`; coordinator §7):
-  - ready now: P0-D-1 (ADR-0020–0023, design routes), P0-F-2c, P0-F-5, probes Q-1–Q-5, P0-F-3, P0-O-0;
-  - critical paths: D1 → M1 → F2d → F2e → S1, and M2 → M3 → M4 → F4 → S1b → O1.
+- **Build lane:** finish O2, then P3 and C2. The P3 and C2 remainders are in §11 rows P3-01 and C2-01
+  and in the workers' scope.
+  - **O2:** slices and scope, the agent barrier, the `complete`-run protocol and the run driver.
+  - **P3:** `ci export` and the `referencing.Registry`.
+  - **C2:** queries, `explain` and the CLI.
+- **After those:** A2 (golden server), E2b (scoring), then A3, E3, C3 and C4. E2b replaces the
+  `evaluate.score` stub.
+- **Phase end:** `just test-all` and `just hygiene`, then a completion audit of the phase 0 scope.
