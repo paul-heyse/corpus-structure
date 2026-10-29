@@ -69,6 +69,8 @@ def test_binding_retains_repeated_items_and_replays_stable_keys():
     assert len({row["observation_key"] for row in rows}) == 2
     assert [source_python(row["payload"]) for row in rows] == [{"text": "μ"}, {"text": "μ"}]
     assert [(row["span_start"], row["span_end"]) for row in rows] == [(4, 5), (4, 5)]
+    fresh=bind(release,invocation_key="invocation:fresh")
+    assert {r["observation_key"] for r in fresh["observations"]}.isdisjoint(r["observation_key"] for r in rows)
     changed = bind(release, input_hash="input:changed")
     assert changed["observations"][0]["observation_key"] != rows[0]["observation_key"]
     assert "SourceObservationBatch" in {definition.name for definition in release.definitions}
