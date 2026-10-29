@@ -33,7 +33,7 @@ class FindParams(BaseModel):
     text: str
 class Query:
     version = "semantic-1"
-    result = ClaimAnswer
+    result: type[BaseModel] = ClaimAnswer
     def scope(self, ctx, p): return Scope.run()
 
 def Row(claim):
@@ -50,11 +50,13 @@ class Claims(Query):
             stmt = stmt.where(exists(select(1).where(ctx.reader.scope(v),v.c.value_id == f.c.object_value_id, (v.c.entity_id.in_(targets)) | (v.c.lexical == p.object))))
         for claim in ctx.reader.claims(statement=stmt,after=after): yield Row(claim)
 class Entity(Query):
+    result: type[BaseModel]
     name, params, result = "entity", EntityParams, EntityAnswer
     def rows(self,ctx,p,after=None):
         for entity in ctx.reader.entity_rows(p.key,p.label,after):
             yield Positioned(entity,entity.entity.entity_id)
 class Statement(Query):
+    result: type[BaseModel]
     name,params,result = "statement",StatementParams,StatementAnswer
     def rows(self,ctx,p,after=None):
         context,o,f = T["occurrence_context"],T["occurrence"],T["fact"]
@@ -73,18 +75,21 @@ class Statement(Query):
             proof_ids=set(ctx.conn.execute(associated.where(context.c.statement_role == "proof")).scalars())
             yield Positioned(StatementAnswer(statement=entities[id_],claims=tuple(c for c in claims if c.fact.fact_id not in proof_ids),proofs=tuple(c for c in claims if c.fact.fact_id in proof_ids)),id_)
 class Evidence(Query):
+    result: type[BaseModel]
     name,params,result = "evidence",EvidenceParams,EvidenceAnswer
     def rows(self,ctx,p,after=None):
         for evidence in ctx.reader.evidence(p.key):
             if after is None or evidence.evidence_id > str(after):
                 yield Positioned(EvidenceAnswer(fact_id=p.key,evidence=evidence),evidence.evidence_id)
 class Unsupported(Query):
+    result: type[BaseModel]
     name,params,result = "unsupported",Params,Coverage
     def rows(self,ctx,p,after=None):
         for record in sorted(ctx.session.coverage(),key=lambda c:c.coverage_id):
             if record.source_outcome == "unsupported" and (after is None or record.coverage_id > str(after)):
                 yield Positioned(record,record.coverage_id)
 class Find(Query):
+    result: type[BaseModel]
     name,params,result = "find",FindParams,FindAnswer
     def rows(self,ctx,p,after=None):
         from sqlalchemy import Integer,cast,func,literal_column,or_
@@ -102,12 +107,12 @@ class Find(Query):
         score=func.ts_rank_cd(vector,query)
         source=rr.join(r,rr.c.rendition_id == r.c.id).join(d,rr.c.document_id == d.c.id).join(s,s.c.rendition_id == r.c.id)
         effective=exists(select(1).select_from(b.join(ct,ct.c.origin_task_id == b.c.task_id).join(completed,completed.c.cut_id == ct.c.cut_id)).where(b.c.rendition_id == r.c.id,completed.c.run_id == ctx.run_id))
-        base=select(s,r.c.canonical_text,d.c.source_uri,content.label("text"),score.label("score")).select_from(source).where(rr.c.run_id == ctx.run_id,effective,document_vector.op("@@")(query),vector.op("@@")(query),s.c.kind.in_(("paragraph","list_item","table_cell","heading")))
+        base=select(s.c.id,s.c.rendition_id,s.c.kind,s.c.start_offset,s.c.end_offset,d.c.source_uri,content.label("text"),score.label("score")).select_from(source).where(rr.c.run_id == ctx.run_id,effective,document_vector.op("@@")(query),vector.op("@@")(query),s.c.kind.in_(("paragraph","list_item","table_cell","heading")))
         if phase == 0:
             indices={}
             while True:
                 stmt=base
-                if score_after is not None:
+                if score_after is not None and key_after is not None:
                     stmt=stmt.where(or_(score < float(score_after),and_(score == float(score_after),s.c.id > int(key_after))))
                 rows=ctx.conn.execute(stmt.order_by(score.desc(),s.c.id).limit(ctx.row_batch)).mappings().all()
                 if not rows: break

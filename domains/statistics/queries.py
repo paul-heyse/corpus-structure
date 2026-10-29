@@ -1,7 +1,8 @@
 """Statistics algorithms composed from the archived semantic fact/value relations."""
 from __future__ import annotations
 from typing import Any
-from pydantic import JsonValue
+from itertools import batched
+from pydantic import BaseModel, JsonValue
 from sqlalchemy import and_, exists, literal, or_, select
 from corpus_structure.semantic.query import _same_scope
 from corpus_structure.serve.protocol import Positioned
@@ -45,24 +46,27 @@ class ConstructionProfile(Query):
             stmt=base(ctx,p).where(or_(f.c.fact_id.in_(stmt.with_only_columns(f.c.fact_id)),f.c.subject_id.in_(variables)))
         for row in ctx.reader.claims(statement=stmt,after=after): yield Row(row)
 class FamiliesWhere(Query):
+    result: type[BaseModel]
     name,params,result="families_where",Where,FamilyAnswer
     def rows(self,ctx,p,after=None):
         f,v=T["fact"],T["typed_value"]
         families=ctx.reader.entity_ids(class_name="DistributionFamily")
         stmt=base(ctx,p).where(f.c.property_id == ctx.reader.iri(p.predicate),or_(f.c.subject_id.in_(families),f.c.subject_id.in_(parameters(ctx,families))))
-        # Strict release validation and exact Python value equality retain structured/numeric meaning.
-        for row in ctx.reader.claims(statement=stmt,after=after):
-            if p.value is not None:
-                cls=next(d for d in ctx.compiled.definitions if d.iri in {m.class_iri for m in row.fact.subject.memberships} and any(x.iri == row.fact.property_iri for x in d.properties))
-                prop=next(x for x in cls.properties if x.iri == row.fact.property_iri)
-                expected=ctx.compiled.property_adapter(cls.name,prop.name,item=prop.multivalued).validate_python(p.value)
-                if expected != row.fact.object: continue
-            if any(m.class_iri == ctx.reader.iri("DistributionFamily") for m in row.fact.subject.memberships): family=row.fact.subject
-            else:
-                parent=ctx.conn.execute(select(v.c.entity_id).join(f,and_(_same_scope(f,v),f.c.object_value_id == v.c.value_id)).where(ctx.reader.scope(f),f.c.subject_id == row.fact.subject.entity_id,f.c.property_id == ctx.reader.iri("stat:family"))).scalar_one_or_none()
-                if parent is None: continue
-                family=ctx.session._entities({parent})[parent]
-            yield Positioned(FamilyAnswer(family=family,claim=row),row.fact.occurrence_id or row.fact.fact_id)
+        for batch in batched(ctx.reader.claims(statement=stmt,after=after),ctx.row_batch):
+            subject_ids={row.fact.subject.entity_id for row in batch}
+            family_by_subject={row.fact.subject.entity_id:row.fact.subject for row in batch if any(m.class_iri == ctx.reader.iri("DistributionFamily") for m in row.fact.subject.memberships)}
+            parent_rows=ctx.conn.execute(select(f.c.subject_id,v.c.entity_id).join(v,and_(_same_scope(f,v),f.c.object_value_id == v.c.value_id)).where(ctx.reader.scope(f),f.c.subject_id.in_(subject_ids-family_by_subject.keys()),f.c.property_id == ctx.reader.iri("stat:family"))).all()
+            parents=ctx.session._entities({row.entity_id for row in parent_rows})
+            family_by_subject.update({row.subject_id:parents[row.entity_id] for row in parent_rows})
+            for row in batch:
+                if p.value is not None:
+                    cls=next(d for d in ctx.compiled.definitions if d.iri in {m.class_iri for m in row.fact.subject.memberships} and any(x.iri == row.fact.property_iri for x in d.properties))
+                    prop=next(x for x in cls.properties if x.iri == row.fact.property_iri)
+                    expected=ctx.compiled.property_adapter(cls.name,prop.name,item=prop.multivalued).validate_python(p.value)
+                    if expected != row.fact.object: continue
+                family=family_by_subject.get(row.fact.subject.entity_id)
+                if family is not None: yield Positioned(FamilyAnswer(family=family,claim=row),row.fact.occurrence_id or row.fact.fact_id)
+
 class ParameterMapping(Query):
     name,params="parameter_mapping",MappingParams
     def rows(self,ctx,p,after=None):
@@ -79,6 +83,7 @@ def condition_refs(claim):
             for child in value: yield from walk(child)
     return set(walk(claim.fact.qualification))
 class Transformations(Query):
+    result: type[BaseModel]
     name,params,result="transformations_of",Family,TransformationAnswer
     def rows(self,ctx,p,after=None):
         f=T["fact"]; family=ids(ctx,p.family)
@@ -86,14 +91,24 @@ class Transformations(Query):
         # The algorithm's decision universe includes all premises; paging selects conclusions only.
         premises={r.fact.fact_id:r for r in ctx.reader.claims(statement=ctx.reader.fact_statement(include_candidates=True,include_suppositions=True).where(f.c.property_id == ctx.reader.iri("stat:has_distribution"),target(ctx,f.c.object_value_id,family)))}
         o,c=T["occurrence"],T["occurrence_context"]
-        for conclusion in ctx.reader.claims(statement=candidates,after=after):
-            refs=condition_refs(conclusion)&premises.keys()
-            if not refs: continue
-            statements=select(c.c.statement_entity_id).join(o,and_(_same_scope(c,o),c.c.occurrence_id == o.c.occurrence_id)).where(ctx.reader.scope(o),o.c.fact_id == conclusion.fact.fact_id)
-            definitions=select(o.c.fact_id).join(c,and_(_same_scope(o,c),o.c.occurrence_id == c.c.occurrence_id)).where(ctx.reader.scope(o),c.c.statement_entity_id.in_(statements),c.c.statement_role == "definiens")
-            defs=tuple(ctx.reader.claims(statement=ctx.reader.fact_statement(include_candidates=p.include_candidates,include_suppositions=True).where(f.c.fact_id.in_(definitions),f.c.subject_id == conclusion.fact.subject.entity_id)))
-            if defs: yield Positioned(TransformationAnswer(conclusion=conclusion,premises=tuple(premises[k] for k in sorted(refs)),definiens=defs),conclusion.fact.occurrence_id or conclusion.fact.fact_id)
+        for batch in batched(ctx.reader.claims(statement=candidates,after=after),ctx.row_batch):
+            refs_by_fact={row.fact.fact_id:condition_refs(row)&premises.keys() for row in batch}
+            wanted={row.fact.fact_id for row in batch if refs_by_fact[row.fact.fact_id]}
+            if not wanted: continue
+            contexts=ctx.conn.execute(select(o.c.fact_id,c.c.statement_entity_id).join(c,and_(_same_scope(o,c),o.c.occurrence_id == c.c.occurrence_id)).where(ctx.reader.scope(o),o.c.fact_id.in_(wanted),c.c.statement_entity_id.is_not(None))).all()
+            statements_by_fact={key:{r.statement_entity_id for r in contexts if r.fact_id == key} for key in wanted}
+            statement_ids={r.statement_entity_id for r in contexts}
+            definition_contexts=ctx.conn.execute(select(o.c.fact_id,c.c.statement_entity_id).join(c,and_(_same_scope(o,c),o.c.occurrence_id == c.c.occurrence_id)).where(ctx.reader.scope(o),c.c.statement_entity_id.in_(statement_ids),c.c.statement_role == "definiens")).all()
+            definitions=tuple(ctx.reader.claims(statement=ctx.reader.fact_statement(include_candidates=p.include_candidates,include_suppositions=True).where(f.c.fact_id.in_({r.fact_id for r in definition_contexts}))))
+            for conclusion in batch:
+                key=conclusion.fact.fact_id
+                if key not in wanted: continue
+                def_ids={r.fact_id for r in definition_contexts if r.statement_entity_id in statements_by_fact[key]}
+                defs=tuple(d for d in definitions if d.fact.fact_id in def_ids and d.fact.subject.entity_id == conclusion.fact.subject.entity_id)
+                if defs: yield Positioned(TransformationAnswer(conclusion=conclusion,premises=tuple(premises[k] for k in sorted(refs_by_fact[key])),definiens=defs),conclusion.fact.occurrence_id or conclusion.fact.fact_id)
+
 class Relations(Query):
+    result: type[BaseModel]
     name,params,result="relations_between",Between,RelationAnswer
     def rows(self,ctx,p,after=None):
         f,v=T["fact"],T["typed_value"]

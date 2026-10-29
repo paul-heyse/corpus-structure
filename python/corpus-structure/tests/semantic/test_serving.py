@@ -86,3 +86,82 @@ def test_full_projection_exports_and_cancel_cleanup(semantic_db_engine,semantic_
     with pytest.raises(KeyboardInterrupt): export_packet(packet,tmp_path/'cancelled')
     assert not (tmp_path/'cancelled').exists()
     assert not list(tmp_path.glob('.semantic-export-*'))
+
+
+def install_pack(admin,writer,name,entries):
+    from dataclasses import replace
+    from corpus_structure.semantic import SourceArtifact,SourceBundle,PreparationProfile,ResolvedDependencies,prepare_release
+    from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.consolidation import assemble,SourceItem
+    from corpus_structure.semantic.publication import publish_batch,EvidenceRow,SelectionRow
+    from corpus_structure.semantic.metadata import table
+    from sqlalchemy import insert
+    root=Path(__file__).resolve().parents[4]
+    bundle=SourceBundle('domain',(SourceArtifact('semantic_core',(root/'python/corpus-structure/src/corpus_structure/model/semantic/core.yaml').read_bytes()),SourceArtifact('domain',(root/f'domains/{name}/semantic.yaml').read_bytes())))
+    prepared=prepare_release(bundle)
+    with admin.begin() as conn:
+        persist_release(conn,bundle,ResolvedDependencies(),PreparationProfile(),prepared)
+        conn.execute(insert(table('data.project')).values(project_id='pack'))
+        conn.execute(insert(table('data.realization')).values(project_id='pack',realization_id='pack',release_id=prepared.release_id))
+    entries=list(entries)+[(subject,cls,'id',subject,{'modality':'asserted','polarity':True},'Qualification') for subject,cls in sorted({(row[0],row[1]) for row in entries})]
+    evidence=(EvidenceRow('pack-evidence','pack.html','pack.html#p','native-parser','1'),)
+    items=tuple(SourceItem(subject,cls,prop,obj,qualification,'pack-source',str(i),'stated',evidence,qcls) for i,(subject,cls,prop,obj,qualification,qcls) in enumerate(entries))
+    batch=assemble(prepared,'pack','pack-test',items)
+    batch=replace(batch,selection=tuple(SelectionRow(f.fact_id) for f in batch.fact))
+    publish_batch(writer,batch)
+    return prepared,batch
+
+
+def test_statistics_named_algorithms_and_exact_ownership(semantic_db_engine,semantic_writer_engine,semantic_reader_engine):
+    from corpus_structure.serve.protocol import QueryContext
+    q={'modality':'asserted','polarity':True}
+    entries=[
+        ('normal','DistributionFamily','label','Normal',q,'Qualification'),
+        ('standard','DistributionFamily','label','Standard normal',q,'Qualification'),
+        ('construction','FamilyConstruction','label','Location scale',q,'Qualification'),
+        ('standard','DistributionFamily','special_case_of','normal',q,'Qualification'),
+        ('normal','DistributionFamily','member_of_construction','construction',{**q,'base':'standard'},'StatisticsQualification'),
+        ('scale','FamilyParameter','family','normal',q,'Qualification'),
+        ('scale','FamilyParameter','canonical_name','scale',q,'Qualification'),
+        ('scale','FamilyParameter','parameter_role','scale',q,'Qualification'),
+        ('normal','DistributionFamily','has_parameter','scale',q,'Qualification'),
+    ]
+    prepared,batch=install_pack(semantic_db_engine,semantic_writer_engine,'statistics',entries)
+    registry=build_registry(GENERIC,Path(__file__).resolve().parents[4]/'domains/statistics')
+    with read_session(semantic_reader_engine,'pack') as session:
+        ctx=QueryContext(0,session.connection)
+        ctx.__dict__['session']=session
+        def run(name,params):
+            query=registry[name]
+            return [row.row for row in query.rows(ctx,query.params.model_validate(params))]
+        profile=run('family_profile',{'family':'Normal'})
+        assert {row.fact.property_iri.rsplit('/',1)[-1] for row in profile}>={'family','canonical_name','parameter_role','has_parameter','member_of_construction'}
+        mapping=run('parameter_mapping',{'family':'Normal','construction':'Location scale'})
+        assert any(row.fact.qualification.__class__.__name__=='StatisticsQualification' and row.fact.qualification.base=='standard' for row in mapping)
+        families=run('families_where',{'predicate':'stat:parameter_role','value':'scale'})
+        assert [row.family.entity_id for row in families]==['normal']
+        relations=run('relations_between',{'a':'Standard normal','b':'Normal'})
+        assert len(relations)==1 and relations[0].depth==1
+        assert relations[0].claims[0].fact.property_iri.endswith('/special_case_of')
+        assert run('construction_profile',{'construction':'Location scale'})
+        assert run('transformations_of',{'family':'Normal'})==[]
+
+
+def test_ownership_uses_declared_qualification_type_and_exact_scale(semantic_db_engine,semantic_writer_engine,semantic_reader_engine):
+    from decimal import Decimal
+    from corpus_structure.serve.protocol import QueryContext
+    q={'modality':'asserted','polarity':True}
+    interval={'kind':'validity_interval','start':{'kind':'partial_date','lexical':'2020-01-01'},'start_incl':True,'end':{'kind':'partial_date','lexical':'2020-12-31'},'end_incl':False}
+    entries=[('org','Organization','registry_id','Org101',q,'Qualification'),('org','Organization','label','Owner',q,'Qualification'),('asset','Asset','label','Asset X',q,'Qualification'),('org','Organization','owns','asset',{**q,'share':{'kind':'number','number':Decimal('0.5000')},'filing_ref':'filing-A','valid_time':interval},'ToyQualification')]
+    _,batch=install_pack(semantic_db_engine,semantic_writer_engine,'toy',entries)
+    registry=build_registry(GENERIC,Path(__file__).resolve().parents[4]/'domains/toy')
+    with read_session(semantic_reader_engine,'pack') as session:
+        ctx=QueryContext(0,session.connection)
+        ctx.__dict__['session']=session
+        query=registry['ownership_at']
+        def rows(at): return [p.row for p in query.rows(ctx,query.params.model_validate({'asset':'Asset X','date':at}))]
+        current=rows('2020-06-01')
+        assert len(current)==1 and current[0].applicability=='established'
+        assert current[0].claim.fact.qualification.share.number.as_tuple().exponent==-4
+        assert current[0].claim.fact.qualification.filing_ref=='filing-A'
+        assert rows('2020-12-31')[0].applicability=='not_applicable'

@@ -4,7 +4,7 @@ import base64
 from dataclasses import asdict
 from datetime import date, datetime
 from decimal import Decimal
-from hashlib import sha256
+from hashlib import file_digest
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -40,7 +40,9 @@ def export_packet(packet: CapturedPacket, destination: Path, *, format: Literal[
                     for batch in relation.to_batches(max_chunksize=1024):
                         for row in batch.to_pylist():
                             stream.write(json.dumps(row,default=_json,ensure_ascii=False,allow_nan=False,separators=(",",":"))+"\n")
-            manifest["relations"][name]={"file":path.name,"rows":relation.num_rows,"sha256":sha256(path.read_bytes()).hexdigest(),"arrow_schema":base64.b64encode(relation.schema.serialize().to_pybytes()).decode("ascii")}
+            with path.open("rb") as checksum:
+                digest=file_digest(checksum,"sha256").hexdigest()
+            manifest["relations"][name]={"file":path.name,"rows":relation.num_rows,"sha256":digest,"arrow_schema":base64.b64encode(relation.schema.serialize().to_pybytes()).decode("ascii")}
         (root/"manifest.json").write_text(json.dumps(manifest,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
         root.rename(destination)
     return manifest
