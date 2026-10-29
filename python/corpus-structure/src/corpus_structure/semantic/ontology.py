@@ -462,8 +462,11 @@ class QualifiedGraphProjection:
                 raise OntologyError("identity exclusion requires typed endpoint references")
             if left == right:
                 raise OntologyError("identity exclusion endpoints collapse")
-            if not row.get("evidence"):
-                raise OntologyError("identity exclusion needs evidence closure")
+            evidence = row.get("evidence")
+            if not isinstance(evidence, tuple | list) or not evidence or any(
+                not isinstance(item, QualifiedGraphReference) for item in evidence
+            ):
+                raise OntologyError("identity exclusion needs typed evidence closure")
         available = {**self.related_nodes, **assertions, **exclusions}
         if self.references.keys() - available.keys():
             raise OntologyError("reference source is outside projected node universe")
