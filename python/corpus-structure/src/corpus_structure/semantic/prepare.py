@@ -317,7 +317,7 @@ def prepare_release(
     profile: PreparationProfile = _DEFAULT_PROFILE,
 ) -> PreparedRelease:
     """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
-    if profile.version != "semantic-1":
+    if profile.version != "semantic-1" or profile.compiler_version != "1":
         _fail("profile", "profile", "unsupported profile", "unsupported")
     view = _view(bundle)
     supplied = {s.enum: s for s in dependencies.vocabularies}
@@ -425,6 +425,15 @@ def prepare_release(
                     "unsupported scalar cardinality",
                     "unsupported",
                 )
+            minimum_cardinality = slot.minimum_cardinality
+            if slot.required or slot.identifier:
+                minimum_cardinality = max(minimum_cardinality or 0, 1)
+            if (
+                minimum_cardinality is not None
+                and slot.maximum_cardinality is not None
+                and minimum_cardinality > slot.maximum_cardinality
+            ):
+                _fail("incompatible_cardinality", f"{name}/{sn}", "minimum exceeds maximum")
             low, high, patterns = _bounds(view, rng)
             if slot.minimum_value is not None:
                 low.append(Decimal(str(slot.minimum_value)))
@@ -440,7 +449,7 @@ def prepare_release(
                 rng,
                 bool(slot.required or slot.identifier or (slot.minimum_cardinality or 0) > 0),
                 bool(slot.multivalued),
-                slot.minimum_cardinality,
+                minimum_cardinality,
                 slot.maximum_cardinality,
                 str(max(low)) if low else None,
                 str(min(high)) if high else None,

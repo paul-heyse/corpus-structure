@@ -300,3 +300,15 @@ def test_explicit_import_closure_and_raw_manifest():
     assert other.iri == "https://example.org/base/Other"
     assert other.properties[0].iri == "https://example.org/base/name"
     assert ["base", base.digest] in json.loads(release.manifest)["sources"]
+
+
+def test_required_collection_is_nonempty_in_boundary_and_definition():
+    def update(d):
+        d["classes"]["Thing"]["attributes"]["label"] = {"multivalued": True, "required": True}
+
+    release = prepare_release(bundle(update))
+    with pytest.raises(ValidationError):
+        release.validate_json("Thing", '{"id":"A","label":[]}')
+    prop = next(p for p in release.definitions[0].properties if p.name == "label")
+    assert prop.minimum_cardinality == 1
+    release.validate_json("Thing", '{"id":"A","label":["value"]}')
