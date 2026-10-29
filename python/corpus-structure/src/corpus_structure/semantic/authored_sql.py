@@ -70,20 +70,21 @@ class _Inspect(Visitor):
     def __init__(self) -> None:
         super().__init__()
         self.functions: set[str] = set()
+        self.visit = self.inspect_node
 
-    def visit(self, ancestors: Any, node: Any) -> None:
+    def inspect_node(self, ancestors: Any, node: Any) -> None:
         kind = type(node).__name__
         if kind not in SAFE_NODES:
             raise SQLAdmissionError(f"unsupported authored SQL node {kind}", getattr(node, "location", None))
         if isinstance(node, ast.SelectStmt) and (node.intoClause or node.lockingClause):
             raise SQLAdmissionError("SELECT INTO and row locking are unsupported")
         if isinstance(node, ast.FuncCall):
-            name = tuple(n.sval for n in node.funcname)
+            name = tuple(n.sval for n in node.funcname or ())
             if len(name) != 2 or name[0] != "pg_catalog" or name[1] not in SAFE_FUNCTIONS:
                 raise SQLAdmissionError(f"unapproved function {'.'.join(name)}", node.location)
             self.functions.add(name[1])
         if isinstance(node, ast.TypeName):
-            name = tuple(n.sval for n in node.names)
+            name = tuple(n.sval for n in node.names or ())
             if len(name) == 1:
                 name = ("pg_catalog", *name)
             if len(name) != 2 or name[0] != "pg_catalog" or name[1] not in SAFE_TYPES:

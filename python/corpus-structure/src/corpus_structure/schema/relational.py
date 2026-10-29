@@ -615,6 +615,7 @@ def _compile_physical(view: View) -> MetaData:
             rng = str(slot.range or "string")
             declared = view.get_type(rng)
             sql_type = ci_annotations(declared).get("ph:sql_type")
+            typ: TypeEngine[Any]
             if sql_type is not None:
                 typ = physical_types[str(sql_type)]()
             elif rng == "integer":
@@ -626,7 +627,7 @@ def _compile_physical(view: View) -> MetaData:
             else:
                 raise ModelError([f"{name}.{slot.name}: unsupported physical range {rng}"])
             default = ci_annotations(slot).get("ph:default")
-            columns.append(Column(str(slot.name), typ, nullable=not slot.required,
+            columns.append(Column[Any](str(slot.name), typ, nullable=not slot.required,
                                   server_default=text(default) if default is not None else None))
         table = Table(str(name), md, *columns, schema=subsets[0], info={"model_class": str(name)})
         for key_name, key in cls.unique_keys.items():

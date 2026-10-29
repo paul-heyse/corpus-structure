@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from alembic import context
@@ -14,7 +15,7 @@ def include_name(name: str | None, type_: str, parent_names: Any) -> bool:
     return name in SCHEMAS if type_ == "schema" else True
 
 
-def applied(ctx: Any, step: Any, heads: set[str], run_args: dict[str, Any]) -> None:
+def applied(ctx: Any, step: Any, heads: Collection[Any], run_args: Mapping[str, Any]) -> None:
     context.config.attributes.setdefault("applied", []).append(
         {"revision": step.up_revision_id, "direction": "upgrade" if step.is_upgrade else "downgrade"}
     )
@@ -33,7 +34,7 @@ context.configure(
     include_name=include_name,
     compare_server_default=True,
     autogenerate_plugins=["alembic.autogenerate.*", "alembic.ext.checkconstraint_byname"],
-    on_version_apply=[applied],
+    on_version_apply=applied,
 )
 with context.begin_transaction():
     context.run_migrations()
