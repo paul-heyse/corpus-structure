@@ -296,4 +296,7 @@ def test_explicit_import_closure_and_raw_manifest():
     )
     release = prepare_release(SourceBundle(b.root, (*b.sources, base)))
     assert {d.name for d in release.definitions} == {"Thing", "Other"}
+    other = next(d for d in release.definitions if d.name == "Other")
+    assert other.iri == "https://example.org/base/Other"
+    assert other.properties[0].iri == "https://example.org/base/name"
     assert ["base", base.digest] in json.loads(release.manifest)["sources"]

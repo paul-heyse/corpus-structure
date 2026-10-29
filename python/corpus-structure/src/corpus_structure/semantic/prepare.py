@@ -204,6 +204,30 @@ def _view(bundle: SourceBundle) -> SchemaView:
                 if (kind, name) in elements:
                     _fail("definition_collision", source.name, f"duplicate {kind}/{name}")
                 elements[kind, name] = source.name
+        # Materialize source-relative semantic identifiers before flattening imports.
+        # A merged root's default_prefix must never relabel an imported declaration.
+        prefix = str(schema.default_prefix or schema.id)
+        for cls in cast(dict[str, Any], schema.classes or {}).values():
+            if cls.class_uri is None:
+                cls.class_uri = (
+                    f"{prefix}:{cls.name}" if schema.default_prefix else f"{schema.id}/{cls.name}"
+                )
+            for attr in cast(dict[str, Any], cls.attributes or {}).values():
+                if attr.range is None:
+                    attr.range = schema.default_range or "string"
+                if attr.slot_uri is None:
+                    attr.slot_uri = (
+                        f"{prefix}:{attr.name}"
+                        if schema.default_prefix
+                        else f"{schema.id}/{attr.name}"
+                    )
+        for slot in cast(dict[str, Any], schema.slots or {}).values():
+            if slot.range is None:
+                slot.range = schema.default_range or "string"
+            if slot.slot_uri is None:
+                slot.slot_uri = (
+                    f"{prefix}:{slot.name}" if schema.default_prefix else f"{schema.id}/{slot.name}"
+                )
         schemas[source.name] = schema
     names: set[str] = set()
     for key, schema in schemas.items():
