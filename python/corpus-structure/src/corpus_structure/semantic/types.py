@@ -8,7 +8,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
-SEMANTIC_COMPILER_VERSION = "3"  # normalized positive-rule products are release-bound
+SEMANTIC_COMPILER_VERSION = "4"  # rules, keyed collections and operation products are release-bound
 
 
 @dataclass(frozen=True)
