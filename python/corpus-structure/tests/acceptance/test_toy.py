@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
+from corpus_structure.core.values import NumberValue
 from corpus_structure.intervene.server import build_server
 from corpus_structure.intervene.service import Session
 from corpus_structure.intervene.testing import submit_batches
@@ -17,8 +18,16 @@ from corpus_structure.serve.journey import coverage, serve_query
 from corpus_structure.serve.protocol import Scope
 from corpus_structure.serve.queries import GENERIC
 from corpus_structure.serve.registry import build_registry
+from corpus_structure.serve.results import ClaimAnswer
 
 REPO = Path(__file__).resolve().parents[4]
+
+# Packs are loaded from their files, not installed Python packages. Give the checker the same
+# concrete row class while runtime uses the production plug-in import route.
+if TYPE_CHECKING:
+    from domains.toy.queries import OwnershipRow
+else:
+    OwnershipRow = build_registry(pack=REPO / "domains/toy")["ownership_at"].result
 
 
 def test_toy_pack_journey(committing_db: Any, tmp_path: Path) -> None:
@@ -75,21 +84,25 @@ def test_toy_pack_journey(committing_db: Any, tmp_path: Path) -> None:
         assert len({row[0] for row in organizations}) == 3
         all_claims = serve_query(conn, queries, "claims", {"predicate": "toy:owns",
             "include_candidates": True}, run=second.run_id, max_chars=1_000_000)
-        assert len(all_claims.rows) == 9, [(r["modality"], r["status"], r["qualifiers"])
-                                          for r in all_claims.rows]
-        reports = [row for row in all_claims.rows if row["modality"] == "toy:reported"]
-        assert len(reports) == 2 and len({row["attribution"]["key"] for row in reports}) == 2
-        ambiguous = [row for row in all_claims.rows if row["status"] == "ambiguous"]
+        claims = [ClaimAnswer.model_validate(row) for row in all_claims.rows]
+        assert len(claims) == 9, [(row.modality, row.status, row.qualifiers) for row in claims]
+        reports = [row for row in claims if row.modality == "toy:reported"]
+        assert len(reports) == 2
+        assert all(row.attribution is not None for row in reports)
+        assert len({row.attribution.key for row in reports if row.attribution is not None}) == 2
+        ambiguous = [row for row in claims if row.status == "ambiguous"]
         assert len(ambiguous) == 2
-        assert {row["qualifiers"]["toy:share"]["v"] for row in ambiguous} == {"0.5", "0.8"}
-        filing = [row for row in all_claims.rows if "toy:filing_ref" in row["qualifiers"]]
+        shares = [NumberValue.model_validate(row.qualifiers["toy:share"]) for row in ambiguous]
+        assert {share.v for share in shares} == {"0.5", "0.8"}
+        filing = [row for row in claims if "toy:filing_ref" in row.qualifiers]
         assert len(filing) == 1
-        assert all(row["evidence"] for row in all_claims.rows)
+        assert all(row.evidence for row in claims)
         result = serve_query(conn, queries, "ownership_at", {"asset": "P-17", "date": "2020-07-01"},
                              run=second.run_id, max_chars=1_000_000)
-        intervals = [row for row in result.rows if row["interval"] is not None]
-        assert {row["applicability"] for row in intervals} == {"established", "not_applicable"}
-        assert any(row["applicability"] == "unknown" for row in result.rows)
+        ownership = [OwnershipRow.model_validate(row) for row in result.rows]
+        intervals = [row for row in ownership if row.interval is not None]
+        assert {row.applicability for row in intervals} == {"established", "not_applicable"}
+        assert any(row.applicability == "unknown" for row in ownership)
         assert result.coverage.extracted == 2 and not result.coverage.partial
         # The notice has a stored kind but never receives an extraction task.
         task_keys = conn.execute(text("SELECT unit_key FROM ops.task WHERE run_id=:r "
