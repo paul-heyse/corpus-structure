@@ -20,7 +20,7 @@ from corpus_structure.semantic.proposals import (
 
 
 @cache
-def prepared():
+def prepared(*, composed=False):
     path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     domain = {
         "id": "https://example.org/domain",
@@ -43,6 +43,11 @@ def prepared():
             SourceArtifact("domain", yaml.safe_dump(domain).encode()),
         ),
     )
+    if composed:
+        from corpus_structure.semantic.composed import composed_dependencies
+        from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+        return prepare_release(proposal_inputs(source), composed_dependencies(ResolvedDependencies()),
+                               PreparationProfile(version="semantic-2"))
     return prepare_release(proposal_inputs(source))
 
 
@@ -298,3 +303,29 @@ def test_boundary_source_creation_does_not_generate_full_graph_artifacts(monkeyp
     agent = next(item for item in result.sources if item.name == "agent")
     vocabulary = yaml.safe_load(agent.content)["enums"]["AgentClassIRI"]["permissible_values"]
     assert "https://corpus-structure.dev/semantic/Entity" in vocabulary
+
+
+def test_identity_exclusions_locate_and_bind_endpoints():
+    release = prepared(composed=True)
+    proposal = batch()
+    proposal["entities"].append({"id": "q", "class_iri": "https://example.org/Person"})
+    proposal["identity_exclusions"] = [{
+        "id": "different", "left": {"kind": "local", "target": "p"},
+        "right": {"kind": "local", "target": "q"}, "reason": "distinct source people",
+        "evidence": [{"sentence": "s1", "quote": "Alice is here.", "role": "primary"}]}]
+    result = locate_proposal(release, proposal, frame())
+    assert result.clean
+    assert result.stored.identity_exclusions[0].evidence[0].outcome == "located"
+    proposal["identity_exclusions"][0]["right"]["target"] = "missing"
+    with pytest.raises(ProposalRefused, match="outside the bound packet"):
+        locate_proposal(release, proposal, frame())
+
+
+def test_identity_exclusions_require_composed_profile():
+    proposal = batch()
+    proposal["identity_exclusions"] = [{
+        "id": "different", "left": {"kind": "local", "target": "p"},
+        "right": {"kind": "known", "target": "known:other"}, "reason": "distinct",
+        "evidence": [{"sentence": "s1", "quote": "Alice is here.", "role": "primary"}]}]
+    with pytest.raises(ProposalRefused, match="semantic-2"):
+        locate_proposal(prepared(), proposal, frame())
