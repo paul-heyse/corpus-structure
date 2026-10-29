@@ -1,6 +1,6 @@
 # Domain operations and producer integration
 
-**Status:** SP-06/SP-07 implemented and scoped Tested for the supported profile, including identity exclusions (2026-10-29) · **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Consumes O04/O05 and the [semantic binding](semantic-model-and-releases.md), [publisher](postgresql-and-publication.md) and [Arrow kernels](interchange-and-analytics.md).
+**Status:** SP-06/SP-07 substantially implemented; full binding/operation-contract adoption partial; prior scoped Tested evidence retained (completion audit below) · **Created/Revised:** 2026-10-29.
 
 ## Completeness extension and remaining execution
 
@@ -182,28 +182,43 @@ Sources: [review O04](../../functional_reviews/semantic-postgresql-model_2026-10
 
 ## Completion audit (2026-10-29)
 
-**Implemented and scoped Tested for SP-06/SP-07's supported profile.** Inspection covers the
-original source/producer/settings, scientific/consolidation and qualified-inference obligations,
-the SP-C consumer adoption, and the explicitly selected exclusions. Current source is compiler 9,
-semantic-domain-2, analytical-4 and frozen migration semantic_0027. Existing source reports,
-entity_source/entity_input and protected publisher remain the owners of provenance and effects.
+**Substantially implemented; full SP-06/SP-07 delivery is partial at `ad4593f`.** This current
+assessment replaces the earlier bounded conclusion. Prior passing profiles and exclusion/source/
+science/proof receipts retain their scope; the [series audit](../semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
+owns current findings. CA-01/CA-02/CA-04 affect already-transitioned work and cannot all be deferred
+to SP-08. Model governance targets zero disconnected behavior; no exception is presumed necessary.
 
-Identity exclusions now reach actual automated MCP source submission, grounded endpoint property
-occurrences, native publication, immutable results, snapshot readers, explanation, qualified RDF
-and Arrow/DuckDB. Mandatory-key contradictions refuse atomically while preserving source/cut.
-Inherited constraints follow participating bound-input endpoints. Source identifiers with pattern
-characters remain literal. Pair comparison is unordered; original left/right declaration orientation
-is retained for exact source comparison. Unlocated reports do not acquire authority.
+| Accepted item | Current determination and evidence |
+|---|---|
+| SP-06 original bytes, rendition/provider/configuration and locators | Implemented separate document/rendition/build/segment/source custody in `semantic/operations.py:464–620` and actual indexed acquisition in project initialization. |
+| Shared release schema, term memberships and source frame | Substantially implemented proposal and deterministic boundaries; literal statement member/range predicates remain CA-01. |
+| Every admitted class/property usable without new extractor branches | Dynamic proposal vocabulary implemented; valid explicit statement subtypes still fail current native/source-synthesis paths (CA-01). |
+| Registry/run/task/packet/validation/observation/seal/completion and actual CLI/MCP migration | Current routes use semantic bindings and protected operations. Integrated delivery remains partial under CA-01/CA-02/CA-04, despite source readiness and terminal agent tasks. |
+| Immutable source/configuration/release/input/operation dependencies and reuse | Implemented complete binding comparison, with independent changed-policy/same-bytes rejection cases in `test_operations.py`. Retry changes the attempt; fresh invocation changes source observation identity. |
+| Cancellation, stale attempt, interruption and late completion | Implemented native run/task locking, holder/attempt/lease fences, exact receipt replay and durable held evidence. |
+| Source success distinct from scientific acceptance; no extraction activation | Implemented typed source reports/coverage, held/refused content and separate release activation. Source observations do not write scientific truth directly. |
+| Remove installed upcaster/old key dispatch in migrated routes; preserve parsers/bulk evidence | Current bound paths use the release. Useful HTML5/CSS/Lark/spaCy/regex/math algorithms remain. Dormant legacy DB writers/projections are separate explicit retirement work (CA-07), not a demonstrated current producer bypass. |
+| Settings precedence, one root, nested validation, no implicit extra sources | Implemented constructor > CORPUS environment > defaults, frozen sections, no dotenv/secrets-directory source and entrypoint resolution. |
+| Method configuration semantics, secret masking and unknown environment diagnostics | Implemented whole top-level configuration replacement and environment-independent registry; secrets are masked and nonsecret result-affecting configuration is bound. |
+| Environment cannot reinterpret existing runs; settings acceptance | Immutable implementation is present. Mid-run environment-change evidence is unaccounted for; settle cross-field-test applicability without inventing an invariant (CA-09). |
+| Automated extraction, grading and adjudication; no regrading | Preserved. An independently authored input file is not a human-grading requirement. This audit neither changes grades nor evaluates extraction accuracy. |
+| SP-07 occurrence→fact/support→selection/assessment and repeated sources/items | Implemented separate source-item identity, canonical fact grouping, support and contextual selections; source reports/conflicts are retained. |
+| Declared keys, eligible cannot-links, indirect label partition and contradictions | Implemented deterministic resolution, native source/input/evidence custody, exact literal identifiers and atomic mandatory-key refusal. No scored fuzzy merge or ontology-driven unconditional identity merge was introduced. |
+| Nested/n-ary values, order/multiplicity, unresolved references and shared structural enforcement | General lowering implemented; statement subtype/range and accepted-only conditional boundary issues remain CA-01/CA-02. |
+| Explicit numerical/symbolic policy, frozen context, undecided outcomes and functional properties | Implemented owned algorithms and released rules; distinct scientific operation alternatives/enforcement composition remain CA-04. |
+| Positive eligible hierarchy/inverse/symmetric/transitive inference | Implemented supported binary profile using positive source-grounded asserted/defined seeds; negative/supposition inputs remain represented without becoming seeds. |
+| Context compatibility, finite closure, direct proofs, multiple supports and cycles | Implemented semantic-key fixed point and protected direct-proof/grounding validation, with independent cycle/negative/context cases. No negation-as-failure or enumerated proof-path growth is introduced. |
+| New evaluated realization for changed rules/supports, atomic source/proof/finish and replay | Implemented immutable recomputation and one retry/transaction owner; matching completed replay precedes mutable-input checks. Actual valid statement completion remains partial. |
+| Explanation through source/input lineage, alternatives, assessments and direct premises | Implemented readers; the complete source-to-explanation journey remains affected by CA-01. |
+| Execution fit and existing local timing claim | Pure preparation/cache/native canonicalization and relational/columnar kernels remove identified repeated work. Reported 98.381 s/2.686 s figures retain only their local experiment scope; missing finalized record hashes remain an evidence limitation in CA-10, not a system speed claim. |
 
-Independent cross-component reviews examined domain/native implementation separately from their
-authors and found no remaining material gap after custody/path corrections. A fresh additional
-reviewer could not launch because of the runtime's agent-thread limit; the existing reader/domain
-workers supplied crossing reviews. Root reconciled the original obligation union and integration.
-This assessment does not claim whole-series or external model-quality qualification. Confidence
-fitting and scored merge/split systems were not implemented features requiring migration here.
-
-The coordinator §11 owns exact commands, failed receipts, passing affected reruns and next work.
-No product test/type repetition follows lint-only maintenance. SP-08 remaining consumers, SP-09
-regeneration/default cutover and SP-10 assembled qualification remain open; these are not missing
-SP-06/SP-07 implementation. The operational database remains semantic_0005. No prior result was
-regraded; extraction, grading and adjudication remain automated without human input.
+The catalog operations `construct_project`, `start_run`, `configure_method`, `schedule`, `claim`,
+`renew_claim`, `release_claim`, `complete`, `complete_unit`, `capture_cut`, `end_run`,
+`register_document`, `read_original`, `store_rendition`, `read_rendition`, `bind_report`,
+`make_packet`, `assemble`, `derive`, `publish_inference` and `resolve_identity` have substantive
+model-consuming routes. `execute_source`, `hold_submission`, `check_submission` and
+`scientific_policy` have the result/enforcer mismatches in CA-04; `evaluate` is integrated but
+partial at the statement/conditional seams. Raw read return/error correspondence also remains
+within CA-04's finite result accounting. The realization audit explains these boundaries.
+Iterative Core fixed-point inference is a justified equivalent realization of the planned recursive
+closure; it preserves finite identity, qualified eligibility and compact direct proofs.

@@ -1,8 +1,8 @@
 # Interchange and analytical execution
 
-**Status:** SP-05 implemented within the scoped boundary below. **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O06; supplies SP-07 consolidation and SP-08 exports/evaluation. Depends on [semantic contracts](semantic-model-and-releases.md) and [PostgreSQL/Core](postgresql-and-publication.md).
+**Status:** SP-05 implemented within its declared profile; SP-C05 graph/model correspondence and assembled qualification remain open (completion audit below) · **Created/Revised:** 2026-10-29.
 
-## Completeness extension (planned)
+## Completeness contracts and current obligations
 
 The scoped SP-05 implementation and receipts below remain the baseline. Added work is owned by
 [SP-C05](domain-model-realization.md#SP-C05), using [SP-C01/SP-C02](domain-model-completeness.md)
@@ -114,3 +114,37 @@ explicit dbc-installed driver paths are exercised. Source snapshots close before
 Earlier invalid numeric-only-integer fixtures were rejected by existing native constraints;
 those constraints were preserved. Initial formatting/typing and boundary failures were corrected
 and affected checks rerun, without giving failed results acceptance credit.
+
+## Completion audit (2026-10-29)
+
+**SP-05 implemented within its declared profile at `ad4593f`; whole-series and SP-C05 graph
+closure remain open.** The [series audit](../semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
+owns CA-03/CA-05/CA-06 and qualification. Handwritten kernels remain valid implementations when
+their actual semantics are connected to the model; no disconnected exception is adopted.
+
+| Accepted item | Current determination and evidence |
+|---|---|
+| Compiled operation-shaped Arrow relations and paired Core selections | Implemented shared physical/release/profile mappings in `semantic/analytics.py`; no separately editable Arrow semantic catalog. |
+| Integers/decimals/units/time/missing states, nested references and ordered roles | Implemented exact lexical/kind/role columns beside explicit bounded native projections. DECIMAL(38,scale), HALF_EVEN, exact quotient and overflow/refusal behavior remain the admitted profile, not silent float conversion. |
+| One coherent PostgreSQL snapshot across Core/ADBC | Implemented exported/imported snapshot and owned capture; actual mutable rows do not cross unrelated timestamp-only reads. Both bundled and explicit dbc-driver paths have scoped native receipts. |
+| Materialization or streaming with real lifetime ownership | Implemented capture materialization before source close and an owned operation scope for readers/registrations/child cursors/scratch. No promise of universal streaming was made. |
+| Filters/joins, complete analysis universe and set kernels | Implemented selected fusion/disagreement/alias/ViewSpec kernels and deterministic observable behavior. Full-realization capture is the documented initial route; it preserves context but makes no selective-load performance claim. |
+| Metadata-loss normalization and actual row-scope checks | Implemented known compiled output restoration with schema/nullability/row identity validation; copied tags cannot authorize a different result. |
+| Protected Arrow publication, pgpq schema and one transaction/retry owner | Implemented fixed publisher staging and same-driver COPY; arbitrary admitted-table Arrow writes are retired. Ordinary evidence persistence retains its proper owner. |
+| Append/derived intent, exact source fence, stale analysis and immutable replay | Implemented explicit types and protected native checks; stale computation requires recomputation while matching completed replay returns its original receipt. |
+| Borrowed/detached coexistence, cancellation and cleanup failures | Implemented owned connections/readers, borrowed-handle refusal after close, detached survival, all-resource teardown and preserved cancellation/failures. |
+| Independent exact-boundary/native/DuckDB/publication controls | Existing analytics/Arrow tests and native snapshot/pgpq/replay/cancel receipts retain scope. Round trips alone are not treated as semantic correctness evidence. |
+| Graph/read/analytical projection contracts reach current consumers | Analytical types and compilation consume named contracts; graph ID resolution and named-query coverage remain CA-05/CA-03. Maintained model/implementation correspondence is CA-06. |
+
+Catalog `compile_projection` consumes the archived execution projection and release arithmetic;
+`capture_analytics` consumes that mapping and an actual shared snapshot; `open_analysis` checks
+captured/candidate provenance/schema/rows; `close_analysis` owns the actual lifetime; and
+`publish_arrow` consumes explicit intent and native fences. These routes are substantively
+connected. Hashing descriptive contract fields alone does not independently establish every
+lowering property. `graph_project`/`graph_validate` implement qualified closure/conformance but
+currently accept an unresolved caller-supplied projection ID (CA-05).
+
+The full normalized capture and retained pure scientific algorithms are reasoned bounded choices,
+not missing federation/DataFusion capabilities. DataFusion, alternative graph stores and
+linkml-map have no unfulfilled installation mandate. No throughput/capacity benefit was measured
+by this audit.

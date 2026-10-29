@@ -1,6 +1,6 @@
 # Complete domain-model realization in transitioned operations
 
-**Status:** Implemented for transitioned supported scope; scoped Tested, 2026-10-29 · **Created:** 2026-10-29.
+**Status:** SP-C03/SP-C04/SP-C05 substantially implemented; required current behavioral/graph closure partial (completion audit below) · **Created/Revised:** 2026-10-29.
 [Coordinator](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
 owns current state, queue and opportunity disposition. This document owns SP-C03–SP-C05 and
 consumes [SP-C01/SP-C02 contracts](domain-model-completeness.md).
@@ -272,3 +272,61 @@ retain their existing meaning. Grading/adjudication remain automated; no prior r
 The coordinator §10 owns exact passing, failed and superseding receipts. Native checks used owned
 fresh databases. The operational database remains at `semantic_0005`; no default deployment,
 cutover or enclosing SP-10 qualification occurred.
+
+## Completion audit (2026-10-29)
+
+**Substantial realization; current SP-C03/SP-C04/SP-C05 closure is partial at `ad4593f`.**
+Existing scoped passing receipts stand. The [series audit](../semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
+owns CA-01–CA-06 and the combined current conclusion. This corrects unconditional earlier
+current-consumer closure; dated implementation receipts are not new qualification.
+
+| Accepted item | Current determination and evidence |
+|---|---|
+| SP-C03 compatible archive/activation, empty construction and immutable bindings | Mechanisms implemented; explicit statement operation meaning at admission remains CA-01. Existing project/release/input relationships are not rebound. |
+| Typed method/unit/configuration and initial task/reuse/skipped construction | Implemented native method contract and guarded scheduling with reasons; actual configured dependencies govern reuse. |
+| Claim/reclaim/lease/holder/attempt and held progress | Implemented atomic selection, ownership, renewal/release and durable held diagnostics. Actual hold helper/result contract mismatch remains CA-04. |
+| Source completion, terminal effects and measurements | Protected effects implemented; valid dynamic statement publication remains CA-01 and source synthesis remains within that finding. |
+| Nonfinal/final cuts, effective origins and sealing barrier | Implemented native cut selection and terminal-source barrier. Source readiness is not completed scientific output; its contract must say so (CA-04). |
+| Coordinated fail/cancel and stale/late completion denial | Implemented locking, terminal immutability and retained held/diagnostic state. |
+| Publish/finish/result relationship and exact replay | Atomic source/proof/result transaction and replay-before-mutable-input checks implemented; valid statement journey remains partial. |
+| Finite allowed edges/shared owner and frozen native projection | All 38 modeled ordinary edges match current frozen tuples. Retained model-to-projection comparison/regeneration remains CA-06; body attestation is not that comparison. No actual edge drift is alleged. |
+| One protected SERIALIZABLE/retry/receipt owner and restricted writers | Implemented; no parallel workflow/state service or validation-flag bypass was found in current routes. |
+| SP-C04 distinct protocol/submission/source/semantic/scientific/query outcomes | Distinctions and source→semantic conversion implemented, including unknown/unsupported→unanalysed with reason/capability. Three operation/result alternative mismatches remain CA-04. |
+| Refused content versus failed transport and missing knowledge | Implemented source report/coverage semantics. Named serving can still assert false absence under CA-03, so the complete consumer contract is not closed. |
+| Existing measurement relationships and duplicate bag members | Implemented typed metric/source/operation bindings and protected set-based materialization; source positions preserve multiplicity. No new metrics or truth inference were added. |
+| Typed assessments, counterparts/context/tier and compact alternatives | Implemented fields/FKs/guards and unordered-distinct group identity; reasons stay provenance. Scientific operation alternatives remain CA-04. |
+| Source placement, identity, exact numerical/symbolic policy and qualified inference | General algorithms are connected to bound inputs/rules/context; literal statement range/member assumptions remain CA-01. Finite grounded proofs retain their independent controls. |
+| Existing source/agent/consolidation/inference/explanation adoption | Partial, not work that can all be reassigned to SP-08. CA-01/CA-02/CA-04 affect the already-transitioned path. |
+| SP-C05 named graph contract, closure, qualified duplicates and positional collections | Closure/reification mechanisms implemented; the public graph projection accepts a nonempty caller-supplied ID without resolving the declared graph contract (CA-05). |
+| SHACL settings and PostgreSQL authority | Implemented RDFLib baseline, inference/imports/mutation disabled and scoped supplied/core shapes. Graph conformance does not authorize native transitions. |
+| Captured/candidate provenance and explicit analysis universe | Implemented distinct DTOs and actual snapshot/cut use; neither copied metadata nor output focus fabricates provenance. |
+| Append/snapshot-derived publication and replay/stale revision | Implemented disjoint intents, mandatory source/operation/projection fence and recompute-required, preserving exact completed replay. |
+| Exact analytical arithmetic, borrowed/detached values and all-resource cleanup | Implemented selected DECIMAL(38,scale)/HALF_EVEN boundary, exact lexical preservation, lifetime guards, child-resource cleanup and cancellation settlement. |
+| Optional graph/mapping/representation investigations | Delivered dispositions: RDFLib/owned projections retained, cattrs selected; no current consumer required other candidate backends/libraries. No missing installation is inferred. |
+
+### Actual operation coupling
+
+The catalog's ordinary operation implementations remain concrete functions, not a generic
+interpreter. Their behavior was traced beyond `owner:symbol` declarations:
+
+- Construction/method/scheduling/claim/renew/release/end-run consume immutable bindings and native
+  lifecycle predicates; register/read-original/store/read-rendition consume typed source custody.
+- Completion/bind-report consume actual result/report/measurement contracts and protected effects.
+  `hold_submission` is partial under CA-04: the bound helper returns `proceed`, while its catalog
+  alternatives describe a different submission stage.
+- `make_packet` and `check_submission` consume archived boundary models, exact frame/read obligations
+  and attempt ownership. `assemble`/`resolve_identity` consume release properties, scoped references,
+  keys and eligible evidence-backed exclusions; CA-01 remains at source statement applicability.
+- `execute_source` is partial under CA-04: the bound implementation returns a readiness report while
+  the catalog names completed task results. `evaluate` consumes the cut/binding and publishes
+  atomically but remains partial under CA-01/CA-02. `scientific_policy` consumes released rules and
+  exact context, but emits assessment alternatives not declared by its operation (CA-04).
+- `derive` and `publish_inference` consume declared eligible rules/context and native source-grounded
+  direct proofs. Iterative Core fixed-point insertion is a justified replacement for a recursive
+  CTE: finite semantic identity and compact proofs retain the promised closure/termination.
+- Graph/read/analytical/reference operation accounts are in the consumer and analytics owners.
+  Hashing a projection description or resolving a function name does not by itself settle parity.
+
+No disconnected-behavior exception is accepted. Current safeguards and independent tests remain
+useful; CA-06 carries the model-centered detection/remediation work without prescribing the later
+CLI/code-generation mechanism or adding a universal behavior interpreter.

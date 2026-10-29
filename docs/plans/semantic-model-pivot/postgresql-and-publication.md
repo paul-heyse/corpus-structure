@@ -1,8 +1,8 @@
 # PostgreSQL schema model and Core execution
 
-**Status:** Implemented within the native profile below; final integrated checks recorded by the [coordinator](../semantic-model-pivot_2026-10-29.md). **Created:** 2026-10-29. Consumes O03 and the [semantic contracts](semantic-model-and-releases.md). Supplies native persistence, publication and relational access to later consumers.
+**Status:** SP-02/SP-03 native foundation implemented with retained scoped evidence; current semantic admission/source publication closure is partial (completion audit below) · **Created/Revised:** 2026-10-29.
 
-## Completeness extension (planned)
+## Completeness contracts and current obligations
 
 Existing SP-02/SP-03 metadata, archive, privilege and publisher receipts remain intact. New logical
 contracts are owned by [SP-C01/SP-C02](domain-model-completeness.md); their native lifecycle and
@@ -173,3 +173,35 @@ Sources: [pglast overview §§2,5,7](../../libraries/pglast.md), [Visitor implem
 SP-02 supplies shared Table/Column objects and binding-to-registry mappings. SP-03 exposes a typed batch publication operation; no caller receives generic admitted-table write access. SP-04 composes selections directly from those objects. Deploy changed functions through reviewed explicit Alembic operations; autogenerate compares physical metadata but cannot infer semantic intent. Specialized SQL has located diagnostics and explicit supported bindings; it is not a replacement for Core composition.
 
 Sources: [SQLAlchemy overview §§2–4,8–9](../../libraries/sqlalchemy.md), [MetaData](https://docs.sqlalchemy.org/en/21/core/metadata.html), [selectables](https://docs.sqlalchemy.org/en/21/core/selectable.html), [constraints](https://docs.sqlalchemy.org/en/21/core/constraints.html), [connections](https://docs.sqlalchemy.org/en/21/core/connections.html), [psycopg COPY](https://www.psycopg.org/psycopg3/docs/basic/copy.html), [Alembic autogeneration](https://alembic.sqlalchemy.org/en/latest/autogenerate.html). Current documentation/Context7 was consulted 2026-10-29; exact-pin behavior is verified by SP-00 and native package checks, not inferred from a documentation version.
+
+## Completion audit (2026-10-29)
+
+**Source-inspected at `ad4593f`; native foundation receipts retained. SP-02/SP-03 are partial at
+the current semantic-admission/source-publication boundary.** The
+[series audit](../semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
+owns CA-01/CA-02/CA-06/CA-11 and the combined qualification judgment.
+
+| Accepted item | Current determination and evidence |
+|---|---|
+| One LinkML physical projection and shared Core MetaData | Implemented: `semantic/metadata.py` lowers `model/semantic/physical.yaml` through the shared relational compiler; definitions are registry rows, not runtime tables per class. Scoped composite FKs, typed values/roles and indexes are present. |
+| Fresh isolated Alembic history, shared connection, explicit routines/grants and physical evolution | Implemented through frozen semantic_0030. Migration functions use the caller's connection; unsafe destructive downgrade refuses. Ordinary domain additions do not change the migration head. |
+| Exact immutable archive, idempotent persistence and conflicting-byte refusal | Implemented in `semantic/releases.py:295–388`: exact inputs/products and registry projections are compared under a savepoint. No current-model reinterpretation or historical upcaster is required. |
+| Offline reconstruction, compiler/library identity and corruption detection | Implemented in `semantic/releases.py:391–470`: archived inputs are recompiled and every artifact/projection compared. This reproduces compiler semantics; it does not independently validate their correctness. |
+| Parent/generation activation, ABA/races, rollback and pinned existing work | CAS/transaction behavior implemented. Admission meaning is partial under CA-01: an explicit invalid operation binding can activate and a valid subtype can fail later native publication. |
+| Authored SQL AST/dependencies, exact bytes and restricted catalog analysis | Implemented bounded SELECT route: pglast parsing/CTE-aware dependencies plus actual PostgreSQL restricted-reader analysis, explicit refusal and archived SQL admission. No arbitrary SELECT safety claim or general semantic analyzer. |
+| One psycopg pool/SQLAlchemy NullPool, Core execution and transaction owner | Implemented in store/runtime/publication. Core retains expressions and owns SERIALIZABLE; typed psycopg COPY borrows the same driver connection. Administration is an explicit separate bootstrap route. |
+| Protected staging, real principals, catalog identity, grants and safe resolution | Implemented mechanisms: publisher-owned fixed staging, payload INSERT only, body/ABI/owner/trigger/privilege checks and no caller validation bypass. CA-06 distinguishes deployment attestation from behavioral correspondence. |
+| Ranges, hierarchy, scoped applicability, cardinality and identity | Generic native validation consumes release rows. Source-statement applicability is partial under CA-01; pattern and occurrence/context profile promises remain CA-11. Native conditional placement is scoped correctly; Python disagreement is CA-02. |
+| Preserve source conflicts, report values, recursive references, qualification and selections | Implemented general mechanisms: distinct occurrence reports survive fact fusion/selection changes; native value trees and existing fact meanings are immutable. |
+| Atomic batch, revision and receipt; rollback and exact replay | Implemented protected publication and independent identity/replay controls. A pre-COMMIT response is not a committed receipt. |
+| Serialization/deadlock retry, interrupted/ambiguous commit and same batch identity | Implemented one whole-transaction retry/lookup owner; no external ontology/model call occurs inside publication. Existing native failure receipts retain their scope. |
+| Required actual native writer/reader/COPY acceptance | Recorded bounded passes remain in coordinator §8 and later affected selections. They are not a new whole-series pass or proof that every current operation meaning is admitted. |
+
+Catalog operations are behaviorally connected as follows: `archive` derives and compares archived
+products from exact definitions; `reload` reconstructs and compares them; both are implemented for
+their responsibilities. `activate` consumes reload/SQL/native admission before CAS, `publish`
+consumes release rows through protected transport, and `admit` inspects actual deployment and
+release constraints; these are **partial overall** because of CA-01/CA-02, while their archive,
+transaction and generic enforcement mechanisms retain scoped credit. No handwritten-kernel
+exception is accepted. Forward native changes remain required; the evidence-only 0031 draft is
+not an active migration or accepted correction.

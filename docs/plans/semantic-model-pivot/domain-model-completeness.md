@@ -1,6 +1,6 @@
 # Complete domain model and executable contracts
 
-**Status:** SP-C01/SP-C02 implemented; supported admission closure scoped Tested, 2026-10-29 · **Created:** 2026-10-29.
+**Status:** SP-C01 definitions/products implemented; effective behavioral and SP-C02 admission/lowering closure partial (completion audit below) · **Created/Revised:** 2026-10-29.
 [Coordinator](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
 owns current package state, queue and opportunity disposition. This document owns SP-C01/SP-C02
 and the shared definitions consumed by [realization](domain-model-realization.md).
@@ -263,3 +263,40 @@ retains concrete runtime/library choices. Coordinator §10 owns receipts and opp
 Earlier compiler-7 receipts retain their original boundary; they are not relabeled as compiler-8
 results. Operational bootstrap/default selection remains unchanged. SP-08–SP-10 retain later
 adoption, regeneration/cutover and assembled qualification.
+
+## Completion audit (2026-10-29)
+
+**Definitions and contract products are implemented; full behavioral/admission closure is
+partial at `ad4593f`.** The [series audit](../semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
+owns the current finding dispositions. Catalog counts describe an inventory, not completion.
+
+The clarified target is complete model governance with **zero disconnected behavior**. An
+ordinary implementation can remain handwritten, but its actual applicability, typed inputs and
+outcomes, invariants, effects and dependencies must be connected to the authoritative model.
+Implementation-name registration or an attested function body alone does not establish that
+connection. No exception class or diagnostic-only substitute for a missing connection is adopted.
+Model-centered identification and remediation of divergence remain part of reaching that target;
+the CLI/code-generation mechanism is later design work, not implemented by this audit.
+
+| Accepted item | Current determination and evidence |
+|---|---|
+| SP-C01 complete conceptual families and typed companion | Definitions implemented in contracts/execution-model LinkML: interpretation, source/execution, measurement, cut/result, knowledge, decisions, coverage and analytics. New reference concepts are included. Runtime adoption remains independently assessed. |
+| Relationship endpoint roles, scope/cardinality, identity, qualification, ordering and unresolved authorization | Definitions and cross-reference validation implemented in `semantic/contracts.py:418–490`; general physical/query/graph realizations preserve these distinctions. Explicit statement binding remains CA-01. |
+| Independent composed states, allowed transitions and typed outcome domains | Definitions implemented. All 38 ordinary finite transition tuples match the frozen native projection at this baseline; two reference lifecycle edges use protected reference routines. Operation result mismatches remain CA-04 and maintained correspondence CA-06. |
+| Trusted execution versus release-authored scientific/domain policy | Implemented separation and immutable composed identities; domain data cannot install privileged code. This separation does not permit an unconnected predicate in either scope. |
+| Every material operation has a resolved, effective contract and implementation | Partial: approved imported callables and catalog cross-references resolve, but CA-01 and CA-04 show actual applicability/result disagreement. All 49 current catalog operations received a source-level coupling account in the audit; the name inventory is not itself assurance. |
+| Completed-result relationship defines sealing/writability; no duplicate mutable seal authority | Implemented native completed-output and deferred atomic-result protections, preserving independent run/task/source dimensions. |
+| SP-C02 normalized immutable descriptors and strict boundary products | Implemented substantial products; CA-02 applies accepted-only conditional rules to submitted Python objects. CA-04 has actual result types/outcomes that differ from declarations. |
+| Exact archive of authored/derived execution products and deliberate compiler identity | Implemented archive2/composed products, compiler 10/execution compiler 2 and exact reload comparisons. Older unsupported compiler products refuse instead of changing meaning. |
+| Settings and cache cannot replace policy/authorization | Implemented separation; settings acceptance accounting remains CA-09. Pure caches do not cache current database state or privileges. |
+| Required implementation/lowering and native/graph enforcement before activation | Partial under CA-01/CA-02/CA-05/CA-06: real deployment/capability checks exist, but they do not resolve all behavioral correspondence. Preparation alone is not admission closure. |
+| Finite LinkML conditional lowering investigation | Delivered supported grammar and explicit refusals. The accepted-value scope discrepancy is a concrete incomplete lowering, not justification for removing that construct. |
+| Consumer adoption, old binding preservation and conditional/relational demonstration | Existing composed/native/graph journeys retain their scoped credit. Current full adoption is partial; the fresh statement run fails and additional source-established gaps remain. |
+| Proactive model-centered identification/remediation of disconnected behavior | Remaining completion work under CA-06, explicitly clarified during this audit. Existing unresolved-reference, capability, archive and native-drift diagnostics are useful but do not close actual predicate/result parity. No universal interpreter, proof engine or new generic alignment gate is required. |
+
+For the six model/persistence operation routes: `prepare`, `activate`, `admit` and `publish`
+consume real model products but remain partial at the identified seams; `archive` and `reload`
+are implemented for exact preservation/reconstruction. Other operation accounts are owned by
+realization and consumer sections. cattrs is a strict frozen-product adapter; LinkML/Pydantic
+remain semantic/ingress owners. attrs/msgspec, linkml-map, alternate graph stores and
+LinkML-Datalog remain reasoned candidate/deferred choices, not missing dependencies.

@@ -1,8 +1,8 @@
 # Semantic queries and consuming interfaces
 
-**Status:** SP-04 implemented within the scoped boundary below; SP-08 consumer implementation and scoped checks landed; native model-binding correction and integrated acceptance remain open (coordinator §12). **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O05 and consumes SP-01 meanings, SP-03 publication and SP-05/SP-07 outputs as needed.
+**Status:** SP-04 primitive implementation retained; SP-08 partial under native statement, named coverage and operation-contract gaps (completion audit below) · **Created/Revised:** 2026-10-29.
 
-## Completeness extension (planned)
+## Completeness contracts and current obligations
 
 The implemented SP-04 profile remains intact. [SP-C04](domain-model-realization.md#SP-C04) adds typed
 decision/outcome relationships to current explanation; [SP-C05](domain-model-realization.md#SP-C05)
@@ -101,3 +101,41 @@ an unapplied ancestor-only draft does not discharge this obligation. The
 [coordinator §12](../semantic-model-pivot_2026-10-29.md#12-sp-08sp-10-implementation-checkpoint-2026-10-29)
 owns receipts, remaining work and O07 disposition. Neither consumer implementation nor focused
 passing checks establish complete package/series acceptance.
+
+## Completion audit (2026-10-29)
+
+**SP-04 primitive implementation is retained; SP-08 is partial at `ad4593f`.**
+The [series audit](../semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
+owns CA-01/CA-03/CA-04/CA-05/CA-06 and overall qualification.
+
+| Accepted item | Current determination and evidence |
+|---|---|
+| SP-04 dynamic release handles and occurrence/fact/accepted Core selections | Implemented in `semantic/query.py:363–487`; declarations become registry-backed handles without per-class DDL/Python. |
+| Strict result mapping, exact qualification/value types and nested/unresolved endpoints | Implemented paired execution/adapters and batched reconstruction; repeated report identity survives. No copied metadata is treated as validation. |
+| One read-only snapshot, one interpretation load and bound continuation | Implemented read sessions and named completed-result context. Tokens pin query/parameters/order/release/realization/revision/profile; active-pointer changes do not rebind them. |
+| Coverage, unknown versus absence and required universe | Primitive requires the selected coverage-scope witness. Named serving is partial under CA-03: it can infer absence from complete coverage of only some requested members. |
+| Same-snapshot source/derived explanation | Implemented custody, support, input lineage, assessments, alternative groups and direct rule/premise readers. |
+| SP-04 independent actual native acceptance | Existing `test_query.py` and dated native receipts retain bounded credit; no new run or current whole-series proof is claimed. |
+| SP-08 all existing serving/protocol/registry/reader/generic routes | Migrated to semantic completed-result bindings; current route correctness is partial under CA-03. |
+| Statistics/toy named algorithms and selective/batched access | Implemented retained Core predicates/batched hydration, exact temporal/ownership meaning and dynamic qualification types. Existing four-hop statistics behavior is baseline behavior, not newly narrowed scope. |
+| CLI query/explain/schema/db/export and MCP dispatch | Existing implemented routes migrated. MCP queue/read/submit/release/direction capabilities are connected; fresh statement publication remains CA-01. |
+| Agent packet/read/attempt/submission and intervention effects | Existing composed caller and native boundary enforce them. Catalog check/hold enforcing/result declarations do not describe that composition faithfully (CA-04). |
+| Protected references, independent passes/frames/items/grades and split policy | Implemented immutable native evaluator boundary, separate credentials on one endpoint, archived source/release and exact pass-C/frame snapshots. Extraction/consolidation do not read reference answers. |
+| Alignment/equivalence/scoring/agreement and declared nested reference roles | Implemented release-derived class/property/reference traversal, strict identity, symbolic/numeric undecided results, premise aliases and conflict groups. No accuracy threshold or regrade is introduced. |
+| Current golden/evaluation usability | Existing CLI split/create/status/submit and eval routes support automated authored inputs and protected grading. No human grading requirement was found. |
+| Qualified exports, manifest/context and atomic directory completion | Implemented full normalized JSONL/Parquet projection with binding/profile/schema/hash information; cancellation preserves destination atomicity. |
+| Authored SQL, settings/configuration and indexed access ownership | Existing SP-02 restricted admission and SP-06 settings ownership retained; ordinary queries remain Core expressions and do not acquire a second semantic parser/catalog. |
+| Full consumer/refusal/cancellation/release-change acceptance union | Existing scoped controls and actual statistics/transfer outputs retain credit. CA-01/CA-03 and incomplete broad qualification prevent full SP-08/SP-10 closure. |
+
+The catalog `open_read` and `explain` operations consume actual archived model/snapshot/custody
+products. `query` is **partial** because named serving independently lowers coverage incorrectly.
+Reference `reference_set`, `reference_pass`, `reference_items`, `reference_frame`,
+`reference_grade`, `reference_split` and `select_result` reach actual archived definitions and
+protected native invariants. Algorithm/result correspondence and proactive mismatch handling
+remain CA-04/CA-06; an approved callable name alone does not establish them.
+
+**Judged non-gap:** MCP query/explain and a golden MCP profile were not existing implemented
+capabilities at selected baseline `5ba9a5c`; D8's inspection tools are future Proposed scope.
+The audit checked baseline source rather than converting unfinished legacy targets into SP-08
+obligations. Existing CLI/API query/explain/reference routes were migrated. Separate
+`ReferenceEvaluation` and completed knowledge output are the accepted ADR-0030 distinction.

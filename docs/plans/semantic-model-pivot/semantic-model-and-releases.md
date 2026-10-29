@@ -1,10 +1,10 @@
 # Semantic model, ontology and releases
 
-**Status:** Implemented; scoped acceptance passed (2026-10-29) · **Created:** 2026-10-29 · **Target accepted by ADR-0024; implementation evidence is bounded below.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns package state and shared scope. Consumes review O01/O02/O04; supplies every other supporting plan.
+**Status:** SP-00/SP-01 foundation implemented with retained scoped evidence; current binding/conditional preparation and profile reconciliation remain partial (completion audit below) · **Created/Revised:** 2026-10-29.
 
-## Completeness extension (planned)
+## Completeness contracts and current obligations
 
-The implemented SP-00/SP-01 profile and its receipts remain the baseline. Added work is owned by
+The earlier SP-00/SP-01 profile and receipts remain a scoped baseline; the completion audit below governs current closure. Added work is owned by
 [SP-C01/SP-C02](domain-model-completeness.md), selected from the
 [completeness review](../../functional_reviews/semantic-domain-model-completeness_2026-10-29.md).
 The [coordinator §10](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
@@ -100,3 +100,34 @@ is explicit and is not activation/enforcement evidence. SQL deployment remains S
 
 Final package state and verification commands belong to the coordinator's execution evidence;
 this checkpoint does not claim broader consumer adoption or assembled qualification.
+
+## Completion audit (2026-10-29)
+
+**Source-inspected at `ad4593f`; original bounded receipts retained. Current preparation/admission
+closure is partial.** The [series audit](../semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
+owns findings and combined conclusions. Complete model governance means every material behavior
+is connected to its authoritative definitions and enforcing implementation; no disconnected
+behavior is accepted as an exception. Ordinary handwritten algorithms can satisfy that target.
+
+| Accepted item | Current determination and evidence |
+|---|---|
+| SP-00 decisions and authority changes | ADR-0024/0025 and the owning architecture establish releases, occurrence/fact separation, ontology authority, fixed storage and protected publication. Later consumer authority reconciliation remains CA-08. |
+| Explicit construct profile, diagnostics and refusals | Supported/refused behavior is implemented in preparation and admission. The initial pattern/occurrence/context promise is not delivered by the native profile; CA-11 reconciles that obligation rather than treating refusal as implementation of it. |
+| Exact pins, Python compatibility and narrow dependency changes | Implemented at the recorded compatibility strength. Coordinator §8 retains exact versions, readiness/import/native receipts and the narrow setuptools adjustment. No new compatibility test was run. |
+| Stable core, dynamic definitions and no per-class DDL/import modules | Implemented: semantic core definitions, induced slots, immutable normalized definitions and registry products. Dynamic classes/properties become data and strict boundary schemas. |
+| Imports, hierarchy, source-relative IRIs and collisions | Implemented in `semantic/prepare.py` import closure and SchemaView lowering; independent preparation controls cover missing imports, inheritance conflicts and namespace collisions. |
+| Strict Python/JSON boundaries, aliases, absent/null, nested values, extras and polymorphism | Implemented for the original profile; current conditional scope lowering is partial under CA-02. A rule for accepted values must not reject unselected source reports. |
+| Pure preparation and immutable reusable products | Implemented: explicit source/dependency bytes, frozen products and bounded pure cache. Preparation does not publish or activate. Cache reuse does not cache native authorization. |
+| Separate occurrence/fact identity, exact values, qualification and scoped cardinality | Implemented general representation and independent identity fixtures; source-statement applicability remains partial under CA-01 and conditional placement under CA-02. |
+| Pinned local ontology, Valuesets/Term Validator membership and unchecked metadata | Implemented within the declared profile: supplied local artifacts, one-time membership expansion, meaning checks and explicit unsupported/unavailable/unchecked outcomes. No live mutable ontology lookup on prepared operations. |
+| Qualified RDF, local OWL/SHACL authority and native integrity separation | Implemented core mapping and scoped validation; current graph-contract attribution remains CA-05 in SP-C05. A generated shape or reified statement is not transactional enforcement or an unconditional triple. |
+| Manifest, policy/compiler/dependency identity and changed vocabulary reuse | Implemented: exact source and resolved-membership products participate in release identity; execution/compiler products are separately versioned. |
+| Explicit operation binding resolution before use | Partial under CA-01: public preparation/admission does not fully resolve `AgentStatementBinding.statement`; runtime builder validation alone does not cover arbitrary admitted bundles. |
+| Independent acceptance examples | Existing preparation/ontology/identity/RDF/archive/native tests and dated scoped receipts retain credit. They do not cover the newly identified conditional/binding failures or establish SP-10. |
+
+Actual catalog operation coupling: `prepare` consumes LinkML definitions and generates adapters,
+identity/rule/projection products, with CA-01/CA-02 omissions; it is **partial**, not merely linked
+by an implementation name. Archive/reload/activation responsibilities are assessed by the
+PostgreSQL owner. Candidate libraries are not installation obligations; the finite declared
+profile and its unsupported diagnostics remain explicit. No quality or whole-stack performance
+claim is established by this static audit.

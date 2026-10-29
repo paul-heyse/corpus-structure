@@ -1,8 +1,8 @@
 # Regeneration, retirement and integrated acceptance
 
-**Status:** SP-09 partially realized; SP-10 qualification incomplete · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns current state and combined completion. This document owns integration journeys and qualification boundaries for O01–O06.
+**Status:** SP-09 partial; SP-10 qualification incomplete; whole-series completion audit performed below · **Created/Revised:** 2026-10-29.
 
-## Completeness extension and verification timing (planned)
+## Completeness contracts and verification timing
 
 [SP-C01/SP-C02](domain-model-completeness.md) and [SP-C03–SP-C05](domain-model-realization.md)
 strengthen already-transitioned behavior before final cutover. Current package state and new
@@ -109,3 +109,56 @@ marker. Full hygiene and combined SP-10 qualification remain open. The
 [coordinator §12](../semantic-model-pivot_2026-10-29.md#12-sp-08sp-10-implementation-checkpoint-2026-10-29)
 and [evidence](../../design_review/evidence/2026-10-29_semantic-consumer-regeneration/README.md)
 own exact outcomes and next obligations.
+
+## Completion audit (2026-10-29)
+
+**SP-09 partially implemented; SP-10 incomplete at `ad4593f`.** The
+[series audit](../semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
+owns CA-01–CA-11, package states and repair order. This audit is complete as an assessment;
+it does not certify the product or perform the repairs.
+
+| SP-09 obligation | Current determination and evidence |
+|---|---|
+| Reproducible preparation/bootstrap/source/extraction/consolidation/answer/reference route | Implemented `ci db init`, `ci regenerate`, serving/export and protected reference CLI/API composition. Current statement/conditional/result/coverage gaps prevent full functional closure. |
+| Actual source bytes and release/configuration dependencies; no legacy knowledge reads | Implemented explicit pack acquisition, indexed original bytes, archived interpretation and bound runs. Current routes use fixed semantic storage and retained source tables. |
+| Real statistics and ownership/inspection transfer workflows | Two actual provider runs completed and selected; exact nested roles/12.3400 kg and JSONL/Parquet outputs are retained. Fresh frame run 3 failed after extraction at native statement applicability (CA-01). |
+| Independent automated reference execution | Transfer grade executed/persisted against the separately authored fixture; zero matches is retained, without a quality threshold or accuracy judgment. It does not prove every full-stack acceptance scenario. |
+| Defaults/cutover, selected answer atomicity and old-data preservation | Current settings/CLI/new MCP dispatch use the semantic target. Completion selection is separate from active interpretation and generation-fenced after complete output. Old database and running MCP are deliberately external references, not migrated or deleted. |
+| Interruption/resumption and stable identities | Implemented archived-run loading, original tasks, missing-frame hash-verified backfill, completed-result replay and selected-pointer transaction. New input source work does not become the selected answer on failure. |
+| Complete inventory and retirement of superseded production routes | Current CLI/MCP no longer select old admitted knowledge routes. Dormant legacy DB writer/reader/projection APIs remain in production modules (CA-07); no live current bypass is alleged. |
+| Enduring architecture/decision contracts updated | B5/ADR-0030 captures current consumers, but detailed owners and B3/ADR-0015 still conflict with the fresh automatic extractor (CA-08). Reconcile through the proper immutable-ADR route. |
+| No unrelated legacy feature completion, historical migration or old-plan finding transfer | Preserved. Missing future MCP inspection/golden profiles are not removed existing capabilities; old phase-0 dispositions keep their owner. |
+
+### Required SP-10 union
+
+Every row below has been assessed. Existing controls/receipts are **scoped evidence**, not new
+passes; identified defects or absent full qualification remain open. Source/test paths are
+relative to `python/corpus-structure`.
+
+| Required scenario family | Available implementation/evidence and remaining boundary |
+|---|---|
+| Dynamic class/attribute/relationship through real producer/native/read path | Query/proposal/publication/native controls and unchanged-DDL fixtures exist; valid explicit statement binding still fails CA-01. |
+| Occurrence/fact/conflict/retry identity | Independent identity, publication, domain conflict and exclusion controls exist; exact source occurrence preservation remains part of affected native closure. |
+| Ontology, membership, unavailable/unsupported/unchecked and release evolution | Preparation/ontology/archive/CAS tests and earlier actual OAK native receipts exist; CA-11 profile reconciliation remains. |
+| Strong SERIALIZABLE/COPY publication, scope and forbidden mutations | Existing publication/Arrow tests cover races, malicious staging, rollback and ambiguous replay; CA-01/CA-02 still affect current semantics. |
+| Exact structured values across SQL/Arrow/DuckDB/RDF | Independent decimal/unit/null/role/reference controls and real exports exist; graph contract attribution remains CA-05. |
+| Qualified positive inference, negative/context/cyclic proof and multiple supports | Existing `test_inference.py` independent expected premises/conclusions and native refusal cases retain credit. |
+| All current CLI/MCP/query/export/intervention/evaluation consumers | Existing serving/runtime/reference/source tests and real outputs exist; CA-03/CA-04 affect contract fidelity. No human grading/regrade requirement. |
+| Execution fit, required global context and resource cleanup | Core batching, declared full capture and independent cleanup/cancellation tests exist. Named coverage must establish its universe (CA-03); no mandatory benchmark is added. |
+| Fresh bootstrap, forward physical evolution and equivalent semantic answer | Frozen migration/native admission/metadata controls exist through 0030. Source artifacts cannot substitute for actual final native applicability acceptance. |
+| Clean statistics/transfer regeneration with no legacy knowledge read | Recorded runs 1/2 complete; final fresh-frame run 3 remains sealed/consolidating without a result. |
+| Complete qualified/repeated/n-ary/unresolved relationships | General construction/read/graph/value controls exist; explicit statement scope is CA-01 and graph binding CA-05. |
+| Composed nonterminal edges, attempts, held progress, completion/seal/cancel | Independent native controls exist; all 38 ordinary source-artifact edge tuples match current model. Maintained correspondence and actual operation outcomes remain CA-06/CA-04. |
+| Distinct transport/submission/source/semantic/scientific outcomes | Conversion/refusal/science controls exist; source-readiness, hold-helper, scientific alternatives and enforcing-composition declarations remain CA-04. |
+| Required invariant/conditional admission with no omitted branches | Native finite conditional controls exist; Python accepted-value scope and explicit binding admission remain CA-02/CA-01. |
+| Typed decision/assessment identity, alternative causes and authorized proof | Existing decision/measurement/group/grounding controls retain scope. Scientific result declarations remain CA-04. |
+| Captured/candidate provenance, decimal/lifetime and borrowed/detached results | Existing graph/analytics/Arrow tests cover these properties; graph ID resolution CA-05 remains. |
+| Stale derived publication versus exact immutable replay | Native explicit-intent, recompute-required and replay controls exist; no new broad pass is inferred. |
+| Execution/compiler compatibility and old binding preservation | Exact archived input/product, native body/privilege and SQL-admission controls exist. Those checks do not establish all behavioral correspondence (CA-06). |
+| Settings mid-run environment and applicable cross-field errors | Implementation is immutable, but the named acceptance evidence/applicability is unresolved (CA-09). |
+| Final functional/provider/nonfunctional qualification | First `just test-all` failed collection; revised run emitted a failure marker then exited 143 without a complete summary. `just hygiene` is not_run; last read-only Ruff failed 64 diagnostics. CA-10 remains open. |
+
+This audit launched no provider or product/native test campaign. A read-only PostgreSQL snapshot
+confirmed semantic_0030, selected finished runs 1/2 and unfinished run 3 without changing state.
+Existing typing (zero errors/warnings/suppressions) and scoped tests keep their original credit;
+no repeat was triggered by lint. Documentation maintenance/publication is recorded separately.
