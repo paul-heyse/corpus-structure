@@ -246,8 +246,10 @@ class PreparedRelease:
                 return adapter.validate_json(data, strict=True)
         raise KeyError(class_name)
 
-    def json_schema(self, class_name: str) -> dict[str, object]:
+    def json_schema(
+        self, class_name: str, *, mode: Literal["validation", "serialization"] = "validation"
+    ) -> dict[str, object]:
         for name, adapter in self._adapters:
             if name == class_name:
-                return adapter.json_schema()
+                return adapter.json_schema(mode=mode)
         raise KeyError(class_name)

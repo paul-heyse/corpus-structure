@@ -20,7 +20,9 @@ mcp_app = typer.Typer(help="Serve the MCP tools on stdio.", no_args_is_help=True
 @mcp_app.command("serve")
 def serve(
     ctx: typer.Context,
-    semantic_run: Annotated[int | None, typer.Option(help="Bind tools to this semantic run.")] = None,
+    semantic_run: Annotated[
+        int | None, typer.Option(help="Bind tools to this semantic run.")
+    ] = None,
 ) -> None:
     """Run the main MCP profile on stdio (one process per Claude Code session)."""
     from corpus_structure.intervene.server import serve as run
