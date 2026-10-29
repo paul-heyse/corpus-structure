@@ -581,6 +581,11 @@ def _validate(products: ExecutionModelProducts) -> None:
             _fail(
                 "outcome_authority", domain.id, "release-authored members require the bound release"
             )
+    from .outcomes import CODE_OUTCOME_DOMAINS
+
+    for name, annotation in CODE_OUTCOME_DOMAINS.items():
+        if name not in domains or set(domains[name].values) != set(annotation):
+            _fail("outcome_implementation", name, "code outcome domain differs from trusted catalog")
     translations = set()
     for translation in products.outcome_translations:
         _refs(

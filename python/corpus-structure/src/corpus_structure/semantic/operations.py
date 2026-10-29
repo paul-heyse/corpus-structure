@@ -149,7 +149,11 @@ def record_method(
         .mappings()
         .one()
     )
-    if any(declared[k] != value for k, value in values.items()):
+    if any(
+        declared[k] != value
+        for k, value in values.items()
+        if not (k in {"unit_type", "configuration_schema_digest"} and declared[k] is None)
+    ):
         raise OperationConflict("operation version denotes another method contract")
     mid = declared["id"]
     conn.execute(
