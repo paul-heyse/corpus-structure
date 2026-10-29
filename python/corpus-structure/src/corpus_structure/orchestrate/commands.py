@@ -396,6 +396,7 @@ def start_bound_run(
     return run_source_methods(
         engine,
         project_id=project_id,
+        domain=domain,
         prepared=prepared,
         binding=binding,
         registry=(registry_for or registry)((domains or DOMAINS) / domain),

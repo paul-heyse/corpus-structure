@@ -32,7 +32,9 @@ class _Section(BaseModel):
 class DatabaseSettings(_Section):
     """One libpq URL (peer authentication; no password belongs here) and the template database."""
 
-    url: str = "postgresql:///corpus?host=/var/run/postgresql&port=5434"  # 18/corpus (D3 §13)
+    url: str = "postgresql://corpus_sem_writer@/corpus_semantic?host=/var/run/postgresql&port=5434"
+    maintenance_url: str = "postgresql:///corpus_semantic?host=/var/run/postgresql&port=5434"
+    evaluator_url: str | None = None
     template: str = "cs_template"
 
     @property
@@ -73,6 +75,12 @@ class AnalyticsSettings(_Section):
     adbc_driver_path: Path | None = None
 
 
+class RuntimeSettings(_Section):
+    """Operator selection; semantic meaning stays in the selected admitted release."""
+
+    default_project: str = "semantic-pivot"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix=ENV_PREFIX,
@@ -86,6 +94,7 @@ class Settings(BaseSettings):
     llm: LlmSettings = LlmSettings()
     gpu: GpuSettings = GpuSettings()
     analytics: AnalyticsSettings = AnalyticsSettings()
+    runtime: RuntimeSettings = RuntimeSettings()
 
     @classmethod
     def settings_customise_sources(
@@ -141,7 +150,9 @@ def settings_report(settings: Settings, environ: Mapping[str, str]) -> SettingsR
     for section, values in settings.model_dump(mode="json").items():
         for field, value in values.items():
             resolved[f"{section}.{field}"] = "" if value is None else str(value)
-    resolved["database.url"] = _mask_url_password(settings.database.url)
+    for field in ("url", "maintenance_url", "evaluator_url"):
+        value = getattr(settings.database, field)
+        resolved[f"database.{field}"] = "" if value is None else _mask_url_password(value)
     known = known_env_names()
     unknown = sorted(
         name

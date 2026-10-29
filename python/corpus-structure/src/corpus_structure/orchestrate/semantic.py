@@ -45,6 +45,7 @@ def run_source_methods(
     graph: Any,
     method_settings: Any,
     phase: int = 0,
+    domain: str = "statistics",
     configurations: Mapping[str, str] | None = None,
     guideline: str = "",
     fresh: Any = (),
@@ -176,6 +177,7 @@ def run_source_methods(
             canonical_bytes(dependency_manifest),
         )
         options = {
+            "domain": domain,
             "corpus": dict(corpus_record)
             if corpus_record is not None
             else {"documents": [d["key"] for d in docs]},

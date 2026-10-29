@@ -39,21 +39,20 @@ def direct(
     ] = None,
     json: JsonOpt = False,
 ) -> None:
-    """Record an operator direction (an intervention and the pack's directions.md)."""
+    """Record operator guidance in the semantic operation log."""
     from corpus_structure.cli import orchestrate
-    from corpus_structure.intervene.service import ToolFailure, record_direction
+    from corpus_structure.intervene.service import ToolFailure
+    from corpus_structure.intervene.directions import record_direction
     from corpus_structure.orchestrate.commands import CommandError
 
     try:
         with orchestrate.ENGINE(state(ctx).settings()) as engine:
-            seams = orchestrate.PHASE0()
             report = record_direction(
                 engine,
                 text,
                 scope,
                 actor="human:operator",
-                project=project,
-                domains=seams["domains"],
+                project=project or state(ctx).settings().runtime.default_project,
             )
     except (ToolFailure, CommandError) as error:
         stderr_console().print(f"refused: {error}")
