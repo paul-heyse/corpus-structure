@@ -78,6 +78,7 @@ CREATE FUNCTION data.validate_conditions(r text,z text) RETURNS void
 LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE violation record;
 BEGIN
+ IF NOT EXISTS(SELECT 1 FROM sem.conditional_rule WHERE release_id=r) THEN RETURN; END IF;
  WITH RECURSIVE accepted(v) AS (
   SELECT roots.v FROM data.fact f JOIN data.selection s USING(release_id,realization_id,fact_id)
   CROSS JOIN LATERAL(VALUES(f.object_value_id),(f.qualification_value_id)) roots(v)
