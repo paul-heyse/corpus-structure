@@ -1,17 +1,32 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "JudgmentConfidence": {
+      "description": "A judge's stated confidence. Lifecycle: static.",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "type": "string"
+    },
+    "JudgmentDecision": {
+      "description": "A judgment's decision (M16, the agent, a human). Lifecycle: static.",
+      "enum": [
+        "accept",
+        "reject",
+        "choose",
+        "merge",
+        "split",
+        "unsure"
+      ],
+      "type": "string"
+    },
     "JudgmentTarget": {
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "enum": [
-            "observation",
-            "claim",
-            "alternative_group",
-            "identity_group"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/JudgmentTargetKind"
         },
         "ref": {
           "anyOf": [
@@ -29,6 +44,16 @@
         "ref"
       ],
       "type": "object"
+    },
+    "JudgmentTargetKind": {
+      "description": "What a judgment is about (JudgmentTarget.kind, D3 §6.2). Lifecycle: static.",
+      "enum": [
+        "observation",
+        "claim",
+        "alternative_group",
+        "identity_group"
+      ],
+      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -37,15 +62,7 @@
       "$ref": "#/$defs/JudgmentTarget"
     },
     "decision": {
-      "enum": [
-        "accept",
-        "reject",
-        "choose",
-        "merge",
-        "split",
-        "unsure"
-      ],
-      "type": "string"
+      "$ref": "#/$defs/JudgmentDecision"
     },
     "rationale": {
       "type": "string"
@@ -63,12 +80,7 @@
       "type": "boolean"
     },
     "confidence": {
-      "enum": [
-        "low",
-        "medium",
-        "high"
-      ],
-      "type": "string"
+      "$ref": "#/$defs/JudgmentConfidence"
     }
   },
   "required": [

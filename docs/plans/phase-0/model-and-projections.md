@@ -116,6 +116,15 @@ What this document does not build:
 
 The annotation bar is AGENTS.md's: each declaration has a named consumer.
 
+**As built (P0-M-1, 2026-10-28).** `model/core.yaml` (promoted from S4, with lifecycles, member
+properties, the core qualifier slots and the classes the interim guard needs) and `model/system.yaml`
+(all 48 D3 tables, payload classes, the source-profile class, `EmbeddingSpec`, the unit-feature vocabulary)
+are the authority; `schema/model.py` loads, checks and hashes them (revision 0.3.0); `schema/generate.py`
+writes `core/vocab.py` and `core/_model/{qualifiers,names,sql,validators,revision}.py`, formatting with the
+pinned ruff; `core/invariants.py` holds the template functions the generated validators call. The
+generator and the drift test need the dev environment. `CanonicalForm`, `KeyRole`, `CaseRule`,
+`QualifierStore` and `Lifecycle` are themselves declared in `core.yaml`.
+
 **Pack extension of core enums.** A schema-version-scoped closed set such as `ClaimModality` is
 extended by a pack enum that declares `inherits: ClaimModality` (or composes with `include` / `minus`)
 and adds its members, each with its member properties. This is native LinkML (operator, 2026-10-28;

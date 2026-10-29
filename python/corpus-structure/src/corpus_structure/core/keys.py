@@ -40,6 +40,7 @@ from pydantic import (
     model_validator,
 )
 
+from corpus_structure.core._model import names
 from corpus_structure.core.batch import CORE_PREFIX, PrefixedName, StoredQualifiers, StoredScope
 from corpus_structure.core.candidates import (
     CandidateClaim,
@@ -92,13 +93,19 @@ from corpus_structure.core.values import (
     SymbolBinding,
     TextValue,
 )
-from corpus_structure.core.vocab import DropReason, EntityScope
+from corpus_structure.core.vocab import (
+    CITABLE_SENTENCE,
+    SECTION_LIKE,
+    STATEMENT_ANCHOR,
+    DropReason,
+    EntityScope,
+)
 
 Json = Any
 
-# Core qualifier names as the stored form (and so every key) writes them.
-MODALITY, POLARITY, ATTRIBUTION = "core:modality", "core:polarity", "core:attribution"
-CONDITIONS, SCOPE, VALID_TIME = "core:conditions", "core:scope", "core:valid_time"
+# Core qualifier names as the stored form (and so every key) writes them (the model's, generated).
+MODALITY, POLARITY, ATTRIBUTION = names.MODALITY, names.POLARITY, names.ATTRIBUTION
+CONDITIONS, SCOPE, VALID_TIME = names.CONDITIONS, names.SCOPE, names.VALID_TIME
 Resolve = Callable[[str], str]  # a reference (entity, statement or claim id) to its key
 
 type Value = AuthoredValue | StoredValue
@@ -661,25 +668,24 @@ def local_entity_key(entity: CandidateEntity, ctx: KeyContext, rules: LabelRules
 def statement_anchor(statement: CandidateStatement, ctx: KeyContext) -> tuple[Segment, int]:
     """The statement's anchor segment and the 1-based ordinal of its first sentence there.
 
-    The anchor is the innermost `details` or `unit` containing the first anchor segment, else the
-    annotation unit containing it, else the top-level block outside every unit that contains it (a
-    list, table, figure, …: an `uncovered` block of `annotation_units`), else the outermost
-    block below sections and the document; never the document unless that is the segment itself.
+    The anchor is the innermost segment of a `statement_anchor` kind (`details`, `unit`) containing
+    the first anchor segment, else the annotation unit containing it, else the top-level block
+    outside every unit that contains it (a list, table, figure, …: an `uncovered` block of
+    `annotation_units`), else the outermost block below the `section_like` segments; never the
+    document unless that is the segment itself. Kinds are read by member property (DA-003).
     """
     if statement.anchor == "outside":
         raise KeyingError(DropReason.OUTSIDE_UNRESOLVED, statement.id)
     first = min((ctx.segment(k) for k in statement.anchor), key=lambda s: (s.start, -s.end))
     chain = [first, *ctx.ancestors(first)]
-    anchor = next((s for s in chain if s.kind in (SegmentKind.DETAILS, SegmentKind.UNIT)), None)
+    anchor = next((s for s in chain if s.kind in STATEMENT_ANCHOR), None)
     if anchor is None:
         tops = ctx.top_blocks
         anchor = next((s for s in chain if (s.kind, s.start, s.end) in tops), None)
     if anchor is None:
-        blocks = [s for s in chain if s.kind not in (SegmentKind.SECTION, SegmentKind.DOCUMENT)]
+        blocks = [s for s in chain if s.kind not in SECTION_LIKE]
         anchor = blocks[-1] if blocks else first
-    before = sum(
-        1 for s in anchor.walk() if s.kind is SegmentKind.SENTENCE and s.start < first.start
-    )
+    before = sum(1 for s in anchor.walk() if s.kind in CITABLE_SENTENCE and s.start < first.start)
     return anchor, before + 1
 
 

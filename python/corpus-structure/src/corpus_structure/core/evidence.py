@@ -4,8 +4,8 @@ Foundations §3.3.
 
 These are the in-memory shapes ingest (I1a) produces and the locator function (I0) reads:
 
-- `SegmentKind`, the D1 §3.2 kinds (email kinds included); 0001's CHECK on `kb.segment.kind` is
-  built from it;
+- `SegmentKind` (generated in `vocab.py` from the model, with its member properties), the D1
+  §3.2 kinds (email kinds included); M2 builds the CHECK on `kb.segment.kind` from the model;
 - `Segment`, a range `[start, end)` of the canonical text with its kind, parse status and reason,
   author-markup `attrs` and children. Text is not stored on the node; it is the canonical text's
   substring. Children are sorted on validation (start, then the longer first, then kind), because
@@ -23,12 +23,12 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Iterator, Mapping
-from enum import StrEnum
-from typing import Any, Literal, Self
+from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
 from corpus_structure.core.canonical import CanonicalJsonError, canonical_json, digest, make_key
+from corpus_structure.core.vocab import DelimitingStatus, SegmentKind
 
 # The `attrs` key under which the store writes a segment's parse reason (D3 has no column for it),
 # so author markup may not use it.
@@ -38,31 +38,11 @@ RESERVED_ATTR = "parse_reason"
 MACRO_NAME = r"^\\[A-Za-z]+$"
 
 
-class SegmentKind(StrEnum):
-    DOCUMENT = "document"
-    SECTION = "section"
-    UNIT = "unit"
-    PARAGRAPH = "paragraph"
-    LIST = "list"
-    LIST_ITEM = "list_item"
-    DETAILS = "details"
-    MATH_DISPLAY = "math_display"
-    MATH_INLINE = "math_inline"
-    HEADING = "heading"
-    TABLE = "table"
-    TABLE_ROW = "table_row"
-    TABLE_CELL = "table_cell"
-    CAPTION = "caption"
-    FOOTNOTE = "footnote"
-    FIGURE = "figure"
-    SENTENCE = "sentence"
-    EMAIL_MESSAGE = "email_message"
-    QUOTED_BLOCK = "quoted_block"
-    SIGNATURE = "signature"
-
-
-ParseStatus = Literal["ok", "partial", "failed"]
-_SEVERITY: dict[str, int] = {"ok": 0, "partial": 1, "failed": 2}
+_SEVERITY: dict[DelimitingStatus, int] = {
+    DelimitingStatus.OK: 0,
+    DelimitingStatus.PARTIAL: 1,
+    DelimitingStatus.FAILED: 2,
+}
 
 
 class _Frozen(BaseModel):
@@ -77,7 +57,7 @@ class Segment(_Frozen):
     kind: SegmentKind
     start: int = Field(ge=0, strict=True)
     end: int = Field(ge=0, strict=True)
-    parse_status: ParseStatus = "ok"
+    parse_status: DelimitingStatus = DelimitingStatus.OK
     parse_reason: str | None = None
     attrs: dict[str, JsonValue] = Field(default_factory=dict)
     children: tuple[Segment, ...] = ()
@@ -174,7 +154,7 @@ class RenditionContent(_Frozen):
         return self
 
     @property
-    def parse_status(self) -> ParseStatus:
+    def parse_status(self) -> DelimitingStatus:
         """The worst parse status of the rendition's segments (derived, not part of the digest)."""
         worst = max(self.document.walk(), key=lambda s: _SEVERITY[s.parse_status])
         return worst.parse_status

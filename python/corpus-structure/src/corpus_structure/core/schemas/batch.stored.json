@@ -22,6 +22,19 @@
       ],
       "type": "object"
     },
+    "BindKind": {
+      "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
+      "enum": [
+        "variable",
+        "param_of",
+        "param_expr_of",
+        "family_param",
+        "free",
+        "constant",
+        "unresolved"
+      ],
+      "type": "string"
+    },
     "BoolValue": {
       "additionalProperties": false,
       "properties": {
@@ -38,6 +51,19 @@
         "v"
       ],
       "type": "object"
+    },
+    "ClaimModality": {
+      "description": "How the source holds a claim (D1 §5.2; guideline §10.6). Lifecycle: schema_version.",
+      "enum": [
+        "asserted",
+        "supposed",
+        "defined",
+        "conventional",
+        "exemplified",
+        "posed",
+        "cited"
+      ],
+      "type": "string"
     },
     "ClaimNode": {
       "additionalProperties": false,
@@ -108,6 +134,14 @@
       ],
       "type": "object"
     },
+    "EntityExtent": {
+      "description": "How far a local entity reaches. Lifecycle: static.",
+      "enum": [
+        "statement",
+        "section"
+      ],
+      "type": "string"
+    },
     "EntityRef": {
       "additionalProperties": false,
       "description": "The one entity-reference shape: a local ref in a batch, an entity key once stored.",
@@ -123,7 +157,7 @@
       "type": "object"
     },
     "EntityScope": {
-      "description": "`meta.schema_class.scope`, `kb.entity.scope`.",
+      "description": "Whether an entity is global or local to a scope segment (D1 §4.2). Lifecycle: static.",
       "enum": [
         "global",
         "local"
@@ -152,7 +186,7 @@
       "type": "object"
     },
     "EvidenceRole": {
-      "description": "`kb.claim_evidence.role`.",
+      "description": "The part an evidence span plays for its claim (guideline §10.8). Lifecycle: static.",
       "enum": [
         "primary",
         "supporting",
@@ -181,13 +215,7 @@
           "type": "string"
         },
         "parse": {
-          "enum": [
-            "ok",
-            "partial",
-            "ambiguous",
-            "failed"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/ParseOutcome"
         }
       },
       "required": [
@@ -305,6 +333,24 @@
       ],
       "type": "object"
     },
+    "ParseOutcome": {
+      "description": "The math grammar's parse outcome for a formula or set value (D4 M11). Lifecycle: static.",
+      "enum": [
+        "ok",
+        "partial",
+        "ambiguous",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "Polarity": {
+      "description": "Whether a claim is stated or denied. Lifecycle: static.",
+      "enum": [
+        "positive",
+        "negative"
+      ],
+      "type": "string"
+    },
     "PredNode": {
       "additionalProperties": false,
       "properties": {
@@ -337,6 +383,15 @@
       ],
       "type": "object"
     },
+    "ScopeExtent": {
+      "description": "How far a supposition reaches beyond its statement. Lifecycle: static.",
+      "enum": [
+        "statement",
+        "section",
+        "document"
+      ],
+      "type": "string"
+    },
     "SetValue": {
       "additionalProperties": false,
       "properties": {
@@ -357,13 +412,7 @@
           "type": "string"
         },
         "parse": {
-          "enum": [
-            "ok",
-            "partial",
-            "ambiguous",
-            "failed"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/ParseOutcome"
         }
       },
       "required": [
@@ -373,7 +422,7 @@
       "type": "object"
     },
     "StatementRole": {
-      "description": "`kb.claim.statement_role`.",
+      "description": "The part a claim plays in its statement (guideline §10.3). Lifecycle: static.",
       "enum": [
         "premise",
         "conclusion",
@@ -521,11 +570,7 @@
           "$ref": "#/$defs/EntityScope"
         },
         "extent": {
-          "enum": [
-            "statement",
-            "section"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/EntityExtent"
         },
         "symbol": {
           "type": "string"
@@ -711,25 +756,12 @@
       "description": "The stored qualifiers: the core ones as `core:<name>`, schema qualifiers by prefixed name.\n\nAttributes keep the local names (`q.modality`); validation and dumps use the prefixed ones.",
       "properties": {
         "core:modality": {
-          "default": "asserted",
-          "enum": [
-            "asserted",
-            "supposed",
-            "defined",
-            "conventional",
-            "exemplified",
-            "posed",
-            "cited"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/ClaimModality",
+          "default": "asserted"
         },
         "core:polarity": {
-          "default": "positive",
-          "enum": [
-            "positive",
-            "negative"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/Polarity",
+          "default": "positive"
         },
         "core:hedge": {
           "$ref": "#/$defs/StoredPhrase"
@@ -754,12 +786,7 @@
       "description": "The stored scope qualifier: the extent and the segment it resolves to on the rendition.",
       "properties": {
         "extent": {
-          "enum": [
-            "statement",
-            "section",
-            "document"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/ScopeExtent"
         },
         "segment": {
           "minLength": 1,
@@ -919,16 +946,7 @@
       "description": "How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has.",
       "properties": {
         "bind": {
-          "enum": [
-            "variable",
-            "param_of",
-            "param_expr_of",
-            "family_param",
-            "free",
-            "constant",
-            "unresolved"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/BindKind"
         },
         "entity": {
           "type": "string"

@@ -178,6 +178,19 @@
       ],
       "type": "object"
     },
+    "BindKind": {
+      "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
+      "enum": [
+        "variable",
+        "param_of",
+        "param_expr_of",
+        "family_param",
+        "free",
+        "constant",
+        "unresolved"
+      ],
+      "type": "string"
+    },
     "ClaimNode": {
       "additionalProperties": false,
       "properties": {
@@ -263,13 +276,7 @@
           "type": "string"
         },
         "parse": {
-          "enum": [
-            "ok",
-            "partial",
-            "ambiguous",
-            "failed"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/ParseOutcome"
         }
       },
       "required": [
@@ -298,6 +305,16 @@
         "set"
       ],
       "type": "object"
+    },
+    "ParseOutcome": {
+      "description": "The math grammar's parse outcome for a formula or set value (D4 M11). Lifecycle: static.",
+      "enum": [
+        "ok",
+        "partial",
+        "ambiguous",
+        "failed"
+      ],
+      "type": "string"
     },
     "PredNode": {
       "additionalProperties": false,
@@ -351,13 +368,7 @@
           "type": "string"
         },
         "parse": {
-          "enum": [
-            "ok",
-            "partial",
-            "ambiguous",
-            "failed"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/ParseOutcome"
         }
       },
       "required": [
@@ -371,16 +382,7 @@
       "description": "How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has.",
       "properties": {
         "bind": {
-          "enum": [
-            "variable",
-            "param_of",
-            "param_expr_of",
-            "family_param",
-            "free",
-            "constant",
-            "unresolved"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/BindKind"
         },
         "entity": {
           "type": "string"

@@ -1,5 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "PolicyThen": {
+      "description": "What a policy rule's chain does after its action (D3 §6.3). Lifecycle: static.",
+      "enum": [
+        "stop",
+        "continue"
+      ],
+      "type": "string"
+    }
+  },
   "additionalProperties": false,
   "description": "`ops.policy_rule.action`: a named configuration `<method>/<name>`, a limit, then.",
   "properties": {
@@ -12,11 +22,7 @@
       "type": "integer"
     },
     "then": {
-      "enum": [
-        "stop",
-        "continue"
-      ],
-      "type": "string"
+      "$ref": "#/$defs/PolicyThen"
     }
   },
   "required": [

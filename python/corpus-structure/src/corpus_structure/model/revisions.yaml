@@ -1,0 +1,11 @@
+# The model-revision log (model and projections §3.1; ADR-0022): the authority that
+# meta.model_revision projects. Each entry is a revision of model/core.yaml and
+# model/system.yaml; a revision after the first names its parent and its change record.
+- label: 0.3.0
+  content_hash: 8f30c4422169c859af2c61ac6237d507eec92ec66142ec8215933728733d41d8
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    linkml-runtime: 1.12.1
+  parent: null
+  change_record: null

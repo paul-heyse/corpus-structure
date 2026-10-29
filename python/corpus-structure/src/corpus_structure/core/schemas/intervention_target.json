@@ -1,9 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": false,
-  "description": "`ops.intervention.target`; a `promotion` targets the run it promotes.",
-  "properties": {
-    "kind": {
+  "$defs": {
+    "InterventionTargetKind": {
+      "description": "What an intervention acts on (InterventionTarget.kind, D3 §6.3). Lifecycle: static.",
       "enum": [
         "unit",
         "claim",
@@ -15,6 +14,13 @@
         "run"
       ],
       "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`ops.intervention.target`; a `promotion` targets the run it promotes.",
+  "properties": {
+    "kind": {
+      "$ref": "#/$defs/InterventionTargetKind"
     },
     "ref": {
       "anyOf": [

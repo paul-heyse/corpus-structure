@@ -2,7 +2,9 @@
 
 One model per observation kind, registered in `PAYLOADS` by kind. Writers validate once here and
 store `model_dump(mode="json")`. Values inside payloads are stored-form values. Fields D3 leaves
-open (markup values, record anchors, link features, decorations) are raw JSON.
+open (markup values, record anchors, link features, decorations) are raw JSON. The closed sets and
+the cross-field invariants come from the model's `system` payload classes (`vocab.py`,
+`_model/validators.py`; ADR-0020).
 """
 
 from __future__ import annotations
@@ -11,22 +13,33 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import MISSING, Field, JsonValue, TypeAdapter, model_validator
 
+from corpus_structure.core._model import validators
 from corpus_structure.core.batch import (
     AuthoredBatch,
     CitationFrame,
     PrefixedName,
-    ScopeExtent,
     StoredBatch,
     StoredEvidence,
 )
 from corpus_structure.core.values import (
-    BindKind,
     CoreModel,
     Offset,
     StoredObject,
     StoredValue,
 )
-from corpus_structure.core.vocab import ObservationKind, RuleSeverity
+from corpus_structure.core.vocab import (
+    BindKind,
+    InterventionTargetKind,
+    JudgmentConfidence,
+    JudgmentDecision,
+    JudgmentTargetKind,
+    MarkupKind,
+    ObservationKind,
+    PolicyThen,
+    RuleSeverity,
+    ScopeExtent,
+    VerificationVerdict,
+)
 
 Score = Annotated[float, Field(ge=0, le=1)]
 
@@ -56,15 +69,13 @@ class PolicyAction(CoreModel):
 
     method: str = Field(pattern=r"^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$")
     limit: int = Field(ge=1)
-    then: Literal["stop", "continue"]
+    then: PolicyThen
 
 
 class InterventionTarget(CoreModel):
     """`ops.intervention.target`; a `promotion` targets the run it promotes."""
 
-    kind: Literal[
-        "unit", "claim", "alternative_group", "golden_unit", "schema", "guideline", "policy", "run"
-    ]
+    kind: InterventionTargetKind
     ref: str | int
 
 
@@ -80,8 +91,7 @@ class _Span(CoreModel):
 
     @model_validator(mode="after")
     def _span(self) -> Self:
-        if self.start >= self.end:
-            raise ValueError(f"span [{self.start}, {self.end}) is empty or reversed")
+        validators.span_payload(self)
         return self
 
 
@@ -94,7 +104,7 @@ class SynthesizedClaim(CoreModel):
 
 
 class AuthorMarkupPayload(CoreModel):
-    markup: Literal["dfn", "unit", "details", "link", "class"]
+    markup: MarkupKind
     value: JsonValue
     target: str | MISSING = MISSING  # type: ignore[valid-type]
     synthesize: SynthesizedClaim | MISSING = MISSING  # type: ignore[valid-type]
@@ -189,8 +199,7 @@ class LinkPayload(CoreModel):
 
     @model_validator(mode="after")
     def _one_subject(self) -> Self:
-        if (self.mention_ref is MISSING) == (self.pair is MISSING):
-            raise ValueError("a link names exactly one of mention_ref (M14) and pair (M15)")
+        validators.link_payload(self)  # mention_ref (M14) or pair (M15)
         return self
 
 
@@ -213,32 +222,27 @@ class ClaimProposalPayload(CoreModel):
 
     @model_validator(mode="after")
     def _together(self) -> Self:
-        if (self.authored is MISSING) != (self.citation_frame is MISSING):
-            raise ValueError("authored and citation_frame are present together or not at all")
-        derived = (self.establishment, self.derived_from, self.rule)
-        if any(v is MISSING for v in derived) and any(v is not MISSING for v in derived):
-            raise ValueError("establishment, derived_from and rule are present together (M23)")
+        validators.claim_proposal_payload(self)  # the authored pair; M23's derivation
         return self
 
 
 class JudgmentTarget(CoreModel):
-    kind: Literal["observation", "claim", "alternative_group", "identity_group"]
+    kind: JudgmentTargetKind
     ref: str | int
 
 
 class JudgmentPayload(CoreModel):
     target: JudgmentTarget
-    decision: Literal["accept", "reject", "choose", "merge", "split", "unsure"]
+    decision: JudgmentDecision
     rationale: str
     guideline_version: str
     chosen: tuple[str, ...] | MISSING = MISSING  # type: ignore[valid-type]
     faithful: bool | MISSING = MISSING  # type: ignore[valid-type]
-    confidence: Literal["low", "medium", "high"] | MISSING = MISSING  # type: ignore[valid-type]
+    confidence: JudgmentConfidence | MISSING = MISSING  # type: ignore[valid-type]
 
     @model_validator(mode="after")
     def _chosen_for_choose(self) -> Self:
-        if (self.decision == "choose") != (self.chosen is not MISSING):
-            raise ValueError("chosen is given exactly for a choose decision")
+        validators.judgment_payload(self)
         return self
 
 
@@ -253,7 +257,7 @@ class VerificationDetail(CoreModel):
 class VerificationPayload(CoreModel):
     claim_key: str
     verifier: str
-    verdict: Literal["consistent", "refuted", "not_checkable"]
+    verdict: VerificationVerdict
     detail: VerificationDetail | dict[str, JsonValue] | MISSING = MISSING  # type: ignore[valid-type]
     counterexample: JsonValue | MISSING = MISSING  # type: ignore[valid-type]
 

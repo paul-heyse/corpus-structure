@@ -79,6 +79,11 @@ types:
 py-test:
     uv run pytest
 
+# The model's Stage A files (core/vocab.py, core/_model/): `just model generate` rewrites them and
+# the root revision; `just model check` (the default) only checks declarations, log and drift
+model action="check":
+    uv run python -m corpus_structure.schema {{action}}
+
 # ast-grep scan over the tree (rules/ grows from design-review findings)
 rules-scan:
     @if ls rules/*.yml >/dev/null 2>&1; then ast-grep scan; else echo "rules-scan: not_run (no rules yet)"; fi

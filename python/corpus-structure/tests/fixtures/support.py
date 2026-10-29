@@ -26,8 +26,9 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from corpus_structure.core.batch import AuthoredBatch, CitationFrame
-from corpus_structure.core.evidence import ParseStatus, SegmentKind
+from corpus_structure.core.evidence import SegmentKind
 from corpus_structure.core.values import SentenceId
+from corpus_structure.core.vocab import DelimitingStatus
 
 REPO = Path(__file__).resolve().parents[4]
 S0_DIR = REPO / "fixtures/s0"
@@ -94,7 +95,7 @@ class SegmentRow(_Model):
     start: int = Field(ge=0)
     end: int = Field(ge=0)
     attrs: dict[str, JsonValue]
-    parse_status: ParseStatus
+    parse_status: DelimitingStatus
     parse_reason: str | None = None
 
 

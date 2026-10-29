@@ -5,6 +5,7 @@ description = "Builds a highly structured representation of a set of documents (
 requires-python = ">=3.14"
 dependencies = [
     "alembic==1.20.0",
+    "linkml-runtime==1.12.1",
     "psycopg[binary]==3.3.6",
     "pydantic==2.14.1",
     "pydantic-settings==2.16.1",

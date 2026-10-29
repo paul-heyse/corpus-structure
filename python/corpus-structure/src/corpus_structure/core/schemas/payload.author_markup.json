@@ -1,6 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "BindKind": {
+      "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
+      "enum": [
+        "variable",
+        "param_of",
+        "param_expr_of",
+        "family_param",
+        "free",
+        "constant",
+        "unresolved"
+      ],
+      "type": "string"
+    },
     "BoolValue": {
       "additionalProperties": false,
       "properties": {
@@ -72,7 +85,7 @@
       "type": "object"
     },
     "EvidenceRole": {
-      "description": "`kb.claim_evidence.role`.",
+      "description": "The part an evidence span plays for its claim (guideline §10.8). Lifecycle: static.",
       "enum": [
         "primary",
         "supporting",
@@ -101,13 +114,7 @@
           "type": "string"
         },
         "parse": {
-          "enum": [
-            "ok",
-            "partial",
-            "ambiguous",
-            "failed"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/ParseOutcome"
         }
       },
       "required": [
@@ -179,6 +186,17 @@
       "type": "object"
     },
     "JsonValue": {},
+    "MarkupKind": {
+      "description": "The kinds of author markup observation (AuthorMarkupPayload.markup, D4 M01). Lifecycle:\nstatic.",
+      "enum": [
+        "dfn",
+        "unit",
+        "details",
+        "link",
+        "class"
+      ],
+      "type": "string"
+    },
     "NumberValue": {
       "additionalProperties": false,
       "description": "A number as its D1 §6.2 canonical decimal; `unit` and `basis` as the source states them.",
@@ -204,6 +222,16 @@
       ],
       "type": "object"
     },
+    "ParseOutcome": {
+      "description": "The math grammar's parse outcome for a formula or set value (D4 M11). Lifecycle: static.",
+      "enum": [
+        "ok",
+        "partial",
+        "ambiguous",
+        "failed"
+      ],
+      "type": "string"
+    },
     "SetValue": {
       "additionalProperties": false,
       "properties": {
@@ -224,13 +252,7 @@
           "type": "string"
         },
         "parse": {
-          "enum": [
-            "ok",
-            "partial",
-            "ambiguous",
-            "failed"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/ParseOutcome"
         }
       },
       "required": [
@@ -344,16 +366,7 @@
       "description": "How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has.",
       "properties": {
         "bind": {
-          "enum": [
-            "variable",
-            "param_of",
-            "param_expr_of",
-            "family_param",
-            "free",
-            "constant",
-            "unresolved"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/BindKind"
         },
         "entity": {
           "type": "string"
@@ -424,14 +437,7 @@
   "additionalProperties": false,
   "properties": {
     "markup": {
-      "enum": [
-        "dfn",
-        "unit",
-        "details",
-        "link",
-        "class"
-      ],
-      "type": "string"
+      "$ref": "#/$defs/MarkupKind"
     },
     "value": {
       "$ref": "#/$defs/JsonValue"

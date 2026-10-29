@@ -3,7 +3,7 @@
   "$defs": {
     "JsonValue": {},
     "RuleSeverity": {
-      "description": "`meta.schema_rule.severity`.",
+      "description": "`meta.schema_rule.severity`. Lifecycle: static.",
       "enum": [
         "warning",
         "error"
@@ -30,6 +30,15 @@
         "message"
       ],
       "type": "object"
+    },
+    "VerificationVerdict": {
+      "description": "A verifier's verdict on a claim (M19-M21). Lifecycle: static.",
+      "enum": [
+        "consistent",
+        "refuted",
+        "not_checkable"
+      ],
+      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -41,12 +50,7 @@
       "type": "string"
     },
     "verdict": {
-      "enum": [
-        "consistent",
-        "refuted",
-        "not_checkable"
-      ],
-      "type": "string"
+      "$ref": "#/$defs/VerificationVerdict"
     },
     "detail": {
       "anyOf": [

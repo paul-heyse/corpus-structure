@@ -1,0 +1,743 @@
+id: https://corpus-structure.dev/core
+name: core
+title: Core schema
+description: >-
+  The core module of the corpus-structure model (ADR-0020; D2 §6): the domain-independent D1
+  shapes and vocabulary that every domain pack imports. It is the authority: core/vocab.py and
+  core/_model/ are generated from it (Stage A), and the hand-written Pydantic shapes are compared
+  with it by the interim mirror guard until Stage B generates them (P0-M-5). Native LinkML carries
+  every meaning it can; the remaining ci: annotations are scalar and listed in D2 §3.
+version: 0.3.0
+license: https://creativecommons.org/publicdomain/zero/1.0/
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  core: https://corpus-structure.dev/core/
+default_prefix: core
+default_range: string
+imports:
+  - linkml:types
+annotations:
+  ci:key_scheme: 1
+
+types:
+  Key:
+    typeof: string
+    pattern: "^[a-z]+:[0-9a-f]{32}$"
+    description: A D1 §10.1 key, a prefix and 32 hex digits ('clm:…').
+  Locator:
+    typeof: string
+    description: A D1 §3.4 locator string ('special/Normal.html#rel1').
+  CanonicalDecimal:
+    typeof: string
+    pattern: "^(?:0|-?(?:[1-9][0-9]*(?:\\.[0-9]*[1-9])?|0\\.[0-9]*[1-9]))$"
+    description: A number as its D1 §6.2 canonical decimal string.
+  SentenceId:
+    typeof: string
+    pattern: "^[sc][0-9]+$"
+    description: A citation-frame sentence id, sN in the unit or cN in the standing context.
+  Timestamp:
+    typeof: datetime
+    description: A point in time with time zone (timestamptz).
+
+subsets:
+  structural:
+    description: >-
+      Structural claims, about statements. They take no statement_role, are asserted, and carry no
+      conditions (guideline §10.3, §10.6, §10.7 rule 4).
+  unsupported:
+    description: >-
+      Something the source states that the schema cannot express; the claim has status unsupported
+      (D1 §8.1).
+  # Member properties (D2 §3.4): subsets used by enum members only, generated as frozensets.
+  premise_forming:
+    description: "Member property of ClaimModality: claims are premises (INV-06; D8 default filters)."
+  attribution_identifying:
+    description: "Member property of ClaimModality: attribution enters the claim key (D1 §10.1)."
+  conflict_bearing:
+    description: "Member property of ClaimModality: claims can conflict across statements (D5 §5.5)."
+  reserved:
+    description: "Member property of ClaimModality: reserved, not authored under guideline v1."
+  claim_bearing:
+    description: "Member property of StatementKind: the kind's units state claims (D6 §7.2)."
+  annotation_unit:
+    description: "Member property of SegmentKind: a segment of the kind is an annotation unit (D1 §3.4)."
+  top_level_annotation_unit:
+    description: >-
+      Member property of SegmentKind: a segment of the kind is an annotation unit when its
+      ancestors are only section-like segments (D1 §3.4).
+  statement_anchor:
+    description: "Member property of SegmentKind: a statement anchors on the innermost such segment (D1 §10.1)."
+  search_block:
+    description: "Member property of SegmentKind: a BM25 search block (D3 §5)."
+  section_like:
+    description: >-
+      Member property of SegmentKind: a segment of the kind groups blocks without being a block
+      (the document and sections); annotation units are found below it.
+  section_label:
+    description: >-
+      Member property of SegmentKind: a segment of the kind labels its section; it is neither an
+      annotation unit nor uncovered text.
+  container:
+    description: "Member property of SegmentKind: a segment of the kind holds other blocks."
+  citable_sentence:
+    description: >-
+      Member property of SegmentKind: a citation frame's entries and statement ordinals address
+      segments of the kind (D1 §10.1, §10.3).
+
+classes:
+  Entity:
+    abstract: true
+    description: Base of every entity class; instances are D1 entities.
+    slots: [label]
+
+  Statement:
+    is_a: Entity
+    description: >-
+      An authored unit of meaning: a definition, theorem, proof, example, exercise, remark,
+      convention or assumption. Claims belong to statements as premises, conclusions, definientia
+      or example values. Listed in a batch's statements[], never in entities[].
+    slots: [kind]
+    annotations:
+      ci:scope: local
+      ci:extract: none
+      ci:reify: true
+
+  ExternalReference:
+    is_a: Entity
+    description: >-
+      A reference to something outside the batch ("the last result", an author [n] link): a typed
+      node anchored at the citing statement's anchor and resolved by consolidation, never a dropped
+      claim (D1 §4.4). Its descriptor and resolution are declared by P0-F-2e.
+    annotations:
+      ci:scope: local
+      ci:extract: none
+
+  Value:
+    abstract: true
+    description: >-
+      Base of the D1 value classes. Every value carries the tag t, which names its class; the core
+      Pydantic value union is discriminated on it.
+    slots: [t]
+
+  Formula:
+    is_a: Value
+    description: A formula as written, with its symbol bindings (D1 §6.1).
+    slot_usage:
+      t: {equals_string: formula}
+    attributes:
+      latex:
+        required: true
+        description: The LaTeX exactly as written, macros included.
+      symbols:
+        range: SymbolBinding
+        multivalued: true
+        inlined: true
+        description: The binding map, keyed by symbol in token form without backslash.
+      sympy:
+        description: The normalized SymPy form; added by M11 during consolidation.
+        annotations: {ci:form: consolidated}
+      parse:
+        range: ParseOutcome
+        description: The parse outcome; added by M11 during consolidation.
+        annotations: {ci:form: consolidated}
+
+  SetExpr:
+    is_a: Formula
+    description: A set written in LaTeX, such as \R, (0, \infty) or \R \setminus \{0\}.
+    slot_usage:
+      t: {equals_string: set}
+
+  TextValue:
+    is_a: Value
+    description: Free text that is the value itself.
+    slot_usage:
+      t: {equals_string: text}
+    attributes:
+      v: {required: true, description: The text.}
+
+  NumberValue:
+    is_a: Value
+    description: A number with its unit and basis as stated (D1 §6.2).
+    slot_usage:
+      t: {equals_string: number}
+    attributes:
+      v: {range: CanonicalDecimal, required: true, description: The canonical decimal string.}
+      unit: {description: "The unit as stated, or absent."}
+      basis: {description: "A reference basis the source states, such as gauge or absolute, or absent."}
+
+  BoolValue:
+    is_a: Value
+    description: A truth value.
+    slot_usage:
+      t: {equals_string: bool}
+    attributes:
+      v: {range: boolean, required: true, description: The truth value.}
+
+  EnumValue:
+    is_a: Value
+    description: A permissible value of a schema enum.
+    slot_usage:
+      t: {equals_string: enum}
+    attributes:
+      enum: {required: true, description: The enum's name.}
+      v: {required: true, description: The permissible value.}
+
+  DateValue:
+    is_a: Value
+    description: A date or date-time kept verbatim as ISO 8601.
+    slot_usage:
+      t: {equals_string: date}
+    attributes:
+      v: {required: true, description: The ISO 8601 string as written.}
+
+  IntervalValue:
+    is_a: Value
+    description: An interval of values; an absent bound is unbounded.
+    slot_usage:
+      t: {equals_string: interval}
+    attributes:
+      start: {range: Value, inlined: true, description: "The lower bound, a number, date or formula."}
+      end: {range: Value, inlined: true, description: "The upper bound, a number, date or formula."}
+      start_incl: {range: boolean, description: Whether the lower bound is included.}
+      end_incl: {range: boolean, description: Whether the upper bound is included.}
+
+  PhraseValue:
+    is_a: Value
+    description: >-
+      Text kept but not interpreted. The model-facing form names the sentence it lies in; the stored
+      form adds the offsets the quote cascade located.
+    slot_usage:
+      t: {equals_string: phrase}
+    annotations:
+      ci:invariant: ordered(start, end)
+    attributes:
+      text: {required: true, description: The text as written.}
+      sentence:
+        range: SentenceId
+        description: The unit sentence (sN) or standing-context sentence (cN) holding the text.
+        annotations: {ci:form: model}
+      start:
+        range: integer
+        description: Start offset in the rendition's canonical text.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      end:
+        range: integer
+        description: End offset in the rendition's canonical text.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      coarse:
+        range: boolean
+        description: The text was not located exactly; the span is the whole cited sentence.
+        annotations: {ci:form: stored}
+
+  EntityRef:
+    description: >-
+      A reference to an entity: a batch local ref, or an entity key once stored. It is a position
+      type, not a value; a slot whose range is an entity class takes it.
+    attributes:
+      ref: {required: true, description: The local ref or entity key.}
+
+  SymbolBinding:
+    description: How one symbol of a formula is bound (D1 §6.1); the kind decides its fields.
+    annotations:
+      ci:invariant: >-
+        iff_present(entity, bind = variable|family_param);
+        iff_present(claim, bind = param_of|param_expr_of);
+        iff_present(param, bind = param_of|param_expr_of)
+    attributes:
+      bind: {range: BindKind, required: true, description: The binding kind.}
+      entity: {description: "variable, family_param: the entity's local ref (key once stored)."}
+      claim: {description: "param_of, param_expr_of: the claim's local ref (key once stored)."}
+      param: {description: "param_of, param_expr_of: the entry of the claim's ci:param_map qualifier."}
+
+  Condition:
+    abstract: true
+    description: >-
+      A condition tree (D1 §7), the range of the conditions qualifier: one of the node classes
+      below, discriminated on op.
+    slots: [op]
+
+  AndNode:
+    is_a: Condition
+    description: All of the arguments hold.
+    slot_usage:
+      op: {equals_string: and}
+    attributes:
+      args: {range: Condition, multivalued: true, inlined: true, required: true, description: The arguments.}
+
+  OrNode:
+    is_a: Condition
+    description: At least one of the arguments holds.
+    slot_usage:
+      op: {equals_string: or}
+    attributes:
+      args: {range: Condition, multivalued: true, inlined: true, required: true, description: The arguments.}
+
+  NotNode:
+    is_a: Condition
+    description: The argument does not hold.
+    slot_usage:
+      op: {equals_string: not}
+    attributes:
+      arg: {range: Condition, inlined: true, required: true, description: The argument.}
+
+  ForallNode:
+    is_a: Condition
+    description: The body holds for every value of the variable in the set.
+    slot_usage:
+      op: {equals_string: forall}
+    attributes:
+      var: {required: true, description: "The bound variable, a symbol."}
+      set: {range: SetExpr, inlined: true, required: true, description: The set it ranges over.}
+      body: {range: Condition, inlined: true, required: true, description: The condition on it.}
+
+  ClaimNode:
+    is_a: Condition
+    description: Another claim of the batch holds (a premise reference).
+    slot_usage:
+      op: {equals_string: claim}
+    attributes:
+      ref: {required: true, description: The claim's local ref (key once stored).}
+
+  MemberNode:
+    is_a: Condition
+    description: A formula's value lies in a set.
+    slot_usage:
+      op: {equals_string: member}
+    attributes:
+      x: {range: Formula, inlined: true, required: true, description: The element.}
+      set: {range: SetExpr, inlined: true, required: true, description: The set.}
+
+  CmpNode:
+    is_a: Condition
+    description: Two formulas compare by a relation.
+    slot_usage:
+      op: {equals_string: cmp}
+    attributes:
+      rel: {required: true, description: "The relation: <, <=, =, !=, > or >=."}
+      lhs: {range: Formula, inlined: true, required: true, description: The left side.}
+      rhs: {range: Formula, inlined: true, required: true, description: The right side.}
+
+  PredNode:
+    is_a: Condition
+    description: A condition predicate of the schema (ConditionPredicate) holds of its arguments.
+    slot_usage:
+      op: {equals_string: pred}
+    attributes:
+      name: {required: true, description: The condition predicate's name.}
+      args:
+        range: Value
+        multivalued: true
+        inlined: true
+        required: true
+        description: The arguments, entity references or formulas.
+
+  PhraseNode:
+    is_a: Condition
+    description: A condition kept as text, not interpreted.
+    slot_usage:
+      op: {equals_string: phrase}
+    annotations:
+      ci:invariant: ordered(start, end)
+    attributes:
+      text: {required: true, description: The text as written.}
+      sentence:
+        range: SentenceId
+        description: The sentence holding the text.
+        annotations: {ci:form: model}
+      start:
+        range: integer
+        description: Start offset in the rendition's canonical text.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      end:
+        range: integer
+        description: End offset in the rendition's canonical text.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      coarse:
+        range: boolean
+        description: The text was not located exactly.
+        annotations: {ci:form: stored}
+
+  UnsupportedNode:
+    is_a: PhraseNode
+    description: A condition the schema cannot express, kept as text with the reason.
+    slot_usage:
+      op: {equals_string: unsupported}
+    attributes:
+      reason: {required: true, description: Why it is unsupported.}
+
+  MapEntry:
+    abstract: true
+    description: >-
+      One entry of a map qualifier (object kind map, D2 §3): a string key and a value. A map
+      qualifier ranges over a subclass, multivalued and inlined, and is written as an object from
+      key to value.
+    attributes:
+      key: {identifier: true, description: The entry's key.}
+      value: {description: The entry's value.}
+
+  StoredScope:
+    description: The stored scope qualifier, the extent and the segment it resolves to (D1 §5.2).
+    attributes:
+      extent: {range: ScopeExtent, required: true, description: How far the supposition reaches.}
+      segment: {required: true, description: The segment key it resolves to on the rendition.}
+
+  # ---- batch items (D2 §7.3), one declaration per item with ci:form attributes ----
+  Evidence:
+    description: >-
+      One evidence span of a claim: authored by sentence id and quote, stored by offsets on the
+      rendition.
+    annotations:
+      ci:invariant: ordered(start, end)
+    attributes:
+      sentence:
+        range: SentenceId
+        description: The cited sentence.
+        annotations: {ci:form: model, ci:required_in: model}
+      quote:
+        description: The quoted text inside the sentence.
+        annotations: {ci:form: model, ci:required_in: model}
+      start:
+        range: integer
+        description: Start offset.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      end:
+        range: integer
+        description: End offset.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      role: {range: EvidenceRole, required: true, description: The part the span plays.}
+      coarse:
+        range: boolean
+        description: The quote was not located exactly.
+        annotations: {ci:form: stored}
+
+  EntityItem:
+    description: An entity item of a batch (D2 §7.3).
+    attributes:
+      local_ref: {required: true, description: The batch-local reference.}
+      type: {required: true, description: "The entity class: local name when authored, prefixed when stored."}
+      label: {required: true, description: The label as written.}
+      scope: {range: EntityScope, required: true, description: Global or local (D1 §4.2).}
+      extent: {range: EntityExtent, description: How far a local entity reaches.}
+      symbol: {description: The symbol a local entity is written as.}
+      aliases: {multivalued: true, description: Other names written for it.}
+      identity:
+        multivalued: true
+        description: Identity slot to local ref or literal.
+      scope_segment:
+        description: The segment key a local entity is scoped to.
+        annotations: {ci:form: stored}
+
+  StatementItem:
+    description: >-
+      A statement item: anchored by sentence ids, unit or outside when authored; by segment keys or
+      outside when stored.
+    attributes:
+      local_ref: {required: true, description: The batch-local reference.}
+      kind: {range: StatementKind, required: true, description: The statement's kind.}
+      anchor: {required: true, description: "The anchor, by form."}
+
+  ClaimItem:
+    description: A claim item of a batch (D2 §7.3).
+    attributes:
+      local_ref: {required: true, description: The batch-local reference.}
+      predicate: {required: true, description: "The predicate: local when authored, prefixed when stored."}
+      subject: {required: true, description: The subject's local ref.}
+      statement: {description: The statement's local ref.}
+      statement_role: {range: StatementRole, description: The claim's role in its statement.}
+      object: {range: Value, required: true, description: An entity reference or a value.}
+      qualifiers: {description: The core and schema qualifiers.}
+      evidence: {range: Evidence, multivalued: true, inlined_as_list: true, required: true, description: The evidence spans.}
+
+  AlternativeItem:
+    description: Items the author marks as alternatives of one another.
+    attributes:
+      refs: {multivalued: true, required: true, description: The alternatives' local refs.}
+      reason: {required: true, description: Why they are alternatives.}
+
+  UnsupportedItem:
+    description: Text the schema cannot express (D1 §8.1).
+    annotations:
+      ci:invariant: ordered(start, end)
+    attributes:
+      local_ref: {required: true, description: The batch-local reference.}
+      reason: {required: true, description: Why it is unsupported.}
+      sentence:
+        range: SentenceId
+        description: The cited sentence.
+        annotations: {ci:form: model, ci:required_in: model}
+      quote:
+        description: The quoted text.
+        annotations: {ci:form: model, ci:required_in: model}
+      start:
+        range: integer
+        description: Start offset.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      end:
+        range: integer
+        description: End offset.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      coarse:
+        range: boolean
+        description: The quote was not located exactly.
+        annotations: {ci:form: stored}
+
+  Batch:
+    description: A batch envelope in either form (D2 §7.3).
+    attributes:
+      unit_ref: {required: true, description: The annotation unit's key.}
+      entities: {range: EntityItem, multivalued: true, inlined_as_list: true, description: Entity items.}
+      statements: {range: StatementItem, multivalued: true, inlined_as_list: true, description: Statement items.}
+      claims: {range: ClaimItem, multivalued: true, inlined_as_list: true, description: Claim items.}
+      alternatives: {range: AlternativeItem, multivalued: true, inlined_as_list: true, description: Alternative items.}
+      unsupported: {range: UnsupportedItem, multivalued: true, inlined_as_list: true, description: Unsupported items.}
+
+slots:
+  label:
+    description: Canonical display label (D1 §4.1). Identity follows the key rules of D1 §10.1.
+  kind:
+    range: StatementKind
+    description: The statement's kind.
+  t:
+    required: true
+    description: The value's tag, naming its class.
+  op:
+    required: true
+    description: The condition node's operator, naming its class.
+
+  # core qualifiers: allowed on every predicate, never listed in ci:qualifiers (D2 §4); each slot is
+  # its qualifier specification (D1 §5.2): range, default (ifabsent), key role and condition
+  modality:
+    range: ClaimModality
+    ifabsent: string(asserted)
+    description: How the source holds the claim (D1 §5.2); asserted when absent.
+    annotations: {ci:role: qualifier, ci:key_role: identity}
+  polarity:
+    range: Polarity
+    ifabsent: string(positive)
+    description: Whether the claim is stated or denied; positive when absent.
+    annotations: {ci:role: qualifier, ci:key_role: identity}
+  hedge:
+    range: PhraseValue
+    description: A hedging phrase the source attaches to the claim ("usually", "in some settings").
+    annotations: {ci:role: qualifier, ci:key_role: meaning}
+  attribution:
+    range: Entity
+    description: Who the source says states the claim, when it cites someone.
+    annotations: {ci:role: qualifier, ci:key_role: meaning, ci:key_role_when: attribution_identifying}
+  conditions:
+    range: Condition
+    description: The condition tree under which the claim holds (D1 §7).
+    annotations: {ci:role: qualifier, ci:key_role: identity}
+  scope:
+    range: ScopeExtent
+    description: >-
+      How far a supposition reaches beyond its statement; model-facing a ScopeExtent value, stored
+      {extent, segment}.
+    annotations: {ci:role: qualifier, ci:key_role: meaning, ci:stored_range: StoredScope}
+  valid_time:
+    range: IntervalValue
+    description: The time interval over which the claim holds, when the source states one.
+    annotations: {ci:role: qualifier, ci:key_role: identity}
+
+  # core predicates
+  defines:
+    domain: Statement
+    range: Entity
+    in_subset: [structural]
+    description: The statement defines the entity. "is called the location-scale family".
+    annotations: {ci:role: predicate, ci:extract: llm}
+  proves:
+    domain: Statement
+    range: Statement
+    in_subset: [structural]
+    description: A proof or solution statement proves (or solves) another statement.
+    annotations: {ci:role: predicate, ci:extract: llm}
+  follows_from:
+    domain: Statement
+    range: Statement
+    in_subset: [structural]
+    description: The statement is stated to follow from another ("a corollary of the last result").
+    annotations: {ci:role: predicate, ci:extract: llm}
+  refers_to:
+    domain: Statement
+    range: Entity
+    in_subset: [structural]
+    description: The statement explicitly refers to an entity defined elsewhere ("recall the gamma function").
+    annotations: {ci:role: predicate, ci:extract: llm}
+  unschematized:
+    domain: Entity
+    range: PhraseValue
+    in_subset: [unsupported]
+    description: Something the source states that the schema cannot express (D1 §8.1).
+    annotations: {ci:role: predicate, ci:extract: llm}
+
+enums:
+  StatementKind:
+    description: What the source calls a statement (D1 §4.3).
+    annotations: {ci:lifecycle: schema_version, ci:extract: classification, ci:target: unit paragraph}
+    permissible_values:
+      definition: {description: Stipulates what a term means., in_subset: [claim_bearing]}
+      theorem: {description: A stated result., in_subset: [claim_bearing]}
+      proposition: {description: A stated result., in_subset: [claim_bearing]}
+      lemma: {description: A stated auxiliary result., in_subset: [claim_bearing]}
+      corollary: {description: A result stated to follow from another., in_subset: [claim_bearing]}
+      proof: {description: A proof of another statement.}
+      example: {description: A worked example with setup values., in_subset: [claim_bearing]}
+      exercise: {description: An exercise with setup values and an asked quantity., in_subset: [claim_bearing]}
+      solution: {description: A solution of an exercise.}
+      remark: {description: A remark; explicit claims only., in_subset: [claim_bearing]}
+      convention: {description: A convention the source adopts., in_subset: [claim_bearing]}
+      notation: {description: A notation the source introduces., in_subset: [claim_bearing]}
+      assumption: {description: A statement whose only content is a supposition (a context premise)., in_subset: [claim_bearing]}
+      narrative: {description: Narrative text between units that states claims., in_subset: [claim_bearing]}
+  ClaimModality:
+    description: How the source holds a claim (D1 §5.2; guideline §10.6).
+    annotations: {ci:lifecycle: schema_version, ci:extract: classification, ci:target: sentence}
+    permissible_values:
+      asserted: {description: Concluded or stated as true; structural claims., in_subset: [conflict_bearing]}
+      supposed: {description: "A supposition: suppose, assume, if, or let about something taken as given.", in_subset: [premise_forming]}
+      defined: {description: "What a definition stipulates, including a formula introducing a variable.", in_subset: [conflict_bearing]}
+      conventional: {description: A convention.}
+      exemplified: {description: Setup values in examples and exercises.}
+      posed: {description: Reserved until an asks_for predicate exists (OPEN-D2-15)., in_subset: [reserved]}
+      cited: {description: Attributed to another source., in_subset: [attribution_identifying]}
+  Polarity:
+    description: Whether a claim is stated or denied.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      positive: {description: Stated.}
+      negative: {description: Denied.}
+  StatementRole:
+    description: The part a claim plays in its statement (guideline §10.3).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      premise: {description: A supposition the statement makes.}
+      conclusion: {description: "What a theorem, corollary or remark concludes."}
+      definiens: {description: "What a definition stipulates, or a formula introducing a variable."}
+      restriction: {description: Reserved; restrictions are condition nodes in guideline v1.}
+      example_value: {description: A setup value of an example or exercise.}
+  ScopeExtent:
+    description: How far a supposition reaches beyond its statement.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      statement: {description: The statement that states it.}
+      section: {description: The enclosing section from the stating sentence on.}
+      document: {description: The whole document.}
+  EntityExtent:
+    description: How far a local entity reaches.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      statement: {description: The statement that introduces it.}
+      section: {description: The enclosing section from the introducing sentence on.}
+  EntityScope:
+    description: Whether an entity is global or local to a scope segment (D1 §4.2).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      global: {description: The same entity wherever it is named.}
+      local: {description: "An entity of one scope segment, such as a theorem's X."}
+  BindKind:
+    description: The kinds of symbol binding (D1 §6.1).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      variable: {description: The symbol denotes a local entity of the batch.}
+      param_of: {description: The symbol is the value of an entry of another claim's parameter map.}
+      param_expr_of: {description: The symbol occurs inside the value of such an entry.}
+      family_param: {description: The symbol denotes a parameter entity of a family.}
+      free: {description: "A symbol the statement introduces, restricted by its conditions."}
+      constant: {description: A numeric or named constant.}
+      unresolved: {description: Not bound; a counted resolution gap.}
+  ParseOutcome:
+    description: The math grammar's parse outcome for a formula or set value (D4 M11).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      ok: {description: One reading.}
+      partial: {description: Parsed in part.}
+      ambiguous: {description: "More than one reading, none chosen by declared context."}
+      failed: {description: Not parsed.}
+  EvidenceRole:
+    description: The part an evidence span plays for its claim (guideline §10.8).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      primary: {description: The minimal span that states the claim.}
+      supporting: {description: An introducer that determines the modality.}
+      condition: {description: The span of a condition.}
+      definition: {description: The span of a definition the claim relies on.}
+  SegmentKind:
+    description: The kinds of segment of a rendition (D1 §3.2), with their member properties.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      document: {description: The whole rendition., in_subset: [section_like, container]}
+      section: {description: A section opened by a heading., in_subset: [section_like, container]}
+      unit: {description: An author unit (div.unit)., in_subset: [annotation_unit, statement_anchor, container]}
+      paragraph: {description: A paragraph., in_subset: [top_level_annotation_unit, search_block]}
+      list: {description: A list., in_subset: [container]}
+      list_item: {description: A list item., in_subset: [search_block]}
+      details: {description: A details block (proofs and solutions)., in_subset: [statement_anchor, container]}
+      math_display: {description: Display mathematics.}
+      math_inline: {description: Inline mathematics.}
+      heading: {description: A heading., in_subset: [section_label, search_block]}
+      table: {description: A table., in_subset: [container]}
+      table_row: {description: A table row., in_subset: [container]}
+      table_cell: {description: A table cell.}
+      caption: {description: A figure or table caption., in_subset: [search_block]}
+      footnote: {description: A footnote.}
+      figure: {description: A figure., in_subset: [container]}
+      sentence: {description: A sentence (M03)., in_subset: [citable_sentence]}
+      email_message: {description: One message of an email thread., in_subset: [annotation_unit, container]}
+      quoted_block: {description: Quoted text of an earlier email message., in_subset: [container]}
+      signature: {description: An email signature block.}
+  DelimitingStatus:
+    description: >-
+      How cleanly a segment or rendition was delimited: one definition for kb.segment and
+      kb.rendition parse_status (D1 §3.2), replacing evidence.ParseStatus and SegmentParseStatus.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      ok: {description: Delimited cleanly.}
+      partial: {description: Delimited in part; the reason says where.}
+      failed: {description: Not delimited; the reason says why.}
+
+  # ---- the declaration vocabulary's own values (D2 §3.4), read by the loader and _model ----
+  Lifecycle:
+    description: "The values of ci:lifecycle: how a closed set changes and is enforced."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      static: {description: Changes with code; enforced by a digest-named CHECK.}
+      schema_version: {description: Extendable by packs; enforced by per-version member rows and FKs.}
+  KeyRole:
+    description: "The values of ci:key_role: a qualifier's part in the claim key (D1 §5.2)."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      identity: {description: Enters the claim key in its canonical form.}
+      meaning: {description: Outside the key; disagreement makes alternatives.}
+      inert: {description: Neither.}
+  CaseRule:
+    description: "The values of ci:case: the case policy of a string-ranged slot or class label."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      fold: {description: Casefolded (prose).}
+      preserve: {description: Case kept (math-bearing text).}
+  CanonicalForm:
+    description: >-
+      A qualifier's canonical form, derived from its range (D1 §6.2; model and projections §3.2).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      token_form: {description: "Formula, SetExpr: the token form over the effective macro table."}
+      text_form: {description: "TextValue, PhraseValue: NFC, whitespace collapsed, case per policy."}
+      identifier: {description: "A string range with ci:case: NFC, collapsed, the declared case."}
+      enum: {description: "EnumValue: {enum: prefixed enum name, v: member} verbatim."}
+      member: {description: "An enum-ranged slot: the bare member value."}
+      entity_key: {description: "An entity range: the resolved key after the kind check."}
+      interval: {description: "IntervalValue: recursive over bounds and inclusivity."}
+      map: {description: "A MapEntry range: key (NFC) to the canonical form of the value range."}
+      number: {description: "NumberValue: the canonical decimal; unit and basis collapsed."}
+      verbatim: {description: "DateValue, BoolValue: as written."}
+      condition: {description: "Condition: the D1 §7 canonical tree, leaves by range."}
+      scope: {description: "Stored scope: the extent and the segment's locator (member keys only)."}
+  QualifierStore:
+    description: Where a qualifier's value is stored (D3 §5).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      column: {description: A kb.claim column.}
+      json: {description: Inside kb.claim.qualifiers.}
+      edge: {description: An edge table row.}

@@ -33,15 +33,22 @@ from typing import Literal, NamedTuple, Self
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from corpus_structure.core.evidence import RenditionContent, Segment, SegmentKind
+from corpus_structure.core.vocab import (
+    ANNOTATION_UNIT,
+    SECTION_LABEL,
+    SECTION_LIKE,
+    TOP_LEVEL_ANNOTATION_UNIT,
+)
 
 SHORT_KINDS: dict[str, SegmentKind] = {"u": SegmentKind.UNIT, "p": SegmentKind.PARAGRAPH}
 _SHORT_OF: dict[SegmentKind, str] = {kind: short for short, kind in SHORT_KINDS.items()}
 _KIND_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz_")
 OPENING_WORDS = 8
 
-# Block kinds that are neither an annotation unit nor uncovered text at the top level: sections
-# are descended into, and headings label their sections.
-_NOT_UNCOVERED = frozenset({SegmentKind.SECTION, SegmentKind.HEADING})
+# Block kinds that are neither an annotation unit nor uncovered text at the top level: section-like
+# segments are descended into, and section labels (headings) label their sections. Member
+# properties of the model (DA-003), never a literal subset of kinds.
+_NOT_UNCOVERED: frozenset[SegmentKind] = SECTION_LIKE | SECTION_LABEL
 
 RefusalReason = Literal["none", "several", "fewer than ordinal"]
 
@@ -406,21 +413,22 @@ class LocatorIndex:
     # -- annotation units -------------------------------------------------------------------
 
     def annotation_units(self) -> AnnotationUnits:
-        """Every `unit` segment and every paragraph whose ancestors are only sections and the
-        document, in document order, with their unit keys; and as `uncovered`, the other blocks at
-        that level (lists, tables, figures, …; not headings), which belong to no unit."""
+        """Every segment of an `annotation_unit` kind (`unit`, `email_message`) and every one of a
+        `top_level_annotation_unit` kind (`paragraph`) whose ancestors are all `section_like`, in
+        document order, with their unit keys; and as `uncovered`, the other blocks at that level
+        (lists, tables, figures, …; not section labels), which belong to no unit."""
         units: list[AnnotationUnit] = []
         uncovered: list[Segment] = []
 
         def visit(parent: Segment, top: bool) -> None:
             for child in parent.children:
-                is_unit = child.kind is SegmentKind.UNIT
-                if is_unit or (top and child.kind is SegmentKind.PARAGRAPH):
+                is_unit = child.kind in ANNOTATION_UNIT
+                if is_unit or (top and child.kind in TOP_LEVEL_ANNOTATION_UNIT):
                     locator = self.generate(child)
                     units.append(AnnotationUnit(str(locator), locator, child))
                 elif top and child.kind not in _NOT_UNCOVERED:
                     uncovered.append(child)
-                visit(child, top and child.kind is SegmentKind.SECTION)
+                visit(child, top and child.kind in SECTION_LIKE)
 
         visit(self.rendition.document, True)
         return AnnotationUnits(tuple(units), tuple(uncovered))

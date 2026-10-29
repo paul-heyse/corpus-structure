@@ -25,7 +25,7 @@ from corpus_structure.core.locators import (
     RefusalReason,
     parse,
 )
-from corpus_structure.core.vocab import FrameFailureReason
+from corpus_structure.core.vocab import CITABLE_SENTENCE, FrameFailureReason
 
 _MESSAGES: dict[FrameFailureReason, str] = {
     FrameFailureReason.LOCATOR_SYNTAX: "the locator is malformed",
@@ -89,7 +89,7 @@ def _resolve_entry(
     except LocatorRefused as refused:
         return FrameFailure(sentence, locator, FrameFailureReason.LOCATOR_REFUSED,
                             refusal=refused.reason, candidates=refused.candidates)  # fmt: skip
-    if segment.kind is not SegmentKind.SENTENCE:
+    if segment.kind not in CITABLE_SENTENCE:
         return FrameFailure(sentence, locator, FrameFailureReason.NOT_A_SENTENCE,
                             selected=segment.kind)  # fmt: skip
     if index.rendition.text(segment) != text:

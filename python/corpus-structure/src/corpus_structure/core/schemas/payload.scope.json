@@ -1,6 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "BindKind": {
+      "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
+      "enum": [
+        "variable",
+        "param_of",
+        "param_expr_of",
+        "family_param",
+        "free",
+        "constant",
+        "unresolved"
+      ],
+      "type": "string"
+    },
     "MentionAt": {
       "additionalProperties": false,
       "description": "A mention ref with the mention's offsets, so a reused task's refs match by offsets.",
@@ -40,6 +53,15 @@
         "ordinal"
       ],
       "type": "object"
+    },
+    "ScopeExtent": {
+      "description": "How far a supposition reaches beyond its statement. Lifecycle: static.",
+      "enum": [
+        "statement",
+        "section",
+        "document"
+      ],
+      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -63,24 +85,10 @@
       "type": "string"
     },
     "extent": {
-      "enum": [
-        "statement",
-        "section",
-        "document"
-      ],
-      "type": "string"
+      "$ref": "#/$defs/ScopeExtent"
     },
     "binding": {
-      "enum": [
-        "variable",
-        "param_of",
-        "param_expr_of",
-        "family_param",
-        "free",
-        "constant",
-        "unresolved"
-      ],
-      "type": "string"
+      "$ref": "#/$defs/BindKind"
     },
     "reopens": {
       "$ref": "#/$defs/MentionAt"

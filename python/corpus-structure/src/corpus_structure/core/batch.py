@@ -11,6 +11,8 @@ offsets and segment keys on one rendition, which the record holding it names.
 
 `CoreQualifiers` keeps `modality` and `polarity` with defaults that dumps leave out (equal meaning,
 equal JSON) and that rule views see filled in; the other core qualifiers are absent by `MISSING`.
+The closed sets, the defaults, the core qualifier names and the span invariants come from the
+model (`vocab.py`, `_model/`; ADR-0020); the shape structure stays here until Stage B (P0-M-5).
 It accepts schema qualifiers as raw JSON; S1's per-predicate models subclass it with
 `extra="forbid"` and typed fields.
 """
@@ -26,6 +28,8 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import MISSING, BaseModel, ConfigDict, Field, JsonValue, RootModel, model_validator
 
+from corpus_structure.core._model import names, validators
+from corpus_structure.core._model.qualifiers import BY_NAME
 from corpus_structure.core.values import (
     CITATION,
     SENTENCE_ID,
@@ -42,25 +46,27 @@ from corpus_structure.core.values import (
     StoredPhrase,
     refuse_m11_fields,
 )
-from corpus_structure.core.vocab import EntityScope, EvidenceRole, StatementRole
+from corpus_structure.core.vocab import (
+    ClaimModality,
+    EntityExtent,
+    EntityScope,
+    EvidenceRole,
+    Polarity,
+    ScopeExtent,
+    StatementRole,
+)
 
-Modality = Literal[
-    "asserted", "supposed", "defined", "conventional", "exemplified", "posed", "cited"
-]
-Polarity = Literal["positive", "negative"]
-ScopeExtent = Literal["statement", "section", "document"]
-EntityExtent = Literal["statement", "section"]
 LocalRef = Annotated[str, Field(min_length=1)]
 
 # The stored form names every schema element (class, predicate, qualifier, identity slot) by its
 # prefixed name; the authored form keeps local names (coordinator ruling, 2026-10-28, from X2).
 PREFIXED_NAME = r"^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$"
 PrefixedName = Annotated[str, Field(pattern=PREFIXED_NAME)]
-CORE_PREFIX = "core"
+CORE_PREFIX = names.PREFIX
 _PREFIXED = re.compile(PREFIXED_NAME)
 
-DEFAULT_MODALITY = "asserted"
-DEFAULT_POLARITY = "positive"
+DEFAULT_MODALITY: ClaimModality = BY_NAME[names.MODALITY].default
+DEFAULT_POLARITY: Polarity = BY_NAME[names.POLARITY].default
 
 
 def _is_default_modality(value: object) -> bool:
@@ -79,7 +85,7 @@ class _Qualifiers(CoreModel):
     # schema qualifiers, raw JSON until S1 types them (Pydantic's typed-extras declaration)
     __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
 
-    modality: Modality = Field(DEFAULT_MODALITY, exclude_if=_is_default_modality)
+    modality: ClaimModality = Field(DEFAULT_MODALITY, exclude_if=_is_default_modality)
     polarity: Polarity = Field(DEFAULT_POLARITY, exclude_if=_is_default_polarity)
     attribution: EntityRef | MISSING = MISSING  # type: ignore[valid-type]
     valid_time: IntervalValue | MISSING = MISSING  # type: ignore[valid-type]
@@ -98,10 +104,8 @@ class AuthoredQualifiers(_Qualifiers):
     scope: ScopeExtent | MISSING = MISSING  # type: ignore[valid-type]
 
 
-CORE_QUALIFIERS = (
-    "modality", "polarity", "hedge", "attribution", "conditions", "scope", "valid_time"
-)  # fmt: skip
-STORED_CORE_QUALIFIERS = tuple(f"{CORE_PREFIX}:{name}" for name in CORE_QUALIFIERS)
+CORE_QUALIFIERS = names.QUALIFIERS
+STORED_CORE_QUALIFIERS = names.STORED_QUALIFIERS
 
 
 def _core(name: str) -> str:
@@ -123,7 +127,7 @@ class StoredQualifiers(CoreModel):
     # schema qualifiers, raw JSON until S1 types them (Pydantic's typed-extras declaration)
     __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
 
-    modality: Modality = Field(
+    modality: ClaimModality = Field(
         DEFAULT_MODALITY, alias=_core("modality"), exclude_if=_is_default_modality
     )
     polarity: Polarity = Field(
@@ -152,12 +156,6 @@ class _Span(CoreModel):
     start: Offset
     end: Offset
 
-    @model_validator(mode="after")
-    def _span(self) -> Self:
-        if self.start >= self.end:
-            raise ValueError(f"span [{self.start}, {self.end}) is empty or reversed")
-        return self
-
 
 class AuthoredEvidence(CoreModel):
     sentence: SentenceId
@@ -168,6 +166,11 @@ class AuthoredEvidence(CoreModel):
 class StoredEvidence(_Span):
     role: EvidenceRole
     coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
+
+    @model_validator(mode="after")
+    def _invariants(self) -> Self:
+        validators.evidence(self)
+        return self
 
 
 # --- Items -------------------------------------------------------------------------------------
@@ -257,6 +260,11 @@ class StoredUnsupported(_Span):
     local_ref: LocalRef
     reason: str
     coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
+
+    @model_validator(mode="after")
+    def _invariants(self) -> Self:
+        validators.unsupported_item(self)
+        return self
 
 
 # The item unions of each form: what a batch's item lists hold.

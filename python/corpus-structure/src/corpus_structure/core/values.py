@@ -2,7 +2,9 @@
 
 Foundations §3.5.
 
-Every model is frozen with `extra="forbid"` and tuples for sequences. Optional fields are absent,
+Every model is frozen with `extra="forbid"` and tuples for sequences. The closed sets (`BindKind`,
+`ParseOutcome`) and the cross-field invariants (span order, binding fields) come from the model
+(`vocab.py`, `_model/validators.py`; ADR-0020). Optional fields are absent,
 never null: they default to `MISSING`, a null is refused, and dumps leave them out, so equal
 meaning gives equal JSON (D3 §6.1). Names the schema owns (enum names and values, condition
 predicates) are plain strings; the compiled per-predicate models type them (S1).
@@ -38,7 +40,9 @@ from pydantic import (
     model_validator,
 )
 
+from corpus_structure.core._model import validators
 from corpus_structure.core.canonical import CANONICAL_DECIMAL, canonical_decimal
+from corpus_structure.core.vocab import BindKind, ParseOutcome
 
 SENTENCE_ID = r"^[sc][0-9]+$"
 ISO_8601 = (
@@ -47,10 +51,6 @@ ISO_8601 = (
 )
 _DECIMAL = re.compile(CANONICAL_DECIMAL)
 
-BindKind = Literal[
-    "variable", "param_of", "param_expr_of", "family_param", "free", "constant", "unresolved"
-]
-ParseOutcome = Literal["ok", "partial", "ambiguous", "failed"]
 Relation = Literal["<", "<=", "=", "!=", ">", ">="]
 
 
@@ -79,17 +79,6 @@ class EntityRef(CoreModel):
     ref: str = Field(min_length=1)
 
 
-_BINDING_FIELDS: dict[str, frozenset[str]] = {
-    "variable": frozenset({"entity"}),
-    "family_param": frozenset({"entity"}),
-    "param_of": frozenset({"claim", "param"}),
-    "param_expr_of": frozenset({"claim", "param"}),
-    "free": frozenset(),
-    "constant": frozenset(),
-    "unresolved": frozenset(),
-}
-
-
 class SymbolBinding(CoreModel):
     """How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has."""
 
@@ -100,13 +89,7 @@ class SymbolBinding(CoreModel):
 
     @model_validator(mode="after")
     def _fields_of_kind(self) -> Self:
-        wanted = _BINDING_FIELDS[self.bind]
-        present = {
-            name for name in ("entity", "claim", "param") if getattr(self, name) is not MISSING
-        }
-        if present != wanted:
-            need = ", ".join(sorted(wanted)) or "no other field"
-            raise ValueError(f"a {self.bind} binding takes {need}; got {sorted(present) or 'none'}")
+        validators.symbol_binding(self)
         return self
 
 
@@ -238,8 +221,7 @@ class StoredPhrase(CoreModel):
 
     @model_validator(mode="after")
     def _span(self) -> Self:
-        if self.start >= self.end:
-            raise ValueError(f"span [{self.start}, {self.end}) is empty or reversed")
+        validators.phrase_value(self)
         return self
 
 
@@ -263,8 +245,7 @@ class StoredPhraseNode(CoreModel):
 
     @model_validator(mode="after")
     def _span(self) -> Self:
-        if self.start >= self.end:
-            raise ValueError(f"span [{self.start}, {self.end}) is empty or reversed")
+        validators.phrase_node(self)
         return self
 
 

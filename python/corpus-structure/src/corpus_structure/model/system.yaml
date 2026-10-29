@@ -1,0 +1,3081 @@
+id: https://corpus-structure.dev/system
+name: system
+title: System schema
+description: >-
+  The system module of the corpus-structure model (ADR-0020): the classes of D3's meta, ops, kb and
+  eval schemas with their closed sets, invariants and relationships; the payload classes of their
+  JSONB columns; the source-profile class; the EmbeddingSpec; and the unit-feature vocabulary of
+  agent_reuse by_unit. System classes are tables unless ci:store says otherwise; their table is the
+  snake case of the class name (or the native local_names sql entry) in the schema their subset
+  names; a single-valued class-ranged attribute is a foreign key column named <attribute>_id.
+version: 0.3.0
+license: https://creativecommons.org/publicdomain/zero/1.0/
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  core: https://corpus-structure.dev/core/
+  sys: https://corpus-structure.dev/system/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: sys
+default_range: string
+imports:
+  - linkml:types
+  - core
+
+types:
+  Id:
+    typeof: integer
+    uri: xsd:long
+    description: A generated bigint row id, or a bigint reference without a foreign key.
+  SmallInt:
+    typeof: integer
+    uri: xsd:short
+    description: A small integer (smallint).
+  Real:
+    typeof: float
+    uri: xsd:float
+    description: A single-precision float (real).
+  Double:
+    typeof: double
+    description: A double-precision float (double precision).
+  Bytes:
+    typeof: string
+    description: Raw bytes (bytea), such as a serialized Arrow schema.
+    annotations: {ci:sql_type: bytea}
+  Json:
+    typeof: string
+    description: An opaque JSON document (jsonb) whose structure the model does not declare.
+    annotations: {ci:sql_type: jsonb}
+  TsConfig:
+    typeof: string
+    description: A text-search configuration name (regconfig).
+    annotations: {ci:sql_type: regconfig}
+  HalfVec:
+    typeof: string
+    description: A half-precision vector (pgvector halfvec), of the EmbeddingSpec's dimension.
+    annotations: {ci:sql_type: halfvec}
+
+subsets:
+  meta: {description: Tables in the meta schema (D3 §3).}
+  ops: {description: Tables in the ops schema (D3 §4).}
+  kb: {description: Tables in the kb schema (D3 §5).}
+  eval: {description: Tables in the eval schema (D3 §7).}
+  # member properties of ConfidenceState: the states each ConfidenceSource member has (D5 §6.2)
+  encoders_state: {description: "Member property of ConfidenceState: a state of the encoders source."}
+  patterns_state: {description: "Member property of ConfidenceState: a state of the patterns source."}
+  local_llm_state: {description: "Member property of ConfidenceState: a state of the local_llm source."}
+  agent_state: {description: "Member property of ConfidenceState: a state of the agent source."}
+  local_llm_judge_state: {description: "Member property of ConfidenceState: a state of the local_llm_judge source."}
+  rules_state: {description: "Member property of ConfidenceState: a state of the rules source."}
+  verifiers_state: {description: "Member property of ConfidenceState: a state of the verifiers source."}
+  author_markup_state: {description: "Member property of ConfidenceState: a state of the author_markup source."}
+
+classes:
+  # ---- nested classes of the JSONB columns (D3 §6) ----
+  RunOptions:
+    description: >-
+      The run's options (orchestration §3.4), stored resolved in ops.run.options. agent_mode
+      defaults to wait for kind slice and complete otherwise; no setting supplies it.
+    annotations: {ci:store: nested, ci:payload: run_options}
+    attributes:
+      agent_mode: {range: AgentMode, description: Which agent tasks the run resolves (D6 §2).}
+      agent_reuse: {range: AgentReuse, ifabsent: string(full), description: How M24's digest reads the guideline (D6 §4).}
+      gpu_mode: {range: GpuMode, ifabsent: string(auto), description: The GPU mode as resolved (D6 §5).}
+      corpus: {range: Json, description: The corpus slice and its expanded document keys (D6 §8).}
+      scope: {range: Json, description: The scope slice with its expanded entries and their hash (D6 §8).}
+      fresh: {multivalued: true, description: Methods whose tasks skip reuse.}
+      configs: {range: Json, description: The resolved configuration map (orchestration §3.2).}
+      method_configs: {range: Json, description: "Method to configuration name, for this run only."}
+  TaskCost:
+    description: A task's cost (ops.task.cost, D3 §6.3).
+    annotations: {ci:store: nested, ci:payload: task_cost}
+    attributes:
+      wall_ms: {range: integer, description: Wall time in milliseconds.}
+      gpu_ms: {range: integer, description: GPU time in milliseconds.}
+      tokens_in: {range: integer, description: Model input tokens.}
+      tokens_out: {range: integer, description: Model output tokens.}
+      model: {description: The model that spent them.}
+  TaskError:
+    description: A failed task's detail, and an agent task's first rejected submission (D3 §4).
+    annotations: {ci:store: nested}
+    attributes:
+      message: {description: The failure message.}
+      detail: {range: Json, description: Structured failure detail., annotations: {ci:null: json}}
+  TriggerMetrics:
+    description: The metric values the triggering policy rule saw, exactly as evaluated (D3 §6.3).
+    annotations: {ci:store: nested, ci:payload: trigger_metrics}
+    attributes:
+      values: {range: Json, description: Metric name to value., annotations: {ci:null: json}}
+  PolicyAction:
+    description: A policy rule's action (ops.policy_rule.action, D3 §6.3).
+    annotations: {ci:store: nested, ci:payload: policy_action}
+    attributes:
+      method: {required: true, description: "A named configuration, <method>/<name>."}
+      limit: {range: integer, required: true, description: The most tasks the rule creates per iteration.}
+      then: {range: PolicyThen, required: true, description: Whether the chain stops or continues.}
+  InterventionTarget:
+    description: What an intervention acts on (ops.intervention.target, D3 §6.3).
+    annotations: {ci:store: nested, ci:payload: intervention_target}
+    attributes:
+      kind: {range: InterventionTargetKind, required: true, description: The target's kind.}
+      ref: {required: true, description: The target's key or id.}
+  MentionRef:
+    description: A reference to a mention observation, within the task or in another task (D3 §6.3).
+    annotations: {ci:store: nested}
+    attributes:
+      task: {range: Id, description: The task holding it; absent for the same task.}
+      ordinal: {range: integer, required: true, description: Its ordinal in that task.}
+  ClaimQualifiers:
+    description: >-
+      kb.claim.qualifiers: the core qualifiers stored nested (hedge, conditions, scope, valid_time)
+      and the schema qualifiers, by prefixed name (D3 §6.1).
+    annotations: {ci:store: nested, ci:sql_visible: core:conditions}
+    attributes:
+      hedge: {range: PhraseValue, description: "The hedge qualifier, stored under core:hedge."}
+      conditions: {range: Condition, description: "The condition tree under core:conditions; its claim nodes carry claim keys."}
+      scope: {range: StoredScope, description: "The stored scope, under core:scope."}
+      valid_time: {range: IntervalValue, description: "The valid time, under core:valid_time."}
+  Completeness:
+    description: A claim's completeness counts (kb.claim.completeness).
+    annotations: {ci:store: nested}
+    attributes:
+      unresolved_symbols: {range: integer, description: Symbols left unresolved.}
+      phrase_conditions: {range: integer, description: Conditions kept as phrases.}
+  SegmentAttrs:
+    description: A segment's author markup (D1 §3.2); id is read by D3 §9's queries.
+    annotations: {ci:store: nested, ci:sql_visible: id}
+    attributes:
+      id: {description: The author's id of the block.}
+      classes: {multivalued: true, description: The block's classes.}
+  MacroTable:
+    description: A rendition's macro table (D4 M01), name to macro definition.
+    annotations: {ci:store: nested}
+    attributes:
+      macros: {range: Json, description: Macro name to definition., annotations: {ci:null: json}}
+  FrameEntries:
+    description: A citation frame (D1 §10.3), each sentence id to its locator and canonical text.
+    annotations: {ci:store: nested, ci:payload: citation_frame}
+    attributes:
+      entries: {range: FrameEntry, multivalued: true, inlined: true, description: The cited sentences.}
+  FrameEntry:
+    description: One cited sentence of a frame.
+    annotations: {ci:store: nested}
+    attributes:
+      sentence: {identifier: true, range: SentenceId, description: The sentence id.}
+      locator: {range: Locator, required: true, description: The sentence's locator.}
+      text: {required: true, description: Its canonical text.}
+
+  # ---- observation payloads (D3 §6.2), one class per kind ----
+  SpanPayload:
+    abstract: true
+    description: A payload span in the rendition's canonical text.
+    annotations: {ci:store: nested, ci:invariant: "ordered(start, end)"}
+    attributes:
+      start: {range: integer, required: true, description: Start offset.}
+      end: {range: integer, required: true, description: End offset.}
+  LabelScore:
+    description: A label with its score.
+    annotations: {ci:store: nested}
+    attributes:
+      label: {required: true, description: The label.}
+      score: {range: Real, required: true, description: "The score in [0, 1]."}
+  SynthesizedClaim:
+    description: The claim a block's containment states (the source profile's synthesize).
+    annotations: {ci:store: nested}
+    attributes:
+      predicate: {required: true, description: The prefixed predicate.}
+      object: {range: Value, required: true, description: The object.}
+      evidence: {range: Evidence, multivalued: true, required: true, inlined_as_list: true, description: The evidence.}
+  AuthorMarkupPayload:
+    description: Author markup on a segment (M01).
+    annotations: {ci:store: nested, ci:payload: author_markup}
+    attributes:
+      markup: {range: MarkupKind, required: true, description: The markup's kind.}
+      value: {range: Json, required: true, description: The markup's value., annotations: {ci:null: json}}
+      target: {description: The link target.}
+      synthesize: {range: SynthesizedClaim, description: The claim the block's containment states.}
+  MentionPayload:
+    is_a: SpanPayload
+    description: A mention (M05-M07, M09).
+    annotations: {ci:payload: mention}
+    attributes:
+      label: {required: true, description: The class label.}
+      text: {required: true, description: The mention text.}
+      attributes: {range: LabelScore, multivalued: true, inlined: true, description: Attribute groups.}
+      math_ref: {range: MentionRef, description: The math mention it decorates.}
+      math: {range: Json, description: M09's decoration of a symbol occurrence., annotations: {ci:null: json}}
+  LabelledSpan:
+    is_a: SpanPayload
+    description: A labelled span of a relation.
+    annotations: {ci:store: nested}
+    attributes:
+      label: {required: true, description: The label.}
+  RelationPayload:
+    description: A relation between two spans.
+    annotations: {ci:store: nested, ci:payload: relation}
+    attributes:
+      label: {required: true, description: The relation label.}
+      head: {range: LabelledSpan, required: true, description: The head span.}
+      tail: {range: LabelledSpan, required: true, description: The tail span.}
+      joint: {range: boolean, description: Extracted jointly.}
+      feasible: {range: boolean, description: Feasible under the schema.}
+  RecordField:
+    is_a: SpanPayload
+    description: A field of a record.
+    annotations: {ci:store: nested}
+    attributes:
+      text: {required: true, description: The field text.}
+      score: {range: Real, required: true, description: The score.}
+  RecordPayload:
+    description: A record structure.
+    annotations: {ci:store: nested, ci:payload: record}
+    attributes:
+      structure: {required: true, description: The structure name.}
+      fields: {range: Json, required: true, description: Field name to its spans., annotations: {ci:null: json}}
+      anchor: {range: Json, description: The record's anchor., annotations: {ci:null: json}}
+  AttributePayload:
+    description: An attribute of a mention.
+    annotations: {ci:store: nested, ci:payload: attribute}
+    attributes:
+      mention_ref: {range: MentionRef, required: true, description: The mention.}
+      group: {required: true, description: The attribute group.}
+      value: {range: Json, required: true, description: The value., annotations: {ci:null: json}}
+  ClassificationPayload:
+    description: A classification of a segment.
+    annotations: {ci:store: nested, ci:payload: classification}
+    attributes:
+      task: {required: true, description: The classification task.}
+      labels: {range: LabelScore, multivalued: true, required: true, inlined_as_list: true, description: The labels.}
+      feasible: {range: boolean, description: Feasible under the schema.}
+      violations: {range: Json, description: Violations., annotations: {ci:null: json}}
+  ValuePayload:
+    description: A parsed value (M11).
+    annotations: {ci:store: nested, ci:payload: value}
+    attributes:
+      value: {range: Value, required: true, description: The stored value.}
+      parse_error: {description: The parse error.}
+      math_kind: {description: "The typed start symbol that read the span: formula, relation, membership, set."}
+  MentionAt:
+    is_a: SpanPayload
+    description: A mention reference with the mention's offsets.
+    annotations: {ci:store: nested}
+    attributes:
+      mention_ref: {range: MentionRef, required: true, description: The mention.}
+  ScopePayload:
+    is_a: SpanPayload
+    description: A binding site and its scope (M13).
+    annotations: {ci:payload: scope}
+    attributes:
+      mention_ref: {range: MentionRef, required: true, description: The mention.}
+      binding_site: {range: MentionAt, required: true, description: The binding site.}
+      scope_segment: {required: true, description: The scope segment's key.}
+      extent: {range: ScopeExtent, required: true, description: The extent.}
+      binding: {range: BindKind, description: The binding kind.}
+      reopens: {range: MentionAt, description: The site it reopens.}
+  NewEntity:
+    description: A new entity a link proposes.
+    annotations: {ci:store: nested}
+    attributes:
+      type: {required: true, description: The entity class.}
+      label: {required: true, description: The label.}
+  LinkPayload:
+    description: An entity-link candidate (M14, M15).
+    annotations: {ci:store: nested, ci:payload: link, ci:invariant: "exactly_one(mention_ref, pair)"}
+    attributes:
+      mention_ref: {range: MentionRef, description: The mention (M14).}
+      pair: {multivalued: true, description: The pair (M15).}
+      candidate: {required: true, description: The candidate entity key or a new entity.}
+      score: {range: Real, required: true, description: The score.}
+      features: {range: Json, required: true, description: The features., annotations: {ci:null: json}}
+      rank: {range: integer, description: The rank.}
+  RejectedItem:
+    description: An item a submission rejected.
+    annotations: {ci:store: nested}
+    attributes:
+      item: {range: Json, required: true, description: The item., annotations: {ci:null: json}}
+      reason: {required: true, description: Why.}
+  ClaimProposalPayload:
+    description: A stored batch; for authored proposals also the batch as written and its frame.
+    annotations:
+      ci:store: nested
+      ci:payload: claim_proposal
+      ci:invariant: "together(authored, citation_frame); together(establishment, derived_from, rule)"
+    attributes:
+      batch: {range: Batch, required: true, description: The stored batch.}
+      authored: {range: Batch, description: The batch as authored.}
+      citation_frame: {range: FrameEntries, description: Its citation frame.}
+      rationale: {description: The rationale.}
+      rejected: {range: RejectedItem, multivalued: true, inlined_as_list: true, description: Rejected items.}
+      establishment: {range: Establishment, description: derived for M23's proposals.}
+      derived_from: {multivalued: true, description: The source claim keys.}
+      rule: {description: The derive rule.}
+  JudgmentTarget:
+    description: What a judgment is about; records the key scheme of the key it names.
+    annotations: {ci:store: nested}
+    attributes:
+      kind: {range: JudgmentTargetKind, required: true, description: The target's kind.}
+      ref: {required: true, description: The target's key or id.}
+  JudgmentPayload:
+    description: A decision under a guideline version.
+    annotations: {ci:store: nested, ci:payload: judgment, ci:invariant: "iff_present(chosen, decision = choose)"}
+    attributes:
+      target: {range: JudgmentTarget, required: true, description: The target.}
+      decision: {range: JudgmentDecision, required: true, description: The decision.}
+      rationale: {required: true, description: The rationale.}
+      guideline_version: {required: true, description: The guideline version.}
+      chosen: {multivalued: true, description: The chosen members of a choose decision.}
+      faithful: {range: boolean, description: Faithful to the source.}
+      confidence: {range: JudgmentConfidence, description: The judge's confidence.}
+  VerificationDetail:
+    description: What M19 writes for a failing rule.
+    annotations: {ci:store: nested}
+    attributes:
+      rule: {required: true, description: The rule id.}
+      severity: {range: RuleSeverity, required: true, description: The severity.}
+      message: {required: true, description: The message.}
+  VerificationPayload:
+    description: A verifier's verdict on a claim.
+    annotations: {ci:store: nested, ci:payload: verification}
+    attributes:
+      claim_key: {range: Key, required: true, description: The claim's key.}
+      verifier: {required: true, description: The verifier.}
+      verdict: {range: VerificationVerdict, required: true, description: The verdict.}
+      detail: {range: Json, description: The detail., annotations: {ci:null: json}}
+      counterexample: {range: Json, description: A counterexample., annotations: {ci:null: json}}
+
+  # ---- the source profile (RC12; D2 §12.1), typed against core vocabulary ----
+  SourceProfile:
+    description: >-
+      A source's HTML conventions and its place in the corpus (sources/<profile>.yaml; D2 §12.1,
+      D4 M01). Validated by ingest's profile model, kept equal to this class by the interim guard
+      once that model exists (P0-I-1a).
+    annotations: {ci:store: nested}
+    attributes:
+      version: {required: true, description: The profile's version.}
+      root: {required: true, description: The source's directory under the corpus root.}
+      index: {range: CorpusIndex, description: The corpus index that ci project init reads.}
+      language: {range: TsConfig, ifabsent: string(english), description: The segments' text-search configuration.}
+      applies_to: {required: true, description: The glob of the source's pages.}
+      exclude: {range: Json, description: "CSS selectors whose text is excluded, by rule name."}
+      title: {description: The title selector.}
+      sections: {multivalued: true, description: "Heading selectors that open sections, by level."}
+      unit: {description: The annotation unit selector.}
+      block_hints: {range: BlockHint, multivalued: true, inlined: true, description: Statement-kind hints by block selector.}
+      section_hints: {range: SectionHint, multivalued: true, inlined: true, description: Statement kinds of units under section titles.}
+      details_kinds: {range: DetailsKinds, description: Statement kinds of details blocks.}
+      math: {range: Json, description: Math delimiters and the page macro selector.}
+      references: {range: Json, description: Reference selectors and their rendering.}
+      render: {range: Json, description: Rendering rules.}
+      orphan_text: {range: SegmentKind, description: The kind of segment orphan text becomes.}
+  CorpusIndex:
+    description: The corpus index of a source profile.
+    annotations: {ci:store: nested}
+    attributes:
+      file: {required: true, description: "The index file, relative to the corpus root."}
+      page: {required: true, description: The column holding the page.}
+      first_pass: {description: The column marking first-pass pages.}
+  BlockHint:
+    description: A statement-kind hint for blocks of one selector.
+    annotations: {ci:store: nested}
+    attributes:
+      selector: {identifier: true, description: The block selector.}
+      statement_kind: {range: StatementKind, required: true, description: The statement kind.}
+      claim_bearing: {range: boolean, description: "Whether such units state claims, overriding the kind."}
+  SectionHint:
+    description: The statement kind of units under a section title.
+    annotations: {ci:store: nested}
+    attributes:
+      title: {identifier: true, description: The section title.}
+      statement_kind: {range: StatementKind, required: true, description: The statement kind.}
+  DetailsKinds:
+    description: How details blocks become statements, and the claims their containment states.
+    annotations: {ci:store: nested}
+    attributes:
+      default: {range: StatementKind, required: true, description: The default kind.}
+      inside_example_or_exercise: {range: StatementKind, description: The kind inside an example or exercise.}
+      by_summary: {range: Json, description: Summary text to statement kind.}
+      synthesize: {range: SynthesisRule, multivalued: true, inlined: true, description: "Claims the containment states, by statement kind."}
+  SynthesisRule:
+    description: The claim a block's containment states (D5 §3.5).
+    annotations: {ci:store: nested}
+    attributes:
+      statement_kind: {identifier: true, range: StatementKind, description: The block's statement kind.}
+      predicate: {required: true, description: The prefixed predicate.}
+      object: {range: SynthesisObject, required: true, description: What the object is.}
+      evidence: {range: SynthesisEvidence, required: true, description: What the evidence is.}
+
+  # ---- embeddings and the unit-feature vocabulary ----
+  EmbeddingSpec:
+    description: An embedding model's specification (D3 §5, kb.embedding; OPEN-D3-2).
+    annotations: {ci:store: nested}
+    attributes:
+      model: {required: true, description: The model id and revision.}
+      dimension: {range: integer, required: true, description: "The dimension: 1024 or 2048."}
+      metric: {range: EmbeddingMetric, required: true, description: The distance metric.}
+      family_id: {required: true, description: The family whose embeddings are comparable.}
+  UnitFeature:
+    description: >-
+      One feature a guideline section declares it applies to (agent_reuse by_unit; D2 §10, D6 §4):
+      a segment kind, a statement kind, or the claim_bearing hint.
+    annotations: {ci:store: nested}
+    attributes:
+      feature: {range: UnitFeatureKind, required: true, description: The feature.}
+      value: {description: "The member it names: a SegmentKind or StatementKind member; absent for claim_bearing."}
+
+  # ---- tables (D3) ----
+  ModelRevision:
+    in_subset:
+    - meta
+    description: projection of model/revisions.yaml (D2 §2, §8); rows are added, never edited
+    unique_keys:
+      model_revision_content_hash:
+        unique_key_slots:
+        - content_hash
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      label:
+        required: true
+        description: LinkML version of core and system
+      content_hash:
+        required: true
+        description: canonical JSON of the parsed core and system files (D2 §2)
+      compilers:
+        range: Json
+        required: true
+        description: compiler name → version
+      key_scheme:
+        range: integer
+        required: true
+        description: ci:key_scheme (D1 §10.1)
+      parent:
+        range: ModelRevision
+        description: The parent id.
+      change_record:
+        range: Json
+        description: D2 §8; null for the first revision; the model source stays in Git
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  PayloadSchema:
+    in_subset:
+    - meta
+    description: one version of one nested payload class (D2 §8); rows are added, never edited
+    unique_keys:
+      payload_schema_class_version:
+        unique_key_slots:
+        - class
+        - version
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      model_revision:
+        range: ModelRevision
+        required: true
+        description: The model revision id.
+      class:
+        required: true
+        description: prefixed class name, e.g. 'core:MentionPayload'
+      kind:
+        required: true
+        description: 'what it is the payload of: an observation kind, a compiled-artifact kind, ...'
+      version:
+        range: integer
+        required: true
+        description: The version.
+      parent:
+        range: PayloadSchema
+        description: The parent id.
+      compatibility_class:
+        required: true
+        description: 'D2 §8: descriptive, nested-additive, mapped, ...'
+      json_schema_id:
+        required: true
+        description: $id of the generated JSON Schema
+      arrow_schema:
+        range: Bytes
+        required: true
+        description: Schema.serialize()
+      sql_visible_paths:
+        required: true
+        multivalued: true
+        description: The sql visible paths.
+      upcaster:
+        description: the upcast from the parent version; null for an initial version
+      reason:
+        required: true
+        description: The reason.
+      authorized_by:
+        required: true
+        description: the model rule permitting the change, e.g. 'method_version:mention.gliner/3'
+  Project:
+    in_subset:
+    - meta
+    description: The meta.project table.
+    unique_keys:
+      project_name:
+        unique_key_slots:
+        - name
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      name:
+        required: true
+        description: The name.
+      domain:
+        required: true
+        description: domain pack name, e.g. 'statistics'
+      promoted_run:
+        range: Run
+        description: FK added after ops.run
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  SchemaVersion:
+    in_subset:
+    - meta
+    description: The meta.schema_version table.
+    unique_keys:
+      schema_version_project_content_hash:
+        unique_key_slots:
+        - project
+        - content_hash
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      domain:
+        required: true
+        description: The domain.
+      label:
+        required: true
+        description: 'version: field of the YAML, e.g. ''0.1.0'''
+      content_hash:
+        required: true
+        description: D2 §2; covers the model revision id
+      model_revision:
+        range: ModelRevision
+        required: true
+        description: the core the pack was compiled against
+      parent:
+        range: SchemaVersion
+        description: The parent id.
+      source:
+        range: Json
+        required: true
+        description: 'the pack files'' text: {"statistics.yaml": "...", "rules.yaml": "...", "core/rules.yaml":
+          "..."}; the core module is named by model_revision_id'
+      migration:
+        range: Json
+        description: the change record from the parent (D2 §8); null for a first version
+      state:
+        range: VersionState
+        required: true
+        ifabsent: string(active)
+        description: The state.
+      created_by:
+        required: true
+        description: '''human:operator'', ''agent:opus-5.5'', ...'
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  CompiledArtifact:
+    in_subset:
+    - meta
+    description: D2 §7 compiler outputs; rows are added, never edited
+    unique_keys:
+      compiled_artifact_schema_version_compiler_compiler_version_kind:
+        unique_key_slots:
+        - schema_version
+        - compiler
+        - compiler_version
+        - kind
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+        annotations:
+          ci:on_delete: cascade
+      compiler:
+        required: true
+        description: '''json_schema'', ''gliner2'', ''rules'', ''annotator_reference'', ...'
+      compiler_version:
+        required: true
+        description: The compiler version.
+      kind:
+        required: true
+        description: which artifact of that compiler, e.g. 'batch.model_facing', 'batch.stored', 'batch.decoding'
+      hash:
+        required: true
+        description: sha256 of canonical JSON of body (D1 §10.1); what method configurations reference
+      body:
+        range: Json
+        required: true
+        description: the artifact (a text artifact is a JSON string)
+      payload_schema:
+        range: PayloadSchema
+        required: true
+        description: the body's schema (D2 §8)
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  SchemaClass:
+    in_subset:
+    - meta
+    description: The meta.schema_class table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - schema_version
+        - name
+        description: The primary key.
+    attributes:
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+        annotations:
+          ci:on_delete: cascade
+      name:
+        required: true
+        description: 'prefixed: ''stat:RandomVariable'', ''core:Statement'''
+      parent:
+        description: prefixed
+      kind:
+        range: SchemaClassKind
+        required: true
+        description: The kind.
+      scope:
+        range: EntityScope
+        description: The scope.
+      identity_keys:
+        required: true
+        multivalued: true
+        description: The identity keys.
+      description:
+        description: The description.
+      annotations:
+        range: Json
+        required: true
+        description: The annotations.
+  SchemaSlot:
+    in_subset:
+    - meta
+    description: The meta.schema_slot table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - schema_version
+        - name
+        description: The primary key.
+    attributes:
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+        annotations:
+          ci:on_delete: cascade
+      name:
+        required: true
+        description: 'prefixed: ''stat:has_distribution''; a class-local attribute ''<prefix>:<Class>.<attr>'',
+          e.g. ''core:Formula.latex'''
+      role:
+        range: SlotRole
+        required: true
+        description: The role.
+      domain_class:
+        description: prefixed class name
+      range:
+        description: prefixed class or enum name, or a built-in type ('string', 'integer', ...)
+      object_kind:
+        description: 'derived from the range (D2 §3): formula, set, entity, enum, map, condition, ...'
+      multivalued:
+        range: boolean
+        required: true
+        ifabsent: 'false'
+        description: The multivalued.
+      qualifiers:
+        required: true
+        multivalued: true
+        description: The qualifiers.
+      identity_qualifiers:
+        required: true
+        multivalued: true
+        description: The identity qualifiers.
+      subsets:
+        required: true
+        multivalued: true
+        description: the named predicate subsets the slot belongs to (e.g. 'family_structure'; rules'
+          subset:<name>)
+      extract:
+        description: The extract.
+      description:
+        description: The description.
+      annotations:
+        range: Json
+        required: true
+        description: 'the slot''s scalar ci: annotations (ci:param_map, symmetric, ...)'
+  SchemaEnum:
+    in_subset:
+    - meta
+    description: The meta.schema_enum table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - schema_version
+        - name
+        description: The primary key.
+    attributes:
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+        annotations:
+          ci:on_delete: cascade
+      name:
+        required: true
+        description: The name.
+      values:
+        range: Json
+        required: true
+        description: '[{"value": "scale", "description": "...", "annotations": {...}}]'
+      annotations:
+        range: Json
+        required: true
+        description: The annotations.
+  StatementKind:
+    in_subset:
+    - meta
+    description: The meta.statement_kind table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - schema_version
+        - value
+        description: The primary key.
+    attributes:
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+        annotations:
+          ci:on_delete: cascade
+      value:
+        required: true
+        description: core or pack member, e.g. 'definition', 'toy:clause'
+      properties:
+        required: true
+        multivalued: true
+        description: member properties (D2 §3.4), e.g. '{claim_bearing}'
+  ClaimModality:
+    in_subset:
+    - meta
+    description: The meta.claim_modality table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - schema_version
+        - value
+        description: The primary key.
+    attributes:
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+        annotations:
+          ci:on_delete: cascade
+      value:
+        required: true
+        description: '''asserted'', ''supposed'', ''cited'', ..., or a pack member'
+      properties:
+        required: true
+        multivalued: true
+        description: premise_forming, attribution_identifying, conflict_bearing
+  SchemaRule:
+    in_subset:
+    - meta
+    description: The meta.schema_rule table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - schema_version
+        - rule_id
+        description: The primary key.
+    annotations:
+      ci:invariant: iff_absent(severity, grp = derive); iff_absent(check_expr, grp = derive)
+    attributes:
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+        annotations:
+          ci:on_delete: cascade
+      rule_id:
+        required: true
+        description: The rule id.
+      grp:
+        range: RuleGroup
+        required: true
+        description: the rules.yaml section (D2 §7.4)
+      applies_to:
+        required: true
+        multivalued: true
+        description: the predicate set compiled from a predicate, a list, subset:<name> or any
+      at:
+        required: true
+        multivalued: true
+        description: call sites, 'batch' and 'finalize' (D5 §8.2); empty for derive rules
+      severity:
+        range: RuleSeverity
+        description: null for derive rules; always 'warning' in grp 'guideline'
+      when_expr:
+        required: true
+        description: a derive rule's match condition
+      check_expr:
+        description: null for derive rules, whose templates stay in the compiled rules artifact
+      description:
+        description: The description.
+  GuidelineVersion:
+    in_subset:
+    - meta
+    description: The meta.guideline_version table.
+    unique_keys:
+      guideline_version_project_content_hash:
+        unique_key_slots:
+        - project
+        - content_hash
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      domain:
+        required: true
+        description: The domain.
+      label:
+        required: true
+        description: The label.
+      content_hash:
+        required: true
+        description: The content hash.
+      body:
+        required: true
+        description: the guideline rules (D2 §10.1–§10.9); the generated reference and direction log are
+          hashed elsewhere (D2 §10.10–§10.11)
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+      parent:
+        range: GuidelineVersion
+        description: The parent id.
+      change_note:
+        description: The change note.
+      state:
+        range: VersionState
+        required: true
+        ifabsent: string(active)
+        description: The state.
+      created_by:
+        required: true
+        description: The created by.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  Method:
+    in_subset:
+    - ops
+    description: The ops.method table.
+    unique_keys:
+      method_name_version:
+        unique_key_slots:
+        - name
+        - version
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      name:
+        required: true
+        description: '''extract.gliner_schema'''
+      version:
+        required: true
+        description: implementation version, bumped on behaviour change
+      family:
+        range: MethodFamily
+        required: true
+        description: The family.
+      description:
+        description: The description.
+  MethodConfig:
+    in_subset:
+    - ops
+    description: The ops.method_config table.
+    unique_keys:
+      method_config_config_hash:
+        unique_key_slots:
+        - config_hash
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      method:
+        range: Method
+        required: true
+        description: The method id.
+      name:
+        required: true
+        ifabsent: string(default)
+        description: 'named configuration from methods.yaml: ''<method>/<name>'''
+      params:
+        range: Json
+        required: true
+        description: canonical JSON; its (compiler, kind) artifact references resolved to hashes for one
+          schema version (§3)
+      config_hash:
+        required: true
+        description: D1 §10.1 'cfg:' key
+      tier:
+        range: MethodTier
+        description: The tier.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  PolicyVersion:
+    in_subset:
+    - ops
+    description: The ops.policy_version table.
+    unique_keys:
+      policy_version_project_content_hash:
+        unique_key_slots:
+        - project
+        - content_hash
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      label:
+        required: true
+        description: The label.
+      content_hash:
+        required: true
+        description: The content hash.
+      source:
+        required: true
+        description: policies.yaml as loaded
+      state:
+        range: VersionState
+        required: true
+        ifabsent: string(active)
+        description: The state.
+      created_by:
+        required: true
+        description: The created by.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  PolicyRule:
+    in_subset:
+    - ops
+    description: The ops.policy_rule table.
+    unique_keys:
+      policy_rule_policy_version_rule_key:
+        unique_key_slots:
+        - policy_version
+        - rule_key
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      policy_version:
+        range: PolicyVersion
+        required: true
+        description: The policy version id.
+        annotations:
+          ci:on_delete: cascade
+      rule_key:
+        required: true
+        description: '''escalate.low_confidence.local_llm'''
+      chain:
+        range: PolicyChain
+        required: true
+        description: The chain.
+      priority:
+        range: integer
+        required: true
+        description: position in the chain (D6 §7.1)
+      unit_type:
+        range: TaskUnitType
+        required: true
+        description: the chain's default or the entry's own (D6 §7.1)
+      condition:
+        required: true
+        description: rule-engine expression over the unit context
+      action:
+        range: PolicyAction
+        required: true
+        description: '{"method": "<method>/<name>", "limit": 50, "then": "stop|continue"} (§6.3)'
+      enabled:
+        range: boolean
+        required: true
+        ifabsent: 'true'
+        description: The enabled.
+  DebugSlice:
+    in_subset:
+    - ops
+    description: The ops.debug_slice table.
+    unique_keys:
+      debug_slice_project_name:
+        unique_key_slots:
+        - project
+        - name
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      name:
+        required: true
+        description: The name.
+      selector:
+        range: Json
+        required: true
+        description: 'the slice as declared (D2 §12.2, D6 §8): locators ("special/Normal.html#rel1", ...),
+          pages, includes, {"index": …}, {"golden_set": label}; resolved at run start, locators per rendition
+          (D1 §3.4)'
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  Run:
+    in_subset:
+    - ops
+    description: The ops.run table.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      kind:
+        range: RunKind
+        required: true
+        description: The kind.
+      phase:
+        range: SmallInt
+        required: true
+        description: 0–5 (D0); policies read it
+      options:
+        range: RunOptions
+        required: true
+        description: 'the resolved run options (an explicit option, else a result-neutral setting''s default,
+          else the model default): agent_mode, agent_reuse, fresh methods, gpu_mode (a GpuMode member),
+          corpus (a slice, default ''first-pass''), scope (a slice naming the units routed, with its resolved
+          unit list and that list''s hash; the kind stays, so the run can be promoted) (D6 §2, §4, §5,
+          §8)'
+      debug_slice:
+        range: DebugSlice
+        description: The debug slice id.
+      corpus_hash:
+        required: true
+        description: over the corpus's (document key, content hash) set and the ingest config hash (below)
+      model_revision:
+        range: ModelRevision
+        required: true
+        description: the revision the run ran under; a run under another installed revision is refused
+          (D2 §8)
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+      key_scheme:
+        range: integer
+        required: true
+        description: the key scheme of the run's keys (D1 §10.1); per-run rows inherit it
+      guideline_version:
+        range: GuidelineVersion
+        description: The guideline version id.
+      policy_version:
+        range: PolicyVersion
+        required: true
+        description: The policy version id.
+      code_commit:
+        required: true
+        description: The code commit.
+      parent_run:
+        range: Run
+        description: 'kind ''golden'': the run whose renditions and M13 output the golden packets read
+          (§8)'
+      reference_run:
+        range: Run
+        description: the promoted run when this run was created; null at bootstrap; written at insert
+          only (§8)
+      iteration:
+        range: integer
+        required: true
+        ifabsent: int(0)
+        description: current route iteration (D6 §2)
+      iteration_limit:
+        range: integer
+        required: true
+        ifabsent: int(3)
+        description: The iteration limit.
+      status:
+        range: RunStatus
+        required: true
+        description: The status.
+      notes:
+        description: The notes.
+      started_at:
+        range: Timestamp
+        description: The started at.
+      cut_at:
+        range: Timestamp
+        description: 'the run''s knowledge cut: stamped once by the seal (D6 §3.1, §8); fates are read
+          against it'
+      cut_m19_task:
+        range: Task
+        description: the final M19 task, recorded once by the seal; its outputs are read by this id (§8);
+          FK added after ops.task (§5)
+      finished_at:
+        range: Timestamp
+        description: The finished at.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  Document:
+    in_subset:
+    - kb
+    description: The kb.document table.
+    unique_keys:
+      document_key:
+        unique_key_slots:
+        - key
+        description: Unique.
+      document_project_source_uri_content_hash:
+        unique_key_slots:
+        - project
+        - source_uri
+        - content_hash
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      key:
+        required: true
+        description: '''doc:…'''
+      source_uri:
+        required: true
+        description: e.g. 'siegrist_random/random/special/Normal.html'
+      content_hash:
+        required: true
+        description: sha256 of original bytes
+      original_path:
+        required: true
+        description: where the bytes are
+      mime:
+        required: true
+        description: The mime.
+      title:
+        description: The title.
+      meta:
+        range: Json
+        required: true
+        description: licence, source id from SOURCES.tsv, chapter, first_pass ...
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  Rendition:
+    in_subset:
+    - kb
+    description: one content of a document (D1 §3.1, §3.2)
+    unique_keys:
+      rendition_key:
+        unique_key_slots:
+        - key
+        description: Unique.
+      rendition_document_content_digest:
+        unique_key_slots:
+        - document
+        - content_digest
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      document:
+        range: Document
+        required: true
+        description: The document id.
+      key:
+        required: true
+        description: '''ren:…'' over (document key, content digest)'
+      content_digest:
+        required: true
+        description: sha256 of canonical JSON of the content-identity relation (D1 §3.2)
+      canonical_text:
+        required: true
+        description: The canonical text.
+      macros:
+        range: MacroTable
+        required: true
+        description: the page's macro table (D4 M01); content, inside the digest
+      parse_status:
+        range: DelimitingStatus
+        required: true
+        description: 'from its segments: delimiting status, never ''ambiguous'' (below)'
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  KbSegment:
+    in_subset:
+    - kb
+    description: The kb.segment table.
+    local_names:
+      sql:
+        local_name_value: segment
+    unique_keys:
+      segment_key:
+        unique_key_slots:
+        - key
+        description: Unique.
+    annotations:
+      ci:invariant: iff_absent(parse_reason, parse_status = ok); ordered_eq(start_offset, end_offset)
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      rendition:
+        range: Rendition
+        required: true
+        description: The rendition id.
+        annotations:
+          ci:on_delete: cascade
+      key:
+        required: true
+        description: '''seg:…'''
+      parent:
+        range: KbSegment
+        description: The parent id.
+      kind:
+        range: SegmentKind
+        required: true
+        description: The kind.
+      ordinal:
+        range: integer
+        required: true
+        description: position among siblings
+      depth:
+        range: integer
+        required: true
+        description: The depth.
+      start_offset:
+        range: integer
+        required: true
+        description: The start offset.
+      end_offset:
+        range: integer
+        required: true
+        description: The end offset.
+      text:
+        required: true
+        description: canonical_text[start:end], stored for search
+      ts_config:
+        range: TsConfig
+        required: true
+        ifabsent: string(english)
+        description: from the source profile's language (default 'english'), selecting its BM25 index;
+          not content
+      attrs:
+        range: SegmentAttrs
+        required: true
+        description: author markup (D1 §3.2); never diagnostics, which live in kb.rendition_build.parse_detail
+      parse_status:
+        range: DelimitingStatus
+        required: true
+        ifabsent: string(ok)
+        description: delimiting status (D1 §3.1–§3.2), never 'ambiguous'
+      parse_reason:
+        description: why `partial`/`failed` (delimiting, D1 §3.1); content, inside the digest
+  Span:
+    in_subset:
+    - kb
+    description: The kb.span table.
+    unique_keys:
+      span_rendition_start_offset_end_offset:
+        unique_key_slots:
+        - rendition
+        - start_offset
+        - end_offset
+        description: Unique.
+    annotations:
+      ci:invariant: ordered(start_offset, end_offset)
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      rendition:
+        range: Rendition
+        required: true
+        description: The rendition id.
+        annotations:
+          ci:on_delete: cascade
+      start_offset:
+        range: integer
+        required: true
+        description: The start offset.
+      end_offset:
+        range: integer
+        required: true
+        description: The end offset.
+      segment:
+        range: KbSegment
+        required: true
+        description: smallest containing segment
+      text:
+        required: true
+        description: The text.
+  Embedding:
+    in_subset:
+    - kb
+    description: The kb.embedding table.
+    unique_keys:
+      embedding_target_type_target_id_model_config:
+        unique_key_slots:
+        - target_type
+        - target_id
+        - model_config
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      target_type:
+        range: EmbeddingTarget
+        required: true
+        description: The target type.
+      target_id:
+        range: Id
+        required: true
+        description: The target id.
+      model_config:
+        range: MethodConfig
+        required: true
+        description: The model config id.
+      vec:
+        range: HalfVec
+        required: true
+        description: 'dimension fixed by S7 (OPEN-D3-2): 1024 or 2048'
+  Task:
+    in_subset:
+    - ops
+    description: The ops.task table.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      run:
+        range: Run
+        required: true
+        description: The run id.
+      stage:
+        range: Stage
+        required: true
+        description: The stage.
+      unit_type:
+        range: TaskUnitType
+        required: true
+        description: The unit type.
+      unit_id:
+        range: Id
+        description: id in the table named by unit_type (kb.span for 'span', eval.golden_unit for 'golden_unit');
+          null for groups and 'run'
+      unit_key:
+        description: stable key of the unit across renditions (D1 §3.4 unit key for annotation units;
+          the group key for groups)
+      method_config:
+        range: MethodConfig
+        required: true
+        description: the configuration the run resolved for the stage or for the rule's '<method>/<name>'
+          (§6.3)
+      trigger_rule:
+        range: PolicyRule
+        description: null for base-stage tasks
+      trigger_metrics:
+        range: TriggerMetrics
+        required: true
+        description: the metric values the rule saw
+      input_hash:
+        required: true
+        description: D6 §4
+      packet_hash:
+        description: 'the packet hash the method''s input digest returns (D4 §1): for M24 and M10, the
+          hash of the packet text the assembler produced and the task served (D4 §4.1, D8 read_unit);
+          null otherwise'
+      reused_task:
+        range: Task
+        description: set when status = 'reused'
+      status:
+        range: TaskStatus
+        required: true
+        description: The status.
+      attempt:
+        range: integer
+        required: true
+        ifabsent: int(0)
+        description: 'fencing token: incremented at claim; renewals and terminal writes require it (§8)'
+      priority:
+        range: integer
+        required: true
+        ifabsent: int(0)
+        description: The priority.
+      claimed_by:
+        description: worker id or agent session while running
+      lease_until:
+        range: Timestamp
+        description: 5 min for workers, 30 min for agent leases (D6 §3.2, D8 §2.1)
+      cost:
+        range: TaskCost
+        required: true
+        description: '{"wall_ms":…, "gpu_ms":…, "tokens_in":…, "tokens_out":…}'
+      error:
+        range: TaskError
+        description: failure detail; an agent task also keeps its first rejected submission result here
+          while it stays awaiting_agent for its one resubmission (D8)
+      reason:
+        range: SkipReason
+        description: 'SkipReason: why skipped, or ''run_cancelled'' for a task cancelled with its run'
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+      started_at:
+        range: Timestamp
+        description: The started at.
+      finished_at:
+        range: Timestamp
+        description: set by every terminal write, including creation as 'reused' or 'skipped', with clock_timestamp()
+          after the run-row lock (D6 §3.1); fates are read against ops.run.cut_at (§8)
+  RenditionBuild:
+    in_subset:
+    - kb
+    description: 'provenance: which adapter configurations produced a rendition'
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - document
+        - method_config
+        description: The primary key.
+    attributes:
+      document:
+        range: Document
+        required: true
+        description: The document id.
+      method_config:
+        range: MethodConfig
+        required: true
+        description: the adapter configuration (M01 with M03)
+      rendition:
+        range: Rendition
+        required: true
+        description: The rendition id.
+      task:
+        range: Task
+        required: true
+        description: the ingest task that first built it
+      parse_detail:
+        range: Json
+        required: true
+        description: 'exclusions, warnings, parser diagnostics: source lines, parse errors with positions
+          (D4 M01); never on segments'
+      payload_schema:
+        range: PayloadSchema
+        required: true
+        description: parse_detail's schema (D2 §8)
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  Observation:
+    in_subset:
+    - kb
+    description: The kb.observation table.
+    unique_keys:
+      observation_task_ordinal:
+        unique_key_slots:
+        - task
+        - ordinal
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      task:
+        range: Task
+        required: true
+        description: The task id.
+      ordinal:
+        range: integer
+        required: true
+        description: The ordinal.
+      kind:
+        range: ObservationKind
+        required: true
+        description: The kind.
+      rendition:
+        range: Rendition
+        description: The rendition id.
+      segment:
+        range: KbSegment
+        description: The segment id.
+      span:
+        range: Span
+        description: The span id.
+      payload:
+        range: Json
+        required: true
+        description: §6.2, by kind
+      payload_schema:
+        range: PayloadSchema
+        required: true
+        description: the payload's class and version; readers dispatch on it (D2 §8)
+      score:
+        range: Real
+        description: The score.
+      outcome:
+        range: ObservationOutcome
+        required: true
+        description: The outcome.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  KbEntity:
+    in_subset:
+    - kb
+    description: The kb.entity table.
+    local_names:
+      sql:
+        local_name_value: entity
+    unique_keys:
+      entity_run_key:
+        unique_key_slots:
+        - run
+        - key
+        description: Unique.
+      entity_run_id:
+        unique_key_slots:
+        - run
+        - id
+        description: Unique.
+    annotations:
+      ci:invariant: iff_present(scope_segment, scope = local); iff_present(kind, type = core:Statement);
+        only_when(resolved_to, type = core:ExternalReference)
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      run:
+        range: KbEntity
+        required: true
+        description: The run id.
+        annotations:
+          ci:on_delete: cascade
+      key:
+        required: true
+        description: '''ent:…'', ''stm:…'' or ''xrf:…'' (D1 §10.1)'
+      schema_version:
+        range: StatementKind
+        required: true
+        description: The schema version id.
+      type:
+        required: true
+        description: 'schema class, prefixed (§3): ''stat:RandomVariable'', ''core:Statement'', ''core:ExternalReference'''
+      label:
+        required: true
+        description: The label.
+      scope:
+        range: EntityScope
+        required: true
+        description: The scope.
+      scope_segment:
+        range: KbSegment
+        description: The scope segment id.
+      attrs:
+        range: Json
+        required: true
+        description: non-identity attributes; identity attributes are kb.entity_identity rows (below)
+      kind:
+        description: 'statements only: the StatementKind value (D1 §4.1, §4.3); a field like label, not
+          identity'
+      resolved_to:
+        range: KbEntity
+        description: 'ExternalReference only: the statement it resolved to (same run)'
+      confidence:
+        range: Real
+        description: The confidence.
+  EntityAlias:
+    in_subset:
+    - kb
+    description: The kb.entity_alias table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - entity
+        - normalized
+        - alias_kind
+        description: The primary key.
+    attributes:
+      entity:
+        range: KbEntity
+        required: true
+        description: The entity id.
+        annotations:
+          ci:on_delete: cascade
+      alias:
+        required: true
+        description: The alias.
+      normalized:
+        required: true
+        description: The normalized.
+      alias_kind:
+        range: AliasKind
+        required: true
+        description: The alias kind.
+  EntityAnchor:
+    in_subset:
+    - kb
+    description: 'statements and local entities: where they are'
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - entity
+        - segment
+        description: The primary key.
+    attributes:
+      entity:
+        range: KbEntity
+        required: true
+        description: The entity id.
+        annotations:
+          ci:on_delete: cascade
+      segment:
+        range: KbSegment
+        required: true
+        description: The segment id.
+  EntityMention:
+    in_subset:
+    - kb
+    description: 'which observations resolved to the entity: mentions, or (phase 0) proposals'' entity
+      items'
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - entity
+        - observation
+        description: The primary key.
+    attributes:
+      entity:
+        range: KbEntity
+        required: true
+        description: The entity id.
+        annotations:
+          ci:on_delete: cascade
+      observation:
+        range: Observation
+        required: true
+        description: The observation id.
+  Claim:
+    in_subset:
+    - kb
+    description: The kb.claim table.
+    unique_keys:
+      claim_run_key:
+        unique_key_slots:
+        - run
+        - key
+        description: Unique.
+      claim_run_id:
+        unique_key_slots:
+        - run
+        - id
+        description: Unique.
+    annotations:
+      ci:invariant: exactly_one(object_entity, object_value)
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      run:
+        range: KbEntity
+        required: true
+        description: The run id.
+        annotations:
+          ci:on_delete: cascade
+      key:
+        required: true
+        description: '''clm:…'''
+      subject:
+        range: KbEntity
+        required: true
+        description: The subject id.
+      predicate:
+        required: true
+        description: 'prefixed (§3): ''stat:has_distribution'''
+      object_entity:
+        range: KbEntity
+        description: The object entity id.
+      object_value:
+        range: Value
+        description: D1 §6 value
+      schema_version:
+        range: ClaimModality
+        required: true
+        description: The schema version id.
+      modality:
+        required: true
+        ifabsent: string(asserted)
+        description: 'version-scoped: FK below (§1)'
+      polarity:
+        range: Polarity
+        required: true
+        ifabsent: string(positive)
+        description: The polarity.
+      attribution_entity:
+        range: KbEntity
+        description: 'the attribution qualifier''s resolved entity; null: the author'
+      qualifiers:
+        range: ClaimQualifiers
+        required: true
+        description: the other core qualifiers (hedge, conditions, scope, valid_time) and the schema qualifiers;
+          keys prefixed (§3, §6.1)
+      statement:
+        range: KbEntity
+        description: The statement id.
+      statement_role:
+        range: StatementRole
+        description: The statement role.
+      status:
+        range: ClaimStatus
+        required: true
+        description: The status.
+      establishment:
+        range: Establishment
+        required: true
+        description: The establishment.
+      confidence:
+        range: Real
+        description: The confidence.
+      completeness:
+        range: Completeness
+        required: true
+        description: '{"unresolved_symbols": 1, "phrase_conditions": 0}'
+  ClaimEvidence:
+    in_subset:
+    - kb
+    description: The kb.claim_evidence table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - claim
+        - span
+        - role
+        description: The primary key.
+    attributes:
+      claim:
+        range: Claim
+        required: true
+        description: The claim id.
+        annotations:
+          ci:on_delete: cascade
+      span:
+        range: Span
+        required: true
+        description: The span id.
+      role:
+        range: EvidenceRole
+        required: true
+        description: The role.
+  ClaimSupport:
+    in_subset:
+    - kb
+    description: The kb.claim_support table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - claim
+        - observation
+        description: The primary key.
+    attributes:
+      claim:
+        range: Claim
+        required: true
+        description: The claim id.
+        annotations:
+          ci:on_delete: cascade
+      observation:
+        range: Observation
+        required: true
+        description: The observation id.
+  ClaimLink:
+    in_subset:
+    - kb
+    description: The kb.claim_link table.
+    unique_keys:
+      claim_link_from_claim_link_type_to_claim:
+        unique_key_slots:
+        - from_claim
+        - link_type
+        - to_claim
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      run:
+        range: Run
+        required: true
+        description: The run id.
+        annotations:
+          ci:on_delete: cascade
+      from_claim:
+        range: Claim
+        required: true
+        description: The from claim id.
+        annotations:
+          ci:on_delete: cascade
+      link_type:
+        range: LinkType
+        required: true
+        description: The link type.
+      to_claim:
+        range: Claim
+        required: true
+        description: The to claim id.
+        annotations:
+          ci:on_delete: cascade
+      detail:
+        range: Json
+        required: true
+        description: rule id, reason, alternative group id
+  ClaimRef:
+    in_subset:
+    - kb
+    description: >-
+      Claim to claim relationships derived from typed values: condition premises and param_of
+      targets (INV-08). Both claims are of the row's run.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - claim
+        - kind
+        - path
+        description: The primary key.
+    attributes:
+      run:
+        range: Run
+        required: true
+        description: The run of both claims.
+      claim:
+        range: Claim
+        required: true
+        description: The referencing claim.
+        annotations:
+          ci:on_delete: cascade
+      kind:
+        range: ClaimRefKind
+        required: true
+        description: Why it references the target.
+      path:
+        required: true
+        description: JSON pointer to the node, so parallel references stay distinct (CI-03)
+      target_claim:
+        range: Claim
+        required: true
+        description: The referenced claim.
+        annotations:
+          ci:on_delete: cascade
+  ClaimEntityRef:
+    in_subset:
+    - kb
+    description: >-
+      Claim to entity relationships: entity-ranged qualifiers, pred arguments, binding entity
+      targets. The claim and the entity are of the row's run.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - claim
+        - role
+        - path
+        description: The primary key.
+    attributes:
+      run:
+        range: Run
+        required: true
+        description: The run of the claim and the entity.
+      claim:
+        range: Claim
+        required: true
+        description: The referencing claim.
+        annotations:
+          ci:on_delete: cascade
+      role:
+        range: EntityRefRole
+        required: true
+        description: Where the claim references the entity.
+      slot:
+        description: the prefixed qualifier name for role 'qualifier'
+      path:
+        required: true
+        description: JSON pointer to the reference.
+      entity:
+        range: KbEntity
+        required: true
+        description: The referenced entity.
+        annotations:
+          ci:on_delete: cascade
+  EntityIdentity:
+    in_subset:
+    - kb
+    description: The kb.entity_identity table.
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - entity
+        - slot
+        description: The primary key.
+    annotations:
+      ci:invariant: exactly_one(value_entity, value_text)
+    attributes:
+      entity:
+        range: KbEntity
+        required: true
+        description: The entity id.
+        annotations:
+          ci:on_delete: cascade
+      slot:
+        required: true
+        description: prefixed identity slot, e.g. 'stat:family'
+      value_entity:
+        range: KbEntity
+        description: The value entity id.
+      value_text:
+        description: canonical form under the slot's case policy
+  Measurement:
+    in_subset:
+    - ops
+    description: The ops.measurement table.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      run:
+        range: Run
+        required: true
+        description: the run whose task or orchestrator wrote it
+        annotations:
+          ci:on_delete: cascade
+      task:
+        range: Task
+        description: the method task that wrote it; null for the orchestrator's run metrics (D6 §6); read
+          through reuse (§8)
+      iteration:
+        range: integer
+        required: true
+        description: The iteration.
+      scope_type:
+        range: MeasurementScope
+        required: true
+        description: The scope type.
+      scope_id:
+        range: Id
+        description: The scope id.
+      scope_key:
+        description: predicate or class name, stage name, method name, rule id
+      metric:
+        required: true
+        description: D6 §6 names; e.g. 'rules.evaluated' (scope a rule) from each M19 pass
+      value:
+        range: Double
+        description: The value.
+      detail:
+        range: Json
+        required: true
+        description: The detail.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  Intervention:
+    in_subset:
+    - ops
+    description: The ops.intervention table.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      run:
+        range: Run
+        description: The run id.
+      task:
+        range: Task
+        description: the agent or human task it completed, if any
+      actor:
+        required: true
+        description: '''agent:opus-5.5'', ''human:operator'''
+      session_ref:
+        description: Claude Code session id or similar
+      kind:
+        range: InterventionKind
+        required: true
+        description: The kind.
+      target:
+        range: InterventionTarget
+        required: true
+        description: what it acts on (unit key, claim key, golden unit, ...)
+      refs:
+        range: Json
+        required: true
+        description: 'where the content is: {"observations": [...], "golden_pass": id,'
+      payload_schema:
+        range: PayloadSchema
+        required: true
+        description: refs' schema (D2 §8)
+      body:
+        description: a direction's text; otherwise null (content lives where refs point)
+      rationale:
+        description: The rationale.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  Experiment:
+    in_subset:
+    - ops
+    description: The ops.experiment table.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      hypothesis:
+        required: true
+        description: The hypothesis.
+      target_metric:
+        required: true
+        description: The target metric.
+      guard_metrics:
+        range: Json
+        required: true
+        ifabsent: string([])
+        description: The guard metrics.
+      baseline_run:
+        range: Run
+        description: The baseline run id.
+      candidate_run:
+        range: Run
+        description: The candidate run id.
+      candidate_change:
+        range: Json
+        required: true
+        description: config, policy, schema or guideline change under test
+      result:
+        range: Json
+        description: The result.
+      decision:
+        range: ExperimentDecision
+        description: The decision.
+      decided_by:
+        description: The decided by.
+      decided_at:
+        range: Timestamp
+        description: The decided at.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  DocumentSplit:
+    in_subset:
+    - eval
+    description: page-level split assignment (D7 §3.1, §4)
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - project
+        - document
+        description: The primary key.
+    attributes:
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      document:
+        range: Document
+        required: true
+        description: The document id.
+      split:
+        range: DocumentSplit
+        required: true
+        description: 'reserved: worked-example pages, never golden (D7 §3.1)'
+      reason:
+        required: true
+        description: 'why the page is in its split: the seeded order, reserved, forced to dev, or an operator
+          direction (D7 §3.1)'
+      seed:
+        description: the split seed of an assignment by the seeded order; null otherwise
+      assigned_at:
+        range: Timestamp
+        required: true
+        description: The assigned at.
+        annotations:
+          ci:generated: insert_time
+  GoldenSet:
+    in_subset:
+    - eval
+    description: The eval.golden_set table.
+    unique_keys:
+      golden_set_project_label_split:
+        unique_key_slots:
+        - project
+        - label
+        - split
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      project:
+        range: Project
+        required: true
+        description: The project id.
+      label:
+        required: true
+        description: The label.
+      split:
+        range: GoldenSplit
+        required: true
+        description: The split.
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: The schema version id.
+      guideline_version:
+        range: GuidelineVersion
+        required: true
+        description: The guideline version id.
+      sampling:
+        range: Json
+        required: true
+        description: 'how the units were drawn (D7 §3.1): seed, size, strata, allocation, forced units,
+          sampler version'
+      frozen_at:
+        range: Timestamp
+        description: test sets freeze at phase gates
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  GoldenUnit:
+    in_subset:
+    - eval
+    description: The eval.golden_unit table.
+    unique_keys:
+      golden_unit_golden_set_unit_key:
+        unique_key_slots:
+        - golden_set
+        - unit_key
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      golden_set:
+        range: GoldenSet
+        required: true
+        description: The golden set id.
+      unit_key:
+        required: true
+        description: 'identity: the annotation unit''s locator-based unit key at creation (D1 §3.4); never
+          changes'
+      current_locator:
+        required: true
+        description: the unit's locator on its latest resolving rendition; re-location updates this, not
+          the key (D7 §3.5)
+      authored_rendition:
+        range: Rendition
+        required: true
+        description: 'provenance: the rendition the passes'' packets came from'
+      status:
+        range: GoldenUnitStatus
+        required: true
+        description: The status.
+      agreement:
+        range: Json
+        required: true
+        description: 'evaluation''s agreement result model (D7 §3.3): by tier and predicate, with the
+          A/B diff; validated at the evaluation boundary'
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  GoldenPass:
+    in_subset:
+    - eval
+    description: 'the single store of authored passes (D7 §3): the authority'
+    unique_keys:
+      golden_pass_golden_unit_pass_guideline_version:
+        unique_key_slots:
+        - golden_unit
+        - pass
+        - guideline_version
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      golden_unit:
+        range: GoldenUnit
+        required: true
+        description: The golden unit id.
+        annotations:
+          ci:on_delete: cascade
+      pass:
+        range: GoldenPass
+        required: true
+        description: The pass.
+      guideline_version:
+        range: GuidelineVersion
+        required: true
+        description: The guideline version id.
+      batch:
+        range: Json
+        required: true
+        description: 'model-facing ClaimProposalBatch as authored (pass c: the adjudicated batch); never
+          rewritten'
+      decisions:
+        range: Json
+        description: 'pass c: per-difference decision, reason, guideline_gap marks'
+      session_ref:
+        required: true
+        description: authoring session; passes a and b of a unit must differ
+      model:
+        required: true
+        description: 'authoring model (ADR-0011: Sonnet 5.5)'
+      inputs:
+        range: Json
+        required: true
+        description: guideline version, annotator-reference hash, packet hash, M13 version that chose
+          the context
+      payload_schema:
+        range: PayloadSchema
+        required: true
+        description: the batch's and frames' schema (D2 §8)
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  CitationFrame:
+    in_subset:
+    - eval
+    description: versions of a pass's citation frame; added, never edited
+    unique_keys:
+      citation_frame_golden_pass_version:
+        unique_key_slots:
+        - golden_pass
+        - version
+        description: Unique.
+    annotations:
+      ci:invariant: iff_absent(parent, version = 1)
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      golden_pass:
+        range: GoldenPass
+        required: true
+        description: The golden pass id.
+        annotations:
+          ci:on_delete: cascade
+      version:
+        range: integer
+        required: true
+        description: '1: as authored, written with the pass'
+      parent:
+        range: CitationFrame
+        description: the version it re-locates; null for version 1
+      frame:
+        range: FrameEntries
+        required: true
+        description: '{"s1": {"locator": "…", "text": "…"}, "c1": {…}}: each cited sentence id → its locator
+          and text (D1 §10.3)'
+      reason:
+        required: true
+        description: '''authored'', or the re-location that wrote it (D7 §3.5)'
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+  GoldenItem:
+    in_subset:
+    - eval
+    description: 'derived: one pass c batch located on one rendition'
+    unique_keys:
+      golden_item_golden_pass_rendition_cascade_version_schema_version_item_type_local_ref:
+        unique_key_slots:
+        - golden_pass
+        - rendition
+        - cascade_version
+        - schema_version
+        - item_type
+        - local_ref
+        description: Unique.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      golden_pass:
+        range: GoldenPass
+        required: true
+        description: the pass c it projects
+        annotations:
+          ci:on_delete: cascade
+      citation_frame:
+        range: CitationFrame
+        required: true
+        description: the frame version it was located through
+      rendition:
+        range: Rendition
+        required: true
+        description: The rendition id.
+      cascade_version:
+        required: true
+        description: the quote cascade that derived it (D4 §4.3)
+      schema_version:
+        range: SchemaVersion
+        required: true
+        description: the schema version it was derived under (name maps applied, D2 §8)
+      item_type:
+        range: GoldenItemType
+        required: true
+        description: The item type.
+      local_ref:
+        required: true
+        description: The local ref.
+      payload:
+        range: Json
+        required: true
+        description: 'a stored item: the core stored-form batch element (D1 §10.3, D2 §7.3), offsets into
+          rendition_id'
+      context:
+        range: boolean
+        required: true
+        ifabsent: 'false'
+        description: 'a context premise stated outside the unit: scored only through claim nodes here
+          (D7 §5.1)'
+  Alignment:
+    in_subset:
+    - eval
+    description: The eval.alignment table.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      run:
+        range: Run
+        required: true
+        description: The run id.
+        annotations:
+          ci:on_delete: cascade
+      golden_item:
+        range: GoldenItem
+        required: true
+        description: The golden item id.
+      target_type:
+        range: AlignmentTarget
+        required: true
+        description: The target type.
+      target_id:
+        range: Id
+        description: 'null: unmatched golden item'
+      tier:
+        range: AlignmentTier
+        required: true
+        description: The tier.
+      score:
+        range: Real
+        description: The score.
+      detail:
+        range: Json
+        required: true
+        description: The detail.
+  Result:
+    in_subset:
+    - eval
+    description: The eval.result table.
+    attributes:
+      id:
+        identifier: true
+        range: Id
+        description: The id.
+      run:
+        range: Run
+        required: true
+        description: The run id.
+        annotations:
+          ci:on_delete: cascade
+      golden_set:
+        range: GoldenSet
+        required: true
+        description: The golden set id.
+      scope_type:
+        required: true
+        description: '''all'', ''predicate'', ''class'', ''unit_kind'', ''stage'''
+      scope_key:
+        description: The scope key.
+      metric:
+        required: true
+        description: '''precision'', ''recall'', ''f1'', ''unsupported_rate'', ...'
+      tier:
+        range: ResultTier
+        required: true
+        description: The tier.
+      value:
+        range: Double
+        description: The value.
+      n:
+        range: integer
+        required: true
+        description: denominator
+      golden_snapshot:
+        range: Id
+        required: true
+        multivalued: true
+        description: the pass c rows (eval.golden_pass ids) this result scored
+      detail:
+        range: Json
+        required: true
+        description: The detail.
+      created_at:
+        range: Timestamp
+        required: true
+        description: The created at.
+        annotations:
+          ci:generated: insert_time
+
+enums:
+  VersionState:
+    description: "`meta.schema_version.state`, `meta.guideline_version.state`, `ops.policy_version.state`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      proposed: {}
+      active: {}
+      rejected: {}
+      retired: {}
+  SchemaClassKind:
+    description: "`meta.schema_class.kind`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      entity: {}
+      value: {}
+      abstract: {}
+  SlotRole:
+    description: "`meta.schema_slot.role`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      predicate: {}
+      qualifier: {}
+      identity: {}
+      field: {}
+  RuleGroup:
+    description: "`meta.schema_rule.grp`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      rules: {}
+      guideline: {}
+      derive: {}
+  RuleSeverity:
+    description: "`meta.schema_rule.severity`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      warning: {}
+      error: {}
+  MethodFamily:
+    description: "`ops.method.family`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      ingest: {}
+      profile: {}
+      extract: {}
+      normalize: {}
+      resolve: {}
+      consolidate: {}
+      validate: {}
+      verify: {}
+      measure: {}
+      llm: {}
+      agent: {}
+      human: {}
+      eval: {}
+  MethodTier:
+    description: "`ops.method_config.tier`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      deterministic: {}
+      encoder: {}
+      local_llm: {}
+      agent: {}
+      hosted_llm: {}
+      human: {}
+  PolicyChain:
+    description: "`ops.policy_rule.chain`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      propose: {}
+      escalate: {}
+      adjudicate: {}
+      identity: {}
+      gaps: {}
+  RunKind:
+    description: "`ops.run.kind`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      ingest: {}
+      full: {}
+      slice: {}
+      experiment: {}
+      rescore: {}
+      golden: {}
+  RunStatus:
+    description: "`ops.run.status`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      created: {}
+      running: {}
+      awaiting_agent: {}
+      consolidating: {}
+      finished: {}
+      failed: {}
+      cancelled: {}
+  EmbeddingTarget:
+    description: "`kb.embedding.target_type`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      segment: {}
+      entity: {}
+      alias: {}
+  TaskUnitType:
+    description: "`ops.task.unit_type`, `ops.policy_rule.unit_type`, and `Method.unit_type` (D4 §1)."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      document: {}
+      rendition: {}
+      segment: {}
+      span: {description: "M12's unit: a `kb.span` row (D4 §1)"}
+      observation: {}
+      entity: {}
+      claim: {}
+      alternative_group: {}
+      identity_group: {}
+      run: {}
+      golden_unit: {}
+  TaskStatus:
+    description: "`ops.task.status`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      pending: {}
+      running: {}
+      awaiting_agent: {}
+      done: {}
+      empty: {}
+      failed: {}
+      skipped: {}
+      reused: {}
+      cancelled: {}
+  ObservationKind:
+    description: "`kb.observation.kind`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      author_markup: {}
+      mention: {}
+      relation: {}
+      record: {}
+      attribute: {}
+      classification: {}
+      value: {}
+      scope: {}
+      link: {}
+      claim_proposal: {}
+      judgment: {}
+      verification: {}
+  ObservationOutcome:
+    description: "`kb.observation.outcome`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      produced: {}
+      empty: {}
+      failed: {}
+  AliasKind:
+    description: "`kb.entity_alias.alias_kind`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      label: {}
+      symbol: {}
+      abbreviation: {}
+      term: {}
+      expression: {}
+  ClaimStatus:
+    description: "`kb.claim.status`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      candidate: {}
+      accepted: {}
+      rejected: {}
+      ambiguous: {}
+      conflicting: {}
+      unsupported: {}
+  Establishment:
+    description: "`kb.claim.establishment`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      stated: {}
+      derived: {}
+      agent_asserted: {}
+  LinkType:
+    description: "`kb.claim_link.link_type`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      derived_from: {}
+      contradicts: {}
+      equivalent_to: {}
+      alternative_of: {}
+      refines: {}
+  MeasurementScope:
+    description: "`ops.measurement.scope_type`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      run: {}
+      rendition: {}
+      segment: {}
+      entity: {}
+      claim: {}
+      predicate: {}
+      class: {}
+      stage: {}
+      method: {}
+      rule: {}
+  InterventionKind:
+    description: "`ops.intervention.kind`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      extract: {}
+      adjudicate: {}
+      golden_write: {}
+      golden_adjudicate: {}
+      schema_proposal: {}
+      guideline_change: {}
+      policy_proposal: {}
+      experiment_decision: {}
+      promotion: {}
+      direction: {}
+      ack: {}
+      veto: {}
+      audit: {}
+  ExperimentDecision:
+    description: "`ops.experiment.decision`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      promote: {}
+      reject: {}
+      inconclusive: {}
+  DocumentSplit:
+    description: "`eval.document_split.split`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      dev: {}
+      test: {}
+      reserved: {}
+  GoldenSplit:
+    description: "`eval.golden_set.split`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      dev: {}
+      test: {}
+  GoldenUnitStatus:
+    description: "`eval.golden_unit.status`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      draft: {}
+      adjudicated: {}
+      stale: {}
+      retired: {}
+  GoldenPass:
+    description: "`eval.golden_pass.pass`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      a: {}
+      b: {}
+      c: {}
+  GoldenItemType:
+    description: "`eval.golden_item.item_type`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      entity: {}
+      statement: {}
+      claim: {}
+      alternative: {}
+      unsupported: {}
+  AlignmentTarget:
+    description: "`eval.alignment.target_type`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      entity: {}
+      claim: {}
+  AlignmentTier:
+    description: "`eval.alignment.tier`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      none: {}
+      core: {}
+      full: {}
+      evidence: {}
+  ResultTier:
+    description: "`eval.result.tier`."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      core: {}
+      full: {}
+      evidence: {}
+  DropReason:
+    description: "Why keying dropped a candidate or an alternative member (`core/keys.py`, D5 §5.2); C1's PassReport counts by it."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      unknown_predicate: {description: "the schema does not know the claim's predicate"}
+      segment_not_on_rendition: {description: "a segment key off this rendition"}
+      outside_unresolved: {description: "an outside statement consolidation has not resolved"}
+      unknown_reference: {description: "a reference to no candidate"}
+      dropped_dependency: {description: "a reference to a candidate keying dropped"}
+      unknown_claim_ref: {description: "a condition `claim` node naming no candidate claim"}
+      unknown_identity_entity: {description: "an identity slot naming no entity"}
+      identity_cycle: {description: "entity identity slots that reference each other"}
+      condition_cycle: {description: "claims whose conditions reference each other"}
+      malformed_qualifier: {description: "a schema qualifier value that is no typed value"}
+  FrameFailureReason:
+    description: "Why a citation-frame entry did not resolve or re-address (`core/frame.py`, D1 §10.3)."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      locator_syntax: {description: "the locator string does not parse"}
+      other_page: {description: "the locator names another page than the rendition's"}
+      locator_refused: {description: "it selects no segment, several, or fewer than its ordinal"}
+      not_a_sentence: {description: "it selects a segment of another kind"}
+      text_differs: {description: "the sentence's text is not the recorded text"}
+      not_in_frame: {description: "a batch cites a sentence id its own frame lacks"}
+      not_in_packet: {description: "the served packet has no entry with that locator and text"}
+  ConfidenceSource:
+    description: >-
+      The D5 §6.2 source a method's observations contribute to confidence; each registered method
+      declares one or none (D4 §1), and the policy's confidence blocks are keyed by it (D6 §7.1).
+      Its states are ConfidenceState members, grouped by member property.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      encoders: {description: "M06, M07 (one shared encoder)"}
+      patterns: {description: "M08"}
+      local_llm: {description: "M10"}
+      agent: {description: "M24 (extract)"}
+      local_llm_judge: {description: "M16"}
+      rules: {description: "M19"}
+      verifiers: {description: "M20, M21"}
+      author_markup: {description: "M01"}
+  Stage:
+    description: "`ops.task.stage`: the stages of D6 §2."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      ingest: {description: M01 with M03; M02.}
+      embed: {description: M04.}
+      extract: {description: The encoders and patterns.}
+      normalize: {description: M09 and M11 in phase 0.}
+      scope: {description: M13.}
+      link: {description: M14.}
+      propose: {description: The propose chain.}
+      assemble: {description: The assemble consolidation pass.}
+      check: {description: The verifiers.}
+      finalize: {description: The seal and the finalize pass with M19.}
+      measure: {description: Run metrics.}
+      route: {description: "The escalate, adjudicate and identity chains."}
+      escalate: {description: What route created.}
+      derive: {description: M23 and the incremental passes.}
+      evaluate: {description: Alignment and scoring.}
+  SkipReason:
+    description: "`ops.task.reason`: why a task was skipped or cancelled (orchestration §3.5)."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      scope: {description: The unit lies outside the run's scope.}
+      limit: {description: The policy rule's limit was reached.}
+      budget: {description: The run's budget was spent (phase 1).}
+      prerequisite_failed: {description: An upstream task failed.}
+      run_cancelled: {description: The run was cancelled.}
+  ClaimRefKind:
+    description: "`kb.claim_ref.kind`: why a claim references another."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      condition_premise: {description: A claim node of its condition tree.}
+      binding_param: {description: A param_of or param_expr_of binding.}
+  EntityRefRole:
+    description: "`kb.claim_entity_ref.role`: where a claim references an entity."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      qualifier: {description: An entity-ranged qualifier.}
+      pred_arg: {description: A pred node argument.}
+      binding_variable: {description: A variable binding.}
+      binding_family_param: {description: A family_param binding.}
+  MarkupKind:
+    description: The kinds of author markup observation (AuthorMarkupPayload.markup, D4 M01).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      dfn: {description: A defined term.}
+      unit: {description: An author unit.}
+      details: {description: A details block.}
+      link: {description: A link.}
+      class: {description: A block class.}
+  InterventionTargetKind:
+    description: What an intervention acts on (InterventionTarget.kind, D3 §6.3).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      unit: {description: An annotation unit.}
+      claim: {description: A claim.}
+      alternative_group: {description: An alternative group.}
+      golden_unit: {description: A golden unit.}
+      schema: {description: A schema version.}
+      guideline: {description: A guideline version.}
+      policy: {description: A policy version.}
+      run: {description: A run; a promotion targets the run it promotes.}
+  JudgmentTargetKind:
+    description: What a judgment is about (JudgmentTarget.kind, D3 §6.2).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      observation: {description: An observation.}
+      claim: {description: A claim.}
+      alternative_group: {description: An alternative group.}
+      identity_group: {description: An identity group.}
+  JudgmentDecision:
+    description: A judgment's decision (M16, the agent, a human).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      accept: {description: Accept the target.}
+      reject: {description: Reject it.}
+      choose: {description: Choose members of an alternative group.}
+      merge: {description: Merge an identity group.}
+      split: {description: Split it.}
+      unsure: {description: No decision.}
+  JudgmentConfidence:
+    description: A judge's stated confidence.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      low: {description: Low.}
+      medium: {description: Medium.}
+      high: {description: High.}
+  VerificationVerdict:
+    description: A verifier's verdict on a claim (M19-M21).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      consistent: {description: Consistent with the checks.}
+      refuted: {description: Refuted.}
+      not_checkable: {description: Not checkable.}
+  ConfidenceState:
+    description: >-
+      The states of the confidence sources (D5 §6.2); each member carries, as member properties,
+      the sources it is a state of. not_run is unobserved, never silent.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      supports: {description: The source produced the claim., in_subset: [encoders_state, patterns_state]}
+      supports_full: {description: The source produced the claim with its qualifiers., in_subset: [local_llm_state, agent_state]}
+      supports_core: {description: The source produced the same core with other qualifiers., in_subset: [local_llm_state, agent_state]}
+      silent: {description: The source ran on the claim's unit and did not produce it., in_subset: [encoders_state, patterns_state, local_llm_state, agent_state]}
+      not_run: {description: No task of the source ran on the unit., in_subset: [encoders_state, patterns_state, local_llm_state, agent_state, local_llm_judge_state]}
+      accept: {description: The judge accepted., in_subset: [local_llm_judge_state]}
+      reject: {description: The judge rejected., in_subset: [local_llm_judge_state]}
+      unsure: {description: The judge was unsure., in_subset: [local_llm_judge_state]}
+      warning: {description: A warning rule failed on the claim., in_subset: [rules_state]}
+      none: {description: "No failing warning, or no author markup bearing on it.", in_subset: [rules_state, author_markup_state]}
+      consistent: {description: The verifiers found it consistent., in_subset: [verifiers_state]}
+      refuted: {description: A verifier refuted it., in_subset: [verifiers_state]}
+      not_checkable: {description: The verifiers could not check it., in_subset: [verifiers_state]}
+      agrees: {description: Author markup agrees., in_subset: [author_markup_state]}
+      disagrees: {description: Author markup disagrees., in_subset: [author_markup_state]}
+  GpuMode:
+    description: The GPU mode (D6 §5); a result-neutral run option a setting may supply.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      auto: {description: Chosen per run from the budgets.}
+      co-resident: {description: Encoder and LLM share the GPU.}
+      exclusive: {description: One model at a time.}
+  AgentMode:
+    description: Which agent tasks a run resolves (D6 §2); no setting supplies it.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      wait: {description: Wait until every agent task is terminal (short slice runs).}
+      complete: {description: Finish with agent tasks left awaiting_agent.}
+  AgentReuse:
+    description: How M24's digest reads the guideline (D6 §4).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      full: {description: The whole guideline part.}
+      by_unit: {description: "The sections that apply to the unit, by the unit-feature mapping."}
+  PolicyThen:
+    description: What a policy rule's chain does after its action (D3 §6.3).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      stop: {description: The chain ends for the unit.}
+      continue: {description: The next rule is evaluated.}
+  UnitFeatureKind:
+    description: The unit-feature vocabulary that guideline sections declare for by_unit (D2 §10).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      segment_kind: {description: The unit's segment kind.}
+      statement_kind: {description: The unit's statement-kind hint.}
+      claim_bearing: {description: The unit's claim-bearing hint.}
+  EmbeddingMetric:
+    description: An embedding's distance metric.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      cosine: {description: Cosine distance (halfvec_cosine_ops).}
+      l2: {description: Euclidean distance.}
+      inner_product: {description: Negative inner product.}
+  SynthesisObject:
+    description: What a synthesized claim's object is (the source profile's synthesize).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      enclosing_unit: {description: The statement of the enclosing unit.}
+  SynthesisEvidence:
+    description: What a synthesized claim's evidence is.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      summary: {description: The details block's summary.}
