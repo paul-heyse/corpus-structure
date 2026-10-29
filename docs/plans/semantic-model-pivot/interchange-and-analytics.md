@@ -1,6 +1,6 @@
 # Interchange and analytical execution
 
-**Status:** Planned · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O06; supplies SP-07 consolidation and SP-08 exports/evaluation. Depends on [semantic contracts](semantic-model-and-releases.md) and [PostgreSQL/Core](postgresql-and-publication.md).
+**Status:** SP-05 implemented within the scoped boundary below. **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O06; supplies SP-07 consolidation and SP-08 exports/evaluation. Depends on [semantic contracts](semantic-model-and-releases.md) and [PostgreSQL/Core](postgresql-and-publication.md).
 
 ## Current execution contract (2026-10-29)
 
@@ -56,3 +56,36 @@ All admitted writes go through SP-03. Retire `write_arrow` access to arbitrary a
 SP-05 does not create a lakehouse, federation service or new durable catalog. Arrow/DuckDB serve selected operations under one semantic authority; they do not replace PostgreSQL transactional admission. Ordinary projection/schema code stays a bounded compiler using library types, not a generic engine-neutral optimizer.
 
 Mechanisms: `pyarrow.Schema`, `RecordBatchReader`, explicit decimal types, safe casts; DuckDB registered Arrow relations and relation operators; SQLAlchemy Core selection/joins; psycopg typed COPY. Sources: [PyArrow overview](../../libraries/pyarrow.md), [DuckDB overview](../../libraries/duckdb_2.md), [Arrow reader](https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatchReader.html), [decimal256](https://arrow.apache.org/docs/python/generated/pyarrow.decimal256.html), [DuckDB relation source](https://github.com/duckdb/duckdb-python/blob/main/duckdb/_relation.py). Exact-pin compatibility and bounded precision remain native acceptance obligations, not documentation-derived pass claims.
+
+## SP-05 implementation boundary (2026-10-29)
+
+**Implemented/Tested; scoped receipts in the coordinator.** `semantic.analytical_profile` and
+`semantic.analytics` compile explicit release profiles, Core selections and Arrow schemas, import
+the control snapshot into ADBC and materialize a complete normalized realization packet. Narrower
+consumer-specific universes remain with their owners; no selective-load performance claim is made.
+`capture_packet` owns both database scopes; `AnalysisScope` owns one DuckDB connection, input
+registrations, readers and a unique scratch child. Shape, metadata and actual row scopes are
+checked. Native scalar fields coexist with original lexical values, roles and references.
+
+Profile artifacts select scale 0–38 at precision 38, with default 12, HALF_EVEN and overflow
+refusal. Half-even quantization and rational quotient avoid implicit float/cast rounding.
+Canonical hexadecimal floats retain subnormals and signed zero. Fusion retains distinct
+support/evidence and candidate counts; aliases retain match counts; disagreement groups use
+canonical meaning-bearing qualification, not physical value IDs. Full declared-view set kernels
+reuse existing ViewSpec semantics over operation-shaped relations. Independent expected rows and
+Python differential controls cover those operations; producing all business projections and
+migrating current consumers stay SP-07/SP-08.
+
+`semantic.arrow_publication` freezes readonly bytes-backed Arrow buffers, verifies pgpq wire
+schemas, caches exact canonical content and streams binary COPY through protected staging.
+Migration 0004 grants application reads and adds protected source-revision fencing; 0005 grants
+only the existing pure read helpers needed for canonical qualification projections. Earlier
+migrations are unchanged. Generic `pool.write.write_arrow` was retired; ordinary row publication
+remains supported. The final canonical serialization pass remains an explicit cost.
+
+Native integration covers PostgreSQL → imported ADBC snapshot → Arrow → DuckDB → pgpq →
+protected selection publication, exact replay and stale-analysis refusal. Both bundled and
+explicit dbc-installed driver paths are exercised. Source snapshots close before local computation.
+Earlier invalid numeric-only-integer fixtures were rejected by existing native constraints;
+those constraints were preserved. Initial formatting/typing and boundary failures were corrected
+and affected checks rerun, without giving failed results acceptance credit.

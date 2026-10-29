@@ -1,6 +1,6 @@
 # Semantic queries and consuming interfaces
 
-**Status:** Planned · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O05 and consumes SP-01 meanings, SP-03 publication and SP-05/SP-07 outputs as needed.
+**Status:** SP-04 implemented within the scoped boundary below; SP-08 planned. **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O05 and consumes SP-01 meanings, SP-03 publication and SP-05/SP-07 outputs as needed.
 
 ## Current execution contract (2026-10-29)
 
@@ -50,3 +50,15 @@ Use Pydantic runtime envelopes and generated dynamic models for configuration-fr
 For current authored rules/views/query fragments that remain necessary, use SP-02's pglast admission/diagnostic boundary. Core expression construction remains the normal route. Parse authored SQL once per immutable definition, resolve the supported identifiers and declared dependencies against the binding/MetaData, then execute only the supported read/operation contract under appropriate database privileges. CTE aliases, nested scopes, quoted identifiers and functions require real resolution; a flat relation-name scan cannot establish completeness. Unsupported dependency analysis refuses that authored feature rather than claiming hermetic execution.
 
 Sources: [SQLAlchemy overview](../../libraries/sqlalchemy.md), [pglast overview](../../libraries/pglast.md), [Pydantic overview](../../libraries/pydantic.md), [review O05](../../functional_reviews/semantic-postgresql-model_2026-10-29.md#O05). Keep library mechanics subordinate to the owned semantic contract, without recreating their AST, validation or transaction machinery.
+
+## SP-04 implementation boundary (2026-10-29)
+
+**Implemented/Tested; scoped receipts in the coordinator.** `semantic.query` supplies immutable
+release handles, fresh read-only snapshot sessions, occurrence/fact/accepted Core selections,
+strict release-derived adapters, recursive batched reconstruction, coverage and evidence
+explanation. Native archive → restricted writer → restricted reader tests preserve attribution,
+repeated content with distinct occurrence locators, units, ordered roles, declared unresolved
+reference state and unknown coverage. Interpretation loads once per session. Continuations
+ignore active pointers and reject changed revisions/malformed tokens. Explanation exposes
+direct derivation premise references; recursive inference and full old serving migration remain
+SP-07/SP-08. No historical snapshot service was added.

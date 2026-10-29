@@ -1,7 +1,7 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** SP-00–SP-03 implemented within their declared supported profiles; scoped acceptance below. SP-04–SP-10 not started. **Created:** 2026-10-29.
-**Claim strength:** ADR-0024/ADR-0025 accept the target. Implemented/Tested claims are bounded to SP-00–SP-03; consumer cutover and assembled qualification remain open.
+**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06–SP-10 remain planned. **Created:** 2026-10-29.
+**Claim strength:** ADR-0024/ADR-0025/ADR-0026 accept the target. Implemented/Tested claims are bounded to SP-00–SP-05; consumer cutover and assembled qualification remain open.
 
 ## 1. Scope, authority and baseline
 
@@ -66,10 +66,11 @@ Supporting documents own package design and local evidence. This coordinator alo
 
 ## 5. Dependencies and execution queue
 
-SP-00–SP-03 are implemented within their declared profiles. SP-02/SP-03 supply fixed physical
+SP-00–SP-05 are implemented within their declared profiles. SP-02/SP-03 supply fixed physical
 metadata, exact archived releases, generation-checked activation and protected native publication.
 Their [package owner](semantic-model-pivot/postgresql-and-publication.md) states capability/refusal
-boundaries. SP-04–SP-10 are not started. No assembled-series qualification is claimed. Stable IDs
+boundaries. SP-04 supplies native semantic reads/explanations; SP-05 supplies the columnar
+foundation and existing set kernels. SP-06–SP-10 remain planned. No assembled-series qualification is claimed. Stable IDs
 link to the supporting documents.
 
 | Package | Required working input | Delivered capability |
@@ -88,9 +89,10 @@ link to the supporting documents.
 
 Useful route: SP-00 → SP-01 → SP-02 → SP-03 → SP-04, then SP-05/SP-06 where independently ready, followed by their consumers. Designing a consumer can begin from agreed contracts; claiming its integration requires the working prerequisite. SP-05 does not block the first PostgreSQL write/read journey. SP-08 queries unrelated to derived facts need not wait for all SP-07 inference. These are capability dependencies, not whole-document barriers or fixed worker lanes.
 
-SP-04 is next: use the working release/publication contracts for a declaration → qualified write →
-semantic query/explain journey. SP-05 can develop its lossless Arrow bindings independently.
-No automatic restart of the paused phase 0 run follows from this implementation.
+SP-06 is next: bind existing producers and orchestration to the working semantic publication/read
+contracts. SP-07 then supplies business projections and qualified domain/inference operations;
+SP-08 migrates the current consumer surface using those outputs and SP-05. No automatic restart
+of the paused phase 0 run follows from this implementation.
 
 ## 6. Opportunity coverage and completion
 
@@ -180,9 +182,9 @@ changes only; no SP-10 or consumer-cutover claim follows from this package accep
 | `just turn-end` | `passed`; incidental formatting in 38 unchanged pre-pivot files restored byte-for-byte |
 | `just test-all`, `just hygiene` | `not_run`: assembled-series qualification and unmigrated consumers remain SP-10; bounded package checks do not establish whole-repository health |
 
-Fresh operational bootstrap also **passed**, using `uv run python` to invoke the same
+The SP-02/SP-03 operational bootstrap **passed**, using `uv run python` to invoke the same
 `upgrade` → `persist_release` → `activate_release` → `load_release` API path. Database
-`cs_semantic_20261029_0f70052` on 5434 retains `semantic_0003`; project `semantic-pivot` has generation
+`cs_semantic_20261029_0f70052` on 5434 initially used `semantic_0003`; project `semantic-pivot` has generation
 1 and realization `semantic-foundation` is active at data revision 0, with no facts. The archived
 core binding is `release:f070811a1127ce5860a3bdda89c571bd1ea87ff67a582ee7e66991fddffec736`.
 Actual writer/reader authentication passed. The bootstrap leaves the old database and default
@@ -192,5 +194,52 @@ historical data copy or domain publication was performed.
 
 All three implementation worktrees were removed after clean-tree and patch-equivalence checks;
 their branches remain. No owned `cs_sem_test_*` databases remain. The paused phase-0 worktrees
-are preserved. Next work begins at SP-04 using the new explicit database/binding, not an old
-phase-0 completion header.
+are preserved. That receipt established the input for SP-04, not an old phase-0 completion header.
+
+
+### SP-04/SP-05 acceptance and current operational binding (2026-10-29)
+
+Execution began at `903a2ff`; final functional source is `aac9aa6`. The query and interchange
+package owners describe the implemented boundary and later consumer obligations. ADR-0026
+records one local DuckDB engine, release-bound analytical rounding, imported PostgreSQL snapshots
+and protected Arrow publication. pgpq `0.12.0` is the only added product dependency; its exact pin
+and narrow lockfile change passed readiness/pin checks. Runtime resource settings cannot alter
+semantic arithmetic policy. DataFusion was considered and deferred.
+
+The native journey covers exact archive/activation → restricted publication → semantic
+query/explanation → imported ADBC snapshot → Arrow → DuckDB → pgpq → protected selection
+publication. Independent expected rows/set results cover qualified meaning, numeric fidelity,
+unknowns, repeated occurrences, equivalent qualification objects, aliases/fusion/views, exact replay,
+stale analysis and resource cleanup. SP-04/SP-05 do not complete current serving/evaluation or
+consolidation migration, recursive inference, selective consumer universes or runtime cutover.
+
+| Command | Outcome and scope |
+|---|---|
+| `uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/core python/corpus-structure/tests/schema python/corpus-structure/tests/pool python/corpus-structure/tests/db/test_pool_write.py python/corpus-structure/tests/test_settings.py --tb=short` | `passed`: 917 tests on final functional source, including actual native PostgreSQL/ADBC/COPY and adjacent regressions; 2 upstream warnings |
+| `CORPUS_ANALYTICS__ADBC_DRIVER_PATH=/home/paul/.config/adbc/drivers/postgresql_linux_amd64_v1.13.0/libadbc_driver_postgresql.so uv run pytest python/corpus-structure/tests/semantic/test_columnar_journey.py --tb=short` | `passed`: 1 native journey using the explicitly installed dbc driver; the preceding union uses the bundled default |
+| `uv run ruff check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic python/corpus-structure/semantic_alembic python/corpus-structure/src/corpus_structure/pool/write.py python/corpus-structure/tests/db/test_pool_write.py python/corpus-structure/src/corpus_structure/settings.py` | `passed` |
+| `uv run pyrefly check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic python/corpus-structure/semantic_alembic python/corpus-structure/src/corpus_structure/pool/write.py python/corpus-structure/tests/db/test_pool_write.py python/corpus-structure/src/corpus_structure/settings.py` | `passed`: 0 errors, 18 warnings |
+| `just docs-check`, `just adr-lint`, `uv run python scripts/check_pins.py`, `just ready` | `passed`: 214 pages, decision links, exact pins and tools |
+| `just turn-end` | `passed`; incidental formatting in unchanged pre-pivot files restored byte-for-byte; final functional source covered by the test union above |
+| `just test-all`, `just hygiene` | `not_run`: assembled-series qualification remains SP-10; no whole-repository or performance claim |
+
+Initial native/typing/formatting failures were corrected and affected checks rerun. A numeric-only
+integer fixture violated existing physical lexical-value constraints; the fixture was corrected,
+not the constraints. Canonical hexadecimal floats and disagreement grouping by qualification
+meaning were corrected after independent review. Those earlier failures receive no acceptance
+credit; upstream OAK/SSSOM diagnostics remain.
+
+The dedicated database `cs_semantic_20261029_0f70052` on `18/corpus:5434` is now upgraded through
+`semantic_0005`. The same `uv run python` API path (`upgrade`, `persist_release`, `activate_release`,
+`load_release`) passed exact persistence/activation/offline reload. Project `semantic-pivot` is at
+generation 2 with analytical release
+`release:0343e3e201f05c3173a0080d710eba29753b7109b146c78bc8e3b94a6cfde3d6`.
+Its new active realization `columnar-foundation` is empty at revision 0. Existing
+`semantic-foundation` remains at revision 0 bound to its original release above. No domain data,
+historical database or default runtime selection was changed. Driver manifest discovery alone is
+not qualification: the explicit dbc path above was exercised, with no fallback.
+
+Implementation worktrees were removed after clean-state and patch-equivalence checks; branches
+remain. Paused phase-0 worktrees are preserved. No owned `cs_sem_test_*` databases remain.
+Next is SP-06 producer/orchestration binding, followed by SP-07/SP-08 integration and SP-09/SP-10
+regeneration, retirement and assembled acceptance. Existing phase-0 findings retain their owner.
