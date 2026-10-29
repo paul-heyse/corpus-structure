@@ -477,6 +477,8 @@ def prepare_release(
                 _fail("case_policy", f"{name}/{sn}", "unsupported case policy", "unsupported")
             if ann.get("cs:key_role", "meaning") not in {"meaning", "identity", "provenance"}:
                 _fail("key_role", f"{name}/{sn}", "unsupported key role", "unsupported")
+            if "cs:functional" in ann and ann["cs:functional"].lower() not in {"true", "false"}:
+                _fail("functional_policy", f"{name}/{sn}", "functional must be an explicit boolean", "unsupported")
             reference_role = ann.get("cs:reference_role")
             if reference_role not in {None, "fact"}:
                 _fail("reference_role", f"{name}/{sn}", "unsupported reference role", "unsupported")

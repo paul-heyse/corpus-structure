@@ -492,3 +492,14 @@ def test_invalid_reference_role_declarations_refuse(range_name, role):
         prepare_release(source)
     assert failure.value.diagnostics[0].code == 'reference_role'
     assert failure.value.diagnostics[0].outcome == 'unsupported'
+
+
+
+def test_unknown_functional_semantics_refuse():
+    source = bundle(lambda schema: schema['classes']['Thing']['attributes']['amount'].update(
+        annotations={'cs:functional': 'maybe'},
+    ))
+    with pytest.raises(PreparationError) as failure:
+        prepare_release(source)
+    assert failure.value.diagnostics[0].code == 'functional_policy'
+    assert failure.value.diagnostics[0].outcome == 'unsupported'
