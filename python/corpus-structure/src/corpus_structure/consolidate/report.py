@@ -34,11 +34,11 @@ class Tally:
     unresolved: Counter[str] = field(default_factory=Counter)  # refusal code -> references
 
     def count(self, code: str, n: int = 1) -> None:
-        self.counts[str(code)] += n
+        self.counts[code] += n
 
     def drop(self, code: str, ref: str) -> None:
-        self.counts[str(code)] += 1
-        self.drops.setdefault(str(code), set()).add(ref)
+        self.counts[code] += 1
+        self.drops.setdefault(code, set()).add(ref)
 
 
 @dataclass(frozen=True)

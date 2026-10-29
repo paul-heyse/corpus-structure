@@ -349,7 +349,7 @@ def _resolve(
     if target is MISSING:
         return None, ReferenceRefusal.NO_TARGET
     try:
-        locator = parse_locator(_target_locator(str(target), page.page))
+        locator = parse_locator(_target_locator(target, page.page))
     except LocatorSyntaxError:
         return None, ReferenceRefusal.LOCATOR_SYNTAX
     there = inputs.by_page.get(locator.page)
@@ -375,7 +375,7 @@ def _mapping(cs: KeyedCandidateSet, keys: Keys) -> dict[str, str]:
     out = {**keys.entities, **keys.statements, **keys.claims}
     for r in cs.references:
         if r.id in keys.references:
-            out[r.id] = keys.references[r.id] if r.resolved_to is AWAITING else str(r.resolved_to)
+            out[r.id] = keys.references[r.id] if r.resolved_to is AWAITING else r.resolved_to
     return out
 
 
@@ -877,13 +877,13 @@ def _entities(
             if e.symbol is not MISSING and e.symbol:
                 row.aliases.add(
                     (
-                        str(e.symbol),
-                        text_form(str(e.symbol), CaseRule.PRESERVE),
+                        e.symbol,
+                        text_form(e.symbol, CaseRule.PRESERVE),
                         AliasKind.SYMBOL.value,
                     )
                 )
             if e.scope_segment is not MISSING:
-                sid = p.page.segment_ids.get(str(e.scope_segment))
+                sid = p.page.segment_ids.get(e.scope_segment)
                 row.scope_segment_id = sid
                 if sid is not None:
                     row.anchors.add(sid)
@@ -954,7 +954,7 @@ def _entities(
             row = knowledge.entities.get(key) or EntityRow(
                 key, REFERENCE, quote, EntityScope.LOCAL.value, p.page.segment_id(anchor)
             )
-            row.resolved_to = None if r.resolved_to is AWAITING else str(r.resolved_to)
+            row.resolved_to = None if r.resolved_to is AWAITING else r.resolved_to
             row.descriptor = d
             row.mentions.add(p.observation_id)
             row.aliases.add((quote, text_form(quote), AliasKind.LABEL.value))
