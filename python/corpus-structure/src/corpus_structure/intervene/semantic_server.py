@@ -13,10 +13,11 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
-from sqlalchemy import Engine, func, select, text, update
+from sqlalchemy import Engine, func, select
 
 from corpus_structure.intervene import service, submission
 from corpus_structure.intervene.semantic import ProposalSession, RefusedProposal
+from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import Settings
@@ -66,7 +67,6 @@ class SemanticAgentSession:
 
     def active(self, task_id: int) -> ProposalSession:
         from corpus_structure.orchestrate.semantic import agent_packet
-        from corpus_structure.semantic.metadata import table
 
         with self.lock:
             session = self.sessions.get(task_id)
@@ -75,21 +75,12 @@ class SemanticAgentSession:
                     "task is not leased by this session or has already finished"
                 )
             with self.engine.begin() as conn:
-                tasks = table("ops.task")
-                row = conn.execute(
-                    update(tasks)
-                    .where(
-                        tasks.c.id == task_id,
-                        tasks.c.run_id == self.run_id,
-                        tasks.c.attempt == session.attempt,
-                        tasks.c.status == "running",
-                        tasks.c.claimed_by == self.holder,
-                    )
-                    .values(lease_until=func.clock_timestamp() + text("interval '5 minutes'"))
-                    .returning(tasks.c.id)
-                ).first()
-                if row is None:
-                    raise ProposalTaskNotOpen("task is no longer held at the served attempt")
+                from corpus_structure.semantic.operations import renew_claim
+
+                try:
+                    renew_claim(conn, task_id=task_id, attempt=session.attempt, holder=self.holder)
+                except OperationConflict as error:
+                    raise ProposalTaskNotOpen(str(error)) from error
                 packet = agent_packet(conn, self.run_id, task_id, self.interpretation())
             if packet.hash != session.packet.hash:
                 raise ProposalRefused("recorded source packet changed after it was served")
@@ -243,7 +234,7 @@ def build_semantic_server(
     ) -> service.QueueNext:
         try:
             return bound_run(ctx, run).next(mode, max_units)
-        except ProposalRefused as error:
+        except (ProposalRefused, OperationConflict) as error:
             raise ToolError(str(error)) from None
 
     @server.tool
@@ -262,7 +253,7 @@ def build_semantic_server(
                 text=body,
             )
             return ToolResult(content=body, structured_content=structured.model_dump(mode="json"))
-        except ProposalRefused as error:
+        except (ProposalRefused, OperationConflict) as error:
             raise ToolError(str(error)) from None
 
     @server.tool
@@ -294,7 +285,7 @@ def build_semantic_server(
                 page_count=len(active.packet.part_pages(item)),
                 text=active.read(part, page),
             )
-        except ProposalRefused as error:
+        except (ProposalRefused, OperationConflict) as error:
             raise ToolError(str(error)) from None
 
     @server.tool
@@ -365,28 +356,16 @@ def build_semantic_server(
 
     @server.tool
     def release(ctx: Context, task_id: int, reason: str) -> service.Released:
-        from corpus_structure.semantic.metadata import table
-
         try:
             active = current(ctx).active(task_id)
-            tasks = table("ops.task")
+            from corpus_structure.semantic.operations import release_claim
+
             with current(ctx).engine.begin() as conn:
-                got = conn.execute(
-                    update(tasks)
-                    .where(
-                        tasks.c.id == task_id,
-                        tasks.c.attempt == active.attempt,
-                        tasks.c.claimed_by == active.holder,
-                        tasks.c.status == "running",
-                    )
-                    .values(status="awaiting_agent", claimed_by=None, lease_until=None)
-                    .returning(tasks.c.id)
-                ).first()
-                if got is None:
-                    raise ProposalRefused("task lease was lost")
+                release_claim(conn, task_id=task_id, attempt=active.attempt,
+                              holder=active.holder, reason=reason)
             current(ctx).sessions.pop(task_id, None)
             return service.Released(task_id=task_id, released=True, reason=reason)
-        except ProposalRefused as error:
+        except (ProposalRefused, OperationConflict) as error:
             raise ToolError(str(error)) from None
 
     return server
