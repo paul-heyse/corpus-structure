@@ -848,6 +848,7 @@ the key consequences (scheme change, carry-over map, affected key prefixes); the
 
 | Class | Examples | Route | Keys |
 |---|---|---|---|
+| `initial` | a payload schema's first registered version | the registry row with no parent; nothing to route (added in P0-M-4, 2026-10-28) | — |
 | `descriptive` | a description, example or title | new revision or schema version, no DDL; the compiled artifacts change, so dependent work re-runs (descriptions are model input: extraction re-runs, ingest does not) | unchanged |
 | `nested-additive` | an optional field on a payload class; a nested closed-set member no CHECK lists | a registry row with upcast "absent"; no DDL, no data rewrite (below) | unchanged for existing data |
 | `relational-additive` | a column, table, static enum member, index or edge kind; a path newly declared `sql_visible` | a generated Alembic revision; no data rewrite | unchanged |

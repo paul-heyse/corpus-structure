@@ -160,3 +160,7 @@ the profile, because they are facts about one source and the core vocabulary.
   [phase 0 coordinator's §11](../plans/phase-0_2026-10-28.md#11-findings-disposition); acceptance
   of this record closes none of them.
 - **Revisit** (front matter).
+
+## Amendments
+
+- 2026-10-29: a payload schema's first registered version carries the compatibility class `initial`; `meta.payload_schema` needs a class on every row and none of the seven fits a row with no parent (P0-M-4). No decision changes.

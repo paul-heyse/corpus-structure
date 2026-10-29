@@ -78,7 +78,9 @@ Rules every method follows:
    nothing: an observation-free `empty` task outcome, so absence is recorded, not silent) or
    `failed` (with an error payload). A unit result never mixes failure with partial output; a
    method that can partially fail reports the failed part as an observation with `outcome:
-   failed`.
+   failed`. An ingest task's rendition is its output: a result carrying a rendition is `produced` (the
+   task is written `done`) even with no observation, which is what `kb.run_rendition` admits (P0-O-1,
+   2026-10-29).
 3. **Deterministic given inputs, or recorded.** Same unit, same config hash, same model weights →
    same observations, for every method except the LLM and agent tiers. Their outputs are
    best-effort reproducible (temperature 0, a seed in the config) but not exactly: online vLLM

@@ -487,7 +487,8 @@ rules share one compile discipline (ADR-0018; DA-012's policy half is O2's).
 - **No regex on formula text.** Rule text should not use `=~` on formula text. rule-engine regexes
   run on Python `re` without a timeout (Interface-checked, rule-engine source via Context7,
   2026-10-28), so the view supplies token-derived attributes instead (§3.6).
-- **Rule ids** are unique across sections and carry the pack's prefix (`core.` for core rules). The
+- **Rule ids** are unique across sections and packs. `rules:` ids carry the pack's prefix (`core.` for
+  core rules); `guideline:` checks keep D2's `guideline.*` ids (decided in P0-S-2, 2026-10-29). The
   `grp` column records `rules` or `guideline`.
 - **The rule-view qualifier identifier rule** (coordinator decision 25; R04).
   - A schema qualifier's attribute name in the view is its local name when that is unique among the
