@@ -147,7 +147,7 @@ classes:
         range: Condition
         inlined: true
       valid_time:
-        range: IntervalValue
+        range: ValidityInterval
         inlined: true
         description: Source-stated validity, including partial or symbolic bounds.
       valid_from:
@@ -311,20 +311,18 @@ classes:
         range: ExpressionBinding
         multivalued: true
         inlined: true
-      normal_form: {}
-      parse_outcome: {}
       macro_context:
         range: ExpressionMacro
         multivalued: true
         inlined: true
         description: Source-bound definitions needed to interpret this expression;
           supplied by source projection.
-  IntervalValue:
+  ValidityInterval:
     is_a: Value
-    description: An absent bound is unbounded; absent inclusivity remains unknown.
+    description: An absent validity bound is unbounded; absent inclusivity remains unknown.
     attributes:
       kind:
-        equals_string: interval
+        equals_string: validity_interval
       start:
         range: Value
         inlined: true

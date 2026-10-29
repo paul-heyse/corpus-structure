@@ -88,9 +88,23 @@ class Membership(_Envelope):
     establishment: str
 
 
+class DeclaredReference(_Envelope):
+    description: str
+    source_uri: str | None = None
+    locator: str | None = None
+
+
+class EntitySourceReference(_Envelope):
+    observation_id: int
+    observation_key: str
+    local_id: str
+    reference: DeclaredReference | None = None
+
+
 class EntityReference(_Envelope):
     entity_id: str
     memberships: tuple[Membership, ...]
+    source_declarations: tuple[EntitySourceReference, ...] = ()
 
 
 class ValueRole(_Envelope):
@@ -115,6 +129,16 @@ class ValueNode(_Envelope):
     roles: tuple[ValueRole, ...] = ()
 
 
+class OccurrenceContext(_Envelope):
+    statement_entity_id: str | None
+    statement_role: str | None
+
+
+class CitationRole(_Envelope):
+    evidence_id: str
+    role: str
+
+
 class QueryRow(_Envelope):
     fact_id: str
     subject: EntityReference
@@ -126,6 +150,8 @@ class QueryRow(_Envelope):
     occurrence_id: str | None = None
     source: str | None = None
     item: str | None = None
+    context: OccurrenceContext | None = None
+    citation_roles: tuple[CitationRole, ...] = ()
 
 
 class Coverage(_Envelope):
@@ -147,12 +173,31 @@ class QueryResult(_Envelope):
     complete: bool
 
 
+class SourceCustody(_Envelope):
+    observation_id: int
+    observation_key: str
+    task_id: int
+    run_id: int
+    rendition_id: int
+    span_id: int | None
+    payload_definition: str
+    kind: str
+    input_observation_keys: tuple[str, ...]
+
+
+class SourceObservationReport(_Envelope):
+    observation_id: int
+    observation_key: str
+    payload: dict[str, Any]
+
+
 class Evidence(_Envelope):
     evidence_id: str
     source_uri: str
     locator: str
     provider: str
     operation_version: str
+    source: SourceCustody | None = None
 
 
 class OccurrenceSupport(_Envelope):
@@ -162,6 +207,8 @@ class OccurrenceSupport(_Envelope):
     report_object_value_id: str
     report_qualification_value_id: str | None
     evidence_ids: tuple[str, ...]
+    context: OccurrenceContext | None = None
+    citation_roles: tuple[CitationRole, ...] = ()
 
 
 class Derivation(_Envelope):
@@ -185,6 +232,7 @@ class Explanation(_Envelope):
     evidence: tuple[Evidence, ...]
     derivations: tuple[Derivation, ...]
     input_supports: tuple[InputFactSupport, ...] = ()
+    source_observations: tuple[SourceObservationReport, ...] = ()
     coverage: tuple[Coverage, ...]
 
 
@@ -411,8 +459,49 @@ class ReadSession:
                 items.append(
                     Membership(class_iri=row["class_id"], establishment=row["establishment"])
                 )
+        source, observation = table("data.entity_source"), table("kb.observation")
+        # Project only the exact declaration's small reference field, not the full report.
+        from sqlalchemy import func, literal_column
+
+        declaration = (
+            func.jsonb_array_elements(observation.c.payload["entities"])
+            .table_valued("value")
+            .lateral()
+        )
+        source_declarations: dict[str, list[EntitySourceReference]] = defaultdict(list)
+        for row in self.connection.execute(
+            select(
+                source.c.entity_id,
+                source.c.observation_id,
+                observation.c.observation_key,
+                source.c.local_id,
+                declaration.c.value.op("->")(literal_column("'reference'")).label("reference"),
+            )
+            .select_from(
+                source.join(observation, source.c.observation_id == observation.c.id).join(
+                    declaration,
+                    declaration.c.value.op("->>")(literal_column("'id'")) == source.c.local_id,
+                )
+            )
+            .where(_scope(self.binding, source), source.c.entity_id.in_(ids))
+            .order_by(source.c.entity_id, observation.c.observation_key, source.c.local_id)
+        ).mappings():
+            source_declarations[row["entity_id"]].append(
+                EntitySourceReference(
+                    observation_id=row["observation_id"],
+                    observation_key=row["observation_key"],
+                    local_id=row["local_id"],
+                    reference=DeclaredReference.model_validate(row["reference"], strict=True)
+                    if row["reference"] is not None
+                    else None,
+                )
+            )
         return {
-            identity: EntityReference(entity_id=identity, memberships=tuple(items))
+            identity: EntityReference(
+                entity_id=identity,
+                memberships=tuple(items),
+                source_declarations=tuple(source_declarations[identity]),
+            )
             for identity, items in memberships.items()
         }
 
@@ -533,6 +622,86 @@ class ReadSession:
             for row in self.connection.execute(stmt.order_by(relation.c.coverage_id)).mappings()
         )
 
+    def _occurrence_contexts(
+        self, occurrence_ids: tuple[str, ...]
+    ) -> tuple[dict[str, OccurrenceContext], dict[str, tuple[CitationRole, ...]]]:
+        context, roles = table("data.occurrence_context"), table("data.occurrence_evidence_role")
+        contexts = {
+            row["occurrence_id"]: OccurrenceContext(
+                statement_entity_id=row["statement_entity_id"], statement_role=row["statement_role"]
+            )
+            for row in self.connection.execute(
+                select(context).where(
+                    _scope(self.binding, context), context.c.occurrence_id.in_(occurrence_ids)
+                )
+            ).mappings()
+        }
+        by_occurrence: dict[str, list[CitationRole]] = defaultdict(list)
+        for row in self.connection.execute(
+            select(roles)
+            .where(_scope(self.binding, roles), roles.c.occurrence_id.in_(occurrence_ids))
+            .order_by(roles.c.occurrence_id, roles.c.evidence_id)
+        ).mappings():
+            by_occurrence[row["occurrence_id"]].append(
+                CitationRole(evidence_id=row["evidence_id"], role=row["role"])
+            )
+        return contexts, {key: tuple(value) for key, value in by_occurrence.items()}
+
+    def _source_custody(self, evidence_ids: tuple[str, ...]) -> dict[str, SourceCustody]:
+        source, observation, task, inputs = (
+            table(name)
+            for name in (
+                "data.evidence_source",
+                "kb.observation",
+                "ops.task",
+                "kb.observation_input",
+            )
+        )
+        receipts = (
+            self.connection.execute(
+                select(
+                    source.c.evidence_id,
+                    source.c.rendition_id,
+                    source.c.span_id,
+                    observation.c.id,
+                    observation.c.observation_key,
+                    observation.c.task_id,
+                    observation.c.payload_definition,
+                    observation.c.kind,
+                    task.c.run_id,
+                )
+                .select_from(
+                    source.join(observation, source.c.observation_id == observation.c.id).join(
+                        task, task.c.id == observation.c.task_id
+                    )
+                )
+                .where(_scope(self.binding, source), source.c.evidence_id.in_(evidence_ids))
+            )
+            .mappings()
+            .all()
+        )
+        dependencies: dict[int, list[str]] = defaultdict(list)
+        for row in self.connection.execute(
+            select(inputs)
+            .where(inputs.c.observation_id.in_([row["id"] for row in receipts]))
+            .order_by(inputs.c.position)
+        ).mappings():
+            dependencies[row["observation_id"]].append(row["source_observation_key"])
+        return {
+            row["evidence_id"]: SourceCustody(
+                observation_id=row["id"],
+                observation_key=row["observation_key"],
+                task_id=row["task_id"],
+                run_id=row["run_id"],
+                rendition_id=row["rendition_id"],
+                span_id=row["span_id"],
+                payload_definition=row["payload_definition"],
+                kind=row["kind"],
+                input_observation_keys=tuple(dependencies[row["id"]]),
+            )
+            for row in receipts
+        }
+
     def query(self, spec: QuerySpec, *, continuation: str | None = None) -> QueryResult:
         cls, prop = self._property(spec)
         after = self._after(spec, continuation)
@@ -551,6 +720,9 @@ class ReadSession:
                 *key, item=prop.multivalued
             )
         adapter = self._property_adapters[key]
+        contexts, citation_roles = self._occurrence_contexts(
+            tuple(row["occurrence_id"] for row in rows if row.get("occurrence_id") is not None)
+        )
         output = tuple(
             QueryRow(
                 fact_id=row["fact_id"],
@@ -567,6 +739,12 @@ class ReadSession:
                 occurrence_id=row.get("occurrence_id"),
                 source=row.get("source"),
                 item=row.get("item"),
+                context=contexts.get(row["occurrence_id"])
+                if row.get("occurrence_id") is not None
+                else None,
+                citation_roles=citation_roles.get(row["occurrence_id"], ())
+                if row.get("occurrence_id") is not None
+                else (),
             )
             for row in rows
         )
@@ -619,6 +797,9 @@ class ReadSession:
             .mappings()
             .all()
         )
+        contexts, citation_roles = self._occurrence_contexts(
+            tuple(row["occurrence_id"] for row in supports)
+        )
         links: dict[str, list[str]] = defaultdict(list)
         evidence: dict[str, Evidence] = {}
         for row in self.connection.execute(
@@ -639,7 +820,27 @@ class ReadSession:
             .order_by(oe.c.evidence_id)
         ).mappings():
             links[row["occurrence_id"]].append(row["evidence_id"])
-            evidence[row["evidence_id"]] = Evidence(**{k: row[k] for k in Evidence.model_fields})
+            evidence[row["evidence_id"]] = Evidence(
+                **{k: row[k] for k in Evidence.model_fields if k != "source"}
+            )
+        custody = self._source_custody(tuple(evidence))
+        observation = table("kb.observation")
+        source_observations = tuple(
+            SourceObservationReport(
+                observation_id=row["id"],
+                observation_key=row["observation_key"],
+                payload=row["payload"],
+            )
+            for row in self.connection.execute(
+                select(observation.c.id, observation.c.observation_key, observation.c.payload)
+                .where(observation.c.id.in_({source.observation_id for source in custody.values()}))
+                .order_by(observation.c.observation_key)
+            ).mappings()
+        )
+        evidence = {
+            key: value.model_copy(update={"source": custody.get(key)})
+            for key, value in evidence.items()
+        }
         d, p = table("data.derivation"), table("data.derivation_premise")
         derivations = (
             self.connection.execute(
@@ -663,21 +864,34 @@ class ReadSession:
             .order_by(p.c.position)
         ).mappings():
             premises[row["derivation_id"]].append(row["premise_fact_id"])
-        input_relation=table("data.fact_input")
-        input_supports=tuple(InputFactSupport(**{name:row[name] for name in InputFactSupport.model_fields})
-            for row in self.connection.execute(select(input_relation).where(_scope(self.binding,input_relation),input_relation.c.fact_id==fact_id)).mappings())
+        input_relation = table("data.fact_input")
+        input_supports = tuple(
+            InputFactSupport(**{name: row[name] for name in InputFactSupport.model_fields})
+            for row in self.connection.execute(
+                select(input_relation).where(
+                    _scope(self.binding, input_relation), input_relation.c.fact_id == fact_id
+                )
+            ).mappings()
+        )
         return Explanation(
             input_supports=input_supports,
             binding=self.binding,
             fact_id=fact_id,
             supports=tuple(
                 OccurrenceSupport(
-                    **{k: row[k] for k in OccurrenceSupport.model_fields if k != "evidence_ids"},
+                    **{
+                        k: row[k]
+                        for k in OccurrenceSupport.model_fields
+                        if k not in {"evidence_ids", "context", "citation_roles"}
+                    },
                     evidence_ids=tuple(links[row["occurrence_id"]]),
+                    context=contexts.get(row["occurrence_id"]),
+                    citation_roles=citation_roles.get(row["occurrence_id"], ()),
                 )
                 for row in supports
             ),
             evidence=tuple(evidence.values()),
+            source_observations=source_observations,
             derivations=tuple(
                 Derivation(
                     derivation_id=row["derivation_id"],

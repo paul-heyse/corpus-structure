@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 COMPILER_VERSION = "analytical-2"
 SPINE = (
     "entity",
+    "entity_source",
     "membership",
     "membership_support",
     "typed_value",
@@ -60,6 +61,8 @@ SPINE = (
     "selection",
     "evidence",
     "occurrence_evidence",
+    "occurrence_context",
+    "occurrence_evidence_role",
     "derivation",
     "derivation_premise",
     "coverage",
@@ -513,6 +516,16 @@ class AnalysisScope:
               AND f.qualification_key = s.qualification_key
             ORDER BY f.fact_id
         """)
+
+    def operation_disagreements(self, meanings: duckdb.DuckDBPyRelation) -> duckdb.DuckDBPyRelation:
+        """Compare explicit operation keys/meaning receipts on this analytical connection.
+
+        Keys identify a declared source-claim projection, not canonical packet facts. Null
+        meanings stay unknown variants, matching the existing consolidation set kernel.
+        """
+        from corpus_structure.pool.duckdb_engine import _DISAGREEMENTS
+
+        return self._compose(_DISAGREEMENTS, {"meanings": meanings})
 
     def alias_candidates(
         self, aliases: duckdb.DuckDBPyRelation, references: duckdb.DuckDBPyRelation

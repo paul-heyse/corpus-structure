@@ -31,6 +31,13 @@ class EntityRow:
 
 
 @dataclass(frozen=True)
+class EntitySourceRow:
+    entity_id: str
+    observation_id: int
+    local_id: str
+
+
+@dataclass(frozen=True)
 class MembershipRow:
     entity_id: str
     class_id: str
@@ -104,6 +111,20 @@ class EvidenceRow:
 class OccurrenceEvidenceRow:
     occurrence_id: str
     evidence_id: str
+
+
+@dataclass(frozen=True)
+class OccurrenceContextRow:
+    occurrence_id: str
+    statement_entity_id: str | None = None
+    statement_role: str | None = None
+
+
+@dataclass(frozen=True)
+class OccurrenceEvidenceRoleRow:
+    occurrence_id: str
+    evidence_id: str
+    role: str
 
 
 @dataclass(frozen=True)
@@ -185,6 +206,7 @@ class CoverageRow:
 # The fixed transport schema is shared with the narrow native DDL companion.
 _ROW_TYPES = {
     "entity": EntityRow,
+    "entity_source": EntitySourceRow,
     "membership": MembershipRow,
     "typed_value": ValueRow,
     "value_role": RoleRow,
@@ -194,6 +216,8 @@ _ROW_TYPES = {
     "selection": SelectionRow,
     "evidence": EvidenceRow,
     "occurrence_evidence": OccurrenceEvidenceRow,
+    "occurrence_context": OccurrenceContextRow,
+    "occurrence_evidence_role": OccurrenceEvidenceRoleRow,
     "membership_support": MembershipSupportRow,
     "derivation": DerivationRow,
     "derivation_premise": DerivationPremiseRow,
@@ -225,6 +249,7 @@ class PublicationBatch:
     realization_id: str
     batch_id: str
     entity: tuple[EntityRow, ...] = ()
+    entity_source: tuple[EntitySourceRow, ...] = ()
     membership: tuple[MembershipRow, ...] = ()
     typed_value: tuple[ValueRow, ...] = ()
     value_role: tuple[RoleRow, ...] = ()
@@ -234,6 +259,8 @@ class PublicationBatch:
     selection: tuple[SelectionRow, ...] = ()
     evidence: tuple[EvidenceRow, ...] = ()
     occurrence_evidence: tuple[OccurrenceEvidenceRow, ...] = ()
+    occurrence_context: tuple[OccurrenceContextRow, ...] = ()
+    occurrence_evidence_role: tuple[OccurrenceEvidenceRoleRow, ...] = ()
     membership_support: tuple[MembershipSupportRow, ...] = ()
     derivation: tuple[DerivationRow, ...] = ()
     derivation_premise: tuple[DerivationPremiseRow, ...] = ()

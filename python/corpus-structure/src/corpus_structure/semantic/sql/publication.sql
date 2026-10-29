@@ -15,6 +15,7 @@ BEGIN
  IF old.content<>actual THEN RAISE EXCEPTION 'batch identity content conflict' USING ERRCODE='23505'; END IF;
  RETURN old.data_revision;
  END IF;
+ IF EXISTS(SELECT FROM ops.run WHERE release_id=r AND result_realization_id=z AND status='finished') THEN RAISE EXCEPTION 'evaluated realization is immutable'; END IF;
  IF NOT EXISTS(SELECT FROM data.realization WHERE release_id=r AND realization_id=z AND state='active') THEN RAISE EXCEPTION 'realization not active in bound release' USING ERRCODE='23514'; END IF;
  -- The receipt exists in this transaction before occurrence FKs are checked.
  UPDATE data.realization SET data_revision=data_revision+1 WHERE release_id=r AND realization_id=z RETURNING data_revision INTO rev;
@@ -22,6 +23,8 @@ BEGIN
  IF EXISTS(SELECT FROM pg_temp.sp_value_role candidate JOIN data.typed_value parent ON parent.release_id=r AND parent.realization_id=z AND parent.value_id=candidate.parent_value_id WHERE NOT EXISTS(SELECT FROM data.value_role existing WHERE existing.release_id=r AND existing.realization_id=z AND (existing.parent_value_id,existing.role,existing.position,existing.child_value_id)=(candidate.parent_value_id,candidate.role,candidate.position,candidate.child_value_id))) THEN RAISE EXCEPTION 'existing typed value graph is immutable' USING ERRCODE='23514'; END IF;
  {insert}
  PERFORM data.validate_state(r,z);
+ PERFORM data.validate_occurrence_context(r,z);
+ PERFORM data.validate_entity_source(r,z);
  FOR f IN SELECT * FROM pg_temp.sp_occurrence LOOP
  expected:='occ:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(r,z,f.source,f.item)),'UTF8')),'hex');
  IF expected<>f.occurrence_id THEN RAISE EXCEPTION 'invalid occurrence identity' USING ERRCODE='23514'; END IF;

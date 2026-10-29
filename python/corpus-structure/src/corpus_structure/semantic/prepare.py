@@ -16,6 +16,7 @@ import yaml
 from linkml_runtime.dumpers import json_dumper
 from linkml_runtime.linkml_model import SchemaDefinition, SchemaDefinitionName
 from linkml_runtime.loaders import yaml_loader
+from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from linkml_runtime.utils.schemaview import SchemaView
 from pydantic import (
     MISSING,
@@ -198,6 +199,18 @@ def _inspect(value: Any, location: str) -> None:
             _inspect(item, f"{location}/{i}")
 
 
+class _SchemaYamlLoader(DupCheckYamlLoader):
+    """LinkML duplicate checks with standard YAML empty-sequence-member semantics."""
+
+    def __init__(self, stream: Any) -> None:
+        super().__init__(stream)
+        # LinkML's data loader additionally rejects empty sequence members. Schema examples
+        # and unsupported-construct diagnostics must retain ordinary SafeLoader sequences.
+        self.add_constructor(
+            yaml.resolver.BaseResolver.DEFAULT_SEQUENCE_TAG, yaml.SafeLoader.construct_yaml_seq
+        )
+
+
 def _view(bundle: SourceBundle) -> SchemaView:
     schemas: dict[str, SchemaDefinition] = {}
     elements: dict[tuple[str, str], str] = {}
@@ -206,7 +219,7 @@ def _view(bundle: SourceBundle) -> SchemaView:
         _fail("source_identity", "sources", "sources must have unique names")
     for source in bundle.sources:
         try:
-            body = yaml.safe_load(source.content)
+            body = yaml.load(source.content, Loader=_SchemaYamlLoader)
             if not isinstance(body, dict):
                 _fail("schema", source.name, "schema must be a mapping")
             _inspect(body, source.name)
@@ -692,8 +705,8 @@ def prepare_release(
     for dependency in dependencies.artifacts:
         if dependency.name == "operation/domain-rules.yaml":
             try:
-                declared = yaml.safe_load(dependency.content)
-            except yaml.YAMLError as exc:
+                declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
+            except (yaml.YAMLError, ValueError) as exc:
                 _fail("operation_rules", dependency.name, str(exc))
             if not isinstance(declared, dict):
                 _fail("operation_rules", dependency.name, "rules must be a mapping")
