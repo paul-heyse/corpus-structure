@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -37,12 +38,36 @@ class Scope:
         return cls("units", unit_keys=tuple(sorted(set(unit_keys))))
 
 
-@dataclass(frozen=True)
+@dataclass
 class QueryContext:
     """What a query reads through: the pinned (finished) run and a connection."""
 
     run_id: int
     conn: Connection
+
+    @cached_property
+    def reader(self) -> Any:
+        from corpus_structure.serve.read import Reader
+        return Reader(self)
+
+    @property
+    def compiled(self) -> Any:
+        return self.reader.compiled
+
+    def claims(self, **filters: Any) -> Iterator[Any]:
+        return self.reader.claims(**filters)
+
+    def entities(self, key: str | None = None, label: str | None = None) -> list[dict[str, Any]]:
+        return self.reader.entities(key, label)
+
+    def evidence(self, claim_key: str) -> list[dict[str, Any]]:
+        return self.reader.evidence(claim_key)
+
+
+@dataclass(frozen=True)
+class Positioned:
+    row: BaseModel
+    position: JsonValue
 
 
 @runtime_checkable
@@ -62,7 +87,7 @@ class DomainQuery(Protocol):
     @property
     def result(self) -> type[BaseModel]: ...
 
-    def rows(self, ctx: QueryContext, p: Any) -> Iterator[BaseModel]: ...
+    def rows(self, ctx: QueryContext, p: Any, after: JsonValue = None) -> Iterator[Positioned]: ...
 
     def scope(self, ctx: QueryContext, p: Any) -> Scope: ...
 
@@ -81,6 +106,7 @@ class Coverage(_Frozen):
     failed: int = 0
     unresolved: int = 0
     partial: bool = False
+    unresolved_references: int = 0
 
 
 class QueryResult(_Frozen):

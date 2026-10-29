@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import Connection, text
 
 from corpus_structure.serve.journey import QueryRefused, StaleToken, coverage, serve_query
-from corpus_structure.serve.protocol import QueryContext, Scope
+from corpus_structure.serve.protocol import QueryContext, Scope, Positioned
 from corpus_structure.serve.registry import QueryRegistryError, build_registry
 
 CUT = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
@@ -41,9 +41,9 @@ class Count:
         self.version = version
         self.units = units
 
-    def rows(self, ctx: QueryContext, p: CountParams) -> Iterator[CountRow]:
-        for i in range(p.n):
-            yield CountRow(i=i, run=ctx.run_id)
+    def rows(self, ctx: QueryContext, p: CountParams, after=None) -> Iterator[Positioned]:
+        for i in range(0 if after is None else after + 1, p.n):
+            yield Positioned(CountRow(i=i, run=ctx.run_id), i)
 
     def scope(self, ctx: QueryContext, p: CountParams) -> Scope:
         return Scope.of_units(self.units) if self.units else Scope.run()
@@ -127,8 +127,8 @@ def test_a_promotion_between_pages_leaves_the_journey_on_its_run(
         assert page.run_id == first and {r["run"] for r in page.rows} == {first}
         seen += [r["i"] for r in page.rows]
     assert seen == [0, 1, 2, 3, 4]
-    by_chars = serve_query(db, registry, "count", {"n": 5}, run=second, max_chars=20)
-    assert len(by_chars.rows) == 1 and by_chars.truncated  # one row is 15 characters of JSON
+    with pytest.raises(QueryRefused, match="size limit"):
+        serve_query(db, registry, "count", {"n": 5}, run=second, max_chars=20)
 
 
 def test_stale_tokens_are_refused(
@@ -183,6 +183,7 @@ def test_coverage_counts_the_fates_as_of_the_cut(
         "failed": 1,
         "unresolved": 2,
         "partial": True,
+        "unresolved_references": 0,
     }
     units = coverage(db, run, Scope.of_units(["u1", "u2"]))
     assert (units.eligible, units.extracted, units.partial) == (2, 2, False)

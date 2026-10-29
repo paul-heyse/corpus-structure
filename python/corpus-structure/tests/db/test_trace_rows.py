@@ -395,3 +395,19 @@ def test_run_rendition_selects_the_run_configurations_build(
         db, "SELECT document_id, rendition_id FROM kb.run_rendition WHERE run_id = :r", r=w.run
     ).all()
     assert rows == [(w.document, mine.id)]
+
+
+def test_generic_claim_and_evidence_readers_over_independent_trace_rows(db, t3):
+    from corpus_structure.serve.protocol import QueryContext
+    from corpus_structure.schema.compile import compile_schema
+    from corpus_structure.schema.pack import DOMAINS, load_pack
+    ctx = QueryContext(t3_run(db), db)
+    ctx.reader.__dict__['compiled'] = compile_schema([load_pack(DOMAINS / 'statistics')])
+    rows = list(ctx.reader.claims(include_candidates=True, include_suppositions=True))
+    assert {r['key'] for r in rows} == {'clm:C1','clm:C2','clm:C3','clm:C4','clm:D1'}
+    c3 = next(r for r in rows if r['key']=='clm:C3')
+    assert c3['subject']['label']
+    assert len(c3['evidence']) == 3
+    assert any(e['text'].startswith('then') for e in c3['evidence'])
+    assert all(e['locator'] for e in c3['evidence'])
+    assert list(ctx.reader.claims(after='clm:C3', include_candidates=True, include_suppositions=True))[-1]['key']=='clm:D1'
