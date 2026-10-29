@@ -22,14 +22,21 @@ CREATE TABLE sem.metric_definition (
  release_id text NOT NULL REFERENCES sem.release(release_id), metric_id text NOT NULL,
  value_type text NOT NULL, subject_kind text NOT NULL, detail_schema text NOT NULL, description text NOT NULL,
  PRIMARY KEY(release_id,metric_id));
-GRANT SELECT ON sem.metric_definition TO corpus_sem_publisher,corpus_sem_reader;
-CREATE FUNCTION ops.validate_measurement_definition() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
-DECLARE bound_release text;
+GRANT SELECT ON sem.metric_definition TO corpus_sem_publisher,corpus_sem_reader,corpus_sem_writer;
+CREATE FUNCTION ops.validate_measurement_definition() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE bound_release text; task_run bigint;
 BEGIN
- SELECT r.release_id INTO bound_release FROM ops.task t JOIN ops.run r ON r.id=t.run_id WHERE t.id=NEW.task_id;
+ SELECT r.release_id,t.run_id INTO bound_release,task_run FROM ops.task t JOIN ops.run r ON r.id=t.run_id WHERE t.id=NEW.task_id;
+ IF task_run IS DISTINCT FROM NEW.run_id THEN RAISE EXCEPTION 'measurement producer run differs from task' USING ERRCODE='23514'; END IF;
+ IF bound_release IS NOT NULL AND NEW.value IS NOT NULL THEN
+ IF NEW.value::text IN ('NaN','Infinity','-Infinity') THEN RAISE EXCEPTION 'measurement requires finite source value' USING ERRCODE='23514'; END IF;
+ PERFORM NEW.value::double precision;
+ END IF;
  IF bound_release IS NOT NULL AND NOT EXISTS (SELECT FROM sem.metric_definition d WHERE d.release_id=bound_release AND d.metric_id=NEW.metric AND d.subject_kind=NEW.scope_type) THEN
  RAISE EXCEPTION 'unresolved metric or incompatible measurement subject' USING ERRCODE='23514'; END IF;
  RETURN NEW;
 END $fn$;
 REVOKE ALL ON FUNCTION ops.validate_measurement_definition() FROM PUBLIC;
 CREATE TRIGGER validate_measurement_definition BEFORE INSERT OR UPDATE ON ops.measurement FOR EACH ROW EXECUTE FUNCTION ops.validate_measurement_definition();
+
+ALTER FUNCTION ops.validate_measurement_definition() OWNER TO corpus_sem_publisher;

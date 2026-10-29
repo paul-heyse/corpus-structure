@@ -1582,7 +1582,7 @@ def consolidate_cut(
         binding,
         compiled.projection_id,
         compiled.profile.digest,
-        cut_id=inputs.cut_id,
+        cut_id=str(inputs.cut_id),
         decision_universe="consolidation:" + policy.version,
         relations=MappingProxyType({}),
         scale=compiled.profile.scale,
