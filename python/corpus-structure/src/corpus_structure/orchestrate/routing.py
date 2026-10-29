@@ -42,6 +42,8 @@ def propose(conn: Connection, run_id: int, registry: Any) -> None:
     configs = RunConfigs(registry, conn, options.configs)
     indices = {}
     counters: Counter[str] = Counter()
+    scheduled: set[tuple[int | None, str]] = set()
+    matched_units: dict[str, list[str]] = {}
     for entry in rules.entries(PolicyChain.PROPOSE):
         method = registry.method(entry.method)
         name = options.method_configs.get(entry.method, entry.entry.do.method.split('/',1)[1])
@@ -72,8 +74,9 @@ def propose(conn: Connection, run_id: int, registry: Any) -> None:
                 'budget': SimpleNamespace(agent_packets_left=None,llm_tokens_left=None),
                 'ran':lambda m:False,'outcome':lambda m:None,'judged_by':lambda m:False,
                 'decision':lambda m:None,'confidence':lambda m:None}
-            matched = rules.matches(PolicyChain.PROPOSE, thing)
-            if entry not in matched:
+            matched = matched_units.setdefault(unit.ref.unit_key, [e.key for e in rules.matches(PolicyChain.PROPOSE, thing)])
+            identity = (rc.method_config_id, unit.ref.unit_key)
+            if entry.key not in matched or identity in scheduled:
                 continue
             reason = None
             if unit.ref.unit_key not in in_scope:
@@ -82,8 +85,12 @@ def propose(conn: Connection, run_id: int, registry: Any) -> None:
                 reason = SkipReason.LIMIT
             else:
                 counters[entry.key] += 1
+            scheduled.add(identity)
+            trigger = {'values': {'phase': run.phase, 'iteration': 0,
+                'unit.kind': segment.kind.value, 'unit.statement_kind': kind,
+                'unit.claim_bearing': bool(bearing)}}
             tasks.create_tasks(conn, run_id, Stage.PROPOSE, rc, method, [unit],
                 skipped={0:reason} if reason else {}, upstream=('ingest.html','resolve.symbol_scope'),
                 fresh=entry.method in options.fresh, trigger_rule_id=rule_ids[entry.key],
-                trigger_metrics={})
+                trigger_metrics=trigger)
     agent.settle_twins(conn, run_id=run_id)
