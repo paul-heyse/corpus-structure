@@ -2,13 +2,13 @@
 
 import pytest
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import insert, select, text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import PublicationBatch, RoleRow, ValueRow, publish_batch
 
-from .test_publication import C, R, Z, batch, seed
+from .test_publication import C, Z, batch, seed
 
 
 class NativeTestConfig(BaseModel):
@@ -30,40 +30,12 @@ class NativeTestConfig(BaseModel):
 def test_conditional_kernel_reaches_protected_publication(
     semantic_db_engine, semantic_writer_engine, kind, scope, value, selected, valid
 ):
-    seed(semantic_db_engine, scope=scope)
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            insert(table("sem.conditional_rule")).values(
-                release_id=R, rule_id="rule:label", class_id=C, scope=scope
-            )
-        )
-        conn.execute(
-            insert(table("sem.conditional_atom")),
-            [
-                dict(
-                    release_id=R,
-                    rule_id="rule:label",
-                    branch="if",
-                    position=0,
-                    property_name="label",
-                    presence="present",
-                    choices=None,
-                ),
-                dict(
-                    release_id=R,
-                    rule_id="rule:label",
-                    branch="then",
-                    position=0,
-                    property_name="label",
-                    presence="optional",
-                    choices=["ready"],
-                ),
-            ],
-        )
-    candidate = batch(label=value, selected=selected)
+    prepared = seed(semantic_db_engine, scope=scope, conditional=True)
+    release_id = prepared.release_id
+    candidate = batch(label=value, selected=selected, release_id=release_id)
     if kind == "record":
         candidate = PublicationBatch(
-            R,
+            release_id,
             Z,
             "record",
             typed_value=(
@@ -116,7 +88,7 @@ def test_native_attempt_and_nonterminal_transition_fences(
 
     from .test_operations import setup
 
-    prepared = setup(semantic_db_engine)
+    prepared = setup(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -143,14 +115,6 @@ def test_native_attempt_and_nonterminal_transition_fences(
         )
         task = create_task(
             conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="one"
-        )
-    # Exercise the composed guard on existing rows without weakening construction admission.
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            table("sem.release")
-            .update()
-            .where(table("sem.release").c.release_id == prepared.release_id)
-            .values(profile="semantic-2")
         )
     for mutation in [
         dict(status="awaiting_agent"),
@@ -195,7 +159,7 @@ def test_protected_release_and_reclaim_preserve_held_progress(
 
     from .test_operations import setup
 
-    prepared = setup(semantic_db_engine)
+    prepared = setup(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -229,13 +193,6 @@ def test_protected_release_and_reclaim_preserve_held_progress(
             input_hash="one",
             packet_hash="packet",
             agent=True,
-        )
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            table("sem.release")
-            .update()
-            .where(table("sem.release").c.release_id == prepared.release_id)
-            .values(profile="semantic-2")
         )
     with semantic_writer_engine.begin() as conn:
         first = claim_tasks(conn, run_id=run, config_id=config, holder="first", agent=True)[0]
@@ -336,7 +293,7 @@ def test_held_progress_survives_cancel_and_fail(
 
     from .test_operations import setup
 
-    prepared = setup(semantic_db_engine)
+    prepared = setup(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -370,13 +327,6 @@ def test_held_progress_survives_cancel_and_fail(
             input_hash="one",
             packet_hash="packet",
             agent=True,
-        )
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            table("sem.release")
-            .update()
-            .where(table("sem.release").c.release_id == prepared.release_id)
-            .values(profile="semantic-2")
         )
     with semantic_writer_engine.begin() as conn:
         claim = claim_tasks(conn, run_id=run, config_id=config, holder="agent", agent=True)[0]
@@ -425,7 +375,7 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
 
     from .test_operations import setup
 
-    prepared = setup(semantic_db_engine)
+    prepared = setup(semantic_db_engine, composed=True)
     with semantic_writer_engine.begin() as conn:
         run = create_run(
             conn,
@@ -452,13 +402,6 @@ def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine, semantic
         )
         task = create_task(
             conn, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="one"
-        )
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            table("sem.release")
-            .update()
-            .where(table("sem.release").c.release_id == prepared.release_id)
-            .values(profile="semantic-2")
         )
     with semantic_writer_engine.begin() as conn:
         claim_tasks(conn, run_id=run, config_id=config, holder="worker")

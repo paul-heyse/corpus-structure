@@ -437,7 +437,16 @@ def complete_task(
         if getattr(getattr(exc, "orig", None), "sqlstate", None) in {"P0004", "55000"}:
             raise OperationConflict("task attempt lost or run sealed") from exc
         raise
-    return CompletionResult.model_validate_json(result, strict=True)
+    completion = CompletionResult.model_validate_json(result, strict=True)
+    from .operation_results import validate_result_dimension
+
+    validate_result_dimension(
+        prepared, "complete", "protocol", completion.receipt.protocol, field="receipt.protocol"
+    )
+    validate_result_dimension(
+        prepared, "complete", "transaction", completion.transaction, field="transaction"
+    )
+    return completion
 
 
 def seal_cut(conn: Connection, run_id: int, name: str, *, final: bool = False) -> int:
@@ -500,14 +509,44 @@ def register_document(
     return row["id"]
 
 
-def read_original(conn: Connection, document_id: int) -> bytes:
+class SourceReadRefused(OperationConflict):
+    """An owned source-read failure with an explicit modeled outcome."""
+
+    def __init__(self, outcome: str, reason: str):
+        self.outcome = outcome
+        super().__init__(reason)
+
+
+def _source_read_outcome(prepared: PreparedRelease | None, operation: str, outcome: str) -> None:
+    from .operation_results import validate_result_dimension
+    from .outcomes import CODE_OUTCOME_DOMAINS
+
+    if prepared is not None:
+        validate_result_dimension(prepared, operation, "outcome", outcome, field="outcome")
+    elif outcome not in CODE_OUTCOME_DOMAINS["read"]:
+        raise ValueError("source-read outcome is outside the supported base protocol")
+
+
+def read_original(
+    conn: Connection, document_id: int, *, prepared: PreparedRelease | None = None
+) -> bytes:
+    """Translate a verified original payload or a modeled missing/invalid read refusal."""
     from pathlib import Path
 
     t = table("kb.document")
-    row = conn.execute(select(t).where(t.c.id == document_id)).mappings().one()
-    data = Path(row["original_path"]).read_bytes()
+    row = conn.execute(select(t).where(t.c.id == document_id)).mappings().one_or_none()
+    if row is None:
+        _source_read_outcome(prepared, "read_original", "missing")
+        raise SourceReadRefused("missing", "retained original document is missing")
+    try:
+        data = Path(row["original_path"]).read_bytes()
+    except FileNotFoundError as exc:
+        _source_read_outcome(prepared, "read_original", "missing")
+        raise SourceReadRefused("missing", "retained original file is missing") from exc
     if sha256(data).hexdigest() != row["content_hash"]:
-        raise OperationConflict("retained original content changed")
+        _source_read_outcome(prepared, "read_original", "invalid")
+        raise SourceReadRefused("invalid", "retained original content changed")
+    _source_read_outcome(prepared, "read_original", "source_ready")
     return data
 
 
@@ -611,12 +650,26 @@ def store_rendition(
     return rendition_id
 
 
-def read_rendition(conn: Connection, rendition_id: int) -> RenditionContent:
+def read_rendition(
+    conn: Connection, rendition_id: int, *, prepared: PreparedRelease | None = None
+) -> RenditionContent:
+    """Translate a typed rendition payload or an explicit modeled source-read refusal."""
+    from pydantic import ValidationError
+
     from corpus_structure.core.evidence import RenditionContent
 
     t = table("kb.rendition")
-    payload = conn.execute(select(t.c.content).where(t.c.id == rendition_id)).scalar_one()
-    return RenditionContent.model_validate(payload)
+    payload = conn.execute(select(t.c.content).where(t.c.id == rendition_id)).scalar_one_or_none()
+    if payload is None:
+        _source_read_outcome(prepared, "read_rendition", "missing")
+        raise SourceReadRefused("missing", "retained rendition is missing")
+    try:
+        content = RenditionContent.model_validate(payload)
+    except ValidationError as exc:
+        _source_read_outcome(prepared, "read_rendition", "invalid")
+        raise SourceReadRefused("invalid", "retained rendition content is invalid") from exc
+    _source_read_outcome(prepared, "read_rendition", "source_ready")
+    return content
 
 
 def complete_unit_result(
@@ -680,7 +733,7 @@ def complete_unit_result(
         rendition_id = conn.execute(
             select(builds.c.rendition_id).where(builds.c.task_id == task_id)
         ).scalar_one()
-        if read_rendition(conn, rendition_id) != result.rendition:
+        if read_rendition(conn, rendition_id, prepared=prepared) != result.rendition:
             raise OperationConflict("terminal rendition result differs from published content")
     rows = []
     for item in items:
@@ -787,7 +840,7 @@ class BoundReader:
         ]
 
     def content(self, rendition_id: int) -> RenditionContent:
-        return read_rendition(self.conn, rendition_id)
+        return read_rendition(self.conn, rendition_id, prepared=self.prepared)
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:
         s = table("kb.segment")
@@ -960,6 +1013,7 @@ def hold_agent_result(
     packet_hash: str,
     clean: bool,
     result: Mapping[str, JsonValue],
+    prepared: PreparedRelease | None = None,
 ) -> HoldDecision:
     """Lock one live submission; persist only its first well-typed uncertain result."""
     import json
@@ -979,11 +1033,22 @@ def hold_agent_result(
                 "result": json.dumps(dict(result)),
             },
         ).scalar_one()
+        from .operation_results import validate_result_dimension, validate_task_result_dimension
+
+        disposition = "held" if held else "proceed"
+        if prepared is not None:
+            validate_result_dimension(
+                prepared, "hold_submission", "decision", disposition, field="disposition"
+            )
+        else:
+            validate_task_result_dimension(
+                conn, task_id, "hold_submission", "decision", disposition
+            )
         return HoldDecision(
             task_id=task_id,
             attempt=attempt,
             packet_hash=packet_hash,
-            disposition="held" if held else "proceed",
+            disposition=disposition,
         )
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":

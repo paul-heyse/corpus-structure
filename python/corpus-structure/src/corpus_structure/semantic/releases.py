@@ -7,13 +7,16 @@ only an explicit archive load recompiles the archived, entirely local inputs.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from importlib.metadata import version
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Connection, insert, select, update
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+if TYPE_CHECKING:
+    from .authored_sql import AuthoredSQL
+
+from sqlalchemy import Connection, select
 
 from .identity import canonical_bytes
 from .prepare import prepare_release
@@ -79,7 +82,10 @@ def _products(prepared: PreparedRelease) -> dict[str, Any]:
         "queries": [asdict(x) for x in prepared.queries],
         "artifacts": [{"kind": x.kind, "digest": x.digest} for x in prepared.artifacts],
         "required_capabilities": prepared.required_capabilities,
-        "diagnostics": [asdict(x) for x in prepared.diagnostics],
+        "diagnostics": [
+            {key: value for key, value in asdict(item).items() if value is not None}
+            for item in prepared.diagnostics
+        ],
     }
     if prepared.execution_model_id is not None:
         products["execution_model_id"] = prepared.execution_model_id
@@ -365,27 +371,46 @@ def persist_release(
         }
     )
     projections = _projection_rows(prepared)
-    table = _table("sem.release")
-    with conn.begin_nested():
-        created = conn.execute(
-            pg_insert(table)
-            .values(**release_row)
-            .on_conflict_do_nothing(index_elements=[table.c.release_id])
-            .returning(table.c.release_id)
-        ).scalar_one_or_none()
-        if created is None:
-            _compare_rows(conn, "release", prepared.release_id, [release_row])
-            for name, expected in (
-                ("input", inputs),
-                ("artifact", artifacts),
-                *projections.items(),
-            ):
-                _compare_rows(conn, name, prepared.release_id, expected)
-            return prepared.release_id
-        for name, values in (("input", inputs), ("artifact", artifacts), *projections.items()):
-            if values:
-                conn.execute(insert(_table("sem." + name)), values)
-    return prepared.release_id
+
+    def transport(row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: "\\x" + bytes(value).hex() if isinstance(value, (bytes, memoryview)) else value
+            for key, value in row.items()
+        }
+
+    from sqlalchemy import text
+
+    payload = {
+        "release": [transport(release_row)],
+        "input": [transport(row) for row in inputs],
+        "artifact": [transport(row) for row in artifacts],
+        **{name: [transport(row) for row in rows] for name, rows in projections.items()},
+    }
+    from sqlalchemy.exc import DBAPIError
+
+    try:
+        with conn.begin_nested():
+            archived = conn.execute(
+                text("SELECT sem.publish_release_archive(CAST(:payload AS jsonb))"),
+                {"payload": json.dumps(payload)},
+            ).scalar_one()
+    except DBAPIError as error:
+        if getattr(error.orig, "sqlstate", None) in {"23505", "23514"}:
+            raise ReleaseConflict(str(error.orig).splitlines()[0]) from error
+        raise
+    return str(archived)
+
+
+def open_release(conn: Connection, release_id: str) -> PreparedRelease:
+    """Open immutable archived products for reading; this never establishes admission."""
+    from .archive_reader import open_archived_release
+
+    return open_archived_release(conn, release_id)
+
+
+def verify_release(conn: Connection, release_id: str) -> PreparedRelease:
+    """Fully rederive at explicit verification/admission boundaries."""
+    return load_release(conn, release_id)
 
 
 def load_release(conn: Connection, release_id: str) -> PreparedRelease:
@@ -490,6 +515,7 @@ def activate_release(
     expected_parent: str | None,
     expected_generation: int,
     sql_reader: Connection | None = None,
+    sql_admissions: Mapping[str, AuthoredSQL] | None = None,
 ) -> ActivationToken:
     """Admit the exact archived release, then CAS the pointer and generation together.
 
@@ -501,19 +527,25 @@ def activate_release(
 
     prepared = load_release(conn, release_id)
     with conn.begin_nested():
-        admit_archived_sql(conn, release_id, reader_conn=sql_reader)
+        admit_archived_sql(conn, release_id, reader_conn=sql_reader, analyzed=sql_admissions)
         admit_release(prepared, connection=conn)
-        project = _table("data.project")
-        changed = conn.execute(
-            update(project)
-            .where(
-                project.c.project_id == project_id,
-                project.c.active_release_id.is_not_distinct_from(expected_parent),
-                project.c.generation == expected_generation,
-            )
-            .values(active_release_id=release_id, generation=project.c.generation + 1)
-            .returning(project.c.active_release_id, project.c.generation)
-        ).one_or_none()
-        if changed is None:
-            raise ActivationConflict(f"stale activation token for project {project_id}")
-        return ActivationToken(changed.active_release_id, changed.generation)
+        from sqlalchemy import text
+        from sqlalchemy.exc import DBAPIError
+
+        try:
+            generation = conn.execute(
+                text("SELECT sem.activate_release(:project,:release,:parent,:generation)"),
+                {
+                    "project": project_id,
+                    "release": release_id,
+                    "parent": expected_parent,
+                    "generation": expected_generation,
+                },
+            ).scalar_one()
+        except DBAPIError as exc:
+            if getattr(exc.orig, "sqlstate", None) == "40001":
+                raise ActivationConflict(
+                    f"stale activation token for project {project_id}"
+                ) from exc
+            raise
+        return ActivationToken(release_id, generation)

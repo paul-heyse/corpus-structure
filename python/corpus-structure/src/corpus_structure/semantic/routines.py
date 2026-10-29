@@ -8,18 +8,21 @@ from __future__ import annotations
 
 from dataclasses import fields
 from pathlib import Path
-from unicodedata import unidata_version
-
-from sqlalchemy import Connection
 
 from .publication import STAGE_TYPES
 
 _SQL = Path(__file__).with_name("sql")
 
 
-def _transport_sql(writer: str) -> tuple[str, str, str, str]:
+def _transport_sql(
+    writer: str, *, relation_order: tuple[str, ...] | None = None
+) -> tuple[str, str, str, str]:
     create, verify, content, insert = [], [], [], []
-    for name, (row_type, types) in STAGE_TYPES.items():
+    order = tuple(STAGE_TYPES) if relation_order is None else relation_order
+    if len(order) != len(set(order)) or set(order) != set(STAGE_TYPES):
+        raise ValueError("transport order must contain each declared relation exactly once")
+    for name in order:
+        row_type, types = STAGE_TYPES[name]
         columns = [f.name for f in fields(row_type)]
         definition = ",".join(
             f'"{column}" {typ}' for column, typ in zip(columns, types, strict=True)
@@ -75,68 +78,34 @@ def _transport_sql(writer: str) -> tuple[str, str, str, str]:
     return "\n".join(create), "\n".join(verify), ",\n".join(content), "\n".join(insert)
 
 
-def deploy_routines(
-    connection: Connection,
-    *,
-    publisher_role: str = "corpus_sem_publisher",
-    writer_role: str = "corpus_sem_writer",
-    reader_role: str = "corpus_sem_reader",
-) -> None:
-    """Deploy bodies, owners and revokes in the caller's single migration transaction."""
-    connection = connection.execution_options(no_parameters=True)
-    quote = connection.dialect.identifier_preparer.quote
-    publisher, writer, reader = map(quote, (publisher_role, writer_role, reader_role))
-    if (
-        unidata_version != "16.0.0"
-        or connection.exec_driver_sql("SELECT pg_catalog.unicode_version()").scalar_one() != "16.0"
-    ):
-        raise ValueError(
-            "native semantic casefold requires qualified Unicode 16 in Python and PostgreSQL"
+def stage_disposal_sql(
+    *, optional: frozenset[str] = frozenset({"identity_exclusion", "identity_exclusion_evidence"})
+) -> str:
+    """Verify every present relation before disposal; optional absence is deliberate."""
+    if not optional.issubset(STAGE_TYPES):
+        raise ValueError("unknown optional transport relation")
+    clauses = []
+    for name, (row_type, types) in STAGE_TYPES.items():
+        columns = [field.name for field in fields(row_type)]
+        signatures = ",".join(
+            "'" + column + ":" + kind + "'" for column, kind in zip(columns, types, strict=True)
         )
-    database = quote(connection.exec_driver_sql("SELECT current_database()").scalar_one())
-    for statement in (
-        f"REVOKE TEMP ON DATABASE {database} FROM PUBLIC",
-        f"GRANT TEMP ON DATABASE {database} TO {publisher}",
-        f"GRANT USAGE,CREATE ON SCHEMA data TO {publisher}",
-        f"GRANT USAGE ON SCHEMA sem TO {publisher}",
-        f"GRANT SELECT ON ALL TABLES IN SCHEMA sem TO {publisher}",
-        f"GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA data TO {publisher}",
-        f"REVOKE ALL ON ALL TABLES IN SCHEMA data,sem FROM {writer},{reader},PUBLIC",
-        f"GRANT USAGE ON SCHEMA data,sem TO {writer},{reader}",
-        f"GRANT SELECT ON ALL TABLES IN SCHEMA data,sem TO {reader}",
-        f"GRANT SELECT ON data.batch TO {writer}",
-        f"GRANT DELETE ON data.selection TO {publisher}",
-    ):
-        connection.exec_driver_sql(statement)
-    connection.exec_driver_sql((_SQL / "identity.sql").read_text())
-    connection.exec_driver_sql((_SQL / "validation.sql").read_text())
-    create, verify, content, insert = _transport_sql(writer)
-    publication = (_SQL / "publication.sql").read_text()
-    for marker, source in (
-        ("create", create),
-        ("verify", verify),
-        ("content", content),
-        ("insert", insert),
-    ):
-        publication = publication.replace("{" + marker + "}", source)
-    connection.exec_driver_sql(publication)
-
-    signatures = (
-        "canonical_json(jsonb)",
-        "decimal_canonical(text)",
-        "fact_identity(text,text,text,text,text,text)",
-        "compare_decimal(text,text)",
-        "value_meaning(text,text,text,text[],boolean)",
-        "value_matches(text,text,text,text,boolean)",
-        "validate_state(text,text)",
-        "validate_property(text,text,text,text,jsonb)",
-        "begin_stage()",
-        "publish_batch(text,text,text,bytea)",
-    )
-    for signature in signatures:
-        connection.exec_driver_sql(f"ALTER FUNCTION data.{signature} OWNER TO {publisher}")
-        connection.exec_driver_sql(
-            f"REVOKE ALL ON FUNCTION data.{signature} FROM PUBLIC,{writer},{reader}"
+        verify = (
+            "IF NOT EXISTS(SELECT FROM pg_class c WHERE c.relnamespace=pg_my_temp_schema() "
+            "AND c.relname='sp_"
+            f"{name}"
+            "' AND c.relkind='r' AND c.relpersistence='t' AND c.relowner=current_user::regr"
+            "ole AND (SELECT array_agg(a.attname||':'||format_type(a.atttypid,a.atttypmod) "
+            "ORDER BY a.attnum) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 A"
+            "ND NOT a.attisdropped)=ARRAY["
+            f"{signatures}"
+            "]) THEN RAISE EXCEPTION 'untrusted staging relation sp_"
+            f"{name}"
+            "'; END IF; DROP TABLE pg_temp.sp_"
+            f"{name}"
+            ";"
         )
-    for signature in ("begin_stage()", "publish_batch(text,text,text,bytea)"):
-        connection.exec_driver_sql(f"GRANT EXECUTE ON FUNCTION data.{signature} TO {writer}")
+        if name in optional:
+            verify = f"IF to_regclass('pg_temp.sp_{name}') IS NOT NULL THEN " + verify + " END IF;"
+        clauses.append(verify)
+    return "\n".join(clauses)

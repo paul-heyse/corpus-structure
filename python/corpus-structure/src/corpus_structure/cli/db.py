@@ -163,5 +163,49 @@ def migrate(ctx: typer.Context, json_: JsonOpt = False) -> None:
     _run(ctx, json_, create=False)
 
 
+@db_app.command("check")
+def check_contract(
+    ctx: typer.Context,
+    release: str = typer.Option(..., "--release"),
+    json_: JsonOpt = False,
+) -> None:
+    """Read-only native correspondence check for one explicitly archived release."""
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from corpus_structure.cli.query import refusal
+    from corpus_structure.semantic.execution_admission import admit_execution_release
+    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    class ContractCheck(BaseModel):
+        release_id: str
+        execution_model_id: str | None
+        physical_id: str
+
+    with refusal(json_):
+        try:
+            with (
+                open_runtime_engine(state(ctx).settings(), "ci-db-check", purpose="read") as engine,
+                engine.connect() as conn,
+                conn.begin(),
+            ):
+                conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+                prepared = open_release(conn, release)
+                admit_execution_release(prepared, connection=conn)
+        except SQLAlchemyError as exc:
+            raise ValueError(
+                "native check refused: " + str(getattr(exc, "orig", exc)).splitlines()[0]
+            ) from exc
+        emit(
+            ContractCheck(
+                release_id=prepared.release_id,
+                execution_model_id=prepared.execution_model_id,
+                physical_id=PHYSICAL_MODEL_ID,
+            ),
+            json=json_,
+        )
+
+
 def register(app: typer.Typer) -> None:
     app.add_typer(db_app, name="db")

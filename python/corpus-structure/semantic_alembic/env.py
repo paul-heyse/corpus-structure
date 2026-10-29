@@ -15,6 +15,39 @@ def include_name(name: str | None, type_: str, parent_names: Any) -> bool:
     return name in SCHEMAS if type_ == "schema" else True
 
 
+def compare_default(
+    ctx: Any,
+    inspected: Any,
+    declared: Any,
+    inspected_default: str | None,
+    metadata_default: Any,
+    rendered_default: str | None,
+) -> bool | None:
+    """Avoid evaluating one volatile UUID default to compare it with itself.
+
+    Other defaults retain Alembic's normal comparison, including changed expressions.
+    """
+    if (
+        inspected.table.schema != "ops"
+        or inspected.table.name != "task"
+        or inspected.name != "invocation_key"
+    ):
+        return None
+
+    def normalized(value: str | None) -> str:
+        return (
+            "".join((value or "").split())
+            .replace("'legacy-task:'::text", "'legacy-task:'")
+            .replace("(", "")
+            .replace(")", "")
+        )
+
+    expected = "gen_random_uuid::text"
+    if normalized(inspected_default) == normalized(rendered_default) == expected:
+        return False
+    return None
+
+
 def applied(ctx: Any, step: Any, heads: Collection[Any], run_args: Mapping[str, Any]) -> None:
     context.config.attributes.setdefault("applied", []).append(
         {
@@ -35,8 +68,12 @@ context.configure(
     version_table=VERSION_TABLE,
     include_schemas=True,
     include_name=include_name,
-    compare_server_default=True,
-    autogenerate_plugins=["alembic.autogenerate.*", "alembic.ext.checkconstraint_byname"],
+    compare_server_default=compare_default,
+    autogenerate_plugins=[
+        "alembic.autogenerate.*",
+        "alembic.ext.checkconstraint_byname",
+        "corpus.semantic.defaults",
+    ],
     on_version_apply=applied,
 )
 with context.begin_transaction():

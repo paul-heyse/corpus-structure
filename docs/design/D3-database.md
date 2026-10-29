@@ -40,6 +40,22 @@ probe Q-3 and package P0-M-2). Once the generated rendering exists, this documen
 revision and keeps only the explanatory prose. Column comments that would repeat D1 are omitted.
 > Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0021](../adr/0021-instance-and-structure-authorities.md)
 
+## Effective execution closure
+
+**Accepted target, 2026-10-29; implementation and qualification are separately scoped.**
+[ADR-0031](../adr/0031-semantic-execution-closure.md) replaces mandatory current-compiler
+reconstruction on ordinary archive reads with supported immutable product opening. Full verification
+remains required at persistence/replay, activation, run start and explicit request. Compiler-10
+read boundaries retain their recorded semantics and cannot authorize new writes.
+Restricted admission replaces administrator-backed release publication and selection in ordinary
+regeneration. Intrinsic archive closure is distinct from immutable deployment-specific admission;
+activation retains live posture validation and parent/generation CAS. The native profile admits
+shape and accepted-value integrity placements; patterns and occurrence/context integrity refuse.
+This explicitly revises the initial profile promise; all supported behavior must remain model governed.
+The [execution package](../plans/semantic-model-pivot/model-execution-closure.md) owns remaining work.
+
+> Decision: ADR-0031
+
 ## Composed-model admission fence
 
 **Implemented; scoped Tested, 2026-10-29.** semantic_0022 originally refused semantic-2
@@ -64,7 +80,7 @@ metadata is not backfilled into a semantic-2 claim. Exact append/derived publica
 retain replay identity and mandatory derived-source fencing.
 
 Semantic-1 and immutable migration history remain intact. Only owned fresh test databases
-exercised these migrations; the operational database is still semantic_0005. The
+exercised these migrations; operational deployments retain their existing revision and data. The
 [coordinator §10](../plans/semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
 owns native/consumer receipts and support limits; SP-08–SP-10 retain later adoption and deployment.
 

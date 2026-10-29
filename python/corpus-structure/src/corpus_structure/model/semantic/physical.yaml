@@ -33,6 +33,40 @@ types:
     annotations:
       ph:sql_type: numeric
 classes:
+  physical_contract:
+    in_subset: [sem]
+    attributes:
+      physical_id: {range: string, required: true}
+      checks: {range: json_payload, required: true}
+      source_digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [physical_id]}
+    annotations:
+      ph:immutability: physical
+  release_finalization:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      content_digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id]}
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+      ph:immutability: immutable
+  deployment_admission:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      physical_id: {range: string, required: true}
+      deployment_id: {range: string, required: true}
+      kind: {range: string, required: true}
+      content: {range: bytes, required: true}
+      content_digest: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, physical_id, deployment_id, kind]}
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+      ph:immutability: immutable
   release:
     in_subset:
     - sem
@@ -60,6 +94,7 @@ classes:
         unique_key_slots:
         - release_id
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["parent_release_id"], "target": "sem.release.release_id"}]'
   input:
     in_subset:
@@ -87,6 +122,7 @@ classes:
         - input_kind
         - input_name
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   artifact:
     in_subset:
@@ -113,6 +149,7 @@ classes:
         - release_id
         - artifact_name
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   registry_row:
     in_subset:
@@ -137,6 +174,7 @@ classes:
         - kind
         - name
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   class_definition:
     in_subset:
@@ -169,6 +207,7 @@ classes:
         - release_id
         - iri
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   property_definition:
     in_subset:
@@ -199,6 +238,7 @@ classes:
         - release_id
         - iri
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   class_hierarchy:
     in_subset:
@@ -220,6 +260,7 @@ classes:
         - class_id
         - ancestor_id
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "ancestor_id"], "target": "sem.class_definition.release_id,class_id"}]'
   property_applicability:
@@ -263,6 +304,7 @@ classes:
         - class_id
         - property_id
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
       ph:checks: '["minimum_cardinality IS NULL OR minimum_cardinality >= 0", "maximum_cardinality IS
@@ -295,6 +337,7 @@ classes:
         - group_id
         - position
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
       ph:checks: '["position >= 0"]'
@@ -324,6 +367,7 @@ classes:
         - vocabulary_id
         - value
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
   project:
     in_subset:
@@ -419,6 +463,7 @@ classes:
         - release_id
         - data_revision
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
       ph:checks: '["data_revision > 0"]'
   entity:
@@ -441,6 +486,7 @@ classes:
         - release_id
         - entity_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
   membership:
     in_subset:
@@ -469,6 +515,7 @@ classes:
         - entity_id
         - class_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"},
         {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
@@ -523,6 +570,7 @@ classes:
         - release_id
         - value_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}]'
       ph:checks: '["kind IN (''string'',''integer'',''decimal'',''number'',''boolean'',''entity'',''null'',''missing'',''sequence'',''mapping'',''record'',''interval'',''expression'',''date'',''datetime'',''float'',''opaque'')",
@@ -576,6 +624,7 @@ classes:
         - role
         - position
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "parent_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
         {"columns": ["realization_id", "release_id", "child_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
@@ -612,6 +661,7 @@ classes:
         - release_id
         - fact_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "subject_id"], "target": "data.entity.realization_id,release_id,entity_id"},
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"},
@@ -663,6 +713,7 @@ classes:
         - occurrence_id
         - fact_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"},
         {"columns": ["realization_id", "release_id", "batch_id"], "target": "data.batch.realization_id,release_id,batch_id"},
@@ -693,6 +744,7 @@ classes:
         - fact_id
         - occurrence_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "occurrence_id", "fact_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id,fact_id"}]'
   selection:
@@ -749,6 +801,7 @@ classes:
         - release_id
         - evidence_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
   occurrence_evidence:
     in_subset:
@@ -774,6 +827,7 @@ classes:
         - occurrence_id
         - evidence_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"},
         {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
@@ -789,6 +843,7 @@ classes:
       primary_key:
         unique_key_slots: [realization_id, release_id, occurrence_id]
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "statement_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}]'
       ph:checks: '["statement_entity_id IS NOT NULL OR statement_role IS NOT NULL"]'
   occurrence_evidence_role:
@@ -803,6 +858,7 @@ classes:
       primary_key:
         unique_key_slots: [realization_id, release_id, occurrence_id, evidence_id]
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "occurrence_id", "evidence_id"], "target": "data.occurrence_evidence.realization_id,release_id,occurrence_id,evidence_id"}]'
   membership_support:
     in_subset:
@@ -832,6 +888,7 @@ classes:
         - class_id
         - evidence_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "entity_id", "class_id"], "target": "data.membership.realization_id,release_id,entity_id,class_id"},
         {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
@@ -864,6 +921,7 @@ classes:
         - release_id
         - derivation_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "conclusion_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
   derivation_premise:
@@ -893,6 +951,7 @@ classes:
         - derivation_id
         - position
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "derivation_id"], "target": "data.derivation.realization_id,release_id,derivation_id"},
         {"columns": ["realization_id", "release_id", "premise_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
@@ -935,6 +994,7 @@ classes:
         - release_id
         - coverage_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
       ph:checks: '["outcome IN (''complete'',''partial'',''unanalysed'',''failed'')", "source_outcome IS NULL OR source_outcome IN (''complete'',''partial'',''unknown'',''unsupported'',''failed'')", "source_outcome IS NULL OR outcome = CASE WHEN source_outcome IN (''unknown'',''unsupported'') THEN ''unanalysed'' ELSE source_outcome END"]'
   sql_admission:
@@ -964,6 +1024,7 @@ classes:
         - input_name
         - physical_id
     annotations:
+      ph:immutability: deployment
       ph:foreign_keys: '[{"columns": ["release_id", "input_kind", "input_name"], "target": "sem.input.release_id,input_kind,input_name"}]'
       ph:checks: '["input_kind = ''dependency''"]'
 
@@ -1674,6 +1735,7 @@ classes:
         - release_id
         - evidence_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "evidence_id"],
         "target": "data.evidence.realization_id,release_id,evidence_id"}, {"columns":
         ["release_id", "observation_id"], "target": "kb.observation.release_id,id"},
@@ -1704,6 +1766,7 @@ classes:
         - release_id
         - occurrence_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "occurrence_id"],
         "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns":
         ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
@@ -1764,6 +1827,7 @@ classes:
         - release_id
         - assessment_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "counterpart_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "counterpart_occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "context_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
       ph:checks: '["(fact_id IS NULL) <> (occurrence_id IS NULL)", "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", "(counterpart_fact_id IS NULL)=(counterpart_occurrence_id IS NULL)"]'
   task_result:
@@ -1840,6 +1904,7 @@ classes:
         - release_id
         - entity_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns":["realization_id","release_id","entity_id"],"target":"data.entity.realization_id,release_id,entity_id"},{"columns":["input_realization_id","release_id","input_entity_id"],"target":"data.entity.realization_id,release_id,entity_id"},{"columns":["run_id"],"target":"ops.run.id"},{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"}]'
       ph:checks: '["input_data_revision >= 0", "realization_id <> input_realization_id"]'
   fact_input:
@@ -1869,6 +1934,7 @@ classes:
         - release_id
         - fact_id
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns":["realization_id","release_id","fact_id"],"target":"data.fact.realization_id,release_id,fact_id"},{"columns":["input_realization_id","release_id","input_fact_id"],"target":"data.fact.realization_id,release_id,fact_id"},{"columns":["run_id"],"target":"ops.run.id"},{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"}]'
       ph:checks: '["input_data_revision >= 0", "realization_id <> input_realization_id"]'
   entity_source:
@@ -1885,6 +1951,7 @@ classes:
       declaration:
         unique_key_slots: [realization_id, release_id, observation_id, local_id]
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
   alternative_group:
     in_subset: [data]
@@ -1899,6 +1966,7 @@ classes:
       primary_key:
         unique_key_slots: [realization_id, release_id, group_id]
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
       ph:checks: '["length(operation_id) > 0", "length(operation_version) > 0"]'
   alternative_member:
@@ -1912,6 +1980,7 @@ classes:
       primary_key:
         unique_key_slots: [realization_id, release_id, group_id, fact_id]
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "group_id"], "target": "data.alternative_group.realization_id,release_id,group_id"}, {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
 
   conditional_rule:
@@ -1936,6 +2005,7 @@ classes:
         - release_id
         - rule_id
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
       ph:checks: '["scope IN (''shape'',''accepted_value'')"]'
 
@@ -1972,6 +2042,7 @@ classes:
         - branch
         - position
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["release_id", "rule_id"], "target": "sem.conditional_rule.release_id,rule_id"}]'
       ph:checks: '["branch IN (''if'',''then'',''else'')", "position>=0", "presence IN (''present'',''absent'',''optional'')", "choices IS NULL OR choices=''null''::jsonb OR jsonb_typeof(choices)=''array''"]'
 
@@ -2030,6 +2101,7 @@ classes:
       primary_key:
         unique_key_slots: [release_id, realization_id, batch_id]
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["release_id", "realization_id", "batch_id"], "target": "data.batch.release_id,realization_id,batch_id"}, {"columns": ["source_release_id", "source_realization_id"], "target": "data.realization.release_id,realization_id"}]'
       ph:checks: '["source_revision>=0", "source_capture_id<>'''' AND operation_id<>'''' AND projection_id<>''''"]'
 
@@ -2046,6 +2118,7 @@ classes:
       primary_key:
         unique_key_slots: [release_id, metric_id]
     annotations:
+      ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
 
   identity_exclusion:
@@ -2071,6 +2144,7 @@ classes:
       declaration:
         unique_key_slots: [realization_id, release_id, observation_id, local_id]
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "left_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["realization_id", "release_id", "right_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
       ph:checks: '["left_entity_id <> right_entity_id", "left_kind IN (''local'',''known'')", "right_kind IN (''local'',''known'')"]'
   identity_exclusion_evidence:
@@ -2084,6 +2158,7 @@ classes:
       primary_key:
         unique_key_slots: [realization_id, release_id, exclusion_id, evidence_id]
     annotations:
+      ph:immutability: admitted
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "exclusion_id"], "target": "data.identity_exclusion.realization_id,release_id,exclusion_id"}, {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
 
   reference_set:

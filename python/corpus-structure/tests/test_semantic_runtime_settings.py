@@ -13,7 +13,9 @@ def test_runtime_credentials_do_not_replace_constructor_or_environment(monkeypat
     settings = Settings(database={"url": "postgresql:///constructor"})
     assert settings.runtime.default_project == "configured-project"
     assert connection_settings(settings).database.url == "postgresql:///constructor"
-    assert connection_settings(settings, "read").database.url == "postgresql:///constructor"
+    assert (
+        make_url(connection_settings(settings, "read").database.url).username == "corpus_sem_reader"
+    )
     assert (
         make_url(connection_settings(settings, "maintenance").database.url).database
         == "constructor"
@@ -31,7 +33,7 @@ def test_restricted_defaults_and_purpose_credentials(monkeypatch):
         "corpus_sem_reader@/corpus_semantic" in connection_settings(settings, "read").database.url
     )
     assert connection_settings(settings).database.url == settings.database.url
-    explicit = Settings(database={"evaluator_url": "postgresql://evaluator:password@host/eval"})
+    explicit = Settings(database={"evaluator_url": "postgresql://evaluator:password@"})
     evaluator = make_url(connection_settings(explicit, "evaluate").database.url)
     assert evaluator.username == "evaluator" and evaluator.password == "password"
     assert evaluator.database == "corpus_semantic" and evaluator.host is None
@@ -52,15 +54,15 @@ def test_constructor_target_is_identical_for_every_credential_purpose(applicatio
     settings = Settings(
         database={
             "url": application,
-            "maintenance_url": "postgresql://admin:admin-secret@wrong-admin.example:6000/corpus_semantic?sslmode=disable",
-            "evaluator_url": "postgresql://independent-evaluator:eval-secret@wrong-eval.example:6001/another_database",
+            "maintenance_url": "postgresql://admin:admin-secret@",
+            "evaluator_url": "postgresql://independent-evaluator:eval-secret@",
         }
     )
     source = make_url(application)
     expected_target = (source.host, source.port, source.database, source.query)
     expected_credentials: dict[Purpose, tuple[str, str | None]] = {
         "write": ("corpus_sem_writer", source.password),
-        "read": ("corpus_sem_reader", source.password),
+        "read": ("corpus_sem_reader", None),
         "maintenance": ("admin", "admin-secret"),
         "evaluate": ("independent-evaluator", "eval-secret"),
     }
@@ -75,7 +77,7 @@ def test_peer_maintenance_clears_writer_credentials_and_keeps_target():
     settings = Settings(
         database={
             "url": "postgresql://corpus_sem_writer:writer-secret@runtime.example:5440/owned_temporary?sslmode=require",
-            "maintenance_url": "postgresql:///corpus_semantic?host=/var/run/postgresql&port=5434",
+            "maintenance_url": "postgresql:///",
         }
     )
     selected = make_url(connection_settings(settings, "maintenance").database.url)
@@ -92,7 +94,7 @@ def test_query_credentials_cannot_override_selected_purpose_credentials():
     settings = Settings(
         database={
             "url": "postgresql://corpus_sem_writer:writer@runtime.example:5440/owned_temporary?user=other&password=other-secret&passfile=/unrelated/credentials&sslmode=require",
-            "maintenance_url": "postgresql:///ignored_target",
+            "maintenance_url": "postgresql:///",
         }
     )
     purposes: tuple[Purpose, ...] = ("read", "evaluate", "maintenance")
@@ -109,3 +111,34 @@ def test_query_credentials_cannot_override_selected_purpose_credentials():
             }[purpose]
         )
     assert connection_settings(settings, "write").database.url == settings.database.url
+
+
+@pytest.mark.parametrize("purpose", ["read", "evaluate", "admit"])
+def test_owner_credentials_are_not_inherited_by_restricted_purpose(purpose):
+    settings = Settings(database={"url": "postgresql://owner:secret@/owned"})
+    selected = make_url(connection_settings(settings, purpose).database.url)
+    assert selected.username != "owner" and selected.password is None
+    assert selected.database == "owned"
+
+
+@pytest.mark.parametrize(
+    "field,purpose",
+    [("reader_url", "read"), ("evaluator_url", "evaluate"), ("admission_url", "admit")],
+)
+def test_conflicting_purpose_endpoint_refuses(field, purpose):
+    settings = Settings(
+        database={"url": "postgresql:///owned", field: "postgresql://restricted@/another"}
+    )
+    with pytest.raises(ValueError, match="contradict target database"):
+        connection_settings(settings, purpose)
+
+
+def test_new_purpose_passwords_are_masked():
+    settings = Settings(
+        database={
+            "reader_url": "postgresql://reader:reader-secret@",
+            "admission_url": "postgresql://admitter:admitter-secret@",
+        }
+    )
+    report = settings_report(settings, {}).model_dump_json()
+    assert "reader-secret" not in report and "admitter-secret" not in report

@@ -8,9 +8,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
-SEMANTIC_COMPILER_VERSION = (
-    "10"  # protected references and selected completed results are release-bound
-)
+SEMANTIC_COMPILER_VERSION = "11"
 
 
 @dataclass(frozen=True)
@@ -66,6 +64,11 @@ class Diagnostic:
     location: str
     message: str
     outcome: Literal["invalid", "unsupported", "unresolved", "unchecked"] = "invalid"
+    contract_id: str | None = None
+    consumer: str | None = None
+    expected: str | None = None
+    actual: str | None = None
+    remedy: str | None = None
 
 
 class PreparationError(ValueError):
@@ -175,6 +178,15 @@ class PreparedRelease:
     diagnostics: tuple[Diagnostic, ...]
     _adapters: tuple[tuple[str, TypeAdapter[BaseModel]], ...] = field(repr=False, compare=False)
     execution_model_id: str | None = None
+    _boundary_models: dict[str, type[BaseModel]] = field(
+        default_factory=dict, repr=False, compare=False
+    )
+    _property_adapters: dict[tuple[str, str, bool], TypeAdapter[Any]] = field(
+        default_factory=dict, repr=False, compare=False, init=False
+    )
+    _result_adapters: dict[tuple[str, str, str | None], TypeAdapter[Any]] = field(
+        default_factory=dict, repr=False, compare=False, init=False
+    )
 
     def expand_name(self, name: str) -> str:
         """Resolve only prefixes archived with this release; never installed namespaces."""
@@ -296,33 +308,56 @@ class PreparedRelease:
         self, class_name: str, property_name: str, *, item: bool = False
     ) -> TypeAdapter[Any]:
         """Strict output boundary derived from the prepared field, including its constraints."""
-        for name, adapter in self._adapters:
-            if name == class_name:
-                model = adapter._type
-                if not isinstance(model, type) or not issubclass(model, BaseModel):
-                    raise TypeError("prepared class adapter has no model")
-                field = model.model_fields[property_name]
-                annotation = field.rebuild_annotation()
-                if item:
-                    from typing import get_origin
+        key = (class_name, property_name, item)
+        if key in self._property_adapters:
+            return self._property_adapters[key]
+        model = self._boundary_models.get(class_name)
+        if model is None:
+            raise KeyError(f"prepared boundary model unavailable: {class_name}")
+        field = model.model_fields[property_name]
+        annotation = field.rebuild_annotation()
+        if item:
+            from typing import get_origin
 
-                    annotation = get_args(field.annotation)[
-                        -1 if get_origin(field.annotation) is dict else 0
-                    ]
-                return TypeAdapter(annotation)
-        raise KeyError(class_name)
+            annotation = get_args(field.annotation)[
+                -1 if get_origin(field.annotation) is dict else 0
+            ]
+        adapter = TypeAdapter(annotation)
+        self._property_adapters[key] = adapter
+        return adapter
 
     def validate_python(self, class_name: str, data: object) -> BaseModel:
         """Validate reconstructed native values without JSON's numeric/date conversions."""
         for name, adapter in self._adapters:
             if name == class_name:
-                return adapter.validate_python(data, strict=True)
+                return adapter.validate_python(
+                    data, strict=True, context={"validation_purpose": "structural"}
+                )
         raise KeyError(class_name)
 
     def validate_json(self, class_name: str, data: str | bytes) -> BaseModel:
         for name, adapter in self._adapters:
             if name == class_name:
-                return adapter.validate_json(data, strict=True)
+                return adapter.validate_json(
+                    data, strict=True, context={"validation_purpose": "structural"}
+                )
+        raise KeyError(class_name)
+
+    def validate_accepted_python(self, class_name: str, data: object) -> BaseModel:
+        """Validate the accepted projection; native publication still enforces shared state."""
+        for name, adapter in self._adapters:
+            if name == class_name:
+                return adapter.validate_python(
+                    data, strict=True, context={"validation_purpose": "accepted_value"}
+                )
+        raise KeyError(class_name)
+
+    def validate_accepted_json(self, class_name: str, data: str | bytes) -> BaseModel:
+        for name, adapter in self._adapters:
+            if name == class_name:
+                return adapter.validate_json(
+                    data, strict=True, context={"validation_purpose": "accepted_value"}
+                )
         raise KeyError(class_name)
 
     def json_schema(

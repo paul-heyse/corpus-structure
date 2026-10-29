@@ -83,7 +83,10 @@ def project_markup(
 
     definition = statement_definition(prepared)
     prop = next(p for p in definition.properties if p.iri == predicate)
-    if prop.range != "SourceStatement" or prop.inlined:
+    from .statement_types import effective_bindings
+
+    binding = effective_bindings(prepared)["statement"]
+    if binding is None or prop.iri not in binding["relation_properties"]:
         raise ValueError("source synthesis requires a declared statement relation")
     qualification = {"modality": "asserted", "polarity": True}
     raw_evidence = synthesis.get("evidence", ())
@@ -109,6 +112,9 @@ def project_markup(
         prepared.release_id, realization_id, rendition_key, target_locator
     )
     out = []
+    target_definition = next(d for d in prepared.definitions if d.name == prop.range)
+    if definition.name == prop.range or prop.range in definition.ancestors:
+        target_definition = definition
     for role, entity, locator, node in (
         ("subject", subject, subject_locator, segment),
         ("object", target_id, target_locator, target),
@@ -122,7 +128,7 @@ def project_markup(
             out.append(
                 SourceItem(
                     entity,
-                    definition.name,
+                    definition.name if role == "subject" else target_definition.name,
                     name,
                     value,
                     qualification,

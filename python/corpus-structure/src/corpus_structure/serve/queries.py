@@ -279,7 +279,10 @@ class Find(Query):
                 for row in rows:
                     rid = row["rendition_id"]
                     if rid not in indices:
-                        index = LocatorIndex(read_rendition(ctx.conn, rid), row["source_uri"])
+                        index = LocatorIndex(
+                            read_rendition(ctx.conn, rid, prepared=ctx.session.prepared),
+                            row["source_uri"],
+                        )
                         indices[rid] = (
                             index,
                             {(seg.kind.value, seg.start, seg.end): seg for seg, _ in index},

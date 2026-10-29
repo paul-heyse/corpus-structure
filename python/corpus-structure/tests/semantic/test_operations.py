@@ -22,7 +22,7 @@ from corpus_structure.semantic.operations import (
 )
 
 
-def setup(engine, *, observations=False, archive=False):
+def setup(engine, *, observations=False, archive=False, composed=False):
     bundle = SourceBundle(
         "m",
         (
@@ -93,23 +93,18 @@ classes:
             )
         )
         dependencies = observation_dependencies(dependencies, yaml.safe_dump(declared).encode())
-    p = prepare_release(bundle, dependencies)
-    with engine.begin() as c:
-        if archive or observations:
-            from corpus_structure.semantic.releases import persist_release
-            from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+    from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.types import PreparationProfile
 
-            persist_release(c, bundle, dependencies, PreparationProfile(), p)
-        else:
-            c.execute(
-                insert(table("sem.release")).values(
-                    release_id=p.release_id,
-                    content_digest="test",
-                    profile="test",
-                    prepared_bytes=b"{}",
-                    manifest_bytes=b"{}",
-                )
-            )
+    profile = PreparationProfile()
+    if composed:
+        from corpus_structure.semantic.composed import composed_dependencies
+
+        dependencies = composed_dependencies(dependencies)
+        profile = PreparationProfile(version="semantic-2")
+    p = prepare_release(bundle, dependencies, profile)
+    with engine.begin() as c:
+        persist_release(c, bundle, dependencies, profile, p)
         c.execute(insert(table("data.project")).values(project_id="p"))
         c.execute(
             insert(table("data.realization")).values(
@@ -998,16 +993,15 @@ def test_native_role_cannot_forge_reuse_binding(
                     )
                 )
             elif difference == "release":
-                release, z = "release:other", "other-z"
-                c.execute(
-                    insert(table("sem.release")).values(
-                        release_id=release,
-                        content_digest="other",
-                        profile="test",
-                        prepared_bytes=b"{}",
-                        manifest_bytes=b"{}",
-                    )
-                )
+                from corpus_structure.semantic.releases import persist_release
+                from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+
+                from .test_releases import source_bundle
+
+                bundle = source_bundle(b"# independent other release\n")
+                other = prepare_release(bundle, ResolvedDependencies())
+                persist_release(c, bundle, ResolvedDependencies(), PreparationProfile(), other)
+                release, z = other.release_id, "other-z"
                 c.execute(
                     insert(table("data.realization")).values(
                         realization_id=z, release_id=release, project_id=project

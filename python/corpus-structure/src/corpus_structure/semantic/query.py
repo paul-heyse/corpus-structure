@@ -27,7 +27,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from .identity import canonical_bytes
 from .metadata import table
 from .outcomes import ScientificOutcome
-from .releases import load_release
+from .releases import open_release
 from .types import ClassDefinition, PreparedRelease, PropertyDefinition
 
 if TYPE_CHECKING:
@@ -342,7 +342,7 @@ def read_session(
         if release_id is not None and row.release_id != release_id:
             raise WrongRelease("release selector differs from realization binding")
         binding = SnapshotBinding(row.release_id, realization_id, row.data_revision, str(uuid4()))
-        yield ReadSession(conn, binding, load_release(conn, binding.release_id))
+        yield ReadSession(conn, binding, open_release(conn, binding.release_id))
 
 
 @dataclass(frozen=True)
@@ -694,7 +694,11 @@ class ReadSession:
 
     def identity_exclusion_graph(self, entity_id: str | None = None) -> QualifiedGraphProjection:
         """Qualified validation projection with the entire selected constraint closure."""
-        from .ontology import QualifiedGraphProjection, QualifiedGraphReference
+        from .ontology import (
+            GraphProjectionBinding,
+            QualifiedGraphProjection,
+            QualifiedGraphReference,
+        )
 
         records, nodes = [], {}
         for row in self.identity_exclusions(entity_id):
@@ -734,6 +738,7 @@ class ReadSession:
                     if evidence.source is not None
                     else None,
                 }
+        transaction = self.connection.get_transaction()
         return QualifiedGraphProjection(
             self.binding.release_id,
             self.binding.realization_id,
@@ -743,6 +748,14 @@ class ReadSession:
             nodes,
             {},
             tuple(records),
+            contract_binding=GraphProjectionBinding.from_release(self.prepared),
+            source_universe=tuple(row["id"] for row in records),
+            snapshot_guard=lambda: (
+                transaction is not None
+                and transaction.is_active
+                and not self.connection.closed
+                and self.connection.get_transaction() is transaction
+            ),
         )
 
     def _identity_exclusions(

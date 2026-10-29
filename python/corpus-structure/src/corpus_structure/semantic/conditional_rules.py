@@ -15,7 +15,7 @@ from linkml.generators.jsonschemagen import ClassResult, JsonSchemaGenerator
 from linkml_runtime.linkml_model import ClassDefinition, SlotDefinition
 from linkml_runtime.linkml_model.meta import AnonymousClassExpression, ClassRule
 from linkml_runtime.utils.schemaview import SchemaView
-from pydantic import model_validator
+from pydantic import ValidationInfo, model_validator
 from pydantic_core import PydanticCustomError
 
 from .types import Diagnostic, PreparationError
@@ -221,14 +221,19 @@ def compile_conditional_rules(view: SchemaView) -> dict[str, dict[str, Any]]:
     return generator.fragments
 
 
-def conditional_model_namespace(fragment: dict[str, Any]) -> dict[str, Any]:
+def conditional_model_namespace(
+    fragment: dict[str, Any], *, scope: str = "shape", legacy_v10: bool = False
+) -> dict[str, Any]:
     """Build one compiled rule validator and export the same native fragment."""
     if not fragment:
         return {}
     normalized = deepcopy(fragment)
     validator = Draft201909Validator(normalized)
 
-    def validate_rules(model: Any) -> Any:
+    def validate_rules(model: Any, info: ValidationInfo) -> Any:
+        purpose = (info.context or {}).get("validation_purpose", "structural")
+        if not legacy_v10 and scope != "shape" and purpose != scope:
+            return model
         # Keep exact Python values and field presence. JSON serialization would lose
         # Decimal/date types and can accidentally turn omitted defaults into members.
         fields = type(model).model_fields
@@ -251,7 +256,8 @@ def conditional_model_namespace(fragment: dict[str, Any]) -> dict[str, Any]:
 
     def json_schema(cls: Any, core_schema: Any, handler: Any) -> dict[str, Any]:
         result = handler(core_schema)
-        result.update(deepcopy(normalized))
+        if legacy_v10 or scope == "shape":
+            result.update(deepcopy(normalized))
         return result
 
     return {

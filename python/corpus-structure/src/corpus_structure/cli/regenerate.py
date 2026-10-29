@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
@@ -56,8 +56,8 @@ def regenerate(
     from corpus_structure.semantic.operations import OperationConflict
     from corpus_structure.semantic.regeneration import prepare_pack
     from corpus_structure.semantic.releases import (
+        ActivationToken,
         activate_release,
-        activation_token,
         load_release,
         persist_release,
     )
@@ -65,7 +65,21 @@ def regenerate(
 
     settings = state(ctx).settings()
     project = project or settings.runtime.default_project
+    from corpus_structure.semantic.authored_sql import (
+        AuthoredSQL,
+        admit_archived_sql,
+        analyze_archived_sql,
+        has_authored_sql,
+    )
+    from corpus_structure.semantic.publication import admit_release
     from corpus_structure.semantic.types import PreparedRelease
+
+    def sql_products(release_id: str) -> dict[str, AuthoredSQL]:
+        with (
+            open_runtime_engine(settings, "ci-regenerate-sql", purpose="read") as sql_engine,
+            sql_engine.connect() as sql_conn,
+        ):
+            return analyze_archived_sql(sql_conn, release_id)
 
     prepared: PreparedRelease | None = None
     source_id: str | None = None
@@ -76,11 +90,24 @@ def regenerate(
             bundle, deps, profile, prepared = prepare_pack(DOMAINS / domain)
             source_id = f"source:{project}:{prepared.release_id}"
             # Preparation and source registration do not change the selected answer snapshot.
-            with open_runtime_engine(
-                settings, "ci-regenerate-prepare", purpose="maintenance"
-            ) as engine, engine.begin() as conn:
+            with (
+                open_runtime_engine(settings, "ci-regenerate-prepare", purpose="admit") as engine,
+                engine.begin() as conn,
+            ):
                 persist_release(conn, bundle, deps, profile, prepared)
-        with open_runtime_engine(settings, "ci-regenerate") as engine:
+                if not has_authored_sql(prepared):
+                    admit_release(prepared, connection=conn)
+            if has_authored_sql(prepared):
+                analyzed = sql_products(prepared.release_id)
+                with (
+                    open_runtime_engine(
+                        settings, "ci-regenerate-admit", purpose="admit"
+                    ) as admission_engine,
+                    admission_engine.begin() as admission_conn,
+                ):
+                    admit_archived_sql(admission_conn, prepared.release_id, analyzed=analyzed)
+                    admit_release(prepared, connection=admission_conn)
+        with open_runtime_engine(settings, "ci-regenerate", purpose="write") as engine:
             if resume_run is None:
                 assert prepared is not None and source_id is not None
                 with engine.begin() as conn:
@@ -139,22 +166,20 @@ def regenerate(
             finalize_bound_run(engine, run_id, output)
         generation = None
         if select_result:
-            # Both pointer changes share one transaction and generation fence, after complete output.
-            with open_runtime_engine(
-                settings, "ci-regenerate-select", purpose="maintenance"
-            ) as engine, engine.begin() as conn:
-                conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
+            assert prepared is not None
+            analyzed = sql_products(prepared.release_id) if has_authored_sql(prepared) else {}
+            # Both pointer changes share one transaction and generation fence.
+            with (
+                open_runtime_engine(settings, "ci-regenerate-select", purpose="admit") as engine,
+                engine.begin() as conn,
+            ):
                 projects = table("data.project")
                 selected = (
-                    conn.execute(
-                        select(projects)
-                        .where(projects.c.project_id == project)
-                        .with_for_update()
-                    )
+                    conn.execute(select(projects).where(projects.c.project_id == project))
                     .mappings()
                     .one()
                 )
-                token = activation_token(conn, project)
+                token = ActivationToken(selected["active_release_id"], selected["generation"])
                 if selected["selected_result_run_id"] == run_id:
                     generation = token.generation
                 else:
@@ -165,10 +190,9 @@ def regenerate(
                             prepared.release_id,
                             expected_parent=token.release_id,
                             expected_generation=token.generation,
+                            sql_admissions=analyzed,
                         )
-                    generation = select_completed_result(
-                        conn, project, run_id, token.generation
-                    )
+                    generation = select_completed_result(conn, project, run_id, token.generation)
         emit(
             RegenerationReport(
                 project=project,

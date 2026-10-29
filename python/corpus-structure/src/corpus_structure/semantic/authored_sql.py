@@ -8,17 +8,20 @@ Only explicitly supported built-in types/functions/operators reach PostgreSQL an
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from importlib.metadata import version
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .types import PreparedRelease
 
 from pglast import ast, parse_sql
 from pglast.parser import ParseError
 from pglast.stream import RawStream
 from pglast.visitors import Visitor, referenced_relations
 from sqlalchemy import Connection, MetaData, select, text
-from sqlalchemy.dialects.postgresql import insert
 
 from .identity import canonical_bytes
 
@@ -198,10 +201,21 @@ def admit_sql(
                 "FROM pg_roles WHERE rolname=current_user"
             )
         ).one()
-        if role[0] != execution_role or role[1] != execution_role or any(role[2:]):
+        member = conn.scalar(
+            text("SELECT pg_has_role(current_user,:required,'USAGE')"), {"required": execution_role}
+        )
+        if role[0] != role[1] or not member or any(role[2:]):
             raise SQLAdmissionError(
                 "catalog admission requires the actual restricted execution login"
             )
+        from sqlalchemy.exc import DBAPIError
+
+        try:
+            conn.execute(text("SELECT data.require_runtime_principal('read')"))
+        except DBAPIError as exc:
+            raise SQLAdmissionError(
+                "catalog admission requires restricted read capabilities"
+            ) from exc
         for name in relations:
             t = metadata.tables[name]
             columns = conn.execute(
@@ -267,8 +281,52 @@ def decode_artifact(content: bytes) -> dict[str, Any]:
     return json.loads(content)
 
 
+def has_authored_sql(prepared: PreparedRelease) -> bool:
+    """The immutable dependency manifest declares whether reader analysis is required."""
+    return any(
+        name.startswith("authored-sql/")
+        for name, _ in json.loads(prepared.manifest)["dependencies"]
+    )
+
+
+def analyze_archived_sql(conn: Connection, release_id: str) -> dict[str, AuthoredSQL]:
+    """Analyze archived inputs under the actual reader; return products without writing."""
+    from .metadata import PHYSICAL_MODEL_ID, metadata, table
+
+    inputs = table("sem.input")
+    if conn.in_transaction():
+        raise SQLAdmissionError("archive analysis requires a fresh reader connection")
+    with conn.begin():
+        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        rows = conn.execute(
+            select(inputs.c.input_name, inputs.c.content)
+            .where(
+                inputs.c.release_id == release_id,
+                inputs.c.input_kind == "dependency",
+                inputs.c.input_name.startswith("authored-sql/"),
+            )
+            .order_by(inputs.c.input_name)
+        ).all()
+    products = {}
+    for name, content in rows:
+        if not name.endswith(".sql") or len(name) <= len("authored-sql/.sql"):
+            raise SQLAdmissionError(f"invalid reserved authored SQL dependency name {name}")
+        products[name] = admit_sql(
+            conn,
+            bytes(content).decode("utf-8"),
+            release_id=release_id,
+            metadata=metadata,
+            physical_id=PHYSICAL_MODEL_ID,
+        )
+    return products
+
+
 def admit_archived_sql(
-    conn: Connection, release_id: str, *, reader_conn: Connection | None = None
+    conn: Connection,
+    release_id: str,
+    *,
+    reader_conn: Connection | None = None,
+    analyzed: Mapping[str, AuthoredSQL] | None = None,
 ) -> tuple[AuthoredSQL, ...]:
     """Admit reserved exact SQL dependencies before activation, on its caller transaction.
 
@@ -288,7 +346,9 @@ def admit_archived_sql(
         )
         .order_by(inputs.c.input_name)
     ).all()
-    if rows and reader_conn is None:
+    if analyzed is not None and set(analyzed) != {name for name, _ in rows}:
+        raise SQLAdmissionError("analyzed SQL input set differs")
+    if rows and reader_conn is None and analyzed is None:
         raise SQLAdmissionError("authored SQL activation requires a restricted reader connection")
     artifacts = []
     for name, content in rows:
@@ -298,14 +358,23 @@ def admit_archived_sql(
             sql = bytes(content).decode("utf-8")
         except UnicodeDecodeError as exc:
             raise SQLAdmissionError(f"authored SQL {name} is not UTF-8") from exc
-        assert reader_conn is not None
-        artifact = admit_sql(
-            reader_conn,
-            sql,
-            release_id=release_id,
-            metadata=metadata,
-            physical_id=PHYSICAL_MODEL_ID,
-        )
+        if analyzed is not None:
+            artifact = analyzed[name]
+            if (artifact.sql, artifact.release_id, artifact.physical_id) != (
+                sql,
+                release_id,
+                PHYSICAL_MODEL_ID,
+            ):
+                raise SQLAdmissionError("analyzed SQL binding differs")
+        else:
+            assert reader_conn is not None
+            artifact = admit_sql(
+                reader_conn,
+                sql,
+                release_id=release_id,
+                metadata=metadata,
+                physical_id=PHYSICAL_MODEL_ID,
+            )
         values = dict(
             release_id=release_id,
             input_kind="dependency",
@@ -314,7 +383,13 @@ def admit_archived_sql(
             content=artifact.content,
             content_digest=artifact.digest,
         )
-        conn.execute(insert(admitted).values(**values).on_conflict_do_nothing())
+        conn.execute(
+            text(
+                "SELECT sem.record_sql_admission("
+                ":release_id,:input_kind,:input_name,:physical_id,:content)"
+            ),
+            {key: value for key, value in values.items() if key != "content_digest"},
+        )
         prior = conn.execute(
             select(admitted.c.content).where(
                 admitted.c.release_id == release_id,

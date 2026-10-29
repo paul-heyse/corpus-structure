@@ -166,8 +166,14 @@ class ProposalSession:
             packet_hash=self.packet.hash,
             clean=checked.clean,
             result=diagnostic,
+            prepared=self.prepared,
         )
         if holding.disposition == "held":
+            from corpus_structure.semantic.operation_results import validate_result_dimension
+
+            validate_result_dimension(
+                self.prepared, "check_submission", "disposition", "held", field="disposition"
+            )
             return HeldProposalCommit()
         # The native helper holds the run/task locks through the terminal fence, including a
         # clean result racing an uncertain result. The durable first result cannot be lost.
@@ -236,9 +242,19 @@ class ProposalSession:
             envelope=envelope,
             observations=(observation,),
         )
-        return CompletedProposalCommit(
+        result = CompletedProposalCommit(
             disposition="completed_refused"
             if isinstance(checked, RefusedProposal)
             else "completed_accepted",
             completion=observations,
         )
+        from corpus_structure.semantic.operation_results import validate_result_dimension
+
+        validate_result_dimension(
+            self.prepared,
+            "check_submission",
+            "disposition",
+            result.disposition,
+            field="disposition",
+        )
+        return result

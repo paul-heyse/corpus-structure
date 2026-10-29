@@ -31,7 +31,7 @@ run_app = typer.Typer(help="Start or cancel a run.", invoke_without_command=True
 def _open_engine(settings: Any, timeout: float = 30.0) -> Generator[Any]:
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with open_runtime_engine(settings, timeout=timeout) as engine:
+    with open_runtime_engine(settings, timeout=timeout, purpose="write") as engine:
         yield engine
 
 

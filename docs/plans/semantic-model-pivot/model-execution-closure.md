@@ -1,6 +1,6 @@
 # Model-to-execution closure and protected native products
 
-**Status:** Planned · **Created/Revised:** 2026-10-29. Consumes improvement review
+**Status:** Implemented; scoped verification passed · **Created/Revised:** 2026-10-29. Consumes improvement review
 [I01](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I01),
 [I02](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I02),
 [I03](../../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I03),
@@ -156,8 +156,11 @@ Preserve the accepted no-generic-writer-TEMP boundary. Provide a publisher-owned
 workspace with protected creation/disposal and only required payload access, reusing staging
 ownership principles. Use protected begin/end routines, reject preexisting names, verify ownership/shape and use
 ON COMMIT DROP. Grant only SELECT/INSERT and qualification UPDATE needed by the existing algorithm;
-revoke writer TEMP in the same forward revision that supplies the replacement. Its authorization
-must bind operation/run/snapshot and close with its owner.
+revoke writer TEMP in the same forward revision that supplies the replacement. The fixed inference operation binds release/realization/revision, repeatable transaction and capture
+token, and closes with its snapshot owner. Standalone analysis has no invented run dependency; when
+its output is published in a run, the protected derived-publication boundary enforces run/cut/source
+revision and proof authority. This composed boundary preserves the required operation/run/snapshot
+guarantee without making standalone inference depend on orchestration.
 No new general temporary-table service. If actual inference needs broader authority, obtain an
 explicit owner decision before depending on it; do not silently retain the contradictory grant.
 
@@ -196,3 +199,67 @@ exchange for one semantic decision owner and less repeated validation. No measur
 new workflow interpreter, proof service, graph authority or benchmark obligation is claimed.
 Required native admission closes only when its enforcing implementations work; preparing contracts
 and generating SQL are earlier usable milestones, not permission to admit an unenforced release.
+
+## Execution checkpoint — 2026-10-29
+
+**Implemented and scoped Tested, 2026-10-29.** SP-I01–SP-I03 are implemented. ADR-0031 records
+restricted admission, archive opening/verification separation and the explicitly bounded native
+profile. This reconciles CA-11's original scope promise; native unsupported-profile refusals are
+independently exercised. The parent pivot and SP-10 qualification remain incomplete.
+
+- SP-I01 shares effective immutable boundary recipes with archive opening, resolves statement,
+  qualification and reference positions during preparation, separates structural/accepted validation,
+  validates actual operation-result dimensions and source-read outcomes, binds submission to its
+  composition, and enforces typed graph contracts and the actual transaction lifetime. Producer and
+  domain reference visitors consume those positions, preserving sequences and collision policies.
+- The minimal SP-I04 prerequisite opens compiler-10 products using archived type rows, exact source
+  aliases and conditional fragments. Genuine compiler-10 query, explanation, ADBC Arrow capture and
+  Parquet export passed with current preparation unavailable. Reading preserves original identities
+  and validation ABI; it does not authorize historical writes or activation. Broader SP-I04 remains open.
+- SP-I02 retains Core/pglast derivation, fixed views, finite edges, explicit stage disposal and frozen
+  semantic_0031 products. Existing equivalent CHECKs are renamed without revalidation; known older
+  split expressions are repaired. All modeled CHECK expressions are independently parsed from frozen
+  model columns into one immutable physical-contract artifact; native admission detects expression
+  drift even when names match. Historical migrations remain unchanged.
+- SP-I03 protects complete archive publication/finalization, replay and append closure, separate SQL/
+  native deployment admission, actual credential purposes and native activation/result-selection CAS.
+  Regeneration admits explicitly before writer initialization; authored SQL uses sequential reader and
+  admission phases. No administrator credentials or Python project-row UPDATE privilege are needed.
+- Protected inference owns its fixed workspace and snapshot; derived publication retains run/cut/source
+  and proof authority. Writer TEMP is revoked. Recursive meaning validation is limited to verified staged
+  values; cumulative membership, applicability, cardinality, selection and proof checks remain intact.
+- Python exact meaning and observational representation share value_codec. Existing representation and
+  value/fact identity remain; Decimal text is not claimed to recover the original authored spelling.
+- Existing schema/db CLI owners expose candidate/archive verification, read-only native correspondence,
+  and candidate derivation to a new directory. Diagnostics retain authored location, contract, consumer,
+  expected/actual distinction and remediation. No new general workflow or checking service was added.
+
+**passed:** `uv run pyrefly check --min-severity warn --summary=none` over the whole project: zero
+errors/warnings and no suppressions added. **passed:** the affected union below: **450 tests in 91.39s**.
+It includes real restricted and alternate logins, owner-base reader selection, archive/activation/CAS,
+immutable meaning, native wrong transitions/effects, fresh/older forward migration, same-name CHECK/view/
+privilege drift, protected inference, independent exact vectors and bulk Hypothesis/native cases.
+The temporary alternate login and its narrowly scoped peer-auth rows are removed by the test.
+
+```bash
+uv run pytest -o addopts='--strict-markers --strict-config --import-mode=importlib' -q \
+  python/corpus-structure/tests/semantic/test_{prepare,conditional_rules,effective_bindings,statement_anchors,source_projection,proposals,contracts,reference_positions,result_dimensions,archive_reader,ontology,value_codec,schema_product_cli,native_closure,execution_release,releases,publication,inference,execution_native,query,identity_exclusion_reads,source_frame_admission,native_source_selection,native_agent_hold,sql_admission_phases,migrations,operations,authored_sql,alternate_principal,metadata}.py \
+  python/corpus-structure/tests/test_semantic_runtime_settings.py \
+  python/corpus-structure/tests/core/test_evidence.py \
+  python/corpus-structure/tests/evaluate/golden/test_sets.py \
+  python/corpus-structure/tests/schema/test_packs.py::test_ci_schema_compile_prints_the_artifacts --tb=short
+```
+
+The first assembled run **failed: 399 passed, 51 failed**. Most failures came from a generated SQL
+alias colliding with an existing PL/pgSQL record; remaining stale expectations and fake-release
+fixtures were corrected. The corrected publication/inference/anchor subset passed 42 cases before
+the full rerun above passed. Tests now author real releases before finalization, and deliberate archive
+corruption uses explicit administrative fault injection with guards restored; no production bypass exists.
+Three test warnings remain: two upstream OAK/SSSOM deprecations and SQLAlchemy's cyclic-table ordering
+warning in bounded Alembic comparison. They are not Pyrefly warnings or hidden failures.
+
+`just ready` passed after canonical admission-role provisioning on dedicated 18/corpus. Operational
+schema/data, existing runs, grades and running MCP processes were not changed. No provider execution,
+regrade, performance benchmark or complete SP-10 qualification is claimed. `just turn-end`, scoped `uv run ruff check`, `git diff --check` and `just docs-check` passed
+(276 canonical pages, zero link errors). Formatting/import cleanup preserved functional evidence; no
+type/test rerun was triggered by lint. Remaining series work is recorded in the coordinator and STATUS.

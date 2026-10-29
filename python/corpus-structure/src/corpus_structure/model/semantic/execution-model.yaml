@@ -4539,7 +4539,7 @@ invariants:
   - held_submission
   scope: relational
   failure_code: execution.packet_reads
-  implementation: locate
+  implementation: submission
 - id: measurement_scope
   meaning: Metric type, subject scope and producing method/input context agree; measurements
     do not assert facts
@@ -5062,6 +5062,9 @@ operations:
   - empty
   - failed
   outcome_domain: protocol
+  result_dimensions:
+  - {id: protocol, field: receipt.protocol, outcome_domain: protocol}
+  - {id: transaction, field: transaction, outcome_domain: transaction}
   dependencies:
   - semantic_release
   - execution_model
@@ -5096,6 +5099,9 @@ operations:
   - empty
   - failed
   outcome_domain: protocol
+  result_dimensions:
+  - {id: protocol, field: receipt.protocol, outcome_domain: protocol}
+  - {id: transaction, field: transaction, outcome_domain: transaction}
   dependencies:
   - semantic_release
   - execution_model
@@ -5123,8 +5129,10 @@ operations:
   - renew_deadline
   outcomes: &id116
   - held
-  - refused_context
-  outcome_domain: submission
+  - proceed
+  outcome_domain: hold_decision
+  result_dimensions:
+  - {id: decision, field: disposition, outcome_domain: hold_decision}
   dependencies:
   - semantic_release
   - execution_model
@@ -5172,9 +5180,7 @@ operations:
   - MethodConfiguration
   - TaskUnit
   results: &id041
-  - TaskResultEnvelope
-  - SourceObservation
-  - Measurement
+  - Run
   applicability:
   - immutable_binding
   - attempt_fence
@@ -5182,13 +5188,11 @@ operations:
   effects: &id042
   - source_execution
   outcomes: &id111
-  - done
-  - empty
-  - failed
-  - skipped
-  - reused
-  - cancelled
-  outcome_domain: protocol
+  - source_ready
+  - awaiting_agent
+  outcome_domain: readiness
+  result_dimensions:
+  - {id: readiness, field: status, outcome_domain: readiness}
   dependencies:
   - semantic_release
   - execution_model
@@ -5266,6 +5270,8 @@ operations:
   - missing
   - invalid
   outcome_domain: read
+  result_dimensions:
+  - {id: outcome, field: outcome, outcome_domain: read}
   dependencies:
   - semantic_release
   - execution_model
@@ -5320,6 +5326,8 @@ operations:
   - missing
   - invalid
   outcome_domain: read
+  result_dimensions:
+  - {id: outcome, field: outcome, outcome_domain: read}
   dependencies:
   - semantic_release
   - execution_model
@@ -5394,17 +5402,20 @@ operations:
   universe: Exact explicit bound inputs; no ambient latest model
   effects: &id066 []
   outcomes: &id118
+  - held
   - completed_accepted
   - completed_refused
   - refused_context
   outcome_domain: submission
+  result_dimensions:
+  - {id: disposition, field: disposition, outcome_domain: submission}
   dependencies:
   - semantic_release
   - execution_model
   - input_binding
   - implementation_version
   precision: Exact authored/canonical values; no implicit rounding
-  implementation: locate
+  implementation: submission
   transitions:
   - submission_clean
   - submission_resubmit
@@ -5499,11 +5510,10 @@ operations:
   - rejected
   - candidate
   - ambiguous
-  - equivalent
-  - different
-  - undecided
-  - unsupported
-  outcome_domain: scientific
+  outcome_domain: selection
+  result_dimensions:
+  - {id: finding, field: assessment.outcome, outcome_domain: assessment_finding}
+  - {id: selection, field: selection.outcome, outcome_domain: selection}
   dependencies:
   - semantic_release
   - execution_model
@@ -5942,6 +5952,8 @@ operations:
   - conformant
   - nonconformant
   - invalid
+  - invalid_shape
+  - runtime_failure
   outcome_domain: graph_validation
   dependencies:
   - semantic_release
@@ -6423,6 +6435,18 @@ implementations:
   symbol: locate_proposal
   version: '1'
   placement: pure
+  input_concepts: *id064
+  result_concepts: *id065
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id066
+  required_capabilities: []
+- id: submission
+  owner: intervene.semantic
+  symbol: ProposalSession.commit
+  version: '1'
+  placement: core
   input_concepts: *id064
   result_concepts: *id065
   features:
@@ -6997,6 +7021,12 @@ projections:
   lifetime: transaction
   implementation: publish_arrow
 - id: graph_validation
+  graph_policy:
+    universe: typed_reference_closure
+    precision: exact_literals
+    collections: positions_and_multiplicity
+    lifetime: snapshot
+    node_kinds: [entity, evidence, direct, record]
   sources:
   - QualifiedGraphProjection
   - QualifiedGraphReference
@@ -8287,6 +8317,20 @@ outcome_domains:
   - conformant
   - nonconformant
   - invalid
+  - invalid_shape
+  - runtime_failure
+- id: readiness
+  authority: code
+  values: [source_ready, awaiting_agent]
+- id: hold_decision
+  authority: code
+  values: [held, proceed]
+- id: assessment_finding
+  authority: code
+  values: [warning, refuted]
+- id: selection
+  authority: code
+  values: [accepted, rejected, candidate, ambiguous]
 outcome_translations:
 - source_domain: source_coverage
   source: complete

@@ -265,7 +265,9 @@ def build_semantic_server(
         from corpus_structure.settings import Settings
 
         selected = settings if settings is not None else Settings()
-        with open_runtime_engine(selected, "ci-mcp-semantic", max_size=4) as engine:
+        with open_runtime_engine(
+            selected, "ci-mcp-semantic", max_size=4, purpose="write"
+        ) as engine:
             active: SemanticSession = (
                 SemanticAgentSession(engine, run_id)
                 if run_id is not None

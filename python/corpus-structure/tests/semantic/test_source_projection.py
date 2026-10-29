@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from corpus_structure.core.evidence import content_digest, rendition_key, segment_key
 from corpus_structure.ingest.html import build_rendition
 from corpus_structure.ingest.profile import compile_profile, load_profile
@@ -9,11 +11,33 @@ from corpus_structure.semantic.consolidation import assemble
 from corpus_structure.semantic.source_projection import project_markup
 
 
-def test_only_explicit_author_synthesis_becomes_a_located_statement_relation():
+@pytest.mark.parametrize("narrowed", [False, True])
+def test_only_explicit_author_synthesis_becomes_a_located_statement_relation(narrowed):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    prepared = prepare_release(
-        SourceBundle("semantic_core", (SourceArtifact("semantic_core", core.read_bytes()),))
-    )
+    sources = (SourceArtifact("semantic_core", core.read_bytes()),)
+    root = "semantic_core"
+    if narrowed:
+        root = "narrowed"
+        sources += (
+            SourceArtifact(
+                "narrowed",
+                b"""id: https://example.org/narrowed
+name: narrowed
+imports: [semantic_core]
+prefixes: {ex: 'https://example.org/'}
+default_prefix: ex
+classes:
+  NarrowStatement:
+    is_a: SourceStatement
+    slot_usage:
+      proves: {range: NarrowStatement}
+  AgentStatementBinding:
+    attributes:
+      statement: {range: NarrowStatement}
+""",
+            ),
+        )
+    prepared = prepare_release(SourceBundle(root, sources))
     result = build_rendition(
         (
             b'<html><body><div class="unit" id="theorem"><p class="math">A '

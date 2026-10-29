@@ -8,11 +8,10 @@ import sys
 from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
-from functools import lru_cache, reduce
+from functools import lru_cache
 from hashlib import sha256
 from importlib.metadata import version
-from operator import or_
-from typing import Annotated, Any, ForwardRef, Literal, Never, cast
+from typing import Any, Never, cast
 
 import yaml
 from linkml_runtime.dumpers import json_dumper
@@ -20,21 +19,12 @@ from linkml_runtime.linkml_model import SchemaDefinition, SchemaDefinitionName
 from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.utils.schemaview import SchemaView
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
-from pydantic import (
-    MISSING,
-    AfterValidator,
-    AwareDatetime,
-    ConfigDict,
-    Field,
-    TypeAdapter,
-    create_model,
-)
+from pydantic import AwareDatetime
 
 from .conditional_rules import (
     CONDITIONAL_RULE_OPTIONS,
     compile_conditional_rules,
     compile_native_conditionals,
-    conditional_model_namespace,
     inspect_rule_declarations,
 )
 from .identity import canonical_bytes
@@ -57,12 +47,6 @@ from .types import (
     VocabularyMember,
     VocabularySnapshot,
 )
-
-# Runtime type factories are intentionally dynamic; normalized products remain statically typed.
-_LITERAL: Any = Literal
-_ANNOTATED: Any = Annotated
-_TUPLE: Any = tuple
-_DICT: Any = dict
 
 _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 _UNSUPPORTED = frozenset(
@@ -366,16 +350,6 @@ def _annotations(element: Any) -> dict[str, str]:
     return {str(k): str(getattr(v, "value", v)) for k, v in items if str(k) in _SAFE_ANNOTATIONS}
 
 
-def _keyed_members(key: str):
-    def validate(value: dict[str, Any]) -> dict[str, Any]:
-        for name, member in value.items():
-            if getattr(member, key) != name:
-                raise ValueError("inlined collection key differs from its member identifier")
-        return value
-
-    return validate
-
-
 def _bounds(view: SchemaView, rng: str) -> tuple[list[Decimal], list[Decimal], list[str]]:
     low, high, patterns = [], [], []
     seen: set[str] = set()
@@ -394,17 +368,6 @@ def _bounds(view: SchemaView, rng: str) -> tuple[list[Decimal], list[Decimal], l
             patterns.append(typ.pattern)
         rng = str(typ.typeof or typ.base or "string")
     return low, high, patterns
-
-
-def _pattern_validator(patterns: tuple[str, ...]) -> Any:
-    compiled = tuple(re.compile(p) for p in patterns)
-
-    def check(value: Any) -> Any:
-        if not isinstance(value, str) or any(p.search(value) is None for p in compiled):
-            raise ValueError("value violates declared patterns")
-        return value
-
-    return check
 
 
 _EMPTY_DEPENDENCIES = ResolvedDependencies()
@@ -601,10 +564,9 @@ def _prepare_release_uncached(
         _fail("execution_model", "execution", "execution inputs require semantic-2")
     view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies, profile)
     rule_fragments = compile_conditional_rules(view) if profile.version == "semantic-2" else {}
-    enum_types = {s.enum: _LITERAL[tuple(m.value for m in s.members)] for s in vocabularies}
+    enum_types = {s.enum: tuple(m.value for m in s.members) for s in vocabularies}
     definitions: list[ClassDefinition] = []
     classes = {str(name): cls for name, cls in view.all_classes().items()}
-    models: dict[str, Any] = {}
     for name in sorted(classes):
         cls = classes[name]
         class_annotations = _annotations(cls)
@@ -613,7 +575,6 @@ def _prepare_release_uncached(
         if class_annotations.get("cs:case", "preserve") not in {"preserve", "casefold"}:
             _fail("case_policy", name, "unsupported class case policy", "unsupported")
         slots: list[PropertyDefinition] = []
-        fields: dict[str, Any] = {}
         for slot in view.class_induced_slots(name):
             sn = str(slot.name)
             if not _NAME.fullmatch(sn):
@@ -734,67 +695,13 @@ def _prepare_release_uncached(
                 reference_role,
             )
             slots.append(prop)
-            if rng in classes:
-                if prop.inlined and classes[rng].abstract:
-                    concrete = [
-                        n
-                        for n in view.class_descendants(rng, reflexive=False)
-                        if not classes[n].abstract
-                    ]
-                    if not concrete:
-                        _fail("abstract_range", rng, "abstract range has no concrete members")
-                    annotation = _ANNOTATED[
-                        reduce(or_, (ForwardRef(n) for n in concrete)), Field(discriminator="kind")
-                    ]
-                else:
-                    annotation = ForwardRef(rng) if prop.inlined else str
-            elif rng in enum_types:
-                annotation = enum_types[rng]
-            else:
-                annotation = _primitive(view, rng)
-            if slot.equals_string is not None:
-                annotation = _LITERAL[str(slot.equals_string)]
-            limits: dict[str, Any] = {}
-            if scope == "shape" and prop.minimum is not None:
-                limits["ge"] = Decimal(prop.minimum)
-            if scope == "shape" and prop.maximum is not None:
-                limits["le"] = Decimal(prop.maximum)
-            if scope == "shape" and prop.patterns:
-                annotation = _ANNOTATED[
-                    annotation, AfterValidator(_pattern_validator(prop.patterns))
-                ]
-                limits["json_schema_extra"] = {"allOf": [{"pattern": p} for p in prop.patterns]}
-            if limits:
-                annotation = _ANNOTATED[annotation, Field(**limits)]
-            if prop.multivalued:
-                annotation = _DICT[str, annotation] if collection_key else _TUPLE[annotation, ...]
-                if collection_key:
-                    annotation = _ANNOTATED[
-                        annotation, AfterValidator(_keyed_members(collection_key))
-                    ]
-                limits = {}
-                if scope == "shape" and prop.minimum_cardinality is not None:
-                    limits["min_length"] = prop.minimum_cardinality
-                if scope == "shape" and prop.maximum_cardinality is not None:
-                    limits["max_length"] = prop.maximum_cardinality
-                if limits:
-                    annotation = _ANNOTATED[annotation, Field(**limits)]
-            fields[sn] = (
-                annotation,
-                Field(
-                    default=...
-                    if (slot.identifier or (scope == "shape" and prop.required))
-                    else MISSING,
-                    alias=slot.alias or sn,
-                ),
-            )
         keys = tuple(str(s.name) for s in view.class_induced_slots(name) if s.identifier)
         groups = ((keys,) if keys else ()) + tuple(
             tuple(str(x) for x in unique.unique_key_slots)
             for _, unique in sorted(cast(dict[str, Any], cls.unique_keys or {}).items())
         )
         for group in groups:
-            if not group or any(k not in fields for k in group):
+            if not group or any(k not in {p.name for p in slots} for k in group):
                 _fail("identity_slots", name, "identity references missing properties")
         definitions.append(
             ClassDefinition(
@@ -807,22 +714,60 @@ def _prepare_release_uncached(
                 bool(cls.abstract),
             )
         )
-        try:
-            models[name] = create_model(
-                name,
-                __namespace__=conditional_model_namespace(rule_fragments.get(name, {})),
-                __config__=ConfigDict(
-                    frozen=True, extra="forbid", strict=True, allow_inf_nan=False
-                ),
-                **fields,
-            )
-        except Exception as exc:
-            _fail("boundary", name, str(exc))
+    from .boundary import build_boundary_adapters
+    from .statement_types import compile_effective_bindings
+
+    aliases = {
+        (d.name, p.name): view.induced_slot(p.name, d.name).alias or p.name
+        for d in definitions
+        for p in d.properties
+    }
+    primitives = {
+        p.range: _primitive(view, p.range)
+        for d in definitions
+        for p in d.properties
+        if p.range not in classes and p.range not in enum_types
+    }
+    descendants = {
+        name: tuple(
+            str(n)
+            for n in view.class_descendants(name, reflexive=False)
+            if not classes[str(n)].abstract
+        )
+        for name in classes
+    }
+    boundary_models: dict[str, Any] = {}
     try:
-        for model in models.values():
-            model.model_rebuild(_types_namespace=models)
-    except Exception as exc:
+        adapters = build_boundary_adapters(
+            tuple(definitions),
+            tuple(vocabularies),
+            primitive_types=primitives,
+            aliases=aliases,
+            conditional_fragments=rule_fragments,
+            conditional_scope=profile.constraint_scope,
+            legacy_v10=profile.compiler_version == "10",
+            descendant_order=descendants,
+            models_out=boundary_models,
+        )
+        effective_bindings = compile_effective_bindings(
+            tuple(definitions), tuple(vocabularies), primitive_types=primitives
+        )
+    except PreparationError:
+        raise
+    except (ValueError, KeyError, TypeError) as exc:
         _fail("boundary", "models", str(exc))
+    primitive_tokens = {typ: name for name, typ in _PRIMITIVES.items()}
+    # Normalize duplicate Python primitive spellings without changing their runtime meaning.
+    primitive_tokens.update({str: "string", float: "float"})
+    boundary_recipe = {
+        "abi": "semantic-boundary-11",
+        "primitives": {name: primitive_tokens[typ] for name, typ in primitives.items()},
+        "aliases": {
+            d.name: {p.name: aliases[d.name, p.name] for p in d.properties} for d in definitions
+        },
+        "descendants": descendants,
+        "conditional_scope": profile.constraint_scope,
+    }
     manifest = canonical_bytes(
         {
             "root": bundle.root,
@@ -837,7 +782,9 @@ def _prepare_release_uncached(
     )
     release_id = "release:" + sha256(manifest).hexdigest()
     artifacts = [
-        PreparedArtifact("definitions.json", canonical_bytes([asdict(d) for d in definitions]))
+        PreparedArtifact("definitions.json", canonical_bytes([asdict(d) for d in definitions])),
+        PreparedArtifact("boundary_recipe.json", canonical_bytes(boundary_recipe)),
+        PreparedArtifact("effective_bindings.json", canonical_bytes(effective_bindings)),
     ]
     if profile.version == "semantic-2":
         artifacts.extend(
@@ -866,22 +813,6 @@ def _prepare_release_uncached(
             )
         )
 
-    def boundary(name: str, model: Any) -> Any:
-        if classes[name].abstract and "kind" in model.model_fields:
-            concrete = [
-                models[n]
-                for n in view.class_descendants(name, reflexive=False)
-                if not classes[n].abstract
-            ]
-            if not concrete:
-                _fail("abstract_range", name, "abstract boundary has no concrete members")
-            try:
-                return TypeAdapter(_ANNOTATED[reduce(or_, concrete), Field(discriminator="kind")])
-            except Exception as exc:
-                _fail("abstract_discriminator", name, str(exc), "unsupported")
-        return TypeAdapter(model)
-
-    adapters = tuple((name, boundary(name, model)) for name, model in sorted(models.items()))
     # Optional analytical semantics are explicit archived inputs, never installed defaults.
     for dependency in dependencies.artifacts:
         if dependency.name == "analytical-profile.json":
@@ -913,6 +844,11 @@ def _prepare_release_uncached(
     ):
         artifacts.append(PreparedArtifact(kind, content))
     rows = tuple(RegistryRow("class", d.name, canonical_bytes(asdict(d))) for d in definitions)
+    rows += (
+        RegistryRow(
+            "effective_bindings", "effective-bindings-11", canonical_bytes(effective_bindings)
+        ),
+    )
     rows += tuple(
         RegistryRow("type", name, canonical_bytes(json_dumper.to_dict(typ)))
         for name, typ in sorted(view.all_types().items())
@@ -1096,6 +1032,7 @@ def _prepare_release_uncached(
         tuple(diagnostics),
         adapters,
         execution.model_id if execution is not None else None,
+        _boundary_models=boundary_models,
     )
 
     # Admission must not archive an operation artifact whose required rules cannot execute.

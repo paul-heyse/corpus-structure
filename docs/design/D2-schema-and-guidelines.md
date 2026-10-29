@@ -15,6 +15,22 @@ instance authority and consolidation ownership.
 LLM output, validation and the annotation guideline, and the first version of the statistics
 pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-representation.md).
 
+## Effective execution closure
+
+**Accepted target, 2026-10-29; implementation and qualification are separately scoped.**
+[ADR-0031](../adr/0031-semantic-execution-closure.md) replaces mandatory current-compiler
+reconstruction on ordinary archive reads with supported immutable product opening. Full verification
+remains required at persistence/replay, activation, run start and explicit request. Compiler-10
+read boundaries retain their recorded semantics and cannot authorize new writes.
+Restricted admission replaces administrator-backed release publication and selection in ordinary
+regeneration. Intrinsic archive closure is distinct from immutable deployment-specific admission;
+activation retains live posture validation and parent/generation CAS. The native profile admits
+shape and accepted-value integrity placements; patterns and occurrence/context integrity refuse.
+This explicitly revises the initial profile promise; all supported behavior must remain model governed.
+The [execution package](../plans/semantic-model-pivot/model-execution-closure.md) owns remaining work.
+
+> Decision: ADR-0031
+
 ## Composed execution contracts
 
 **Implemented source, 2026-10-29; scoped verification and admission limits belong to

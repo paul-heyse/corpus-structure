@@ -13,34 +13,42 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.settings import Settings
 
-Purpose = Literal["write", "read", "evaluate", "maintenance"]
+Purpose = Literal["write", "read", "evaluate", "admit", "maintenance"]
 
 
 def connection_settings(settings: Settings, purpose: Purpose = "write") -> Settings:
-    """Bind every credential purpose to the application's one declared storage target.
+    """Resolve authentication for one explicit purpose on the declared storage target.
 
-    Maintenance and evaluator URLs contribute credentials only. Their database, network
-    coordinates and query options cannot redirect a phase of an otherwise bound operation.
+    Purpose URLs may omit endpoint components; an explicitly conflicting component refuses.
+    A different principal never implicitly inherits the base principal's password.
     """
     database = settings.database
     source = make_url(database.sqlalchemy_url)
-    credentials = source
-    if purpose == "maintenance":
-        credentials = make_url(database.maintenance_url)
-    elif purpose == "evaluate":
-        credentials = (
-            make_url(database.evaluator_url)
-            if database.evaluator_url
-            else source.set(username="corpus_sem_evaluator")
-        )
-    elif purpose == "read" and source.username == "corpus_sem_writer":
-        credentials = source.set(username="corpus_sem_reader")
+    declared = {
+        "read": database.reader_url,
+        "evaluate": database.evaluator_url,
+        "admit": database.admission_url,
+        "maintenance": database.maintenance_url,
+    }
     if purpose == "write":
         return settings
+    role = {
+        "read": "corpus_sem_reader",
+        "evaluate": "corpus_sem_evaluator",
+        "admit": "corpus_sem_admitter",
+        "maintenance": None,
+    }[purpose]
+    credentials = make_url(declared[purpose] or URL.create("postgresql", username=role))
     if credentials.drivername not in {"postgresql", "postgres", "postgresql+psycopg"}:
         raise ValueError(f"database credentials for {purpose} must use a PostgreSQL URL")
-    # URL.set ignores None, so create a new public URL to remove the writer username and
-    # password when the maintenance credentials intentionally use local peer authentication.
+    for component in ("host", "port", "database"):
+        actual = getattr(credentials, component)
+        if actual not in (None, "") and actual != getattr(source, component):
+            raise ValueError(f"database credentials for {purpose} contradict target {component}")
+    authentication = {"user", "password", "passfile"}
+    for key, value in credentials.query.items():
+        if key not in authentication and source.query.get(key) != value:
+            raise ValueError(f"database credentials for {purpose} contradict target option {key}")
     url = URL.create(
         "postgresql",
         username=credentials.username,
@@ -48,11 +56,7 @@ def connection_settings(settings: Settings, purpose: Purpose = "write") -> Setti
         host=source.host,
         port=source.port,
         database=source.database,
-        query={
-            key: value
-            for key, value in source.query.items()
-            if key not in {"user", "password", "passfile"}
-        },
+        query={key: value for key, value in source.query.items() if key not in authentication},
     ).render_as_string(hide_password=False)
     return settings.model_copy(update={"database": database.model_copy(update={"url": url})})
 
@@ -62,7 +66,7 @@ def open_runtime_engine(
     settings: Settings,
     application_name: str = "ci",
     *,
-    purpose: Purpose = "write",
+    purpose: Purpose,
     timeout: float = 30.0,
     max_size: int = 4,
 ) -> Generator[Engine]:
@@ -72,6 +76,11 @@ def open_runtime_engine(
     with open_store(
         connection_settings(settings, purpose), application_name, timeout=timeout, max_size=max_size
     ) as store:
+        if purpose != "maintenance":
+            with store.engine.connect() as conn:
+                conn.execute(
+                    text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": purpose}
+                )
         yield store.engine
 
 
@@ -130,6 +139,6 @@ def select_completed_result(
 ) -> int:
     """Atomically select an immutable completed output under the project generation CAS."""
     return conn.execute(
-        text("SELECT data.select_project_result(:p,:r,:g)"),
+        text("SELECT sem.select_completed_result(:p,:r,:g)"),
         {"p": project_id, "r": run_id, "g": expected_generation},
     ).scalar_one()

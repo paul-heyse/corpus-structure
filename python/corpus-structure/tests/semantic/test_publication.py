@@ -5,10 +5,12 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import FrozenInstanceError, replace
 from decimal import Decimal
+from functools import cache, partial
 from threading import Barrier
-from typing import Any
+from typing import Any, Literal
 
 import pytest
+import yaml
 from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError
 
@@ -30,63 +32,152 @@ from corpus_structure.semantic.publication import (
     publish_on_connection,
 )
 
-R = "release:test"
 Z = "realization:test"
 C = "https://example/Thing"
 P = "https://example/label"
 
 
-def seed(engine, *, scope="accepted_value", unique=False):
+@cache
+def fixture_model(
+    scope: Literal["shape", "accepted_value", "occurrence", "context"] = "accepted_value",
+    unique=False,
+    label_range="string",
+    inlined=False,
+    record_target=False,
+    minimum=None,
+    maximum=None,
+    qualification=False,
+    conditional=False,
+    composed=False,
+):
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+
+    label: dict[str, Any] = {
+        "range": label_range,
+        "inlined": inlined,
+        "annotations": {"cs:constraint_scope": scope, "cs:case": "casefold"},
+    }
+    if minimum is not None:
+        label["minimum_value"] = minimum
+    if maximum is not None:
+        label["maximum_value"] = maximum
+    thing: dict[str, Any] = {"attributes": {"label": label}}
+    if unique:
+        thing["unique_keys"] = {"label_identity": {"unique_key_slots": ["label"]}}
+    schema: dict[str, Any] = {
+        "id": "https://example/publication-fixture",
+        "name": "publication",
+        "prefixes": {"ex": "https://example/"},
+        "default_prefix": "ex",
+        "types": {
+            "string": {"base": "str", "uri": "http://www.w3.org/2001/XMLSchema#string"},
+            "decimal": {"base": "Decimal", "uri": "http://www.w3.org/2001/XMLSchema#decimal"},
+            "boolean": {"base": "bool", "uri": "http://www.w3.org/2001/XMLSchema#boolean"},
+        },
+        "classes": {
+            "Thing": thing,
+            "Record": {
+                "attributes": {
+                    "target": {
+                        "range": "Thing",
+                        "required": True,
+                        "annotations": {"cs:constraint_scope": "shape"},
+                    }
+                }
+            }
+            if record_target
+            else {},
+            "ExpectedRecord": {},
+            "OtherRecord": {},
+            "Qualification": {
+                "attributes": {
+                    "modality": {
+                        "range": "string",
+                        "required": True,
+                        "annotations": {"cs:constraint_scope": "shape"},
+                    },
+                    "polarity": {
+                        "range": "boolean",
+                        "required": True,
+                        "annotations": {"cs:constraint_scope": "shape"},
+                    },
+                    "attribution": {
+                        "range": "string",
+                        "annotations": {
+                            "cs:key_role": "provenance",
+                            "cs:constraint_scope": "shape",
+                        },
+                    },
+                    "score": {
+                        "range": "decimal",
+                        "minimum_value": 0,
+                        "annotations": {"cs:constraint_scope": "accepted_value"},
+                    },
+                }
+            },
+        },
+    }
+    if conditional:
+        thing["rules"] = [
+            {
+                "preconditions": {"slot_conditions": {"label": {"value_presence": "PRESENT"}}},
+                "postconditions": {"slot_conditions": {"label": {"equals_string": "ready"}}},
+            }
+        ]
+    if not qualification:
+        del schema["classes"]["Qualification"]
+    bundle = SourceBundle("model", (SourceArtifact("model", yaml.safe_dump(schema).encode()),))
+    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
+    from corpus_structure.semantic.composed import composed_dependencies
+
+    deps = (
+        composed_dependencies(ResolvedDependencies())
+        if conditional or composed
+        else ResolvedDependencies()
+    )
+    profile = PreparationProfile(
+        version="semantic-2" if conditional or composed else "semantic-1", constraint_scope=scope
+    )
+    return bundle, prepare_release(bundle, deps, profile)
+
+
+R = fixture_model()[1].release_id
+
+
+def seed(
+    engine,
+    *,
+    scope: Literal["shape", "accepted_value", "occurrence", "context"] = "accepted_value",
+    unique=False,
+    **model_options,
+):
+    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
+    from corpus_structure.semantic.composed import composed_dependencies
+    from corpus_structure.semantic.releases import persist_release
+
+    bundle, prepared = fixture_model(scope, unique, **model_options)
+    composed = model_options.get("conditional", False) or model_options.get("composed", False)
+    deps = composed_dependencies(ResolvedDependencies()) if composed else ResolvedDependencies()
+    profile = PreparationProfile(
+        version="semantic-2" if composed else "semantic-1", constraint_scope=scope
+    )
     with engine.begin() as conn:
-        conn.execute(
-            insert(table("sem.release")).values(
-                release_id=R,
-                content_digest="test",
-                profile="test",
-                prepared_bytes=b"{}",
-                manifest_bytes=b"{}",
-            )
-        )
-        conn.execute(
-            insert(table("sem.class_definition")).values(
-                release_id=R, class_id=C, name="Thing", iri=C
-            )
-        )
-        conn.execute(
-            insert(table("sem.property_definition")).values(
-                release_id=R, property_id=P, name="label", iri=P
-            )
-        )
-        conn.execute(
-            insert(table("sem.property_applicability")).values(
-                release_id=R,
-                class_id=C,
-                property_id=P,
-                range_name="string",
-                required=False,
-                multivalued=False,
-                constraint_scope=scope,
-                constraints={"name": "label", "inlined": False, "case_policy": "casefold"},
-            )
-        )
-        if unique:
-            conn.execute(
-                insert(table("sem.identity_slot")).values(
-                    release_id=R, class_id=C, group_id="0", position=0, property_id=P
-                )
-            )
+        persist_release(conn, bundle, deps, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="p"))
         conn.execute(
-            insert(table("data.realization")).values(realization_id=Z, release_id=R, project_id="p")
+            insert(table("data.realization")).values(
+                realization_id=Z, release_id=prepared.release_id, project_id="p"
+            )
         )
+    return prepared
 
 
-def batch(identity="b", *, entity="e", label="Straße", selected=True):
-    f = fact_key(R, Z, entity, P, label, {})
-    o1 = occurrence_key(R, Z, "source", "1" + identity)
-    o2 = occurrence_key(R, Z, "source", "2" + identity)
+def batch(identity="b", *, entity="e", label="Straße", selected=True, release_id=R):
+    f = fact_key(release_id, Z, entity, P, label, {})
+    o1 = occurrence_key(release_id, Z, "source", "1" + identity)
+    o2 = occurrence_key(release_id, Z, "source", "2" + identity)
     return PublicationBatch(
-        R,
+        release_id,
         Z,
         identity,
         entity=(EntityRow(entity),),
@@ -102,6 +193,9 @@ def batch(identity="b", *, entity="e", label="Straße", selected=True):
         evidence=(EvidenceRow("evidence" + identity, "urn:source", "line:1", "test", "1"),),
         membership_support=(MembershipSupportRow(entity, C, "evidence" + identity),),
     )
+
+
+make_batch = batch
 
 
 def test_batch_is_immutable_and_numeric_receipt_encoding():
@@ -125,7 +219,8 @@ def test_batch_is_immutable_and_numeric_receipt_encoding():
 def test_native_copy_atomic_idempotent_distinct_occurrences(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     candidate = batch()
     first = publish_batch(semantic_writer_engine, candidate)
     assert first.data_revision == 1
@@ -143,7 +238,8 @@ def test_native_copy_atomic_idempotent_distinct_occurrences(
 def test_native_rejects_bad_identity_and_leaves_no_partial_state(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     candidate = batch()
     bad = replace(candidate, occurrence=(replace(candidate.occurrence[0], occurrence_id="forged"),))
     with pytest.raises(DBAPIError):
@@ -155,7 +251,8 @@ def test_native_rejects_bad_identity_and_leaves_no_partial_state(
 
 
 def test_native_null_missing_range_and_nested_scope_fk(semantic_db_engine, semantic_writer_engine):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     candidate = batch()
     for value in (
         ValueRow("vb", "null"),
@@ -188,11 +285,9 @@ def test_restricted_role_cannot_bypass_or_replace_stage(
     ):
         with pytest.raises(DBAPIError), engine.begin() as conn:
             conn.execute(text(statement))
-    # Inference owns private temporary work, but it cannot impersonate publisher staging.
-    with semantic_writer_engine.begin() as conn:
+    # Writers obtain fixed protected workspaces; generic TEMP is deliberately unavailable.
+    with pytest.raises(DBAPIError), semantic_writer_engine.begin() as conn:
         conn.execute(text("CREATE TEMP TABLE sp_entity(entity_id text) ON COMMIT DROP"))
-        with pytest.raises(DBAPIError), conn.begin_nested():
-            conn.execute(text("SELECT data.begin_stage()"))
     with (
         semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
@@ -219,7 +314,8 @@ def test_restricted_role_cannot_bypass_or_replace_stage(
 def test_selected_value_cardinality_retains_unselected_conflicts(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     publish_batch(semantic_writer_engine, batch())
     publish_batch(semantic_writer_engine, batch("conflict", label="Other", selected=False))
     with pytest.raises(DBAPIError):
@@ -241,7 +337,8 @@ def test_selected_value_cardinality_retains_unselected_conflicts(
 def test_concurrent_casefold_unique_candidates_have_independent_expected_state(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine, unique=True)
+    R = seed(semantic_db_engine, unique=True).release_id
+    batch = partial(make_batch, release_id=R)
     barrier = Barrier(2)
 
     def attempt(candidate):
@@ -267,7 +364,8 @@ def test_concurrent_casefold_unique_candidates_have_independent_expected_state(
 def test_connection_api_never_commits_and_requires_serializable(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     with (
         semantic_writer_engine.connect() as conn,
         conn.begin(),
@@ -292,7 +390,8 @@ def test_serialization_retry_restages_same_immutable_batches(
 
     from corpus_structure.semantic import publication
 
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     barrier = Barrier(2)
     original = publication.stage_batch
     seen = []
@@ -333,7 +432,8 @@ def test_ambiguous_committed_connection_loss_resolves_exact_receipt(
 ):
     import psycopg
 
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     original = semantic_writer_engine.dialect.do_commit
     commits = []
 
@@ -355,40 +455,9 @@ def test_ambiguous_committed_connection_loss_resolves_exact_receipt(
 def test_native_recursive_record_shape_and_entity_reference(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine, label_range="Record", inlined=True, record_target=True).release_id
+    batch = partial(make_batch, release_id=R)
     record = "https://example/Record"
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            insert(table("sem.class_definition")).values(
-                release_id=R, class_id=record, name="Record", iri=record
-            )
-        )
-        conn.execute(
-            insert(table("sem.property_definition")).values(
-                release_id=R,
-                property_id="https://example/target",
-                name="target",
-                iri="https://example/target",
-            )
-        )
-        conn.execute(
-            insert(table("sem.property_applicability")).values(
-                release_id=R,
-                class_id=record,
-                property_id="https://example/target",
-                range_name="Thing",
-                required=True,
-                multivalued=False,
-                constraint_scope="shape",
-                constraints={"name": "target", "inlined": False},
-            )
-        )
-        conn.execute(
-            table("sem.property_applicability")
-            .update()
-            .where(table("sem.property_applicability").c.class_id == C)
-            .values(range_name="Record", constraints={"name": "label", "inlined": True})
-        )
     candidate = batch()
     key = fact_key(R, Z, "e", P, {"target": "e"}, {})
     candidate = replace(
@@ -428,7 +497,7 @@ def test_native_identity_vectors_scalars_unicode_and_exact_decimals(
 
     from corpus_structure.semantic.identity import _meaning, canonical_bytes
 
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
     values = (
         ("unicode", ValueRow("unicode", "string", text_value='é𝄞\n\t\\"\u2028'), 'é𝄞\n\t\\"\u2028'),
         ("integer", ValueRow("integer", "integer", text_value="9" * 4000), int("9" * 4000)),
@@ -481,17 +550,9 @@ def test_native_identity_vectors_scalars_unicode_and_exact_decimals(
 def test_native_bound_comparison_is_lossless_beyond_numeric_capacity(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
     huge = "9" * 150000
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            table("sem.property_applicability")
-            .update()
-            .values(
-                range_name="decimal",
-                constraints={"name": "label", "native_minimum": huge, "native_maximum": huge},
-            )
-        )
+    R = seed(semantic_db_engine, label_range="decimal", minimum=huge, maximum=huge).release_id
+    batch = partial(make_batch, release_id=R)
     candidate = batch()
     fact = fact_key(R, Z, "e", P, Decimal(huge), {})
     candidate = replace(
@@ -550,7 +611,8 @@ def test_native_constraints_prepares_datatype_aliases_and_scientific_bounds():
 def test_independent_value_encodings_merge_fact_and_preserve_reports(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
+    batch = partial(make_batch, release_id=R)
     first = batch("one")
     second = batch("two")
     assert first.fact[0].fact_id == second.fact[0].fact_id
@@ -569,7 +631,8 @@ def test_independent_value_encodings_merge_fact_and_preserve_reports(
 def test_replacing_selection_preserves_occurrences_and_identity_uses_selected_scope(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine, unique=True)
+    R = seed(semantic_db_engine, unique=True).release_id
+    batch = partial(make_batch, release_id=R)
     first = batch("one")
     second = batch("two", label="Other", selected=False)
     publish_batch(semantic_writer_engine, first)
@@ -593,7 +656,7 @@ def test_replacing_selection_preserves_occurrences_and_identity_uses_selected_sc
 def test_existing_value_tree_cannot_be_extended_by_a_later_batch(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
     first = PublicationBatch(
         R,
         Z,
@@ -657,43 +720,8 @@ def test_constraint_capability_refusal_and_optional_ontology_metadata():
 
 
 def _qualification_schema(engine, *, score=False):
-    q = "https://example/Qualification"
-    with engine.begin() as conn:
-        conn.execute(
-            insert(table("sem.class_definition")).values(
-                release_id=R, class_id=q, name="Qualification", iri=q
-            )
-        )
-        properties = [
-            ("modality", "string", True, "meaning"),
-            ("polarity", "boolean", True, "meaning"),
-            ("attribution", "string", False, "provenance"),
-        ]
-        if score:
-            properties.append(("score", "decimal", False, "meaning"))
-        for name, rng, required, role in properties:
-            iri = "https://example/" + name
-            conn.execute(
-                insert(table("sem.property_definition")).values(
-                    release_id=R, property_id=iri, name=name, iri=iri
-                )
-            )
-            constraints = {"name": name, "key_role": role, "inlined": False}
-            if name == "score":
-                constraints["minimum"] = "0"
-            conn.execute(
-                insert(table("sem.property_applicability")).values(
-                    release_id=R,
-                    class_id=q,
-                    property_id=iri,
-                    range_name=rng,
-                    required=required,
-                    multivalued=False,
-                    constraint_scope="accepted_value" if name == "score" else "shape",
-                    constraints=constraints,
-                )
-            )
-    return q
+    # Qualification is authored before archive finalization; score has accepted-value scope.
+    return "https://example/Qualification"
 
 
 def _qualified(candidate, qclass, *, attribution="reporter", score=None):
@@ -714,7 +742,7 @@ def _qualified(candidate, qclass, *, attribution="reporter", score=None):
         values.append(ValueRow(prefix + "score", "decimal", decimal_lexical=str(score)))
         roles.append(RoleRow(prefix + "q", "score", 0, prefix + "score"))
         meaning["score"] = Decimal(score)
-    f = fact_key(R, Z, "e", P, "Straße", meaning)
+    f = fact_key(candidate.release_id, Z, "e", P, "Straße", meaning)
     return replace(
         candidate,
         typed_value=(*candidate.typed_value, *values),
@@ -732,7 +760,8 @@ def _qualified(candidate, qclass, *, attribution="reporter", score=None):
 def test_equal_fact_keeps_each_occurrence_full_provenance_qualification(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine, qualification=True).release_id
+    batch = partial(make_batch, release_id=R)
     qclass = _qualification_schema(semantic_db_engine)
     first = _qualified(batch("one"), qclass, attribution="Alice")
     second = _qualified(batch("two"), qclass, attribution="Bob")
@@ -759,7 +788,8 @@ def test_equal_fact_keeps_each_occurrence_full_provenance_qualification(
 def test_selected_qualification_closure_enforces_accepted_bounds(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine, qualification=True).release_id
+    batch = partial(make_batch, release_id=R)
     qclass = _qualification_schema(semantic_db_engine, score=True)
     candidate = _qualified(batch("one", selected=False), qclass, score="-1")
     assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
@@ -776,7 +806,7 @@ def test_selected_qualification_closure_enforces_accepted_bounds(
 def test_raw_decimal_and_integer_lexicals_keep_exact_receipt_but_share_meaning(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
     candidate = PublicationBatch(
         R,
         Z,
@@ -807,13 +837,8 @@ def test_raw_decimal_and_integer_lexicals_keep_exact_receipt_but_share_meaning(
 def test_report_entity_reference_cannot_masquerade_as_equal_string(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            table("sem.property_applicability")
-            .update()
-            .values(range_name="Thing", constraints={"name": "label", "inlined": False})
-        )
+    R = seed(semantic_db_engine, label_range="Thing").release_id
+    batch = partial(make_batch, release_id=R)
     candidate = batch("entity")
     fact = fact_key(R, Z, "e", P, "e", {})
     candidate = replace(
@@ -852,24 +877,10 @@ def test_report_entity_reference_cannot_masquerade_as_equal_string(
 def test_report_record_class_must_match_even_when_field_meaning_is_equal(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine, label_range="ExpectedRecord", inlined=True).release_id
+    batch = partial(make_batch, release_id=R)
     expected_class = "https://example/ExpectedRecord"
     other_class = "https://example/OtherRecord"
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            insert(table("sem.class_definition")),
-            [
-                dict(
-                    release_id=R, class_id=expected_class, name="ExpectedRecord", iri=expected_class
-                ),
-                dict(release_id=R, class_id=other_class, name="OtherRecord", iri=other_class),
-            ],
-        )
-        conn.execute(
-            table("sem.property_applicability")
-            .update()
-            .values(range_name="ExpectedRecord", constraints={"name": "label", "inlined": True})
-        )
     candidate = batch("record")
     fact = fact_key(R, Z, "e", P, {}, {})
     candidate = replace(
@@ -907,14 +918,8 @@ def test_report_record_class_must_match_even_when_field_meaning_is_equal(
 def test_unused_alias_payloads_and_scalar_datatypes_are_refused(
     semantic_db_engine, semantic_writer_engine
 ):
-    seed(semantic_db_engine)
+    R = seed(semantic_db_engine).release_id
     record = "https://example/Record"
-    with semantic_db_engine.begin() as conn:
-        conn.execute(
-            insert(table("sem.class_definition")).values(
-                release_id=R, class_id=record, name="Record", iri=record
-            )
-        )
     for value in (
         ValueRow("v", "interval", datatype=record),
         ValueRow("v", "expression", text_value="ignored expression", datatype=record),

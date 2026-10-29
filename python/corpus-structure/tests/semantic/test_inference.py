@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from hashlib import sha256
+from typing import Any
 
 import pytest
 import yaml
@@ -57,70 +58,42 @@ def setup(
     establishment="stated",
     selected=True,
 ):
-    r = prepared.release_id if prepared is not None else R
-    if prepared is not None:
-        from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
-        from corpus_structure.semantic.releases import persist_release
+    if prepared is None:
+        from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 
-        with admin.begin() as conn:
-            assert bundle is not None
-            persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), prepared)
-            conn.execute(insert(table("data.project")).values(project_id="p"))
-            conn.execute(
-                insert(table("data.realization")).values(
-                    realization_id=Z, project_id="p", release_id=r
-                )
-            )
+        schema: dict[str, Any] = {
+            "id": "https://example/inference-fixture",
+            "name": "inference",
+            "prefixes": {"ex": "https://example/"},
+            "default_prefix": "ex",
+            "types": {"string": {"base": "str"}, "boolean": {"base": "bool"}},
+            "classes": {"Thing": {"slots": ["p", "q"]}},
+            "slots": {
+                "p": {"range": "Thing", "multivalued": True},
+                "q": {"range": "Thing", "multivalued": True},
+            },
+        }
+        for kind in rules:
+            if kind == "inverse":
+                schema["slots"]["p"]["inverse"] = "q"
+            else:
+                schema["slots"]["p"][kind] = True
+        bundle = SourceBundle("model", (SourceArtifact("model", yaml.safe_dump(schema).encode()),))
+        prepared = prepare_release(bundle)
+        typed_qualification = False
     else:
-        with admin.begin() as conn:
-            conn.execute(
-                insert(table("sem.release")).values(
-                    release_id=r,
-                    content_digest="test",
-                    profile="test",
-                    prepared_bytes=b"{}",
-                    manifest_bytes=b"{}",
-                )
-            )
-            conn.execute(insert(table("data.project")).values(project_id="p"))
-            conn.execute(
-                insert(table("data.realization")).values(
-                    realization_id=Z, project_id="p", release_id=r
-                )
-            )
-            conn.execute(
-                insert(table("sem.class_definition")).values(
-                    release_id=r, class_id=C, name="Thing", iri=C
-                )
-            )
-            for p in (P, Q):
-                conn.execute(
-                    insert(table("sem.property_definition")).values(
-                        release_id=r, property_id=p, name=p[-1], iri=p
-                    )
-                )
-                conn.execute(
-                    insert(table("sem.property_applicability")).values(
-                        release_id=r,
-                        class_id=C,
-                        property_id=p,
-                        range_name="Thing",
-                        required=False,
-                        multivalued=True,
-                        constraint_scope="shape",
-                        constraints={"name": p[-1], "inlined": False},
-                    )
-                )
-            for kind in rules:
-                rid = "rule:" + kind
-                body = {"kind": kind, "predicate": P, "rule_id": rid, "rule_version": "1"}
-                if kind == "inverse":
-                    body["target"] = Q
-                conn.execute(
-                    insert(table("sem.registry_row")).values(
-                        release_id=r, kind="inference_rule", name=rid, body=canonical_bytes(body)
-                    )
-                )
+        typed_qualification = True
+    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
+    from corpus_structure.semantic.releases import persist_release
+
+    r = prepared.release_id
+    with admin.begin() as conn:
+        assert bundle is not None
+        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), prepared)
+        conn.execute(insert(table("data.project")).values(project_id="p"))
+        conn.execute(
+            insert(table("data.realization")).values(realization_id=Z, project_id="p", release_id=r)
+        )
     entities = sorted({e for edge in edges for e in edge})
     contexts = contexts or ["same"] * len(edges)
     values = [ValueRow("v:" + e, "entity", entity_id=e) for e in entities]
@@ -138,8 +111,8 @@ def setup(
             (
                 ValueRow(
                     q,
-                    "record" if prepared else "mapping",
-                    datatype="https://example/Qualification" if prepared else None,
+                    "record" if typed_qualification else "mapping",
+                    datatype="https://example/Qualification" if typed_qualification else None,
                 ),
                 ValueRow("scope:" + str(i), "string", text_value=ctx),
             )
@@ -229,7 +202,12 @@ def test_multiple_proofs_and_cycle_terminate(semantic_db_engine, semantic_writer
     )
     result = compute(semantic_writer_engine, binding)
     expected = fact_key(
-        R, Z, "a", P, "d", {"modality": "asserted", "polarity": True, "scope": "same"}
+        binding.release_id,
+        Z,
+        "a",
+        P,
+        "d",
+        {"modality": "asserted", "polarity": True, "scope": "same"},
     )
     assert sum(d.conclusion_fact_id == expected for d in result.batch.derivation) >= 2
     publish_inference(semantic_writer_engine, result)
@@ -259,7 +237,7 @@ def test_direct_transport_rejects_undeclared_proof_and_stale_analysis(
     )
     fact = batch.fact[0].fact_id
     bad = PublicationBatch(
-        R,
+        binding.release_id,
         Z,
         "bad",
         derivation=(DerivationRow("d", fact, "unknown", "1"),),
@@ -268,7 +246,7 @@ def test_direct_transport_rejects_undeclared_proof_and_stale_analysis(
     with pytest.raises(DBAPIError, match="unadmitted inference"):
         publish_batch(semantic_writer_engine, bad)
     result = compute(semantic_writer_engine, binding)
-    publish_batch(semantic_writer_engine, PublicationBatch(R, Z, "advance"))
+    publish_batch(semantic_writer_engine, PublicationBatch(binding.release_id, Z, "advance"))
     from corpus_structure.semantic.arrow_publication import StaleAnalysisError
 
     with pytest.raises(StaleAnalysisError, match="revision changed"):
@@ -276,8 +254,12 @@ def test_direct_transport_rejects_undeclared_proof_and_stale_analysis(
 
 
 def proof(head, premises, rule="rule:symmetric"):
-    did = "derivation:" + sha256(canonical_bytes([rule, "1", head, premises])).hexdigest()
-    return DerivationRow(did, head, rule, "1"), tuple(
+    version = sha256(
+        canonical_bytes({"kind": rule.removeprefix("rule:"), "predicate": P})
+    ).hexdigest()
+    rule_id = "rule:" + version
+    did = "derivation:" + sha256(canonical_bytes([rule_id, version, head, premises])).hexdigest()
+    return DerivationRow(did, head, rule_id, version), tuple(
         DerivationPremiseRow(did, i, p) for i, p in enumerate(premises)
     )
 
@@ -285,16 +267,16 @@ def proof(head, premises, rule="rule:symmetric"):
 def test_forged_cycle_and_ungrounded_alternate_proof_refuse(
     semantic_db_engine, semantic_writer_engine
 ):
-    _binding, sources = setup(
+    binding, sources = setup(
         semantic_db_engine, semantic_writer_engine, [("a", "b"), ("c", "d")], rules=("symmetric",)
     )
     qual = {"modality": "asserted", "polarity": True, "scope": "same"}
-    a = fact_key(R, Z, "a", P, "c", qual)
-    b = fact_key(R, Z, "c", P, "a", qual)
+    a = fact_key(binding.release_id, Z, "a", P, "c", qual)
+    b = fact_key(binding.release_id, Z, "c", P, "a", qual)
     da, pa = proof(a, (b,))
     db, pb = proof(b, (a,))
     bad = PublicationBatch(
-        R,
+        binding.release_id,
         Z,
         "cycle",
         fact=(FactRow(a, "a", P, "v:c", "qual:0"), FactRow(b, "c", P, "v:a", "qual:0")),
@@ -304,10 +286,10 @@ def test_forged_cycle_and_ungrounded_alternate_proof_refuse(
     with pytest.raises(DBAPIError, match="ungrounded"):
         publish_batch(semantic_writer_engine, bad)
     # A grounded head cannot launder an ungrounded premise in an additional proof.
-    reverse = fact_key(R, Z, "b", P, "a", qual)
+    reverse = fact_key(binding.release_id, Z, "b", P, "a", qual)
     d, ps = proof(sources.fact[0].fact_id, (reverse,))
     bad = PublicationBatch(
-        R,
+        binding.release_id,
         Z,
         "alternate",
         fact=(FactRow(reverse, "b", P, "v:a", "qual:0"),),
@@ -416,17 +398,24 @@ def test_unauthorized_modality_establishment_and_selection_do_not_seed(
 
 
 def test_direct_proof_cannot_cross_canonical_contexts(semantic_db_engine, semantic_writer_engine):
-    _binding, sources = setup(
+    binding, sources = setup(
         semantic_db_engine,
         semantic_writer_engine,
         [("a", "b"), ("b", "c")],
         rules=("transitive",),
         contexts=["one", "two"],
     )
-    head = fact_key(R, Z, "a", P, "c", {"modality": "asserted", "polarity": True, "scope": "one"})
+    head = fact_key(
+        binding.release_id,
+        Z,
+        "a",
+        P,
+        "c",
+        {"modality": "asserted", "polarity": True, "scope": "one"},
+    )
     d, ps = proof(head, tuple(f.fact_id for f in sources.fact), "rule:transitive")
     bad = PublicationBatch(
-        R,
+        binding.release_id,
         Z,
         "context-crossing",
         fact=(FactRow(head, "a", P, "v:c", "qual:0"),),

@@ -85,7 +85,15 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
         schema="pg_temp",
         prefixes=["TEMPORARY"],
     )
-    work.create(connection)
+    connection.execute(
+        text("SELECT data.begin_inference_workspace(:r,:z,:revision,:snapshot)"),
+        {
+            "r": binding.release_id,
+            "z": binding.realization_id,
+            "revision": binding.data_revision,
+            "snapshot": binding.capture_id,
+        },
+    )
     database_failed = False
     try:
         r, z = binding.release_id, binding.realization_id
@@ -251,7 +259,15 @@ def derive(connection: Connection, binding: SnapshotBinding) -> InferenceResult:
         raise
     finally:
         if not database_failed:
-            work.drop(connection)
+            connection.execute(
+                text("SELECT data.end_inference_workspace(:r,:z,:revision,:snapshot)"),
+                {
+                    "r": binding.release_id,
+                    "z": binding.realization_id,
+                    "revision": binding.data_revision,
+                    "snapshot": binding.capture_id,
+                },
+            )
 
 
 def publish_inference(

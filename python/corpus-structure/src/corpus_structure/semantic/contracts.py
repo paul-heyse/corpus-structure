@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
-from typing import Any, Never
+from typing import Any, Literal, Never
 
 import yaml
 from cattrs import Converter
@@ -25,7 +25,7 @@ from pydantic import ValidationError
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "2"
+EXECUTION_COMPILER_VERSION = "3"
 
 
 @lru_cache(maxsize=1)
@@ -34,6 +34,7 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.evaluate import semantic as references
+    from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.orchestrate import project, semantic
 
     from . import (
@@ -81,6 +82,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "bind_report": observations.bind_result,
             "packet": proposals.proposal_packet,
             "locate": proposals.locate_proposal,
+            "submission": ProposalSession.commit,
             "assemble": consolidation.assemble,
             "evaluate": domain_operations.consolidate_cut,
             "resolve_identity": domain_operations._entity_mappings,
@@ -237,6 +239,13 @@ class ImplementationBinding:
 
 
 @dataclass(frozen=True)
+class ResultDimension:
+    id: str
+    field: str
+    outcome_domain: str
+
+
+@dataclass(frozen=True)
 class OperationContract:
     id: str
     inputs: tuple[str, ...]
@@ -252,6 +261,17 @@ class OperationContract:
     transitions: tuple[str, ...]
     projections: tuple[str, ...]
 
+    result_dimensions: tuple[ResultDimension, ...] = ()
+
+
+@dataclass(frozen=True)
+class GraphProjectionPolicy:
+    universe: Literal["typed_reference_closure"]
+    precision: Literal["exact_literals"]
+    collections: Literal["positions_and_multiplicity"]
+    lifetime: Literal["snapshot"]
+    node_kinds: tuple[str, ...]
+
 
 @dataclass(frozen=True)
 class ProjectionContract:
@@ -266,6 +286,7 @@ class ProjectionContract:
     completeness: str
     lifetime: str
     implementation: str
+    graph_policy: GraphProjectionPolicy | None = None
 
 
 @dataclass(frozen=True)
@@ -565,6 +586,11 @@ def _validate(products: ExecutionModelProducts) -> None:
         _refs(operation.transitions, t, operation.id)
         _refs(operation.projections, p, operation.id)
         _refs((operation.outcome_domain,), domains, operation.id)
+        _index(operation.result_dimensions, operation.id + "/result_dimensions")
+        for dimension in operation.result_dimensions:
+            _refs((dimension.outcome_domain,), domains, operation.id + "/" + dimension.id)
+            if not dimension.field:
+                _fail("result_dimension", operation.id, "result field must be explicit")
         domain = domains[operation.outcome_domain]
         if domain.authority == "code" and not set(operation.outcomes) <= set(domain.values):
             _fail("operation_outcome", operation.id, "outcome outside code-owned domain")

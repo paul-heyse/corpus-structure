@@ -9,13 +9,16 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import warnings
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
+from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from typing import Literal as TypingLiteral
 
 from linkml.generators.owlgen import OwlSchemaGenerator
@@ -44,9 +47,25 @@ from rdflib.namespace import RDF
 
 CS = Namespace("https://corpus-structure.dev/semantic/")
 
+if TYPE_CHECKING:
+    from .contracts import ProjectionContract
+    from .types import PreparedRelease
+
 
 class OntologyError(ValueError):
     """A declared ontology or vocabulary could not be resolved completely."""
+
+
+class GraphShapeError(OntologyError):
+    """The validation shapes themselves are invalid."""
+
+    outcome = "invalid_shape"
+
+
+class GraphExecutionError(OntologyError):
+    """Validation could not produce a conformance judgment."""
+
+    outcome = "runtime_failure"
 
 
 @dataclass(frozen=True)
@@ -77,10 +96,21 @@ class ResolvedVocabulary:
 
 
 @dataclass(frozen=True)
+class GraphDiagnostic:
+    focus_node: str
+    path: str | None
+    source_shape: str | None
+    constraint: str | None
+    severity: str | None
+    message: str
+
+
+@dataclass(frozen=True)
 class GraphValidation:
     conforms: bool
     report: bytes
     message: str
+    diagnostics: tuple[GraphDiagnostic, ...] = ()
 
     @property
     def outcome(self) -> TypingLiteral["conformant", "nonconformant"]:
@@ -119,8 +149,8 @@ _INTEGRITY_FIELDS = (
 
 
 def _clear_integrity(slot: Any) -> None:
-    for field in _INTEGRITY_FIELDS:
-        setattr(slot, field, None)
+    for field_name in _INTEGRITY_FIELDS:
+        setattr(slot, field_name, None)
     # Native generators infer maxCount/cardinality=1 from scalar slots.
     slot.multivalued = True
 
@@ -413,6 +443,54 @@ class QualifiedGraphReference:
 
 
 @dataclass(frozen=True)
+class GraphProjectionBinding:
+    """The actual release-bound contract, separate from a projection instance label."""
+
+    release_id: str
+    execution_model_id: str
+    contract: ProjectionContract
+    validation_outcomes: tuple[str, ...]
+
+    def require_validation_outcome(self, outcome: str) -> None:
+        if outcome not in self.validation_outcomes:
+            raise OntologyError(f"graph validation outcome {outcome!r} is not in the bound model")
+
+    @classmethod
+    def from_release(
+        cls, prepared: PreparedRelease, contract_id: str = "graph_validation"
+    ) -> GraphProjectionBinding:
+        from .contracts import _PRODUCT_CONVERTER, ProjectionContract
+
+        if prepared.execution_model_id is None:
+            raise OntologyError("graph contract requires the bound execution model")
+        model = next(
+            (
+                row
+                for row in prepared.registry_rows
+                if row.kind == "execution_model" and row.name == prepared.execution_model_id
+            ),
+            None,
+        )
+        if model is None:
+            raise OntologyError("graph contract requires the bound execution model")
+        body = json.loads(model.body)
+        if body.get("model_id") != prepared.execution_model_id:
+            raise OntologyError("graph execution model identity differs")
+        candidates = [row for row in body["projections"] if row["id"] == contract_id]
+        if len(candidates) != 1:
+            raise OntologyError(f"unknown graph contract {contract_id!r}")
+        contract = _PRODUCT_CONVERTER.structure(candidates[0], ProjectionContract)
+        operation = next(
+            (item for item in body["operations"] if item["id"] == "graph_validate"), None
+        )
+        if operation is None or contract_id not in operation["projections"]:
+            raise OntologyError("graph validation operation is not bound to its projection")
+        return cls(
+            prepared.release_id, prepared.execution_model_id, contract, tuple(operation["outcomes"])
+        )
+
+
+@dataclass(frozen=True)
 class QualifiedGraphProjection:
     """Explicit validation universe; output focus does not narrow its required closure."""
 
@@ -424,6 +502,9 @@ class QualifiedGraphProjection:
     related_nodes: Mapping[str, Mapping[str, Any]]
     references: Mapping[str, tuple[str, ...]]
     identity_exclusions: tuple[Mapping[str, Any], ...] = ()
+    contract_binding: GraphProjectionBinding = field(kw_only=True)
+    source_universe: tuple[str, ...] = field(kw_only=True)
+    snapshot_guard: Callable[[], bool] = field(kw_only=True, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         def freeze(value: Any) -> Any:
@@ -439,6 +520,28 @@ class QualifiedGraphProjection:
         object.__setattr__(self, "identity_exclusions", freeze(self.identity_exclusions))
 
     def graph(self) -> Graph:
+        bound = self.contract_binding
+        contract = bound.contract
+        policy = contract.graph_policy
+        if bound.release_id != self.release_id:
+            raise OntologyError("wrong graph contract release")
+        if (contract.implementation, contract.lifetime) != (
+            "graph_project",
+            "snapshot",
+        ) or policy is None:
+            raise OntologyError("graph contract has no supported enforcing policy")
+        if (policy.universe, policy.precision, policy.collections, policy.lifetime) != (
+            "typed_reference_closure",
+            "exact_literals",
+            "positions_and_multiplicity",
+            "snapshot",
+        ) or set(contract.omissions) != {
+            "bare_triple_entailment",
+            "concurrent_transition_authority",
+        }:
+            raise OntologyError("unsupported graph projection policy")
+        if not self.snapshot_guard():
+            raise OntologyError("graph projection snapshot is closed")
         if not self.release_id or not self.realization_id or not self.projection_id:
             raise OntologyError("graph projection requires release, realization and projection")
         if type(self.data_revision) is not int or self.data_revision < 0:
@@ -470,6 +573,14 @@ class QualifiedGraphProjection:
             ):
                 raise OntologyError("identity exclusion needs typed evidence closure")
         available = {**self.related_nodes, **assertions, **exclusions}
+        if (
+            len(set(self.source_universe)) != len(self.source_universe)
+            or set(self.source_universe) - available.keys()
+        ):
+            raise OntologyError("graph source universe is incomplete or duplicated")
+        for identity, row in self.related_nodes.items():
+            if row.get("kind", "record") not in policy.node_kinds:
+                raise OntologyError(f"unsupported graph node kind at {identity}")
         if self.references.keys() - available.keys():
             raise OntologyError("reference source is outside projected node universe")
         for row in available.values():
@@ -507,7 +618,7 @@ class QualifiedGraphProjection:
             references[identity].add(
                 subject.target_id if isinstance(subject, QualifiedGraphReference) else str(subject)
             )
-        required = set(assertions) | set(exclusions)
+        required = set(assertions) | set(exclusions) | set(self.source_universe)
         pending = list(required)
         while pending:
             source = pending.pop()
@@ -540,6 +651,12 @@ class QualifiedGraphProjection:
                 graph.add((node, RDF.type, CS.Null))
                 return node
             if not isinstance(value, Mapping | tuple | list):
+                if not isinstance(value, str | int | float | Decimal | date | datetime):
+                    raise OntologyError("unsupported exact graph literal")
+                if (isinstance(value, float) and not math.isfinite(value)) or (
+                    isinstance(value, Decimal) and not value.is_finite()
+                ):
+                    raise OntologyError("non-finite graph literal")
                 return Literal(value)
             # Paths retain duplicate member positions, independently of RDF set semantics.
             node = URIRef(
@@ -602,18 +719,53 @@ class QualifiedGraphProjection:
 
 def validate_graph(data: Graph, shapes: Graph, ontology: Graph | None = None) -> GraphValidation:
     """Conformance only: no implicit entailment, imports, mutation or SHACL rules."""
-    conforms, report, message = validate(
-        data,
-        shacl_graph=shapes,
-        ont_graph=ontology,
-        inference="none",
-        inplace=False,
-        advanced=False,
-        do_owl_imports=False,
-    )
+    from pyshacl.errors import ConstraintLoadError, ReportableRuntimeError, ShapeLoadError
+
+    try:
+        conforms, report, message = validate(
+            data,
+            shacl_graph=shapes,
+            ont_graph=ontology,
+            inference="none",
+            inplace=False,
+            advanced=False,
+            do_owl_imports=False,
+        )
+    except (ConstraintLoadError, ShapeLoadError) as exc:
+        raise GraphShapeError(f"invalid SHACL shape: {exc}") from exc
+    except ReportableRuntimeError as exc:
+        raise GraphExecutionError(f"SHACL execution failed: {exc}") from exc
     if not isinstance(report, Graph):
-        raise OntologyError(f"SHACL validation failed: {message}")
-    return GraphValidation(bool(conforms), canonical_graph_bytes(report), str(message))
+        raise GraphExecutionError(f"SHACL validation failed: {message}")
+    from rdflib.namespace import SH
+
+    diagnostics = tuple(
+        sorted(
+            (
+                GraphDiagnostic(
+                    str(report.value(node, SH.focusNode) or ""),
+                    str(value)
+                    if (value := report.value(node, SH.resultPath)) is not None
+                    else None,
+                    str(value)
+                    if (value := report.value(node, SH.sourceShape)) is not None
+                    else None,
+                    str(value)
+                    if (value := report.value(node, SH.sourceConstraintComponent)) is not None
+                    else None,
+                    str(value)
+                    if (value := report.value(node, SH.resultSeverity)) is not None
+                    else None,
+                    "; ".join(
+                        sorted(str(value) for value in report.objects(node, SH.resultMessage))
+                    ),
+                )
+                for node in report.subjects(RDF.type, SH.ValidationResult)
+            ),
+            key=lambda d: (d.focus_node, d.path or "", d.message),
+        )
+    )
+    return GraphValidation(bool(conforms), canonical_graph_bytes(report), str(message), diagnostics)
 
 
 def validate_enum_meanings(view: SchemaView, ontology_path: Path) -> tuple[str, ...]:
@@ -810,4 +962,10 @@ def validate_projected_graph(
     selected = qualified_projection_shapes()
     if shapes is not None:
         selected += shapes
-    return validate_graph(qualified_validation_graph(projection), selected, ontology)
+    try:
+        result = validate_graph(qualified_validation_graph(projection), selected, ontology)
+    except (GraphShapeError, GraphExecutionError) as exc:
+        projection.contract_binding.require_validation_outcome(exc.outcome)
+        raise
+    projection.contract_binding.require_validation_outcome(result.outcome)
+    return result

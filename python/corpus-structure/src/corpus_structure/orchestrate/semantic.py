@@ -252,7 +252,7 @@ def run_source_methods(
                             ):
                                 from corpus_structure.semantic.operations import read_original
 
-                                read_original(conn, ref.unit_id)
+                                read_original(conn, ref.unit_id, prepared=prepared)
                 while True:
                     with engine.begin() as conn:
                         claimed = claim_tasks(
@@ -304,9 +304,13 @@ def run_source_methods(
                 if graph.policy_propose and policy_source is not None
                 else 0
             )
+        from corpus_structure.semantic.operation_results import validate_result_dimension
+
+        status = "awaiting_agent" if queued else "source_ready"
+        validate_result_dimension(prepared, "execute_source", "readiness", status, field="status")
         return BoundRunReport(
             run_id=rid,
-            status="awaiting_agent" if queued else "source_ready",
+            status=status,
             release_id=prepared.release_id,
             realization_id=binding.input_realization_id,
             cut_id=cut,

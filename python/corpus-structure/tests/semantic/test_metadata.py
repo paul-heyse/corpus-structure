@@ -136,7 +136,7 @@ def test_metadata_deterministic_and_fixed() -> None:
         assert str(CreateTable(item).compile(dialect=dialect)) == str(
             CreateTable(again.tables[name]).compile(dialect=dialect)
         )
-    assert set(t.schema for t in metadata.tables.values()) == {"sem", "data", "ops", "kb"}
+    assert set(t.schema for t in metadata.tables.values()) == {"sem", "data", "ops", "kb", "eval"}
     assert table("sem.release") is metadata.tables["sem.release"]
     assert PHYSICAL_MODEL_ID.startswith("physical:")
     assert head_revision() is not None

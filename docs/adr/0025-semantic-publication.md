@@ -1,10 +1,10 @@
 ---
 id: ADR-0025
 title: Semantic publication uses protected staging and release-bound native enforcement
-status: accepted
+status: superseded
 date: 2026-10-29
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0031
 design: [§B4, §B5]
 evidence: Proposed
 revisit: A required semantic constraint cannot be faithfully lowered, protected temporary staging cannot retain its ownership boundary, or the deployment needs crash-durable acknowledgements.

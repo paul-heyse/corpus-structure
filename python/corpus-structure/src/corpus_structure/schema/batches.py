@@ -68,7 +68,8 @@ def schema_id(model_revision: str, schema_version: str, form: str) -> str:
 
 def _literal(values: tuple[str, ...]) -> Any:
     """Construct a runtime type form from the acquired closed vocabulary."""
-    return Literal.__getitem__(values)
+    literal_form: Any = Literal
+    return literal_form[values]
 
 
 def _optional(t: Any) -> tuple[Any, Any]:

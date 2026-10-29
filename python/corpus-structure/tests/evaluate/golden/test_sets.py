@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from corpus_structure.evaluate.sets import GoldenSetError, PoolUnit, allocate, sample
+from corpus_structure.evaluate.sampling import GoldenSetError, PoolUnit, allocate, sample
 
 # --- The sampler, by hand ------------------------------------------------------------------------
 

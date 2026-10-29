@@ -20,6 +20,9 @@ DO \$\$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='corpus_sem_reader') THEN
     CREATE ROLE corpus_sem_reader LOGIN;
   END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='corpus_sem_admitter') THEN
+    CREATE ROLE corpus_sem_admitter LOGIN;
+  END IF;
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='corpus_sem_evaluator') THEN
     CREATE ROLE corpus_sem_evaluator LOGIN;
   END IF;
@@ -27,10 +30,11 @@ END \$\$;
 ALTER ROLE corpus_sem_publisher NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE corpus_sem_writer LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE corpus_sem_reader LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE corpus_sem_admitter LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE corpus_sem_evaluator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 DO \$\$ BEGIN
   IF EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member
-             WHERE r.rolname IN ('corpus_sem_writer','corpus_sem_reader','corpus_sem_evaluator','corpus_sem_publisher')) THEN
+             WHERE r.rolname IN ('corpus_sem_writer','corpus_sem_reader','corpus_sem_evaluator','corpus_sem_admitter','corpus_sem_publisher')) THEN
     RAISE EXCEPTION 'semantic principals must not inherit any role';
   END IF;
 END \$\$;
@@ -40,7 +44,7 @@ SQL
 # Prepend a dedicated include; preserve every existing authentication rule.
 TASK_TMP=$(mktemp -d)
 trap 'rm -rf "$TASK_TMP"' EXIT
-printf 'local all corpus_sem_writer,corpus_sem_reader,corpus_sem_evaluator peer map=corpus_semantic\n' >"$TASK_TMP/semantic_hba.conf"
+printf 'local all corpus_sem_writer,corpus_sem_reader,corpus_sem_evaluator,corpus_sem_admitter peer map=corpus_semantic\n' >"$TASK_TMP/semantic_hba.conf"
 sudo install -o postgres -g postgres -m 640 "$TASK_TMP/semantic_hba.conf" "$CONF/semantic_hba.conf"
 if ! sudo grep -Fxq "include_if_exists semantic_hba.conf" "$CONF/pg_hba.conf"; then
   printf "include_if_exists semantic_hba.conf\n" >"$TASK_TMP/pg_hba.conf"
@@ -48,7 +52,7 @@ if ! sudo grep -Fxq "include_if_exists semantic_hba.conf" "$CONF/pg_hba.conf"; t
   sudo install -o postgres -g postgres -m 640 "$TASK_TMP/pg_hba.conf" "$CONF/pg_hba.conf"
 fi
 sudo cat "$CONF/pg_ident.conf" >"$TASK_TMP/pg_ident.conf"
-for principal in corpus_sem_writer corpus_sem_reader corpus_sem_evaluator; do
+for principal in corpus_sem_writer corpus_sem_reader corpus_sem_evaluator corpus_sem_admitter; do
   line="corpus_semantic $OPERATOR $principal"
   if ! grep -Fxq "$line" "$TASK_TMP/pg_ident.conf"; then
     printf '%s\n' "$line" >>"$TASK_TMP/pg_ident.conf"

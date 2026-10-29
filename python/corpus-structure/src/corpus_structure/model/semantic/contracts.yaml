@@ -374,8 +374,18 @@ classes:
         multivalued: true
         minimum_cardinality: 0
         slot_uri: execution:ImplementationBinding_required_capabilities
+  ResultDimension:
+    attributes:
+      id: {range: string, required: true}
+      field: {range: string, required: true}
+      outcome_domain: {range: string, required: true}
   OperationContract:
     attributes:
+      result_dimensions:
+        range: ResultDimension
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
       id:
         range: string
         required: true
@@ -444,8 +454,40 @@ classes:
         multivalued: true
         minimum_cardinality: 0
         slot_uri: execution:OperationContract_projections
+  GraphProjectionPolicy:
+    attributes:
+      universe:
+        range: string
+        required: true
+        equals_string: typed_reference_closure
+        slot_uri: execution:GraphProjectionPolicy_universe
+      precision:
+        range: string
+        required: true
+        equals_string: exact_literals
+        slot_uri: execution:GraphProjectionPolicy_precision
+      collections:
+        range: string
+        required: true
+        equals_string: positions_and_multiplicity
+        slot_uri: execution:GraphProjectionPolicy_collections
+      lifetime:
+        range: string
+        required: true
+        equals_string: snapshot
+        slot_uri: execution:GraphProjectionPolicy_lifetime
+      node_kinds:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:GraphProjectionPolicy_node_kinds
   ProjectionContract:
     attributes:
+      graph_policy:
+        range: GraphProjectionPolicy
+        inlined: true
+        slot_uri: execution:ProjectionContract_graph_policy
       id:
         range: string
         required: true

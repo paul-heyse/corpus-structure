@@ -426,13 +426,13 @@ def test_release_loaded_once_and_recursive_values_batched(
     prepared = seed(semantic_db_engine)
     publish_batch(semantic_writer_engine, candidate(prepared))
     loads = []
-    loader = query.load_release
+    loader = query.open_release
 
     def counted(conn, release_id):
         loads.append(release_id)
         return loader(conn, release_id)
 
-    monkeypatch.setattr(query, "load_release", counted)
+    monkeypatch.setattr(query, "open_release", counted)
     statements = []
 
     def observe(conn, cursor, statement, parameters, context, executemany):

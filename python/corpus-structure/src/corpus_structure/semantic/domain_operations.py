@@ -296,109 +296,37 @@ def _native(value):
 
 
 def _reference(prepared, range_name, value, entities, claims=None):
-    """Rewrite only references declared by the admitted class/property descriptors."""
-    from pydantic import BaseModel
+    """Rewrite through compiled positions, retaining this consumer's equal-collision policy."""
+    from .reference_positions import ReferencePositionError, rewrite_references
 
-    definitions = {d.name: d for d in prepared.definitions}
-    if value is None or range_name not in definitions:
+    if value is None or range_name not in {d.name for d in prepared.definitions}:
         return value
-
-    def visit(model):
-        definition = definitions[type(model).__name__]
-        result: dict[str, Any] = {}
-
-        def lower(item, prop):
-            if prop.reference_role == "fact":
-                return (claims or {}).get(item, item)
-            if prop.range not in definitions:
-                return _plain(item)
-            if not prop.inlined:
-                return entities.get(item, item)
-            return visit(item) if isinstance(item, BaseModel) else _plain(item)
-
-        for prop in definition.properties:
-            if prop.name not in model.model_fields_set:
-                continue
-            member = getattr(model, prop.name)
-            if prop.collection_key:
-                rewritten = {}
-                for item in member.values():
-                    entry = lower(item, prop)
-                    key = entry[prop.collection_key]
-                    if key in rewritten and rewritten[key] != entry:
-                        raise DomainOperationRefused(
-                            "reference resolution collides distinct keyed members"
-                        )
-                    rewritten[key] = entry
-                result[prop.name] = rewritten
-            elif prop.multivalued:
-                result[prop.name] = tuple(lower(item, prop) for item in member)
-            else:
-                result[prop.name] = lower(member, prop)
-        return result
-
-    return visit(prepared.validate_python(range_name, value))
+    try:
+        return rewrite_references(
+            prepared, range_name, value, classes=entities, facts=claims, collision="equal"
+        )
+    except ReferencePositionError as exc:
+        raise DomainOperationRefused(str(exc)) from exc
 
 
 def _entity_references(prepared, range_name, value):
-    """Entity IDs in declared range positions; plain strings never become references."""
-    from pydantic import BaseModel
+    from .reference_positions import collect_references
 
-    definitions = {d.name: d for d in prepared.definitions}
-    found = set()
-    if value is None or range_name not in definitions:
-        return found
-
-    def visit(model):
-        definition = definitions[type(model).__name__]
-        for prop in definition.properties:
-            if prop.name not in model.model_fields_set or prop.range not in definitions:
-                continue
-            child = getattr(model, prop.name)
-            members = (
-                child.values() if prop.collection_key else child if prop.multivalued else (child,)
-            )
-            for member in members:
-                if prop.inlined and isinstance(member, BaseModel):
-                    visit(member)
-                elif not prop.inlined:
-                    found.add(member)
-
-    visit(prepared.validate_python(range_name, value))
-    return found
+    if value is None or range_name not in {d.name for d in prepared.definitions}:
+        return set()
+    return {
+        ref.target for ref in collect_references(prepared, range_name, value) if ref.kind == "class"
+    }
 
 
 def _claim_references(prepared, range_name, value):
-    from pydantic import BaseModel
+    from .reference_positions import collect_references
 
-    definitions = {d.name: d for d in prepared.definitions}
-    found = set()
-    if value is None or range_name not in definitions:
-        return found
-
-    def visit(model):
-        definition = definitions[type(model).__name__]
-        for prop in definition.properties:
-            if prop.name not in model.model_fields_set:
-                continue
-            member = getattr(model, prop.name)
-            is_ref = prop.reference_role == "fact"
-            if is_ref:
-                found.add(member)
-            elif prop.inlined and prop.range in definitions:
-                values = (
-                    member.values()
-                    if prop.collection_key
-                    else member
-                    if prop.multivalued
-                    else (member,)
-                )
-                for child in values:
-                    if isinstance(child, BaseModel):
-                        visit(child)
-
-    visit(prepared.validate_python(range_name, value))
-    return found
+    if value is None or range_name not in {d.name for d in prepared.definitions}:
+        return set()
+    return {
+        ref.target for ref in collect_references(prepared, range_name, value) if ref.kind == "fact"
+    }
 
 
 def _source_fact_id(prepared, output, item):
@@ -428,9 +356,13 @@ def _property_value(prepared, definition, prop, value, mapping, claims=None):
     by_name = {d.name: d for d in prepared.definitions}
     if prop.range in by_name:
         if not prop.inlined:
-            if not isinstance(value, dict) or value.get("kind") != "entity":
-                raise DomainOperationRefused("entity relation needs explicit EntityValue")
-            return mapping.get(value["target"], value["target"])
+            from .reference_positions import ReferencePositionError, class_reference_value
+
+            try:
+                target = class_reference_value(prepared, value)
+            except ReferencePositionError as exc:
+                raise DomainOperationRefused(str(exc)) from exc
+            return mapping.get(target, target)
         return _reference(prepared, prop.range, value, mapping, claims)
     native_range = native_constraints(prepared)[definition.iri, prop.iri]["native_range"]
     if prop.range in {v.enum for v in prepared.vocabularies}:
@@ -3301,12 +3233,22 @@ class ReleasedRulesPolicy:
                         canonical_bytes([VERSION, c.occurrence_id, rule, severity, message])
                     ).hexdigest()
                 )
+                from .operation_results import validate_result_dimension
+
+                finding = "refuted" if severity == "error" else "warning"
+                validate_result_dimension(
+                    self.prepared,
+                    "scientific_policy",
+                    "finding",
+                    finding,
+                    field="assessment.outcome",
+                )
                 assessments.append(
                     AssessmentRow(
                         aid,
                         rule,
                         VERSION,
-                        "refuted" if severity == "error" else "warning",
+                        finding,
                         occurrence_id=c.occurrence_id,
                         reason=message,
                         uncertainty=unknown or reading_note,
@@ -3326,6 +3268,11 @@ class ReleasedRulesPolicy:
             aid = (
                 "assessment:"
                 + sha256(canonical_bytes([VERSION, c.occurrence_id, status])).hexdigest()
+            )
+            from .operation_results import validate_result_dimension
+
+            validate_result_dimension(
+                self.prepared, "scientific_policy", "selection", status, field="selection.outcome"
             )
             assessments.append(
                 AssessmentRow(

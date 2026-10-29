@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from .identity import _meaning, canonical_bytes, occurrence_key
+from .identity import canonical_bytes, occurrence_key
 from .publication import (
     EntityRow,
     EvidenceRow,
@@ -68,17 +68,9 @@ def plain(value: Any) -> Any:
 
 
 def representation(value: Any) -> Any:
-    if isinstance(value, Decimal):
-        return ["decimal-report", str(value)]
-    if isinstance(value, datetime):
-        return ["datetime-report", value.isoformat()]
-    if isinstance(value, date):
-        return ["date-report", value.isoformat()]
-    if isinstance(value, dict):
-        return ["mapping", [[key, representation(item)] for key, item in sorted(value.items())]]
-    if isinstance(value, (tuple, list)):
-        return ["sequence", [representation(item) for item in value]]
-    return _meaning(value)
+    from .value_codec import observed_representation
+
+    return observed_representation(value)
 
 
 class FactValueLowerer:

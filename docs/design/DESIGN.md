@@ -237,14 +237,14 @@ batch identity across retry and commit uncertainty. The regenerable-data asynchr
 policy does not promise crash-durable acknowledgements. [D3](D3-database.md) owns the route and
 the [pivot package](../plans/semantic-model-pivot/postgresql-and-publication.md) owns acceptance.
 
-> Decision: ADR-0025
+> Decision: ADR-0031
 
 **Implemented; scoped Tested (2026-10-29).** The transitioned composed-model boundary now
 uses finite trusted lifecycle/conditional guards and protected terminal effects. Completed output
 is a relationship, enforced atomically with run completion; measurement rows derive from immutable
 source results with source-position identity. Frozen revisions semantic_0023–0026 enforce exact
 execution/native/physical compatibility, restricted privileges and authored-SQL admission before
-construction/activation. The operational database remains on semantic_0005. The
+construction/activation. Operational deployments retain their existing revision; the pivot coordinator owns their checkpoint. The
 [completeness coordinator §10](../plans/semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
 owns receipts and the later SP-08–SP-10 boundary; this is not whole-series qualification.
 
@@ -286,7 +286,7 @@ owns native/provider acceptance and limitations. Statistics/transfer journeys co
 semantic_0030; a fresh frame journey exposed a native guard that does not consume the explicit
 release statement binding. Its correction and assembled qualification remain open.
 
-> Decision: ADR-0030
+> Decision: ADR-0030, ADR-0031
 
 **Accepted target refinement (2026-10-29).** Typed evidence-backed identity exclusions constrain
 existing key/label resolution and protected publication. Exclusions retain their scoped source and
@@ -324,7 +324,7 @@ compares parent plus generation, performs required native/authored-SQL admission
 existing realization bindings intact. Unsupported required native semantics refuse activation;
 new admitted class/property definitions change registry rows without physical DDL.
 
-> Decision: ADR-0025
+> Decision: ADR-0031
 
 **Proposed · accepted target, 2026-10-29.** Local LinkML and pinned external ontology dependencies
 prepare an immutable binding of types, scoped constraints, identities and operations. Dynamic
@@ -352,3 +352,15 @@ methods enter only through gap proposals and experiments ([D6 §7](D6-orchestrat
 
 **Accepted deferrals.** Capabilities outside the current architecture on purpose; each returns
 by ADR when a named consumer needs it. The active plan owns the scheduling triggers. None yet.
+
+### Semantic execution closure
+
+**Accepted target, 2026-10-29; implementation partial.** Effective immutable contracts govern actual
+validation purposes, operations and projections. Archive-backed reads preserve supported historical
+boundaries; full verification remains mandatory for admission. Restricted admission owns complete
+protected archive/finalization/activation operations; maintenance credentials stay administrative.
+Native integrity supports shape and accepted-value placement; required patterns and occurrence/context
+placement refuse explicitly. The owning [execution package](../plans/semantic-model-pivot/model-execution-closure.md)
+records implementation and qualification independently. Existing publication and reference guarantees remain.
+
+> Decision: ADR-0031

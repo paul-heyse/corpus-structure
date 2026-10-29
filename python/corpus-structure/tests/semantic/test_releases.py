@@ -23,6 +23,8 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.types import PreparedArtifact
 
+from .archive_faults import administrative_archive_edit
+
 
 def source_bundle(extra: bytes = b"") -> SourceBundle:
     # Deliberately preserve comments, CRLF and source/dependency ordering independently
@@ -181,14 +183,15 @@ def test_tampered_archive_or_projection_refuses(semantic_db_engine: Engine, rela
     with semantic_db_engine.begin() as conn:
         *_, prepared = stage(conn)
         target = table("sem." + relation)
-        conn.execute(
-            update(target)
-            .where(
-                target.c.release_id == prepared.release_id,
-                *(target.c[k] == v for k, v in key.items()),
+        with administrative_archive_edit(conn, target):
+            conn.execute(
+                update(target)
+                .where(
+                    target.c.release_id == prepared.release_id,
+                    *(target.c[k] == v for k, v in key.items()),
+                )
+                .values(**changed)
             )
-            .values(**changed)
-        )
         with pytest.raises(releases.ReleaseConflict):
             releases.load_release(conn, prepared.release_id)
 
@@ -198,11 +201,12 @@ def test_changed_compiler_version_refuses_before_reprepare(semantic_db_engine: E
         *_, prepared = stage(conn)
         manifest = json.loads(prepared.manifest)
         manifest["libraries"]["pydantic"] = "0.0.0"
-        conn.execute(
-            update(table("sem.release"))
-            .where(table("sem.release").c.release_id == prepared.release_id)
-            .values(manifest_bytes=json.dumps(manifest).encode())
-        )
+        with administrative_archive_edit(conn, table("sem.release")):
+            conn.execute(
+                update(table("sem.release"))
+                .where(table("sem.release").c.release_id == prepared.release_id)
+                .values(manifest_bytes=json.dumps(manifest).encode())
+            )
 
         def unexpected(*args):
             pytest.fail("a changed compiler must refuse before recompilation")

@@ -35,44 +35,63 @@ def test_native_bootstrap_and_subsequent_projection(semantic_db_engine: Engine) 
         assert "claim" not in catalog.get_table_names(schema="kb")
 
 
-def _seed(conn) -> None:
-    conn.execute(
-        insert(table("sem.release")),
-        [
-            dict(
-                release_id=x,
-                content_digest=x,
-                profile="test",
-                prepared_bytes=b"{}",
-                manifest_bytes=b"{}",
-            )
-            for x in ["a", "b"]
-        ],
-    )
+def _seed(conn) -> tuple[str, str]:
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+
+    releases = []
+    for label in ("a", "b"):
+        bundle = SourceBundle(
+            label,
+            (
+                SourceArtifact(
+                    label,
+                    (
+                        f"id: https://example/{label}\nname: {label}\n"
+                        "prefixes: {ex: 'https://example/'}\n"
+                        "default_prefix: ex\nclasses: {}\n"
+                    ).encode(),
+                ),
+            ),
+        )
+        prepared = prepare_release(bundle, ResolvedDependencies())
+        persist_release(conn, bundle, ResolvedDependencies(), PreparationProfile(), prepared)
+        releases.append(prepared.release_id)
     conn.execute(insert(table("data.project")).values(project_id="p"))
     conn.execute(
         insert(table("data.realization")),
-        [dict(realization_id="r" + x, project_id="p", release_id=x) for x in ["a", "b"]],
+        [
+            dict(realization_id="r" + label, project_id="p", release_id=release)
+            for label, release in zip(("a", "b"), releases, strict=True)
+        ],
     )
     conn.execute(
-        insert(table("data.entity")).values(realization_id="ra", release_id="a", entity_id="e")
+        insert(table("data.entity")).values(
+            realization_id="ra", release_id=releases[0], entity_id="e"
+        )
     )
+    return releases[0], releases[1]
 
 
 def test_native_cross_realization_and_variant_constraints(semantic_db_engine: Engine) -> None:
     with semantic_db_engine.begin() as conn:
-        _seed(conn)
+        release_a, release_b = _seed(conn)
         with pytest.raises(IntegrityError), conn.begin_nested():
             conn.execute(
                 insert(table("data.typed_value")).values(
-                    realization_id="rb", release_id="b", value_id="v", kind="entity", entity_id="e"
+                    realization_id="rb",
+                    release_id=release_b,
+                    value_id="v",
+                    kind="entity",
+                    entity_id="e",
                 )
             )
         with pytest.raises(IntegrityError), conn.begin_nested():
             conn.execute(
                 insert(table("data.typed_value")).values(
                     realization_id="ra",
-                    release_id="a",
+                    release_id=release_a,
                     value_id="v",
                     kind="entity",
                     entity_id="e",
@@ -82,7 +101,7 @@ def test_native_cross_realization_and_variant_constraints(semantic_db_engine: En
         conn.execute(
             insert(table("data.typed_value")).values(
                 realization_id="ra",
-                release_id="a",
+                release_id=release_a,
                 value_id="huge",
                 kind="decimal",
                 decimal_lexical="1e200000",
@@ -98,7 +117,7 @@ def test_native_cross_realization_and_variant_constraints(semantic_db_engine: En
         conn.execute(
             insert(table("data.typed_value")).values(
                 realization_id="ra",
-                release_id="a",
+                release_id=release_a,
                 value_id="large-number",
                 kind="decimal",
                 decimal_lexical=large,
@@ -108,7 +127,7 @@ def test_native_cross_realization_and_variant_constraints(semantic_db_engine: En
         conn.execute(
             insert(table("data.typed_value")).values(
                 realization_id="ra",
-                release_id="a",
+                release_id=release_a,
                 value_id="large-text",
                 kind="string",
                 text_value=large,
@@ -118,7 +137,7 @@ def test_native_cross_realization_and_variant_constraints(semantic_db_engine: En
             conn.execute(
                 insert(table("data.typed_value")).values(
                     realization_id="ra",
-                    release_id="a",
+                    release_id=release_a,
                     value_id="fractional-integer",
                     kind="integer",
                     text_value="1",
@@ -139,14 +158,14 @@ def test_bootstrap_downgrade_refuses_destructive_reversal(semantic_db_engine: En
 def test_partial_scalar_indexes_do_not_limit_exact_payload_size(semantic_db_engine: Engine) -> None:
     lexical = "9" * 10000
     with semantic_db_engine.begin() as conn:
-        _seed(conn)
+        release_a, _release_b = _seed(conn)
         values = table("data.typed_value")
         conn.execute(
             insert(values),
             [
                 dict(
                     realization_id="ra",
-                    release_id="a",
+                    release_id=release_a,
                     value_id="text",
                     kind="string",
                     text_value=lexical,
@@ -155,7 +174,7 @@ def test_partial_scalar_indexes_do_not_limit_exact_payload_size(semantic_db_engi
                 ),
                 dict(
                     realization_id="ra",
-                    release_id="a",
+                    release_id=release_a,
                     value_id="decimal",
                     kind="decimal",
                     text_value=None,

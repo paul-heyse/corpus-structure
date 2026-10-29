@@ -68,7 +68,10 @@ def proposal_inputs(
         statement.name == "SourceStatement" or "SourceStatement" in statement.ancestors
     ):
         raise ValueError("agent operation needs an explicit SourceStatement class or subclass")
-    statement_enum = next(p.range for p in statement.properties if p.name == "statement_kind")
+    kind_property = next((p for p in statement.properties if p.name == "statement_kind"), None)
+    if kind_property is None:
+        raise ValueError("agent statement binding requires a statement_kind property")
+    statement_enum = kind_property.range
     module["classes"]["AgentStatementBinding"]["attributes"]["statement"]["range"] = statement_class
     module["enums"]["AgentStatementKind"]["permissible_values"] = {
         **{name: {} for name in sorted(candidate.enum_members(statement_enum))},
@@ -213,8 +216,6 @@ def _property_value(value: Mapping[str, Any], range_name: str) -> Any:
         return value["date"]
     if range_name == "datetime" and value["kind"] == "instant":
         return value["instant"]
-    if range_name == "Entity" and value["kind"] == "entity":
-        return value["target"]
     return dict(value)
 
 
@@ -258,19 +259,19 @@ def _check_references(
             universe = entities if endpoint["kind"] == "local" else known
             if endpoint["target"] not in universe:
                 raise ProposalRefused("identity exclusion endpoint is outside the bound packet")
+    from .reference_positions import class_reference_value, reference_position
+
     constraints = native_constraints(prepared)
-    by_name = {definition.name: definition for definition in prepared.definitions}
 
     def check_value(value, definition, prop):
-        range_definition = by_name.get(prop.range)
-        if range_definition is not None and (
-            range_definition.name == "Entity" or "Entity" in range_definition.ancestors
-        ):
-            if value.get("kind") != "entity":
+        position = reference_position(prepared, definition.name, prop.name)
+        if position.kind == "class":
+            try:
+                target = class_reference_value(prepared, value)
+            except ValueError as exc:
                 raise ProposalRefused(
                     "entity-ranged property requires an explicit entity reference"
-                )
-            target = value["target"]
+                ) from exc
             if target in entities:
                 target_classes = (entities[target]["class_iri"],)
             else:
@@ -413,48 +414,31 @@ def locate_proposal(
     _check_references(prepared, raw, known_classes or {})
     declared = {item["id"]: item["class_iri"] for item in raw.get("entities", ())}
     known = known_classes or {}
-    definitions = {definition.name: definition for definition in prepared.definitions}
     iri_definitions = {definition.iri: definition for definition in prepared.definitions}
 
-    def check_nested(value):
-        from pydantic import MISSING
+    from .reference_positions import collect_references
 
-        if isinstance(value, BaseModel):
-            definition = definitions[value.__class__.__name__]
-            for prop in definition.properties:
-                item = getattr(value, prop.name)
-                if item is MISSING:
-                    continue
-                target = definitions.get(prop.range)
-                if (
-                    target is not None
-                    and (target.name == "Entity" or "Entity" in target.ancestors)
-                    and not prop.inlined
-                ):
-                    refs = item if prop.multivalued else (item,)
-                    for ref in refs:
-                        classes = (declared[ref],) if ref in declared else known.get(ref, ())
-                        if not any(
-                            iri in iri_definitions
-                            and (
-                                iri_definitions[iri].name == target.name
-                                or target.name in iri_definitions[iri].ancestors
-                            )
-                            for iri in classes
-                        ):
-                            raise ProposalRefused(
-                                "nested entity reference must be declared with its required class"
-                            )
-                else:
-                    check_nested(item)
-        elif isinstance(value, Mapping):
-            for item in value.values():
-                check_nested(item)
-        elif isinstance(value, tuple):
-            for item in value:
-                check_nested(item)
+    for reference in collect_references(prepared, "AgentAuthoredBatch", raw):
+        if reference.kind != "class":
+            # Fact endpoints retain the source dependency/unresolved policy during consolidation.
+            continue
+        classes = (
+            (declared[reference.target],)
+            if reference.target in declared
+            else known.get(reference.target, ())
+        )
+        if not any(
+            iri in iri_definitions
+            and (
+                iri_definitions[iri].name == reference.range
+                or reference.range in iri_definitions[iri].ancestors
+            )
+            for iri in classes
+        ):
+            raise ProposalRefused(
+                "nested entity reference must be declared with its required class"
+            )
 
-    check_nested(authored)
     stored = copy.deepcopy(raw)
     for statement in stored.get("statements", ()):
         if statement["kind"] != "outside":

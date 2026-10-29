@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json as jsonlib
 from contextlib import contextmanager
+from dataclasses import asdict
 from typing import Annotated, Any, Literal
 
 import typer
@@ -30,7 +31,15 @@ def refusal(json: bool):
         OSError,
     ) as e:
         if json:
-            typer.echo(jsonlib.dumps({"error": {"code": type(e).__name__, "message": str(e)}}))
+            from corpus_structure.semantic.types import PreparationError
+
+            error: dict[str, Any] = {"code": type(e).__name__, "message": str(e)}
+            if isinstance(e, PreparationError):
+                error["diagnostics"] = [
+                    {key: value for key, value in asdict(item).items() if value is not None}
+                    for item in e.diagnostics
+                ]
+            typer.echo(jsonlib.dumps({"error": error}))
         else:
             stderr_console().print(f"refused: {e}")
         raise typer.Exit(1) from None

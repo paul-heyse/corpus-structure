@@ -20,11 +20,11 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0015](0015-agent-work-queue.md) | The agent tier works a recorded queue; the pipeline never calls it | 2026-10-28 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
 | [ADR-0018](0018-policy-routed-escalation.md) | Escalation is routed by versioned policies over measurements | 2026-10-28 | [§B6](../design/DESIGN.md#section-b6) | Interface-checked |  |
 | [ADR-0024](0024-semantic-release-preparation.md) | Semantic releases govern interpretation and preserve independent assertion occurrences | 2026-10-29 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0013](0013-claim-model.md), [ADR-0019](0019-identity-follows-content.md), [ADR-0020](0020-one-model-generated-projections.md), [ADR-0021](0021-instance-and-structure-authorities.md), [ADR-0022](0022-schema-change-modelled.md), [ADR-0023](0023-declared-identity.md) |
-| [ADR-0025](0025-semantic-publication.md) | Semantic publication uses protected staging and release-bound native enforcement | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0026](0026-columnar-semantic-operations.md) | Semantic projections share snapshots and compose analytical operations in DuckDB | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0027](0027-bound-domain-operations.md) | Domain operations bind immutable releases and preserve qualified support | 2026-10-29 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0029](0029-identity-exclusions-scoped-reference.md) | Evidence-backed exclusions constrain semantic identity resolution | 2026-10-29 | [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0028 |
 | [ADR-0030](0030-semantic-consumers-and-reference-evaluation.md) | Semantic consumers select completed results and protect independent references | 2026-10-29 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0031](0031-semantic-execution-closure.md) | Effective semantic contracts govern protected execution and archive opening | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0025](0025-semantic-publication.md) |
 
 ## Superseded, still in the tree
 
@@ -39,5 +39,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0021](0021-instance-and-structure-authorities.md) | PostgreSQL is the transactional authority for instances, the model for structure and meaning; set-based steps run in an in-process engine | 2026-10-28 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0016](0016-postgresql-single-authority.md) |
 | [ADR-0022](0022-schema-change-modelled.md) | Schema change is modelled: revisions, a payload-schema registry and change records with compatibility classes | 2026-10-28 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0023](0023-declared-identity.md) | Identity is declared: qualifier key roles, canonical forms by range, case policy and a versioned key scheme | 2026-10-28 | [§B1](../design/DESIGN.md#section-b1) | Proposed |  |
+| [ADR-0025](0025-semantic-publication.md) | Semantic publication uses protected staging and release-bound native enforcement | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

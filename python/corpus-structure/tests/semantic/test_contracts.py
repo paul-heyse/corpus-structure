@@ -73,12 +73,18 @@ def test_all_transitioned_families_and_measurement_context(products):
         "realization",
         "evaluation_result",
         "analysis",
+        "reference_pass_record",
+        "reference_grade_record",
     }
     assert products.required_capabilities == (
         "execution.lifecycle.v1",
         "execution.identity_exclusions.v1",
+        "execution.reference_evaluation.v1",
+        "execution.selected_result.v1",
     )
-    assert {op.implementation for op in products.operations} == set(approved_implementations())
+    assert {op.implementation for op in products.operations} == set(approved_implementations()) - {
+        "locate"
+    }
     for binding in products.implementations:
         implementation = approved_implementations()[binding.id]
         assert binding.owner == implementation.__module__.removeprefix("corpus_structure.")
@@ -297,6 +303,7 @@ def test_exact_explicit_bytes_identity_and_immutable_products(inputs, products, 
                     schema_source,
                     content=schema_source.content + b"\n# identity-sensitive comment\n",
                 ),
+                *inputs.schema.sources[1:],
             ),
         ),
     )
@@ -394,6 +401,12 @@ def test_named_graph_operations_are_resolved_and_qualified(products):
         "QualifiedGraphProjection",
         "QualifiedGraphShapes",
     )
-    assert operations["graph_validate"].outcomes == ("conformant", "nonconformant", "invalid")
+    assert operations["graph_validate"].outcomes == (
+        "conformant",
+        "nonconformant",
+        "invalid",
+        "invalid_shape",
+        "runtime_failure",
+    )
     assert approved_implementations()["graph_project"].__name__ == "qualified_validation_graph"
     assert approved_implementations()["graph_validate"].__name__ == "validate_projected_graph"

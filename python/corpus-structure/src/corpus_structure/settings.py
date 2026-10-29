@@ -33,7 +33,9 @@ class DatabaseSettings(_Section):
     """One libpq URL (peer authentication; no password belongs here) and the template database."""
 
     url: str = "postgresql://corpus_sem_writer@/corpus_semantic?host=/var/run/postgresql&port=5434"
-    maintenance_url: str = "postgresql:///corpus_semantic?host=/var/run/postgresql&port=5434"
+    maintenance_url: str = "postgresql:///"
+    reader_url: str | None = None
+    admission_url: str | None = None
     evaluator_url: str | None = None
     template: str = "cs_template"
 
@@ -150,7 +152,7 @@ def settings_report(settings: Settings, environ: Mapping[str, str]) -> SettingsR
     for section, values in settings.model_dump(mode="json").items():
         for field, value in values.items():
             resolved[f"{section}.{field}"] = "" if value is None else str(value)
-    for field in ("url", "maintenance_url", "evaluator_url"):
+    for field in ("url", "maintenance_url", "evaluator_url", "reader_url", "admission_url"):
         value = getattr(settings.database, field)
         resolved[f"database.{field}"] = "" if value is None else _mask_url_password(value)
     known = known_env_names()

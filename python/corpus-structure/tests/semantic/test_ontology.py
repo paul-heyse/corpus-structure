@@ -1,5 +1,6 @@
 """Independent ontology, occurrence and conformance expectations."""
 
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -437,7 +438,6 @@ def test_profile_default_scope_is_applied_to_graph_projection():
 
 
 def test_qualified_projection_exposes_structured_paths_and_required_closure():
-    from corpus_structure.semantic.ontology import QualifiedGraphProjection
 
     occurrence = {
         "id": "urn:occ:1",
@@ -446,7 +446,7 @@ def test_qualified_projection_exposes_structured_paths_and_required_closure():
         "object": "value",
         "condition": {"roles": ["same", "same"]},
     }
-    projection = QualifiedGraphProjection(
+    projection = _bound_projection(
         "r",
         "z",
         3,
@@ -474,7 +474,6 @@ def test_qualified_projection_exposes_structured_paths_and_required_closure():
 
 def test_projected_validation_uses_nested_qualified_path():
     from corpus_structure.semantic.ontology import (
-        QualifiedGraphProjection,
         validate_projected_graph,
     )
 
@@ -485,7 +484,7 @@ def test_projected_validation_uses_nested_qualified_path():
         "object": "v",
         "condition": {"count": "invalid"},
     }
-    projection = QualifiedGraphProjection(
+    projection = _bound_projection(
         "r", "z", 0, "graph-validation", (row,), {"urn:s": {"kind": "entity"}}, {}
     )
     shapes = Graph().parse(
@@ -500,7 +499,6 @@ def test_projected_validation_uses_nested_qualified_path():
 
 
 def test_projected_null_remains_distinct_from_absence_and_literal_text():
-    from corpus_structure.semantic.ontology import QualifiedGraphProjection
 
     row = {
         "id": "urn:occ:1",
@@ -509,7 +507,7 @@ def test_projected_null_remains_distinct_from_absence_and_literal_text():
         "object": None,
         "qualification": {"null": None, "text": "None"},
     }
-    graph = QualifiedGraphProjection(
+    graph = _bound_projection(
         "r", "z", 0, "graph-validation", (row,), {"urn:s": {"kind": "entity"}}, {}
     ).graph()
     qualification = graph.value(URIRef("urn:occ:1"), CS.qualificationNode)
@@ -522,7 +520,7 @@ def test_projected_null_remains_distinct_from_absence_and_literal_text():
 def test_typed_graph_references_derive_transitive_closure_without_reference_map():
     from dataclasses import replace
 
-    from corpus_structure.semantic.ontology import QualifiedGraphProjection, QualifiedGraphReference
+    from corpus_structure.semantic.ontology import QualifiedGraphReference
 
     row = {
         "id": "urn:occ",
@@ -531,7 +529,7 @@ def test_typed_graph_references_derive_transitive_closure_without_reference_map(
         "object": "value",
         "qualification": {"proof": QualifiedGraphReference("urn:proof")},
     }
-    projection = QualifiedGraphProjection(
+    projection = _bound_projection(
         "r",
         "z",
         0,
@@ -567,10 +565,9 @@ def test_reified_collection_shapes_reject_duplicate_member_positions():
 
 
 def test_qualified_projection_refuses_node_binding_relabeling():
-    from corpus_structure.semantic.ontology import QualifiedGraphProjection
 
     row = {"id": "urn:occ", "subject": "urn:s", "predicate": "urn:p", "object": "value"}
-    projection = QualifiedGraphProjection(
+    projection = _bound_projection(
         "r",
         "z",
         2,
@@ -589,7 +586,6 @@ def test_identity_exclusions_are_qualified_constraints_with_complete_closure():
     from rdflib.namespace import OWL
 
     from corpus_structure.semantic.ontology import (
-        QualifiedGraphProjection,
         QualifiedGraphReference,
         validate_projected_graph,
     )
@@ -602,7 +598,7 @@ def test_identity_exclusions_are_qualified_constraints_with_complete_closure():
         "reason": "source distinguishes the entities",
     }
     second = {**first, "id": "urn:exclusion:second"}
-    projection = QualifiedGraphProjection(
+    projection = _bound_projection(
         "release",
         "realization",
         2,
@@ -633,3 +629,81 @@ def test_identity_exclusions_are_qualified_constraints_with_complete_closure():
         replace(projection, identity_exclusions=({**first, "left": "urn:entity:a"},)).graph()
     with pytest.raises(OntologyError, match="typed evidence"):
         replace(projection, identity_exclusions=({**first, "evidence": ()},)).graph()
+
+
+def _bound_projection(*args, **kwargs):
+    """Explicit trusted contract fixture; each test supplies its independent node universe."""
+    from corpus_structure.semantic.ontology import GraphProjectionBinding, QualifiedGraphProjection
+
+    model = _graph_model()
+    contract = next(p for p in model.projections if p.id == "graph_validation")
+    roots = tuple(str(row["id"]) for row in args[4])
+    if len(args) > 7:
+        roots += tuple(str(row["id"]) for row in args[7])
+    return QualifiedGraphProjection(
+        *args,
+        contract_binding=GraphProjectionBinding(
+            args[0],
+            model.model_id,
+            contract,
+            next(op.outcomes for op in model.operations if op.id == "graph_validate"),
+        ),
+        source_universe=roots,
+        snapshot_guard=lambda: True,
+        **kwargs,
+    )
+
+
+@lru_cache(maxsize=1)
+def _graph_model():
+    from corpus_structure.semantic.contracts import (
+        compile_execution_model,
+        trusted_execution_inputs,
+    )
+
+    return compile_execution_model(trusted_execution_inputs())
+
+
+def test_graph_contract_and_snapshot_are_enforced():
+    from dataclasses import replace
+
+    projection = _bound_projection(
+        "r", "z", 0, "instance-label", (), {"urn:e": {"kind": "entity"}}, {}
+    )
+    with pytest.raises(OntologyError, match="wrong graph contract release"):
+        replace(
+            projection, contract_binding=replace(projection.contract_binding, release_id="other")
+        ).graph()
+    with pytest.raises(OntologyError, match="snapshot is closed"):
+        replace(projection, snapshot_guard=lambda: False).graph()
+    with pytest.raises(OntologyError, match="source universe"):
+        replace(projection, source_universe=("urn:missing",)).graph()
+    with pytest.raises(OntologyError, match="node kind"):
+        replace(projection, related_nodes={"urn:e": {"kind": "unmodeled"}}).graph()
+
+
+def test_shacl_nonconformance_has_located_diagnostics_and_invalid_shapes_are_errors():
+    from corpus_structure.semantic.ontology import GraphShapeError, validate_graph
+
+    data = Graph().parse(data='@prefix ex: <urn:> . ex:s ex:p "wrong" .', format="turtle")
+    shapes = Graph().parse(
+        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+<urn:shape> a sh:NodeShape; sh:targetNode <urn:s>;
+ sh:property [sh:path <urn:p>; sh:datatype xsd:integer] .""",
+        format="turtle",
+    )
+    result = validate_graph(data, shapes)
+    assert not result.conforms
+    assert result.diagnostics[0].focus_node == "urn:s"
+    assert result.diagnostics[0].path == "urn:p"
+    assert result.diagnostics[0].constraint is not None
+    assert result.diagnostics[0].constraint.endswith("DatatypeConstraintComponent")
+    invalid = Graph().parse(
+        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
+<urn:shape> a sh:NodeShape; sh:targetNode <urn:s>;
+ sh:property [sh:path <urn:p>; sh:minCount "wrong"] .""",
+        format="turtle",
+    )
+    with pytest.raises(GraphShapeError):
+        validate_graph(data, invalid)

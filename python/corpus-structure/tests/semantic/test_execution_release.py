@@ -24,6 +24,8 @@ from corpus_structure.semantic.execution_admission import ExecutionAdmissionErro
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 
+from .archive_faults import administrative_archive_edit
+
 
 def _bundle() -> SourceBundle:
     return SourceBundle(
@@ -152,7 +154,8 @@ def test_corrupt_execution_archive_refuses_even_with_recomputed_digest(
             archive["products"]["execution_model_id"] = "execution:forged"
             content = canonical_bytes(archive)
             values = {"prepared_bytes": content, "content_digest": sha256(content).hexdigest()}
-        conn.execute(update(target).where(*predicate).values(**values))
+        with administrative_archive_edit(conn, target):
+            conn.execute(update(target).where(*predicate).values(**values))
         with pytest.raises(releases.ReleaseConflict):
             releases.load_release(conn, prepared.release_id)
 
@@ -508,6 +511,7 @@ def test_native_constructor_admits_binary_rules_with_subtyped_range(
     _admit_inference(prepared)
     with semantic_db_engine.begin() as conn:
         releases.persist_release(conn, bundle, dependencies, profile, prepared)
+        conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
         project = _project(conn)
     realization = str(uuid4())
     with semantic_writer_engine.begin() as conn:
@@ -624,9 +628,12 @@ def test_native_constructor_requires_exact_sql_artifact_binding(
             content = canonical_bytes(body)
             values = {"content": content, "content_digest": sha256(content).hexdigest()}
         admission = table("sem.sql_admission")
-        conn.execute(
-            update(admission).where(admission.c.release_id == prepared.release_id).values(**values)
-        )
+        with administrative_archive_edit(conn, admission):
+            conn.execute(
+                update(admission)
+                .where(admission.c.release_id == prepared.release_id)
+                .values(**values)
+            )
     with (
         semantic_writer_engine.begin() as conn,
         pytest.raises(DBAPIError, match="required authored SQL"),
@@ -669,11 +676,16 @@ def test_native_constructor_obeys_archived_diagnostic_policy(
                 "location": "test",
             }
         ]
-        conn.execute(
-            update(table("sem.release"))
-            .where(table("sem.release").c.release_id == prepared.release_id)
-            .values(prepared_bytes=canonical_bytes(archive))
-        )
+        with administrative_archive_edit(conn, table("sem.release")):
+            conn.execute(
+                update(table("sem.release"))
+                .where(table("sem.release").c.release_id == prepared.release_id)
+                .values(prepared_bytes=canonical_bytes(archive))
+            )
+        if not refused:
+            conn.execute(
+                text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id}
+            )
     with semantic_writer_engine.begin() as conn:
         statement = text("SELECT data.initialize_source_project(:p,:r,:z)")
         parameters = {"p": project, "r": prepared.release_id, "z": str(uuid4())}
