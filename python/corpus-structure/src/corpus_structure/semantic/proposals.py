@@ -35,6 +35,7 @@ def proposal_inputs(
     dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
     *,
     qualification_class: str = "Qualification",
+    statement_class: str = "SourceStatement",
 ) -> SourceBundle:
     """Archive model-facing boundaries with the exact candidate vocabulary."""
     from .observations import observation_inputs
@@ -60,8 +61,13 @@ def proposal_inputs(
     predicates = {p.iri for definition in entities for p in definition.properties if p.name != "id"}
     if not predicates:
         raise ValueError("agent proposals require at least one declared entity property")
+    statement = next((d for d in candidate.classes if d.name == statement_class), None)
+    if statement is None or not (statement.name == "SourceStatement" or "SourceStatement" in statement.ancestors):
+        raise ValueError("agent operation needs an explicit SourceStatement class or subclass")
+    statement_enum = next(p.range for p in statement.properties if p.name == "statement_kind")
+    module["classes"]["AgentStatementBinding"]["attributes"]["statement"]["range"] = statement_class
     module["enums"]["AgentStatementKind"]["permissible_values"] = {
-        **{name: {} for name in sorted(candidate.enum_members("StatementKind"))},
+        **{name: {} for name in sorted(candidate.enum_members(statement_enum))},
         "outside": {"description": "An explicitly unresolved external statement reference."},
     }
     module["enums"]["AgentClassIRI"]["permissible_values"] = {d.iri: {} for d in entities}

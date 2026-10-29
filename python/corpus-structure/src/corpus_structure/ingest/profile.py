@@ -282,7 +282,9 @@ def release_vocabulary(prepared: Any) -> dict[str, frozenset[str]]:
     import json
 
     try:
-        kinds = prepared.enum_members("StatementKind")
+        from corpus_structure.semantic.statement_types import statement_kinds
+
+        kinds = statement_kinds(prepared)
     except StopIteration:
         kinds = frozenset()
     iris = {p.iri for definition in prepared.definitions for p in definition.properties}

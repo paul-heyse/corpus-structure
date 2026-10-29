@@ -79,7 +79,7 @@ def _policy_yaml(content):
 
     def scalars(value):
         if isinstance(value, str):
-            return str(value)
+            return value[:]
         if isinstance(value, dict):
             return {scalars(k): scalars(v) for k, v in value.items()}
         if isinstance(value, list):
@@ -1551,14 +1551,19 @@ def _project_cut(
             if statement is not None:
                 sid = statement_ids[claim["statement"]]
                 props = {"id": sid, "locator": statement["anchor"]}
-                if statement["kind"] in prepared.enum_members("StatementKind"):
+                from .statement_types import statement_definition, statement_kinds
+
+                statement_type = statement_definition(prepared)
+                if statement["kind"] in statement_kinds(prepared):
                     props["statement_kind"] = statement["kind"]
+                elif statement["kind"] != "outside":
+                    raise DomainOperationRefused("statement kind differs from its declared source-statement range")
                 for name, value in props.items():
                     items.append(
                         replace(
                             item,
                             subject=sid,
-                            class_name="SourceStatement",
+                            class_name=statement_type.name,
                             property_name=name,
                             object=value,
                             item="statements/" + claim["statement"] + "/" + name,
@@ -2337,9 +2342,9 @@ class ReleasedRulesPolicy:
         }
         from corpus_structure.core.vocab import MathKind, ParseOutcome
 
-        statement_kinds = Vocabulary(
-            "StatementKind", frozenset(prepared.enum_members("StatementKind"))
-        )
+        from .statement_types import statement_kinds as bound_statement_kinds
+
+        statement_kinds = Vocabulary("StatementKind", bound_statement_kinds(prepared))
         statement_roles = Vocabulary(
             "StatementRole", frozenset(prepared.enum_members("StatementRole"))
         )

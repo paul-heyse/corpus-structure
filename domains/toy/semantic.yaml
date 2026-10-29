@@ -17,12 +17,30 @@ classes:
     annotations: {cs:scope: global, cs:extract: mention}
   Asset:
     is_a: Entity
+    slots: [inspection]
     annotations: {cs:scope: global, cs:extract: mention}
+  InspectionDetails:
+    attributes:
+      condition: {required: true}
+      measured_quantity: {range: QuantityValue, inlined: true, required: true}
+  InspectionValue:
+    is_a: Value
+    attributes:
+      kind: {equals_string: inspection}
+      inspector: {range: Organization, required: true}
+      custodian: {range: Organization, required: true}
+      details: {range: InspectionDetails, inlined: true, required: true}
   Source:
     is_a: Entity
     annotations: {cs:scope: global, cs:extract: mention}
+  ToySourceStatement:
+    is_a: SourceStatement
+    slot_usage:
+      statement_kind: {range: ToyStatementKind}
   ToyQualification:
     is_a: Qualification
+    slot_usage:
+      modality: {range: ToyModality}
     attributes:
       share:
         range: NumberValue
@@ -37,13 +55,19 @@ slots:
     range: Asset
     multivalued: true
     annotations: {cs:constraint_scope: accepted_value, cs:role: predicate, cs:extract: llm}
+  inspection:
+    domain: Asset
+    range: InspectionValue
+    inlined: true
+    multivalued: true
+    annotations: {cs:constraint_scope: accepted_value, cs:role: predicate, cs:extract: llm}
 enums:
   ToyStatementKind:
     inherits: [StatementKind]
     permissible_values:
-      clause: {in_subset: [claim_bearing]}
-      notice: {}
+      toy:clause: {in_subset: [claim_bearing]}
+      toy:notice: {}
   ToyModality:
     inherits: [ClaimModality]
     permissible_values:
-      reported: {in_subset: [attribution_identifying]}
+      toy:reported: {in_subset: [attribution_identifying]}

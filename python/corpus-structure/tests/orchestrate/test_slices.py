@@ -26,8 +26,6 @@ def test_cycles_and_unknown_names_are_refused():
         expand({}, "missing", DOCS)
 
 
-def test_golden_units_are_materialized_at_expansion():
-    units = ["a.html#u"]
-    selected = expand({"dev": [{"golden_set": "p0"}]}, "dev", DOCS, lambda label: units)
-    units.append("b.html#v")
-    assert selected == ("a.html#u",)
+def test_held_out_reference_sets_cannot_select_source_units():
+    with pytest.raises(SliceError, match="held-out reference sets cannot select"):
+        expand({"dev": [{"golden_set": "p0"}]}, "dev", DOCS)

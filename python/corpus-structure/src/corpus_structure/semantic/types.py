@@ -135,6 +135,7 @@ class QueryDescriptor:
 class PropertyPreview:
     name: str
     iri: str
+    range: str
 
 
 @dataclass(frozen=True)
@@ -193,14 +194,25 @@ class PreparedRelease:
         vocabulary = next(v for v in self.vocabularies if v.enum == name)
         if subset is None:
             return frozenset(m.value for m in vocabulary.members)
-        row = next(r for r in self.registry_rows if r.kind == "enum_definition" and r.name == name)
-        definition = json.loads(row.body)
-        return frozenset(
-            m.value
-            for m in vocabulary.members
-            if subset
-            in definition.get("permissible_values", {}).get(m.value, {}).get("in_subset", ())
-        )
+        definitions = {r.name: json.loads(r.body) for r in self.registry_rows
+                       if r.kind == "enum_definition"}
+
+        def properties(expression: dict[str, Any], stack: tuple[str, ...]) -> dict[str, dict[str, Any]]:
+            # Membership has already been resolved by the ontology/value-set compiler. This
+            # resolves authored member metadata only, in the same seed/override order.
+            result: dict[str, dict[str, Any]] = {}
+            for parent in expression.get("inherits") or ():
+                if parent in stack:
+                    raise ValueError("cyclic archived enum metadata")
+                result.update(properties(definitions[parent], (*stack, parent)))
+            result.update(expression.get("permissible_values") or {})
+            for included in expression.get("include") or ():
+                result.update(properties(included, stack))
+            return result
+
+        members = properties(definitions[name], (name,))
+        return frozenset(m.value for m in vocabulary.members
+                         if subset in members.get(m.value, {}).get("in_subset", ()))
 
     def entity_keys(
         self,
