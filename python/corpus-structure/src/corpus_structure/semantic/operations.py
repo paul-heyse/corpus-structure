@@ -149,7 +149,11 @@ def record_method(
         .mappings()
         .one()
     )
-    if any(declared[k] != value for k, value in values.items()):
+    if any(
+        declared[k] != value
+        for k, value in values.items()
+        if not (k in {"unit_type", "configuration_schema_digest"} and declared[k] is None)
+    ):
         raise OperationConflict("operation version denotes another method contract")
     mid = declared["id"]
     conn.execute(
@@ -703,21 +707,6 @@ def complete_unit_result(
         error={"message": result.error} if result.error else None,
         envelope=envelope,
     )
-    if task["status"] == "running":
-        m = table("ops.measurement")
-        for item in result.measurements:
-            conn.execute(
-                insert(m).values(
-                    run_id=task["run_id"],
-                    task_id=task_id,
-                    metric=item.metric,
-                    scope_type=str(item.scope_type),
-                    scope_id=item.scope_id,
-                    scope_key=item.scope_key,
-                    value=item.value,
-                    detail=dict(item.detail),
-                )
-            )
     return ids
 
 

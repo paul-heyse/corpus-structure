@@ -730,3 +730,27 @@ def test_reader_adopts_native_relation_reader_and_releases_it():
             with scope.reader(relation) as reader:
                 assert reader.read_all().to_pylist() == [{"value": 7}]
             assert scope._readers == []
+
+
+def test_cleanup_cancellation_remains_primary_after_body_failure(monkeypatch):
+    import asyncio
+    from pathlib import Path
+
+    scope = AnalysisScope(empty_packet(prepared_inputs()[2]))
+    attempted = []
+
+    class CancelledReader:
+        def close(self):
+            attempted.append("cancelled")
+            raise asyncio.CancelledError("reader cancelled")
+
+    class OtherReader:
+        def close(self):
+            attempted.append("other")
+
+    monkeypatch.setattr(scope, "_readers", [CancelledReader(), OtherReader()])
+    with pytest.raises(asyncio.CancelledError) as failure, scope:
+        raise ValueError("analysis failed first")
+    assert attempted == ["cancelled", "other"]
+    assert isinstance(failure.value.__cause__, ValueError)
+    assert not Path(scope._scratch.name).exists()

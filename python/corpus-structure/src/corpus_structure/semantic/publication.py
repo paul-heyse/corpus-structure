@@ -470,11 +470,11 @@ def _admit_inference(prepared: PreparedRelease) -> None:
                     raise ValueError("required inverse has no compiled target rule")
 
 
-def admit_release(prepared: PreparedRelease) -> None:
+def admit_release(prepared: PreparedRelease, *, connection: Connection | None = None) -> None:
     """Refuse required semantics outside the currently implemented native lowering."""
     from .execution_admission import admit_execution_release
 
-    admit_execution_release(prepared)
+    admit_execution_release(prepared, connection=connection)
     native_constraints(prepared)
     _admit_inference(prepared)
     for definition in prepared.definitions:

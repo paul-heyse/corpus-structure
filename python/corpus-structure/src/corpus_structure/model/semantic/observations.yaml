@@ -86,15 +86,16 @@ classes:
       value: {range: SourceMeasurementValue, inlined: true, required: true}
       detail: {range: SourceObject, inlined: true, required: true}
   SourceMetricDefinition:
+    description: SourceNumberOrNull retains integer/float source kinds under the existing finite float-compatible measurement API. Native subject bindings support run and segment references.
     attributes:
       id: {required: true}
       value_type: {required: true, equals_string: SourceNumberOrNull}
-      subject_kind: {required: true, range: SourceMeasurementScope}
+      subject_kind: {required: true, range: SourceMetricSubjectKind}
       detail_schema: {required: true, equals_string: SourceObject}
       description: {required: true}
   SourceMeasurementSubject:
     attributes:
-      kind: {range: SourceMeasurementScope, required: true}
+      kind: {range: SourceMetricSubjectKind, required: true}
       scope_id: {range: integer}
       scope_key: {}
   SourceMeasurementProducer:
@@ -110,6 +111,7 @@ classes:
       unit_key: {required: true}
   SourceBoundMeasurement:
     attributes:
+      source_position: {range: integer, minimum_value: 0, required: true}
       metric: {range: SourceMetricDefinition, required: true, inlined: true}
       subject: {range: SourceMeasurementSubject, required: true, inlined: true}
       producer: {range: SourceMeasurementProducer, required: true, inlined: true}
@@ -133,6 +135,10 @@ classes:
       coverage: {range: SourceCoverage, multivalued: true, inlined: true}
       measurements: {range: SourceMeasurement, multivalued: true, inlined: true}
 enums:
+  SourceMetricSubjectKind:
+    permissible_values:
+      run: {}
+      segment: {}
   SourceMeasurementScope:
     permissible_values:
       run: {}

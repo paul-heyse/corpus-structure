@@ -780,8 +780,16 @@ concepts:
   family: measurement
   scope: run
   meaning: Measurement in the transitioned semantic model
-  identity: producing invocation + metric + typed subject scope; measurement is not fact truth
+  identity: producing invocation + source position; repeated metric and subject reports retain bag identity
   attributes:
+  - name: source_position
+    range: integer
+    required: true
+    multivalued: false
+  - name: producer
+    range: TaskInvocation
+    required: true
+    multivalued: false
   - name: metric
     range: MetricDefinition
     required: true
@@ -5258,7 +5266,7 @@ implementations:
 - id: claim
   owner: semantic.operations
   symbol: claim_tasks
-  version: '1'
+  version: '2'
   placement: core
   input_concepts: *id025
   result_concepts: *id026
@@ -5271,7 +5279,7 @@ implementations:
 - id: complete
   owner: semantic.operations
   symbol: complete_task
-  version: '1'
+  version: '2'
   placement: core
   input_concepts: *id028
   result_concepts: *id029
@@ -5284,7 +5292,7 @@ implementations:
 - id: complete_unit
   owner: semantic.operations
   symbol: complete_unit_result
-  version: '1'
+  version: '2'
   placement: core
   input_concepts: *id031
   result_concepts: *id032
@@ -5297,7 +5305,7 @@ implementations:
 - id: hold
   owner: semantic.operations
   symbol: hold_agent_result
-  version: '1'
+  version: '2'
   placement: core
   input_concepts: *id034
   result_concepts: *id035

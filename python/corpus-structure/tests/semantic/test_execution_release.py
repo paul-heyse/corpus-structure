@@ -196,7 +196,8 @@ def test_execution_activation_refuses_missing_native_enforcement_and_preserves_p
         )
         *_, prepared = _stage(conn)
         before = releases.activation_token(conn, project_id)
-        with pytest.raises(ExecutionAdmissionError, match=r"execution\.lifecycle\.v1"):
+        conn.execute(text("ALTER TABLE ops.task DISABLE TRIGGER zz_execution_task"))
+        with pytest.raises(ExecutionAdmissionError, match="native execution deployment"):
             releases.activate_release(
                 conn,
                 project_id,
@@ -236,6 +237,7 @@ def test_native_writer_cannot_bypass_execution_admission(
     with semantic_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project_id = _project(conn)
+        conn.execute(text("ALTER FUNCTION ops.execution_edge(text,text,text) OWNER TO corpus_sem_publisher"))
     realization_id = str(uuid4())
     engine = semantic_db_engine if route == "owner_insert" else semantic_writer_engine
     with (
@@ -289,3 +291,79 @@ def test_composed_archive_requires_enabled_native_fence(semantic_db_engine):
             is None
         )
         conn.execute(text("ALTER TABLE data.realization ENABLE TRIGGER guard_execution_admission"))
+
+
+
+def test_composed_activation_requires_actual_verified_deployment(semantic_db_engine):
+    from corpus_structure.semantic.publication import admit_release
+    with semantic_db_engine.begin() as conn:
+        *_, prepared = _stage(conn)
+        project = _project(conn)
+        with pytest.raises(ExecutionAdmissionError, match="requires verified native deployment"):
+            admit_release(prepared)
+        admitted = releases.activate_release(conn, project, prepared.release_id,
+                    expected_parent=None, expected_generation=0)
+        assert admitted == releases.ActivationToken(prepared.release_id, 1)
+        conn.execute(insert(table("data.realization")).values(
+            realization_id=str(uuid4()), release_id=prepared.release_id, project_id=project))
+
+
+
+def test_composed_legacy_analysis_abi_refuses_without_intent(semantic_db_engine, semantic_writer_engine):
+    with semantic_db_engine.begin() as conn:
+        *_, prepared = _stage(conn)
+    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="explicit derived intent"):
+        conn.execute(text("SELECT data.publish_analysis_batch(:r,'z','b',:content,0)"),
+                     {"r": prepared.release_id, "content": b"[]"})
+
+
+@pytest.mark.parametrize("tamper", ["body", "attachment", "column_grant"])
+def test_composed_activation_refuses_actual_kernel_and_privilege_drift(semantic_db_engine, tamper):
+    with semantic_db_engine.begin() as conn:
+        *_, prepared = _stage(conn)
+        project = _project(conn)
+        if tamper == "body":
+            conn.execute(text("CREATE OR REPLACE FUNCTION ops.execution_edge(lifecycle text,prior text,result text) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS 'SELECT true'"))
+        elif tamper == "attachment":
+            conn.execute(text("DROP TRIGGER zz_execution_task ON ops.task"))
+            conn.execute(text("CREATE TRIGGER zz_execution_task BEFORE INSERT OR UPDATE ON ops.run FOR EACH ROW EXECUTE FUNCTION ops.guard_execution_task()"))
+        else:
+            conn.execute(text("GRANT INSERT(entity_id) ON data.entity TO corpus_sem_writer"))
+        with pytest.raises(ExecutionAdmissionError, match="native execution deployment"):
+            releases.activate_release(conn, project, prepared.release_id,
+                expected_parent=None, expected_generation=0)
+        assert releases.activation_token(conn, project) == releases.ActivationToken(None, 0)
+
+
+@pytest.mark.parametrize("scope", ["occurrence", "context"])
+def test_native_constructor_refuses_unimplemented_required_scope(
+    semantic_db_engine, semantic_writer_engine, scope
+):
+    with semantic_db_engine.begin() as conn:
+        bundle = _bundle()
+        dependencies = composed_dependencies(ResolvedDependencies())
+        profile = PreparationProfile(version="semantic-2", constraint_scope=scope)
+        prepared = prepare_release(bundle, dependencies, profile)
+        releases.persist_release(conn, bundle, dependencies, profile, prepared)
+        project = _project(conn)
+    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="unsupported required native constraint"):
+        conn.execute(text("SELECT data.initialize_source_project(:p,:r,:z)"),
+                     {"p": project, "r": prepared.release_id, "z": str(uuid4())})
+
+
+def test_native_project_generation_cannot_reset_or_skip(semantic_db_engine):
+    with semantic_db_engine.begin() as conn:
+        *_, prepared = _stage(conn)
+        project = _project(conn)
+        releases.activate_release(conn, project, prepared.release_id,
+                                  expected_parent=None, expected_generation=0)
+        for generation in (0, 3):
+            with pytest.raises(DBAPIError, match="generation must advance"), conn.begin_nested():
+                conn.execute(text("UPDATE data.project SET generation=:g WHERE project_id=:p"),
+                             {"g": generation, "p": project})
+        conn.execute(text("UPDATE data.project SET generation=generation WHERE project_id=:p"),
+                     {"p": project})
+        assert releases.activation_token(conn, project) == releases.ActivationToken(prepared.release_id, 1)
+        with pytest.raises(DBAPIError, match="generation must start"), conn.begin_nested():
+            conn.execute(insert(table("data.project")).values(project_id=str(uuid4()),
+                         active_release_id=prepared.release_id, generation=5))

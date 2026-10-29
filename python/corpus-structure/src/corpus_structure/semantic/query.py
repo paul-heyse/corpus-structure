@@ -652,37 +652,54 @@ class ReadSession:
         )
 
     def measurements(self, metric: str | None = None) -> tuple[BaseModel, ...]:
-        """Read source measurements from this result's exact final cut and producer bindings."""
+        """Read FK-validated measurements and their exact source values from the final cut."""
         from .metrics import metric_definitions
         definitions = metric_definitions(self.prepared)
-        run, cut, member, task, result = (table("ops.run"), table("ops.input_cut"),
-                                        table("ops.cut_task"), table("ops.task"), table("ops.task_result"))
-        stmt = (select(result.c.body, task.c.id.label("task_id"), task.c.run_id)
+        run, cut, member, task, result, measurement, config, method = (
+            table(name) for name in ("ops.run", "ops.input_cut", "ops.cut_task", "ops.task",
+                                    "ops.task_result", "ops.measurement", "ops.method_config", "ops.method"))
+        stmt = (select(result.c.body, task.c.id.label("task_id"), task.c.run_id,
+                       task.c.invocation_key, task.c.input_hash, task.c.unit_key,
+                       measurement.c.id.label("measurement_id"), measurement.c.source_position, measurement.c.metric,
+                       measurement.c.scope_type, measurement.c.scope_id, measurement.c.scope_key,
+                       method.c.name.label("method"), method.c.version.label("operation_version"),
+                       config.c.config_hash.label("configuration_hash"))
                 .select_from(run.join(cut, cut.c.run_id == run.c.id)
                              .join(member, member.c.cut_id == cut.c.id)
                              .join(task, task.c.id == member.c.origin_task_id)
-                             .join(result, result.c.task_id == task.c.id))
+                             .join(result, result.c.task_id == task.c.id)
+                             .join(measurement, measurement.c.task_id == task.c.id)
+                             .join(config, config.c.id == task.c.method_config_id)
+                             .join(method, method.c.id == config.c.method_id))
                 .where(run.c.release_id == self.binding.release_id,
                        run.c.result_realization_id == self.binding.realization_id,
-                       cut.c.final.is_(True)).distinct().order_by(task.c.id))
+                       cut.c.final.is_(True)).distinct().order_by(task.c.id, measurement.c.source_position))
+        if metric is not None:
+            stmt = stmt.where(measurement.c.metric == metric)
         records = []
         for row in self.connection.execute(stmt).mappings():
-            body = row["body"]
-            for measurement in body.get("measurements", ()):
-                if metric is not None and measurement["metric"] != metric:
-                    continue
-                definition = definitions.get(measurement["metric"])
-                if definition is None:
-                    raise ValueError("measurement names an unresolved metric")
-                subject = {"kind": measurement["scope_type"]}
-                for name in ("scope_id", "scope_key"):
-                    if name in measurement:
-                        subject[name] = measurement[name]
-                producer = {name: body[name] for name in ("release_id", "invocation_key", "method", "operation_version", "configuration_hash", "input_hash", "unit_key")}
-                producer.update(run_id=row["run_id"], task_id=row["task_id"])
-                records.append(self.prepared.validate_python("SourceBoundMeasurement", {
-                    "metric": definition, "subject": subject, "producer": producer,
-                    "value": measurement["value"], "detail": measurement["detail"]}))
+            position = row["source_position"]
+            source_items = row["body"].get("measurements", ())
+            if type(position) is not int or not 0 <= position < len(source_items):
+                raise ValueError("measurement lacks an exact source position")
+            source = source_items[position]
+            if any(source.get(key) != row[key] for key in ("metric", "scope_type", "scope_id", "scope_key")):
+                raise ValueError("measurement differs from its protected source position")
+            definition = definitions.get(row["metric"])
+            if definition is None:
+                raise ValueError("measurement names an unresolved metric")
+            subject = {"kind": row["scope_type"]}
+            for name in ("scope_id", "scope_key"):
+                if row[name] is not None:
+                    subject[name] = row[name]
+            if subject["kind"] == "run" and "scope_id" not in subject:
+                subject["scope_id"] = row["run_id"]
+            producer = {name: row[name] for name in ("invocation_key", "method", "operation_version",
+                                                     "configuration_hash", "input_hash", "unit_key", "run_id", "task_id")}
+            producer["release_id"] = self.binding.release_id
+            records.append(self.prepared.validate_json("SourceBoundMeasurement", json.dumps({
+                "source_position": position, "metric": definition, "subject": subject, "producer": producer,
+                "value": source["value"], "detail": source["detail"]})))
         return tuple(records)
 
     def _occurrence_contexts(

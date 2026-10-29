@@ -1184,7 +1184,7 @@ classes:
         - version
     annotations:
       ph:foreign_keys: '[]'
-      ph:checks: '[]'
+      ph:checks: '["configuration_schema_digest IS NULL OR configuration_schema_digest ~ ''^[0-9a-f]{64}$''"]' 
   method_config:
     in_subset:
     - ops
@@ -1513,6 +1513,9 @@ classes:
       task_id:
         range: integer
         required: true
+      source_position:
+        range: integer
+        required: false
       metric:
         range: string
         required: true
@@ -1535,10 +1538,12 @@ classes:
       primary_key:
         unique_key_slots:
         - id
+      source_row:
+        unique_key_slots: [task_id, source_position]
     annotations:
       ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns":
         ["task_id"], "target": "ops.task.id"}]'
-      ph:checks: '[]'
+      ph:checks: '["source_position IS NULL OR source_position >= 0"]'
   input_cut:
     in_subset:
     - ops

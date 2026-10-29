@@ -74,11 +74,12 @@ classes:
     dependencies = ResolvedDependencies()
     if observations:
         from corpus_structure.semantic.metrics import observation_dependencies
+        from corpus_structure.semantic.metrics import METRIC_INPUT
         import yaml
-
-        declarations = yaml.safe_load((Path(__file__).parents[2] / "src/corpus_structure/model/semantic/metrics.yaml").read_bytes())
-        declarations["metrics"].append(dict(id="count",value_type="SourceNumberOrNull",subject_kind="run",detail_schema="SourceObject",description="Test method count"))
-        dependencies = observation_dependencies(dependencies, yaml.safe_dump(declarations).encode())
+        packaged = observation_dependencies(dependencies)
+        declared = yaml.safe_load(next(a.content for a in packaged.artifacts if a.name == METRIC_INPUT))
+        declared["metrics"].append(dict(id="count", value_type="SourceNumberOrNull", subject_kind="run", detail_schema="SourceObject", description="Test method count"))
+        dependencies = observation_dependencies(dependencies, yaml.safe_dump(declared).encode())
     p = prepare_release(bundle, dependencies)
     with engine.begin() as c:
         if archive or observations:
@@ -331,7 +332,7 @@ def test_source_rendition_fidelity_and_original_change(
 
 
 def test_recognizer_terminal_source_boundary_and_coverage(
-    semantic_db_engine, semantic_writer_engine
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine
 ):
     from pydantic import BaseModel
 
@@ -394,7 +395,13 @@ def test_recognizer_terminal_source_boundary_and_coverage(
                 family="parse", scope="unit:1", outcome="partial", reason="unsupported tail"
             ),
         ),
-        measurements=(MeasurementDraft(metric="count", scope_type=MeasurementScope.RUN, value=2),),
+        measurements=(
+            MeasurementDraft(metric="count", scope_type=MeasurementScope.RUN, value=2),
+            MeasurementDraft(metric="count", scope_type=MeasurementScope.RUN, value=2),
+            MeasurementDraft(metric="count", scope_type=MeasurementScope.RUN, value=3.5,
+                detail={"flag": False, "text": "δ", "items": [1, None, 0.5]}),
+            MeasurementDraft(metric="count", scope_type=MeasurementScope.RUN, value=None),
+        ),
     )
     with e.begin() as c:
         ids = complete_unit_result(
@@ -439,7 +446,15 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             )
             .receipt == ids.receipt
         )
-        assert len(c.execute(select(table("ops.measurement"))).all()) == 1
+        measured_rows = c.execute(select(table("ops.measurement")).order_by(table("ops.measurement").c.source_position)).mappings().all()
+        assert [row["source_position"] for row in measured_rows] == [0, 1, 2, 3]
+        assert [row["value"] for row in measured_rows] == [2, 2, 3.5, None]
+        assert measured_rows[2]["detail"] == {"flag": False, "text": "δ", "items": [1, None, 0.5]}
+        for changes in ({}, {"source_position": 0}, {"metric": "undeclared"}, {"run_id": run + 10000}, {"detail": []}):
+            with pytest.raises(DBAPIError), c.begin_nested():
+                forged = dict(run_id=run, task_id=task, metric="count", scope_type="run", value=2, detail={})
+                forged.update(changes)
+                c.execute(insert(table("ops.measurement")).values(**forged))
     from dataclasses import replace
 
     changed = replace(
@@ -458,6 +473,56 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             configuration_hash="config",
             source="file:source",
         )
+
+
+    from corpus_structure.semantic.arrow_publication import SnapshotDerivedPublication, publish_arrow_on_connection
+    from corpus_structure.semantic.publication import PublicationBatch
+    from corpus_structure.semantic.query import SnapshotBinding, read_session
+    with e.connect().execution_options(isolation_level="SERIALIZABLE") as c, c.begin():
+        cut = seal_cut(c, run, "measurement-final", final=True)
+        c.execute(text("SELECT data.begin_evaluation(:cut,:output)"), {"cut": cut, "output": "measurement-output"})
+        batch = PublicationBatch(p.release_id, "measurement-output", "measurement-result")
+        publish_arrow_on_connection(c, SnapshotDerivedPublication.from_rows(batch,
+            source=SnapshotBinding(p.release_id, "z", 0, "cut:" + str(cut)),
+            operation_id="consolidate_cut", projection_id="candidate"))
+        c.execute(text("SELECT data.finish_evaluation(:cut,:output,:batch)"),
+                  {"cut": cut, "output": "measurement-output", "batch": batch.batch_id})
+    with read_session(semantic_reader_engine, "measurement-output") as session:
+        measurements = [m.model_dump(mode="python") for m in session.measurements("count")]
+    assert len(measurements) == 4
+    assert [m["source_position"] for m in measurements] == [0, 1, 2, 3]
+    assert [source_python(m["value"]) for m in measurements] == [2, 2, 3.5, None]
+    assert source_python(measurements[2]["detail"]) == {"flag": False, "text": "δ", "items": [1, None, 0.5]}
+    measurement = measurements[0]
+    assert measurement["metric"]["id"] == "count"
+    assert measurement["subject"]["kind"] == "run"
+    assert measurement["producer"]["run_id"] == run
+    assert measurement["producer"]["task_id"] == task
+    assert measurement["producer"]["method"] == "read"
+    assert measurement["producer"]["operation_version"] == "1"
+    assert source_python(measurement["value"]) == 2
+    for statement in (
+        "INSERT INTO ops.measurement(run_id,task_id,metric,scope_type,value,detail,source_position) VALUES(:run,:task,'count','run',2,'{}'::jsonb,4)",
+        "UPDATE ops.measurement SET value=999 WHERE task_id=:task",
+        "DELETE FROM ops.measurement WHERE task_id=:task",
+    ):
+        with pytest.raises(DBAPIError), e.begin() as c:
+            c.execute(text(statement), {"run": run, "task": task})
+    with read_session(semantic_reader_engine, "measurement-output") as session:
+        assert [m.source_position for m in session.measurements("count")] == [0, 1, 2, 3]
+    import json
+    malformed_values = (
+        {"kind": "float", "hexadecimal": "NaN"},
+        {"kind": "object", "fields": [
+            {"name": "x", "position": 0, "value": {"kind": "null"}},
+            {"name": "x", "position": 1, "value": {"kind": "integer", "integer": 2}},
+        ]},
+        {"kind": "object", "fields": [{"name": "x", "position": 4, "value": {"kind": "null"}}]},
+    )
+    with semantic_db_engine.connect() as c:
+        for malformed in malformed_values:
+            with pytest.raises(DBAPIError), c.begin_nested():
+                c.execute(text("SELECT ops.decode_source_value(CAST(:value AS jsonb))"), {"value": json.dumps(malformed)})
 
 
 @pytest.mark.parametrize(

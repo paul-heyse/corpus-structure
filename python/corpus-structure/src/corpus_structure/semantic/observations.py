@@ -58,6 +58,14 @@ def observation_inputs(bundle: SourceBundle) -> SourceBundle:
     )
 
 
+def prepare_source_inputs(bundle: SourceBundle, dependencies=None, *, metric_content: bytes | None = None):
+    """Explicitly acquire source-report schema and metric definitions before pure preparation."""
+    from .metrics import observation_dependencies
+    from .types import ResolvedDependencies
+    return (observation_inputs(bundle), observation_dependencies(
+        ResolvedDependencies() if dependencies is None else dependencies, metric_content))
+
+
 def source_value(value: Any) -> dict[str, Any]:
     """Losslessly represent JSON source products with explicit scalar and container kinds."""
     if value is None:
