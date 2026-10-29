@@ -126,7 +126,9 @@ def cli() -> Cli:
 def server_url(settings: Settings | None = None) -> str:
     """The admin URL (database `postgres`) of the server `Settings()` names, as SQLAlchemy's."""
     settings = Settings() if settings is None else settings
-    url = make_url(settings.database.sqlalchemy_url).set(database="postgres")
+    url = make_url(settings.database.maintenance_url).set(
+        drivername="postgresql+psycopg", database="postgres"
+    )
     return url.render_as_string(hide_password=False)
 
 

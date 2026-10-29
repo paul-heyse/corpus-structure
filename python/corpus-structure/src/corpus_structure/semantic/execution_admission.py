@@ -23,6 +23,8 @@ _NATIVE_CAPABILITIES = frozenset(
         "typed_values",
         "execution.lifecycle.v1",
         "execution.identity_exclusions.v1",
+        "execution.reference_evaluation.v1",
+        "execution.selected_result.v1",
         "conditional_rules_native",
     }
 )

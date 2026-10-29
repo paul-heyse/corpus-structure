@@ -248,6 +248,7 @@ def _render_tasks(result: BaseModel) -> RenderableType:
 def tasks(
     ctx: typer.Context,
     run_id: Annotated[int | None, typer.Argument(metavar="[RUN]")] = None,
+    project: Annotated[str | None, typer.Option(help="Project (default: runtime.default_project).")] = None,
     status: Annotated[list[TaskStatus] | None, typer.Option(help="Only this status.")] = None,
     method: Annotated[list[str] | None, typer.Option(help="Only this method.")] = None,
     limit: Annotated[int, typer.Option(help="At most this many.")] = 50,
@@ -259,7 +260,9 @@ def tasks(
 
     with _refusals(), ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
         listing = commands.bound_task_listing(
-            conn, run_id, statuses=status or (), methods=method or (), limit=limit
+            conn, run_id,
+            project_id=project or (state(ctx).settings().runtime.default_project if run_id is None else None),
+            statuses=status or (), methods=method or (), limit=limit
         )
     emit(listing, json=json, render=_render_tasks)
 

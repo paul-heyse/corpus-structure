@@ -1,8 +1,9 @@
-# Trusted finite catalog: application-owned definitions; requirements are not deployment receipts.
 version: execution-1
 required_capabilities:
 - execution.lifecycle.v1
 - execution.identity_exclusions.v1
+- execution.reference_evaluation.v1
+- execution.selected_result.v1
 concepts:
 - id: IdentityExclusion
   family: knowledge
@@ -35,7 +36,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: SourceArtifact in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: name
     range: text
@@ -55,7 +57,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: SourceBundle in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: root
     range: text
@@ -72,7 +75,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: ResolvedDependencies in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: artifacts
     range: SourceArtifact
@@ -93,7 +97,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: VocabularySnapshot in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: enum
     range: text
@@ -117,7 +122,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: PreparationProfile in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: version
     range: text
@@ -137,7 +143,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: PreparationResult in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: outcome
     range: text
@@ -152,7 +159,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: ModelRevision in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -184,7 +192,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: SemanticRelease in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -215,7 +224,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: Archive in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: release_id
     range: text
@@ -231,7 +241,8 @@ concepts:
   family: interpretation
   scope: global
   meaning: Project in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -244,11 +255,13 @@ concepts:
   relationships:
   - project_selects
   - realization_interprets
+  - project_selected_result
 - id: ActivationToken
   family: interpretation
   scope: global
   meaning: ActivationToken in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: parent
     range: text
@@ -264,7 +277,8 @@ concepts:
   family: interpretation
   scope: release
   meaning: OperationPolicy in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -283,7 +297,8 @@ concepts:
   family: execution
   scope: run
   meaning: RunBinding in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: release_id
     range: text
@@ -315,7 +330,8 @@ concepts:
   family: execution
   scope: run
   meaning: Run in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: integer
@@ -336,7 +352,8 @@ concepts:
   family: execution
   scope: run
   meaning: TaskInvocation in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: integer
@@ -370,7 +387,8 @@ concepts:
   family: execution
   scope: run
   meaning: Attempt in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: number
     range: integer
@@ -391,7 +409,8 @@ concepts:
   family: execution
   scope: run
   meaning: MethodDefinition in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -420,7 +439,8 @@ concepts:
   family: execution
   scope: run
   meaning: MethodConfiguration in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: identity
     range: text
@@ -436,7 +456,8 @@ concepts:
   family: execution
   scope: run
   meaning: TaskUnit in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -452,7 +473,8 @@ concepts:
   family: execution
   scope: run
   meaning: Lease in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: holder
     range: text
@@ -468,7 +490,8 @@ concepts:
   family: source
   scope: global
   meaning: Document in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: content_digest
     range: text
@@ -489,7 +512,8 @@ concepts:
   family: source
   scope: global
   meaning: Rendition in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: integer
@@ -507,7 +531,8 @@ concepts:
   family: source
   scope: global
   meaning: RenditionBuild in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: provider
     range: Provider
@@ -528,7 +553,8 @@ concepts:
   family: source
   scope: global
   meaning: Segment in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -548,7 +574,8 @@ concepts:
   family: source
   scope: global
   meaning: Span in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: start
     range: integer
@@ -568,7 +595,8 @@ concepts:
   family: source
   scope: global
   meaning: Provider in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -583,7 +611,8 @@ concepts:
   family: source
   scope: global
   meaning: SourceFrame in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: unit
     range: TaskUnit
@@ -599,7 +628,8 @@ concepts:
   family: source
   scope: run
   meaning: SourceObservation in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -638,7 +668,8 @@ concepts:
   family: source
   scope: run
   meaning: ObservationInput in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: role
     range: text
@@ -655,7 +686,8 @@ concepts:
   family: source
   scope: run
   meaning: SourceCoverage in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: family
     range: text
@@ -679,7 +711,8 @@ concepts:
   family: source
   scope: run
   meaning: WorkPacket in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: digest
     range: text
@@ -704,7 +737,8 @@ concepts:
   family: source
   scope: run
   meaning: ReadObligation in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -724,7 +758,8 @@ concepts:
   family: source
   scope: run
   meaning: SubmissionResult in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: disposition
     range: text
@@ -739,7 +774,8 @@ concepts:
   family: source
   scope: run
   meaning: HeldSubmission in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: attempt
     range: integer
@@ -759,7 +795,8 @@ concepts:
   family: source
   scope: run
   meaning: TaskResultEnvelope in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: protocol_outcome
     range: text
@@ -784,7 +821,8 @@ concepts:
   family: measurement
   scope: global
   meaning: MetricDefinition in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -808,7 +846,8 @@ concepts:
   family: measurement
   scope: run
   meaning: Measurement in the transitioned semantic model
-  identity: producing invocation + source position; repeated metric and subject reports retain bag identity
+  identity: producing invocation + source position; repeated metric and subject reports
+    retain bag identity
   attributes:
   - name: source_position
     range: integer
@@ -840,7 +879,8 @@ concepts:
   family: measurement
   scope: run
   meaning: MeasurementSubject in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -860,7 +900,8 @@ concepts:
   family: measurement
   scope: run
   meaning: MeasurementDetail in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: schema
     range: text
@@ -875,7 +916,8 @@ concepts:
   family: result
   scope: run
   meaning: InputCut in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: integer
@@ -896,7 +938,8 @@ concepts:
   family: result
   scope: run
   meaning: FinalCut in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: integer
@@ -912,7 +955,8 @@ concepts:
   family: result
   scope: run
   meaning: EvaluationResult in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: operation_id
     range: text
@@ -929,11 +973,13 @@ concepts:
   relationships:
   - run_result
   - realization_completed_result
+  - project_selected_result
 - id: PublicationReceipt
   family: result
   scope: run
   meaning: PublicationReceipt in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: batch_id
     range: text
@@ -955,7 +1001,8 @@ concepts:
   family: result
   scope: realization
   meaning: Realization in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -981,7 +1028,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: Entity in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -1004,7 +1052,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: Membership in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: class_iri
     range: text
@@ -1021,8 +1070,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: SemanticFact in the transitioned semantic model
-  identity: release/realization + subject, predicate, canonical value and identity qualification; reasons/confidence
-    excluded
+  identity: release/realization + subject, predicate, canonical value and identity
+    qualification; reasons/confidence excluded
   attributes:
   - name: id
     range: text
@@ -1045,7 +1094,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: AssertionOccurrence in the transitioned semantic model
-  identity: release/realization + independent source report and source item; repeated reports retained
+  identity: release/realization + independent source report and source item; repeated
+    reports retained
   attributes:
   - name: id
     range: text
@@ -1073,7 +1123,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: Evidence in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: source
     range: Span
@@ -1093,7 +1144,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: OccurrenceEvidence in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: role
     range: EvidenceRole
@@ -1105,7 +1157,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: Support in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -1117,7 +1170,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: MembershipSupport in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: establishment
     range: text
@@ -1129,7 +1183,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: EntitySource in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: source_key
     range: text
@@ -1141,7 +1196,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: EntityInput in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: authorization
     range: text
@@ -1153,7 +1209,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: FactInput in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: authorization
     range: text
@@ -1181,7 +1238,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: AlternativeMember in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: role
     range: text
@@ -1192,7 +1250,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: Derivation in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: rule_id
     range: text
@@ -1209,7 +1268,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: DerivationPremise in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: role
     range: text
@@ -1225,7 +1285,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: Selection in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: context
     range: text
@@ -1237,7 +1298,8 @@ concepts:
   family: knowledge
   scope: realization
   meaning: Assessment in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: outcome
     range: text
@@ -1266,7 +1328,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: TypedValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -1279,7 +1342,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: TextValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: text
     range: text
@@ -1313,7 +1377,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: BooleanValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: value
     range: boolean
@@ -1324,7 +1389,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: DateValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: iso_date
     range: text
@@ -1335,7 +1401,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: InstantValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: instant
     range: datetime
@@ -1346,7 +1413,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: ExpressionValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: expression
     range: text
@@ -1361,7 +1429,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: RecordValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: roles
     range: RoleBinding
@@ -1372,7 +1441,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: SequenceValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: members
     range: RoleBinding
@@ -1383,7 +1453,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: MapValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: entries
     range: RoleBinding
@@ -1394,7 +1465,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: EntityValue in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: reference
     range: ReferenceDescriptor
@@ -1405,7 +1477,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: RoleBinding in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: role
     range: text
@@ -1429,7 +1502,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: Qualification in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: polarity
     range: boolean
@@ -1461,7 +1535,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: SemanticScope in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -1476,7 +1551,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: Condition in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: predicate
     range: text
@@ -1491,7 +1567,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: EvidenceRole in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: role
     range: text
@@ -1502,7 +1579,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: ReferenceDescriptor in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -1529,7 +1607,8 @@ concepts:
   family: knowledge
   scope: release
   meaning: InferenceRule in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -1553,7 +1632,8 @@ concepts:
   family: decision
   scope: realization
   meaning: AssessmentTarget in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -1569,7 +1649,8 @@ concepts:
   family: decision
   scope: realization
   meaning: AssessmentCounterpart in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -1585,7 +1666,8 @@ concepts:
   family: decision
   scope: run
   meaning: ScientificContext in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: constants
     range: json
@@ -1604,7 +1686,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: SnapshotBinding in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: release_id
     range: text
@@ -1631,7 +1714,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: QueryDefinition in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: projection
     range: text
@@ -1651,7 +1735,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: QueryHandle in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: release_id
     range: text
@@ -1667,7 +1752,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: Continuation in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: snapshot_id
     range: text
@@ -1682,7 +1768,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: QueryResult in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: knowledge
     range: QueryKnowledge
@@ -1699,7 +1786,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: Explanation in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: fact_id
     range: text
@@ -1711,7 +1799,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: SemanticCoverage in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: family
     range: text
@@ -1735,7 +1824,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: QueryKnowledge in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: outcome
     range: text
@@ -1751,7 +1841,8 @@ concepts:
   family: read
   scope: snapshot
   meaning: PageCompleteness in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: outcome
     range: text
@@ -1767,7 +1858,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: CapturedPacket in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: snapshot
     range: SnapshotBinding
@@ -1791,7 +1883,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: CandidateInput in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: cut
     range: InputCut
@@ -1815,7 +1908,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: AnalysisScope in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -1835,7 +1929,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: AnalysisResult in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: kind
     range: text
@@ -1851,7 +1946,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: BorrowedResult in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: scope_id
     range: text
@@ -1863,7 +1959,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: DetachedResult in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: content
     range: bytes
@@ -1875,7 +1972,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: AppendPublication in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: batch_id
     range: text
@@ -1891,7 +1989,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: SnapshotDerivedPublication in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: batch_id
     range: text
@@ -1919,7 +2018,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: ProjectionProfile in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -1936,7 +2036,8 @@ concepts:
   family: analytics
   scope: snapshot
   meaning: ArithmeticProfile in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  identity: Explicit scoped identifier and immutable producing binding; no display-label
+    identity
   attributes:
   - name: id
     range: text
@@ -2060,6 +2161,221 @@ concepts:
     multivalued: false
   - name: report
     range: bytes
+    required: true
+    multivalued: false
+  relationships: []
+- id: ReferenceSet
+  family: decision
+  scope: unit
+  meaning: ReferenceSet in the protected independent-reference model
+  identity: Scoped native identifier with immutable release, source, authored bytes
+    and citation binding
+  attributes:
+  - name: project_id
+    range: text
+    required: true
+    multivalued: false
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: source_run_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: label
+    range: text
+    required: true
+    multivalued: false
+  - name: split
+    range: text
+    required: true
+    multivalued: false
+  - name: guideline
+    range: text
+    required: true
+    multivalued: false
+  - name: sampling_json
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - reference_source_result
+  - reference_set_unit
+  - reference_grade_set
+- id: ReferencePass
+  family: decision
+  scope: unit
+  meaning: ReferencePass in the protected independent-reference model
+  identity: Scoped native identifier with immutable release, source, authored bytes
+    and citation binding
+  attributes:
+  - name: unit_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: pass_kind
+    range: text
+    required: true
+    multivalued: false
+  - name: actor
+    range: text
+    required: true
+    multivalued: false
+  - name: authored_json
+    range: text
+    required: true
+    multivalued: false
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - reference_unit_pass
+  - reference_pass_frame
+  - reference_pass_item
+- id: ReferenceCitationFrame
+  family: decision
+  scope: unit
+  meaning: ReferenceCitationFrame in the protected independent-reference model
+  identity: Scoped native identifier with immutable release, source, authored bytes
+    and citation binding
+  attributes:
+  - name: pass_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: version
+    range: integer
+    required: true
+    multivalued: false
+  - name: rendition_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: rendition_digest
+    range: text
+    required: true
+    multivalued: false
+  - name: frame_json
+    range: text
+    required: true
+    multivalued: false
+  - name: parent_id
+    range: integer
+    required: false
+    multivalued: false
+  relationships:
+  - reference_pass_frame
+  - reference_item_frame
+- id: ReferenceItem
+  family: decision
+  scope: unit
+  meaning: ReferenceItem in the protected independent-reference model
+  identity: Scoped native identifier with immutable release, source, authored bytes
+    and citation binding
+  attributes:
+  - name: pass_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: frame_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: item_kind
+    range: text
+    required: true
+    multivalued: false
+  - name: local_ref
+    range: text
+    required: true
+    multivalued: false
+  - name: payload_json
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - reference_pass_item
+  - reference_item_frame
+- id: ReferenceEvaluation
+  family: result
+  scope: run
+  meaning: An independent-reference grade; never the completed knowledge output EvaluationResult.
+  identity: Scoped native identifier with immutable release, source, authored bytes
+    and citation binding
+  attributes:
+  - name: project_id
+    range: text
+    required: true
+    multivalued: false
+  - name: run_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: set_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: reference_snapshot_json
+    range: text
+    required: true
+    multivalued: false
+  - name: result_json
+    range: text
+    required: true
+    multivalued: false
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - reference_grade_set
+  - reference_grade_result
+- id: ReferenceUnit
+  family: decision
+  scope: unit
+  meaning: ReferenceUnit in the protected independent-reference model
+  identity: Scoped native identifier with immutable release, source, authored bytes
+    and citation binding
+  attributes:
+  - name: set_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: rendition_id
+    range: integer
+    required: true
+    multivalued: false
+  - name: unit_key
+    range: text
+    required: true
+    multivalued: false
+  - name: context_json
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - reference_set_unit
+  - reference_unit_rendition
+  - reference_unit_pass
+- id: ReferenceDocumentSplit
+  family: decision
+  scope: unit
+  meaning: ReferenceDocumentSplit in the protected independent-reference model
+  identity: Scoped native identifier with immutable release, source, authored bytes
+    and citation binding
+  attributes:
+  - name: project_id
+    range: text
+    required: true
+    multivalued: false
+  - name: source_uri
+    range: text
+    required: true
+    multivalued: false
+  - name: split
+    range: text
     required: true
     multivalued: false
   relationships: []
@@ -3784,6 +4100,313 @@ relationships:
   reference_scope: same_realization
   invariants:
   - identity_exclusions
+- id: reference_source_result
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceSet
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: EvaluationResult
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_set_unit
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceSet
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: ReferenceUnit
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_unit_rendition
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceUnit
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: Rendition
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_unit_pass
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceUnit
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: ReferencePass
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_pass_frame
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferencePass
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: ReferenceCitationFrame
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_pass_item
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferencePass
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: ReferenceItem
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_item_frame
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceItem
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: ReferenceCitationFrame
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_grade_set
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceEvaluation
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: ReferenceSet
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: reference_grade_result
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: ReferenceEvaluation
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: EvaluationResult
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reference_binding
+- id: project_selected_result
+  kind: provenance
+  direction: directed
+  endpoints:
+  - role: subject
+    concept: Project
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: EvaluationResult
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Per immutable bound source or reference context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - object
+  identity_context:
+  - release
+  - project
+  - source_run
+  - reference_frame
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - selected_result_binding
 invariants:
 - id: identity_exclusions
   meaning: Eligible source exclusions retain exact evidence and endpoints; no admitted
@@ -3799,7 +4422,8 @@ invariants:
   implementation: publish
   required_capability: execution.identity_exclusions.v1
 - id: qualified_reference
-  meaning: Persisted scoped references retain release and realization; no global local-key joins
+  meaning: Persisted scoped references retain release and realization; no global local-key
+    joins
   subjects:
   - Entity
   - SemanticFact
@@ -3869,7 +4493,8 @@ invariants:
   implementation: schedule
   required_capability: execution.lifecycle.v1
 - id: attempt_fence
-  meaning: Current positive attempt and holder authorize work; expiry alone does not transfer ownership
+  meaning: Current positive attempt and holder authorize work; expiry alone does not
+    transfer ownership
   subjects:
   - TaskInvocation
   - Attempt
@@ -3916,8 +4541,8 @@ invariants:
   failure_code: execution.packet_reads
   implementation: locate
 - id: measurement_scope
-  meaning: Metric type, subject scope and producing method/input context agree; measurements do not assert
-    facts
+  meaning: Metric type, subject scope and producing method/input context agree; measurements
+    do not assert facts
   subjects:
   - MetricDefinition
   - Measurement
@@ -3928,7 +4553,8 @@ invariants:
   failure_code: execution.measurement_scope
   implementation: complete_unit
 - id: final_cut_barrier
-  meaning: Final cut captures effective completed origins and atomically seals source production
+  meaning: Final cut captures effective completed origins and atomically seals source
+    production
   subjects:
   - Run
   - InputCut
@@ -3941,7 +4567,8 @@ invariants:
   implementation: cut
   required_capability: execution.lifecycle.v1
 - id: source_authorization
-  meaning: Published source evidence is within the selected cut and agrees with source placement/meaning
+  meaning: Published source evidence is within the selected cut and agrees with source
+    placement/meaning
   subjects:
   - AssertionOccurrence
   - Evidence
@@ -3957,7 +4584,8 @@ invariants:
   implementation: publish
   required_capability: execution.lifecycle.v1
 - id: scientific_selection
-  meaning: Selection/comparison uses bound scientific policy, context and explicit uncertainty
+  meaning: Selection/comparison uses bound scientific policy, context and explicit
+    uncertainty
   subjects:
   - Selection
   - Assessment
@@ -3969,7 +4597,8 @@ invariants:
   failure_code: execution.scientific_selection
   implementation: scientific_policy
 - id: alternative_identity
-  meaning: Alternative identity is distinct unordered scoped fact membership, with reason outside identity
+  meaning: Alternative identity is distinct unordered scoped fact membership, with
+    reason outside identity
   subjects:
   - AlternativeGroup
   - SemanticFact
@@ -3980,8 +4609,8 @@ invariants:
   implementation: publish
   required_capability: execution.lifecycle.v1
 - id: positive_grounding
-  meaning: Admitted positive rules and exact qualification ground finite proofs in eligible source/input
-    support
+  meaning: Admitted positive rules and exact qualification ground finite proofs in
+    eligible source/input support
   subjects:
   - Derivation
   - DerivationPremise
@@ -3993,8 +4622,8 @@ invariants:
   implementation: derive
   required_capability: execution.lifecycle.v1
 - id: verified_lineage
-  meaning: Cross-realization lineage names exact authorized input/output bindings and never copies source
-    occurrences
+  meaning: Cross-realization lineage names exact authorized input/output bindings
+    and never copies source occurrences
   subjects:
   - EntityInput
   - FactInput
@@ -4007,8 +4636,8 @@ invariants:
   implementation: publish
   required_capability: execution.lifecycle.v1
 - id: completed_result
-  meaning: Finished output, final cut, source/proof receipts and result pointer become visible atomically
-    and immutable
+  meaning: Finished output, final cut, source/proof receipts and result pointer become
+    visible atomically and immutable
   subjects:
   - Run
   - EvaluationResult
@@ -4021,8 +4650,8 @@ invariants:
   implementation: evaluate
   required_capability: execution.lifecycle.v1
 - id: writable_output
-  meaning: Writable realization has no completed EvaluationResult relationship; no independent mutable
-    seal flag
+  meaning: Writable realization has no completed EvaluationResult relationship; no
+    independent mutable seal flag
   subjects:
   - Realization
   - EvaluationResult
@@ -4033,7 +4662,8 @@ invariants:
   implementation: publish
   required_capability: execution.lifecycle.v1
 - id: same_snapshot
-  meaning: All bound handles, references and captured relations share one explicit snapshot/revision
+  meaning: All bound handles, references and captured relations share one explicit
+    snapshot/revision
   subjects:
   - SnapshotBinding
   - QueryHandle
@@ -4046,8 +4676,8 @@ invariants:
   failure_code: execution.same_snapshot
   implementation: read
 - id: coverage_lowering
-  meaning: Coverage translation retains family/scope/reason; query page completeness cannot imply knowledge
-    completeness
+  meaning: Coverage translation retains family/scope/reason; query page completeness
+    cannot imply knowledge completeness
   subjects:
   - SourceCoverage
   - SemanticCoverage
@@ -4059,7 +4689,8 @@ invariants:
   failure_code: execution.coverage_lowering
   implementation: evaluate
 - id: projection_fidelity
-  meaning: Declared projection preserves scoped identity, collection/null and arithmetic interpretation
+  meaning: Declared projection preserves scoped identity, collection/null and arithmetic
+    interpretation
   subjects:
   - CapturedPacket
   - CandidateInput
@@ -4072,7 +4703,10 @@ invariants:
   failure_code: execution.projection_fidelity
   implementation: projection
 - id: analysis_lifetime
-  meaning: Any number of borrowed and detached results may coexist. Borrowed use requires an open owning scope and live resource. Materialization creates a detached value without changing other borrowed handles. Detached values survive scope close; every owned teardown is attempted.
+  meaning: Any number of borrowed and detached results may coexist. Borrowed use requires
+    an open owning scope and live resource. Materialization creates a detached value
+    without changing other borrowed handles. Detached values survive scope close;
+    every owned teardown is attempted.
   subjects:
   - AnalysisScope
   - BorrowedResult
@@ -4083,8 +4717,8 @@ invariants:
   failure_code: execution.analysis_lifetime
   implementation: analysis_close
 - id: derived_revision
-  meaning: Snapshot-derived publication requires exact unchanged input revision; stale computation must
-    recompute
+  meaning: Snapshot-derived publication requires exact unchanged input revision; stale
+    computation must recompute
   subjects:
   - SnapshotDerivedPublication
   - SnapshotBinding
@@ -4095,7 +4729,8 @@ invariants:
   implementation: publish_arrow
   required_capability: execution.lifecycle.v1
 - id: exact_replay
-  meaning: Same operation identity and bytes returns original receipt; conflicting content refuses
+  meaning: Same operation identity and bytes returns original receipt; conflicting
+    content refuses
   subjects:
   - PublicationReceipt
   - AppendPublication
@@ -4107,6 +4742,42 @@ invariants:
   failure_code: execution.exact_replay
   implementation: publish
   required_capability: execution.lifecycle.v1
+- id: reference_binding
+  meaning: Independent references retain exact authored pass/frame context; source
+    writer cannot read or alter references; grading binds a complete pass-C snapshot
+    and immutable prediction output
+  subjects:
+  - ReferenceSet
+  - ReferencePass
+  - ReferenceCitationFrame
+  - ReferenceItem
+  - ReferenceEvaluation
+  relationships:
+  - reference_source_result
+  - reference_set_unit
+  - reference_unit_rendition
+  - reference_unit_pass
+  - reference_pass_frame
+  - reference_pass_item
+  - reference_item_frame
+  - reference_grade_set
+  - reference_grade_result
+  scope: relational
+  failure_code: reference_binding
+  implementation: reference_grade
+  required_capability: execution.reference_evaluation.v1
+- id: selected_result_binding
+  meaning: A generation CAS selects only a complete result of this project; later
+    release activation never rebinds that result
+  subjects:
+  - Project
+  - EvaluationResult
+  relationships:
+  - project_selected_result
+  scope: relational
+  failure_code: selected_result_binding
+  implementation: select_result
+  required_capability: execution.selected_result.v1
 operations:
 - id: resolve_identity
   inputs:
@@ -5055,8 +5726,8 @@ operations:
   - execution_model
   - input_binding
   - implementation_version
-  precision: Exact lexical/canonical value separate from DECIMAL(38,scale), HALF_EVEN, overflow/rounding
-    outcomes
+  precision: Exact lexical/canonical value separate from DECIMAL(38,scale), HALF_EVEN,
+    overflow/rounding outcomes
   implementation: projection
   transitions: []
   projections:
@@ -5282,6 +5953,190 @@ operations:
   transitions: []
   projections:
   - graph_validation
+- id: reference_set
+  inputs:
+  - ReferenceSet
+  results:
+  - ReferenceSet
+  applicability:
+  - reference_binding
+  universe: Explicit release, project, completed source and immutable reference context
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored bytes and values; undecided formula equivalence remains
+    undecided
+  implementation: reference_set
+  transitions: []
+  projections: []
+- id: reference_pass
+  inputs:
+  - ReferenceUnit
+  - SourceFrame
+  results:
+  - ReferencePass
+  - ReferenceCitationFrame
+  applicability:
+  - reference_binding
+  universe: Explicit release, project, completed source and immutable reference context
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored bytes and values; undecided formula equivalence remains
+    undecided
+  implementation: reference_pass
+  transitions:
+  - reference_pass_record_commit
+  projections: []
+- id: reference_items
+  inputs:
+  - ReferencePass
+  - ReferenceCitationFrame
+  results:
+  - ReferenceItem
+  applicability:
+  - reference_binding
+  universe: Explicit release, project, completed source and immutable reference context
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored bytes and values; undecided formula equivalence remains
+    undecided
+  implementation: reference_items
+  transitions: []
+  projections: []
+- id: reference_frame
+  inputs:
+  - ReferenceCitationFrame
+  - Rendition
+  results:
+  - ReferenceCitationFrame
+  applicability:
+  - reference_binding
+  universe: Explicit release, project, completed source and immutable reference context
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored bytes and values; undecided formula equivalence remains
+    undecided
+  implementation: reference_frame
+  transitions: []
+  projections: []
+- id: reference_grade
+  inputs:
+  - EvaluationResult
+  - ReferenceSet
+  results:
+  - ReferenceEvaluation
+  applicability:
+  - reference_binding
+  universe: Explicit release, project, completed source and immutable reference context
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored bytes and values; undecided formula equivalence remains
+    undecided
+  implementation: reference_grade
+  transitions:
+  - reference_grade_record_commit
+  projections: []
+- id: reference_split
+  inputs:
+  - Document
+  results:
+  - ReferenceDocumentSplit
+  applicability:
+  - reference_binding
+  universe: Explicit release, project, completed source and immutable reference context
+  effects:
+  - protected_independent_reference_operation
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored bytes and values; undecided formula equivalence remains
+    undecided
+  implementation: reference_split
+  transitions: []
+  projections: []
+- id: select_result
+  inputs:
+  - Project
+  - EvaluationResult
+  - ActivationToken
+  results:
+  - ActivationToken
+  applicability:
+  - selected_result_binding
+  universe: Explicit release, project, completed source and immutable reference context
+  effects:
+  - generation_cas_select_completed_output
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored bytes and values; undecided formula equivalence remains
+    undecided
+  implementation: select_result
+  transitions: []
+  projections: []
 implementations:
 - id: resolve_identity
   owner: semantic.domain_operations
@@ -5826,6 +6681,125 @@ implementations:
   - reified_shacl_paths
   effects: []
   required_capabilities: []
+- id: reference_set
+  owner: evaluate.semantic
+  symbol: create_reference_set
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceSet
+  result_concepts:
+  - ReferenceSet
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_pass
+  owner: evaluate.semantic
+  symbol: record_pass
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceUnit
+  - SourceFrame
+  result_concepts:
+  - ReferencePass
+  - ReferenceCitationFrame
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_items
+  owner: evaluate.semantic
+  symbol: ensure_items
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferencePass
+  - ReferenceCitationFrame
+  result_concepts:
+  - ReferenceItem
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_frame
+  owner: evaluate.semantic
+  symbol: relocate_frame
+  version: '1'
+  placement: python
+  input_concepts:
+  - ReferenceCitationFrame
+  - Rendition
+  result_concepts:
+  - ReferenceCitationFrame
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_grade
+  owner: evaluate.semantic
+  symbol: reference_evaluate
+  version: '1'
+  placement: python
+  input_concepts:
+  - EvaluationResult
+  - ReferenceSet
+  result_concepts:
+  - ReferenceEvaluation
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: reference_split
+  owner: evaluate.semantic
+  symbol: split_documents
+  version: '1'
+  placement: python
+  input_concepts:
+  - Document
+  result_concepts:
+  - ReferenceDocumentSplit
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - protected_independent_reference_operation
+  required_capabilities:
+  - execution.reference_evaluation.v1
+- id: select_result
+  owner: semantic.runtime
+  symbol: select_completed_result
+  version: '1'
+  placement: python
+  input_concepts:
+  - Project
+  - EvaluationResult
+  - ActivationToken
+  result_concepts:
+  - ActivationToken
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - generation_cas_select_completed_output
+  required_capabilities:
+  - execution.selected_result.v1
 projections:
 - id: occurrence
   sources:
@@ -5845,9 +6819,10 @@ projections:
   - input_provenance
   omissions:
   - accepted_truth
-  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
-    separate projection
-  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN
+    is an explicitly separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained;
+    no set coercion
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: snapshot
   implementation: query
@@ -5867,9 +6842,10 @@ projections:
   - input_provenance
   omissions:
   - source_item_deduplication_is_not_fact_identity
-  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
-    separate projection
-  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN
+    is an explicitly separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained;
+    no set coercion
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: snapshot
   implementation: query
@@ -5890,9 +6866,10 @@ projections:
   - input_provenance
   omissions:
   - negative_hypothetical_premises
-  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
-    separate projection
-  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN
+    is an explicitly separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained;
+    no set coercion
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: snapshot
   implementation: query
@@ -5919,9 +6896,10 @@ projections:
   - null_vs_absent
   - input_provenance
   omissions: []
-  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
-    separate projection
-  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN
+    is an explicitly separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained;
+    no set coercion
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: snapshot
   implementation: explain
@@ -5944,9 +6922,10 @@ projections:
   - null_vs_absent
   - input_provenance
   omissions: []
-  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
-    separate projection
-  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN
+    is an explicitly separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained;
+    no set coercion
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: detached
   implementation: capture
@@ -5968,9 +6947,10 @@ projections:
   - null_vs_absent
   - input_provenance
   omissions: []
-  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
-    separate projection
-  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN
+    is an explicitly separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained;
+    no set coercion
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: scope
   implementation: analysis
@@ -5988,9 +6968,10 @@ projections:
   - input_provenance
   omissions:
   - snapshot_derivation
-  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
-    separate projection
-  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN
+    is an explicitly separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained;
+    no set coercion
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: transaction
   implementation: publish_arrow
@@ -6008,9 +6989,10 @@ projections:
   - null_vs_absent
   - input_provenance
   omissions: []
-  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
-    separate projection
-  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN
+    is an explicitly separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained;
+    no set coercion
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: transaction
   implementation: publish_arrow
@@ -6649,6 +7631,54 @@ lifecycles:
   invariants:
   - analysis_lifetime
   - projection_fidelity
+- id: reference_pass_record
+  subject: ReferencePass
+  dimensions:
+  - id: visibility
+    values:
+    - private
+    - recorded
+  states:
+  - id: private
+    values:
+    - dimension: visibility
+      value: private
+    terminal: false
+  - id: recorded
+    values:
+    - dimension: visibility
+      value: recorded
+    terminal: true
+  initial_states:
+  - private
+  transitions:
+  - reference_pass_record_commit
+  invariants:
+  - reference_binding
+- id: reference_grade_record
+  subject: ReferenceEvaluation
+  dimensions:
+  - id: visibility
+    values:
+    - private
+    - recorded
+  states:
+  - id: private
+    values:
+    - dimension: visibility
+      value: private
+    terminal: false
+  - id: recorded
+    values:
+    - dimension: visibility
+      value: recorded
+    terminal: true
+  initial_states:
+  - private
+  transitions:
+  - reference_grade_record_commit
+  invariants:
+  - reference_binding
 transitions:
 - id: run_start_source
   lifecycle: run
@@ -7102,6 +8132,50 @@ transitions:
   outcomes:
   - closed
   - invalid
+- id: reference_pass_record_commit
+  lifecycle: reference_pass_record
+  operation: reference_pass
+  from_states:
+  - private
+  to_states:
+  - recorded
+  immutable_bindings:
+  - project
+  - release
+  - source_result
+  - authored_digest
+  - reference_frame_snapshot
+  invariants:
+  - reference_binding
+  effects:
+  - atomic_protected_insert
+  - preserve_exact_authored_and_context_bytes
+  outcomes:
+  - applied
+  - replay
+  - conflict
+- id: reference_grade_record_commit
+  lifecycle: reference_grade_record
+  operation: reference_grade
+  from_states:
+  - private
+  to_states:
+  - recorded
+  immutable_bindings:
+  - project
+  - release
+  - source_result
+  - authored_digest
+  - reference_frame_snapshot
+  invariants:
+  - reference_binding
+  effects:
+  - atomic_protected_insert
+  - preserve_exact_authored_and_context_bytes
+  outcomes:
+  - applied
+  - replay
+  - conflict
 outcome_domains:
 - id: preparation
   authority: code
@@ -7244,20 +8318,26 @@ outcome_translations:
   target: failed
   retained_meaning: Typed source failure and affected scope
   invariant: coverage_lowering
-
 native_guards:
 - id: execution_edge
   symbol: ops.execution_edge(text,text,text)
   version: '1'
-  invariants: [immutable_binding, terminal_result]
+  invariants:
+  - immutable_binding
+  - terminal_result
 - id: execution_task
   symbol: ops.guard_execution_task()
   version: '1'
-  invariants: [attempt_fence, terminal_result, reuse_origin]
+  invariants:
+  - attempt_fence
+  - terminal_result
+  - reuse_origin
 - id: execution_run
   symbol: ops.guard_execution_run()
   version: '1'
-  invariants: [final_cut_barrier, immutable_binding]
+  invariants:
+  - final_cut_barrier
+  - immutable_binding
 - id: conditional_kernel
   symbol: data.validate_conditions(text,text)
   version: '1'
@@ -7265,4 +8345,22 @@ native_guards:
 - id: completed_result
   symbol: data.finish_evaluation(bigint,text,text)
   version: '1'
-  invariants: [completed_result, writable_output, exact_replay]
+  invariants:
+  - completed_result
+  - writable_output
+  - exact_replay
+- id: reference_pass
+  symbol: eval.record_reference_pass(bigint,text,text,bytea,jsonb)
+  version: '1'
+  invariants:
+  - reference_binding
+- id: reference_grade
+  symbol: eval.record_reference_evaluation(text,bigint,bigint,jsonb,jsonb)
+  version: '1'
+  invariants:
+  - reference_binding
+- id: selected_result
+  symbol: data.select_project_result(text,bigint,bigint)
+  version: '1'
+  invariants:
+  - selected_result_binding
