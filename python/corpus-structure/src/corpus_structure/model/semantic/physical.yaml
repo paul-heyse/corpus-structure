@@ -12,7 +12,13 @@ default_range: string
 subsets:
   sem: {}
   data: {}
+  ops: {}
+  kb: {}
 types:
+  timestamp:
+    typeof: string
+    annotations:
+      ph:sql_type: timestamptz
   bytes:
     typeof: string
     annotations:
