@@ -22,6 +22,10 @@ classes:
       attributes: {range: AgentAttribute, inlined: true, multivalued: true}
       scope: {range: SemanticScope, inlined: true}
       reference: {range: AgentReference, inlined: true}
+  AgentStatementBinding:
+    description: Explicit release-bound domain class used when materializing source statements.
+    attributes:
+      statement: {range: SourceStatement}
   AgentStatement:
     attributes:
       id: {required: true}

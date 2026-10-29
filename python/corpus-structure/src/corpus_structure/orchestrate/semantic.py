@@ -550,11 +550,13 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
         view.options.get("agent_configs")
     )
     names = policy.registry_configs(registry)
+    from corpus_structure.semantic.statement_types import statement_kinds
+
     language = policy.unit_language(
-        prepared.enum_members("StatementKind"), names, nullable_claim_bearing=True
+        statement_kinds(prepared), names, nullable_claim_bearing=True
     )
     rules = policy.compile_policy(policy.parse_policy(policy_source), language, names)
-    bearing_kinds = prepared.enum_members("StatementKind", subset="claim_bearing")
+    bearing_kinds = statement_kinds(prepared, subset="claim_bearing")
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
     origin = t.alias("origin")
     from sqlalchemy import func

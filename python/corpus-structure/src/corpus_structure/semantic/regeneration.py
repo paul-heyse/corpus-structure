@@ -36,6 +36,7 @@ def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDepend
         sources: dict[str, SourceArtifact] = {}
         composed_artifacts: dict[str, SourceArtifact] = {}
         qualifiers = []
+        statement_classes = []
         for pack, (bundle, deps, _, _) in zip(packs, acquired, strict=True):
             for source in bundle.sources:
                 if source.name in {"agent", "agent-root", "observations", "observation-root", "analytics", "analytical-root"}:
@@ -46,6 +47,8 @@ def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDepend
             declaration = yaml.safe_load((pack / "semantic.yaml").read_bytes())
             qualifiers.extend(name for name, definition in declaration.get("classes", {}).items()
                               if definition.get("is_a") == "Qualification")
+            statement_classes.extend(name for name, definition in declaration.get("classes", {}).items()
+                                     if definition.get("is_a") == "SourceStatement")
             # Operation configuration is pack-scoped in a composed schema, not a merged executable graph.
             for artifact in deps.artifacts:
                 if artifact.name.startswith(("execution/", "operation/analytical")):
@@ -61,9 +64,14 @@ def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDepend
         if qualifiers:
             qualification = "ComposedQualification"
             root["classes"] = {qualification: {"is_a": "Qualification", "mixins": qualifiers}}
+        statement_class = "SourceStatement"
+        if len(statement_classes) == 1:
+            statement_class = statement_classes[0]
+        elif statement_classes:
+            raise ValueError("composed packs require one explicit source-statement operation binding")
         bundle = SourceBundle("composed_pack", (*sources.values(), SourceArtifact("composed_pack", yaml.safe_dump(root).encode())))
         deps = ResolvedDependencies(tuple(composed_artifacts.values()))
-        bundle = proposal_inputs(bundle, deps, qualification_class=qualification)
+        bundle = proposal_inputs(bundle, deps, qualification_class=qualification, statement_class=statement_class)
         bundle, deps = prepare_source_inputs(bundle, deps)
         bundle, deps = analytical_inputs(bundle, deps)
         deps = composed_dependencies(deps)
@@ -107,7 +115,12 @@ def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDepend
                   if definition.get("is_a") == "Qualification"]
     if len(qualifiers) > 1:
         raise ValueError("pack requires one explicit Qualification subclass")
-    bundle = proposal_inputs(bundle, deps, qualification_class=qualifiers[0] if qualifiers else "Qualification")
+    statement_classes = [key for key, definition in document.get("classes", {}).items()
+                         if definition.get("is_a") == "SourceStatement"]
+    if len(statement_classes) > 1:
+        raise ValueError("pack requires one explicit SourceStatement subclass")
+    bundle = proposal_inputs(bundle, deps, qualification_class=qualifiers[0] if qualifiers else "Qualification",
+                            statement_class=statement_classes[0] if statement_classes else "SourceStatement")
     bundle, deps = prepare_source_inputs(bundle, deps)
     bundle, deps = analytical_inputs(bundle, deps)
     deps = composed_dependencies(deps)

@@ -79,7 +79,9 @@ def project_markup(
     except ValueError, KeyError, LookupError:
         return MarkupProjection((), (target_locator,))
     predicate = prepared.expand_name(synthesis["predicate"])
-    definition = next(d for d in prepared.definitions if d.name == "SourceStatement")
+    from .statement_types import statement_definition
+
+    definition = statement_definition(prepared)
     prop = next(p for p in definition.properties if p.iri == predicate)
     if prop.range != "SourceStatement" or prop.inlined:
         raise ValueError("source synthesis requires a declared statement relation")
@@ -120,7 +122,7 @@ def project_markup(
             out.append(
                 SourceItem(
                     entity,
-                    "SourceStatement",
+                    definition.name,
                     name,
                     value,
                     qualification,
@@ -133,7 +135,7 @@ def project_markup(
     out.append(
         SourceItem(
             subject,
-            "SourceStatement",
+            definition.name,
             prop.name,
             target_id,
             qualification,
