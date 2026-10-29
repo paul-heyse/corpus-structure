@@ -19,18 +19,27 @@ BEGIN
   SELECT v UNION
   SELECT role.parent_value_id FROM data.value_role role JOIN ancestors a ON a.value_id=role.child_value_id
    WHERE role.release_id=r AND role.realization_id=z
+ ), origins(realization_id,fact_id) AS (
+  SELECT origin.input_realization_id,origin.input_fact_id
+   FROM data.fact owner JOIN data.fact_input origin
+    ON (origin.release_id,origin.realization_id,origin.fact_id)=(owner.release_id,owner.realization_id,owner.fact_id)
+   JOIN ops.run job ON job.id=origin.run_id
+   JOIN data.realization input ON input.release_id=r AND input.realization_id=job.input_realization_id
+   WHERE owner.release_id=r AND owner.realization_id=z
+    AND (owner.object_value_id IN (SELECT value_id FROM ancestors)
+         OR owner.qualification_value_id IN (SELECT value_id FROM ancestors))
+    AND origin.input_realization_id=job.input_realization_id
+    AND origin.input_data_revision=job.input_revision AND input.data_revision=job.input_revision
+    AND input.project_id=job.project_id AND job.release_id=r
+  UNION
+  -- Prior fact_input links were checked on publication. Their immutable fact meaning remains
+  -- valid even after a different append advances that historical input's live revision.
+  SELECT source.input_realization_id,source.input_fact_id
+   FROM origins parent JOIN data.fact_input source ON source.release_id=r
+    AND source.realization_id=parent.realization_id AND source.fact_id=parent.fact_id
  )
- SELECT EXISTS(SELECT FROM data.fact owner JOIN data.fact_input origin
-   ON (origin.release_id,origin.realization_id,origin.fact_id)=(owner.release_id,owner.realization_id,owner.fact_id)
-  JOIN ops.run job ON job.id=origin.run_id
-  JOIN data.realization input ON input.release_id=r AND input.realization_id=job.input_realization_id
-  JOIN data.fact premise ON premise.release_id=r AND premise.realization_id=input.realization_id AND premise.fact_id=target
-  WHERE owner.release_id=r AND owner.realization_id=z
-   AND (owner.object_value_id IN (SELECT value_id FROM ancestors)
-        OR owner.qualification_value_id IN (SELECT value_id FROM ancestors))
-   AND origin.input_realization_id=job.input_realization_id
-   AND origin.input_data_revision=job.input_revision AND input.data_revision=job.input_revision
-   AND input.project_id=job.project_id AND job.release_id=r)
+ SELECT EXISTS(SELECT FROM origins origin JOIN data.fact premise ON premise.release_id=r
+   AND premise.realization_id=origin.realization_id AND premise.fact_id=target)
  INTO input_supported;
  IF NOT input_supported THEN
   RAISE EXCEPTION 'fact reference is outside its bound realization or declared input snapshot' USING ERRCODE='23514';
