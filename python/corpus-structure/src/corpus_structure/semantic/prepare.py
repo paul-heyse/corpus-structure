@@ -72,7 +72,7 @@ _UNSUPPORTED = frozenset(
         "slot_conditions",
     }
 )
-_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case", "cs:role", "cs:qualifiers", "cs:identity_qualifiers", "cs:param_map", "cs:extract", "cs:functional", "cs:scope"})
+_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case", "cs:role", "cs:qualifiers", "cs:identity_qualifiers", "cs:param_map", "cs:extract", "cs:functional", "cs:scope", "cs:reference_role"})
 _PRIMITIVES: dict[str, Any] = {
     "string": str,
     "integer": int,
@@ -477,6 +477,11 @@ def prepare_release(
                 _fail("case_policy", f"{name}/{sn}", "unsupported case policy", "unsupported")
             if ann.get("cs:key_role", "meaning") not in {"meaning", "identity", "provenance"}:
                 _fail("key_role", f"{name}/{sn}", "unsupported key role", "unsupported")
+            reference_role = ann.get("cs:reference_role")
+            if reference_role not in {None, "fact"}:
+                _fail("reference_role", f"{name}/{sn}", "unsupported reference role", "unsupported")
+            if reference_role and (rng in classes or rng in enum_types or _primitive(view, rng) is not str):
+                _fail("reference_role", f"{name}/{sn}", "fact references require a string range", "unsupported")
             scope = ann.get("cs:constraint_scope", profile.constraint_scope)
             if scope not in {"shape", "occurrence", "accepted_value", "context"}:
                 _fail("constraint_scope", f"{name}/{sn}", scope)
@@ -563,6 +568,7 @@ def prepare_release(
                 tuple(patterns),
                 str(slot.equals_string) if slot.equals_string is not None else None,
                 collection_key,
+                reference_role,
             )
             slots.append(prop)
             if rng in classes:
