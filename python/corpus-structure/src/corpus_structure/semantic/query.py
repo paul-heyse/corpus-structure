@@ -705,6 +705,8 @@ class ReadSession:
     def _occurrence_contexts(
         self, occurrence_ids: tuple[str, ...]
     ) -> tuple[dict[str, OccurrenceContext], dict[str, tuple[CitationRole, ...]]]:
+        if not occurrence_ids:
+            return {}, {}
         context, roles = table("data.occurrence_context"), table("data.occurrence_evidence_role")
         contexts = {
             row["occurrence_id"]: OccurrenceContext(

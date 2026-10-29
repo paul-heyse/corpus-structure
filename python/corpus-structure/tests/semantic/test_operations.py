@@ -1,6 +1,7 @@
 """Native run bindings, terminal fences and immutable consolidation cuts."""
 
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from sqlalchemy import insert, select, text
@@ -452,7 +453,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
         assert measured_rows[2]["detail"] == {"flag": False, "text": "δ", "items": [1, None, 0.5]}
         for changes in ({}, {"source_position": 0}, {"metric": "undeclared"}, {"run_id": run + 10000}, {"detail": []}):
             with pytest.raises(DBAPIError), c.begin_nested():
-                forged = dict(run_id=run, task_id=task, metric="count", scope_type="run", value=2, detail={})
+                forged: dict[str, Any] = dict(run_id=run, task_id=task, metric="count", scope_type="run", value=2, detail={})
                 forged.update(changes)
                 c.execute(insert(table("ops.measurement")).values(**forged))
     from dataclasses import replace
@@ -509,7 +510,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
         with pytest.raises(DBAPIError), e.begin() as c:
             c.execute(text(statement), {"run": run, "task": task})
     with read_session(semantic_reader_engine, "measurement-output") as session:
-        assert [m.source_position for m in session.measurements("count")] == [0, 1, 2, 3]
+        assert [m.model_dump()["source_position"] for m in session.measurements("count")] == [0, 1, 2, 3]
     import json
     malformed_values = (
         {"kind": "float", "hexadecimal": "NaN"},
