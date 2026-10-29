@@ -648,6 +648,17 @@ def prepare_release(
         return TypeAdapter(model)
 
     adapters = tuple((name, boundary(name, model)) for name, model in sorted(models.items()))
+    # Optional analytical semantics are explicit archived inputs, never installed defaults.
+    for dependency in dependencies.artifacts:
+        if dependency.name == "analytical-profile.json":
+            adapter = dict(adapters).get("AnalyticalProfile")
+            if adapter is None:
+                _fail("analytical_profile", dependency.name, "AnalyticalProfile is not declared")
+            try:
+                adapter.validate_json(dependency.content, strict=True)
+            except Exception as exc:
+                _fail("analytical_profile", dependency.name, str(exc))
+            artifacts.append(PreparedArtifact(dependency.name, dependency.content))
     for name, adapter in adapters:
         artifacts.append(
             PreparedArtifact(f"json_schema/{name}", canonical_bytes(adapter.json_schema()))
