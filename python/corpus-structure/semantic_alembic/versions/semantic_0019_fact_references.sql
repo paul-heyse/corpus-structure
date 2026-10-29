@@ -57,6 +57,15 @@ BEGIN
    WHERE occurrence.realization_id=p_output AND occurrence.source<>observation.observation_key) THEN
   RAISE EXCEPTION 'evaluated occurrence source differs from its bound observation' USING ERRCODE='23514';
  END IF;
+ IF EXISTS(SELECT FROM data.fact fact WHERE fact.realization_id=p_output
+   AND NOT EXISTS(SELECT FROM data.support support WHERE
+     (support.release_id,support.realization_id,support.fact_id)=(fact.release_id,fact.realization_id,fact.fact_id))
+   AND NOT EXISTS(SELECT FROM data.derivation proof WHERE
+     (proof.release_id,proof.realization_id,proof.conclusion_fact_id)=(fact.release_id,fact.realization_id,fact.fact_id))
+   AND NOT EXISTS(SELECT FROM data.fact_input origin WHERE
+     (origin.release_id,origin.realization_id,origin.fact_id)=(fact.release_id,fact.realization_id,fact.fact_id))) THEN
+  RAISE EXCEPTION 'evaluated fact has no source support, admitted proof or bound input lineage' USING ERRCODE='23514';
+ END IF;
  PERFORM data.finish_pre_source_identity_evaluation(p_cut,p_output,p_batch);
 END $fn$;
 ALTER FUNCTION data.finish_evaluation(bigint,text,text) OWNER TO corpus_sem_publisher;

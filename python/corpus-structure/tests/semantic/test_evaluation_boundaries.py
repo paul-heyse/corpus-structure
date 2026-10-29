@@ -72,3 +72,35 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(semantic_db_
     with semantic_writer_engine.connect() as conn:
         assert not conn.execute(select(table('data.realization')).where(table('data.realization').c.realization_id == 'hostile')).first()
         assert conn.execute(select(table('ops.run').c.result_realization_id).where(table('ops.run').c.id == run)).scalar_one() is None
+
+
+def test_finished_result_cannot_contain_an_unbacked_selected_fact(semantic_db_engine, semantic_writer_engine, tmp_path):
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from corpus_structure.semantic.consolidation import SourceItem, assemble
+    from corpus_structure.semantic.domain_operations import _cut_input
+    from corpus_structure.semantic.publication import EvidenceRow, EvidenceSourceRow, SelectionRow, publish_on_connection
+
+    prepared, run, cut = fixture(semantic_db_engine, semantic_writer_engine, tmp_path / 'source.html')
+    inputs = _cut_input(semantic_writer_engine, cut, 'hostile')
+    candidate = inputs.candidates[0]
+    draft = SourceItem(candidate.subject, candidate.class_name, 'name', 'Alice',
+                       {'modality': 'supposed', 'polarity': True}, 'not-a-source', 'bare', 'stated',
+                       (EvidenceRow('unused', 'unused', 'unused', 'unused', '1'),))
+    extra = assemble(prepared, 'hostile', 'extra', (draft,))
+    with semantic_writer_engine.begin() as conn:
+        links = []
+        span = table('kb.span')
+        for evidence_id, (observation, rendition, start, end) in inputs.source_links.items():
+            span_id = conn.execute(pg_insert(span).values(rendition_id=rendition, start_offset=start, end_offset=end).returning(span.c.id)).scalar_one()
+            links.append(EvidenceSourceRow(evidence_id, observation, rendition, span_id))
+    batch = replace(inputs.batch,
+        typed_value=tuple(sorted(set(inputs.batch.typed_value + extra.typed_value), key=lambda row: row.value_id)),
+        value_role=tuple(sorted(set(inputs.batch.value_role + extra.value_role), key=lambda row: (row.parent_value_id, row.role, row.position))),
+        fact=inputs.batch.fact + extra.fact,
+        selection=(SelectionRow(extra.fact[0].fact_id),), evidence_source=tuple(links),
+    )
+    with pytest.raises(DBAPIError, match='evaluated fact has no source support, admitted proof or bound input lineage'):
+        with semantic_writer_engine.connect().execution_options(isolation_level='SERIALIZABLE') as conn, conn.begin():
+            conn.execute(text('SELECT data.begin_evaluation(:cut,:out)'), {'cut': cut, 'out': 'hostile'})
+            publish_on_connection(conn, batch)
+            conn.execute(text('SELECT data.finish_evaluation(:cut,:out,:batch)'), {'cut': cut, 'out': 'hostile', 'batch': batch.batch_id})
