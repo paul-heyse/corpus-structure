@@ -25,7 +25,7 @@ classes:
   AgentStatement:
     attributes:
       id: {required: true}
-      kind: {required: true}
+      kind: {range: AgentStatementKind, required: true}
       anchor: {required: true}
       title: {}
       reference: {range: AgentReference, inlined: true}
@@ -64,7 +64,7 @@ classes:
       qualification: {range: Qualification, inlined: true, required: true}
       establishment: {range: Establishment, required: true}
       statement: {}
-      statement_role: {}
+      statement_role: {range: AgentStatementRole}
       evidence: {range: AgentEvidence, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
   AgentStoredClaim:
     is_a: AgentClaim
@@ -95,6 +95,15 @@ classes:
       claims: {range: AgentStoredClaim}
       unsupported: {range: AgentStoredUnsupported}
 enums:
+  AgentStatementKind:
+    permissible_values: {}
+  AgentStatementRole:
+    permissible_values:
+      premise: {}
+      conclusion: {}
+      definiens: {}
+      restriction: {}
+      example_value: {}
   AgentClassIRI:
     permissible_values: {}
   AgentPropertyIRI:
