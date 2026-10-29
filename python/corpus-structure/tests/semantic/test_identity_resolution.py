@@ -74,3 +74,17 @@ def test_known_entity_cannot_link_vetoes_label_match():
     known = {"known:alice": {"class_iris": ("https://example.org/Person",), "label": "Alice", "fields": {}}}
     mappings, _, _ = _entity_mappings(release(), [observed], "out", known, {9: ({}, ())})
     assert mappings[9]["a"] != "known:alice"
+
+
+def test_partition_is_independent_of_observation_arrival_and_database_ids():
+    import copy
+    first = source()
+    second = copy.deepcopy(first)
+    second["id"], second["observation_key"] = 15, "observation:other"
+    left, _, _ = _entity_mappings(release(), [first, second], "out", {}, {9: ({}, ()), 15: ({}, ())})
+    right, _, _ = _entity_mappings(release(), [second, first], "out", {}, {9: ({}, ()), 15: ({}, ())})
+    assert left == right
+    first["id"], second["id"] = 77, 44
+    reassigned, _, _ = _entity_mappings(release(), [first, second], "out", {}, {77: ({}, ()), 44: ({}, ())})
+    assert reassigned[77] == left[9]
+    assert reassigned[44] == left[15]
