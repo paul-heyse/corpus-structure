@@ -268,7 +268,9 @@ def test_direct_transport_rejects_undeclared_proof_and_stale_analysis(
         publish_batch(semantic_writer_engine, bad)
     result = compute(semantic_writer_engine, binding)
     publish_batch(semantic_writer_engine, PublicationBatch(R, Z, "advance"))
-    with pytest.raises(DBAPIError, match="revision changed"):
+    from corpus_structure.semantic.arrow_publication import StaleAnalysisError
+
+    with pytest.raises(StaleAnalysisError, match="revision changed"):
         publish_inference(semantic_writer_engine, result)
 
 

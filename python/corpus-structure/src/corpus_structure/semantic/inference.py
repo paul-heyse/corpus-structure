@@ -27,7 +27,6 @@ from .publication import (
     SelectionRow,
     ValueRow,
     _publish,
-    stage_batch,
 )
 from .query import SnapshotBinding
 
@@ -260,18 +259,14 @@ def publish_inference(
 ) -> PublicationReceipt:
     """Use the shared retry owner and native exact-replay/source revision fence."""
 
+    from .arrow_publication import SnapshotDerivedPublication, publish_arrow_on_connection
+
+    publication = SnapshotDerivedPublication.from_rows(
+        result.batch, source=result.binding,
+        operation_id="publish_inference", projection_id="accepted",
+    )
+
     def publish(conn: Connection, batch: PublicationBatch) -> PublicationReceipt:
-        stage_batch(conn, batch)
-        revision = conn.execute(
-            text("SELECT data.publish_analysis_batch(:r,:z,:b,:content,:revision)"),
-            {
-                "r": batch.release_id,
-                "z": batch.realization_id,
-                "b": batch.batch_id,
-                "content": batch.content,
-                "revision": result.binding.data_revision,
-            },
-        ).scalar_one()
-        return PublicationReceipt(batch.batch_id, revision, sha256(batch.content).hexdigest())
+        return publish_arrow_on_connection(conn, publication)
 
     return _publish(engine, result.batch, publish, attempts=attempts)
