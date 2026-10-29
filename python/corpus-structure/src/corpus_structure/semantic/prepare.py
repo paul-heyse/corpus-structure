@@ -430,6 +430,35 @@ def prepare_release(
             scope = ann.get("cs:constraint_scope", profile.constraint_scope)
             if scope not in {"shape", "occurrence", "accepted_value", "context"}:
                 _fail("constraint_scope", f"{name}/{sn}", scope)
+            if scope != "shape":
+                for ancestor in view.class_ancestors(name, reflexive=False):
+                    for inherited in view.class_induced_slots(ancestor):
+                        if str(inherited.name) != sn:
+                            continue
+                        parent_scope = _annotations(inherited).get(
+                            "cs:constraint_scope", profile.constraint_scope
+                        )
+                        bounds = _bounds(view, str(inherited.range or "string"))
+                        constrained = any(
+                            (
+                                inherited.required,
+                                not inherited.multivalued,
+                                inherited.identifier,
+                                inherited.minimum_cardinality is not None,
+                                inherited.maximum_cardinality is not None,
+                                inherited.minimum_value is not None,
+                                inherited.maximum_value is not None,
+                                inherited.pattern,
+                                any(bounds),
+                            )
+                        )
+                        if parent_scope == "shape" and constrained:
+                            _fail(
+                                "constraint_scope_override",
+                                f"{name}/{sn}",
+                                "a subclass cannot weaken inherited shape constraints",
+                                "unsupported",
+                            )
             if not slot.multivalued and (
                 slot.minimum_cardinality not in (None, 0, 1)
                 or slot.maximum_cardinality not in (None, 1)

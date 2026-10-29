@@ -359,3 +359,17 @@ def test_known_annotation_on_unsupported_host_refuses():
             bundle(lambda d: d["classes"]["Thing"].update(annotations={"cs:case": "casefold"}))
         )
     assert error.value.diagnostics[0].code == "unsupported_annotation_placement"
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_subclass_cannot_weaken_inherited_shape_constraint(required):
+    def extend(data):
+        data["classes"]["Thing"]["attributes"]["label"]["required"] = required
+        data["classes"]["Child"] = {
+            "is_a": "Thing",
+            "slot_usage": {"label": {"annotations": {"cs:constraint_scope": "accepted_value"}}},
+        }
+
+    with pytest.raises(PreparationError) as caught:
+        prepare_release(bundle(extend))
+    assert caught.value.diagnostics[0].code == "constraint_scope_override"
