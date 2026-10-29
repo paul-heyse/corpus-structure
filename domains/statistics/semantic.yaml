@@ -1,0 +1,375 @@
+id: https://corpus-structure.dev/domains/statistics/semantic
+name: statistics_semantic
+prefixes:
+  stat: https://corpus-structure.dev/domains/statistics/
+  cs: https://corpus-structure.dev/semantic/
+default_prefix: stat
+default_range: string
+imports:
+- semantic_core
+classes:
+  Formula:
+    is_a: ExpressionValue
+    attributes:
+      kind:
+        equals_string: formula
+  SetExpr:
+    is_a: ExpressionValue
+    attributes:
+      kind:
+        equals_string: set
+  PhraseValue:
+    is_a: Value
+    attributes:
+      kind:
+        equals_string: phrase
+      text:
+        required: true
+      locator: {}
+      coarse:
+        range: boolean
+  MapEntry:
+    abstract: true
+    attributes:
+      key:
+        required: true
+      value: {}
+  DistributionFamily:
+    is_a: Entity
+    mixins:
+    - Distributed
+    - Parameterized
+    description: 'A named family of probability distributions, possibly with parameters:
+      the normal distribution, the gamma distribution, the standard normal distribution.
+      Mentions include adjectival forms ("normally distributed", "has a gamma distribution").'
+    slots:
+    - special_case_of
+    - transformation_of
+    - limit_of
+    - member_of_construction
+  FamilyConstruction:
+    is_a: Entity
+    mixins:
+    - Parameterized
+    description: A way of generating a family of distributions from a base distribution,
+      such as the location-scale family, the location family or the scale family associated
+      with a distribution, or the general exponential family. Not itself a single
+      distribution family.
+    slots:
+    - construction_formula
+  FamilyParameter:
+    is_a: Entity
+    description: A parameter of a distribution family or construction, such as the
+      location parameter, the scale parameter, the shape parameter k, the rate, the
+      mean or the standard deviation when these parameterize the family.
+    slots:
+    - family
+    - canonical_name
+    - parameter_role
+    - parameter_domain
+    - identical_parameter
+    - derived_parameter
+    slot_usage:
+      family:
+        required: true
+      canonical_name:
+        required: true
+    unique_keys:
+      identity:
+        unique_key_slots:
+        - family
+        - canonical_name
+  RandomVariable:
+    is_a: Entity
+    mixins:
+    - Distributed
+    description: A random variable denoted by a symbol (X, Y, Z, X_1, W) or by an
+      expression in other random variables (a + b X, e^Y, X_1 + X_2). Local to the
+      statement or section that introduces it. Its label is math-bearing, so its case
+      is kept (X and x are different variables).
+    slots:
+    - symbol
+    - scope_locator
+    - has_distribution
+    - defined_as
+    - takes_values_in
+    slot_usage:
+      scope_locator:
+        required: true
+    unique_keys:
+      identity:
+        unique_key_slots:
+        - symbol
+        - scope_locator
+  Concept:
+    is_a: Entity
+    description: 'A defined mathematical term that is not a distribution family, construction
+      or parameter: the gamma function, the standard score, the moment generating
+      function.'
+    slots:
+    - definition_formula
+  Distributed:
+    description: Things that have a distribution and its characteristics.
+    is_a: Entity
+    abstract: true
+    slots:
+    - support
+    - pdf
+    - cdf
+    - mgf
+    - mean_value
+    - variance_value
+  Parameterized:
+    description: Things that have parameters, a family or a construction.
+    is_a: Entity
+    abstract: true
+    slots:
+    - has_parameter
+  ParamValue:
+    is_a: MapEntry
+    description: 'One entry of a param_values or param_symbols map: key a canonical
+      parameter name, value the formula it takes.'
+    slot_usage:
+      value:
+        range: Formula
+        inlined: true
+  ParamMapping:
+    is_a: MapEntry
+    description: 'One entry of a param_mapping map: key the target family''s parameter
+      canonical name, value the canonical name of the base family''s parameter it
+      corresponds to.'
+    slot_usage:
+      value:
+        range: string
+  StatisticsQualification:
+    is_a: Qualification
+    description: Statistics-specific meaning-bearing qualifications; source evidence
+      and confidence are separate.
+    attributes:
+      param_values:
+        range: ParamValue
+        multivalued: true
+        inlined: true
+        description: 'The parameter values the sentence states, an object from the
+          family''s canonical parameter names to formulas: {"shape": <formula>, "scale":
+          <formula>} (guideline §10.5).'
+      param_constraints:
+        range: Condition
+        description: A condition tree (D1 §7) over the base family's parameters under
+          which the special case holds (k = 1).
+      transform:
+        range: Formula
+        description: The transformation, as a formula in the base variable. "e^Y".
+        inlined: true
+      param_mapping:
+        range: ParamMapping
+        multivalued: true
+        inlined: true
+        description: 'An object from the target family''s canonical parameter names
+          to the base family''s canonical parameter names they correspond to: {"shape":
+          "sigma"}.'
+      limit:
+        range: PhraseValue
+        description: The limiting operation as stated. "as n → ∞".
+        inlined: true
+      base:
+        range: Entity
+        description: The base family the construction is applied to.
+      base_variable:
+        range: RandomVariable
+        description: The base variable the construction formula transforms (Z in a
+          + b Z).
+      param_symbols:
+        range: ParamValue
+        multivalued: true
+        inlined: true
+        description: 'An object from the construction''s canonical parameter names
+          to the symbols that stand for them in its formula: {"location": <formula
+          a>, "scale": <formula b>}.'
+slots:
+  family:
+    range: Parameterized
+    description: The family or construction the parameter belongs to (a local ref
+      in batches).
+  canonical_name:
+    description: 'The parameter''s name from the phrase that first names its symbol
+      as a parameter of the family: its role word spelled as the ParameterRole value,
+      else the symbol without backslash (guideline §10.4). A symbol fallback keeps
+      its case (OPEN-D1-3), so the slot preserves case.'
+  symbol:
+    description: The symbol or expression that denotes the random variable, as written.
+  has_distribution:
+    range: DistributionFamily
+    description: The random variable has a distribution in the family, optionally
+      with stated parameter values. "X is normally distributed with mean μ and variance
+      σ²".
+    annotations:
+      cs:constraint_scope: accepted_value
+  defined_as:
+    range: Formula
+    description: The random variable is defined by a formula in other variables. "let
+      X = a + b Z".
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  takes_values_in:
+    range: SetExpr
+    description: The random variable's values lie in the set. "with values in ℝ".
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  has_parameter:
+    range: FamilyParameter
+    description: A family or construction has this parameter. "with shape parameter
+      k and scale parameter b".
+    annotations:
+      cs:constraint_scope: accepted_value
+  parameter_role:
+    range: ParameterRole
+    description: The parameter plays this role, stated when it differs from its canonical
+      name. "σ is the shape parameter".
+    annotations:
+      cs:constraint_scope: accepted_value
+  parameter_domain:
+    range: SetExpr
+    description: The set of the parameter's allowed values. "b ∈ (0, ∞)".
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  identical_parameter:
+    range: FamilyParameter
+    description: Two parameter names denote the same parameter of the family. "the
+      location and scale parameters are also the mean and standard deviation, respectively".
+    annotations:
+      cs:constraint_scope: accepted_value
+  derived_parameter:
+    range: Formula
+    description: The parameter equals a formula in the family's other parameters.
+      "e^μ is the scale parameter".
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  special_case_of:
+    range: Entity
+    description: The family is the special case of another family or construction
+      obtained under parameter constraints. "The exponential distribution is the gamma
+      distribution with k = 1".
+    annotations:
+      cs:constraint_scope: accepted_value
+  transformation_of:
+    range: DistributionFamily
+    description: Variables in this family arise by transforming a variable of the
+      other family. "X = e^Y has the lognormal distribution".
+    annotations:
+      cs:constraint_scope: accepted_value
+  limit_of:
+    range: DistributionFamily
+    description: The family is a limit of the other under a stated limiting operation.
+    annotations:
+      cs:constraint_scope: accepted_value
+  member_of_construction:
+    range: FamilyConstruction
+    description: The family is the construction applied to a base. "The general normal
+      distribution is the location-scale family associated with the standard normal
+      distribution".
+    annotations:
+      cs:constraint_scope: accepted_value
+  construction_formula:
+    range: Formula
+    description: The formula generating members of the construction, without the variable
+      it defines. "X = a + b Z" gives a + b Z.
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  support:
+    range: SetExpr
+    description: The support of the distribution, the set of values with positive
+      density or mass. "on (0, ∞)".
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  pdf:
+    range: Formula
+    description: The probability density (or mass) function, with its argument domain
+      as a condition.
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  cdf:
+    range: Formula
+    description: The cumulative distribution function, with its argument domain as
+      a condition.
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  mgf:
+    range: Formula
+    description: The moment generating function, with the set of arguments where it
+      is finite as a condition.
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  mean_value:
+    range: Formula
+    description: The mean (expected value) as a formula. "E(X) = μ".
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  variance_value:
+    range: Formula
+    description: The variance as a formula. "var(X) = σ²".
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  definition_formula:
+    range: Formula
+    description: The formula defining the concept. "the standard score is (X - μ)
+      / σ".
+    annotations:
+      cs:constraint_scope: accepted_value
+    inlined: true
+  scope_locator:
+    description: Stable source scope locator, never a physical segment id.
+enums:
+  ParameterRole:
+    description: The role a parameter plays in its family.
+    permissible_values:
+      location:
+        description: A location parameter.
+      scale:
+        description: A scale parameter.
+      shape:
+        description: A shape parameter.
+      rate:
+        description: A rate parameter.
+      mean:
+        description: The mean as a parameter.
+      variance:
+        description: The variance as a parameter.
+      standard_deviation:
+        description: The standard deviation as a parameter.
+      precision:
+        description: The precision (reciprocal variance) as a parameter.
+      degrees_of_freedom:
+        description: Degrees of freedom.
+      success_probability:
+        description: A success probability.
+      number_of_trials:
+        description: A number of trials.
+      lower_bound:
+        description: A lower bound of the support.
+      upper_bound:
+        description: An upper bound of the support.
+      other:
+        description: Another stated role.
+  ConditionPredicate:
+    description: The condition predicates of pred nodes (D2 §5).
+    permissible_values:
+      independent:
+        description: The arguments are independent.
+      identically_distributed:
+        description: The arguments have the same distribution.
+      iid:
+        description: The arguments are independent and identically distributed.
+description: Semantic statistics declaration for SP-06/SP-07. The pre-pivot schema
+  remains selected only until explicit SP-09 cutover.
