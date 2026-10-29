@@ -27,6 +27,7 @@ def test_positive_rules_use_expanded_property_iris_and_stable_versions():
     assert {(r['kind'], r['predicate'], r.get('target')) for r in rules} == {
         ('transitive', 'https://example.org/ancestor', None),
         ('inverse', 'https://example.org/parent', 'https://example.org/child'),
+        ('inverse', 'https://example.org/child', 'https://example.org/parent'),
         ('subproperty', 'https://example.org/parent', 'https://example.org/ancestor'),
     }
     assert all(r['rule_id'] == 'rule:' + r['rule_version'] for r in rules)
@@ -48,3 +49,21 @@ def test_scope_is_typed_and_meaning_bearing_but_not_physical_segment_id():
         release.validate_python('Qualification', {**qualification, 'scope': {'extent': 'global', 'locator': 'x'}})
     with pytest.raises(ValidationError):
         release.validate_python('Qualification', {**qualification, 'scope': {'extent': 'section', 'segment_id': 42}})
+
+
+def test_expression_binding_variants_preserve_entities_claim_roles_and_unresolveds():
+    source = Path(__file__).parents[2] / 'src/corpus_structure/model/semantic/core.yaml'
+    release = prepare_release(SourceBundle('semantic_core', (SourceArtifact('semantic_core', source.read_bytes()),)))
+    raw = {'kind':'expression','language':'latex','expression':'x+y', 'form':'formula',
+           'bindings':({'kind':'variable','symbol':'x','entity':'local:x'},
+                       {'kind':'param_of','symbol':'y','claim':'source:claim','parameter':'scale'},
+                       {'kind':'unresolved','symbol':'z'})}
+    result = release.validate_python('Value',raw)
+    assert result.bindings[0].entity == 'local:x'
+    assert result.bindings[1].claim == 'source:claim'
+    assert result.bindings[1].parameter == 'scale'
+    assert result.bindings[2].kind == 'unresolved'
+    with pytest.raises(ValidationError):
+        release.validate_python('Value',{**raw,'bindings':({'kind':'variable','symbol':'x'},)})
+    with pytest.raises(ValidationError):
+        release.validate_python('Value',{**raw,'bindings':({'kind':'constant','symbol':'x','entity':'not-permitted'},)})

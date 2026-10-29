@@ -49,6 +49,7 @@ from .types import (
 _LITERAL: Any = Literal
 _ANNOTATED: Any = Annotated
 _TUPLE: Any = tuple
+_DICT: Any = dict
 
 _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 _UNSUPPORTED = frozenset(
@@ -70,7 +71,7 @@ _UNSUPPORTED = frozenset(
         "slot_conditions",
     }
 )
-_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case"})
+_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case", "cs:role", "cs:qualifiers", "cs:identity_qualifiers", "cs:param_map", "cs:extract", "cs:functional", "cs:scope"})
 _PRIMITIVES: dict[str, Any] = {
     "string": str,
     "integer": int,
@@ -141,6 +142,7 @@ _ALLOWED = {
         "pattern",
         "equals_string",
         "alias",
+        "in_subset",
         "inverse",
         "symmetric",
         "transitive",
@@ -149,6 +151,7 @@ _ALLOWED = {
     "types": _METADATA | {"typeof", "base", "uri", "repr", "pattern", "annotations"},
     "enums": _METADATA
     | {
+        "enum_uri",
         "permissible_values",
         "reachable_from",
         "concepts",
@@ -177,7 +180,7 @@ def _inspect(value: Any, location: str) -> None:
             if key in _UNSUPPORTED and item:
                 _fail("unsupported_construct", child, f"{key} is outside semantic-1", "unsupported")
             if key == "annotations":
-                if item and parent not in {"slots", "attributes", "slot_usage"}:
+                if item and parent not in {"slots", "attributes", "slot_usage", "classes"}:
                     _fail(
                         "unsupported_annotation_placement",
                         child,
@@ -185,6 +188,8 @@ def _inspect(value: Any, location: str) -> None:
                         "unsupported",
                     )
                 for annotation in item or {}:
+                    if parent == "classes" and annotation not in {"cs:scope", "cs:case", "cs:extract"}:
+                        _fail("unsupported_annotation_placement", child, str(annotation), "unsupported")
                     if annotation not in _SAFE_ANNOTATIONS:
                         _fail("unsupported_annotation", child, str(annotation), "unsupported")
             _inspect(item, child)
@@ -239,6 +244,9 @@ def _view(bundle: SourceBundle) -> SchemaView:
                         if schema.default_prefix
                         else f"{schema.id}/{attr.name}"
                     )
+        for enum in cast(dict[str, Any], schema.enums or {}).values():
+            if enum.enum_uri is None:
+                enum.enum_uri = f"{prefix}:{enum.name}" if schema.default_prefix else f"{schema.id}/{enum.name}"
         for slot in cast(dict[str, Any], schema.slots or {}).values():
             if slot.range is None:
                 slot.range = schema.default_range or "string"
@@ -292,7 +300,16 @@ def _primitive(view: SchemaView, name: str, seen: tuple[str, ...] = ()) -> Any:
 def _annotations(element: Any) -> dict[str, str]:
     raw = element.annotations or {}
     items = raw.items() if hasattr(raw, "items") else vars(raw).items()
-    return {str(k): str(getattr(v, "value", v)) for k, v in items}
+    return {str(k): str(getattr(v, "value", v)) for k, v in items if str(k) in _SAFE_ANNOTATIONS}
+
+
+def _keyed_members(key: str):
+    def validate(value: dict[str, Any]) -> dict[str, Any]:
+        for name, member in value.items():
+            if getattr(member, key) != name:
+                raise ValueError("inlined collection key differs from its member identifier")
+        return value
+    return validate
 
 
 def _bounds(view: SchemaView, rng: str) -> tuple[list[Decimal], list[Decimal], list[str]]:
@@ -430,6 +447,11 @@ def prepare_release(
     models: dict[str, Any] = {}
     for name in sorted(classes):
         cls = classes[name]
+        class_annotations = _annotations(cls)
+        if class_annotations.get("cs:scope") not in {None, "global", "local"}:
+            _fail("entity_scope", name, "unsupported entity scope", "unsupported")
+        if class_annotations.get("cs:case", "preserve") not in {"preserve", "casefold"}:
+            _fail("case_policy", name, "unsupported class case policy", "unsupported")
         slots: list[PropertyDefinition] = []
         fields: dict[str, Any] = {}
         for slot in view.class_induced_slots(name):
@@ -502,6 +524,11 @@ def prepare_release(
                 patterns.append(str(slot.pattern))
             if low and high and max(low) > min(high):
                 _fail("incompatible_bounds", f"{name}/{sn}", "minimum exceeds maximum")
+            collection_key = None
+            if slot.multivalued and slot.inlined and not slot.inlined_as_list and rng in classes:
+                identifiers = [str(field.name) for field in view.class_induced_slots(rng) if field.identifier]
+                if len(identifiers) == 1:
+                    collection_key = identifiers[0]
             prop = PropertyDefinition(
                 sn,
                 str(view.get_uri(slot, expand=True)),
@@ -522,6 +549,7 @@ def prepare_release(
                 ann.get("cs:key_role", "meaning"),
                 tuple(patterns),
                 str(slot.equals_string) if slot.equals_string is not None else None,
+                collection_key,
             )
             slots.append(prop)
             if rng in classes:
@@ -557,7 +585,9 @@ def prepare_release(
             if limits:
                 annotation = _ANNOTATED[annotation, Field(**limits)]
             if prop.multivalued:
-                annotation = _TUPLE[annotation, ...]
+                annotation = _DICT[str, annotation] if collection_key else _TUPLE[annotation, ...]
+                if collection_key:
+                    annotation = _ANNOTATED[annotation, AfterValidator(_keyed_members(collection_key))]
                 limits = {}
                 if scope == "shape" and prop.minimum_cardinality is not None:
                     limits["min_length"] = prop.minimum_cardinality
@@ -595,7 +625,7 @@ def prepare_release(
         )
         try:
             models[name] = create_model(
-                name, __config__=ConfigDict(frozen=True, extra="forbid", strict=True), **fields
+                name, __config__=ConfigDict(frozen=True, extra="forbid", strict=True, allow_inf_nan=False), **fields
             )
         except Exception as exc:
             _fail("boundary", name, str(exc))
@@ -659,6 +689,15 @@ def prepare_release(
             except Exception as exc:
                 _fail("analytical_profile", dependency.name, str(exc))
             artifacts.append(PreparedArtifact(dependency.name, dependency.content))
+    for dependency in dependencies.artifacts:
+        if dependency.name == "operation/domain-rules.yaml":
+            try:
+                declared = yaml.safe_load(dependency.content)
+            except yaml.YAMLError as exc:
+                _fail("operation_rules", dependency.name, str(exc))
+            if not isinstance(declared, dict):
+                _fail("operation_rules", dependency.name, "rules must be a mapping")
+            artifacts.append(PreparedArtifact(dependency.name, dependency.content))
     for name, adapter in adapters:
         artifacts.append(
             PreparedArtifact(f"json_schema/{name}", canonical_bytes(adapter.json_schema()))
@@ -714,7 +753,7 @@ def prepare_release(
                     parent = view.get_slot(ancestor)
                     if parent is not None:
                         hierarchy.add((prop.iri, str(view.get_uri(parent, expand=True))))
-            candidates = []
+            candidates: list[tuple[str, str | None]] = []
             if prop.inverse:
                 inverse = view.get_slot(prop.inverse)
                 if inverse is None:
@@ -735,22 +774,48 @@ def prepare_release(
                     "inference_rule", rule_id,
                     canonical_bytes({**body, "rule_id": rule_id, "rule_version": digest}),
                 )
+                if kind == "inverse":
+                    reverse = {"kind": kind, "predicate": target, "target": prop.iri}
+                    reverse_digest = sha256(canonical_bytes(reverse)).hexdigest()
+                    reverse_id = "rule:" + reverse_digest
+                    rule_products[reverse_id] = RegistryRow(
+                        "inference_rule", reverse_id,
+                        canonical_bytes({**reverse, "rule_id": reverse_id, "rule_version": reverse_digest}),
+                    )
     rows += tuple(
         RegistryRow("property_hierarchy", child + " -> " + parent,
                     canonical_bytes({"property": child, "ancestor": parent}))
         for child, parent in sorted(hierarchy)
     )
     rows += tuple(rule_products[key] for key in sorted(rule_products))
+    schema = view.schema
+    if schema is None:
+        _fail("schema", bundle.root, "schema is unavailable")
     rows += tuple(
         RegistryRow("prefix", str(name), canonical_bytes({"uri": str(prefix.prefix_reference)}))
-        for name, prefix in sorted(view.schema.prefixes.items())
+        for name, prefix in sorted(cast(dict[str, Any], schema.prefixes or {}).items())
+    )
+    rows += tuple(
+        RegistryRow("operation_class", definition.name, canonical_bytes({
+            "class": definition.name, "iri": definition.iri,
+            **_annotations(view.get_class(definition.name)),
+        }))
+        for definition in definitions
+    )
+    rows += tuple(
+        RegistryRow("operation_property", f"{definition.name}/{prop.name}", canonical_bytes({
+            "class": definition.name, "property": prop.iri, "name": prop.name,
+            "groups": tuple(str(group) for group in (view.induced_slot(prop.name, definition.name).in_subset or ())),
+            **_annotations(view.induced_slot(prop.name, definition.name)),
+        }))
+        for definition in definitions for prop in definition.properties
     )
     rows += tuple(
         RegistryRow("enum_definition", str(name), canonical_bytes(json_dumper.to_dict(enum)))
         for name, enum in sorted(view.all_enums().items())
     )
     rows += tuple(RegistryRow("enum", v.enum, canonical_bytes(asdict(v))) for v in vocabularies)
-    return PreparedRelease(
+    prepared = PreparedRelease(
         release_id,
         manifest,
         tuple(definitions),
@@ -762,3 +827,14 @@ def prepare_release(
         tuple(diagnostics),
         adapters,
     )
+
+    # Admission must not archive an operation artifact whose required rules cannot execute.
+    # The policy constructor compiles only immutable release products and performs no I/O.
+    if any(artifact.kind == "operation/domain-rules.yaml" for artifact in prepared.artifacts):
+        from .domain_operations import RULE_INPUT, ReleasedRulesPolicy
+
+        try:
+            ReleasedRulesPolicy(prepared)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            _fail("domain_rules", RULE_INPUT, str(exc), "unsupported")
+    return prepared

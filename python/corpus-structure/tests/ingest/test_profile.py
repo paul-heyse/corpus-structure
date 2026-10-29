@@ -249,3 +249,22 @@ def test_the_matcher_and_the_xpath_export_select_the_same_nodes_per_rule(page: s
         by_matcher = {w.etree_element for w in wrappers if rule in compiled.match(w)}
         by_xpath = set(CSSSelector(selector, translator="html")(root))
         assert by_matcher == by_xpath, (selector, rule.role)
+
+
+@pytest.mark.parametrize("selector", ["p::before", "p::after", "p.Proof, p::first-line"])
+def test_source_profile_rejects_pseudo_element_roles(selector: str) -> None:
+    data = siegrist_data()
+    data["block_hints"][selector] = {"statement_kind": "proof"}
+    with pytest.raises(ProfileError, match="pseudo-element"):
+        parse_profile("pseudo", data)
+
+
+def test_source_profile_keeps_commas_inside_selector_expressions() -> None:
+    data = siegrist_data()
+    data["block_hints"] = {
+        ':is(p.Proof, p.Exercise), p[data-label="a,b"]': {"statement_kind": "proof"}
+    }
+    profile = compile_profile(parse_profile("commas", data))
+    root, _ = parse(b'<p class="Proof">A</p><p data-label="a,b">B</p><p>C</p>')
+    matches = [profile.match(element) for element in cssselect2.ElementWrapper.from_html_root(root).iter_subtree()]
+    assert sum(any(rule.role == "block_hint" for rule in rules) for rules in matches) == 2

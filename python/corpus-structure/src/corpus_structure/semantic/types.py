@@ -8,7 +8,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
-SEMANTIC_COMPILER_VERSION = "3"  # normalized positive-rule products are release-bound
+SEMANTIC_COMPILER_VERSION = "4"  # rules, keyed collections and operation products are release-bound
 
 
 @dataclass(frozen=True)
@@ -93,6 +93,7 @@ class PropertyDefinition:
     key_role: str = "meaning"
     patterns: tuple[str, ...] = ()
     equals_string: str | None = None
+    collection_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -168,7 +169,7 @@ class PreparedRelease:
         )
 
     def entity_keys(
-        self, class_name: str, realization: str, values: dict[str, object]
+        self, class_name: str, realization: str, values: dict[str, object], *, include_identifier: bool = True
     ) -> tuple[str, ...]:
         """Canonical candidate keys for each declared unique group; not entity resolution."""
         from .identity import _meaning, canonical_bytes
@@ -177,6 +178,8 @@ class PreparedRelease:
         props = {p.name: p for p in definition.properties}
         out = []
         for group in definition.identity_groups:
+            if not include_identifier and group == definition.identity_slots:
+                continue
             pairs = []
             for name in group:
                 if name not in values:
@@ -195,6 +198,13 @@ class PreparedRelease:
             raise ValueError(f"{class_name} declares no identity group")
         return tuple(out)
 
+    def qualification_definition(self, class_name: str = "Qualification") -> ClassDefinition:
+        """Resolve an explicitly named qualification type; never guess from submitted fields."""
+        definition = next((d for d in self.definitions if d.name == class_name), None)
+        if definition is None or not (definition.name == "Qualification" or "Qualification" in definition.ancestors):
+            raise ValueError(f"{class_name!r} is not an admitted Qualification class")
+        return definition
+
     def fact_identity(
         self,
         realization: str,
@@ -202,11 +212,12 @@ class PreparedRelease:
         predicate: str,
         object_: object,
         qualification: dict[str, object],
+        *, qualification_class: str = "Qualification",
     ) -> str:
         """Key canonical values using the admitted Qualification key-role/case definitions."""
         from .identity import fact_key
 
-        definition = next(d for d in self.definitions if d.name == "Qualification")
+        definition = self.qualification_definition(qualification_class)
         props = {p.name: p for p in definition.properties}
         result = {}
         for name, value in qualification.items():
@@ -229,7 +240,10 @@ class PreparedRelease:
                 if not isinstance(model, type) or not issubclass(model, BaseModel):
                     raise TypeError("prepared class adapter has no model")
                 field = model.model_fields[property_name]
-                annotation = get_args(field.annotation)[0] if item else field.rebuild_annotation()
+                annotation = field.rebuild_annotation()
+                if item:
+                    from typing import get_origin
+                    annotation = get_args(field.annotation)[-1 if get_origin(field.annotation) is dict else 0]
                 return TypeAdapter(annotation)
         raise KeyError(class_name)
 

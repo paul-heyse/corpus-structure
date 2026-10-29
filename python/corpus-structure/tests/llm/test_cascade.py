@@ -269,3 +269,14 @@ def test_the_l10_perturbations(env: Any) -> None:
     print(f"\nL-10 perturbations: {dict(counts)} of {len(rows)}; by kind {by_kind}")
     assert counts["found"] >= 523 and counts["exact"] >= 428 and counts["iou>=0.9"] >= 514
     assert cuts == []
+
+
+def test_token_alignment_keeps_unicode_source_coordinates_and_repeated_candidates() -> None:
+    sentence = "😀 The distribution has location μ and positive scale σ."
+    c = cascade(sentence, sentence)
+    quote = "The distribution has μ and positive scale σ"
+    found = c.locate(quote, "s2")
+    assert found.step is Step.TOKENS
+    assert found.sentence == "s2"
+    assert found.start == len(sentence) + 1 + len("😀 ")
+    assert c.text[found.start:found.end] == sentence[len("😀 "):-1]

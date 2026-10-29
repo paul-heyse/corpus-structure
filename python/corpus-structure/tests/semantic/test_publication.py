@@ -184,11 +184,15 @@ def test_restricted_role_cannot_bypass_or_replace_stage(
     seed(semantic_db_engine)
     for engine, statement in (
         (semantic_writer_engine, "INSERT INTO data.entity VALUES ('x','y','z')"),
-        (semantic_writer_engine, "CREATE TEMP TABLE sp_entity(entity_id text)"),
         (semantic_reader_engine, "SELECT data.begin_stage()"),
     ):
         with pytest.raises(DBAPIError), engine.begin() as conn:
             conn.execute(text(statement))
+    # Inference owns private temporary work, but it cannot impersonate publisher staging.
+    with semantic_writer_engine.begin() as conn:
+        conn.execute(text("CREATE TEMP TABLE sp_entity(entity_id text) ON COMMIT DROP"))
+        with pytest.raises(DBAPIError), conn.begin_nested():
+            conn.execute(text("SELECT data.begin_stage()"))
     with (
         semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
