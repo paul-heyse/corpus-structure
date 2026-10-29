@@ -48,3 +48,21 @@ def test_scope_is_typed_and_meaning_bearing_but_not_physical_segment_id():
         release.validate_python('Qualification', {**qualification, 'scope': {'extent': 'global', 'locator': 'x'}})
     with pytest.raises(ValidationError):
         release.validate_python('Qualification', {**qualification, 'scope': {'extent': 'section', 'segment_id': 42}})
+
+
+def test_expression_binding_variants_preserve_entities_claim_roles_and_unresolveds():
+    source = Path(__file__).parents[2] / 'src/corpus_structure/model/semantic/core.yaml'
+    release = prepare_release(SourceBundle('semantic_core', (SourceArtifact('semantic_core', source.read_bytes()),)))
+    raw = {'kind':'expression','language':'latex','expression':'x+y', 'form':'formula',
+           'bindings':({'kind':'variable','symbol':'x','entity':'local:x'},
+                       {'kind':'param_of','symbol':'y','claim':'source:claim','parameter':'scale'},
+                       {'kind':'unresolved','symbol':'z'})}
+    result = release.validate_python('Value',raw)
+    assert result.bindings[0].entity == 'local:x'
+    assert result.bindings[1].claim == 'source:claim'
+    assert result.bindings[1].parameter == 'scale'
+    assert result.bindings[2].kind == 'unresolved'
+    with pytest.raises(ValidationError):
+        release.validate_python('Value',{**raw,'bindings':({'kind':'variable','symbol':'x'},)})
+    with pytest.raises(ValidationError):
+        release.validate_python('Value',{**raw,'bindings':({'kind':'constant','symbol':'x','entity':'not-permitted'},)})
