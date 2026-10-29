@@ -1,0 +1,303 @@
+"""Exact immutable release archives and optimistic project activation.
+
+The caller owns the SQLAlchemy transaction. Preparation happens before persistence;
+only an explicit archive load recompiles the archived, entirely local inputs.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass
+from hashlib import sha256
+from importlib.metadata import version
+from typing import Any
+
+from sqlalchemy import Connection, insert, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+from .identity import canonical_bytes
+from .prepare import prepare_release
+from .types import (
+    PreparationProfile,
+    PreparedRelease,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+    VocabularyMember,
+    VocabularySnapshot,
+)
+
+_LIBRARIES = (
+    "linkml", "linkml-runtime", "pydantic", "rdflib", "pyshacl", "oaklib",
+    "linkml-term-validator", "valuesets",
+)
+
+
+class ReleaseConflict(ValueError):
+    """An identity already denotes different bytes or an archive is inconsistent."""
+
+
+class ActivationConflict(ValueError):
+    """The project's active release/generation differs from the expected token."""
+
+
+@dataclass(frozen=True)
+class ActivationToken:
+    release_id: str | None
+    generation: int
+
+
+def _table(name: str):
+    # This module never imports the installed legacy schema or its model defaults.
+    from .metadata import table
+
+    return table(name)
+
+
+def _digest(content: bytes) -> str:
+    return sha256(content).hexdigest()
+
+
+def _products(prepared: PreparedRelease) -> dict[str, Any]:
+    return {
+        "release_id": prepared.release_id,
+        "definitions": [asdict(x) for x in prepared.definitions],
+        "vocabularies": [asdict(x) for x in prepared.vocabularies],
+        "registry_rows": [
+            {"kind": x.kind, "name": x.name, "body_hex": x.body.hex()}
+            for x in prepared.registry_rows
+        ],
+        "queries": [asdict(x) for x in prepared.queries],
+        "artifacts": [{"kind": x.kind, "digest": x.digest} for x in prepared.artifacts],
+        "required_capabilities": prepared.required_capabilities,
+        "diagnostics": [asdict(x) for x in prepared.diagnostics],
+    }
+
+
+def _archive_bytes(bundle: SourceBundle, dependencies: ResolvedDependencies,
+                   prepared: PreparedRelease) -> bytes:
+    return canonical_bytes({
+        "format": "semantic-release-archive-1",
+        "root": bundle.root,
+        "sources": [s.name for s in bundle.sources],
+        "dependencies": [s.name for s in dependencies.artifacts],
+        "products": _products(prepared),
+    })
+
+
+def _validate_manifest(bundle: SourceBundle, dependencies: ResolvedDependencies,
+                       profile: PreparationProfile, prepared: PreparedRelease) -> None:
+    expected = canonical_bytes({
+        "root": bundle.root,
+        "profile": asdict(profile),
+        "libraries": {name: version(name) for name in _LIBRARIES},
+        "sources": sorted((s.name, s.digest) for s in bundle.sources),
+        "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
+        "vocabularies": [asdict(v) for v in prepared.vocabularies],
+    })
+    if prepared.manifest != expected or prepared.release_id != "release:" + _digest(expected):
+        raise ReleaseConflict(
+            "prepared release does not match exact inputs, profile or compiler versions"
+        )
+    for values, identity in ((bundle.sources, "source"), (dependencies.artifacts, "dependency"),
+                             (prepared.artifacts, "artifact")):
+        names = [getattr(v, "name", getattr(v, "kind", None)) for v in values]
+        if len(names) != len(set(names)):
+            raise ReleaseConflict(f"duplicate {identity} names")
+
+
+def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]]]:
+    rid = prepared.release_id
+    rows: dict[str, list[dict[str, Any]]] = {name: [] for name in (
+        "class_definition", "property_definition", "class_hierarchy", "property_applicability",
+        "identity_slot", "vocabulary_member", "registry_row",
+    )}
+    properties: dict[str, str] = {}
+    class_ids = {cls.name: cls.iri for cls in prepared.definitions}
+    for cls in prepared.definitions:
+        rows["class_definition"].append({"release_id": rid, "class_id": cls.iri,
+                                         "name": cls.name, "iri": cls.iri})
+        rows["class_hierarchy"].extend({"release_id": rid, "class_id": cls.iri,
+                                         "ancestor_id": class_ids[a]} for a in cls.ancestors)
+        for prop in cls.properties:
+            properties.setdefault(prop.iri, prop.name)
+            rows["property_applicability"].append({
+                "release_id": rid, "class_id": cls.iri, "property_id": prop.iri,
+                "range_name": prop.range, "required": prop.required,
+                "multivalued": prop.multivalued, "minimum_cardinality": prop.minimum_cardinality,
+                "maximum_cardinality": prop.maximum_cardinality,
+                "constraint_scope": prop.constraint_scope, "constraints": asdict(prop),
+            })
+        for group_id, group in enumerate(cls.identity_groups):
+            rows["identity_slot"].extend({"release_id": rid, "class_id": cls.iri,
+                "group_id": group_id, "position": position,
+                "property_id": next(p.iri for p in cls.properties if p.name == name)}
+                for position, name in enumerate(group))
+    rows["property_definition"] = [{"release_id": rid, "property_id": iri,
+        "name": name, "iri": iri, "value_kind": None}
+        for iri, name in sorted(properties.items())]
+    rows["vocabulary_member"] = [{"release_id": rid, "vocabulary_id": vocab.enum,
+        "value": member.value, "meaning": member.meaning, "label": member.label}
+        for vocab in prepared.vocabularies for member in vocab.members]
+    rows["registry_row"] = [{"release_id": rid, "kind": row.kind, "name": row.name,
+                              "body": row.body} for row in prepared.registry_rows]
+    return rows
+
+
+def _row_bytes(row: dict[str, Any]) -> bytes:
+    return canonical_bytes({key: {"bytes_hex": bytes(value).hex()}
+                            if isinstance(value, (bytes, memoryview)) else value
+                            for key, value in row.items()})
+
+
+def _compare_rows(conn: Connection, name: str, release_id: str,
+                  expected: list[dict[str, Any]]) -> None:
+    table = _table("sem." + name)
+    # Compare the entire relation for this release, including unexpected rows.
+    columns = list(expected[0]) if expected else [c.name for c in table.columns]
+    actual = [dict(row) for row in conn.execute(
+        select(*(table.c[c] for c in columns)).where(table.c.release_id == release_id)
+    ).mappings()]
+    if sorted(map(_row_bytes, actual)) != sorted(map(_row_bytes, expected)):
+        raise ReleaseConflict(f"archived {name} bytes differ for {release_id}")
+
+
+def persist_release(conn: Connection, bundle: SourceBundle, dependencies: ResolvedDependencies,
+                    profile: PreparationProfile, prepared: PreparedRelease, *,
+                    parent_release_id: str | None = None) -> str:
+    """Atomically archive a previously prepared release; identical replay is idempotent.
+
+    This trusts the compiler's prepared product, checks its complete input manifest,
+    and never recompiles while writing projection rows. The caller commits or rolls back.
+    """
+    _validate_manifest(bundle, dependencies, profile, prepared)
+    archive = _archive_bytes(bundle, dependencies, prepared)
+    release_row = {"release_id": prepared.release_id, "parent_release_id": parent_release_id,
+        "content_digest": _digest(archive), "profile": profile.version,
+        "prepared_bytes": archive, "manifest_bytes": prepared.manifest}
+    inputs = [{"release_id": prepared.release_id, "input_kind": kind, "input_name": item.name,
+               "content": item.content, "content_digest": item.digest}
+              for kind, items in (
+                  ("source", bundle.sources), ("dependency", dependencies.artifacts)
+              )
+              for item in items]
+    for kind, content in (("profile", canonical_bytes(asdict(profile))),
+                          ("vocabulary", canonical_bytes(
+                              [asdict(v) for v in dependencies.vocabularies]
+                          ))):
+        inputs.append({"release_id": prepared.release_id, "input_kind": kind, "input_name": kind,
+                       "content": content, "content_digest": _digest(content)})
+    artifacts = [{"release_id": prepared.release_id, "artifact_name": item.kind,
+                  "media_type": "application/octet-stream", "content": item.content,
+                  "content_digest": item.digest} for item in prepared.artifacts]
+    projections = _projection_rows(prepared)
+    table = _table("sem.release")
+    with conn.begin_nested():
+        created = conn.execute(pg_insert(table).values(**release_row).on_conflict_do_nothing(
+            index_elements=[table.c.release_id]).returning(table.c.release_id)).scalar_one_or_none()
+        if created is None:
+            _compare_rows(conn, "release", prepared.release_id, [release_row])
+            for name, expected in (
+                ("input", inputs), ("artifact", artifacts), *projections.items()
+            ):
+                _compare_rows(conn, name, prepared.release_id, expected)
+            return prepared.release_id
+        for name, values in (("input", inputs), ("artifact", artifacts), *projections.items()):
+            if values:
+                conn.execute(insert(_table("sem." + name)), values)
+    return prepared.release_id
+
+
+def load_release(conn: Connection, release_id: str) -> PreparedRelease:
+    """Reprepare once, offline, and compare every archived product and exact byte string."""
+    table = _table("sem.release")
+    row = conn.execute(
+        select(table).where(table.c.release_id == release_id)
+    ).mappings().one_or_none()
+    if row is None:
+        raise KeyError(release_id)
+    try:
+        archive_bytes = bytes(row["prepared_bytes"])
+        if _digest(archive_bytes) != row["content_digest"]:
+            raise ReleaseConflict("archive digest differs")
+        archive = json.loads(archive_bytes)
+        if archive["format"] != "semantic-release-archive-1":
+            raise ReleaseConflict("unsupported archive format")
+        inputs = _table("sem.input")
+        source: dict[tuple[str, str], bytes] = {}
+        for item in conn.execute(
+            select(inputs).where(inputs.c.release_id == release_id)
+        ).mappings():
+            content = bytes(item["content"])
+            if _digest(content) != item["content_digest"]:
+                raise ReleaseConflict("input digest differs")
+            source[item["input_kind"], item["input_name"]] = content
+        bundle = SourceBundle(archive["root"], tuple(SourceArtifact(name, source["source", name])
+                                                      for name in archive["sources"]))
+        snapshots = tuple(VocabularySnapshot(
+            enum=v["enum"], members=tuple(VocabularyMember(**m) for m in v["members"]),
+            dependency=v["dependency"], definition_digest=v["definition_digest"],
+            dependency_digest=v["dependency_digest"], unchecked=tuple(v["unchecked"]))
+            for v in json.loads(source["vocabulary", "vocabulary"]))
+        dependencies = ResolvedDependencies(tuple(SourceArtifact(name, source["dependency", name])
+                                                  for name in archive["dependencies"]), snapshots)
+        profile = PreparationProfile(**json.loads(source["profile", "profile"]))
+        if len(source) != len(bundle.sources) + len(dependencies.artifacts) + 2:
+            raise ReleaseConflict("unexpected archived inputs")
+        # Detect version changes before attempting to interpret with another compiler.
+        manifest = json.loads(bytes(row["manifest_bytes"]))
+        if manifest["libraries"] != {name: version(name) for name in _LIBRARIES}:
+            raise ReleaseConflict("archived compiler library versions differ")
+        prepared = prepare_release(bundle, dependencies, profile)
+        _validate_manifest(bundle, dependencies, profile, prepared)
+        if (prepared.release_id != release_id or prepared.manifest != bytes(row["manifest_bytes"])
+                or _archive_bytes(bundle, dependencies, prepared) != archive_bytes
+                or row["profile"] != profile.version):
+            raise ReleaseConflict("offline preparation differs from archived products")
+        artifacts = [{"release_id": release_id, "artifact_name": item.kind,
+                      "media_type": "application/octet-stream", "content": item.content,
+                      "content_digest": item.digest} for item in prepared.artifacts]
+        _compare_rows(conn, "artifact", release_id, artifacts)
+        for name, expected in _projection_rows(prepared).items():
+            _compare_rows(conn, name, release_id, expected)
+        return prepared
+    except ReleaseConflict:
+        raise
+    except Exception as exc:
+        raise ReleaseConflict(f"cannot reconstruct exact release {release_id}: {exc}") from exc
+
+
+def activation_token(conn: Connection, project_id: str) -> ActivationToken:
+    project = _table("data.project")
+    row = conn.execute(select(project.c.active_release_id, project.c.generation).where(
+        project.c.project_id == project_id)).one_or_none()
+    if row is None:
+        raise KeyError(project_id)
+    return ActivationToken(row.active_release_id, row.generation)
+
+
+def activate_release(conn: Connection, project_id: str, release_id: str, *,
+                     expected_parent: str | None, expected_generation: int,
+                     sql_reader: Connection | None = None) -> ActivationToken:
+    """Admit the exact archived release, then CAS the pointer and generation together.
+
+    Existing realizations retain their release FK; activation never updates them.
+    A stale token fails even after a pointer changes away and returns (ABA).
+    """
+    from .authored_sql import admit_archived_sql
+    from .publication import admit_release
+
+    prepared = load_release(conn, release_id)
+    admit_release(prepared)
+    with conn.begin_nested():
+        admit_archived_sql(conn, release_id, reader_conn=sql_reader)
+        project = _table("data.project")
+        changed = conn.execute(update(project).where(
+            project.c.project_id == project_id,
+            project.c.active_release_id.is_not_distinct_from(expected_parent),
+            project.c.generation == expected_generation,
+        ).values(active_release_id=release_id, generation=project.c.generation + 1).returning(
+            project.c.active_release_id, project.c.generation)).one_or_none()
+        if changed is None:
+            raise ActivationConflict(f"stale activation token for project {project_id}")
+        return ActivationToken(changed.active_release_id, changed.generation)
