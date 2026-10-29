@@ -20,7 +20,7 @@ class GoldenSetError(ValueError):
 class PoolUnit:
     key: str
     kind: str
-    math_share: float
+    math_share: float | None
     document_id: int = 0
     rendition_id: int = 0
 
@@ -36,7 +36,8 @@ def cut_points(shares: Sequence[float]) -> tuple[float, float]:
     return s[math.ceil(n / 3) - 1], s[math.ceil(2 * n / 3) - 1]
 
 
-def stratum(unit: PoolUnit, cuts: tuple[float, float]) -> str:
+def stratum(unit: PoolUnit, cuts: tuple[float, float] | None) -> str:
+    if unit.math_share is None or cuts is None:return f'{unit.kind}/unknown'
     tercile = 0 if unit.math_share <= cuts[0] else 1 if unit.math_share <= cuts[1] else 2
     return f"{unit.kind}/t{tercile}"
 
@@ -85,7 +86,8 @@ def sample(pool: Sequence[PoolUnit], size: int, seed: int, forced: Collection[st
         raise GoldenSetError(f"{len(forced)} forced units exceed the set size {size}")
     if size > len(by_key):
         raise GoldenSetError(f"the pool holds {len(by_key)} units, fewer than {size}")
-    cuts = cut_points([u.math_share for u in by_key.values()])
+    known_shares=[u.math_share for u in by_key.values() if u.math_share is not None]
+    cuts = cut_points(known_shares) if known_shares else None
     strata: dict[str, list[str]] = {}
     for key in sorted(by_key):
         strata.setdefault(stratum(by_key[key], cuts), []).append(key)
@@ -101,7 +103,7 @@ def sample(pool: Sequence[PoolUnit], size: int, seed: int, forced: Collection[st
             "sampler_version": SAMPLER_VERSION,
             "seed": seed,
             "size": size,
-            "cut_points": list(cuts),
+            "cut_points": list(cuts) if cuts is not None else None,
             "allocation": allocation,
             "forced": sorted(forced),
         },
