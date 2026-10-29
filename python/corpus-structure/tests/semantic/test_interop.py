@@ -63,9 +63,7 @@ def test_single_pool_returns_idle_connection_and_resets_isolation(semantic_write
             store.engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
             conn.begin(),
         ):
-            assert (
-                conn.exec_driver_sql("SHOW transaction_isolation").scalar_one() == "serializable"
-            )
+            assert conn.exec_driver_sql("SHOW transaction_isolation").scalar_one() == "serializable"
             assert conn.exec_driver_sql("SELECT session_user").scalar_one() == "corpus_sem_writer"
         with store.engine.connect() as conn:
             assert (

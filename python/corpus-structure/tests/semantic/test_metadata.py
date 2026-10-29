@@ -31,68 +31,112 @@ def _foreign_keys(name: str) -> set[tuple[tuple[str, ...], tuple[str, ...]]]:
 
 
 @pytest.mark.parametrize(
-    ('name', 'local', 'target'),
+    ("name", "local", "target"),
     [
-        ('data.typed_value', ('realization_id', 'release_id', 'entity_id'),
-         ('data.entity.realization_id', 'data.entity.release_id', 'data.entity.entity_id')),
-        ('data.value_role', ('realization_id', 'release_id', 'child_value_id'),
-         ('data.typed_value.realization_id', 'data.typed_value.release_id', 'data.typed_value.value_id')),
-        ('data.fact', ('release_id', 'property_id'),
-         ('sem.property_definition.release_id', 'sem.property_definition.property_id')),
-        ('data.membership', ('release_id', 'class_id'),
-         ('sem.class_definition.release_id', 'sem.class_definition.class_id')),
-        ('data.occurrence', ('realization_id', 'release_id', 'report_object_value_id'),
-         ('data.typed_value.realization_id', 'data.typed_value.release_id', 'data.typed_value.value_id')),
-        ('data.occurrence', ('realization_id', 'release_id', 'report_qualification_value_id'),
-         ('data.typed_value.realization_id', 'data.typed_value.release_id', 'data.typed_value.value_id')),
-        ('data.support', ('realization_id', 'release_id', 'occurrence_id', 'fact_id'),
-         ('data.occurrence.realization_id', 'data.occurrence.release_id',
-          'data.occurrence.occurrence_id', 'data.occurrence.fact_id')),
+        (
+            "data.typed_value",
+            ("realization_id", "release_id", "entity_id"),
+            ("data.entity.realization_id", "data.entity.release_id", "data.entity.entity_id"),
+        ),
+        (
+            "data.value_role",
+            ("realization_id", "release_id", "child_value_id"),
+            (
+                "data.typed_value.realization_id",
+                "data.typed_value.release_id",
+                "data.typed_value.value_id",
+            ),
+        ),
+        (
+            "data.fact",
+            ("release_id", "property_id"),
+            ("sem.property_definition.release_id", "sem.property_definition.property_id"),
+        ),
+        (
+            "data.membership",
+            ("release_id", "class_id"),
+            ("sem.class_definition.release_id", "sem.class_definition.class_id"),
+        ),
+        (
+            "data.occurrence",
+            ("realization_id", "release_id", "report_object_value_id"),
+            (
+                "data.typed_value.realization_id",
+                "data.typed_value.release_id",
+                "data.typed_value.value_id",
+            ),
+        ),
+        (
+            "data.occurrence",
+            ("realization_id", "release_id", "report_qualification_value_id"),
+            (
+                "data.typed_value.realization_id",
+                "data.typed_value.release_id",
+                "data.typed_value.value_id",
+            ),
+        ),
+        (
+            "data.support",
+            ("realization_id", "release_id", "occurrence_id", "fact_id"),
+            (
+                "data.occurrence.realization_id",
+                "data.occurrence.release_id",
+                "data.occurrence.occurrence_id",
+                "data.occurrence.fact_id",
+            ),
+        ),
     ],
 )
-def test_required_scoped_relationships(name: str, local: tuple[str, ...], target: tuple[str, ...]) -> None:
+def test_required_scoped_relationships(
+    name: str, local: tuple[str, ...], target: tuple[str, ...]
+) -> None:
     assert (local, target) in _foreign_keys(name)
 
 
 def test_all_data_children_are_pinned_to_the_realization_release() -> None:
     for name, item in metadata.tables.items():
-        if item.schema == 'data' and item.name not in {'project', 'realization'}:
+        if item.schema == "data" and item.name not in {"project", "realization"}:
             assert (
-                ('realization_id', 'release_id'),
-                ('data.realization.realization_id', 'data.realization.release_id'),
+                ("realization_id", "release_id"),
+                ("data.realization.realization_id", "data.realization.release_id"),
             ) in _foreign_keys(name)
 
 
 def test_metadata_deterministic_and_fixed() -> None:
-    again = compile_metadata(SchemaView(str(PHYSICAL_MODEL)), target='semantic')
+    again = compile_metadata(SchemaView(str(PHYSICAL_MODEL)), target="semantic")
     dialect = postgresql.dialect()
     for name, item in metadata.tables.items():
-        assert str(CreateTable(item).compile(dialect=dialect)) == str(CreateTable(again.tables[name]).compile(dialect=dialect))
-    assert set(t.schema for t in metadata.tables.values()) == {'sem', 'data'}
-    assert table('sem.release') is metadata.tables['sem.release']
-    assert PHYSICAL_MODEL_ID.startswith('physical:')
+        assert str(CreateTable(item).compile(dialect=dialect)) == str(
+            CreateTable(again.tables[name]).compile(dialect=dialect)
+        )
+    assert set(t.schema for t in metadata.tables.values()) == {"sem", "data"}
+    assert table("sem.release") is metadata.tables["sem.release"]
+    assert PHYSICAL_MODEL_ID.startswith("physical:")
     assert head_revision() is not None
 
 
 def test_candidate_schema_is_not_a_physical_model() -> None:
-    with pytest.raises(ModelError, match='trusted physical'):
-        compile_metadata(SchemaView(str(PHYSICAL_MODEL.with_name('core.yaml'))), target='semantic')
+    with pytest.raises(ModelError, match="trusted physical"):
+        compile_metadata(SchemaView(str(PHYSICAL_MODEL.with_name("core.yaml"))), target="semantic")
 
 
 def test_exact_decimal_projection_preserves_lexical_semantics() -> None:
-    assert decimal_projection('1.2300') == Decimal('1.2300')
-    assert decimal_projection('-0.000') is not None
-    assert decimal_projection('1e131071') == Decimal('1e131071')
-    assert decimal_projection('1e131072') is None
-    assert decimal_projection('1e-16384') is None
-    assert decimal_projection('1e9999999999999999999999') is None
-    for lexical in ('NaN', 'Infinity', '1_000', ' 1', ''):
+    assert decimal_projection("1.2300") == Decimal("1.2300")
+    assert decimal_projection("-0.000") is not None
+    assert decimal_projection("1e131071") == Decimal("1e131071")
+    assert decimal_projection("1e131072") is None
+    assert decimal_projection("1e-16384") is None
+    assert decimal_projection("1e9999999999999999999999") is None
+    for lexical in ("NaN", "Infinity", "1_000", " 1", ""):
         with pytest.raises(ValueError):
             decimal_projection(lexical)
 
 
 def test_large_scalars_do_not_require_btree_index_entries() -> None:
-    indexes = {tuple(c.name for c in i.columns): i for i in table('data.typed_value').indexes}
-    for column, cast in [('text_value', ''), ('numeric_value', '::text')]:
-        index = indexes[('realization_id', 'release_id', 'kind', column)]
-        assert str(index.dialect_options['postgresql']['where']) == f'octet_length({column}{cast}) <= 1024'
+    indexes = {tuple(c.name for c in i.columns): i for i in table("data.typed_value").indexes}
+    for column, cast in [("text_value", ""), ("numeric_value", "::text")]:
+        index = indexes[("realization_id", "release_id", "kind", column)]
+        assert (
+            str(index.dialect_options["postgresql"]["where"])
+            == f"octet_length({column}{cast}) <= 1024"
+        )

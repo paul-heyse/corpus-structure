@@ -73,8 +73,8 @@ from sqlalchemy import (
     Double,
     ForeignKeyConstraint,
     Identity,
-    Integer,
     Index,
+    Integer,
     MetaData,
     Numeric,
     PrimaryKeyConstraint,
@@ -627,8 +627,14 @@ def _compile_physical(view: View) -> MetaData:
             else:
                 raise ModelError([f"{name}.{slot.name}: unsupported physical range {rng}"])
             default = ci_annotations(slot).get("ph:default")
-            columns.append(Column[Any](str(slot.name), typ, nullable=not slot.required,
-                                  server_default=text(default) if default is not None else None))
+            columns.append(
+                Column[Any](
+                    str(slot.name),
+                    typ,
+                    nullable=not slot.required,
+                    server_default=text(default) if default is not None else None,
+                )
+            )
         table = Table(str(name), md, *columns, schema=subsets[0], info={"model_class": str(name)})
         for key_name, key in cls.unique_keys.items():
             constraint = PrimaryKeyConstraint if key_name == "primary_key" else UniqueConstraint
@@ -641,13 +647,20 @@ def _compile_physical(view: View) -> MetaData:
             target_name, remote = fk["target"].rsplit(".", 1)
             local = fk["columns"]
             target = [f"{target_name}.{col}" for col in remote.split(",")]
-            table.append_constraint(ForeignKeyConstraint(local, target, info={"shared": tuple(local[:-1])}))
+            table.append_constraint(
+                ForeignKeyConstraint(local, target, info={"shared": tuple(local[:-1])})
+            )
         for sql in json.loads(ann.get("ph:checks", "[]")):
-            table.append_constraint(CheckConstraint(sql, name=check_name(table.name, "physical", sql)))
+            table.append_constraint(
+                CheckConstraint(sql, name=check_name(table.name, "physical", sql))
+            )
         for declaration in json.loads(ann.get("ph:indexes", "[]")):
             if isinstance(declaration, dict):
-                Index(None, *(table.c[c] for c in declaration["columns"]),
-                      postgresql_where=text(declaration["where"]))
+                Index(
+                    None,
+                    *(table.c[c] for c in declaration["columns"]),
+                    postgresql_where=text(declaration["where"]),
+                )
             else:
                 Index(None, *(table.c[c] for c in declaration))
     return md

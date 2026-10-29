@@ -72,9 +72,22 @@ def test_only_explicit_ontology_dependencies_reach_ontology_parser():
     release = prepare_release(bundle(), ResolvedDependencies((opaque, sql)))
     assert json.loads(release.manifest)["ontology_sources"] == []
     ontology = SourceArtifact("terms", b"format-version: 1.2\n\n[Term]\nid: EX:1\nname: root\n")
-    extended = bundle(lambda d: d.update(enums={"Terms": {"reachable_from": {
-        "source_ontology": "terms", "source_nodes": ["EX:1"], "include_self": True}}}))
-    prepared = prepare_release(extended, ResolvedDependencies((opaque, sql, ontology), ontology_sources=("terms",)))
+    extended = bundle(
+        lambda d: d.update(
+            enums={
+                "Terms": {
+                    "reachable_from": {
+                        "source_ontology": "terms",
+                        "source_nodes": ["EX:1"],
+                        "include_self": True,
+                    }
+                }
+            }
+        )
+    )
+    prepared = prepare_release(
+        extended, ResolvedDependencies((opaque, sql, ontology), ontology_sources=("terms",))
+    )
     assert [m.value for m in prepared.vocabularies[0].members] == ["EX:1"]
     with pytest.raises(PreparationError, match="distinct supplied artifacts"):
         prepare_release(bundle(), ResolvedDependencies((opaque,), ontology_sources=("absent",)))
@@ -423,25 +436,28 @@ classes:
 
 
 def test_registry_retains_abstract_and_native_entity_reference():
-    root = Path(__file__).parents[2] / 'src/corpus_structure/model/semantic/core.yaml'
-    release = prepare_release(SourceBundle('core', (SourceArtifact('core', root.read_bytes()),)))
+    root = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    release = prepare_release(SourceBundle("core", (SourceArtifact("core", root.read_bytes()),)))
     definitions = {item.name: item for item in release.definitions}
-    assert definitions['Value'].abstract is True
-    assert definitions['Condition'].abstract is True
-    assert definitions['EntityValue'].abstract is False
-    target = next(item for item in definitions['EntityValue'].properties if item.name == 'target')
-    assert target.range == 'Entity'
+    assert definitions["Value"].abstract is True
+    assert definitions["Condition"].abstract is True
+    assert definitions["EntityValue"].abstract is False
+    target = next(item for item in definitions["EntityValue"].properties if item.name == "target")
+    assert target.range == "Entity"
     assert target.inlined is False
-    assert release.validate_json('EntityValue', '{"kind":"entity","target":"e"}').model_dump() == {'kind': 'entity', 'target': 'e'}
+    assert release.validate_json("EntityValue", '{"kind":"entity","target":"e"}').model_dump() == {
+        "kind": "entity",
+        "target": "e",
+    }
 
 
 def test_manifest_owns_supported_compiler_version():
     from corpus_structure.semantic.types import SEMANTIC_COMPILER_VERSION, PreparationProfile
 
     release = prepare_release(bundle())
-    assert json.loads(release.manifest)['profile']['compiler_version'] == SEMANTIC_COMPILER_VERSION
-    for unsupported in ('1', 'future', ''):
+    assert json.loads(release.manifest)["profile"]["compiler_version"] == SEMANTIC_COMPILER_VERSION
+    for unsupported in ("1", "future", ""):
         with pytest.raises(PreparationError) as err:
             prepare_release(bundle(), profile=PreparationProfile(compiler_version=unsupported))
-        assert err.value.diagnostics[0].code == 'profile'
-        assert err.value.diagnostics[0].outcome == 'unsupported'
+        assert err.value.diagnostics[0].code == "profile"
+        assert err.value.diagnostics[0].outcome == "unsupported"

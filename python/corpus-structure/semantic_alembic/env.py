@@ -17,7 +17,10 @@ def include_name(name: str | None, type_: str, parent_names: Any) -> bool:
 
 def applied(ctx: Any, step: Any, heads: Collection[Any], run_args: Mapping[str, Any]) -> None:
     context.config.attributes.setdefault("applied", []).append(
-        {"revision": step.up_revision_id, "direction": "upgrade" if step.is_upgrade else "downgrade"}
+        {
+            "revision": step.up_revision_id,
+            "direction": "upgrade" if step.is_upgrade else "downgrade",
+        }
     )
 
 

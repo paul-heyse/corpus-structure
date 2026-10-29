@@ -23,7 +23,6 @@ from corpus_structure.settings import Settings
 @pytest.fixture
 def semantic_db_engine() -> Iterator[Engine]:
     from corpus_structure.semantic.migrations import upgrade
-    from corpus_structure.semantic.routines import deploy_routines
 
     settings = Settings()
     admin = create_engine(settings.database.sqlalchemy_url, poolclass=NullPool)
@@ -35,21 +34,24 @@ def semantic_db_engine() -> Iterator[Engine]:
     engine = create_engine(url.set(database=name), poolclass=NullPool)
     try:
         with server.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-            roles = set(conn.execute(text(
-                "SELECT rolname FROM pg_roles WHERE rolname IN "
-                "('corpus_sem_publisher','corpus_sem_writer','corpus_sem_reader')"
-            )).scalars())
+            roles = set(
+                conn.execute(
+                    text(
+                        "SELECT rolname FROM pg_roles WHERE rolname IN "
+                        "('corpus_sem_publisher','corpus_sem_writer','corpus_sem_reader')"
+                    )
+                ).scalars()
+            )
             if len(roles) != 3:
                 pytest.fail("restricted semantic principals missing: run `just db-semantic-roles`")
             conn.exec_driver_sql(f"CREATE DATABASE {quote(name)} TEMPLATE {quote(template)}")
         with engine.begin() as conn:
             extensions.check(conn.execute(text(extensions.FOUND)).all())
             # A template with application state is never an acceptable bootstrap.
-            assert not conn.execute(text(
-                "SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')"
-            )).first()
+            assert not conn.execute(
+                text("SELECT 1 FROM pg_namespace WHERE nspname IN ('sem','data','kb','meta')")
+            ).first()
             upgrade(conn)
-            deploy_routines(conn)
         yield engine
     finally:
         engine.dispose()

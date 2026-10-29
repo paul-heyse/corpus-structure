@@ -12,7 +12,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute('''
+    op.execute("""
         CREATE VIEW data.selected_fact AS
         SELECT f.realization_id, f.release_id, f.fact_id, f.subject_id, f.property_id,
                f.object_value_id, f.qualification_value_id
@@ -20,7 +20,7 @@ def upgrade() -> None:
         JOIN data.selection AS s
           ON s.realization_id = f.realization_id AND s.release_id = f.release_id
          AND s.fact_id = f.fact_id
-    ''')
+    """)
 
 
 def downgrade() -> None:
