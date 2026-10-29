@@ -9,15 +9,15 @@ from corpus_structure.semantic.metadata import table
 from .test_agent_resubmission import lease_and_read, source_task
 
 
-def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1):
-    prepared, run, task, locator = source_task(admin, writer, tmp_path / "exclusions.html", composed=True)
+def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1, keyed=False):
+    prepared, run, task, locator = source_task(admin, writer, tmp_path / "exclusions.html", composed=True, identity_keyed=keyed)
     session = SemanticAgentSession(writer, run)
     async def submit():
         async with Client(build_semantic_server(session)) as client:
             unit = await lease_and_read(client, run, task)
             response = await client.call_tool("propose_claims", {"task_id": task, "batch": {
                 "unit_ref": locator,
-                "entities": [{"id": ref, "class_iri": "https://example.org/Person", "label": "Alice"} for ref in ("p", "q")],
+                "entities": [{"id": ref, "class_iri": "https://example.org/Person", "label": "Alice", "attributes": [{"predicate": "https://example.org/name", "value": {"kind": "text", "text": "Alice"}}] if keyed else []} for ref in ("p", "q")],
                 "identity_exclusions": [{"id": "different", "left": {"kind": "local", "target": "p"},
                     "right": {"kind": "local", "target": "q"}, "reason": "separate source identities",
                     "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}, *([{ "sentence": unit["sentences"][0]["id"], "quote": "Alice", "role": "supporting"}] if citations == 2 else [])]}]}})
@@ -45,3 +45,70 @@ def test_exclusion_only_entities_publish_grounded_memberships(semantic_db_engine
         assert len(conn.execute(select(table("data.entity_source"))).all()) == 2
         assert len(conn.execute(select(table("data.membership_support"))).all()) == 2
         assert len(conn.execute(select(table("data.identity_exclusion_evidence"))).all()) == 1
+
+
+def test_mandatory_identity_conflict_refuses_actual_cut_without_partial_output(
+    semantic_db_engine, semantic_writer_engine, tmp_path
+):
+    import pytest
+    from corpus_structure.semantic.domain_operations import consolidate_cut, IdentityResolutionConflict
+    _, run, cut, _ = exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path,
+                                     finalize=False, keyed=True)
+    with pytest.raises(IdentityResolutionConflict) as conflict:
+        consolidate_cut(semantic_writer_engine, cut, "contradictory-result")
+    assert conflict.value.code == "identity_conflict"
+    assert conflict.value.exclusion_id == "different"
+    with semantic_writer_engine.connect() as conn:
+        assert not conn.scalar(select(table("data.realization").c.realization_id).where(
+            table("data.realization").c.realization_id == "contradictory-result"))
+        assert conn.scalar(select(table("kb.observation").c.id)) is not None
+        assert conn.scalar(select(table("ops.run").c.result_realization_id).where(
+            table("ops.run").c.id == run)) is None
+
+
+def test_known_input_exclusions_follow_participating_endpoints(
+    semantic_db_engine, semantic_writer_engine, tmp_path
+):
+    import json
+    from corpus_structure.core.method import UnitRef
+    from corpus_structure.core.vocab import TaskUnitType
+    from corpus_structure.orchestrate.semantic import queue_agent
+    from corpus_structure.semantic.operations import OperationBinding, create_run
+    prepared, old_run, _, first = exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path)
+    assert first is not None
+    with semantic_writer_engine.begin() as conn:
+        previous = conn.execute(select(table("ops.run")).where(table("ops.run").c.id == old_run)).mappings().one()
+        config = previous["options"]["agent_configs"]["extract"]
+        run = create_run(conn, project_id="resubmit", binding=OperationBinding(
+            prepared.release_id, first.realization_id, first.data_revision, b"{}"),
+            kind="full", options={"agent_configs": {"extract": config}}, code_commit="test")
+        segment = conn.execute(select(table("kb.segment")).where(table("kb.segment").c.kind == "paragraph")).mappings().one()
+        from corpus_structure.core.evidence import RenditionContent
+        from corpus_structure.core.locators import LocatorIndex
+        rendition = conn.execute(select(table("kb.rendition")).where(table("kb.rendition").c.id == segment["rendition_id"])).mappings().one()
+        content = RenditionContent.model_validate(rendition["content"])
+        locator = str(LocatorIndex(content, "source.html").generate(content.document.children[0]))
+        task, = queue_agent(conn, run_id=run, prepared=prepared, configuration=config,
+            units=(UnitRef(TaskUnitType.SEGMENT, segment["id"], locator),))
+        inherited = conn.execute(select(table("data.identity_exclusion")).where(
+            table("data.identity_exclusion").c.realization_id == first.realization_id)).mappings().one()
+        endpoints = (inherited["left_entity_id"], inherited["right_entity_id"])
+    async def submit_known():
+        async with Client(build_semantic_server(SemanticAgentSession(semantic_writer_engine, run))) as client:
+            unit = await lease_and_read(client, run, task)
+            response = await client.call_tool("propose_claims", {"task_id": task, "batch": {
+                "unit_ref": locator, "claims": [{"id": "c" + str(i), "subject": entity,
+                    "predicate": "https://example.org/name", "object": {"kind": "text", "text": "Alice"},
+                    "qualification": {"modality": "asserted", "polarity": True}, "establishment": "stated",
+                    "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}]}
+                    for i, entity in enumerate(endpoints)]}})
+            assert response.structured_content is not None
+            assert response.structured_content["submission_disposition"] == "completed_accepted"
+    anyio.run(submit_known)
+    second = finalize_bound_run(semantic_writer_engine, run, "inherited-result")
+    with semantic_writer_engine.connect() as conn:
+        row = conn.execute(select(table("data.identity_exclusion")).where(
+            table("data.identity_exclusion").c.realization_id == second.realization_id)).mappings().one()
+        assert (row["left_entity_id"], row["right_entity_id"]) == endpoints
+        assert row["observation_id"] == inherited["observation_id"]
+        assert row["exclusion_id"] != inherited["exclusion_id"]
