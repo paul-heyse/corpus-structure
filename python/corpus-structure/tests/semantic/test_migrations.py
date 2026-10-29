@@ -30,7 +30,9 @@ def test_native_bootstrap_and_subsequent_projection(semantic_db_engine: Engine) 
             and fk["referred_columns"] == ["realization_id", "release_id", "entity_id"]
             for fk in nested
         )
-        assert not {"kb", "meta"} & set(catalog.get_schema_names())
+        assert "kb" in catalog.get_schema_names()
+        assert "meta" not in catalog.get_schema_names()
+        assert "claim" not in catalog.get_table_names(schema="kb")
 
 
 def _seed(conn) -> None:
