@@ -31,12 +31,9 @@ from pathlib import Path
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from sqlalchemy import Connection, text
 
-from corpus_structure.core.db import metadata
 from corpus_structure.core.vocab import DocumentSplit
 
-T = metadata.tables
 TEST_EVERY = 5
 
 
@@ -154,61 +151,8 @@ def assign(
     return sorted(out, key=lambda a: a.document_id)
 
 
-class SplitReport(BaseModel):
-    project_id: int
-    seed: str
-    added: dict[str, int]  # split -> new rows
-    total: dict[str, int]  # split -> all rows
 
-
-def _documents(conn: Connection, project_id: int) -> list[SplitDocument]:
-    rows = conn.execute(
-        text("SELECT id, source_uri, meta->>'chapter' FROM kb.document WHERE project_id = :p"),
-        {"p": project_id},
-    )
-    return [SplitDocument(int(r[0]), str(r[1]), r[2]) for r in rows]
-
-
-def _existing(conn: Connection, project_id: int) -> dict[int, Assignment]:
-    rows = conn.execute(
-        text(
-            "SELECT document_id, split, reason, seed FROM eval.document_split WHERE project_id = :p"
-        ),
-        {"p": project_id},
-    )
-    return {int(r[0]): Assignment(int(r[0]), DocumentSplit(r[1]), r[2], r[3]) for r in rows}
-
-
-def split_documents(
-    conn: Connection, project_id: int, config: SplitConfig, seed: int | None = None
-) -> SplitReport:
-    """`ci golden split` (module doc), in the caller's transaction."""
-    conn.execute(text("SELECT 1 FROM meta.project WHERE id = :p FOR UPDATE"), {"p": project_id})
-    existing = _existing(conn, project_id)
-    new = assign(_documents(conn, project_id), config, existing, seed)
-    if new:
-        conn.execute(
-            T["eval.document_split"].insert(),
-            [
-                {"project_id": project_id, "document_id": a.document_id, "split": a.split.value,
-                 "reason": a.reason, "seed": a.seed}
-                for a in new
-            ],
-        )  # fmt: skip
-    total: dict[str, int] = {}
-    for a in [*existing.values(), *new]:
-        total[a.split.value] = total.get(a.split.value, 0) + 1
-    added: dict[str, int] = {}
-    for a in new:
-        added[a.split.value] = added.get(a.split.value, 0) + 1
-    return SplitReport(
-        project_id=project_id,
-        seed=str(config.seed if seed is None else seed),
-        added=added,
-        total=total,
-    )
-
-
-def split_of(conn: Connection, project_id: int) -> dict[int, DocumentSplit]:
-    """The split lookup: each assigned document's split."""
-    return {i: a.split for i, a in _existing(conn, project_id).items()}
+def split_documents(conn, project_id, config=None, seed=None):
+    """Persist immutable semantic split assignments via the restricted evaluator."""
+    from .semantic import split_documents as persist
+    return persist(conn,project_id,config,seed)
