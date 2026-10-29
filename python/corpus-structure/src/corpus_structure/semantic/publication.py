@@ -7,10 +7,10 @@ checks identities, exact batch bytes and semantic constraints; these Python rows
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import asdict, astuple, dataclass, fields
 from decimal import Decimal
 from hashlib import sha256
-from collections.abc import Callable
 from typing import Any, Protocol
 
 import psycopg

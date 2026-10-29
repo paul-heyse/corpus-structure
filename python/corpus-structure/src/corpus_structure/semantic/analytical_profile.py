@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Context, Decimal, InvalidOperation, ROUND_HALF_EVEN, localcontext
+from decimal import ROUND_HALF_EVEN, Context, Decimal, InvalidOperation, localcontext
 from hashlib import sha256
 from pathlib import Path
 
@@ -17,20 +17,38 @@ _EMPTY_DEPENDENCIES = ResolvedDependencies()
 
 
 def analytical_inputs(
-    bundle: SourceBundle, dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
-    *, profile: bytes | None = None,
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
+    *,
+    profile: bytes | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies]:
     """Opt into the packaged profile through ordinary hashed, archived release inputs."""
     return (
-        SourceBundle("analytical-root", (*bundle.sources,
-            SourceArtifact("analytics", (_MODEL / "analytics.yaml").read_bytes()),
-            SourceArtifact("analytical-root", yaml.safe_dump({
-                "id": "https://corpus-structure.dev/semantic/analytical-root",
-                "name": "semantic_analytical_root", "imports": [bundle.root, "analytics"],
-            }).encode()),
-        )),
+        SourceBundle(
+            "analytical-root",
+            (
+                *bundle.sources,
+                SourceArtifact("analytics", (_MODEL / "analytics.yaml").read_bytes()),
+                SourceArtifact(
+                    "analytical-root",
+                    yaml.safe_dump(
+                        {
+                            "id": "https://corpus-structure.dev/semantic/analytical-root",
+                            "name": "semantic_analytical_root",
+                            "imports": [bundle.root, "analytics"],
+                        }
+                    ).encode(),
+                ),
+            ),
+        ),
         ResolvedDependencies(
-            (*dependencies.artifacts, SourceArtifact(PROFILE_NAME, (_MODEL / PROFILE_NAME).read_bytes() if profile is None else profile)),
+            (
+                *dependencies.artifacts,
+                SourceArtifact(
+                    PROFILE_NAME,
+                    (_MODEL / PROFILE_NAME).read_bytes() if profile is None else profile,
+                ),
+            ),
             dependencies.vocabularies,
             dependencies.ontology_sources,
         ),
@@ -50,8 +68,13 @@ class AnalyticalProfile:
             raise ValueError("release has no admitted analytical profile")
         model = prepared.validate_json("AnalyticalProfile", content)
         fields = model.model_dump()
-        if fields != {"version": "analytical-1", "precision": 38, "scale": fields["scale"],
-                       "rounding": "HALF_EVEN", "overflow": "refuse"}:
+        if fields != {
+            "version": "analytical-1",
+            "precision": 38,
+            "scale": fields["scale"],
+            "rounding": "HALF_EVEN",
+            "overflow": "refuse",
+        }:
             raise ValueError("unsupported analytical compiler profile")
         return cls(sha256(content).hexdigest(), fields["precision"], fields["scale"])
 

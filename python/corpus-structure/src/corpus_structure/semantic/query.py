@@ -467,7 +467,7 @@ class ReadSession:
             if kind in {"string", "entity"}:
                 value = row["entity_id"] if kind == "entity" else lexical
             elif kind == "integer":
-                value = int(lexical)
+                value = int(lexical if lexical is not None else row["integer_value"])
             elif kind in {"decimal", "number"}:
                 value = Decimal(row["decimal_lexical"])
             elif kind == "float":

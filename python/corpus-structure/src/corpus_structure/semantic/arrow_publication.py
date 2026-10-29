@@ -47,8 +47,12 @@ def stage_schema(name: str, *, decimals: Mapping[str, pa.DataType] | None = None
                 raise ArrowPublicationError("numeric transport requires exact Decimal128")
         else:
             try:
-                arrow_type = {"text": pa.string(), "bigint": pa.int64(),
-                              "boolean": pa.bool_(), "jsonb": pa.string()}[pg_type]
+                arrow_type = {
+                    "text": pa.string(),
+                    "bigint": pa.int64(),
+                    "boolean": pa.bool_(),
+                    "jsonb": pa.string(),
+                }[pg_type]
             except KeyError as exc:
                 raise ArrowPublicationError(f"unsupported staging type {pg_type}") from exc
         result.append(pa.field(column.name, arrow_type, nullable=True))
@@ -58,18 +62,23 @@ def stage_schema(name: str, *, decimals: Mapping[str, pa.DataType] | None = None
 def _encoder(name: str, schema: pa.Schema) -> ArrowToPostgresBinaryEncoder:
     encoders = {
         f.name: StringEncoderBuilder.new_with_output(f, Jsonb())
-        if pg_type == "jsonb" else ArrowToPostgresBinaryEncoder.infer_encoder(f)
+        if pg_type == "jsonb"
+        else ArrowToPostgresBinaryEncoder.infer_encoder(f)
         for f, pg_type in zip(schema, STAGE_TYPES[name][1], strict=True)
     }
     encoder = ArrowToPostgresBinaryEncoder.new_with_encoders(schema, encoders)
     aliases = {"bool": "boolean", "int8": "bigint"}
     actual = tuple(
-        (c.name, aliases.get(str(c.data_type.ddl()).lower(), str(c.data_type.ddl()).lower()),
-         c.nullable)
+        (
+            c.name,
+            aliases.get(str(c.data_type.ddl()).lower(), str(c.data_type.ddl()).lower()),
+            c.nullable,
+        )
         for c in encoder.schema().columns
     )
-    expected = tuple((f.name, typ, True) for f, typ in
-                     zip(schema, STAGE_TYPES[name][1], strict=True))
+    expected = tuple(
+        (f.name, typ, True) for f, typ in zip(schema, STAGE_TYPES[name][1], strict=True)
+    )
     if actual != expected:
         raise ArrowPublicationError(f"pgpq wire schema differs from protected {name}: {actual}")
     return encoder
@@ -85,7 +94,10 @@ class ArrowPublicationBatch:
     _content: bytes = field(init=False, repr=False)
 
     def __init__(
-        self, release_id: str, realization_id: str, batch_id: str,
+        self,
+        release_id: str,
+        realization_id: str,
+        batch_id: str,
         relations: Mapping[str, pa.Table | tuple[pa.RecordBatch, ...]],
         expected_data_revision: int | None = None,
     ) -> None:
@@ -93,9 +105,13 @@ class ArrowPublicationBatch:
         object.__setattr__(self, "realization_id", realization_id)
         object.__setattr__(self, "batch_id", batch_id)
         object.__setattr__(self, "expected_data_revision", expected_data_revision)
-        if any(type(v) is not str or not v for v in
-               (self.release_id, self.realization_id, self.batch_id)):
-            raise ArrowPublicationError("publication requires release, realization and batch identity")
+        if any(
+            type(v) is not str or not v
+            for v in (self.release_id, self.realization_id, self.batch_id)
+        ):
+            raise ArrowPublicationError(
+                "publication requires release, realization and batch identity"
+            )
         if self.expected_data_revision is not None and (
             type(self.expected_data_revision) is not int or self.expected_data_revision < 0
         ):
@@ -129,30 +145,42 @@ class ArrowPublicationBatch:
             for row in value.to_pylist():
                 if name == "typed_value":
                     if row["opaque_payload"] is not None:
-                        raise ArrowPublicationError("opaque payload has no admitted semantic lowering")
+                        raise ArrowPublicationError(
+                            "opaque payload has no admitted semantic lowering"
+                        )
                     for column in ("integer_value", "numeric_value"):
                         numeric = row[column]
                         if numeric is not None:
-                            lexical = row["text_value"] if column == "integer_value" else row["decimal_lexical"]
+                            lexical = (
+                                row["text_value"]
+                                if column == "integer_value"
+                                else row["decimal_lexical"]
+                            )
                             if lexical is None or Decimal(lexical) != numeric:
-                                raise ArrowPublicationError("numeric projection contradicts exact lexical value")
+                                raise ArrowPublicationError(
+                                    "numeric projection contradicts exact lexical value"
+                                )
                             if column == "integer_value" and numeric != numeric.to_integral_value():
                                 raise ArrowPublicationError("integer projection is not integral")
-                            row[column] = format(numeric.copy_abs() if numeric.is_zero() else numeric, "f")
+                            row[column] = format(
+                                numeric.copy_abs() if numeric.is_zero() else numeric, "f"
+                            )
                 rows.append(list(row.values()))
             body[name] = sorted(rows, key=canonical_bytes)
             frozen[name] = value
         object.__setattr__(self, "relations", MappingProxyType(frozen))
-        object.__setattr__(self, "_content",
-                           canonical_bytes([self.release_id, self.realization_id, body]))
+        object.__setattr__(
+            self, "_content", canonical_bytes([self.release_id, self.realization_id, body])
+        )
 
     @property
     def content(self) -> bytes:
         return self._content
 
     @classmethod
-    def from_rows(cls, batch: PublicationBatch, *, expected_data_revision: int | None = None
-                  ) -> ArrowPublicationBatch:
+    def from_rows(
+        cls, batch: PublicationBatch, *, expected_data_revision: int | None = None
+    ) -> ArrowPublicationBatch:
         """Adapt legitimate row producers at freeze, retaining exact optional projections.
 
         Decimal128 overflow clears only the optional numeric projection, never lexical text.
@@ -183,13 +211,20 @@ class ArrowPublicationBatch:
                         if row[column] is not None:
                             try:
                                 pa.scalar(row[column], type=decimal_type)
-                            except (pa.ArrowInvalid, OverflowError):
+                            except pa.ArrowInvalid, OverflowError:
                                 if column == "integer_value" and row["text_value"] is None:
                                     row["text_value"] = str(row[column])
                                 row[column] = None
-            relations[name] = pa.Table.from_pylist(rows, schema=stage_schema(name, decimals=decimals))
-        return cls(batch.release_id, batch.realization_id, batch.batch_id, relations,
-                   expected_data_revision)
+            relations[name] = pa.Table.from_pylist(
+                rows, schema=stage_schema(name, decimals=decimals)
+            )
+        return cls(
+            batch.release_id,
+            batch.realization_id,
+            batch.batch_id,
+            relations,
+            expected_data_revision,
+        )
 
 
 def stage_arrow(connection: Connection, batch: ArrowPublicationBatch) -> None:
@@ -211,13 +246,18 @@ def stage_arrow(connection: Connection, batch: ArrowPublicationBatch) -> None:
                 copy.write(encoder.finish())
 
 
-def publish_arrow_on_connection(connection: Connection, batch: ArrowPublicationBatch
-                                ) -> PublicationReceipt:
+def publish_arrow_on_connection(
+    connection: Connection, batch: ArrowPublicationBatch
+) -> PublicationReceipt:
     """Stage and publish without committing the SQLAlchemy-owned transaction."""
     stage_arrow(connection, batch)
     function = "data.publish_batch(:r,:z,:b,:c)"
-    params: dict[str, str | bytes | int] = {"r": batch.release_id, "z": batch.realization_id,
-              "b": batch.batch_id, "c": batch.content}
+    params: dict[str, str | bytes | int] = {
+        "r": batch.release_id,
+        "z": batch.realization_id,
+        "b": batch.batch_id,
+        "c": batch.content,
+    }
     if batch.expected_data_revision is not None:
         function = "data.publish_analysis_batch(:r,:z,:b,:c,:expected)"
         params["expected"] = batch.expected_data_revision
@@ -225,11 +265,14 @@ def publish_arrow_on_connection(connection: Connection, batch: ArrowPublicationB
         revision = connection.execute(text("SELECT " + function), params).scalar_one()
     except Exception as exc:
         if getattr(getattr(exc, "orig", exc), "sqlstate", None) == "P0004":
-            raise StaleAnalysisError("analysis source revision changed; recompute outside publication") from exc
+            raise StaleAnalysisError(
+                "analysis source revision changed; recompute outside publication"
+            ) from exc
         raise
     return PublicationReceipt(batch.batch_id, revision, sha256(batch.content).hexdigest())
 
 
-def publish_arrow(engine: Engine, batch: ArrowPublicationBatch, *, attempts: int = 3
-                  ) -> PublicationReceipt:
+def publish_arrow(
+    engine: Engine, batch: ArrowPublicationBatch, *, attempts: int = 3
+) -> PublicationReceipt:
     return _publish(engine, batch, publish_arrow_on_connection, attempts=attempts)

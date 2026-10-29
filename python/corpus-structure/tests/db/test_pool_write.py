@@ -5,20 +5,18 @@ Arrow table writing has been retired; semantic Arrow publication is tested separ
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pyarrow as pa
 import pytest
+from psycopg.types.json import Jsonb
 from sqlalchemy import Engine, text
 
 from corpus_structure.core import db as store
-from corpus_structure.core.db import overlay
+from corpus_structure.core.db import overlay, repo
 from corpus_structure.pool.load import connect, read_tables
-from corpus_structure.core.db import repo
 from corpus_structure.schema import interchange
-from psycopg.types.json import Jsonb
-import json
-
 
 
 def tables_with_rows(engine: Engine) -> list[str]:
@@ -126,10 +124,19 @@ def test_every_table_with_rows_round_trips_losslessly(populated: SimpleNamespace
             for field in source.schema:
                 values = source.column(field.name).to_pylist()
                 if schema.field(field.name).type == interchange.JSON:
-                    values = [None if value is None else Jsonb(json.loads(value)) for value in values]
+                    values = [
+                        None if value is None else Jsonb(json.loads(value)) for value in values
+                    ]
                 columns.append(values)
-            assert repo.copy_rows(conn, store.metadata.tables[name], source.column_names,
-                                  list(zip(*columns, strict=True))) == source.num_rows
+            assert (
+                repo.copy_rows(
+                    conn,
+                    store.metadata.tables[name],
+                    source.column_names,
+                    list(zip(*columns, strict=True)),
+                )
+                == source.num_rows
+            )
     after = read_all(populated.url, names)
     for name in names:
         assert after[name].equals(before[name], check_metadata=True), name
@@ -138,7 +145,6 @@ def test_every_table_with_rows_round_trips_losslessly(populated: SimpleNamespace
     assert claims["4"]["object_value"] is None  # absent: SQL NULL, not JSON null
     entities = {r["kind"]: r for r in after["kb.entity"].to_pylist()}
     assert entities[None]["attrs"] == '{"note": null}'
-
 
 
 def test_arbitrary_admitted_arrow_write_api_is_retired() -> None:

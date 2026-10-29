@@ -2,6 +2,7 @@
 
 Frozen companion SQL intentionally imports no evolving application code.
 """
+
 from pathlib import Path
 
 from alembic import op
@@ -20,4 +21,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    raise RuntimeError("destructive semantic publication downgrade refused; rebuild a fresh database")
+    raise RuntimeError(
+        "destructive semantic publication downgrade refused; rebuild a fresh database"
+    )
