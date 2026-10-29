@@ -24,6 +24,8 @@ dev = [
     "hypothesis-jsonschema==0.23.2",
     "types-regex==2026.9.29.20261017",
     "linkml==1.12.1",
+    "cssselect==1.6.0",
+    "pglast==8.7",
 ]
 
 [tool.uv]

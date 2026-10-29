@@ -1,0 +1,77 @@
+"""M03's words-and-spaces Doc and b' semantics (ingest and math §3.4; D4 M03)."""
+
+from __future__ import annotations
+
+import pytest
+
+from corpus_structure.ingest.profile import CompiledProfile
+from corpus_structure.ingest.sentences import (
+    Block,
+    SentenceConfig,
+    SentenceConfigError,
+    make_doc,
+    pipeline,
+    split,
+)
+
+CONFIG = SentenceConfig()
+
+
+def test_a_formula_straddling_tokenizer_boundaries_stays_one_token() -> None:
+    """`mean\\( \\pm \\)standard`: expanding the span to tokens would take prose into the math."""
+    text = "The mean\\( \\pm \\)standard deviation is shown."
+    start = text.index("\\(")
+    end = text.index("\\)") + 2
+    doc = make_doc(pipeline(CONFIG), Block(text, [(start, end)], [], []))
+    assert doc.text == text
+    (token,) = [t for t in doc if t.idx == start]
+    assert token.text == text[start:end] == "\\( \\pm \\)"
+    assert token.tag_ == "NNP"
+
+
+def test_the_doc_reproduces_text_with_markers_and_display_math() -> None:
+    text = "By [3], we have \\[ x = 1. \\quad Y = 2 \\] for all \\(n\\). Then [4] holds."
+    marker1, marker2 = (
+        (text.index("[3]"), text.index("[3]") + 3),
+        (text.index("[4]"), text.index("[4]") + 3),
+    )
+    display = (text.index("\\["), text.index("\\]") + 2)
+    inline = (text.index("\\(n"), text.index("\\)") + 2)
+    block = Block(text, [inline], [display], [marker1, marker2])
+    doc = make_doc(pipeline(CONFIG), block)
+    assert doc.text == text
+    (extents,) = split([block], CONFIG)
+    starts = [a for a, _ in extents]
+    assert all(not display[0] < s < display[1] for s in starts)  # never inside display math
+    assert all(not m[0] <= s < m[1] for s in starts for m in (marker1, marker2))
+    assert [text[a:b] for a, b in extents][-1] == "Then [4] holds."
+
+
+def test_sentences_are_trimmed_and_stay_inside_their_block() -> None:
+    blocks = [
+        Block("One sentence here. Another one follows.", [], [], []),
+        Block("Single.", [], [], []),
+    ]
+    assert split(blocks, CONFIG) == [[(0, 18), (19, 39)], [(0, 7)]]
+
+
+def test_a_configuration_naming_other_versions_is_refused() -> None:
+    with pytest.raises(SentenceConfigError, match="spaCy"):
+        pipeline(SentenceConfig(spacy_version="3.7.0"))
+    with pytest.raises(SentenceConfigError, match="en_core_web_sm"):
+        pipeline(SentenceConfig(model_version="3.7.1"))
+
+
+def test_sentences_never_cross_a_block_in_a_rendition(profile: CompiledProfile) -> None:
+    from corpus_structure.ingest.html import build_rendition
+
+    raw = (
+        b"<!DOCTYPE html><html><head><meta charset=utf-8></head><body><ul><li>First item. It has"
+        b" two.</li><li>Second</li></ul><p>A para. Ends.</p></body></html>"
+    )
+    r = build_rendition(raw, profile, CONFIG, source_uri="siegrist_random/random/t/a.html")
+    for segment in r.content.document.walk():
+        sentences = [c for c in segment.children if c.kind == "sentence"]
+        assert all(segment.start <= s.start < s.end <= segment.end for s in sentences)
+    texts = [r.content.text(s) for s in r.content.document.walk() if s.kind == "sentence"]
+    assert texts == ["First item.", "It has two.", "Second", "A para.", "Ends."]

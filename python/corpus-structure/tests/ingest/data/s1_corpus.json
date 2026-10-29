@@ -1,0 +1,107 @@
+{
+ "record": "s1.corpus-html5lib",
+ "sources": [
+  "results/s1_html5lib/corpus_summary.json",
+  "results/s1_html5lib/repairs.tsv",
+  "results/s1_html5lib/coverage.tsv",
+  "results/s1_html5lib/counts.tsv",
+  "results/s1_html5lib/macros.tsv"
+ ],
+ "pages": 78,
+ "independent_texts_checked": 19432,
+ "partial_math": [
+  {
+   "page": "dist/Joint.html",
+   "reason": "unclosed \\( before next opener",
+   "opening": "\\(f given by "
+  },
+  {
+   "page": "dist/Conditional.html",
+   "reason": "unclosed at block end",
+   "opening": "\\(n \\in \\{1, 2, 3, 4, 5\\}). A bulb is se"
+  },
+  {
+   "page": "dist/Convergence.html",
+   "reason": "unclosed \\( before next opener",
+   "opening": "\\(x \\in [0, \\infty), this is the distrib"
+  },
+  {
+   "page": "expect/Generating.html",
+   "reason": "unclosed at block end",
+   "opening": "\\(t \\in \\R)."
+  },
+  {
+   "page": "expect/Generating.html",
+   "reason": "unclosed \\( before next opener",
+   "opening": "\\(\\R) with probability density function "
+  },
+  {
+   "page": "expect/Generating.html",
+   "reason": "unclosed \\( before next opener",
+   "opening": "\\([1, \\infty) with probability density f"
+  },
+  {
+   "page": "special/Wald.html",
+   "reason": "unclosed at block end",
+   "opening": "\\[ f(x) =  \\sqrt{\\frac{\\lambda}{2 \\pi x^"
+  },
+  {
+   "page": "bernoulli/Walk.html",
+   "reason": "\\[ closed by \\)",
+   "opening": "\\[ \\P(X_1 \\gt 0, X_2 \\gt 0, \\ldots, X_{2"
+  }
+ ],
+ "stray_closers": [
+  {
+   "page": "dist/Discrete.html",
+   "delimiter": "\\)"
+  },
+  {
+   "page": "bernoulli/Walk.html",
+   "delimiter": "\\]"
+  },
+  {
+   "page": "poisson/Exponential.html",
+   "delimiter": "\\)"
+  }
+ ],
+ "orphans_by_container": {
+  "details": 18,
+  "section": 9,
+  "unit": 17
+ },
+ "figures": 51,
+ "index_count_exceptions": [
+  "special/ExponentialLogarithmic.html"
+ ],
+ "macro_definitions": {
+  "\\N -> \\mathbb{N} (0)": 78,
+  "\\R -> \\mathbb{R} (0)": 76,
+  "\\E -> \\mathbb{E} (0)": 69,
+  "\\var -> \\text{var} (0)": 63,
+  "\\P -> \\mathbb{P} (0)": 55,
+  "\\sd -> \\text{sd} (0)": 53,
+  "\\bs -> \\boldsymbol (0)": 48,
+  "\\skw -> \\text{skew} (0)": 45,
+  "\\kur -> \\text{kurt} (0)": 43,
+  "\\cov -> \\text{cov} (0)": 26,
+  "\\cor -> \\text{cor} (0)": 26,
+  "\\ms -> \\mathscr (0)": 12,
+  "\\Z -> \\mathbb{Z} (0)": 9,
+  "\\sgn -> \\text{sgn} (0)": 7,
+  "\\sgn -> \\,\\text{sgn} (0)": 3,
+  "\\mse -> \\text{mse} (0)": 2,
+  "\\mse -> \\text{MSE} (0)": 2,
+  "\\vc -> \\text{vc} (0)": 2,
+  "\\Li -> \\text{Li} (0)": 2,
+  "\\Q -> \\mathbb{Q} (0)": 1,
+  "\\cl -> \\text{cl} (0)": 1,
+  "\\interior -> \\text{int} (0)": 1,
+  "\\sech -> \\text{sech} (0)": 1,
+  "\\sinc -> \\text{sinc} (0)": 1,
+  "\\var -> \\,\\text{var} (0)": 1,
+  "\\skw -> \\,\\text{skew} (0)": 1,
+  "\\kur -> \\,\\text{kurt} (0)": 1,
+  "\\kur -> \\text{kur} (0)": 1
+ }
+}

@@ -1,0 +1,903 @@
+"""M01 `ingest.html` as a pure function: a document's bytes and a source profile to rendition
+content (ingest and math §3.3; D4 M01; D1 §3.1-§3.2).
+
+`build_rendition(raw, profile, sentences, source_uri=…)` returns an `IngestResult`:
+
+- `content`: the `RenditionContent` (canonical text, the segment tree with sentences, the macro
+  table), which F2a digests;
+- `markup`: `author_markup` drafts (D3 §6.2), each typed by `MarkupKind`, on a segment named by its
+  kind and offsets (the rendition's keys are the writer's, P0-I-1b);
+- `title`, the page title, and `parse_detail`, the build's diagnostics.
+
+Steps: parse with html5lib (`namespaceHTMLElements=False`, the original bytes, WHATWG sniffing, no
+chardet), recording the encoding, parser errors and data-loss warnings; one pass of the profile's
+`cssselect2.Matcher` gives every element its roles; the macro source is read by the tokenizer
+reader; the body is walked in reading order (blocks `\\n\\n`, list items and rows `\\n`, cells
+`\\t`; whitespace collapsed outside math, math verbatim; sections opened by the profile's headings
+and nested by rank; text placed directly in a container becomes an orphan paragraph; a non-unit
+`div` or `blockquote` is transparent); math is delimited per block; NFC is applied chunk by chunk
+between math, markup and run boundaries so every offset stays exact; hints, titles and details
+kinds are attached; M03 adds sentences. An element whose text is empty yields no segment (IR-13).
+
+Diagnostics never enter attributes: parser errors, exclusions, anomalies, orphan statistics and
+`sourceline` live in `parse_detail`, so the content digest covers whole segments.
+
+Segment attributes hold author markup: `id`, `classes`, a list's `start`, the statement-kind
+`hint`, a section's `level`, `heading_tag` and `title`, a math span's `open` and `close`, an orphan
+paragraph's `orphan` and `container` (`inline_text_of` for the text of a block that also holds
+blocks), and `markup`, the inline markup with canonical-text offsets: `dfn` terms, `link`s with
+their `href`, and the rendered insertions a consumer may strip (`ref` markers with what they
+render, `quote` spans whose first and last characters are the inserted quotation marks, and
+`list_marker`s).
+"""
+
+from __future__ import annotations
+
+import itertools
+import re
+import unicodedata
+import warnings
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from pathlib import PurePosixPath
+from typing import Any
+
+import cssselect2
+from html5lib.constants import DataLossWarning
+from lxml.html import html5parser
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
+
+from corpus_structure.core.batch import StoredEvidence
+from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
+from corpus_structure.core.locators import LocatorIndex, page_of
+from corpus_structure.core.payloads import AuthorMarkupPayload, SynthesizedClaim
+from corpus_structure.core.values import EntityRef
+from corpus_structure.core.vocab import (
+    DelimitingStatus,
+    EvidenceRole,
+    MarkupKind,
+    SegmentKind,
+    StatementKind,
+)
+from corpus_structure.ingest import delimit, sentences
+from corpus_structure.ingest.macros import read_macros
+from corpus_structure.ingest.profile import (
+    EXCLUSIVE_ROLES,
+    BlockHint,
+    CompiledProfile,
+    Rule,
+    SourceProfile,
+    compile_profile,
+)
+from corpus_structure.ingest.sentences import SentenceConfig
+
+K = SegmentKind
+
+# The walk's HTML element mapping (D1 §3.2's Siegrist column); a unit is whatever the profile's
+# unit selector matches.
+TAG_KIND: dict[str, SegmentKind] = {
+    "body": K.DOCUMENT,
+    "p": K.PARAGRAPH,
+    "pre": K.PARAGRAPH,
+    "ol": K.LIST,
+    "ul": K.LIST,
+    "dl": K.LIST,
+    "li": K.LIST_ITEM,
+    "dt": K.LIST_ITEM,
+    "dd": K.LIST_ITEM,
+    "details": K.DETAILS,
+    "summary": K.HEADING,
+    "table": K.TABLE,
+    "tr": K.TABLE_ROW,
+    "td": K.TABLE_CELL,
+    "th": K.TABLE_CELL,
+    "figure": K.FIGURE,
+    "figcaption": K.CAPTION,
+    **{f"h{n}": K.HEADING for n in range(1, 7)},
+}
+# Containers whose blocks attach to their parent and whose direct text is an orphan paragraph.
+TRANSPARENT = frozenset(
+    {
+        "html",
+        "header",
+        "thead",
+        "tbody",
+        "tfoot",
+        "main",
+        "section",
+        "article",
+        "nav",
+        "div",
+        "blockquote",
+    }
+)
+# Blocks whose own text is their content (D1 §3.1); text in any other block is an orphan paragraph.
+TEXT_BLOCKS = frozenset({K.PARAGRAPH, K.LIST_ITEM, K.HEADING, K.TABLE_CELL, K.CAPTION})
+LINE_SEPARATED = frozenset({K.LIST, K.LIST_ITEM, K.TABLE})
+EXAMPLE_KINDS = frozenset({StatementKind.EXAMPLE, StatementKind.EXERCISE})  # details_kinds' context
+_HEADING_TAG = re.compile(r"^h([1-6])$")
+_WS = re.compile(r"\s+")
+
+
+class IngestRefused(ValueError):
+    """A document the profile does not apply to (D4 M01: no profile-free fallback)."""
+
+
+def _collapse(text: str) -> str:
+    return _WS.sub(" ", text).strip()
+
+
+def _classes(el: Any) -> list[str]:
+    return str(el.get("class") or "").split()
+
+
+# --- Results -----------------------------------------------------------------------------------
+
+
+class SegmentRef(tuple[str, int, int]):
+    """A segment by kind and offsets, its identity within a rendition (D1 §10.1 `seg` parts)."""
+
+    __slots__ = ()
+
+    def __new__(cls, kind: SegmentKind | str, start: int, end: int) -> SegmentRef:
+        return super().__new__(cls, (SegmentKind(kind).value, start, end))
+
+    @classmethod
+    def of(cls, segment: Segment) -> SegmentRef:
+        return cls(segment.kind, segment.start, segment.end)
+
+    @property
+    def kind(self) -> SegmentKind:
+        return SegmentKind(self[0])
+
+
+@dataclass(frozen=True, slots=True)
+class MarkupDraft:
+    """One `author_markup` observation before the write: the segment it lies on, its span in the
+    canonical text when it has one, and its payload."""
+
+    segment: SegmentRef
+    span: tuple[int, int] | None
+    payload: AuthorMarkupPayload
+
+
+class _Detail(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class ParserError(_Detail):
+    line: int
+    column: int
+    code: str
+
+
+class RoleConflict(_Detail):
+    tag: str
+    classes: list[str]
+    roles: list[str]
+
+
+class Exclusion(_Detail):
+    """An excluded element, per rule (D4 M01: excluded text is recorded per rule)."""
+
+    rule: str
+    tag: str
+    classes: list[str]
+    chars: int
+
+
+class Anomaly(_Detail):
+    kind: str
+    delimiter: str
+    context: str
+
+
+class Orphan(_Detail):
+    container: str
+    text: str
+    sourceline: int | None = None
+
+
+class UnicodeChange(_Detail):
+    before: str
+    after: str
+
+
+class ParseDetail(_Detail):
+    """A build's diagnostics (`kb.rendition_build.parse_detail`), never part of the content."""
+
+    encoding: str | None
+    parser_errors: list[ParserError]
+    data_loss_warnings: int
+    role_conflicts: list[RoleConflict] = Field(default_factory=list)
+    exclusions: list[Exclusion] = Field(default_factory=list)
+    math_anomalies: list[Anomaly] = Field(default_factory=list)
+    orphans: list[Orphan] = Field(default_factory=list)
+    unicode_changed: list[UnicodeChange] = Field(default_factory=list)
+    references_rendered: int = 0
+    macro_notes: list[str] = Field(default_factory=list)
+    synthesize_notes: list[str] = Field(default_factory=list)
+
+    def to_json(self) -> dict[str, JsonValue]:
+        return self.model_dump(mode="json")
+
+
+@dataclass(frozen=True, slots=True)
+class IngestResult:
+    content: RenditionContent
+    markup: tuple[MarkupDraft, ...]
+    title: str | None
+    page: str
+    parse_detail: ParseDetail
+
+
+# --- The walk ----------------------------------------------------------------------------------
+
+
+@dataclass
+class Run:
+    """The inline text of a block between its block children, with inline markup events."""
+
+    pieces: list[str] = field(default_factory=list)
+    events: list[dict[str, Any]] = field(default_factory=list)  # raw offsets
+    size: int = 0
+
+    def add(self, text: str | None) -> None:
+        if text:
+            self.pieces.append(text)
+            self.size += len(text)
+
+    def raw(self) -> str:
+        return "".join(self.pieces)
+
+
+@dataclass
+class Block:
+    kind: SegmentKind
+    tag: str
+    attrs: dict[str, Any]
+    element: Any
+    children: list[Block | Run] = field(default_factory=list)
+    section_rank: int | None = None
+    summary: bool = False
+
+
+@dataclass
+class Node:
+    """A segment under construction, offsets relative to its block until shifted."""
+
+    kind: SegmentKind
+    start: int
+    end: int
+    attrs: dict[str, Any] = field(default_factory=dict)
+    status: DelimitingStatus = DelimitingStatus.OK
+    reason: str | None = None
+    children: list[Node] = field(default_factory=list)
+    markup: list[dict[str, Any]] = field(default_factory=list)
+    element: Any = None
+    summary: bool = False
+
+    def shift(self, d: int) -> None:
+        self.start += d
+        self.end += d
+        for event in self.markup:
+            event["start"] += d
+            event["end"] += d
+        for child in self.children:
+            child.shift(d)
+
+    def walk(self, ancestors: tuple[Node, ...] = ()) -> Iterator[tuple[Node, tuple[Node, ...]]]:
+        yield self, ancestors
+        for child in self.children:
+            yield from child.walk((*ancestors, self))
+
+
+class _Walker:
+    def __init__(self, root: Any, compiled: CompiledProfile) -> None:
+        self.profile = compiled.profile
+        self.roles: dict[Any, list[Rule]] = {}
+        self.role_conflicts: list[RoleConflict] = []
+        self.exclusions: list[Exclusion] = []
+        self.anomalies: list[Anomaly] = []
+        self.orphans: list[Orphan] = []
+        self.unicode_changed: list[UnicodeChange] = []
+        self.refs_rendered = 0
+        for wrapper in cssselect2.ElementWrapper.from_html_root(root).iter_subtree():
+            rules = compiled.match(wrapper)
+            if not rules:
+                continue
+            el = wrapper.etree_element
+            self.roles[el] = rules
+            exclusive = sorted({r.role for r in rules if r.role in EXCLUSIVE_ROLES})
+            if len(exclusive) > 1:
+                self.role_conflicts.append(
+                    RoleConflict(tag=el.tag, classes=_classes(el), roles=list(exclusive))
+                )
+        units = [el for el in root.iter() if self.has(el, "unit")]
+        self.unit_ordinal: dict[str, int] = {}
+        for n, el in enumerate(units, 1):  # the page script keeps the last of duplicate ids
+            if el.get("id"):
+                self.unit_ordinal[el.get("id")] = n
+
+    def rules(self, el: Any, role: str) -> list[Rule]:
+        return [r for r in self.roles.get(el, ()) if r.role == role]
+
+    def has(self, el: Any, role: str) -> bool:
+        return any(r.role == role for r in self.roles.get(el, ()))
+
+    def excluded(self, el: Any) -> str | None:
+        rules = self.rules(el, "exclude")
+        if not rules:
+            return None
+        text = _collapse("".join(el.itertext()))
+        self.exclusions.append(
+            Exclusion(rule=rules[0].name, tag=el.tag, classes=_classes(el), chars=len(text))
+        )
+        return rules[0].name
+
+    def is_block(self, el: Any) -> bool:
+        return el.tag in TAG_KIND or el.tag in TRANSPARENT or self.has(el, "unit")
+
+    def transparent(self, el: Any) -> bool:
+        return el.tag in TRANSPARENT and not self.has(el, "unit")
+
+    def attrs(self, el: Any) -> dict[str, Any]:
+        a: dict[str, Any] = {}
+        if el.get("id"):
+            a["id"] = el.get("id")
+        if _classes(el):
+            a["classes"] = _classes(el)
+        hints = self.rules(el, "block_hint")
+        if hints:
+            a["hint"] = _hint_attr(hints[-1].data)
+        if el.tag == "ol" and el.get("start"):
+            a["start"] = el.get("start")
+        return a
+
+    # inline content ---------------------------------------------------------------------------
+
+    def inline(self, el: Any, run: Run) -> None:
+        if self.excluded(el):
+            return
+        start = run.size
+        render = self.profile.render
+        references = self.rules(el, "reference")
+        if references and not "".join(el.itertext()).strip():
+            href = el.get("href") or ""
+            target = href[href.find("#") + 1 :] if "#" in href else ""
+            ordinal = self.unit_ordinal.get(target)
+            text = {
+                "browser": f"[{ordinal}]" if ordinal is not None else "",
+                "placeholder": "[ref]",
+                "empty": "",
+            }[references[-1].data]
+            self.refs_rendered += 1
+            run.add(text)
+            run.events.append(
+                {"markup": "ref", "start": start, "end": run.size, "href": href, "rendered": text}
+            )
+            return
+        quotes = el.tag == "q" and render.q == "quotes"
+        if quotes:
+            run.add("“")
+        if el.tag == "br":
+            run.add(" ")
+        run.add(el.text)
+        for child in el:
+            if isinstance(child.tag, str):
+                self.inline(child, run)
+            run.add(child.tail)
+        if quotes:
+            run.add("”")
+            run.events.append({"markup": "quote", "start": start, "end": run.size})
+        if el.tag == "dfn":
+            run.events.append({"markup": "dfn", "start": start, "end": run.size})
+        elif el.tag == "a" and el.get("href") is not None:
+            run.events.append(
+                {"markup": "link", "start": start, "end": run.size, "href": el.get("href")}
+            )
+
+    # block content ----------------------------------------------------------------------------
+
+    def build(self, el: Any) -> Block:
+        kind = K.UNIT if self.has(el, "unit") else TAG_KIND.get(el.tag, K.PARAGRAPH)
+        blk = Block(kind, el.tag, self.attrs(el), el, summary=el.tag == "summary")
+        sections = self.rules(el, "section")
+        if kind is K.HEADING and sections and "".join(el.itertext()).strip():
+            blk.section_rank = min(r.data for r in sections)  # an empty heading opens nothing
+        run = Run()
+        marker = self.list_marker(el) if el.tag == "li" else ""
+        if marker:
+            run.add(marker)
+            run.events.append({"markup": "list_marker", "start": 0, "end": len(marker)})
+        run.add(el.text)
+
+        def flush() -> None:
+            nonlocal run
+            if run.raw().strip():
+                blk.children.append(run)
+            run = Run()
+
+        for child in el:
+            if not isinstance(child.tag, str):  # a comment: skipped, its tail kept
+                run.add(child.tail)
+                continue
+            if self.excluded(child):
+                run.add(child.tail)
+                continue
+            if self.transparent(child):
+                flush()
+                blk.children.extend(self.build(child).children)
+            elif self.is_block(child):
+                flush()
+                blk.children.append(self.build(child))
+            else:
+                self.inline(child, run)
+            run.add(child.tail)
+        flush()
+        if kind is K.DOCUMENT:
+            blk.children = self.sectionize(blk.children)
+        return blk
+
+    def list_marker(self, li: Any) -> str:
+        parent = li.getparent()
+        rules = self.rules(parent, "list_marker") if parent is not None else []
+        if parent is None or parent.tag != "ol" or not rules or rules[-1].data == "none":
+            return ""
+        try:
+            first = int(parent.get("start") or 1)
+        except ValueError:
+            first = 1
+        items = [c for c in parent if isinstance(c.tag, str) and c.tag == "li"]
+        letter = chr(ord("a") + first - 1 + items.index(li))
+        return f"({letter}) " if rules[-1].data == "parenthesized" else f"{letter}. "
+
+    def sectionize(self, children: list[Block | Run]) -> list[Block | Run]:
+        top: list[Block | Run] = []
+        stack: list[tuple[int, Block]] = []
+        for child in children:
+            if not isinstance(child, Block) or child.section_rank is None:
+                (stack[-1][1].children if stack else top).append(child)
+                continue
+            rank = child.section_rank
+            while stack and stack[-1][0] >= rank:
+                stack.pop()
+            tag = _HEADING_TAG.match(child.tag)
+            level = int(tag.group(1)) if tag else rank + 1
+            section = Block(
+                K.SECTION,
+                "section",
+                {"level": level, "heading_tag": child.tag},
+                child.element,
+                [child],
+            )
+            (stack[-1][1].children if stack else top).append(section)
+            stack.append((rank, section))
+        return top
+
+
+def _hint_attr(hint: BlockHint) -> dict[str, JsonValue]:
+    out: dict[str, JsonValue] = {
+        "selector": hint.selector,
+        "statement_kind": str(hint.statement_kind),
+    }
+    if hint.claim_bearing is not None:
+        out["claim_bearing"] = hint.claim_bearing
+    return out
+
+
+# --- Runs and serialization --------------------------------------------------------------------
+
+
+def _process_run(
+    run: Run, walker: _Walker
+) -> tuple[str, list[Node], list[dict[str, Any]], str | None]:
+    """A run's canonical text, its math segments, its markup (offsets in the text) and, when the
+    delimiter scan timed out, the reason its block is partial."""
+    raw = run.raw()
+    scan = delimit.scan(raw, walker.profile.math, timeout=delimit.SCAN_TIMEOUT)
+    for stray in scan.strays:
+        context = raw[max(0, stray.position - 40) : stray.position + 40]
+        walker.anomalies.append(
+            Anomaly(kind="stray closer", delimiter=stray.delimiter, context=context)
+        )
+    in_math = [False] * len(raw)
+    for span in scan.spans:
+        for k in range(span.start, span.end):
+            in_math[k] = True
+    out: list[str] = []
+    pos = [0] * (len(raw) + 1)
+    for k, ch in enumerate(raw):
+        pos[k] = len(out)
+        if ch.isspace() and not in_math[k]:
+            if out and out[-1] != " ":
+                out.append(" ")
+        else:
+            out.append(ch)
+    pos[len(raw)] = len(out)
+    while out and out[-1] == " ":
+        out.pop()
+    length = len(out)
+    text = "".join(out)
+
+    def clamp(p: int) -> int:
+        return min(p, length)
+
+    # NFC chunk by chunk between boundaries, so boundary offsets stay exact.
+    bounds = {0, length}
+    for span in scan.spans:
+        bounds |= {clamp(pos[span.start]), clamp(pos[span.end])}
+    for event in run.events:
+        bounds |= {clamp(pos[event["start"]]), clamp(pos[event["end"]])}
+    ordered = sorted(bounds)
+    newmap: dict[int, int] = {}
+    pieces: list[str] = []
+    acc = 0
+    for a, b in itertools.pairwise(ordered):
+        newmap[a] = acc
+        chunk = text[a:b]
+        normalized = unicodedata.normalize("NFC", chunk)
+        if normalized != chunk:
+            walker.unicode_changed.append(UnicodeChange(before=chunk[:80], after=normalized[:80]))
+        pieces.append(normalized)
+        acc += len(normalized)
+    newmap[length] = acc
+    text = "".join(pieces)
+
+    def mapped(p: int) -> int:
+        return newmap[clamp(pos[p])]
+
+    math = [
+        Node(
+            K.MATH_DISPLAY if span.display else K.MATH_INLINE,
+            mapped(span.start),
+            mapped(span.end),
+            {"open": span.open, "close": span.close},
+            span.status,
+            span.reason,
+        )
+        for span in scan.spans
+    ]
+    markup = [
+        {**event, "start": mapped(event["start"]), "end": mapped(event["end"])}
+        for event in run.events
+    ]
+    return text, math, markup, delimit.TIMEOUT_REASON if scan.timed_out else None
+
+
+def _separator(kind: SegmentKind) -> str:
+    if kind in LINE_SEPARATED:
+        return "\n"
+    if kind is K.TABLE_ROW:
+        return "\t"
+    return "\n\n"
+
+
+def _serialize(blk: Block, walker: _Walker) -> tuple[str, Node]:
+    parts: list[str] = []
+    node = Node(blk.kind, 0, 0, dict(blk.attrs), element=blk.element, summary=blk.summary)
+    offset = 0
+    sep = _separator(blk.kind)
+    has_blocks = any(isinstance(c, Block) for c in blk.children)
+    for child in blk.children:
+        own: Node | None
+        if isinstance(child, Run):
+            text, math, markup, timeout = _process_run(child, walker)
+            if not text:
+                continue
+            if blk.kind in TEXT_BLOCKS and not has_blocks:
+                placed, own = math, None
+                node.markup += [_shifted(m, offset) for m in markup]
+                if timeout:
+                    node.status, node.reason = DelimitingStatus.PARTIAL, timeout
+            else:
+                attrs: dict[str, Any] = (
+                    {"inline_text_of": blk.kind.value}
+                    if blk.kind in TEXT_BLOCKS
+                    else {"orphan": True, "container": blk.kind.value}
+                )
+                kind = K.PARAGRAPH if blk.kind in TEXT_BLOCKS else walker.profile.orphan_text
+                own = Node(kind, 0, len(text), attrs, children=math, markup=markup)
+                if timeout:
+                    own.status, own.reason = DelimitingStatus.PARTIAL, timeout
+                if blk.kind not in TEXT_BLOCKS:
+                    line = blk.element.sourceline if blk.element is not None else None
+                    walker.orphans.append(
+                        Orphan(container=blk.kind.value, text=text[:80], sourceline=line)
+                    )
+                placed = [own]
+        else:
+            text, own = _serialize(child, walker)
+            if not text:
+                continue
+            placed = [own]
+        if parts:
+            parts.append(sep)
+            offset += len(sep)
+        for segment in placed:
+            segment.shift(offset)
+            node.children.append(segment)
+        parts.append(text)
+        offset += len(text)
+    text = "".join(parts)
+    node.end = len(text)
+    return text, node
+
+
+def _shifted(event: dict[str, Any], d: int) -> dict[str, Any]:
+    return {**event, "start": event["start"] + d, "end": event["end"] + d}
+
+
+# --- After the walk: titles, hints, details ----------------------------------------------------
+
+
+def _titles(root: Node, text: str) -> None:
+    for node, _ in root.walk():
+        if node.kind is K.SECTION:
+            heading = next((c for c in node.children if c.kind is K.HEADING), None)
+            node.attrs["title"] = text[heading.start : heading.end] if heading else None
+
+
+def _hints(root: Node, profile: SourceProfile) -> None:
+    """A unit takes the hint of its first hinted block; the hint of the innermost section whose
+    title the profile names takes precedence and keeps the block hint beside it."""
+    by_title = {h.title: h.statement_kind for h in profile.section_hints}
+    for node, ancestors in root.walk():
+        if node.kind is not K.UNIT:
+            continue
+        block = next((c.attrs["hint"] for c in node.children if "hint" in c.attrs), None)
+        if block is not None:
+            node.attrs["hint"] = block
+        section = next(
+            (
+                a
+                for a in reversed(ancestors)
+                if a.kind is K.SECTION and a.attrs.get("title") in by_title
+            ),
+            None,
+        )
+        if section is not None:
+            title = section.attrs["title"]
+            hint: dict[str, Any] = {
+                "selector": f"section:{title}",
+                "statement_kind": str(by_title[title]),
+            }
+            if block is not None:
+                hint["block_hint"] = block
+            node.attrs["hint"] = hint
+
+
+def _hint_kind(node: Node) -> str | None:
+    hint = node.attrs.get("hint")
+    return hint.get("statement_kind") if isinstance(hint, dict) else None
+
+
+# --- Segments ----------------------------------------------------------------------------------
+
+
+def _leaf_blocks(root: Node) -> list[Node]:
+    return [
+        node
+        for node, _ in root.walk()
+        if node.kind.value in sentences.SPLIT_KINDS
+        and not any(c.kind.value in sentences.SPLIT_KINDS for c in node.children)
+    ]
+
+
+def _add_sentences(root: Node, text: str, config: SentenceConfig) -> None:
+    leaves = _leaf_blocks(root)
+    blocks = []
+    for node in leaves:
+        rel = lambda a, b, s=node.start: (a - s, b - s)  # noqa: E731
+        blocks.append(
+            sentences.Block(
+                text[node.start : node.end],
+                [rel(c.start, c.end) for c in node.children if c.kind is K.MATH_INLINE],
+                [rel(c.start, c.end) for c in node.children if c.kind is K.MATH_DISPLAY],
+                [
+                    rel(m["start"], m["end"])
+                    for m in node.markup
+                    if m["markup"] == "ref" and m["end"] > m["start"]
+                ],
+            )
+        )
+    for node, extents in zip(leaves, sentences.split(blocks, config), strict=True):
+        node.children += [Node(K.SENTENCE, node.start + a, node.start + b) for a, b in extents]
+
+
+def _segment(node: Node) -> Segment:
+    attrs = dict(node.attrs)
+    if node.markup:
+        attrs["markup"] = sorted(node.markup, key=lambda m: (m["start"], -m["end"], m["markup"]))
+    return Segment(
+        kind=node.kind,
+        start=node.start,
+        end=node.end,
+        parse_status=node.status,
+        parse_reason=node.reason,
+        attrs=attrs,
+        children=tuple(_segment(c) for c in node.children),
+    )
+
+
+# --- Author markup drafts ----------------------------------------------------------------------
+
+
+def _markup_drafts(
+    root: Node,
+    content: RenditionContent,
+    profile: SourceProfile,
+    page: str,
+    notes: list[str],
+) -> list[MarkupDraft]:
+    drafts: list[MarkupDraft] = []
+    text = content.canonical_text
+    index: LocatorIndex | None = None
+    segments = {SegmentRef.of(s): s for s in content.document.walk()}
+
+    def draft(
+        node: Node,
+        markup: MarkupKind,
+        value: JsonValue,
+        span: tuple[int, int] | None = None,
+        **extra: Any,
+    ) -> None:
+        payload = AuthorMarkupPayload(markup=markup, value=value, **extra)
+        drafts.append(MarkupDraft(SegmentRef(node.kind, node.start, node.end), span, payload))
+
+    for node, ancestors in root.walk():
+        ids = {k: node.attrs[k] for k in ("id", "classes") if k in node.attrs}
+        if node.kind is K.UNIT:
+            draft(node, MarkupKind.UNIT, ids)
+        elif "classes" in node.attrs:
+            draft(node, MarkupKind.CLASS, {"classes": node.attrs["classes"]})
+        for event in node.markup:
+            span = (event["start"], event["end"]) if event["end"] > event["start"] else None
+            if event["markup"] == "dfn":
+                term = text[event["start"] : event["end"]]
+                draft(
+                    node,
+                    MarkupKind.DFN,
+                    {"term": term, "start": event["start"], "end": event["end"]},
+                    span,
+                )
+            elif event["markup"] in ("link", "ref"):
+                value: dict[str, JsonValue] = {
+                    "text": text[event["start"] : event["end"]],
+                    "start": event["start"],
+                    "end": event["end"],
+                }
+                if event["markup"] == "ref":
+                    value["rendered"] = True
+                draft(node, MarkupKind.LINK, value, span, target=event["href"])
+        if node.kind is not K.DETAILS:
+            continue
+        summary = next((c for c in node.children if c.summary), None)
+        summary_text = text[summary.start : summary.end] if summary else None
+        unit = next((a for a in reversed(ancestors) if a.kind is K.UNIT), None)
+        kind = profile.details_kinds.kind_of(
+            summary_text, unit is not None and _hint_kind(unit) in EXAMPLE_KINDS
+        )
+        value = {"statement_kind": str(kind), "summary": summary_text}
+        rule = profile.details_kinds.rule_for(kind)
+        extra: dict[str, Any] = {}
+        if rule is not None and (unit is None or summary is None):
+            notes.append(
+                f"details at {node.start}: {kind} declares synthesize, but the block has "
+                f"no {'enclosing unit' if unit is None else 'summary'}"
+            )
+        elif rule is not None and unit is not None and summary is not None:
+            if index is None:
+                index = LocatorIndex(content, page)
+            unit_key = index.unit_key(segments[SegmentRef(unit.kind, unit.start, unit.end)])
+            value["unit"] = unit_key
+            extra["synthesize"] = SynthesizedClaim(
+                predicate=rule.predicate,
+                object=EntityRef(ref=unit_key),
+                evidence=(
+                    StoredEvidence(start=summary.start, end=summary.end, role=EvidenceRole.PRIMARY),
+                ),
+            )
+        draft(node, MarkupKind.DETAILS, value, **extra)
+    return drafts
+
+
+# --- The function ------------------------------------------------------------------------------
+
+
+def parse(raw: bytes) -> tuple[Any, ParseDetail]:
+    """html5lib's tree of the original bytes, and the parser's diagnostics."""
+    parser = html5parser.HTMLParser(namespaceHTMLElements=False)  # stateful: one per document
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", DataLossWarning)
+        root = html5parser.document_fromstring(raw, guess_charset=False, parser=parser)
+    detail = ParseDetail(
+        encoding=parser.documentEncoding,
+        parser_errors=[
+            ParserError(line=line, column=column, code=code)
+            for (line, column), code, _ in parser.errors
+        ],
+        data_loss_warnings=sum(1 for w in caught if issubclass(w.category, DataLossWarning)),
+    )
+    return root, detail
+
+
+def _macro_table(root: Any, walker: _Walker) -> tuple[dict[str, MacroDef], list[str]]:
+    table: dict[str, MacroDef] = {}
+    notes: list[str] = []
+    for el in root.iter():
+        if isinstance(el.tag, str) and walker.has(el, "macros"):
+            found, more = read_macros("".join(el.itertext()))
+            for name, definition in found.items():
+                if name in table and table[name] != definition:
+                    notes.append(f"{name} defined again by a later macro block; the later is kept")
+                table[name] = definition
+            notes += more
+    return table, notes
+
+
+def build_rendition_with_elements(
+    raw: bytes,
+    profile: SourceProfile | CompiledProfile,
+    sentence_config: SentenceConfig,
+    *,
+    source_uri: str,
+) -> tuple[IngestResult, dict[SegmentRef, Any]]:
+    """`build_rendition`, and the source element of each segment built from one (for the
+    independent text path of the corpus checks; the elements are not part of the result)."""
+    compiled = profile if isinstance(profile, CompiledProfile) else compile_profile(profile)
+    prof = compiled.profile
+    if not PurePosixPath(source_uri).full_match(prof.applies_to):
+        raise IngestRefused(
+            f"{source_uri!r} is not matched by the profile's applies_to {prof.applies_to!r}"
+        )
+    page = page_of(source_uri, prof.root)
+    root, detail = parse(raw)
+    walker = _Walker(root, compiled)
+    macros, macro_notes = _macro_table(root, walker)
+    body = root.find("body")
+    tree = walker.build(body)
+    text, top = _serialize(tree, walker)
+    _titles(top, text)
+    _hints(top, prof)
+    _add_sentences(top, text, sentence_config)
+    content = RenditionContent(canonical_text=text, document=_segment(top), macros=macros)
+    synth_notes: list[str] = []
+    drafts = _markup_drafts(top, content, prof, page, synth_notes)
+    titles = [el for el in root.iter() if isinstance(el.tag, str) and walker.has(el, "title")]
+    detail = detail.model_copy(
+        update={
+            "role_conflicts": walker.role_conflicts,
+            "exclusions": walker.exclusions,
+            "math_anomalies": walker.anomalies,
+            "orphans": walker.orphans,
+            "unicode_changed": walker.unicode_changed,
+            "references_rendered": walker.refs_rendered,
+            "macro_notes": macro_notes,
+            "synthesize_notes": synth_notes,
+        }
+    )
+    result = IngestResult(
+        content=content,
+        markup=tuple(drafts),
+        title=_collapse("".join(titles[0].itertext())) if titles else None,
+        page=page,
+        parse_detail=detail,
+    )
+    elements = {
+        SegmentRef(n.kind, n.start, n.end): n.element
+        for n, _ in top.walk()
+        if n.element is not None
+    }
+    return result, elements
+
+
+def build_rendition(
+    raw: bytes,
+    profile: SourceProfile | CompiledProfile,
+    sentence_config: SentenceConfig,
+    *,
+    source_uri: str,
+) -> IngestResult:
+    """M01 with M03 on one document's original bytes (pure: no database, no clock)."""
+    return build_rendition_with_elements(raw, profile, sentence_config, source_uri=source_uri)[0]

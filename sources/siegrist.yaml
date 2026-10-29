@@ -1,0 +1,56 @@
+# The Siegrist source profile (D2 §12.1; D4 M01 profile vocabulary; ingest and math §3.2).
+# Loaded into the system SourceProfile class by corpus_structure.ingest.profile.load_profile.
+# Every value except root, index, language and details_kinds.synthesize is S1's, Tested on 78
+# pages (record s1.corpus); those four are Proposed (2026-10-28).
+version: 0.1.0
+root: "siegrist_random/random"                     # relative to the corpus root; page = source URI less root
+index:                                             # the corpus index, one row per page
+  file: "../index/siegrist_sections.tsv"           # relative to the corpus root
+  page: path                                       # column holding the page
+  first_pass: first_pass                           # column marking first-pass pages (`yes`)
+language: english                                  # kb.segment.ts_config; outside the content digest
+applies_to: "siegrist_random/random/**/*.html"     # relative to the corpus root
+exclude:                                           # CSS selectors; excluded text is recorded per rule
+  scripts: "script, noscript"
+  macro_block: "div.latex"                         # \newcommand block: excluded, macros recorded
+  navigation: "header ol.map, footer"
+  controls: "button"
+  images: "img"                                    # figure captions stay, as `caption` segments
+  chapter_lists: "ul.map"                          # S1: 75 chapter-index lists
+title: "header h2"
+sections: ["h3", "h4"]                             # each heading opens a section nested by level
+unit: "div.unit"
+block_hints:                                       # statement-kind hints from block classes
+  "p.dfn": {statement_kind: definition}
+  "p.dfm": {statement_kind: definition}
+  "p.dfin": {statement_kind: definition}
+  "p.math": {statement_kind: theorem}
+  "p.exercise": {statement_kind: exercise}
+  "p.exericse": {statement_kind: exercise}         # sic, as in the source
+  "p.app": {statement_kind: remark, claim_bearing: false}
+  "p.stat": {statement_kind: theorem}              # S1: 10 units open with p.stat
+  "p.Proof": {statement_kind: proof}               # S1: 1 (special/Divisible.html)
+section_hints:                                     # units under these section titles
+  "Examples and Applications": example
+  "Examples and Special Cases": example
+  "Special Cases": example
+  "Computational Exercises": exercise
+details_kinds:                                     # statements for <details> blocks
+  default: proof
+  inside_example_or_exercise: solution
+  by_summary: {"Answer": solution, "Answwer:": solution, "Notes:": remark}
+  synthesize:                                      # claims the containment states (D5 §3.5)
+    proof: {predicate: "core:proves", object: enclosing_unit, evidence: summary}
+    solution: {predicate: "core:proves", object: enclosing_unit, evidence: summary}
+math:
+  inline: ["\\(", "\\)"]
+  display: ["\\[", "\\]"]
+  display_environments: ["align", "align*"]       # S1: 106 bare align blocks without \[
+  page_macros: "div.latex"                         # per-rendition macro table; the pack map is only a fallback
+references: {selector: "a.ref", render: browser}  # "[n]" as the page's Basic.js renders it
+render:
+  q: quotes                                        # <q> text in “ ”
+  list_markers: {"ol.sub": parenthesized}          # "(a) "
+  summary: heading                                 # a details summary is a heading segment
+  figure: caption
+orphan_text: paragraph                             # with attrs.orphan: true (S1: 44 runs)
