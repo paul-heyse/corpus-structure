@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/eceef3291d1f/parse_detail.json",
+  "$id": "https://corpus-structure.dev/schemas/10c8462e734f/parse_detail.json",
   "$defs": {
     "ExcludedElement": {
       "additionalProperties": false,

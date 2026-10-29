@@ -83,11 +83,11 @@ def test_upgrade_downgrade_upgrade(db_server: Any) -> None:
     with clone(db_server) as engine:
         with engine.begin() as conn:
             applied = migrations.upgrade(conn)
-        assert [a["revision"] for a in applied] == ["0001", "0002"]
+        assert [a["revision"] for a in applied] == ["0001", "0002", "0003"]
         assert applied[0]["model_revision"] is not None
         with engine.begin() as conn:
             assert schemas(conn) == set(SCHEMAS)
-            assert migrations.current_revision(conn) == migrations.head_revision() == "0002"
+            assert migrations.current_revision(conn) == migrations.head_revision() == "0003"
             migrations.downgrade(conn)
         with engine.connect() as conn:
             assert schemas(conn) == set()
@@ -169,5 +169,6 @@ def test_a_revision_for_an_unregistered_model_revision_is_refused(
         with pytest.raises(migrations.UnregisteredModelRevision, match=r"not in revisions\.yaml"):
             command.revision(config, "seeded", autogenerate=True, rev_id="0002")
     assert sorted(p.name for p in (location / "versions").glob("*.py")) == [
-        "0001_initial_schema.py", "0002_preserve_reference_descriptors.py"
+        "0001_initial_schema.py", "0002_preserve_reference_descriptors.py",
+        "0003_preserve_statement_order_and_reference_roles.py"
     ]

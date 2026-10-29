@@ -297,7 +297,7 @@ def test_the_revision_hashes_the_parsed_files_and_is_logged(
     loaded: model.Model, tmp_path: Path
 ) -> None:
     current = model.revision(loaded)
-    assert (current.label, current.key_scheme) == ("0.4.0", 1)
+    assert (current.label, current.key_scheme) == ("0.5.0", 1)
     assert model.check_log(current, model.read_log()) == []
     reordered = seeded(tmp_path, edit_core=lambda d: d.update(dict(reversed(list(d.items())))))
     assert model.content_hash(*reordered.paths) == current.content_hash  # parsed, not bytes

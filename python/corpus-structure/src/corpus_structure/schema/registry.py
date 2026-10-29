@@ -156,36 +156,36 @@ def payload_schema_entries(
     return out
 
 
-def payload_schema_versions(model: Model) -> list[PayloadSchemaEntry]:
-    """Current entries and immutable prior artifacts needed by a fresh registry.
-
-    Historical bytes are captured before changing their owning model declaration; they are never
-    reconstructed from the current shape. Requiring every parent prevents fabricated ancestry.
-    """
+def _archived_payload(entry: PayloadSchemaEntry, version: int) -> PayloadSchemaEntry:
     import base64
     import json
 
-    current = payload_schema_entries(model)
+    path = schemas.DIRECTORY / "history" / f"{entry.kind}.v{version}.json"
+    body = json.loads(path.read_text(encoding="utf-8"))
+    data = body["entry"]
+    if data["class_"] != entry.class_ or data["version"] != version:
+        raise RegistrationError(f"{path}: historical payload identity differs")
+    if body["json_schema"]["$id"] != data["json_schema_id"]:
+        raise RegistrationError(f"{path}: historical JSON Schema identity differs")
+    return PayloadSchemaEntry(
+        class_=data["class_"], kind=data["kind"], version=data["version"],
+        parent_version=data["parent_version"],
+        compatibility_class=CompatibilityClass(data["compatibility_class"]),
+        json_schema_id=data["json_schema_id"],
+        arrow_schema=base64.b64decode(data["arrow_schema"]),
+        sql_visible_paths=tuple(data["sql_visible_paths"]), upcaster=data["upcaster"],
+        reason=data["reason"], authorized_by=data["authorized_by"],
+    )
+
+
+def payload_schema_versions(model: Model) -> list[PayloadSchemaEntry]:
+    """All required versions, retaining each version's original bytes and defining revision."""
     out = []
-    for entry in current:
+    for entry in payload_schema_entries(model):
         for version in range(1, entry.version):
-            path = schemas.DIRECTORY / "history" / f"{entry.kind}.v{version}.json"
-            body = json.loads(path.read_text(encoding="utf-8"))
-            data = body["entry"]
-            if data["class_"] != entry.class_ or data["version"] != version:
-                raise RegistrationError(f"{path}: historical payload identity differs")
-            if body["json_schema"]["$id"] != data["json_schema_id"]:
-                raise RegistrationError(f"{path}: historical JSON Schema identity differs")
-            out.append(PayloadSchemaEntry(
-                class_=data["class_"], kind=data["kind"], version=data["version"],
-                parent_version=data["parent_version"],
-                compatibility_class=CompatibilityClass(data["compatibility_class"]),
-                json_schema_id=data["json_schema_id"],
-                arrow_schema=base64.b64decode(data["arrow_schema"]),
-                sql_visible_paths=tuple(data["sql_visible_paths"]), upcaster=data["upcaster"],
-                reason=data["reason"], authorized_by=data["authorized_by"],
-            ))
-        out.append(entry)
+            out.append(_archived_payload(entry, version))
+        archive = schemas.DIRECTORY / "history" / f"{entry.kind}.v{entry.version}.json"
+        out.append(_archived_payload(entry, entry.version) if archive.exists() else entry)
     return out
 
 
@@ -325,13 +325,17 @@ def _ensure_payload_schemas(conn: Any, model: Model, revision_id: int) -> dict[s
             .values(model_revision_id=owner_revision, parent_id=parent_id, **entry.row())
             .on_conflict_do_nothing(index_elements=["class", "version"])
         )
-        out[entry.kind] = int(
-            conn.execute(
-                select(table.c.id).where(
-                    table.c["class"] == entry.class_, table.c.version == entry.version
-                )
-            ).scalar_one()
-        )
+        stored = conn.execute(
+            select(table).where(table.c["class"] == entry.class_, table.c.version == entry.version)
+        ).mappings().one()
+        expected = {"model_revision_id": owner_revision, "parent_id": parent_id, **entry.row()}
+        differing = [name for name, value in expected.items() if stored[name] != value]
+        if differing:
+            raise RegistrationError(
+                f"{entry.class_} version {entry.version}: registered payload differs in "
+                + ", ".join(differing)
+            )
+        out[entry.kind] = int(stored["id"])
     return out
 
 

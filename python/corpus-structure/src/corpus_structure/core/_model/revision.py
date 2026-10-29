@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Final
 
-LABEL: Final = "0.4.0"
-CONTENT_HASH: Final = "eceef3291d1f4e84fffaef165547425644c47c8784cf9323b4c6ca5c5e4c1cdb"
+LABEL: Final = "0.5.0"
+CONTENT_HASH: Final = "10c8462e734f6c89d33f3898a6fd242c825dc5cac79b1eb66552bd142886c8b1"
 KEY_SCHEME: Final = 1
 COMPILERS: Final[Mapping[str, str]] = {
     "corpus_structure.schema.generate": "1",

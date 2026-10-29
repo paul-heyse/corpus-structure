@@ -1,0 +1,69 @@
+{
+  "entry": {
+    "class_": "sys:RelationPayload",
+    "kind": "relation",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.relation.json",
+    "arrow_schema": "/////6ADAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAAOQAAAAEAAAAAwAAAGwAAAA0AAAABAAAACD9//8YAAAABAAAAAgAAAByZWxhdGlvbgAAAAAKAAAAY3MucGF5bG9hZAAATP3//yAAAAAEAAAAEwAAAHN5czpSZWxhdGlvblBheWxvYWQACAAAAGNzLmNsYXNzAAAAAID9//9QAAAABAAAAEAAAABhNTkxOTZjNGE4OTRkYmZhZjQwMDU2N2E2ZDllOWFjOWVkOTkxNTgwNzQ1ZWE0OGJmZGExYzExYmUxMjc0ZDAzAAAAABEAAABjcy5tb2RlbF9yZXZpc2lvbgAAAAUAAABgAgAAaAEAAHAAAABEAAAABAAAANT///8AAAEGEAAAABwAAAAEAAAAAAAAAAgAAABmZWFzaWJsZQAAAAC4/f//EAAUAAgABgAHAAwAAAAQABAAAAAAAAEGEAAAABgAAAAEAAAAAAAAAAUAAABqb2ludAAAAPD9//8e////AAAABRQAAADQAAAACAAAABQAAAAAAAAABAAAAHRhaWwAAAAAAwAAAHgAAABAAAAABAAAAKD+//8YAAAABAAAAAoAAABhcnJvdy5qc29uAAAUAAAAQVJST1c6ZXh0ZW5zaW9uOm5hbWUAAAAA2P7//xAAAAAEAAAAAAAAAAAAAAAYAAAAQVJST1c6ZXh0ZW5zaW9uOm1ldGFkYXRhAAAAAAz///8gAAAABAAAABAAAABzeXM6TGFiZWxsZWRTcGFuAAAAAAgAAABjcy5jbGFzcwAAAAAEAAYABAAAAAAAEgAYAAgAAAAHAAwAAAAQABQAEgAAAAAAAAUUAAAA1AAAAAgAAAAUAAAAAAAAAAQAAABoZWFkAAAAAAMAAACAAAAAQAAAAAQAAACU////GAAAAAQAAAAKAAAAYXJyb3cuanNvbgAAFAAAAEFSUk9XOmV4dGVuc2lvbjpuYW1lAAAAAMz///8QAAAABAAAAAAAAAAAAAAAGAAAAEFSUk9XOmV4dGVuc2lvbjptZXRhZGF0YQAAAAAIAAwABAAIAAgAAAAgAAAABAAAABAAAABzeXM6TGFiZWxsZWRTcGFuAAAAAAgAAABjcy5jbGFzcwAAAADI////EAAUAAgAAAAHAAwAAAAQABAAAAAAAAAFEAAAABwAAAAEAAAAAAAAAAUAAABsYWJlbAAAAAQABAAEAAAA",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.relation.json",
+    "$defs": {
+      "LabelledSpan": {
+        "additionalProperties": false,
+        "description": "A labelled span of a relation.",
+        "properties": {
+          "start": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "end": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "label"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A relation between two spans.",
+    "properties": {
+      "label": {
+        "type": "string"
+      },
+      "head": {
+        "$ref": "#/$defs/LabelledSpan"
+      },
+      "tail": {
+        "$ref": "#/$defs/LabelledSpan"
+      },
+      "joint": {
+        "type": "boolean"
+      },
+      "feasible": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "label",
+      "head",
+      "tail"
+    ],
+    "type": "object"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "entry": {
+    "class_": "sys:MentionPayload",
+    "kind": "mention",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.mention.json",
+    "arrow_schema": "//////gDAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAAOAAAAAEAAAAAwAAAGgAAAAwAAAABAAAAOz8//8UAAAABAAAAAcAAABtZW50aW9uAAoAAABjcy5wYXlsb2FkAAAU/f//IAAAAAQAAAASAAAAc3lzOk1lbnRpb25QYXlsb2FkAAAIAAAAY3MuY2xhc3MAAAAASP3//1AAAAAEAAAAQAAAAGE1OTE5NmM0YTg5NGRiZmFmNDAwNTY3YTZkOWU5YWM5ZWQ5OTE1ODA3NDVlYTQ4YmZkYTFjMTFiZTEyNzRkMDMAAAAAEQAAAGNzLm1vZGVsX3JldmlzaW9uAAAABwAAALwCAACAAgAAmAEAAFABAABwAAAANAAAAAQAAABw/f//AAAAAhAAAAAUAAAABAAAAAAAAAADAAAAZW5kAND///8AAAABQAAAAJz9//8AAAACEAAAACAAAAAEAAAAAAAAAAUAAABzdGFydAAAAAgADAAIAAcACAAAAAAAAAFAAAAA8v7//wAAAQUUAAAAvAAAAAgAAAAUAAAAAAAAAAQAAABtYXRoAAAAAAMAAAB4AAAAQAAAAAQAAABw/v//GAAAAAQAAAAKAAAAYXJyb3cuanNvbgAAFAAAAEFSUk9XOmV4dGVuc2lvbjpuYW1lAAAAAKj+//8QAAAABAAAAAAAAAAAAAAAGAAAAEFSUk9XOmV4dGVuc2lvbjptZXRhZGF0YQAAAADc/v//FAAAAAQAAAAEAAAAanNvbgAAAAAHAAAAY3MubnVsbABo/v//EAAUAAgABgAHAAwAAAAQABAAAAAAAAEFEAAAACAAAAAEAAAAAAAAAAgAAABtYXRoX3JlZgAAAAAEAAYABAAAAAAAEgAYAAgABgAHAAwAAAAQABQAEgAAAAAAAQUUAAAA1AAAAAgAAAAYAAAAAAAAAAoAAABhdHRyaWJ1dGVzAAADAAAAgAAAAEAAAAAEAAAAlP///xgAAAAEAAAACgAAAGFycm93Lmpzb24AABQAAABBUlJPVzpleHRlbnNpb246bmFtZQAAAADM////EAAAAAQAAAAAAAAAAAAAABgAAABBUlJPVzpleHRlbnNpb246bWV0YWRhdGEAAAAACAAMAAQACAAIAAAAHAAAAAQAAAAOAAAAc3lzOkdyb3VwU2NvcmUAAAgAAABjcy5jbGFzcwAAAACg////2P///wAAAAUQAAAAGAAAAAQAAAAAAAAABAAAAHRleHQAAAAAyP///xAAFAAIAAAABwAMAAAAEAAQAAAAAAAABRAAAAAcAAAABAAAAAAAAAAFAAAAbGFiZWwAAAAEAAQABAAAAA==",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.mention.json",
+    "$defs": {
+      "JsonValue": {},
+      "LabelScore": {
+        "additionalProperties": false,
+        "description": "A label with its score.",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "score": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "score"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A mention (M05-M07, M09).",
+    "properties": {
+      "start": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "end": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "label": {
+        "type": "string"
+      },
+      "text": {
+        "type": "string"
+      },
+      "attributes": {
+        "additionalProperties": {
+          "$ref": "#/$defs/LabelScore"
+        },
+        "type": "object"
+      },
+      "math_ref": {
+        "pattern": "^seg:[0-9a-f]{32}$",
+        "type": "string"
+      },
+      "math": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "type": "object"
+      }
+    },
+    "required": [
+      "start",
+      "end",
+      "label",
+      "text"
+    ],
+    "type": "object"
+  }
+}
