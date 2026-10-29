@@ -735,6 +735,14 @@ def prepare_release(
                     "inference_rule", rule_id,
                     canonical_bytes({**body, "rule_id": rule_id, "rule_version": digest}),
                 )
+                if kind == "inverse":
+                    reverse = {"kind": kind, "predicate": target, "target": prop.iri}
+                    reverse_digest = sha256(canonical_bytes(reverse)).hexdigest()
+                    reverse_id = "rule:" + reverse_digest
+                    rule_products[reverse_id] = RegistryRow(
+                        "inference_rule", reverse_id,
+                        canonical_bytes({**reverse, "rule_id": reverse_id, "rule_version": reverse_digest}),
+                    )
     rows += tuple(
         RegistryRow("property_hierarchy", child + " -> " + parent,
                     canonical_bytes({"property": child, "ancestor": parent}))

@@ -248,7 +248,7 @@ IF NOT EXISTS(SELECT FROM pg_catalog.pg_class c WHERE c.relnamespace=pg_my_temp_
 'coverage',COALESCE((SELECT jsonb_agg(j ORDER BY data.canonical_json(j) COLLATE "C") FROM (SELECT jsonb_build_array("coverage_id","family","scope","outcome","reason") j FROM pg_temp.sp_coverage) q),'[]'::jsonb),
 'occurrence_establishment',COALESCE((SELECT jsonb_agg(j ORDER BY data.canonical_json(j) COLLATE "C") FROM (SELECT jsonb_build_array("occurrence_id","establishment") j FROM pg_temp.sp_occurrence_establishment) q),'[]'::jsonb),
 'evidence_source',COALESCE((SELECT jsonb_agg(j ORDER BY data.canonical_json(j) COLLATE "C") FROM (SELECT jsonb_build_array("evidence_id","observation_id","rendition_id","span_id") j FROM pg_temp.sp_evidence_source) q),'[]'::jsonb),
-'assessment',COALESCE((SELECT jsonb_agg(j ORDER BY data.canonical_json(j) COLLATE "C") FROM (SELECT jsonb_build_array("assessment_id","operation_id","operation_version","outcome","fact_id","occurrence_id","confidence","reason","uncertainty") j FROM pg_temp.sp_assessment) q),'[]'::jsonb)))),'UTF8');
+'assessment',COALESCE((SELECT jsonb_agg(j ORDER BY data.canonical_json(j) COLLATE "C") FROM (SELECT jsonb_build_array("assessment_id","operation_id","operation_version","outcome","fact_id","occurrence_id","confidence"::text,"reason","uncertainty") j FROM pg_temp.sp_assessment) q),'[]'::jsonb)))),'UTF8');
  IF actual<>p_content THEN RAISE EXCEPTION 'batch bytes differ from staged content' USING ERRCODE='23514'; END IF;
  SELECT * INTO old FROM data.batch WHERE release_id=r AND realization_id=z AND batch_id=b;
  IF FOUND THEN
