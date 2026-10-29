@@ -251,8 +251,13 @@ def check(
         as_authored = B.AuthoredBatch.model_validate(raw)
     except ValidationError:
         as_authored = authored
+    # The compiled batch's subclasses declare pack qualifier fields. Serialize them before
+    # crossing into the core envelope; its base-class serializer otherwise drops those fields.
+    stored_batch = B.StoredBatch.model_validate(
+        kept.model_dump(mode="json", by_alias=True, serialize_as_any=True)
+    )
     payload = ClaimProposalPayload(
-        batch=kept,
+        batch=stored_batch,
         schema_version=compiled.schema_version,
         authored=as_authored,
         citation_frame=packet.frame(B.cited_sentences(as_authored)),
