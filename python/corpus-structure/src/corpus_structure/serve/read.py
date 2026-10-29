@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from functools import cached_property
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, tuple_
 
 from corpus_structure.core.db import metadata, repo
 from corpus_structure.core.keys import LabelRules, normalize_label
@@ -124,6 +124,29 @@ class Reader:
             loc |= {'role': r['role'], 'sentence': text_[sentences[0].start:sentences[0].end] if sentences else r['text']}
             self._evidence[r['claim_id']].append(loc)
 
+    def evidence_rows(self, claim_key: str, after: Any = None) -> Iterator[tuple[dict[str, Any], list[Any]]]:
+        c, ce, sp = T['kb.claim'], T['kb.claim_evidence'], T['kb.span']
+        order = (sp.c.rendition_id, sp.c.start_offset, sp.c.end_offset, ce.c.role, sp.c.id)
+        stmt = select(ce.c.role, sp).join(ce, ce.c.span_id == sp.c.id).join(c, c.c.id == ce.c.claim_id).where(c.c.run_id == self.run, c.c.key == claim_key)
+        if after is not None:
+            if not isinstance(after, list) or len(after) != 5:
+                raise ValueError('invalid evidence cursor')
+            stmt = stmt.where(tuple_(*order) > tuple_(*after))
+        with self.conn.execute(stmt.order_by(*order).execution_options(yield_per=32)) as result:
+            for r in result.mappings():
+                loc = self.locator(r['rendition_id'], r['segment_id'], r['start_offset'], r['end_offset'], r['text'])
+                idx, _ = self.index(r['rendition_id'])
+                sentences = [s for s, _ in idx if s.kind.value == 'sentence' and s.start <= r['start_offset'] and r['end_offset'] <= s.end]
+                units = [u for u in idx.annotation_units().units if u.segment.start <= r['start_offset'] and r['end_offset'] <= u.segment.end]
+                loc |= {'role': r['role'], 'sentence': idx.rendition.text(sentences[0]) if sentences else r['text'], 'unit_key': units[0].key if units else None}
+                yield loc, [r['rendition_id'], r['start_offset'], r['end_offset'], r['role'], r['id']]
+
+    def evidence_scope(self, claim_key: str) -> Any:
+        from corpus_structure.serve.protocol import Scope
+        c, ce, sp, t, seg = (T[n] for n in ('kb.claim','kb.claim_evidence','kb.span','ops.task','kb.segment'))
+        stmt = select(t.c.unit_key).select_from(c).join(ce, ce.c.claim_id == c.c.id).join(sp, sp.c.id == ce.c.span_id).join(seg, (seg.c.rendition_id == sp.c.rendition_id) & (seg.c.start_offset <= sp.c.start_offset) & (seg.c.end_offset >= sp.c.end_offset)).join(t, (t.c.unit_id == seg.c.id) & (t.c.run_id == self.run) & (t.c.stage == 'propose')).where(c.c.run_id == self.run, c.c.key == claim_key).distinct()
+        return Scope.of_units(list(self.conn.execute(stmt).scalars()))
+
     def evidence(self, claim_key: str) -> list[dict[str, Any]]:
         c = T['kb.claim']
         id_ = self.conn.execute(select(c.c.id).where(c.c.run_id == self.run, c.c.key == claim_key)).scalar_one_or_none()
@@ -148,12 +171,13 @@ class Reader:
                     stmt = stmt.where(col.in_(value) if isinstance(value, list | tuple | set) else col == value)
         return stmt
 
-    def claims(self, after: str | None = None, statement: Any = None, **filters: Any) -> Iterator[dict[str, Any]]:
+    def claims(self, after: str | None = None, statement: Any = None, with_premises: bool = True, **filters: Any) -> Iterator[dict[str, Any]]:
         c, cr, er = T['kb.claim'], T['kb.claim_ref'], T['kb.claim_entity_ref']
         stmt = statement if statement is not None else self.claim_statement(**filters)
-        roots = stmt.with_only_columns(c.c.id).order_by(None).cte('included_claims', recursive=True)
-        roots = roots.union(select(cr.c.target_claim_id).join(roots, roots.c.id == cr.c.claim_id).where(cr.c.kind == 'condition_premise', cr.c.run_id == self.run))
-        stmt = select(c).where(c.c.run_id == self.run, c.c.id.in_(select(roots.c.id)))
+        if with_premises:
+            roots = stmt.with_only_columns(c.c.id).order_by(None).cte('included_claims', recursive=True)
+            roots = roots.union(select(cr.c.target_claim_id).join(roots, roots.c.id == cr.c.claim_id).where(cr.c.kind == 'condition_premise', cr.c.run_id == self.run))
+            stmt = select(c).where(c.c.run_id == self.run, c.c.id.in_(select(roots.c.id)))
         if after is not None:
             if not isinstance(after, str):
                 raise ValueError('invalid claim cursor')
