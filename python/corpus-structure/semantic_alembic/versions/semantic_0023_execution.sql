@@ -28,14 +28,18 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE SET search_path=pg_catalog,pg_temp AS $fn$
 ('submission','new','held'),
 ('task','awaiting_agent','cancelled'),
 ('task','awaiting_agent','running'),
+('task','awaiting_agent_held','cancelled_held'),
+('task','awaiting_agent_held','running_held'),
 ('task','pending','cancelled'),
 ('task','pending','running'),
+('task','running','awaiting_agent'),
 ('task','running','cancelled'),
 ('task','running','done'),
 ('task','running','empty'),
 ('task','running','failed'),
 ('task','running','running'),
 ('task','running','running_held'),
+('task','running_held','awaiting_agent_held'),
 ('task','running_held','cancelled_held'),
 ('task','running_held','done_held'),
 ('task','running_held','empty_held'),
@@ -199,11 +203,16 @@ BEGIN
     OR (OLD.status='running' AND (OLD.lease_until IS NULL OR OLD.lease_until>=clock_timestamp()))
     OR NOT ops.execution_edge('task',prior,result) THEN
    RAISE EXCEPTION 'invalid claim or reclaim ownership' USING ERRCODE='23514'; END IF;
- ELSIF NEW.claimed_by IS DISTINCT FROM OLD.claimed_by THEN
+ ELSIF NEW.claimed_by IS DISTINCT FROM OLD.claimed_by
+  AND NOT(current_user='corpus_sem_publisher' AND NEW.status='awaiting_agent'
+   AND NEW.claimed_by IS NULL AND ops.execution_edge('task',prior,result)) THEN
   RAISE EXCEPTION 'holder mutation requires a new attempt' USING ERRCODE='23514';
  ELSIF prior<>result AND NOT ops.execution_edge('task',prior,result) THEN
   RAISE EXCEPTION 'undeclared task transition % -> %',prior,result USING ERRCODE='23514';
  END IF;
+ IF NEW.attempt=OLD.attempt AND NEW.lease_until IS DISTINCT FROM OLD.lease_until
+  AND NEW.status='running' AND current_user<>'corpus_sem_publisher' THEN
+  RAISE EXCEPTION 'lease renewal requires protected current ownership' USING ERRCODE='23514'; END IF;
  IF OLD.error ? 'semantic_proposal_first_result' AND OLD.error->'semantic_proposal_first_result'
   IS DISTINCT FROM NEW.error->'semantic_proposal_first_result' THEN
   RAISE EXCEPTION 'held first result is immutable' USING ERRCODE='23514';
@@ -221,6 +230,11 @@ LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE prior text; result text;
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RETURN NEW; END IF;
+ IF TG_OP='INSERT' THEN
+  IF NEW.status<>'created' OR NEW.sealed OR NEW.result_realization_id IS NOT NULL THEN
+   RAISE EXCEPTION 'invalid initial run combination' USING ERRCODE='23514'; END IF;
+  RETURN NEW;
+ END IF;
  prior:=OLD.status || CASE WHEN OLD.status IN ('failed','cancelled') THEN CASE WHEN OLD.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  result:=NEW.status || CASE WHEN NEW.status IN ('failed','cancelled') THEN CASE WHEN NEW.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  IF prior<>result AND NOT ops.execution_edge('run',prior,result) THEN
@@ -230,7 +244,7 @@ BEGIN
  RETURN NEW;
 END $fn$;
 REVOKE ALL ON FUNCTION ops.guard_execution_run() FROM PUBLIC;
-CREATE TRIGGER zz_execution_run BEFORE UPDATE ON ops.run FOR EACH ROW EXECUTE FUNCTION ops.guard_execution_run();
+CREATE TRIGGER zz_execution_run BEFORE INSERT OR UPDATE ON ops.run FOR EACH ROW EXECUTE FUNCTION ops.guard_execution_run();
 CREATE FUNCTION ops.require_completed_result() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
 BEGIN
@@ -242,6 +256,25 @@ END $fn$;
 REVOKE ALL ON FUNCTION ops.require_completed_result() FROM PUBLIC;
 CREATE CONSTRAINT TRIGGER completed_result_required AFTER UPDATE ON ops.run
  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ops.require_completed_result();
+CREATE FUNCTION ops.guard_completed_result() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
+BEGIN
+ RAISE EXCEPTION 'completed EvaluationResult is immutable' USING ERRCODE='23514';
+END $fn$;
+REVOKE ALL ON FUNCTION ops.guard_completed_result() FROM PUBLIC;
+CREATE TRIGGER immutable_completed_result BEFORE UPDATE OR DELETE ON ops.completed_result
+ FOR EACH ROW EXECUTE FUNCTION ops.guard_completed_result();
+CREATE FUNCTION data.guard_completed_output() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
+BEGIN
+ IF EXISTS(SELECT 1 FROM ops.completed_result WHERE release_id=OLD.release_id AND output_realization_id=OLD.realization_id)
+ AND NEW IS DISTINCT FROM OLD THEN
+  RAISE EXCEPTION 'completed output realization is immutable' USING ERRCODE='23514'; END IF;
+ RETURN NEW;
+END $fn$;
+REVOKE ALL ON FUNCTION data.guard_completed_output() FROM PUBLIC;
+CREATE TRIGGER guard_completed_output BEFORE UPDATE ON data.realization
+ FOR EACH ROW EXECUTE FUNCTION data.guard_completed_output();
 CREATE TABLE data.publication_intent(
  release_id text NOT NULL,realization_id text NOT NULL,batch_id text NOT NULL,
  source_release_id text NOT NULL,source_realization_id text NOT NULL,source_revision bigint NOT NULL CHECK(source_revision>=0),
@@ -296,3 +329,38 @@ END $fn$;
 ALTER FUNCTION data.publish_derived_batch(text,text,text,bytea,text,text,bigint,text,text,text) OWNER TO corpus_sem_publisher;
 REVOKE ALL ON FUNCTION data.publish_derived_batch(text,text,text,bytea,text,text,bigint,text,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION data.publish_derived_batch(text,text,text,bytea,text,text,bigint,text,text,text) TO corpus_sem_writer;
+
+CREATE FUNCTION ops.renew_claim(p_task bigint,p_attempt bigint,p_holder text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE t ops.task; job ops.run;
+BEGIN
+ SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
+ SELECT * INTO STRICT job FROM ops.run WHERE id=t.run_id FOR SHARE;
+ SELECT * INTO STRICT t FROM ops.task WHERE id=p_task FOR UPDATE;
+ IF job.sealed OR job.status NOT IN ('created','running') OR t.status<>'running'
+  OR t.attempt<>p_attempt OR p_holder IS NULL OR p_holder='' OR t.claimed_by IS DISTINCT FROM p_holder THEN
+  RAISE EXCEPTION 'claim ownership lost before renewal' USING ERRCODE='P0004'; END IF;
+ UPDATE ops.task SET lease_until=clock_timestamp()+interval '5 minutes' WHERE id=p_task;
+END $fn$;
+ALTER FUNCTION ops.renew_claim(bigint,bigint,text) OWNER TO corpus_sem_publisher;
+REVOKE ALL ON FUNCTION ops.renew_claim(bigint,bigint,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.renew_claim(bigint,bigint,text) TO corpus_sem_writer;
+CREATE FUNCTION ops.release_claim(p_task bigint,p_attempt bigint,p_holder text,p_reason text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE t ops.task; job ops.run;
+BEGIN
+ SELECT * INTO STRICT t FROM ops.task WHERE id=p_task;
+ SELECT * INTO STRICT job FROM ops.run WHERE id=t.run_id FOR SHARE;
+ SELECT * INTO STRICT t FROM ops.task WHERE id=p_task FOR UPDATE;
+ IF job.sealed OR job.status NOT IN ('created','running') OR t.status<>'running'
+  OR t.attempt<>p_attempt OR p_holder IS NULL OR p_holder='' OR t.claimed_by IS DISTINCT FROM p_holder THEN
+  RAISE EXCEPTION 'claim ownership lost before release' USING ERRCODE='P0004'; END IF;
+ IF p_reason IS NULL OR p_reason='' THEN RAISE EXCEPTION 'release requires reason' USING ERRCODE='23514'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM ops.method_config c JOIN ops.method m ON m.id=c.method_id
+  WHERE c.id=t.method_config_id AND (m.tier='agent' OR m.family='agent')) THEN
+  RAISE EXCEPTION 'agent release requires agent method' USING ERRCODE='23514'; END IF;
+ UPDATE ops.task SET status='awaiting_agent',claimed_by=NULL,lease_until=NULL,reason=p_reason WHERE id=p_task;
+END $fn$;
+ALTER FUNCTION ops.release_claim(bigint,bigint,text,text) OWNER TO corpus_sem_publisher;
+REVOKE ALL ON FUNCTION ops.release_claim(bigint,bigint,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.release_claim(bigint,bigint,text,text) TO corpus_sem_writer;

@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from corpus_structure.core.method import METHOD_SOURCE, UnitResult
 
 from .identity import canonical_bytes
+from .metrics import validate_measurement
 from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "observations.yaml"
@@ -215,6 +216,8 @@ def bind_result(
             *(dict(item) for item in coverage),
         ),
     }
+    for measurement in result.measurements:
+        validate_measurement(prepared, measurement)
     payload["measurements"] = tuple(
         {
             "metric": item.metric,

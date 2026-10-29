@@ -21,6 +21,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import DBAPIError
 
 from .identity import canonical_bytes
+from .outcomes import ScientificOutcome, SemanticCoverageOutcome
 from .metadata import table
 from .types import PreparedRelease
 
@@ -185,12 +186,16 @@ class AssessmentRow:
     assessment_id: str
     operation_id: str
     operation_version: str
-    outcome: str
+    outcome: ScientificOutcome
     fact_id: str | None = None
     occurrence_id: str | None = None
     confidence: Decimal | None = None
     reason: str | None = None
     uncertainty: str | None = None
+    counterpart_fact_id: str | None = None
+    counterpart_occurrence_id: str | None = None
+    context_value_id: str | None = None
+    comparison_tier: str | None = None
 
 
 @dataclass(frozen=True)
@@ -213,8 +218,10 @@ class CoverageRow:
     coverage_id: str
     family: str
     scope: str
-    outcome: str
+    outcome: SemanticCoverageOutcome
     reason: str | None = None
+    source_outcome: str | None = None
+    required_capability: str | None = None
 
 
 # The fixed transport schema is shared with the narrow native DDL companion.

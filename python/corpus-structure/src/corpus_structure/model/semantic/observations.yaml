@@ -14,13 +14,16 @@ classes:
     attributes:
       kind: {equals_string: text}
       text: {required: true}
-  SourceInteger:
+  SourceMeasurementValue:
     is_a: SourceValue
+    abstract: true
+  SourceInteger:
+    is_a: SourceMeasurementValue
     attributes:
       kind: {equals_string: integer}
       integer: {range: integer, required: true}
   SourceFloat:
-    is_a: SourceValue
+    is_a: SourceMeasurementValue
     attributes:
       kind: {equals_string: float}
       hexadecimal: {required: true}
@@ -30,7 +33,7 @@ classes:
       kind: {equals_string: boolean}
       boolean: {range: boolean, required: true}
   SourceNull:
-    is_a: SourceValue
+    is_a: SourceMeasurementValue
     attributes:
       kind: {equals_string: "null"}
   SourceArray:
@@ -73,14 +76,45 @@ classes:
       scope: {required: true}
       outcome: {range: SourceCoverageOutcome, required: true}
       reason: {}
+      required_capability: {}
   SourceMeasurement:
     attributes:
       metric: {required: true}
-      scope_type: {required: true}
+      scope_type: {range: SourceMeasurementScope, required: true}
       scope_id: {range: integer}
       scope_key: {}
-      value: {range: SourceValue, inlined: true, required: true}
+      value: {range: SourceMeasurementValue, inlined: true, required: true}
       detail: {range: SourceObject, inlined: true, required: true}
+  SourceMetricDefinition:
+    attributes:
+      id: {required: true}
+      value_type: {required: true, equals_string: SourceNumberOrNull}
+      subject_kind: {required: true, range: SourceMeasurementScope}
+      detail_schema: {required: true, equals_string: SourceObject}
+      description: {required: true}
+  SourceMeasurementSubject:
+    attributes:
+      kind: {range: SourceMeasurementScope, required: true}
+      scope_id: {range: integer}
+      scope_key: {}
+  SourceMeasurementProducer:
+    attributes:
+      release_id: {required: true}
+      run_id: {range: integer, required: true}
+      task_id: {range: integer, required: true}
+      invocation_key: {required: true}
+      method: {required: true}
+      operation_version: {required: true}
+      configuration_hash: {required: true}
+      input_hash: {required: true}
+      unit_key: {required: true}
+  SourceBoundMeasurement:
+    attributes:
+      metric: {range: SourceMetricDefinition, required: true, inlined: true}
+      subject: {range: SourceMeasurementSubject, required: true, inlined: true}
+      producer: {range: SourceMeasurementProducer, required: true, inlined: true}
+      value: {range: SourceMeasurementValue, required: true, inlined: true}
+      detail: {range: SourceObject, required: true, inlined: true}
   SourceObservationBatch:
     attributes:
       release_id: {required: true}
@@ -99,6 +133,18 @@ classes:
       coverage: {range: SourceCoverage, multivalued: true, inlined: true}
       measurements: {range: SourceMeasurement, multivalued: true, inlined: true}
 enums:
+  SourceMeasurementScope:
+    permissible_values:
+      run: {}
+      rendition: {}
+      segment: {}
+      entity: {}
+      claim: {}
+      predicate: {}
+      class: {}
+      stage: {}
+      method: {}
+      rule: {}
   SourceCoverageOutcome:
     permissible_values:
       complete: {}

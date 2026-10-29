@@ -22,7 +22,7 @@ from sqlalchemy import and_, case, func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine
 
-from .analytics import AnalysisScope, AnalyticalPacket, compile_projection
+from .analytics import AnalysisScope, CandidateInput, compile_projection
 from .consolidation import FactItem, FactValueLowerer, SourceItem, assemble
 from .identity import canonical_bytes, occurrence_key
 from .metadata import table
@@ -134,6 +134,7 @@ class CutInput:
     batch: PublicationBatch
     entity_metadata: Mapping[str, Mapping[str, Any]]
     source_links: Mapping[str, tuple[int, int, int, int]]
+    source_binding: SnapshotBinding
 
 
 @dataclass(frozen=True)
@@ -198,7 +199,7 @@ def _completed_result(engine, cut_id, output, policy):
         if policy is not None and (
             policy.release_id != cut["release_id"] or policy.version != VERSION
         ):
-            raise DomainOperationRefused("finished result policy differs from its recorded binding")
+            raise DomainOperationRefused("finished result policy version differs from its recorded binding")
         observations = cut_observations(conn, cut_id)
         batch_id = _source_batch_id(cut["release_id"], output, observations)
         batches = table("data.batch")
@@ -935,12 +936,12 @@ def _project_cut(
         for body in (json.loads(row.body),)
     }
 
-    def coverage_row(family, scope, outcome, reason=None):
+    def coverage_row(family, scope, outcome, reason=None, source_outcome=None, required_capability=None):
         key = (
             "coverage:"
-            + sha256(canonical_bytes([cut["id"], family, scope, outcome, reason])).hexdigest()
+            + sha256(canonical_bytes([cut["id"], family, scope, outcome, reason, source_outcome, required_capability])).hexdigest()
         )
-        coverage.append(CoverageRow(key, family, scope, outcome, reason))
+        coverage.append(CoverageRow(key, family, scope, outcome, reason, source_outcome, required_capability))
 
     for task in tasks:
         if task["status"] not in {"done", "empty", "reused"}:
@@ -952,7 +953,10 @@ def _project_cut(
             )
     for envelope in envelopes:
         for c in envelope["body"].get("coverage", ()):
-            coverage_row(c["family"], c["scope"], c["outcome"], c.get("reason"))
+            from .outcomes import lower_source_coverage
+            converted = lower_source_coverage(c["outcome"], c.get("reason"), c.get("required_capability"))
+            coverage_row(c["family"], c["scope"], converted.outcome, converted.reason,
+                         converted.source_outcome, converted.required_capability)
     for observation in observations:
         reports.append(dict(observation))
         if (
@@ -1549,6 +1553,7 @@ def _project_cut(
         batch,
         MappingProxyType(metadata),
         MappingProxyType(source_links),
+        SnapshotBinding(job["release_id"], job["input_realization_id"], job["input_revision"], "cut:" + str(cut["id"])),
     )
 
 
@@ -1571,17 +1576,15 @@ def consolidate_cut(
         raise DomainOperationRefused("scientific policy version differs from admitted operation")
     if policy.release_id != inputs.prepared.release_id:
         raise DomainOperationRefused("scientific policy belongs to another release")
-    binding = SnapshotBinding(
-        inputs.prepared.release_id, output_realization_id, 0, "cut:" + str(cut_id)
-    )
-    compiled = compile_projection(inputs.prepared, binding)
-    packet = AnalyticalPacket(
+    binding = inputs.source_binding
+    compiled = compile_projection(inputs.prepared, binding, kind="candidate")
+    packet = CandidateInput(
         binding,
         compiled.projection_id,
         compiled.profile.digest,
-        MappingProxyType(
-            {p.name: pa.Table.from_pylist([], schema=p.schema) for p in compiled.relations}
-        ),
+        cut_id=str(inputs.cut_id),
+        decision_universe="consolidation:" + policy.version,
+        relations=MappingProxyType({}),
         scale=compiled.profile.scale,
         property_ids=tuple(
             sorted({p.iri for d in inputs.prepared.definitions for p in d.properties})
@@ -1634,13 +1637,14 @@ def consolidate_cut(
             ).scalar_one()
             == "finished"
         )
-        receipt = publish_on_connection(conn, batch)
+        from .arrow_publication import SnapshotDerivedPublication, publish_arrow_on_connection
+        receipt = publish_arrow_on_connection(conn, SnapshotDerivedPublication.from_rows(
+            batch, source=inputs.source_binding, operation_id="consolidate_cut", projection_id=compiled.projection_id))
         if done:
             return receipt
         # A source receipt, proof receipts and the run result are one atomic transaction. The
         # source receipt remains its own identity even when inference advances the final revision.
         from .inference import derive
-        from .publication import stage_batch
 
         conn.execute(text("SELECT data.end_stage()"))
         inferred = derive(
@@ -1650,17 +1654,8 @@ def consolidate_cut(
             ),
         )
         if inferred.batch.fact or inferred.batch.derivation:
-            stage_batch(conn, inferred.batch)
-            conn.execute(
-                text("SELECT data.publish_analysis_batch(:r,:z,:b,:body,:revision)"),
-                {
-                    "r": batch.release_id,
-                    "z": batch.realization_id,
-                    "b": inferred.batch.batch_id,
-                    "body": inferred.batch.content,
-                    "revision": receipt.data_revision,
-                },
-            )
+            publish_arrow_on_connection(conn, SnapshotDerivedPublication.from_rows(
+                inferred.batch, source=inferred.binding, operation_id="publish_inference", projection_id="accepted"))
         conn.execute(
             text("SELECT data.finish_evaluation(:cut,:output,:batch)"),
             {"cut": cut_id, "output": output_realization_id, "batch": batch.batch_id},
@@ -2250,6 +2245,8 @@ class ReleasedRulesPolicy:
                 for c in members:
                     generated[c.occurrence_id].add("disagreement:" + key)
 
+        context_by_occurrence = {o.occurrence_id: o.report_qualification_value_id for o in inputs.batch.occurrence}
+
         def assessment(a, b, outcome, reason, tier):
             for c, other in ((a, b), (b, a)):
                 detail = canonical_bytes(
@@ -2275,8 +2272,12 @@ class ReleasedRulesPolicy:
                         VERSION,
                         outcome,
                         occurrence_id=c.occurrence_id,
-                        reason=detail,
+                        reason=reason,
                         uncertainty=reason if outcome == "undecided" else None,
+                        counterpart_fact_id=other.fact_id,
+                        counterpart_occurrence_id=other.occurrence_id,
+                        context_value_id=context_by_occurrence[c.occurrence_id],
+                        comparison_tier=tier,
                     )
                 )
 

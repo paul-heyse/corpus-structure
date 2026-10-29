@@ -1,0 +1,21 @@
+metrics:
+- id: segment.chars
+  value_type: SourceNumberOrNull
+  subject_kind: segment
+  detail_schema: SourceObject
+  description: Character length of the measured segment; existing float transport.
+- id: segment.math_share
+  value_type: SourceNumberOrNull
+  subject_kind: segment
+  detail_schema: SourceObject
+  description: Fraction of segment characters inside math, rounded to six decimal places by M02.
+- id: segment.inline_math
+  value_type: SourceNumberOrNull
+  subject_kind: segment
+  detail_schema: SourceObject
+  description: Count of inline math segments inside the measured segment; existing float transport.
+- id: segment.display_math
+  value_type: SourceNumberOrNull
+  subject_kind: segment
+  detail_schema: SourceObject
+  description: Count of display math segments inside the measured segment; existing float transport.

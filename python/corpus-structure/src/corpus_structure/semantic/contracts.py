@@ -64,6 +64,8 @@ def approved_implementations() -> Mapping[str, Any]:
             "method": operations.record_method,
             "schedule": operations.create_task,
             "claim": operations.claim_tasks,
+            "renew_claim": operations.renew_claim,
+            "release_claim": operations.release_claim,
             "complete": operations.complete_task,
             "complete_unit": operations.complete_unit_result,
             "hold": operations.hold_agent_result,
@@ -283,11 +285,11 @@ class NativeGuardBinding:
 
 # Code-owned kernels, not arbitrary catalog-provided SQL names.
 _APPROVED_NATIVE_GUARDS = {
-    "execution_edge": ("ops.execution_edge", "1"),
-    "execution_task": ("ops.guard_execution_task", "1"),
-    "execution_run": ("ops.guard_execution_run", "1"),
-    "conditional_kernel": ("data.validate_conditions", "1"),
-    "completed_result": ("data.finish_evaluation", "1"),
+    "execution_edge": ("ops.execution_edge(text,text,text)", "1"),
+    "execution_task": ("ops.guard_execution_task()", "1"),
+    "execution_run": ("ops.guard_execution_run()", "1"),
+    "conditional_kernel": ("data.validate_conditions(text,text)", "1"),
+    "completed_result": ("data.finish_evaluation(bigint,text,text)", "1"),
 }
 
 
@@ -470,7 +472,9 @@ def _validate(products: ExecutionModelProducts) -> None:
         _refs((invariant.implementation,), b, invariant.id)
         if invariant.required_capability is not None:
             _refs((invariant.required_capability,), capabilities, invariant.id)
-    _index(products.native_guards, "native_guards")
+    guards = _index(products.native_guards, "native_guards")
+    if set(guards) != set(_APPROVED_NATIVE_GUARDS):
+        _fail("native_guard_coverage", "native_guards", "required native kernel binding is missing")
     for guard in products.native_guards:
         if _APPROVED_NATIVE_GUARDS.get(guard.id) != (guard.symbol, guard.version):
             _fail("unapproved_native_guard", guard.id, guard.symbol)
