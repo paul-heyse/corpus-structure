@@ -42,7 +42,7 @@ from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
 
 
-def source_task(admin, engine, path):
+def source_task(admin, engine, path, *, composed=False):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema = {
         "id": "https://example.org/resubmit",
@@ -64,10 +64,17 @@ def source_task(admin, engine, path):
         deps,
     )
     bundle, deps = analytical_inputs(bundle, deps)
-    prepared = prepare_release(bundle, deps)
+    profile = PreparationProfile(version="semantic-2" if composed else "semantic-1")
+    if composed:
+        from corpus_structure.semantic.composed import composed_dependencies
+        deps = composed_dependencies(deps)
+    prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
-        persist_release(conn, bundle, deps, PreparationProfile(), prepared)
+        persist_release(conn, bundle, deps, profile, prepared)
         conn.execute(insert(table("data.project")).values(project_id="resubmit"))
+        if composed:
+            from corpus_structure.semantic.releases import activate_release
+            activate_release(conn,"resubmit",prepared.release_id,expected_parent=None,expected_generation=0)
         conn.execute(
             insert(table("data.realization")).values(
                 project_id="resubmit", realization_id="input", release_id=prepared.release_id
@@ -109,6 +116,11 @@ def source_task(admin, engine, path):
             original=path.read_bytes(),
             metadata={"page": "source.html"},
         )
+        from pydantic import BaseModel
+
+        class SourceConfig(BaseModel):
+            pass
+
         cid = record_method(
             conn,
             SimpleNamespace(
@@ -117,6 +129,8 @@ def source_task(admin, engine, path):
                 family="ingest",
                 tier="deterministic",
                 confidence_source=None,
+                unit_type=TaskUnitType.RUN,
+                Config=SourceConfig,
             ),
             "default",
             {},

@@ -467,7 +467,10 @@ def queue_agent(
 
     if not configuration.get("model"):
         raise ValueError("agent configuration declares its model")
-    method = OperationDescriptor("agent.opus", SEMANTIC_AGENT_VERSION, "agent", "agent", "agent")
+    from corpus_structure.methods.llm.agent_opus import AgentOpusConfig
+
+    method = OperationDescriptor("agent.opus", SEMANTIC_AGENT_VERSION, "agent", "agent",
+                                 TaskUnitType.SEGMENT, AgentOpusConfig, "agent")
     config_hash = (
         "configuration:"
         + sha256(canonical_bytes([method.name, method.version, dict(configuration)])).hexdigest()
@@ -487,6 +490,8 @@ def queue_agent(
         raise OperationConflict("run fresh selector is not a string list")
     tasks = []
     for ref in units:
+        if ref.unit_type != method.unit_type:
+            raise OperationConflict("agent unit differs from its declared method contract")
         packet = _packet_for_unit(conn, run_id, prepared, ref, configuration)
         digest = sha256(
             canonical_bytes(

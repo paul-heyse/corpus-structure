@@ -43,6 +43,8 @@ class HeldProposalCommit(OperationResult):
 
 
 class CompletedProposalCommit(OperationResult):
+    """Completion of the checked report; fact selection has its own outcome domain."""
+
     disposition: Literal["completed_accepted", "completed_refused"]
     completion: CompletionResult
 
