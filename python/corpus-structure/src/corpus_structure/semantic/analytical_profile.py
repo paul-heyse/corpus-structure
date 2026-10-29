@@ -17,7 +17,8 @@ _EMPTY_DEPENDENCIES = ResolvedDependencies()
 
 
 def analytical_inputs(
-    bundle: SourceBundle, dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES
+    bundle: SourceBundle, dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
+    *, profile: bytes | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies]:
     """Opt into the packaged profile through ordinary hashed, archived release inputs."""
     return (
@@ -29,7 +30,7 @@ def analytical_inputs(
             }).encode()),
         )),
         ResolvedDependencies(
-            (*dependencies.artifacts, SourceArtifact(PROFILE_NAME, (_MODEL / PROFILE_NAME).read_bytes())),
+            (*dependencies.artifacts, SourceArtifact(PROFILE_NAME, (_MODEL / PROFILE_NAME).read_bytes() if profile is None else profile)),
             dependencies.vocabularies,
             dependencies.ontology_sources,
         ),
@@ -49,7 +50,7 @@ class AnalyticalProfile:
             raise ValueError("release has no admitted analytical profile")
         model = prepared.validate_json("AnalyticalProfile", content)
         fields = model.model_dump()
-        if fields != {"version": "analytical-1", "precision": 38, "scale": 12,
+        if fields != {"version": "analytical-1", "precision": 38, "scale": fields["scale"],
                        "rounding": "HALF_EVEN", "overflow": "refuse"}:
             raise ValueError("unsupported analytical compiler profile")
         return cls(sha256(content).hexdigest(), fields["precision"], fields["scale"])
@@ -58,14 +59,14 @@ class AnalyticalProfile:
         """Quantize once with an explicit context; reject nonfinite and bounded overflow."""
         value = Decimal(lexical)
         if not value.is_finite() or (value and value.adjusted() >= self.precision - self.scale):
-            raise ValueError("value outside analytical DECIMAL(38,12)")
+            raise ValueError(f"value outside analytical DECIMAL(38,{self.scale})")
         context = Context(prec=self.precision, rounding=ROUND_HALF_EVEN)
         try:
             result = value.quantize(Decimal((0, (1,), -self.scale)), context=context)
         except InvalidOperation as exc:
-            raise ValueError("value outside analytical DECIMAL(38,12)") from exc
+            raise ValueError(f"value outside analytical DECIMAL(38,{self.scale})") from exc
         if result and result.adjusted() >= self.precision - self.scale:
-            raise ValueError("rounded value outside analytical DECIMAL(38,12)")
+            raise ValueError(f"rounded value outside analytical DECIMAL(38,{self.scale})")
         return result, result != value
 
     def quotient(self, numerator: Decimal, denominator: Decimal) -> tuple[Decimal, bool]:
@@ -82,7 +83,7 @@ class AnalyticalProfile:
         if 2 * remainder > d or (2 * remainder == d and magnitude % 2):
             magnitude += 1
         if magnitude >= 10**self.precision:
-            raise ValueError("quotient outside analytical DECIMAL(38,12)")
+            raise ValueError(f"quotient outside analytical DECIMAL(38,{self.scale})")
         with localcontext(Context(prec=self.precision, rounding=ROUND_HALF_EVEN)):
             result = Decimal((-1 if n < 0 else 1) * magnitude).scaleb(-self.scale)
         return result, remainder != 0

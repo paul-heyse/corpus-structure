@@ -13,6 +13,6 @@ classes:
     attributes:
       version: {required: true, equals_string: analytical-1}
       precision: {range: analytical_integer, required: true, minimum_value: 38, maximum_value: 38}
-      scale: {range: analytical_integer, required: true, minimum_value: 12, maximum_value: 12}
+      scale: {range: analytical_integer, required: true, minimum_value: 0, maximum_value: 38}
       rounding: {required: true, equals_string: HALF_EVEN}
       overflow: {required: true, equals_string: refuse}
