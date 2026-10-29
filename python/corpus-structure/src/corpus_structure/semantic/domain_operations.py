@@ -87,6 +87,7 @@ class ClaimCandidate:
     unresolved_references: tuple[str,...] = ()
     rule_object: Any = None
     rule_qualification: Mapping[str,Any] | None = None
+    constants: tuple[str,...] = ()
 
 
 @dataclass(frozen=True)
@@ -324,7 +325,7 @@ def _cut_input(engine:Engine,cut_id:int,output:str)->CutInput:
         effective=func.coalesce(o.c.rendition_id,seg.c.rendition_id,
                                case((t.c.unit_type=='rendition',t.c.unit_id)))
         source_rows=conn.execute(select(o.c.id,effective.label('rendition_id'),
-            method.c.name.label('provider'),method.c.version).select_from(o.join(t,t.c.id==o.c.task_id)
+            method.c.name.label('provider'),method.c.version,config.c.params).select_from(o.join(t,t.c.id==o.c.task_id)
             .join(config,config.c.id==t.c.method_config_id).join(method,method.c.id==config.c.method_id)
             .outerjoin(seg,and_(t.c.unit_type=='segment',seg.c.id==t.c.unit_id)))
             .where(o.c.id.in_([row['id'] for row in observations]))).mappings().all()
@@ -345,7 +346,7 @@ def _cut_input(engine:Engine,cut_id:int,output:str)->CutInput:
             ren=renditions[rid]
             descriptors[source['id']]={'rendition_id':rid,'source_uri':ren['source_uri'],'text':ren['canonical_text'],
                 'provider':source['provider'],'version':source['version'],'rendition_key':ren['key'],
-                'content':ren['content'],'page':ren['meta'].get('page',ren['source_uri'])}
+                'content':ren['content'],'page':ren['meta'].get('page',ren['source_uri']),'math':source['params'].get('math')}
         tasks=conn.execute(select(table('ops.task')).where(table('ops.task').c.run_id==job['id'])).mappings().all()
         envelopes=conn.execute(select(table('ops.task_result')).join(table('ops.cut_task'),
             table('ops.cut_task').c.origin_task_id==table('ops.task_result').c.task_id).where(
@@ -354,7 +355,7 @@ def _cut_input(engine:Engine,cut_id:int,output:str)->CutInput:
     return _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,output,known,copied)
 
 
-def _entity_mappings(prepared,observations,output,known):
+def _entity_mappings(prepared,observations,output,known,contexts):
     """Exact declared identity keys and explicitly global label policy, never fuzzy identity."""
     from corpus_structure.core.keys import LabelRules,normalize_label
     from corpus_structure.core.vocab import CaseRule
@@ -375,7 +376,8 @@ def _entity_mappings(prepared,observations,output,known):
         mapping={e['id']:'entity:'+sha256(canonical_bytes([prepared.release_id,output,observation['observation_key'],'entities',i,e['id']])).hexdigest()
                  for i,e in enumerate(payload.get('entities',()))}
         mappings[observation['id']]=mapping
-        for e in payload.get('entities',()):entries.append((observation,e,by_iri[e['class_iri']]))
+        if observation['id'] in contexts:
+            for e in payload.get('entities',()):entries.append((observation,e,by_iri[e['class_iri']]))
     resolved=set();keys={};known_labels={}
     for identity,item in known.items():
         for iri in item['class_iris']:
@@ -403,7 +405,8 @@ def _entity_mappings(prepared,observations,output,known):
             dependencies=[]
             for attribute in e.get('attributes',()):
                 prop=next(p for p in definition.properties if p.iri==attribute['predicate'])
-                value=attribute['value']
+                from .expression_context import bind_expression_context
+                value=bind_expression_context(attribute['value'],contexts[oid][0])
                 if prop.name in {name for g in definition.identity_groups if g!=definition.identity_slots for name in g} and value.get('kind')=='entity' and value.get('target') in mapping:
                     dependencies.append((oid,value['target']))
                 attrs[prop.name]=_property_value(prepared,definition,prop,value,mapping)
@@ -438,7 +441,18 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
     definitions={d.iri:d for d in prepared.definitions}
     by_name={d.name:d for d in prepared.definitions}
     reports=[];items=[];claims=[];metadata=dict(known);coverage=[];source_links={};evidence_roles={};contents={}
-    entity_mappings,extra_attributes,parsed=_entity_mappings(prepared,observations,output,known)
+    from corpus_structure.methods.math.methods import MathSection
+    from corpus_structure.core.evidence import MacroDef
+    from corpus_structure.core.tex import effective_macros
+    contexts={}
+    for observation in observations:
+        descriptor=descriptors[observation['id']]
+        if observation['payload_definition']!='AgentStoredBatch' or descriptor is None:continue
+        section=MathSection.model_validate(descriptor['math'] or {})
+        source_macros={name:MacroDef.model_validate(value) for name,value in descriptor['content'].get('macros',{}).items()}
+        contexts[observation['id']]=(effective_macros(source_macros,section.macro_table()),tuple(sorted(set(section.constants))))
+    if len({constants for _,constants in contexts.values()})>1:raise DomainOperationRefused('cut has incompatible recorded mathematical constant profiles')
+    entity_mappings,extra_attributes,parsed=_entity_mappings(prepared,observations,output,known,contexts)
     operation_props={(body['class'],body['property']):body for row in prepared.registry_rows if row.kind=='operation_property' for body in (json.loads(row.body),)}
     def coverage_row(family,scope,outcome,reason=None):
         key='coverage:'+sha256(canonical_bytes([cut['id'],family,scope,outcome,reason])).hexdigest()
@@ -523,7 +537,7 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
             if prior is None or canonical_bytes(current)<canonical_bytes(prior):metadata[entity_id]=current
         from corpus_structure.core.evidence import MacroDef
         from .expression_context import bind_expression_context
-        macros={name:MacroDef.model_validate(value) for name,value in descriptor['content'].get('macros',{}).items()}
+        macros,constants=contexts[observation['id']]
         claim_rows=[];evidence_by_entity={};item_by_entity={};claim_refs={}
         source_claims={c['id']:(i,c) for i,c in enumerate(payload.get('claims',()))}
         occurrence_refs={ref:occurrence_key(prepared.release_id,output,source,'claims/'+str(i)) for ref,(i,c) in source_claims.items()}
@@ -621,7 +635,7 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
             claims.append(ClaimCandidate(fid,occurrence_key(prepared.release_id,output,source,item.item),source,
                 claim['id'],item.subject,item.class_name,claim['predicate'],item.object,item.qualification,
                 item.establishment,statement_ids.get(claim.get('statement')),statement.get('kind') if statement else None,
-                claim.get('statement_role'),alternatives,len(item.evidence),descriptor['content'].get('macros',{}),qualification_class,tuple(sorted(ref for ref in {item.subject,*_entity_references(prepared,qualification_class,item.qualification),*(_entity_references(prepared,prop.range,item.object) if prop.inlined else {item.object} if prop.range in by_name else set())} if ref in metadata and metadata[ref].get('reference') and not metadata[ref].get('known'))),rule_object,rule_qualification))
+                claim.get('statement_role'),alternatives,len(item.evidence),{name:value.model_dump(mode='python') for name,value in macros.items()},qualification_class,tuple(sorted(ref for ref in {item.subject,*_entity_references(prepared,qualification_class,item.qualification),*(_entity_references(prepared,prop.range,item.object) if prop.inlined else {item.object} if prop.range in by_name else set())} if ref in metadata and metadata[ref].get('reference') and not metadata[ref].get('known'))),rule_object,rule_qualification,constants))
         for unsupported in payload.get('unsupported',()):
             coverage_row('unsupported',source+'/'+unsupported['id'],'partial',unsupported['reason'])
     batch_id='cut:'+sha256(canonical_bytes([prepared.release_id,output,
@@ -1007,18 +1021,21 @@ class ReleasedRulesPolicy:
                 return key
             for index,a in enumerate(ordered):
                 for b in ordered[index+1:]:
-                    reason=None;comparison=None
+                    reason=None;comparison=None;operative_macros=dict(a.macros)
                     if _bindings(a.object)!=_bindings(b.object):reason='distinct explicit expression bindings'
-                    elif isinstance(a.object,dict) and isinstance(b.object,dict) and a.object.get('macro_context')!=b.object.get('macro_context'):
-                        reason='different referenced source macro contexts'
+                    elif isinstance(a.object,dict) and isinstance(b.object,dict):
+                        left_context=a.object.get('macro_context',{});right_context=b.object.get('macro_context',{})
+                        if any(left_context[name]!=right_context[name] for name in left_context.keys()&right_context.keys()):reason='incompatible referenced source macro definitions'
+                        else:
+                            for name in right_context:operative_macros[name]=b.macros[name]
                     if reason is None:
                         try:
                             descriptor=next(p for p in self.definitions[a.class_name].properties if p.iri==a.predicate)
                             if descriptor.range in self.definitions and not descriptor.inlined:
                                 left,right=V.EntityRef(ref=a.object),V.EntityRef(ref=b.object)
                             else:left,right=_comparison_value(a.object),_comparison_value(b.object)
-                            macro_key=canonical_bytes(a.macros)
-                            if macro_key not in comparators:comparators[macro_key]=ValueComparator({name:MacroDef.model_validate(value) for name,value in a.macros.items()})
+                            macro_key=canonical_bytes(operative_macros)
+                            if macro_key not in comparators:comparators[macro_key]=ValueComparator({name:MacroDef.model_validate(value) for name,value in operative_macros.items()},a.constants)
                             comparator=comparators[macro_key]
                             condition=a.qualification.get('condition')
                             conditions=(_comparison_condition(condition),) if condition is not None else ()
@@ -1173,11 +1190,11 @@ class ReleasedRulesPolicy:
                 reading=None
                 if isinstance(raw,dict) and latex is not None and raw.get('language')!='latex':reading_note='scientific expression language has no declared reading operation'
                 if isinstance(raw,dict) and latex is not None and raw.get('language')=='latex':
-                    key=(latex,kind,canonical_bytes(c.macros))
+                    key=(latex,kind,canonical_bytes(c.macros),c.constants)
                     if key not in readings:
                         from corpus_structure.core.evidence import MacroDef
                         macros={name:MacroDef.model_validate(value) for name,value in c.macros.items()}
-                        result=grammar.parse(latex,'set_expr' if kind=='set' else 'any_value',macros)
+                        result=grammar.parse(latex,'set_expr' if kind=='set' else 'any_value',macros,grammar.MathContext(constants=frozenset(c.constants)))
                         reading=Reading(result.status,GRAMMAR_KINDS.get(result.kind or ''),
                             tuple(sorted({o.name for o in result.occurrences if not o.constant})))
                         readings[key]=reading
