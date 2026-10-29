@@ -21,7 +21,7 @@ class BoundRunReport(BaseModel):
 
 def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:OperationBinding,
                        registry:Any,graph:Any,method_settings:Any,phase:int=0,
-                       configurations:Mapping[str,str]|None=None)->BoundRunReport:
+                       configurations:Mapping[str,str]|None=None,guideline:str="")->BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
 
     This result establishes source preparation only. It does not report grading, inference,
@@ -31,6 +31,7 @@ def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:Operatio
     from corpus_structure.semantic.identity import canonical_bytes
     from hashlib import sha256
     if binding.release_id!=prepared.release_id:raise OperationConflict('run release differs from prepared interpretation')
+    registry=registry.bind_release(prepared)
     configurations=dict(configurations or {})
     configs={}
     for _,steps in graph.stages:
@@ -42,8 +43,16 @@ def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:Operatio
         d=table('kb.document')
         docs=conn.execute(select(d).where(d.c.project_id==project_id).order_by(d.c.key)).mappings().all()
         if not docs:raise OperationConflict('bound project has no registered source documents')
+        import json
+        dependency_manifest={
+            'parent':json.loads(binding.dependencies),
+            'source_documents':[{'key':d['key'],'uri':d['source_uri'],'content_hash':d['content_hash'],'metadata':d['meta']} for d in docs],
+            'operations':{name:{'version':registry.method(name).version,'configuration_hash':config.config_hash,'parameters':dict(config.params)} for name,config in configs.items()},
+            'guideline':guideline,
+        }
+        binding=OperationBinding(binding.release_id,binding.input_realization_id,binding.input_revision,canonical_bytes(dependency_manifest))
         options={'corpus':{'documents':[d['key'] for d in docs]},'configs':{m:c.config_hash for m,c in configs.items()}}
-        rid=create_run(conn,project_id=project_id,binding=binding,kind='full',options=options,code_commit=code_commit(),phase=phase)
+        rid=create_run(conn,project_id=project_id,binding=binding,kind='full',options=options,code_commit=code_commit(),phase=phase,guideline=guideline)
         conn.execute(update(table('ops.run')).where(table('ops.run').c.id==rid).values(status='running'))
     holder=f'semantic-source:{rid}'
     try:
