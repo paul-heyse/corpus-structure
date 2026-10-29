@@ -73,7 +73,8 @@ def project_markup(
     out=[]
     for role,entity,locator,node in (('subject',subject,subject_locator,segment),('object',target_id,target_locator,target)):
         attributes={'id':entity,'locator':locator}
-        kind=(payload.get('value') or {}).get('statement_kind') if role=='subject' else (node.attrs.get('hint') or {}).get('statement_kind')
+        hint = payload.get('value') if role == 'subject' else node.attrs.get('hint')
+        kind = hint.get('statement_kind') if isinstance(hint, Mapping) else None
         if kind is not None:
             attributes['statement_kind']=kind
         for name,value in attributes.items():

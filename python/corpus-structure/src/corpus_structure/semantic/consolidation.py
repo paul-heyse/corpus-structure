@@ -83,7 +83,9 @@ def assemble(
                 if name not in value.model_fields_set:
                     continue
                 prop = props[name]
-                if prop.multivalued:
+                if prop.collection_key:
+                    child = lower(item, prop.range, True)
+                elif prop.multivalued:
                     child = 'value:' + sha256(canonical_bytes([prop.range, prop.inlined, _meaning(plain(item))])).hexdigest()
                     values[child] = ValueRow(child, 'sequence')
                     for index, member in enumerate(item):
@@ -105,6 +107,10 @@ def assemble(
             row = ValueRow(key, 'date', text_value=raw.isoformat())
         elif isinstance(raw, str):
             row = ValueRow(key, 'string', text_value=raw)
+        elif isinstance(raw, dict):
+            row = ValueRow(key, 'mapping')
+            for name, member in value.items():
+                roles[key, name, 0] = RoleRow(key, name, 0, lower(member, range_name, inlined))
         elif isinstance(raw, list):
             row = ValueRow(key, 'sequence')
             for position, item in enumerate(value):

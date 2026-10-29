@@ -26,6 +26,9 @@ types:
   date:
     base: date
     uri: xsd:date
+  float:
+    base: float
+    uri: xsd:double
 classes:
   Value:
     abstract: true
@@ -411,6 +414,14 @@ classes:
           cs:role: predicate
         in_subset:
         - structural
+  FloatValue:
+    is_a: Value
+    attributes:
+      kind:
+        equals_string: float
+      number:
+        range: float
+        required: true
 enums:
   ExpressionForm:
     permissible_values:

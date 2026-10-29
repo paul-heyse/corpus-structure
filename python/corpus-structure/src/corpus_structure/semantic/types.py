@@ -93,6 +93,7 @@ class PropertyDefinition:
     key_role: str = "meaning"
     patterns: tuple[str, ...] = ()
     equals_string: str | None = None
+    collection_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -237,7 +238,10 @@ class PreparedRelease:
                 if not isinstance(model, type) or not issubclass(model, BaseModel):
                     raise TypeError("prepared class adapter has no model")
                 field = model.model_fields[property_name]
-                annotation = get_args(field.annotation)[0] if item else field.rebuild_annotation()
+                annotation = field.rebuild_annotation()
+                if item:
+                    from typing import get_origin
+                    annotation = get_args(field.annotation)[-1 if get_origin(field.annotation) is dict else 0]
                 return TypeAdapter(annotation)
         raise KeyError(class_name)
 

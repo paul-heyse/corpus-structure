@@ -35,10 +35,10 @@ def test_statistics_domain_retains_predicates_identity_and_structured_qualifiers
     q=prepared.validate_python('StatisticsQualification',{
         'modality':'asserted','polarity':True,
         'scope':{'extent':'section','locator':'Normal.html#first'},
-        'param_values':({'key':'scale','value':{'kind':'formula','language':'latex',
-            'expression':'sigma','bindings':({'kind':'variable','symbol':'sigma','entity':'local:sigma'},)}},),
+        'param_values':{'scale':{'key':'scale','value':{'kind':'formula','language':'latex',
+            'expression':'sigma','bindings':({'kind':'variable','symbol':'sigma','entity':'local:sigma'},)}}},
     })
-    assert q.param_values[0].value.bindings[0].entity=='local:sigma'
+    assert q.param_values['scale'].value.bindings[0].entity=='local:sigma'
     assert q.scope.locator=='Normal.html#first'
     with pytest.raises(ValidationError):
         prepared.property_adapter('FamilyParameter','parameter_role').validate_python('made_up_role',strict=True)
