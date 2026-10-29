@@ -45,9 +45,9 @@ def test_two_settings_do_not_leak() -> None:
 def test_frozen_and_forbidding() -> None:
     settings = Settings()
     with pytest.raises(ValidationError):
-        settings.database = settings.database  
+        settings.database = settings.database
     with pytest.raises(ValidationError):
-        Settings(databse={"url": "x"})  
+        Settings(databse={"url": "x"})
     with pytest.raises(ValidationError):
         Settings(database={"url": "x", "pasword": "y"})
 

@@ -1,6 +1,7 @@
 """Pure fixture-to-served-frame identity; native tool journeys live in tests/semantic."""
 
 import pytest
+
 from corpus_structure.intervene.testing import HarnessError, map_ids
 
 
@@ -24,5 +25,3 @@ def test_the_harness_requires_equal_locator_and_text() -> None:
         map_ids(
             "p.html#u", {"s9": {"locator": "p.html@sentence:Nowhere", "text": "Nowhere."}}, served
         )
-
-

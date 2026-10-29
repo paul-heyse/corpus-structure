@@ -8,7 +8,9 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
-SEMANTIC_COMPILER_VERSION = "10"  # protected references and selected completed results are release-bound
+SEMANTIC_COMPILER_VERSION = (
+    "10"  # protected references and selected completed results are release-bound
+)
 
 
 @dataclass(frozen=True)
@@ -194,10 +196,13 @@ class PreparedRelease:
         vocabulary = next(v for v in self.vocabularies if v.enum == name)
         if subset is None:
             return frozenset(m.value for m in vocabulary.members)
-        definitions = {r.name: json.loads(r.body) for r in self.registry_rows
-                       if r.kind == "enum_definition"}
+        definitions = {
+            r.name: json.loads(r.body) for r in self.registry_rows if r.kind == "enum_definition"
+        }
 
-        def properties(expression: dict[str, Any], stack: tuple[str, ...]) -> dict[str, dict[str, Any]]:
+        def properties(
+            expression: dict[str, Any], stack: tuple[str, ...]
+        ) -> dict[str, dict[str, Any]]:
             # Membership has already been resolved by the ontology/value-set compiler. This
             # resolves authored member metadata only, in the same seed/override order.
             result: dict[str, dict[str, Any]] = {}
@@ -211,8 +216,11 @@ class PreparedRelease:
             return result
 
         members = properties(definitions[name], (name,))
-        return frozenset(m.value for m in vocabulary.members
-                         if subset in members.get(m.value, {}).get("in_subset", ()))
+        return frozenset(
+            m.value
+            for m in vocabulary.members
+            if subset in members.get(m.value, {}).get("in_subset", ())
+        )
 
     def entity_keys(
         self,

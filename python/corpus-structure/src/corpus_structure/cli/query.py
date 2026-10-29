@@ -21,7 +21,14 @@ from corpus_structure.serve.registry import QueryRegistryError, build_registry
 def refusal(json: bool):
     try:
         yield
-    except (QueryRefused, QueryRegistryError, ValidationError, ValueError, LookupError, OSError) as e:
+    except (
+        QueryRefused,
+        QueryRegistryError,
+        ValidationError,
+        ValueError,
+        LookupError,
+        OSError,
+    ) as e:
         if json:
             typer.echo(jsonlib.dumps({"error": {"code": type(e).__name__, "message": str(e)}}))
         else:
@@ -31,34 +38,62 @@ def refusal(json: bool):
 
 def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:
     from sqlalchemy import select
-    from corpus_structure.semantic.metadata import table
+
     from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.metadata import table
+
     if run == "promoted" and not project:
         raise QueryRefused("a selected completed result needs its project")
     rid = select_run(conn, project or "", run if run == "promoted" else int(run))
     r = table("ops.run")
-    row = conn.execute(select(r.c.project_id,r.c.options).where(r.c.id == rid)).one()
+    row = conn.execute(select(r.c.project_id, r.c.options).where(r.c.id == rid)).one()
     domain = row.options.get("domain")
-    if not isinstance(domain,str) or not domain or __import__("pathlib").Path(domain).name != domain:
+    if (
+        not isinstance(domain, str)
+        or not domain
+        or __import__("pathlib").Path(domain).name != domain
+    ):
         raise QueryRefused("completed run has no canonical domain pack")
-    return row.project_id,rid,build_registry(GENERIC,DOMAINS/domain)
+    return row.project_id, rid, build_registry(GENERIC, DOMAINS / domain)
+
 
 def render_query(result: Any) -> Table:
-    table=Table("semantic identity","property / class","value",title=f"run {result.run_id}: {result.query} ({result.projection})")
+    table = Table(
+        "semantic identity",
+        "property / class",
+        "value",
+        title=f"run {result.run_id}: {result.query} ({result.projection})",
+    )
     for row in result.rows:
-        fact=row.get("fact") or row.get("claim",{}).get("fact") or row.get("conclusion",{}).get("fact") or {}
-        entity=row.get("entity",{})
-        evidence=row.get("evidence",{})
-        identity=fact.get("fact_id") or entity.get("entity_id") or evidence.get("evidence_id") or row.get("locator") or row.get("coverage_id","")
-        relation=fact.get("property_iri") or ", ".join(m["class_iri"] for m in entity.get("memberships",())) or row.get("family","")
-        value=fact.get("object",evidence.get("locator",row.get("text",row.get("outcome",""))))
+        fact = (
+            row.get("fact")
+            or row.get("claim", {}).get("fact")
+            or row.get("conclusion", {}).get("fact")
+            or {}
+        )
+        entity = row.get("entity", {})
+        evidence = row.get("evidence", {})
+        identity = (
+            fact.get("fact_id")
+            or entity.get("entity_id")
+            or evidence.get("evidence_id")
+            or row.get("locator")
+            or row.get("coverage_id", "")
+        )
+        relation = (
+            fact.get("property_iri")
+            or ", ".join(m["class_iri"] for m in entity.get("memberships", ()))
+            or row.get("family", "")
+        )
+        value = fact.get("object", evidence.get("locator", row.get("text", row.get("outcome", ""))))
         if "claims" in row and "depth" in row:
-            identity=" → ".join(claim["fact"]["fact_id"] for claim in row["claims"])
-            value=f"{row['depth']} relations"
-        table.add_row(str(identity),str(relation),str(value))
+            identity = " → ".join(claim["fact"]["fact_id"] for claim in row["claims"])
+            value = f"{row['depth']} relations"
+        table.add_row(str(identity), str(relation), str(value))
     if not result.coverage or any(c.outcome != "complete" for c in result.coverage):
-        table.caption="Coverage is incomplete or unknown; inspect --json for source outcomes."
-    if result.next_page_token: table.caption=(table.caption or "")+" Next page: "+result.next_page_token
+        table.caption = "Coverage is incomplete or unknown; inspect --json for source outcomes."
+    if result.next_page_token:
+        table.caption = (table.caption or "") + " Next page: " + result.next_page_token
     return table
 
 
@@ -75,6 +110,7 @@ def query(
     json: JsonOpt = False,
 ) -> None:
     from corpus_structure.semantic.runtime import open_runtime_engine
+
     params = {}
     with refusal(json):
         for pair in param or []:
@@ -87,14 +123,23 @@ def query(
                 params[key] = jsonlib.loads(value)
             except ValueError:
                 params[key] = value
-        settings=state(ctx).settings()
-        if projection not in {"occurrence","fact","accepted"}: raise QueryRefused("invalid projection")
-        with open_runtime_engine(settings,application_name="ci-query",purpose="read") as engine, engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn, conn.begin():
+        settings = state(ctx).settings()
+        if projection not in {"occurrence", "fact", "accepted"}:
+            raise QueryRefused("invalid projection")
+        with (
+            open_runtime_engine(settings, application_name="ci-query", purpose="read") as engine,
+            engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
+            conn.begin(),
+        ):
             conn.execute(text("SET TRANSACTION READ ONLY"))
             from corpus_structure.serve.journey import decode_token
 
             selected = str(decode_token(page_token)["run"]) if page_token else run
-            pid, _, registry = context(conn, project or (settings.runtime.default_project if selected == "promoted" else None), selected)
+            pid, _, registry = context(
+                conn,
+                project or (settings.runtime.default_project if selected == "promoted" else None),
+                selected,
+            )
             result = serve_query(
                 conn,
                 registry,

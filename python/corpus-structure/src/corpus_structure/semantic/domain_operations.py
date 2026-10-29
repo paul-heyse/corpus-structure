@@ -774,15 +774,21 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
             }
             descriptors[source["id"]] = descriptor
             report = reports_by_id[source["id"]]
-            if report["payload_definition"] == "AgentStoredBatch" and report["payload"].get("statements"):
+            if report["payload_definition"] == "AgentStoredBatch" and report["payload"].get(
+                "statements"
+            ):
+                from .proposals import ProposalFrame
                 from .source_frames import load_source_frame
 
-                from .proposals import ProposalFrame
-
                 frame_table = table("ops.source_frame")
-                has_frame = conn.execute(select(frame_table.c.task_id).where(frame_table.c.task_id == report["task_id"])).scalar_one_or_none()
-                descriptor["frame"] = (load_source_frame(conn, report["task_id"]) if has_frame is not None
-                                       else ProposalFrame(report["payload"]["unit_ref"], descriptor["text"], ()))
+                has_frame = conn.execute(
+                    select(frame_table.c.task_id).where(frame_table.c.task_id == report["task_id"])
+                ).scalar_one_or_none()
+                descriptor["frame"] = (
+                    load_source_frame(conn, report["task_id"])
+                    if has_frame is not None
+                    else ProposalFrame(report["payload"]["unit_ref"], descriptor["text"], ())
+                )
         tasks = (
             conn.execute(select(table("ops.task")).where(table("ops.task").c.run_id == job["id"]))
             .mappings()
@@ -1233,10 +1239,11 @@ def _project_cut(
         source = observation["observation_key"]
         mapping = entity_mappings[observation["id"]]
         statements = {s["id"]: dict(s) for s in payload.get("statements", ())}
-        from .source_projection import statement_identity
-        from .proposals import statement_anchor
         from corpus_structure.core.evidence import RenditionContent
         from corpus_structure.core.locators import LocatorIndex
+
+        from .proposals import statement_anchor
+        from .source_projection import statement_identity
 
         if statements:
             content = RenditionContent.model_validate(descriptor["content"])
@@ -1247,13 +1254,18 @@ def _project_cut(
                         statement["anchor"], descriptor["frame"], index=source_index
                     )
                 else:
-                    coverage_row("statement", source + "/" + statement["id"], "partial",
-                                 "explicit unresolved external statement reference")
+                    coverage_row(
+                        "statement",
+                        source + "/" + statement["id"],
+                        "partial",
+                        "explicit unresolved external statement reference",
+                    )
         statement_ids = {
             ref: statement_identity(
                 prepared.release_id, output, descriptor["rendition_key"], statement["anchor"]
             )
-            for ref, statement in statements.items() if statement["kind"] != "outside"
+            for ref, statement in statements.items()
+            if statement["kind"] != "outside"
         }
         # Source local refs stay distinct until a declared identity operation authorizes a merge.
         # This substrate never treats a fuzzy label or ontology mapping as identity.
@@ -1584,7 +1596,9 @@ def _project_cut(
                 if statement["kind"] in statement_kinds(prepared):
                     props["statement_kind"] = statement["kind"]
                 elif statement["kind"] != "outside":
-                    raise DomainOperationRefused("statement kind differs from its declared source-statement range")
+                    raise DomainOperationRefused(
+                        "statement kind differs from its declared source-statement range"
+                    )
                 for name, value in props.items():
                     items.append(
                         replace(

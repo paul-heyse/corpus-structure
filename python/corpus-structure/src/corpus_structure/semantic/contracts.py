@@ -33,9 +33,8 @@ def approved_implementations() -> Mapping[str, Any]:
     """Resolve only application-written imports, never catalog-authored module strings."""
     from types import MappingProxyType
 
-    from corpus_structure.orchestrate import project, semantic
     from corpus_structure.evaluate import semantic as references
-    from . import runtime
+    from corpus_structure.orchestrate import project, semantic
 
     from . import (
         analytics,
@@ -51,6 +50,7 @@ def approved_implementations() -> Mapping[str, Any]:
         publication,
         query,
         releases,
+        runtime,
     )
 
     return MappingProxyType(
@@ -348,8 +348,10 @@ def trusted_execution_inputs() -> ExecutionModelInputs:
     return ExecutionModelInputs(
         SourceBundle(
             "contracts",
-            (SourceArtifact("contracts", root.joinpath("contracts.yaml").read_bytes()),
-             SourceArtifact("semantic_reference", root.joinpath("reference.yaml").read_bytes())),
+            (
+                SourceArtifact("contracts", root.joinpath("contracts.yaml").read_bytes()),
+                SourceArtifact("semantic_reference", root.joinpath("reference.yaml").read_bytes()),
+            ),
         ),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
     )

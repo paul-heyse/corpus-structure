@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 from sqlalchemy.engine import make_url
 
+from corpus_structure.core.db import extensions
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 from corpus_structure.semantic.migrations import head_revision
-from corpus_structure.core.db import extensions
 from corpus_structure.settings import Settings
 
 
@@ -22,7 +22,7 @@ def settings(db_server: Any, name: str, template: str | None = None) -> Settings
         "template": template or db_server.template,
         "maintenance_url": url.render_as_string(hide_password=False),
     }
-    return Settings(database=database)  
+    return Settings(database=database)
 
 
 def test_init_creates_and_migrates_then_migrate_reports(cli: Any, db_server: Any) -> None:

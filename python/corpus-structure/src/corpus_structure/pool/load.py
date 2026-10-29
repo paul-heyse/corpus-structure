@@ -45,7 +45,7 @@ class CutMismatch(ValueError):
 
 
 @contextmanager
-def connect(url: str) -> Generator[adbc.Connection,None,None]:
+def connect(url: str) -> Generator[adbc.Connection]:
     """An ADBC connection on a libpq URL, closed afterwards."""
     with adbc.connect(url) as conn:
         yield conn

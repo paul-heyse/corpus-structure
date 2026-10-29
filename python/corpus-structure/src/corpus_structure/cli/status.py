@@ -74,7 +74,9 @@ def _render_status(result: BaseModel) -> RenderableType:
 def status(
     ctx: typer.Context,
     run_id: Annotated[int | None, typer.Argument(metavar="[RUN]")] = None,
-    project: Annotated[str | None, typer.Option(help="Project (default: runtime.default_project).")] = None,
+    project: Annotated[
+        str | None, typer.Option(help="Project (default: runtime.default_project).")
+    ] = None,
     semantic: Annotated[bool, typer.Option(hidden=True)] = False,
     json: JsonOpt = False,
 ) -> None:
@@ -90,7 +92,10 @@ def status(
     try:
         with orchestrate.ENGINE(settings, timeout=5.0) as engine, engine.connect() as conn:
             progress = commands.bound_status(
-                conn, run_id, project_id=project or (settings.runtime.default_project if run_id is None else None)
+                conn,
+                run_id,
+                project_id=project
+                or (settings.runtime.default_project if run_id is None else None),
             )
     except commands.CommandError as error:
         stderr_console().print(f"refused: {error}")

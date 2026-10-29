@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from typing import Any
+
 from fastmcp import FastMCP
+
 from corpus_structure.settings import Settings
 
 
@@ -21,4 +23,6 @@ def build_server(
 
 def serve(*, semantic_run: int | None = None, settings: Settings | None = None) -> None:
     """Run the semantic project queue over stdio without a banner."""
-    build_server(semantic_run=semantic_run, settings=settings).run(transport="stdio", show_banner=False)
+    build_server(semantic_run=semantic_run, settings=settings).run(
+        transport="stdio", show_banner=False
+    )

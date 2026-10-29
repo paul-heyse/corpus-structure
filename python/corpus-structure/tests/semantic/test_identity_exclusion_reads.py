@@ -43,9 +43,9 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
         assert session.identity_exclusions(exclusion.left.entity.entity_id) == rows
         assert session.identity_exclusions("not-in-this-snapshot") == ()
         with pytest.raises(ValidationError):
-            setattr(exclusion, "reason", "mutated")
+            exclusion.reason = "mutated"
         with pytest.raises(FrozenInstanceError):
-            setattr(exclusion.binding, "data_revision", 999)
+            exclusion.binding.data_revision = 999
         projection = session.identity_exclusion_graph(exclusion.right.entity.entity_id)
         graph = projection.graph()
         assert set(graph.subjects(RDF.type, CS.IdentityExclusion)) == {

@@ -224,7 +224,7 @@ def test_a_draft_names_its_payload_class_version_and_source() -> None:
     assert own.source(PACKET) is ConfidenceSource.RULES
     with pytest.raises(TypeError, match="not the named"):
         ObservationDraft(kind=ObservationKind.LINK, payload=payload,
-                         payload_class=AuthorMarkupPayload,  
+                         payload_class=AuthorMarkupPayload,
                          payload_version="1")  # fmt: skip
     with pytest.raises(TypeError):
         type.__call__(ObservationDraft, kind=ObservationKind.LINK, payload=payload)
@@ -283,8 +283,9 @@ def test_method_settings_hold_only_their_declared_fields(monkeypatch: pytest.Mon
     settings = MethodSettings(data_dir=Path("d"), model_cache=Path("m"))
     assert settings.data_dir == Path("d")  # the environment is never read
     with pytest.raises(ValidationError):
-        MethodSettings.model_validate({"data_dir": Path("d"), "model_cache": Path("m"),
-                                       "database_url": "postgresql:///x"})
+        MethodSettings.model_validate(
+            {"data_dir": Path("d"), "model_cache": Path("m"), "database_url": "postgresql:///x"}
+        )
     with pytest.raises(ValidationError):
         MethodSettings.model_validate({})
     from pydantic_settings import BaseSettings

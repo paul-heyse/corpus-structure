@@ -48,9 +48,13 @@ from rapidfuzz.distance import Levenshtein
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
 
-def _partial_ratio(__s1:Sequence[Hashable],__s2:Sequence[Hashable],*,score_cutoff:float|None)->float:
+
+def _partial_ratio(
+    __s1: Sequence[Hashable], __s2: Sequence[Hashable], *, score_cutoff: float | None
+) -> float:
     """The score callback contract, delegated to RapidFuzz's native partial ratio."""
-    return fuzz.partial_ratio(__s1,__s2,score_cutoff=score_cutoff)
+    return fuzz.partial_ratio(__s1, __s2, score_cutoff=score_cutoff)
+
 
 CASCADE_VERSION = "1"
 
@@ -278,13 +282,19 @@ class Cascade:
         return out, timed_out
 
     def _found(
-        self, hit: tuple[int, int, FrameSentence], step: Step, matches: int, *,
-        score:float|None=None, fuzzy_counts:tuple[int,int,int]|None=None,
-        picked:bool=False,timeouts:tuple[Step,...]=()
+        self,
+        hit: tuple[int, int, FrameSentence],
+        step: Step,
+        matches: int,
+        *,
+        score: float | None = None,
+        fuzzy_counts: tuple[int, int, int] | None = None,
+        picked: bool = False,
+        timeouts: tuple[Step, ...] = (),
     ) -> Located:
         a, b, s = hit
         a, b = snap(self.text, a, b, s.start, s.end)
-        return Located(a,b,step,s.id,matches,score,fuzzy_counts,picked,timeouts)
+        return Located(a, b, step, s.id, matches, score, fuzzy_counts, picked, timeouts)
 
     def _fuzzy(
         self, quote: str, s: FrameSentence, timeouts: list[Step], picked: bool = False

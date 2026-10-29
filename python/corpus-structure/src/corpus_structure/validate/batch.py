@@ -59,7 +59,7 @@ if typing.TYPE_CHECKING:
     from corpus_structure.schema.compile import CompiledSchema
 
 FORMS = ("model", "stored")
-SECTIONS:tuple[str,...] = ("entities", "statements", "claims", "alternatives", "unsupported")
+SECTIONS: tuple[str, ...] = ("entities", "statements", "claims", "alternatives", "unsupported")
 CORE = "core:"
 
 

@@ -17,7 +17,7 @@ from corpus_structure.settings import Settings
 
 def settings_for(engine: Engine) -> Settings:
     url = make_url(engine.url).set(drivername="postgresql")
-    return Settings(database={"url": url.render_as_string(hide_password=False)})  
+    return Settings(database={"url": url.render_as_string(hide_password=False)})
 
 
 def test_the_store_opens_and_lends_its_pool(db_engine: Engine) -> None:

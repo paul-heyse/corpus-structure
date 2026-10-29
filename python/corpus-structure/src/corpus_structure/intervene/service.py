@@ -2,10 +2,13 @@
 
 SemanticAgentSession and SemanticProjectSession own the application effects.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
+
 from corpus_structure.semantic.proposals import ProposalIssue
+
 
 class ToolFailure(RuntimeError):
     """An envelope or infrastructure failure: reported with `isError`, naming the task."""

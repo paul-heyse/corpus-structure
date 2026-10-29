@@ -17,32 +17,18 @@ the lease, the served record and the caches persist across calls (`Tools.call`).
 from __future__ import annotations
 
 import json
-import os
-import shutil
-from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-import anyio
 import pytest
 import yaml
-from sqlalchemy import Connection, Engine, text
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent, segment_key
-from corpus_structure.core.method import (
-    MethodSettings,
-    UnitRef,
-)
 from corpus_structure.core.payloads import MentionPayload, ScopePayload
-from corpus_structure.core.vocab import (
-    RunKind,
-    RunStatus,
-    Stage,
-)
 
 REPO = Path(__file__).resolve().parents[4]
 TRACE_CORPUS = REPO / "fixtures" / "trace" / "corpus"
@@ -144,7 +130,13 @@ def scope_payloads(
 @pytest.fixture
 def agent() -> SimpleNamespace:
     return SimpleNamespace(
-        s0=s0, TRACE_UNITS=TRACE_UNITS, page_content=page_content, analyse=analyse,
-        mention_payloads=mention_payloads, scope_payloads=scope_payloads,
-        PACK_MACROS=PACK_MACROS, STATISTICS=STATISTICS, REPO=REPO,
+        s0=s0,
+        TRACE_UNITS=TRACE_UNITS,
+        page_content=page_content,
+        analyse=analyse,
+        mention_payloads=mention_payloads,
+        scope_payloads=scope_payloads,
+        PACK_MACROS=PACK_MACROS,
+        STATISTICS=STATISTICS,
+        REPO=REPO,
     )

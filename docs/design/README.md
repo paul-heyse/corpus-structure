@@ -4,10 +4,10 @@ Use the [design principles](../design_review/design_principles/core/design-princ
 when assessing consequential choices; consider physical realization early alongside ownership
 and contracts.
 
-**Proposed (2026-10-28).** The target architecture is specified by the design set below. Nothing
-is implemented yet. [DESIGN](DESIGN.md) holds scope and, once ADRs decide them, the binding
-decisions; the D-documents hold the proposed target in implementable detail. [STATUS](../../STATUS.md)
-and the active plan in [plans](../plans/README.md) own completion claims and open findings.
+**Mixed implementation maturity (2026-10-29).** The design set below contains accepted targets,
+implemented semantic routes and earlier proposed detail. [DESIGN](DESIGN.md) holds scope and
+binding decisions; each owner labels its supported boundary. [STATUS](../../STATUS.md) and the
+active plan in [plans](../plans/README.md) own current completion claims, evidence and open findings.
 
 ## The design set
 

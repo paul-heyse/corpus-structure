@@ -1,12 +1,16 @@
 """Declarative method graph and shared unit projection; semantic execution owns persistence."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
 from sqlalchemy import Connection, text
+
 from corpus_structure.core.method import UnitRef, UnitView
 from corpus_structure.core.vocab import RunKind, Stage, TaskStatus, TaskUnitType
+
 
 class PassOutcome(Protocol):
     """What the runner reads of a pass's report, structurally: consolidation returns its own

@@ -7,14 +7,12 @@ from collections.abc import Mapping
 from typing import Any
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
-from sqlalchemy import Connection, select
+from sqlalchemy import select
 
 from corpus_structure.core.method import MethodContext, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.types import PreparedRelease
-from corpus_structure.semantic.proposals import ProposalFrame
 from corpus_structure.semantic.operations import (
     OperationBinding,
     OperationConflict,
@@ -355,14 +353,13 @@ def _packet_for_unit(
 ):
     """Shared queue/serve preparation including recorded M13 standing context."""
     from corpus_structure.core.evidence import MacroDef
-    from corpus_structure.core.locators import LocatorIndex
     from corpus_structure.methods.llm.packet import MAX_KNOWN, PacketTooLarge, unit_inputs
     from corpus_structure.orchestrate.semantic_references import document_references
     from corpus_structure.semantic.operations import lock_input_snapshot
     from corpus_structure.semantic.proposals import (
         KnownProposalEntity,
-        source_frame,
         proposal_packet,
+        source_frame,
     )
 
     lock_input_snapshot(conn, run_id)
@@ -418,7 +415,6 @@ def _packet_for_unit(
         if not references
         else (),
     )
-
 
 
 def agent_packet(conn: Any, run_id: int, task_id: int, prepared: Any):
@@ -514,25 +510,27 @@ def queue_agent(
             )
         ).hexdigest()
         task_id = create_task(
-                conn,
-                run_id=run_id,
-                config_id=config_id,
-                stage="propose",
-                unit_type=str(ref.unit_type),
-                unit_id=ref.unit_id,
-                unit_key=ref.unit_key,
-                input_hash=digest,
-                packet_hash=packet.hash,
-                agent=True,
-                fresh="agent.opus" in fresh_names,
-                trigger={**dict(trigger or {}), "configuration_name": configuration_name},
-                skip_reason=skip_reason,
-            )
+            conn,
+            run_id=run_id,
+            config_id=config_id,
+            stage="propose",
+            unit_type=str(ref.unit_type),
+            unit_id=ref.unit_id,
+            unit_key=ref.unit_key,
+            input_hash=digest,
+            packet_hash=packet.hash,
+            agent=True,
+            fresh="agent.opus" in fresh_names,
+            trigger={**dict(trigger or {}), "configuration_name": configuration_name},
+            skip_reason=skip_reason,
+        )
         tasks.append(task_id)
         if skip_reason is None:
             from corpus_structure.semantic.source_frames import capture_source_frame
 
-            reused = conn.execute(select(table("ops.task").c.reused_task_id).where(table("ops.task").c.id == task_id)).scalar_one()
+            reused = conn.execute(
+                select(table("ops.task").c.reused_task_id).where(table("ops.task").c.id == task_id)
+            ).scalar_one()
             if reused is None:
                 capture_source_frame(conn, task_id, packet)
     return tasks
@@ -555,9 +553,7 @@ def propose_agents(conn, run_id, prepared, registry, policy_source):
     names = policy.registry_configs(registry)
     from corpus_structure.semantic.statement_types import statement_kinds
 
-    language = policy.unit_language(
-        statement_kinds(prepared), names, nullable_claim_bearing=True
-    )
+    language = policy.unit_language(statement_kinds(prepared), names, nullable_claim_bearing=True)
     rules = policy.compile_policy(policy.parse_policy(policy_source), language, names)
     bearing_kinds = statement_kinds(prepared, subset="claim_bearing")
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")

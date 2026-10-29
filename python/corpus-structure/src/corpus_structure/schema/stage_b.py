@@ -857,9 +857,13 @@ class Emitter:
             parent_slots = {str(slot.name): slot for slot in plan.slots(parent, form)}
             # LinkML slot_usage can replace a concrete discriminator. Such shapes are siblings
             # in the Python discriminated union: incompatible literal fields cannot inherit.
-            if any(slot.equals_string is not None and parent_slots[str(slot.name)].equals_string is not None
-                   and slot.equals_string != parent_slots[str(slot.name)].equals_string
-                   for slot in plan.slots(origin, form) if str(slot.name) in parent_slots):
+            if any(
+                slot.equals_string is not None
+                and parent_slots[str(slot.name)].equals_string is not None
+                and slot.equals_string != parent_slots[str(slot.name)].equals_string
+                for slot in plan.slots(origin, form)
+                if str(slot.name) in parent_slots
+            ):
                 parent = None
         parent_name = plan.name(parent, form) if parent else None
         bases = []
@@ -902,11 +906,13 @@ class Emitter:
             self.use("pydantic", "GetCoreSchemaHandler")
             self.use("pydantic_core", "CoreSchema")
             self.use("corpus_structure.core.json_extras", "json_extras_schema")
-            body.extend([
-                "    @classmethod",
-                "    def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -> CoreSchema:",
-                "        return json_extras_schema(source, handler)",
-            ])
+            body.extend(
+                [
+                    "    @classmethod",
+                    "    def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -> CoreSchema:",
+                    "        return json_extras_schema(source, handler)",
+                ]
+            )
         consolidated = [str(a) for a, s in (cls.attributes or {}).items()
                         if ci_annotations(s).get("ci:form") == "consolidated"]  # fmt: skip
         if consolidated:

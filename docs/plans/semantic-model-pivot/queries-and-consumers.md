@@ -1,6 +1,6 @@
 # Semantic queries and consuming interfaces
 
-**Status:** SP-04 implemented within the scoped boundary below; SP-08 planned. **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O05 and consumes SP-01 meanings, SP-03 publication and SP-05/SP-07 outputs as needed.
+**Status:** SP-04 implemented within the scoped boundary below; SP-08 consumer implementation and scoped checks landed; native model-binding correction and integrated acceptance remain open (coordinator §12). **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O05 and consumes SP-01 meanings, SP-03 publication and SP-05/SP-07 outputs as needed.
 
 ## Completeness extension (planned)
 
@@ -83,3 +83,21 @@ reference state and unknown coverage. Interpretation loads once per session. Con
 ignore active pointers and reject changed revisions/malformed tokens. Explanation exposes
 direct derivation premise references; recursive inference and full old serving migration remain
 SP-07/SP-08. No historical snapshot service was added.
+
+
+## SP-08 implementation checkpoint (2026-10-29)
+
+**Implemented; scoped Tested, with an open native applicability defect.** Current serving,
+statistics/toy plug-ins, CLI/MCP, intervention, qualified exports and protected independent-reference
+APIs are migrated. Explicit archived statement/qualification bindings, separate reference grades,
+role isolation, immutable result selection and resource ownership are implemented. ADR-0030 owns
+the consumer boundary. Pure algorithms and independent fixtures remain; obsolete legacy storage
+routes/harnesses are retired.
+
+The native occurrence-context guard still checks the base class name rather than the model's
+explicit statement-class binding. A fresh actual MCP run correctly declaring `ToySourceStatement`
+is refused. Model-derived range/applicability enforcement and its negative cases remain required;
+an unapplied ancestor-only draft does not discharge this obligation. The
+[coordinator §12](../semantic-model-pivot_2026-10-29.md#12-sp-08sp-10-implementation-checkpoint-2026-10-29)
+owns receipts, remaining work and O07 disposition. Neither consumer implementation nor focused
+passing checks establish complete package/series acceptance.

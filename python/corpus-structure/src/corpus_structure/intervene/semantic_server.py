@@ -187,9 +187,11 @@ class SemanticProjectSession:
             if run_id not in self.runs:
                 runs = table("ops.run")
                 with self.engine.connect() as conn:
-                    exists = conn.execute(select(runs.c.id).where(
-                        runs.c.id == run_id, runs.c.project_id == self.project_id
-                    )).scalar_one_or_none()
+                    exists = conn.execute(
+                        select(runs.c.id).where(
+                            runs.c.id == run_id, runs.c.project_id == self.project_id
+                        )
+                    ).scalar_one_or_none()
                 if exists is None:
                     raise ProposalRefused("run does not belong to this semantic project")
                 self.runs[run_id] = SemanticAgentSession(
@@ -202,14 +204,26 @@ class SemanticProjectSession:
 
         runs, tasks = table("ops.run"), table("ops.task")
         with self.engine.connect() as conn:
-            return tuple(conn.execute(select(runs.c.id).join(tasks, tasks.c.run_id == runs.c.id)
-                .where(runs.c.project_id == self.project_id, runs.c.status.in_(("created", "running")),
-                       tasks.c.status == "awaiting_agent")
-                .distinct().order_by(runs.c.id.desc())).scalars())
+            return tuple(
+                conn.execute(
+                    select(runs.c.id)
+                    .join(tasks, tasks.c.run_id == runs.c.id)
+                    .where(
+                        runs.c.project_id == self.project_id,
+                        runs.c.status.in_(("created", "running")),
+                        tasks.c.status == "awaiting_agent",
+                    )
+                    .distinct()
+                    .order_by(runs.c.id.desc())
+                ).scalars()
+            )
 
     def status(self) -> service.QueueStatus:
-        return service.QueueStatus(queues=[queue for run in self.pending_runs()
-                                         for queue in self.for_run(run).status().queues])
+        return service.QueueStatus(
+            queues=[
+                queue for run in self.pending_runs() for queue in self.for_run(run).status().queues
+            ]
+        )
 
     def next(self, mode: str, max_units: int | None) -> service.QueueNext:
         if max_units is not None and max_units < 1:
@@ -225,13 +239,16 @@ class SemanticProjectSession:
 
         tasks = table("ops.task")
         with self.engine.connect() as conn:
-            run = conn.execute(select(tasks.c.run_id).where(tasks.c.id == task_id)).scalar_one_or_none()
+            run = conn.execute(
+                select(tasks.c.run_id).where(tasks.c.id == task_id)
+            ).scalar_one_or_none()
         if run is None:
             raise ProposalTaskNotOpen("unknown semantic task")
         return self.for_run(run).active(task_id)
 
 
 SemanticSession = SemanticAgentSession | SemanticProjectSession
+
 
 def build_semantic_server(
     session: SemanticSession | None = None,
@@ -249,8 +266,11 @@ def build_semantic_server(
 
         selected = settings if settings is not None else Settings()
         with open_runtime_engine(selected, "ci-mcp-semantic", max_size=4) as engine:
-            active: SemanticSession = (SemanticAgentSession(engine, run_id) if run_id is not None
-                else SemanticProjectSession(engine, selected.runtime.default_project))
+            active: SemanticSession = (
+                SemanticAgentSession(engine, run_id)
+                if run_id is not None
+                else SemanticProjectSession(engine, selected.runtime.default_project)
+            )
             yield {"session": active}
 
     server = FastMCP(
@@ -442,12 +462,20 @@ def build_semantic_server(
             raise ToolError(str(error)) from None
 
     @server.tool
-    def record_direction(ctx: Context, text: str, scope: str | None = None) -> service.DirectionRecorded:
+    def record_direction(
+        ctx: Context, text: str, scope: str | None = None
+    ) -> service.DirectionRecorded:
         from corpus_structure.intervene.directions import record_direction as record
 
         active = current(ctx)
-        return record(active.engine, text, scope, actor="agent:session", session_ref=active.instance,
-                      project=active.project_id if isinstance(active, SemanticProjectSession) else None,
-                      run_id=active.run_id if isinstance(active, SemanticAgentSession) else None)
+        return record(
+            active.engine,
+            text,
+            scope,
+            actor="agent:session",
+            session_ref=active.instance,
+            project=active.project_id if isinstance(active, SemanticProjectSession) else None,
+            run_id=active.run_id if isinstance(active, SemanticAgentSession) else None,
+        )
 
     return server

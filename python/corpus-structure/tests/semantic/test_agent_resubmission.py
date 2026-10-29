@@ -43,7 +43,17 @@ from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
 
 
-def source_task(admin, engine, path, *, composed=False, identity_keyed=False, global_names=False, domain=None, evaluation_policy:bytes|None=None):
+def source_task(
+    admin,
+    engine,
+    path,
+    *,
+    composed=False,
+    identity_keyed=False,
+    global_names=False,
+    domain=None,
+    evaluation_policy: bytes | None = None,
+):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
         "id": "https://example.org/resubmit",
@@ -59,7 +69,11 @@ def source_task(admin, engine, path, *, composed=False, identity_keyed=False, gl
         schema["classes"]["Person"]["unique_keys"] = {"name": {"unique_key_slots": ["name"]}}
     deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []")
     if evaluation_policy is not None:
-        deps=ResolvedDependencies((*deps.artifacts,SourceArtifact('operation/evaluation-split.yaml',evaluation_policy)),deps.vocabularies,deps.ontology_sources)
+        deps = ResolvedDependencies(
+            (*deps.artifacts, SourceArtifact("operation/evaluation-split.yaml", evaluation_policy)),
+            deps.vocabularies,
+            deps.ontology_sources,
+        )
     bundle = proposal_inputs(
         SourceBundle(
             "domain",
@@ -116,7 +130,10 @@ def source_task(admin, engine, path, *, composed=False, identity_keyed=False, gl
             project_id="resubmit",
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
-            options={"agent_configs": {"extract": config}, **({"domain": domain} if domain is not None else {})},
+            options={
+                "agent_configs": {"extract": config},
+                **({"domain": domain} if domain is not None else {}),
+            },
             code_commit="test",
         )
         document = register_document(

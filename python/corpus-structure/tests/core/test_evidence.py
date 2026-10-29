@@ -185,9 +185,9 @@ def test_rendition_refusals(kwargs: dict, message: str) -> None:
 def test_models_are_frozen() -> None:
     c = content()
     with pytest.raises(ValidationError):
-        setattr(c, "canonical_text", "x")  
+        c.canonical_text = "x"
     with pytest.raises(ValidationError):
-        setattr(c.document.children[0], "start", 3)  
+        c.document.children[0].start = 3
 
 
 def test_round_trip_through_json() -> None:

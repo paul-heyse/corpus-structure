@@ -98,7 +98,7 @@ def test_math_delimiters_are_normalized_and_the_latex_kept(stats: CompiledSchema
     cs = candidates_from_batch(stored_model(stats, raw), stats)
     claim = next(c for c in cs.claims if c.id == "c_aX_def")
     assert isinstance(claim.object, V.Formula)
-    assert claim.object.latex   == "a + b X"
+    assert claim.object.latex == "a + b X"
 
 
 # --- T4 completeness ----------------------------------------------------------------------------
@@ -381,7 +381,7 @@ def test_the_engines_facts_give_the_same_views_as_the_builders_own(
     from corpus_structure.pool.harness import engine as make_engine
     from corpus_structure.validate.views import engine_facts
 
-    engine = make_engine(engine_name)  
+    engine = make_engine(engine_name)
     names = list(stats.rules.claim.views)
     sets = [
         _set(

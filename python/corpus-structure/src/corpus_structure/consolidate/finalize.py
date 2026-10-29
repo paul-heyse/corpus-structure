@@ -26,7 +26,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any,Literal
+from typing import Any, Literal
 
 from corpus_structure.consolidate.assemble import (
     REFERENCE,
@@ -57,7 +57,7 @@ GRAMMAR_KINDS = {
     "set_expr": MathKind.SET,
     "list": MathKind.LIST,
 }
-START:dict[str,Literal["any_value","set_expr"]] = {"formula": "any_value", "set": "set_expr"}
+START: dict[str, Literal["any_value", "set_expr"]] = {"formula": "any_value", "set": "set_expr"}
 
 
 @dataclass(frozen=True)

@@ -28,7 +28,11 @@ class AutomatedExtraction(BaseModel):
 
 
 def extract_run(
-    engine: Engine, settings: Settings, run_id: int, *, timeout: float = 1800,
+    engine: Engine,
+    settings: Settings,
+    run_id: int,
+    *,
+    timeout: float = 1800,
 ) -> AutomatedExtraction | None:
     """No reference credentials, filesystem tools or inherited MCP servers enter extraction.
 
@@ -37,14 +41,24 @@ def extract_run(
     """
     tasks, configs, methods = table("ops.task"), table("ops.method_config"), table("ops.method")
     with engine.connect() as conn:
-        states = list(conn.execute(select(tasks.c.status).where(tasks.c.run_id == run_id)).scalars())
+        states = list(
+            conn.execute(select(tasks.c.status).where(tasks.c.run_id == run_id)).scalars()
+        )
         if not any(state in {"pending", "running", "awaiting_agent"} for state in states):
             return None
-        models = [row.get("model") for row in conn.execute(
-            select(configs.c.params).join(tasks, tasks.c.method_config_id == configs.c.id)
-            .join(methods, configs.c.method_id == methods.c.id)
-            .where(tasks.c.run_id == run_id, methods.c.name == "agent.opus", tasks.c.status != "skipped")
-        ).scalars()]
+        models = [
+            row.get("model")
+            for row in conn.execute(
+                select(configs.c.params)
+                .join(tasks, tasks.c.method_config_id == configs.c.id)
+                .join(methods, configs.c.method_id == methods.c.id)
+                .where(
+                    tasks.c.run_id == run_id,
+                    methods.c.name == "agent.opus",
+                    tasks.c.status != "skipped",
+                )
+            ).scalars()
+        ]
     declared = set(models)
     if len(declared) != 1 or None in declared:
         raise OperationConflict("automated extraction requires one explicitly configured model")
@@ -55,9 +69,17 @@ def extract_run(
     if command is None or uv is None:
         raise OperationConflict("automated extraction requires authenticated claude CLI and uv")
     root = Path(__file__).resolve().parents[5]
-    allowed = [f"mcp__corpus__{name}" for name in (
-        "queue_status", "queue_next", "read_unit", "read_instructions", "propose_claims", "release",
-    )]
+    allowed = [
+        f"mcp__corpus__{name}"
+        for name in (
+            "queue_status",
+            "queue_next",
+            "read_unit",
+            "read_instructions",
+            "propose_claims",
+            "release",
+        )
+    ]
     prompt = (
         f"Complete all pending extraction work for semantic run {run_id} using only corpus MCP tools. "
         "Read server instructions, lease one unit at a time, read ALL instruction pages and unit parts, "
@@ -68,27 +90,85 @@ def extract_run(
     )
     with tempfile.TemporaryDirectory(prefix="corpus-semantic-agent-") as directory:
         config = Path(directory) / "mcp.json"
-        config.write_text(json.dumps({"mcpServers": {"corpus": {
-            "command": uv, "args": ["--directory", str(root), "run", "--no-sync", "--project", str(root / "python/corpus-structure"),
-                                     "ci", "mcp", "serve", "--semantic-run", str(run_id)],
-            "env": {"CORPUS_DATABASE__URL": settings.database.url},
-        }}}), encoding="utf-8")
+        config.write_text(
+            json.dumps(
+                {
+                    "mcpServers": {
+                        "corpus": {
+                            "command": uv,
+                            "args": [
+                                "--directory",
+                                str(root),
+                                "run",
+                                "--no-sync",
+                                "--project",
+                                str(root / "python/corpus-structure"),
+                                "ci",
+                                "mcp",
+                                "serve",
+                                "--semantic-run",
+                                str(run_id),
+                            ],
+                            "env": {"CORPUS_DATABASE__URL": settings.database.url},
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
         config.chmod(0o600)
-        environment = {key: value for key, value in os.environ.items()
-                       if not key.startswith("CORPUS_") and key not in {"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"}}
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("CORPUS_") and key not in {"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"}
+        }
         process = subprocess.Popen(
-            [command, "-p", prompt, "--model", model, "--output-format", "json", "--tools", "",
-             "--strict-mcp-config", "--mcp-config", str(config), "--permission-mode", "dontAsk",
-             "--allowedTools", *allowed, "--no-session-persistence", "--max-turns", "120",
-             "--restricted", "--disable-slash-commands", "--setting-sources", "",
-             "--settings", json.dumps({"disableAllHooks": True, "claudeMdExcludes": ["**"], "autoMemoryEnabled": False})],
-            cwd=directory, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, start_new_session=True,
+            [
+                command,
+                "-p",
+                prompt,
+                "--model",
+                model,
+                "--output-format",
+                "json",
+                "--tools",
+                "",
+                "--strict-mcp-config",
+                "--mcp-config",
+                str(config),
+                "--permission-mode",
+                "dontAsk",
+                "--allowedTools",
+                *allowed,
+                "--no-session-persistence",
+                "--max-turns",
+                "120",
+                "--restricted",
+                "--disable-slash-commands",
+                "--setting-sources",
+                "",
+                "--settings",
+                json.dumps(
+                    {
+                        "disableAllHooks": True,
+                        "claudeMdExcludes": ["**"],
+                        "autoMemoryEnabled": False,
+                    }
+                ),
+            ],
+            cwd=directory,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
         )
         try:
             stdout, stderr = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired as error:
-            raise OperationConflict(f"automated provider timed out for run {run_id}; resume this run") from error
+            raise OperationConflict(
+                f"automated provider timed out for run {run_id}; resume this run"
+            ) from error
         finally:
             # The fresh provider and all stdio MCP descendants belong to this process group.
             try:
@@ -105,17 +185,32 @@ def extract_run(
             except ProcessLookupError:
                 pass
     if process.returncode:
-        raise OperationConflict(f"automated provider failed for run {run_id}: {stderr[-2000:] or stdout[-2000:]}")
+        raise OperationConflict(
+            f"automated provider failed for run {run_id}: {stderr[-2000:] or stdout[-2000:]}"
+        )
     response = json.loads(stdout)
     if response.get("is_error"):
-        raise OperationConflict(f"automated provider refused run {run_id}: {response.get('result')}")
+        raise OperationConflict(
+            f"automated provider refused run {run_id}: {response.get('result')}"
+        )
     with engine.connect() as conn:
-        states = list(conn.execute(select(tasks.c.status).join(configs, tasks.c.method_config_id == configs.c.id)
-                      .join(methods, configs.c.method_id == methods.c.id)
-                      .where(tasks.c.run_id == run_id, methods.c.name == "agent.opus")).scalars())
+        states = list(
+            conn.execute(
+                select(tasks.c.status)
+                .join(configs, tasks.c.method_config_id == configs.c.id)
+                .join(methods, configs.c.method_id == methods.c.id)
+                .where(tasks.c.run_id == run_id, methods.c.name == "agent.opus")
+            ).scalars()
+        )
     if any(state in {"pending", "running", "awaiting_agent"} for state in states):
-        raise OperationConflict(f"automated provider left tasks open in run {run_id}; resume this run")
+        raise OperationConflict(
+            f"automated provider left tasks open in run {run_id}; resume this run"
+        )
     if not any(state in {"done", "empty", "reused"} for state in states):
         raise OperationConflict("automated provider completed no source task")
-    return AutomatedExtraction(run_id=run_id, model=model, provider_session=response.get("session_id"),
-                               terminal_tasks=sum(state in {"done", "empty", "reused"} for state in states))
+    return AutomatedExtraction(
+        run_id=run_id,
+        model=model,
+        provider_session=response.get("session_id"),
+        terminal_tasks=sum(state in {"done", "empty", "reused"} for state in states),
+    )

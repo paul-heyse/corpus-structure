@@ -271,7 +271,8 @@ def compile_native_conditionals(
     result: list[dict[str, Any]] = []
     for name, fragment in sorted(fragments.items()):
         aliases = {
-            str.__str__(slot.alias or slot.name): str(slot.name) for slot in view.class_induced_slots(name)
+            str.__str__(slot.alias or slot.name): str(slot.name)
+            for slot in view.class_induced_slots(name)
         }
 
         def atoms(

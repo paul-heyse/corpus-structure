@@ -322,8 +322,8 @@ def _index_columns(table: Table) -> list[list[str]]:
             m = re.fullmatch(r"(?:\w+\.)*(\w+) IS NOT NULL", sql)
             if m is None or m.group(1) not in table.c:
                 continue
-        columns=[e for e in index.expressions if isinstance(e,Column)]
-        if len(columns)==len(index.expressions):
+        columns = [e for e in index.expressions if isinstance(e, Column)]
+        if len(columns) == len(index.expressions):
             out.append([e.name for e in columns])
     return out
 

@@ -6,7 +6,7 @@ compute; only explicitly owned result readers extend a local scope's lifetime.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
@@ -797,7 +797,7 @@ class AnalysisScope:
     @contextmanager
     def reader(
         self, relation: duckdb.DuckDBPyRelation, *, batch_size: int = 65536
-    ) -> Generator[pa.RecordBatchReader, None, None]:
+    ) -> Generator[pa.RecordBatchReader]:
         """Reader cancellation/exception closes its native result before input teardown."""
         if self._closed:
             raise RuntimeError("analysis scope is closed")

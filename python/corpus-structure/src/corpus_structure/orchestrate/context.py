@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
-from typing import Any
 
 from sqlalchemy import Connection, text
 

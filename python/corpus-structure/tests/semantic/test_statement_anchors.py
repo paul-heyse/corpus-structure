@@ -5,7 +5,13 @@ from sqlalchemy import select
 
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.proposals import ProposalFrame, ProposalRefused, ProposalSentence, locate_proposal, statement_anchor
+from corpus_structure.semantic.proposals import (
+    ProposalFrame,
+    ProposalRefused,
+    ProposalSentence,
+    locate_proposal,
+    statement_anchor,
+)
 from corpus_structure.semantic.query import QuerySpec, read_session
 from corpus_structure.semantic.source_projection import statement_identity
 
@@ -17,7 +23,9 @@ def test_local_statement_anchor_is_normalized_without_rewriting_authored_report(
     release = prepared()
     raw = batch()
     raw["statements"][0]["anchor"] = "s1"
-    frame = ProposalFrame("page#one", "Alice is here.", (ProposalSentence("s1", "page#sentence", 0, 14),))
+    frame = ProposalFrame(
+        "page#one", "Alice is here.", (ProposalSentence("s1", "page#sentence", 0, 14),)
+    )
     result = locate_proposal(release, raw, frame)
     assert result.authored.model_dump()["statements"][0]["anchor"] == "s1"
     assert result.stored.model_dump()["statements"][0]["anchor"] == "page#sentence"
@@ -30,38 +38,64 @@ def test_local_statement_anchor_is_normalized_without_rewriting_authored_report(
 
 
 def test_same_local_handle_has_distinct_source_identity_across_frames():
-    first = ProposalFrame("page#one", "Alice is here.Alice is here.",
-                          (ProposalSentence("s1", "page#sentence", 0, 14),))
+    first = ProposalFrame(
+        "page#one",
+        "Alice is here.Alice is here.",
+        (ProposalSentence("s1", "page#sentence", 0, 14),),
+    )
     second = ProposalFrame("page#two", first.text, (ProposalSentence("s1", "page#two", 14, 28),))
     left = statement_identity("release", "output", "rendition", statement_anchor("s1", first))
     right = statement_identity("release", "output", "rendition", statement_anchor("s1", second))
     assert left != right
-    assert left == statement_identity("release", "output", "rendition", statement_anchor("page#sentence", first))
+    assert left == statement_identity(
+        "release", "output", "rendition", statement_anchor("page#sentence", first)
+    )
 
 
 @pytest.mark.parametrize("packets,expected", [("different", 2), ("same", 1)])
 def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, packets, expected
 ):
-    _prepared, run, cut = fixture(semantic_db_engine, semantic_writer_engine, tmp_path / "source.html",
-                                 two_reports=True, statement_packets=packets)
+    _prepared, run, cut = fixture(
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path / "source.html",
+        two_reports=True,
+        statement_packets=packets,
+    )
     observations = table("kb.observation")
     with semantic_reader_engine.connect() as conn:
-        before = conn.execute(select(observations.c.observation_key, observations.c.payload)
-                              .where(observations.c.task_id.in_(select(table("ops.task").c.id).where(table("ops.task").c.run_id == run)))
-                              .order_by(observations.c.id)).all()
+        before = conn.execute(
+            select(observations.c.observation_key, observations.c.payload)
+            .where(
+                observations.c.task_id.in_(
+                    select(table("ops.task").c.id).where(table("ops.task").c.run_id == run)
+                )
+            )
+            .order_by(observations.c.id)
+        ).all()
     assert all(row.payload["statements"][0]["anchor"] == "s1" for row in before)
     result = consolidate_cut(semantic_writer_engine, cut, "statement-output")
-    assert consolidate_cut(semantic_writer_engine, cut, "statement-output").receipt == result.receipt
+    assert (
+        consolidate_cut(semantic_writer_engine, cut, "statement-output").receipt == result.receipt
+    )
     with read_session(semantic_reader_engine, "statement-output") as reader:
         cls = reader.class_handle("SourceStatement")
         locations = reader.query(QuerySpec(cls, reader.property_handle(cls, "locator"), "fact"))
         assert len({row.subject.entity_id for row in locations.rows}) == expected
-        assert {row.object for row in locations.rows} == ({"page#sentence", "page#two"} if packets == "different" else {"page#sentence"})
+        assert {row.object for row in locations.rows} == (
+            {"page#sentence", "page#two"} if packets == "different" else {"page#sentence"}
+        )
     with semantic_reader_engine.connect() as conn:
-        after = conn.execute(select(observations.c.observation_key, observations.c.payload)
-                             .where(observations.c.task_id.in_(select(table("ops.task").c.id).where(table("ops.task").c.run_id == run)))
-                             .order_by(observations.c.id)).all()
+        after = conn.execute(
+            select(observations.c.observation_key, observations.c.payload)
+            .where(
+                observations.c.task_id.in_(
+                    select(table("ops.task").c.id).where(table("ops.task").c.run_id == run)
+                )
+            )
+            .order_by(observations.c.id)
+        ).all()
     assert after == before
 
 
@@ -70,43 +104,86 @@ def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
 ):
     import anyio
     from fastmcp import Client
-    from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
+
+    from corpus_structure.intervene.semantic_server import (
+        SemanticAgentSession,
+        build_semantic_server,
+    )
     from corpus_structure.semantic import source_frames
     from corpus_structure.semantic.operations import seal_cut
-    from .test_agent_resubmission import source_task, lease_and_read
+
+    from .test_agent_resubmission import lease_and_read, source_task
 
     # Model a task completed by the earlier server, before source-frame capture existed.
     # The real packet builder, native task/hash custody and submission transaction remain active.
     with monkeypatch.context() as earlier:
         earlier.setattr(source_frames, "capture_source_frame", lambda conn, task_id, packet: None)
-        _, run, task, locator = source_task(semantic_db_engine, semantic_writer_engine, tmp_path / "source.html")
+        _, run, task, locator = source_task(
+            semantic_db_engine, semantic_writer_engine, tmp_path / "source.html"
+        )
         session = SemanticAgentSession(semantic_writer_engine, run)
 
         async def complete():
             async with Client(build_semantic_server(session)) as client:
                 unit = await lease_and_read(client, run, task)
-                result = (await client.call_tool("propose_claims", {"task_id": task, "batch": {
-                    "unit_ref": locator,
-                    "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
-                    "claims": [{"id": "name", "subject": "person", "predicate": "https://example.org/name",
-                                "object": {"kind": "text", "text": "Alice"},
-                                "qualification": {"modality": "asserted", "polarity": True},
-                                "establishment": "stated",
-                                "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}]}],
-                }})).structured_content
+                result = (
+                    await client.call_tool(
+                        "propose_claims",
+                        {
+                            "task_id": task,
+                            "batch": {
+                                "unit_ref": locator,
+                                "entities": [
+                                    {"id": "person", "class_iri": "https://example.org/Person"}
+                                ],
+                                "claims": [
+                                    {
+                                        "id": "name",
+                                        "subject": "person",
+                                        "predicate": "https://example.org/name",
+                                        "object": {"kind": "text", "text": "Alice"},
+                                        "qualification": {"modality": "asserted", "polarity": True},
+                                        "establishment": "stated",
+                                        "evidence": [
+                                            {
+                                                "sentence": unit["sentences"][0]["id"],
+                                                "quote": "Alice is here.",
+                                                "role": "primary",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            },
+                        },
+                    )
+                ).structured_content
                 assert result is not None and result["status"] == "done"
 
         anyio.run(complete)
     with semantic_writer_engine.begin() as conn:
         seal_cut(conn, run, "evaluation", final=True)
-        before = conn.execute(select(table("kb.observation").c.observation_key, table("kb.observation").c.payload)
-                              .where(table("kb.observation").c.task_id == task)).one()
-        packet_hash = conn.execute(select(table("ops.task").c.packet_hash).where(table("ops.task").c.id == task)).scalar_one()
+        before = conn.execute(
+            select(
+                table("kb.observation").c.observation_key, table("kb.observation").c.payload
+            ).where(table("kb.observation").c.task_id == task)
+        ).one()
+        packet_hash = conn.execute(
+            select(table("ops.task").c.packet_hash).where(table("ops.task").c.id == task)
+        ).scalar_one()
     assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 1
     assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 0
     with semantic_writer_engine.connect() as conn:
-        captured = conn.execute(select(table("ops.source_frame")).where(table("ops.source_frame").c.task_id == task)).mappings().one()
+        captured = (
+            conn.execute(
+                select(table("ops.source_frame")).where(table("ops.source_frame").c.task_id == task)
+            )
+            .mappings()
+            .one()
+        )
         assert captured["packet_hash"] == packet_hash and captured["unit_ref"] == locator
-        after = conn.execute(select(table("kb.observation").c.observation_key, table("kb.observation").c.payload)
-                             .where(table("kb.observation").c.task_id == task)).one()
+        after = conn.execute(
+            select(
+                table("kb.observation").c.observation_key, table("kb.observation").c.payload
+            ).where(table("kb.observation").c.task_id == task)
+        ).one()
         assert after == before

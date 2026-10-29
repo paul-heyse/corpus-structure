@@ -672,7 +672,8 @@ def _compile_physical(view: View) -> MetaData:
                     else tuple(table.c[c] for c in declaration["columns"])
                 )
                 index = Index(
-                    declaration.get("name"), *expressions,
+                    declaration.get("name"),
+                    *expressions,
                     postgresql_where=text(declaration["where"]) if "where" in declaration else None,
                     postgresql_using=declaration.get("using", "btree"),
                 )

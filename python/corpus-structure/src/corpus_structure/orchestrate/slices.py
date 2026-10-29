@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-
 from corpus_structure.core.canonical import digest
 from corpus_structure.core.locators import LocatorIndex, parse
 
@@ -38,8 +37,7 @@ def expand(
             elif key == "pages":
                 for child in value:
                     out.update(
-                        parse(x).page
-                        for x in expand(selectors, child, documents, (*stack, name))
+                        parse(x).page for x in expand(selectors, child, documents, (*stack, name))
                     )
             elif key == "index":
                 out.update(
@@ -48,7 +46,9 @@ def expand(
                     if str(d["meta"].get(value, "")).lower() not in ("", "0", "false", "no")
                 )
             elif key == "golden_set":
-                raise SliceError("held-out reference sets cannot select extraction source units; use explicit source locators")
+                raise SliceError(
+                    "held-out reference sets cannot select extraction source units; use explicit source locators"
+                )
             else:
                 raise SliceError(f"slice {name}: unsupported selector {entry!r}")
         else:

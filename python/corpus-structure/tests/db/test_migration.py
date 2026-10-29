@@ -31,7 +31,7 @@ _n = iter(range(9201, 9300))
 
 
 @contextmanager
-def clone(db_server: Any) -> Generator[Engine, None, None]:
+def clone(db_server: Any) -> Generator[Engine]:
     name = f"ci_test_{os.getpid()}_{next(_n)}"
     db_server.create(name, db_server.template)
     engine = create_engine(db_server.url_of(name), poolclass=NullPool)

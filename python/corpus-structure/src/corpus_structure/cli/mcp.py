@@ -41,8 +41,8 @@ def direct(
 ) -> None:
     """Record operator guidance in the semantic operation log."""
     from corpus_structure.cli import orchestrate
-    from corpus_structure.intervene.service import ToolFailure
     from corpus_structure.intervene.directions import record_direction
+    from corpus_structure.intervene.service import ToolFailure
     from corpus_structure.orchestrate.commands import CommandError
 
     try:

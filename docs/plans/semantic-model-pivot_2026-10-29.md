@@ -1,6 +1,6 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 are implemented and scoped-tested for their supported profile, including exclusions (§11). SP-C01–SP-C05 and supported admission closure are implemented and scoped-tested in §10; SP-08–SP-10 remain planned with updated dependencies. **Created:** 2026-10-29 · **Revised:** 2026-10-29.
+**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 are implemented and scoped-tested for their supported profile, including exclusions (§11). SP-C01–SP-C05 and supported admission closure are implemented and scoped-tested in §10; SP-08 consumers are implemented with scoped checks and an open native model-binding defect; SP-09 has selected statistics/transfer results and an incomplete fresh-frame journey; SP-10 qualification is incomplete (§12). **Created:** 2026-10-29 · **Revised:** 2026-10-29.
 **Claim strength:** ADR-0024–ADR-0027 govern the accepted baseline. The completeness extension is implemented and scoped Tested for transitioned supported operations. Implemented/Tested claims are bounded to the declared package profiles and receipts; consumer cutover and assembled qualification remain open.
 
 ## 1. Scope, authority and baseline
@@ -13,8 +13,8 @@ Foundation execution began from `cea3f73`; its scoped implementation source is `
 The selected legacy core/system model and generated physical metadata remain byte-identical to
 that starting selection. Supplied documents and prior dirty work were already committed at
 execution start. Those are foundation-era facts, not the current execution baseline. The originally
-pending sibling worktrees were subsequently integrated during closeout (§9). Current planning
-consumes `dcc5e0b` plus the preserved working tree; inspect changed source/context before execution.
+pending sibling worktrees were subsequently integrated during closeout (§9). The completeness extension was planned from `dcc5e0b`; current execution is recorded in §12
+at `feeefad`. Inspect changed source/context before further execution.
 
 The [completeness review](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md)
 and [target model](../functional_reviews/semantic-domain-model-completeness_2026-10-29_target-model.md)
@@ -109,7 +109,7 @@ SP-00–SP-05 are implemented within their declared profiles. SP-02/SP-03 supply
 metadata, exact archived releases, generation-checked activation and protected native publication.
 Their [package owner](semantic-model-pivot/postgresql-and-publication.md) states capability/refusal
 boundaries. SP-04 supplies native semantic reads/explanations; SP-05 supplies the columnar
-foundation and existing set kernels. SP-06/SP-07 are implemented and scoped-tested for their supported profile, including exclusions (§11). SP-08–SP-10 remain planned. No assembled-series qualification is claimed. Stable IDs
+foundation and existing set kernels. SP-06/SP-07 are implemented and scoped-tested for their supported profile, including exclusions (§11). Current SP-08–SP-10 implementation and remaining obligations are in §12. No assembled-series qualification is claimed. Stable IDs
 link to the supporting documents.
 
 | Package | Required working input | Capability (current state above and in §10) |
@@ -358,11 +358,11 @@ packages and local evidence, not competing progress registers.
 |---|---|---|---|---|
 | [Completeness O01](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O01) | Logical model/compiler; SP-C01/SP-C02 | Connected concepts and typed relationship semantics, including scoped identity/authorization | Closed for transitioned supported scope · qualified graph/query, native custody and composed journey receipts below | Declared qualified/repeated/n-ary relationship reaches actual current enforcement and explanation through SP-C03–SP-C05 |
 | [Completeness O02](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O02) | Lifecycle; SP-C01/SP-C03 | Composed state, valid combinations and full allowed transitions | Closed for transitioned supported scope · compiled edges, ownership/held/terminal and private-result native cases | Existing scheduling/submission/cut/cancel/publication writers enforce the same contracts |
-| [Completeness O03](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O03) | Preparation/admission and native/domain guards; SP-C02/SP-C03/SP-C04 | Resolve owned operation/invariant implementations and refuse missing required enforcement | Closed for supported profiles · exact native/SQL/diagnostic admission and conditional publication cases | Required semantics faithfully execute; unsupported lowering cannot silently admit |
+| [Completeness O03](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O03) | Preparation/admission and native/domain guards; SP-C02/SP-C03/SP-C04 | Resolve owned operation/invariant implementations and refuse missing required enforcement | Prior supported-profile closure retained; native statement-binding adoption remains open in SP-08 (§12) | Required semantics faithfully execute; unsupported lowering cannot silently admit |
 | [Completeness O04](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O04) | Source/domain outcomes; SP-C04 | Distinct typed outcomes, coverage translations and assessment subject/counterpart relations | Closed for transitioned supported scope · coverage/science, measurement custody and source/explanation cases | Refused content, unknown coverage and undecided science retain distinct meanings in actual consumers |
 | [Completeness O05](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O05) | Projection/analytics; SP-C05 | Captured/candidate provenance, append/derived publication and resource contracts | Closed for transitioned supported scope · projection, derived fencing/replay and mixed lifetime cases | Current query/Arrow/DuckDB/COPY paths preserve scope, precision and mandatory derived-result fences |
 | [Completeness O06](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O06) | Graph validation; SP-C02/SP-C05 | Rich relational constraints over qualified declared graph closure | Closed for declared qualified closure · missing/wrong-scope references, collection/null and shape cases | Required relation constraints execute without collapsing occurrences/qualification or replacing native transaction authority |
-| [Completeness O07](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O07) | Composed binding and current consumers; SP-C01–SP-C05, then SP-08–SP-10 | Compatible admission/evolution and observable operation/binding/refusal references | Open for SP-08–SP-10 · current supported consumers/admission implemented and scoped-tested | Complete model governs transitioned behavior; later consumers, regeneration and assembled acceptance use those same contracts |
+| [Completeness O07](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O07) | Composed binding and current consumers; SP-C01–SP-C05, then SP-08–SP-10 | Compatible admission/evolution and observable operation/binding/refusal references | Open · consumers migrated; native statement binding, fresh-frame completion and assembled acceptance remain (§12) | Complete model governs transitioned behavior; later consumers, regeneration and assembled acceptance use those same contracts |
 
 ### Current package queue
 
@@ -525,3 +525,82 @@ repetition. An unresolved architectural reference in ADR-0028 was corrected by s
 ADR-0029 under immutable-record policy; the semantic decision is unchanged. The retired record
 remains recoverable in Git. All useful worker contributions are integrated; owned worktrees were
 clean before removal. No push occurred. Lint-only effects do not invalidate passing receipts.
+
+
+## 12. SP-08–SP-10 implementation checkpoint (2026-10-29)
+
+**Implemented with scoped Tested evidence; package and series closure remain open.** Source
+baseline `feeefad` includes the worker integrations and their recorded ancestry. All owned
+worktrees have been integrated and removed. Concurrent library-leverage documentation remains
+separately owned; its recommendations have not been adopted by this execution.
+
+### Delivered behavior and mechanisms
+
+- Current named/generic serving, statistics/toy queries, explanations, schema compilation,
+  CLI/MCP defaults, intervention records and qualified JSONL/Parquet exports use semantic
+  releases and completed result bindings. SQLAlchemy Core retains selective/batched access;
+  rendition search has a native GIN prefilter. Dynamic qualification subtypes survive JSON.
+- Independent references have LinkML definitions, protected `eval` storage, immutable authored
+  passes/citation frames and `ReferenceEvaluation` grades. The evaluator principal is separate
+  from the source writer. Existing matching, mathematical undecided outcomes, conflict groups,
+  premise aliases and archived split/sampling policies are connected to these consumers.
+  Grading is automated; no human grading or extraction-accuracy threshold was introduced.
+- Compiler 10 and semantic_0028–0030 add the reference boundary, generation-CAS result selection
+  and typed source-frame projections. Exact packet frames bind local statement handles to
+  source locators through protected append-only routines. Original-packet backfill verifies the
+  archived packet hash and preserves source observations. Known canonical non-MCP reports retain
+  independently checked native source bindings.
+- `ci regenerate` acquires explicit pack/dependency bytes, executes real source methods,
+  invokes authenticated Claude through a fresh restricted stdio MCP server, and finalizes
+  source-to-result work. Resumption uses the archived run and original task identities. Selected
+  result and active interpretation are separate pointers. Credential purposes share one storage
+  endpoint; extraction has no reference access. Replaced legacy runtime/write paths and their
+  obsolete storage harnesses have been retired; useful pure algorithms/independent fixtures remain.
+- All source/test/generator typing suppressions were removed structurally. Four exact dev pins
+  add PyYAML, jsonschema, SciPy and html5lib stubs; lockfile additions are limited to that family.
+  `just types` now includes domain plug-ins and exposes warning-level diagnostics.
+
+### Actual deployment and verification
+
+The [retained evidence](../design_review/evidence/2026-10-29_semantic-consumer-regeneration/README.md)
+owns raw outputs, failures and the database checkpoint. `corpus_semantic` on 18/corpus:5434 is at
+semantic_0030. Trusted execution is
+`execution:6e6f27d22ad3d4ce187c22d52fefaebca5c58850011ec84886b11fada576d9b5`;
+physical metadata is
+`physical:a1d1377c7f65ba528b52f096ec737094228f2075802db0a70af9afec78bf1f2e`.
+The earlier operational database and existing MCP process were not migrated or restarted.
+
+| Scope / command | Actual outcome |
+|---|---|
+| `just types` (`--min-severity warn`, including domain plug-ins) | **passed**, zero errors/warnings before maintenance. Source/test/generator suppression scan is empty. Earlier type errors and missing-stub warnings were repaired; lint does not invalidate this result. |
+| `just ready` after typing-library installation | **passed**. |
+| Consumer/native/CLI selections | **passed** within their selections: serving/paging/explanation/search, both exports and cancellation; restricted references/actual golden and evaluation CLI; schema-derived reference roles, identity refusal, premise aliases, split/sampling policy and source strata. Worker receipts retain separate scopes; counts are not summed. |
+| Generated models/source preparation selection | **passed**, 143 cases spanning core shapes/references, Stage B, conditional rules and actual statistics/toy preparation. Later native frame changes have separate receipts. |
+| Source-frame controls | **passed**, scoped original-packet backfill, immutable observation/replay and native privilege/FK/function-body drift cases. The final admission selection contains five native and two pure cases. |
+| `ci regenerate ... --project semantic-pivot --resume-run 1` | **passed**: real statistics extraction, consolidation/inference and selected `result:semantic-pivot:1`. Earlier local-anchor collision failure is retained; no re-extraction was required. |
+| `ci regenerate ... --project semantic-pivot-transfer --resume-run 2` | **passed**: selected `result:semantic-pivot-transfer:2`, inspection query preserving two organization roles and `12.3400 kg`, and native ADBC-to-Parquet export. Earlier selection-privilege failure is retained. |
+| Independent transfer reference evaluation | **passed as an execution check**; actual grade is zero matches. Reference label `P-17` and extracted label `vessel P-17` do not align under the current policy. The grade is retained unchanged; no accuracy improvement is claimed. |
+| Fresh frame/MCP run 3 | **failed** during consolidation: valid `ToySourceStatement` is refused by a native literal `SourceStatement` membership check. Run 3 is sealed, `consolidating`, with no result or selected pointer. |
+| First `just test-all` | **failed** at Python collection (six errors): inherited typed-extra schema was injected into closed subclasses. The hook was corrected; Rust compiled with zero test cases. |
+| Revised `just test-all` | **incomplete / not passed**. The Python run emitted an early failure marker, then was interrupted without a completed assertion summary. No failing node or full result is established by this receipt. Its worker processes and owned `ci_test_708452` database were cleaned up. |
+| Full `just hygiene` | **not_run**; full-series qualification remains open. Final closeout maintenance/publication results are recorded in STATUS. |
+| `just turn-end`; `uv run ruff check --output-format=concise` | Maintenance **passed**; read-only Ruff **failed**, 64 remaining diagnostics. No typing/functional repetition followed lint. |
+| `just docs-check` | **passed**, 268 canonical pages, zero publication/link errors. |
+| `just evidence` | **failed**, five older-record errors (two unresolved dependencies and three missing hashes), 37 warnings. The new partial checkpoint record finalized successfully; older records were not repaired. |
+
+### Remaining obligations
+
+1. Couple native statement applicability to the admitted release's
+   `AgentStatementBinding.statement` range and same-release class hierarchy. Python already
+   consumes that binding; the native predicate still restates a base-class assumption. Explicit
+   bindings must refuse incompatible base/unrelated classes, and malformed bindings must refuse.
+   Adjacent applicability/range predicates have not received a completed assessment of this gap.
+2. The initial ancestor-only 0031 draft is **unapplied and superseded in mechanism**. It is retained
+   under evidence solely for review provenance. No active 0031 migration, updated fingerprint or
+   native passing result exists. A class-name exception or blanket descendant allowance is not
+   the accepted correction for an explicit binding.
+3. Complete the fresh-frame run after a validated forward correction; preserve its original
+   packet/task/cut identities and completed statistics/transfer results.
+4. Diagnose the incomplete broad run, resolve the remaining lint diagnostics and complete the
+   applicable final functional/provider and nonfunctional union. Existing scoped passes remain valid at their stated boundaries; they do
+   not establish SP-10 or O07 closure. No quality benchmark or regrading campaign is scheduled here.

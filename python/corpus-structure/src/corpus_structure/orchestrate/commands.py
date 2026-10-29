@@ -1,13 +1,17 @@
 """Current semantic project/run/task command operations and their typed reports."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
 from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, Engine
+
 from corpus_structure.core.vocab import TaskStatus
+
 
 class CommandError(ValueError):
     """A refused command; its message is what the operator reads."""
@@ -174,6 +178,7 @@ def cancel_bound_run(engine: Engine, run_id: int) -> CancelReport:
 
 def _bound_run_id(conn: Connection, run_id: int | None, project_id: str | None) -> int | None:
     from sqlalchemy import select
+
     from corpus_structure.semantic.metadata import table
 
     runs = table("ops.run")
@@ -281,7 +286,9 @@ def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
     return consolidate_cut(engine, cut, output_realization_id)
 
 
-def bound_status(conn: Connection, run_id: int | None = None, *, project_id: str | None = None) -> StatusReport:
+def bound_status(
+    conn: Connection, run_id: int | None = None, *, project_id: str | None = None
+) -> StatusReport:
     from sqlalchemy import func, select
 
     from corpus_structure.semantic.metadata import table

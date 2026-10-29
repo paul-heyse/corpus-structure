@@ -3,19 +3,11 @@ evaluation §3.2, §3.4)."""
 
 from __future__ import annotations
 
-from pathlib import Path
-from types import SimpleNamespace
-
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from sqlalchemy import Connection, text
 
-from corpus_structure.core.db import repo
-from corpus_structure.core.vocab import DocumentSplit
-from corpus_structure.evaluate import sets
 from corpus_structure.evaluate.sets import GoldenSetError, PoolUnit, allocate, sample
-from corpus_structure.evaluate.split import load_eval, split_documents
 
 # --- The sampler, by hand ------------------------------------------------------------------------
 
@@ -72,13 +64,19 @@ def test_permuting_the_pool_leaves_the_sample_unchanged(order: list[int], seed: 
     assert again == drawn
 
 
-
-
 def test_unknown_source_math_share_has_its_own_stratum_not_a_numeric_zero():
-    drawn=sample([PoolUnit('unknown','definition',None),PoolUnit('zero','definition',0.),PoolUnit('high','definition',1.)],3,7)
-    assert drawn.sampling['cut_points']==[0.,1.]
-    assert drawn.sampling['allocation']['definition/unknown']['pool']==1
-    assert drawn.sampling['allocation']['definition/t0']['pool']==1
-    all_unknown=sample([PoolUnit('one','paragraph',None)],1,0)
-    assert all_unknown.sampling['cut_points'] is None
-    assert set(all_unknown.sampling['allocation'])=={'paragraph/unknown'}
+    drawn = sample(
+        [
+            PoolUnit("unknown", "definition", None),
+            PoolUnit("zero", "definition", 0.0),
+            PoolUnit("high", "definition", 1.0),
+        ],
+        3,
+        7,
+    )
+    assert drawn.sampling["cut_points"] == [0.0, 1.0]
+    assert drawn.sampling["allocation"]["definition/unknown"]["pool"] == 1
+    assert drawn.sampling["allocation"]["definition/t0"]["pool"] == 1
+    all_unknown = sample([PoolUnit("one", "paragraph", None)], 1, 0)
+    assert all_unknown.sampling["cut_points"] is None
+    assert set(all_unknown.sampling["allocation"]) == {"paragraph/unknown"}

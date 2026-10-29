@@ -1,6 +1,6 @@
 # Regeneration, retirement and integrated acceptance
 
-**Status:** Planned · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns current state and combined completion. This document owns integration journeys and qualification boundaries for O01–O06.
+**Status:** SP-09 partially realized; SP-10 qualification incomplete · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns current state and combined completion. This document owns integration journeys and qualification boundaries for O01–O06.
 
 ## Completeness extension and verification timing (planned)
 
@@ -86,4 +86,26 @@ Quantitative performance measurements are deferred unless a concrete capacity/ac
 
 ## Authoring versus execution evidence
 
-This plan and its completeness extension were authored from static source, reviews and library documentation. SP-09/SP-10 acceptance scenarios remain planned; existing passing SP-00–SP-07 type/test receipts are retained at the coordinator and are not negated by document or lint maintenance. Documentation publication checks establish document integrity only and are recorded in STATUS; they do not establish new product qualification or authorize unrelated source cleanup.
+This plan and its completeness extension were authored from static source, reviews and library documentation. SP-09/SP-10 acceptance scenarios were planned at authoring; the execution checkpoint below records their current partial realization. Existing passing SP-00–SP-07 type/test receipts are retained at the coordinator and are not negated by document or lint maintenance. Documentation publication checks establish document integrity only and are recorded in STATUS; they do not establish new product qualification or authorize unrelated source cleanup.
+
+
+## Execution checkpoint (2026-10-29)
+
+**Implemented with scoped Tested evidence; final acceptance remains open.** Fresh
+`corpus_semantic` is at semantic_0030. Statistics run 1 and transfer run 2 are finished and selected
+in their separate projects. Actual authenticated extraction, native construction, query/export and
+an independent automated reference-grade operation have executed. Their failed intermediate
+attempts remain in the evidence; the transfer grade remains zero, without accuracy tuning.
+
+Run 3 exercises the final fresh source-frame/MCP path and is sealed in `consolidating` after a
+native class-applicability refusal. The guard must consume the release's explicit statement-class
+binding and hierarchy. No active 0031 correction exists. Source observations, completed results,
+older databases and the existing MCP process remain intact.
+
+Whole-project warning-aware typing passed with no suppressions. Focused source/frame/consumer
+checks passed within their scopes. The broad functional route has no passing completion: one
+attempt failed collection and the subsequent run was interrupted with an unresolved early failure
+marker. Full hygiene and combined SP-10 qualification remain open. The
+[coordinator §12](../semantic-model-pivot_2026-10-29.md#12-sp-08sp-10-implementation-checkpoint-2026-10-29)
+and [evidence](../../design_review/evidence/2026-10-29_semantic-consumer-regeneration/README.md)
+own exact outcomes and next obligations.

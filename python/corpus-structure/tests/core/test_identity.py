@@ -142,7 +142,7 @@ def test_canonical_form_follows_the_declared_range_not_the_shape() -> None:
     ]:
         with pytest.raises(KeyingError) as caught:
             canon(value, canonical, "stat:Params")
-        assert caught.value.drop == Drop(DropReason.MALFORMED_QUALIFIER, "stat:q")  
+        assert caught.value.drop == Drop(DropReason.MALFORMED_QUALIFIER, "stat:q")
 
 
 def test_relations_are_the_models() -> None:
@@ -434,7 +434,7 @@ def test_the_schema_refuses_malformed_specifications() -> None:
     with pytest.raises(ValidationError, match="drops core members"):
         KeySchema(modality_properties={"attribution_identifying": frozenset({"reported"})})
     with pytest.raises(ValidationError):
-        KeySchema.model_validate({"key_scheme": 0})  
+        KeySchema.model_validate({"key_scheme": 0})
 
 
 def test_every_frame_failure_reason_has_a_message() -> None:

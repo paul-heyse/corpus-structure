@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "id": "consumer.regeneration",
+  "title": "Semantic consumer and real regeneration checkpoint",
+  "group": "semantic-model-pivot",
+  "package": "SP-10",
+  "finalized": "2026-10-29",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which transitioned consumers and actual source-to-result journeys have completed, and what prevents assembled acceptance?",
+  "answers": [
+    "SP-08",
+    "SP-09",
+    "SP-10"
+  ],
+  "method": "Integrate current semantic consumers; execute actual source/provider, query, export and reference journeys on a fresh semantic deployment; retain scoped checks, failures and the final database checkpoint.",
+  "commands": [
+    "just types",
+    "just ready",
+    "just test-all",
+    "uv run python docs/design_review/evidence/2026-10-29_semantic-consumer-regeneration/code/evaluate_transfer.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "original command outputs and database checkpoint",
+      "sha256": "39cd88d510622f5e4985799609890b70fe118bdeb7b4a9248097a6d2b17b392e"
+    },
+    {
+      "path": "code",
+      "role": "actual independent-reference evaluation command",
+      "sha256": "71b6a0650908f73364179d542248acb75016ea6a5a0ff4a722b45a340f1295d4"
+    },
+    {
+      "path": "draft-0031",
+      "role": "unapplied initial draft, superseded in mechanism",
+      "sha256": "30e87d85c61648bbc44ce5b172cf4168681b4266728049cff14408c27e47038b"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Selected completed real journeys",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": "Statistics run 1 and transfer run 2; not a full acceptance matrix."
+    },
+    {
+      "name": "Whole-project Pyrefly errors and warnings",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": "Warnings-aware check; suppressions removed structurally."
+    },
+    {
+      "name": "Fresh frame journey",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": "Valid ToySourceStatement refused by a literal base-class guard."
+    },
+    {
+      "name": "Broad functional qualification",
+      "value": "incomplete",
+      "of": null,
+      "unit": null,
+      "note": "Initial collection failure corrected; subsequent run interrupted with a failure marker and no complete summary."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Selected semantic consumers and two actual provider journeys completed. Native statement applicability still ignores the explicit release binding; run 3 has no completed result. The unapplied ancestor-only draft is not the accepted fix. Broad qualification and adjacent applicability assessment remain open; scoped passes do not close SP-10.",
+  "consumed_by": [
+    "SP-08",
+    "SP-09",
+    "SP-10",
+    "semantic-model-pivot coordinator §12"
+  ]
+}

@@ -499,9 +499,7 @@ def normalize_tree(node: V.StoredCondition | None) -> V.StoredCondition | None:
             n = normalize_tree(arg)
             if n is None:
                 continue
-            if isinstance(node, V.StoredAnd) and isinstance(n, V.StoredAnd):
-                args.extend(n.args)
-            elif isinstance(node, V.StoredOr) and isinstance(n, V.StoredOr):
+            if (isinstance(node, V.StoredAnd) and isinstance(n, V.StoredAnd)) or (isinstance(node, V.StoredOr) and isinstance(n, V.StoredOr)):
                 args.extend(n.args)
             else:
                 args.append(n)
@@ -509,8 +507,11 @@ def normalize_tree(node: V.StoredCondition | None) -> V.StoredCondition | None:
             return None
         if len(args) == 1:
             return args[0]
-        return (V.StoredAnd(op="and", args=tuple(args))
-                if isinstance(node, V.StoredAnd) else V.StoredOr(op="or", args=tuple(args)))
+        return (
+            V.StoredAnd(op="and", args=tuple(args))
+            if isinstance(node, V.StoredAnd)
+            else V.StoredOr(op="or", args=tuple(args))
+        )
     if isinstance(node, V.StoredNot):
         inner = normalize_tree(node.arg)
         return node if inner is None else V.StoredNot(op="not", arg=inner)

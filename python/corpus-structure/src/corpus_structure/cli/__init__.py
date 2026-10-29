@@ -10,9 +10,20 @@ from collections.abc import Callable
 
 import typer
 
-from corpus_structure.cli import db, explain, export, golden, mcp, orchestrate, query, regenerate, schema, status
-from corpus_structure.cli.planned import Planned
+from corpus_structure.cli import (
+    db,
+    explain,
+    export,
+    golden,
+    mcp,
+    orchestrate,
+    query,
+    regenerate,
+    schema,
+    status,
+)
 from corpus_structure.cli import eval as evaluation
+from corpus_structure.cli.planned import Planned
 
 _F, _S, _I, _O = "foundations", "schema and rules", "ingest and math", "orchestration"
 _C, _E, _A = "consolidation and queries", "evaluation and goldens", "agent interface"

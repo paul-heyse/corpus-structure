@@ -540,7 +540,9 @@ def preview_schema(
             view.get_uri(cls, expand=True),
             tuple(sorted(str(parent) for parent in view.class_ancestors(name, reflexive=False))),
             tuple(
-                PropertyPreview(str(slot.name), view.get_uri(slot, expand=True), str(slot.range or "string"))
+                PropertyPreview(
+                    str(slot.name), view.get_uri(slot, expand=True), str(slot.range or "string")
+                )
                 for slot in view.class_induced_slots(name)
             ),
             bool(cls.abstract),

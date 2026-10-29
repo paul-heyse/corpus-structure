@@ -1,16 +1,29 @@
 """Consolidation method configuration; semantic.domain_operations owns publication."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Annotated, Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.keys import LabelRules
-from corpus_structure.core.method import Digest, MethodContext, PackSection, Resources, RunView, UnitRef, UnitResult, UnitView
+from corpus_structure.core.method import (
+    Digest,
+    MethodContext,
+    PackSection,
+    Resources,
+    RunView,
+    UnitRef,
+    UnitResult,
+    UnitView,
+)
 from corpus_structure.core.vocab import ConfidenceSource, MethodFamily, MethodTier, TaskUnitType
 
 METHOD = "consolidate.claims"
 VERSION = "1"
+
 
 class ConsolidateConfig(BaseModel):
     """`consolidate.claims`'s configuration: the set-step engine, markup hints, and the pack's

@@ -1,8 +1,10 @@
 """Deterministic stratified reference sampling; pure and independent of physical stores."""
+
 from __future__ import annotations
+
 import hashlib
 import math
-from collections.abc import Collection,Mapping,Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,7 +39,8 @@ def cut_points(shares: Sequence[float]) -> tuple[float, float]:
 
 
 def stratum(unit: PoolUnit, cuts: tuple[float, float] | None) -> str:
-    if unit.math_share is None or cuts is None:return f'{unit.kind}/unknown'
+    if unit.math_share is None or cuts is None:
+        return f"{unit.kind}/unknown"
     tercile = 0 if unit.math_share <= cuts[0] else 1 if unit.math_share <= cuts[1] else 2
     return f"{unit.kind}/t{tercile}"
 
@@ -86,7 +89,7 @@ def sample(pool: Sequence[PoolUnit], size: int, seed: int, forced: Collection[st
         raise GoldenSetError(f"{len(forced)} forced units exceed the set size {size}")
     if size > len(by_key):
         raise GoldenSetError(f"the pool holds {len(by_key)} units, fewer than {size}")
-    known_shares=[u.math_share for u in by_key.values() if u.math_share is not None]
+    known_shares = [u.math_share for u in by_key.values() if u.math_share is not None]
     cuts = cut_points(known_shares) if known_shares else None
     strata: dict[str, list[str]] = {}
     for key in sorted(by_key):
@@ -108,5 +111,3 @@ def sample(pool: Sequence[PoolUnit], size: int, seed: int, forced: Collection[st
             "forced": sorted(forced),
         },
     )
-
-

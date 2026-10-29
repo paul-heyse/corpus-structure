@@ -1,4 +1,5 @@
 """Semantic source-project initialization and indexed original-byte acquisition."""
+
 from __future__ import annotations
 
 import csv
@@ -6,9 +7,12 @@ import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
 from pydantic import BaseModel
 from sqlalchemy import Connection, text
+
 from corpus_structure.orchestrate.registry import MethodRegistry
+
 
 class ProjectError(ValueError):
     """A project or pack that cannot be registered as it stands."""

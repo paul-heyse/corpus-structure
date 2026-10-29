@@ -256,7 +256,7 @@ def test_an_external_reference_resolves_by_link_target_and_rekeys(world: SimpleN
         r for r in unresolved.claims.values() if r.claim.predicate == "core:follows_from"
     )
     assert isinstance(follows.claim.object, EntityRef)
-    assert follows.claim.object.ref == xrf  
+    assert follows.claim.object.ref == xrf
 
     def linked(raw: dict) -> None:
         item = next(s for s in raw["statements"] if s.get("anchor") == "outside")
@@ -275,7 +275,7 @@ def test_an_external_reference_resolves_by_link_target_and_rekeys(world: SimpleN
     assert statement is not None and k.entities[statement].type == STATEMENT
     rekeyed = next(r for r in k.claims.values() if r.claim.predicate == "core:follows_from")
     assert isinstance(rekeyed.claim.object, EntityRef)
-    assert rekeyed.claim.object.ref == statement  
+    assert rekeyed.claim.object.ref == statement
     assert rekeyed.key != follows.key
 
 

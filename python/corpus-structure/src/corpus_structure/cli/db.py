@@ -84,7 +84,12 @@ def _create(admin: Any, name: str, template: str) -> bool:
     probe = create_engine(admin.url.set(database=template), isolation_level="AUTOCOMMIT")
     try:
         with probe.connect() as conn:
-            extensions.check([(str(name),str(version)) for name,version in conn.execute(text(extensions.FOUND))])
+            extensions.check(
+                [
+                    (str(name), str(version))
+                    for name, version in conn.execute(text(extensions.FOUND))
+                ]
+            )
     finally:
         probe.dispose()  # a template must have no connection while it is cloned
     with admin.connect() as conn:
@@ -95,12 +100,16 @@ def _create(admin: Any, name: str, template: str) -> bool:
 def _migrate(engine: Any, name: str, created: bool) -> DbReport:
     from sqlalchemy import text
 
-    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
     from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 
     with engine.begin() as conn:
-        legacy = conn.execute(text("SELECT to_regclass('meta.project') IS NOT NULL OR "
-                                   "to_regclass('public.alembic_version') IS NOT NULL")).scalar_one()
+        legacy = conn.execute(
+            text(
+                "SELECT to_regclass('meta.project') IS NOT NULL OR "
+                "to_regclass('public.alembic_version') IS NOT NULL"
+            )
+        ).scalar_one()
         if legacy:
             raise DbRefused("legacy database refused: bootstrap a fresh owned semantic database")
         applied = migrations.upgrade(conn)

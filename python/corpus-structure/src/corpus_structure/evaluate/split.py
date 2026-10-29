@@ -151,8 +151,8 @@ def assign(
     return sorted(out, key=lambda a: a.document_id)
 
 
-
 def split_documents(conn, project_id, config=None, seed=None):
     """Persist immutable semantic split assignments via the restricted evaluator."""
     from .semantic import split_documents as persist
-    return persist(conn,project_id,config,seed)
+
+    return persist(conn, project_id, config, seed)

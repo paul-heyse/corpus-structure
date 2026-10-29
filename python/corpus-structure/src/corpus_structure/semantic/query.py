@@ -10,7 +10,7 @@ import base64
 import binascii
 import json
 from collections import defaultdict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
@@ -319,7 +319,7 @@ def _same_scope(left: Any, right: Any) -> ColumnElement[bool]:
 @contextmanager
 def read_session(
     store: Engine | _Store, realization_id: str, release_id: str | None = None
-) -> Generator[ReadSession, None, None]:
+) -> Generator[ReadSession]:
     """Own a fresh REPEATABLE READ, read-only connection, binding exactly once.
 
     The optional release selector must equal the realization's immutable binding;
@@ -1030,11 +1030,19 @@ class ReadSession:
             for row in receipts
         }
 
-    def qualification(self, value_id: str, decoded: dict[str, Any], nodes: tuple[ValueNode, ...]) -> Any:
+    def qualification(
+        self, value_id: str, decoded: dict[str, Any], nodes: tuple[ValueNode, ...]
+    ) -> Any:
         """Validate the explicit archived subtype carried by the stored qualification node."""
         node = next(node for node in nodes if node.value_id == value_id)
-        definition = next((definition for definition in self.prepared.definitions
-                           if definition.name == node.datatype or definition.iri == node.datatype), None)
+        definition = next(
+            (
+                definition
+                for definition in self.prepared.definitions
+                if definition.name == node.datatype or definition.iri == node.datatype
+            ),
+            None,
+        )
         if definition is None:
             raise WrongRelease("qualification datatype is absent from the bound release")
         self.prepared.qualification_definition(definition.name)

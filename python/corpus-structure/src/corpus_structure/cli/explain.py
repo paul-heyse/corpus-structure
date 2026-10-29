@@ -23,10 +23,18 @@ def _explain(
     json: bool,
 ) -> None:
     from corpus_structure.semantic.runtime import open_runtime_engine
-    settings=state(ctx).settings()
-    with refusal(json), open_runtime_engine(settings,application_name="ci-explain",purpose="read") as engine, engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn, conn.begin():
+
+    settings = state(ctx).settings()
+    with (
+        refusal(json),
+        open_runtime_engine(settings, application_name="ci-explain", purpose="read") as engine,
+        engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
+        conn.begin(),
+    ):
         conn.execute(text("SET TRANSACTION READ ONLY"))
-        _, rid, _ = context(conn, project or (settings.runtime.default_project if run == "promoted" else None), run)
+        _, rid, _ = context(
+            conn, project or (settings.runtime.default_project if run == "promoted" else None), run
+        )
         emit(explain_query(conn, rid, kind, key), json=json)
 
 

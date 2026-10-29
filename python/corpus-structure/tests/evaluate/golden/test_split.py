@@ -4,13 +4,10 @@ refusals, and its rows on the database."""
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from sqlalchemy import Connection, text
 
 from corpus_structure.core.vocab import DocumentSplit
 from corpus_structure.evaluate.split import (
@@ -18,8 +15,6 @@ from corpus_structure.evaluate.split import (
     SplitDocument,
     SplitError,
     assign,
-    load_eval,
-    split_documents,
 )
 
 ROOT = "siegrist_random/random"
@@ -80,5 +75,3 @@ def test_contradictions_are_refused() -> None:
 def test_permuting_the_documents_leaves_the_split_unchanged(order: list[int], seed: int) -> None:
     docs = [SplitDocument(i, f"{ROOT}/c{i % 3}/P{i}.html", str(i % 3)) for i in range(10)]
     assert assign([docs[i] for i in order], CONFIG, {}, seed) == assign(docs, CONFIG, {}, seed)
-
-

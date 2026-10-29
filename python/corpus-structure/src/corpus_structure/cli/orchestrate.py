@@ -28,7 +28,7 @@ run_app = typer.Typer(help="Start or cancel a run.", invoke_without_command=True
 
 
 @contextmanager
-def _open_engine(settings: Any, timeout: float = 30.0) -> Generator[Any, None, None]:
+def _open_engine(settings: Any, timeout: float = 30.0) -> Generator[Any]:
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with open_runtime_engine(settings, timeout=timeout) as engine:
@@ -53,7 +53,7 @@ PHASE0: Callable[[], dict[str, Any]] = _phase0
 
 
 @contextmanager
-def _refusals() -> Generator[None, None, None]:
+def _refusals() -> Generator[None]:
     from corpus_structure.orchestrate import commands, project, registry, runs
     from corpus_structure.orchestrate.policy import PolicyError
     from corpus_structure.orchestrate.slices import SliceError
@@ -111,9 +111,14 @@ def project_init(
         if semantic_release is None or realization is None:
             raise typer.BadParameter("initialization requires --semantic-release and --realization")
         report = project.init_bound_project(
-            conn, domain=domain, corpus=corpus, release_id=semantic_release,
-            realization_id=realization, name=name or settings.runtime.default_project,
-            domains=seams["domains"], registry=seams["registry_for"](seams["domains"] / domain),
+            conn,
+            domain=domain,
+            corpus=corpus,
+            release_id=semantic_release,
+            realization_id=realization,
+            name=name or settings.runtime.default_project,
+            domains=seams["domains"],
+            registry=seams["registry_for"](seams["domains"] / domain),
         )
     emit(report, json=json, render=lambda r: _table("project", r))
 
@@ -167,9 +172,17 @@ def run(
                 conn, project, release_id=semantic_release, realization_id=realization
             )
         report = commands.start_bound_run(
-            engine, release_id=release_id, realization_id=realization_id,
-            project_id=project, domain=domain, method_settings=method_settings,
-            phase=phase, fresh=tuple(fresh or ()), slice=slice, scope=scope, corpus=corpus,
+            engine,
+            release_id=release_id,
+            realization_id=realization_id,
+            project_id=project,
+            domain=domain,
+            method_settings=method_settings,
+            phase=phase,
+            fresh=tuple(fresh or ()),
+            slice=slice,
+            scope=scope,
+            corpus=corpus,
             agent_mode=str(agent_mode or AgentMode.COMPLETE),
             agent_reuse=str(agent_reuse or AgentReuse.FULL),
             **{k: v for k, v in PHASE0().items() if k in {"registry_for", "graph", "domains"}},
@@ -248,7 +261,9 @@ def _render_tasks(result: BaseModel) -> RenderableType:
 def tasks(
     ctx: typer.Context,
     run_id: Annotated[int | None, typer.Argument(metavar="[RUN]")] = None,
-    project: Annotated[str | None, typer.Option(help="Project (default: runtime.default_project).")] = None,
+    project: Annotated[
+        str | None, typer.Option(help="Project (default: runtime.default_project).")
+    ] = None,
     status: Annotated[list[TaskStatus] | None, typer.Option(help="Only this status.")] = None,
     method: Annotated[list[str] | None, typer.Option(help="Only this method.")] = None,
     limit: Annotated[int, typer.Option(help="At most this many.")] = 50,
@@ -260,9 +275,13 @@ def tasks(
 
     with _refusals(), ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
         listing = commands.bound_task_listing(
-            conn, run_id,
-            project_id=project or (state(ctx).settings().runtime.default_project if run_id is None else None),
-            statuses=status or (), methods=method or (), limit=limit
+            conn,
+            run_id,
+            project_id=project
+            or (state(ctx).settings().runtime.default_project if run_id is None else None),
+            statuses=status or (),
+            methods=method or (),
+            limit=limit,
         )
     emit(listing, json=json, render=_render_tasks)
 

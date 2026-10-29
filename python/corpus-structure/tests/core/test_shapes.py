@@ -415,7 +415,7 @@ def test_stored_core_qualifiers_dump_by_prefixed_name() -> None:
            "stat:param_values": {"mean": mean}}  # fmt: skip
     q = StoredQualifiers.model_validate(raw)
     assert isinstance(q.attribution, EntityRef)
-    assert q.modality == "cited" and q.attribution.ref == "S"  
+    assert q.modality == "cited" and q.attribution.ref == "S"
     assert q.model_dump(mode="json") == raw
     assert StoredQualifiers.model_validate({"core:modality": "asserted"}).model_dump() == {}
     authored = AuthoredQualifiers.model_validate({"modality": "cited"})  # local names, authored

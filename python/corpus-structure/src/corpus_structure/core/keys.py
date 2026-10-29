@@ -436,7 +436,12 @@ def _parts(node: Condition) -> tuple[tuple[Condition, ...], tuple[EntityRef | Va
             return (), (lhs, rhs)
         case PredNode(args=pred_args):
             return (), pred_args
-        case AuthoredPhraseNode() | StoredPhraseNode() | AuthoredUnsupportedNode() | StoredUnsupportedNode():
+        case (
+            AuthoredPhraseNode()
+            | StoredPhraseNode()
+            | AuthoredUnsupportedNode()
+            | StoredUnsupportedNode()
+        ):
             return (), ()
         case _:
             assert_never(node)
@@ -531,7 +536,12 @@ def _canonical_node(
                 return None
             return {"op": "forall", "var": symbol_form(var, macros), "set": value(set_),
                     "body": inner}  # fmt: skip
-        case AuthoredPhraseNode(op=op, text=text) | StoredPhraseNode(op=op, text=text) | AuthoredUnsupportedNode(op=op, text=text) | StoredUnsupportedNode(op=op, text=text):
+        case (
+            AuthoredPhraseNode(op=op, text=text)
+            | StoredPhraseNode(op=op, text=text)
+            | AuthoredUnsupportedNode(op=op, text=text)
+            | StoredUnsupportedNode(op=op, text=text)
+        ):
             return {"op": op, "text": text_form(text)}
         case _:
             assert_never(n)

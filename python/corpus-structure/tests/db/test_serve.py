@@ -1,8 +1,13 @@
 """The current named-query plugin registry; native serving journeys live in semantic/test_serving."""
+
 from pathlib import Path
+
 import pytest
-from corpus_structure.serve.registry import QueryRegistryError,build_registry
+
 from corpus_structure.serve.queries import GENERIC
+from corpus_structure.serve.registry import QueryRegistryError, build_registry
+
+
 def test_the_registry_loads_a_pack_plugin_and_refuses_malformed_ones(tmp_path: Path) -> None:
     pack = tmp_path / "toy"
     pack.mkdir()
@@ -26,5 +31,3 @@ def test_the_registry_loads_a_pack_plugin_and_refuses_malformed_ones(tmp_path: P
     )
     with pytest.raises(QueryRegistryError, match=r"broken.*|no rows\(\)"):
         build_registry([], pack)
-
-

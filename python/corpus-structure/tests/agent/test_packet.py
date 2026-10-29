@@ -337,7 +337,7 @@ def test_a_prompt_part_change_gives_a_new_digest_and_identical_inputs_the_same(
             key_scheme=1,
             options={"agent_reuse": "full"},
             reader=FakeReader(guideline),
-        )  
+        )
         unit = UnitView(UnitRef(TaskUnitType.SEGMENT, 1, "u"), view, rendition_id=1)
         from corpus_structure.core.canonical import canonical_json
 

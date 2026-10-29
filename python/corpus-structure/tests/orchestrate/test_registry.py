@@ -208,6 +208,6 @@ def test_recorded_rows_and_the_runs_map(db: Connection, tmp_path: Path) -> None:
     later = reg.RunConfigs(reg.MethodRegistry(METHODS, methods_file(tmp_path, edited)), db, run_map)
     recorded_config = later.config("agent.opus", "adjudicate").config
     assert isinstance(recorded_config, AgentConfig)
-    assert recorded_config.packet_cap_chars == 9000  
+    assert recorded_config.packet_cap_chars == 9000
     with pytest.raises(reg.RegistryError, match="not a configuration this run recorded"):
         later.config("agent.opus", "expectation")

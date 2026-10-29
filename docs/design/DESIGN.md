@@ -274,14 +274,17 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
-**Accepted consumer target (2026-10-29).** Independent-reference grades use separate protected
+**Implemented with scoped Tested evidence (2026-10-29).** Independent-reference grades use separate protected
 LinkML reference/pass/frame/evaluation definitions; completed knowledge output retains its existing
 meaning. A project selects an immutable completed result separately from its active interpretation,
 with the same generation CAS. Queries, explanations and qualified columnar exports bind that
 result's archived release and revision. Purpose-specific authentication shares one declared storage
 endpoint. Regeneration uses actual sources and a fresh restricted automated MCP extractor, with
 archived-run resumption and no reference inputs. Existing databases and running MCP processes
-are not migrated in place. The pivot coordinator owns native/provider acceptance and limitations.
+are not migrated in place. [Pivot coordinator §12](../plans/semantic-model-pivot_2026-10-29.md#12-sp-08sp-10-implementation-checkpoint-2026-10-29)
+owns native/provider acceptance and limitations. Statistics/transfer journeys completed on
+semantic_0030; a fresh frame journey exposed a native guard that does not consume the explicit
+release statement binding. Its correction and assembled qualification remain open.
 
 > Decision: ADR-0030
 

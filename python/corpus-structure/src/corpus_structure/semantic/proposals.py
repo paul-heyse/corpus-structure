@@ -19,8 +19,8 @@ from pydantic import BaseModel
 
 from corpus_structure.core.evidence import MacroDef, RenditionContent
 from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.methods.llm.packet import SentenceEntry
 from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
+from corpus_structure.methods.llm.packet import SentenceEntry
 from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 
 from .prepare import preview_schema
@@ -64,7 +64,9 @@ def proposal_inputs(
     if not predicates:
         raise ValueError("agent proposals require at least one declared entity property")
     statement = next((d for d in candidate.classes if d.name == statement_class), None)
-    if statement is None or not (statement.name == "SourceStatement" or "SourceStatement" in statement.ancestors):
+    if statement is None or not (
+        statement.name == "SourceStatement" or "SourceStatement" in statement.ancestors
+    ):
         raise ValueError("agent operation needs an explicit SourceStatement class or subclass")
     statement_enum = next(p.range for p in statement.properties if p.name == "statement_kind")
     module["classes"]["AgentStatementBinding"]["attributes"]["statement"]["range"] = statement_class
@@ -121,20 +123,23 @@ class ProposalFrame:
             raise ValueError("proposal sentence lies outside canonical source text")
 
 
-def source_frame(unit_ref: str, content: RenditionContent, page: str,
-                 sentences: Sequence[SentenceEntry]) -> ProposalFrame:
+def source_frame(
+    unit_ref: str, content: RenditionContent, page: str, sentences: Sequence[SentenceEntry]
+) -> ProposalFrame:
     """Project the served sentence identities from the immutable source rendition."""
     index = LocatorIndex(content, page)
     located = []
     for sentence in sentences:
         segment = index.resolve(sentence.locator)
-        if content.canonical_text[segment.start:segment.end] != sentence.text:
+        if content.canonical_text[segment.start : segment.end] != sentence.text:
             raise ProposalRefused("packet sentence differs from source frame")
         located.append(ProposalSentence(sentence.id, sentence.locator, segment.start, segment.end))
     return ProposalFrame(unit_ref, content.canonical_text, tuple(located))
 
 
-def statement_anchor(anchor: str, frame: ProposalFrame, *, index: LocatorIndex | None = None) -> str:
+def statement_anchor(
+    anchor: str, frame: ProposalFrame, *, index: LocatorIndex | None = None
+) -> str:
     """Resolve a local handle through its frame, never through another packet's namespace.
 
     A source report may use its declared unit or supplied canonical sentence locators. The
@@ -147,13 +152,20 @@ def statement_anchor(anchor: str, frame: ProposalFrame, *, index: LocatorIndex |
         anchor = sentences[anchor]
     elif anchor not in known and index is None:
         raise ProposalRefused("statement anchor is not declared by the bound source frame")
-    if anchor not in known and anchor not in sentences and anchor[:1] in {"s", "c"} and anchor[1:].isdigit():
+    if (
+        anchor not in known
+        and anchor not in sentences
+        and anchor[:1] in {"s", "c"}
+        and anchor[1:].isdigit()
+    ):
         raise ProposalRefused("local statement handle is not declared by the bound source frame")
     if index is not None:
         try:
             return str(index.generate(index.resolve(anchor)))
         except (ValueError, LookupError) as error:
-            raise ProposalRefused("statement anchor is not located on its bound rendition") from error
+            raise ProposalRefused(
+                "statement anchor is not located on its bound rendition"
+            ) from error
     return anchor
 
 

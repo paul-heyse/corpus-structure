@@ -1,9 +1,12 @@
 """Pure invariant checks over assembled knowledge; semantic publication owns writes."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+
 from corpus_structure.consolidate.assemble import Inputs, Knowledge
 from corpus_structure.core.vocab import Establishment, EvidenceRole
+
 
 class InvariantViolation(AssertionError):
     """A row the checks should have dropped: a defect below them. The pass raises and rolls back."""
