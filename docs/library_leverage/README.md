@@ -32,12 +32,14 @@ ordinary implementation and API questions do not initiate this workflow.
 
 ## Current accounts
 
-No opportunity audit, library applicability assessment or comparative review has been run by
-installing the workflow. The three collection folders and their README entry points exist and
-explicitly identify their unassessed state. Author topic documents and record inspected baselines
-when the first real assessment supplies content. Create `assessment-patterns.md` with its first useful
-addition; do not invent patterns to populate a scaffold. Record inspected baselines and limits
-rather than treating empty collections as assessed.
+The [codebase opportunity account](codebase/README.md) has its first baseline (2026-10-29,
+source `9f8df02`, reconciled through `f697233`). It holds 24 opportunities, with a forward view on
+the semantic-model pivot's SP-08–SP-10 work. That pass also created the shared
+[additional assessment patterns](assessment-patterns.md) (LOP-X001–X004).
+
+The [library assessment](libraries/README.md) and [comparative review](reviews/README.md)
+collections remain unassessed. Record inspected baselines and limits rather than treating empty
+collections as assessed, and add patterns only when a framing is genuinely missing.
 
 The shared [vocabulary](references/shared-language.md) and
 [collection-writing guidance](references/collection-writing.md) support all three skills. Keep
