@@ -918,6 +918,12 @@ classes:
       reason:
         range: string
         required: false
+      source_outcome:
+        range: string
+        required: false
+      required_capability:
+        range: string
+        required: false
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -1723,6 +1729,18 @@ classes:
       uncertainty:
         range: string
         required: false
+      counterpart_fact_id:
+        range: string
+        required: false
+      counterpart_occurrence_id:
+        range: string
+        required: false
+      context_value_id:
+        range: string
+        required: false
+      comparison_tier:
+        range: string
+        required: false
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -1883,3 +1901,131 @@ classes:
         unique_key_slots: [realization_id, release_id, group_id, fact_id]
     annotations:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "group_id"], "target": "data.alternative_group.realization_id,release_id,group_id"}, {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
+
+  conditional_rule:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      rule_id:
+        range: string
+        required: true
+      class_id:
+        range: string
+        required: true
+      scope:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - rule_id
+    annotations:
+      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
+
+  conditional_atom:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      rule_id:
+        range: string
+        required: true
+      branch:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      property_name:
+        range: string
+        required: true
+      presence:
+        range: string
+        required: true
+      choices:
+        range: json_payload
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - rule_id
+        - branch
+        - position
+    annotations:
+      ph:foreign_keys: '[{"columns":["release_id","rule_id"],"target":"sem.conditional_rule.release_id,rule_id"}]'
+
+  completed_result:
+    in_subset:
+    - ops
+    attributes:
+      run_id:
+        range: integer
+        required: true
+      release_id:
+        range: string
+        required: true
+      output_realization_id:
+        range: string
+        required: true
+      cut_id:
+        range: integer
+        required: true
+      batch_id:
+        range: string
+        required: true
+      dependency_digest:
+        range: string
+        required: true
+      source_receipts:
+        range: json_payload
+        required: true
+      proof_receipts:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - run_id
+    annotations:
+      ph:foreign_keys: '[{"columns":["run_id"],"target":"ops.run.id"},{"columns":["release_id","output_realization_id"],"target":"data.realization.release_id,realization_id"},{"columns":["release_id","output_realization_id","batch_id"],"target":"data.batch.release_id,realization_id,batch_id"}]'
+
+  publication_intent:
+    in_subset:
+    - data
+    attributes:
+      release_id: {range: string, required: true}
+      realization_id: {range: string, required: true}
+      batch_id: {range: string, required: true}
+      source_release_id: {range: string, required: true}
+      source_realization_id: {range: string, required: true}
+      source_revision: {range: integer, required: true}
+      source_capture_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      projection_id: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [release_id, realization_id, batch_id]
+    annotations:
+      ph:foreign_keys: '[{"columns":["release_id","realization_id","batch_id"],"target":"data.batch.release_id,realization_id,batch_id"},{"columns":["source_release_id","source_realization_id"],"target":"data.realization.release_id,realization_id"}]'
+
+  metric_definition:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      metric_id: {range: string, required: true}
+      value_type: {range: string, required: true}
+      subject_kind: {range: string, required: true}
+      detail_schema: {range: string, required: true}
+      description: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [release_id, metric_id]
+    annotations:
+      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'

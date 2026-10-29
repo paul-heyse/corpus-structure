@@ -70,13 +70,18 @@ classes:
             ),
         )
         bundle = observation_inputs(bundle)
-    p = prepare_release(bundle)
+    from corpus_structure.semantic.types import ResolvedDependencies
+    dependencies = ResolvedDependencies()
+    if observations:
+        from corpus_structure.semantic.metrics import observation_dependencies
+        dependencies = observation_dependencies(dependencies, b"metrics: [{id: count, value_type: SourceFloatOrNull, subject_kind: run, detail_schema: SourceObject, description: Test method count}]")
+    p = prepare_release(bundle, dependencies)
     with engine.begin() as c:
         if archive:
             from corpus_structure.semantic.releases import persist_release
             from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 
-            persist_release(c, bundle, ResolvedDependencies(), PreparationProfile(), p)
+            persist_release(c, bundle, dependencies, PreparationProfile(), p)
         else:
             c.execute(
                 insert(table("sem.release")).values(
