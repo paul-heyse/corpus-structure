@@ -421,10 +421,27 @@ def cancel_bound_run(engine: Engine, run_id: int) -> CancelReport:
         return CancelReport(run_id=run_id, tasks_cancelled=end_source_run(conn, run_id))
 
 
+def _bound_run_id(conn: Connection, run_id: int | None, project_id: str | None) -> int | None:
+    from sqlalchemy import select
+    from corpus_structure.semantic.metadata import table
+
+    runs = table("ops.run")
+    query = select(runs.c.id)
+    if run_id is not None:
+        query = query.where(runs.c.id == run_id)
+    if project_id is not None:
+        query = query.where(runs.c.project_id == project_id)
+    found = conn.execute(query.order_by(runs.c.id.desc()).limit(1)).scalar_one_or_none()
+    if found is None and run_id is not None:
+        raise CommandError(f"no semantic run {run_id} in the selected project")
+    return found
+
+
 def bound_task_listing(
     conn: Connection,
     run_id: int | None = None,
     *,
+    project_id: str | None = None,
     statuses: Sequence[TaskStatus] = (),
     methods: Sequence[str] = (),
     limit: int = 50,
@@ -435,7 +452,7 @@ def bound_task_listing(
 
     if limit < 0:
         raise CommandError("task limit must be nonnegative")
-    run = _run_id(conn, run_id)
+    run = _bound_run_id(conn, run_id, project_id)
     if run is None:
         return TaskListing(run_id=None, tasks=[], total=0, limit=limit)
     t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
@@ -508,12 +525,12 @@ def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
     return consolidate_cut(engine, cut, output_realization_id)
 
 
-def bound_status(conn: Connection, run_id: int | None = None) -> StatusReport:
+def bound_status(conn: Connection, run_id: int | None = None, *, project_id: str | None = None) -> StatusReport:
     from sqlalchemy import func, select
 
     from corpus_structure.semantic.metadata import table
 
-    run = _run_id(conn, run_id)
+    run = _bound_run_id(conn, run_id, project_id)
     if run is None:
         return StatusReport(run=None, orphaned=[])
     r, t, c, m, cut = map(
