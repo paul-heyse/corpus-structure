@@ -24,23 +24,69 @@ from .identity import canonical_bytes
 
 COMPILER_VERSION = "authored-select-1"
 SAFE_FUNCTIONS = frozenset({"count", "min", "max", "sum", "avg", "abs", "length", "lower", "upper"})
-SAFE_TYPES = frozenset({
-    "text", "varchar", "bpchar", "bool", "int2", "int4", "int8", "numeric", "float4", "float8",
-    "bytea", "jsonb", "date", "timestamp", "timestamptz", "uuid",
-})
-SAFE_OPERATORS = frozenset({"=", "<>", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "~~", "!~~", "~~*", "!~~*"})
-SAFE_NODES = frozenset({
-    "RawStmt", "SelectStmt", "ResTarget", "ColumnRef", "A_Star", "String", "Integer", "Float",
-    "Boolean", "A_Const", "RangeVar", "Alias", "JoinExpr", "A_Expr", "BoolExpr", "NullTest",
-    "BooleanTest", "SortBy", "WithClause", "CommonTableExpr", "RangeSubselect", "SubLink",
-    "FuncCall", "TypeCast", "TypeName", "CoalesceExpr", "CaseExpr", "CaseWhen",
-})
+SAFE_TYPES = frozenset(
+    {
+        "text",
+        "varchar",
+        "bpchar",
+        "bool",
+        "int2",
+        "int4",
+        "int8",
+        "numeric",
+        "float4",
+        "float8",
+        "bytea",
+        "jsonb",
+        "date",
+        "timestamp",
+        "timestamptz",
+        "uuid",
+    }
+)
+SAFE_OPERATORS = frozenset(
+    {"=", "<>", "!=", "<", ">", "<=", ">=", "+", "-", "*", "/", "%", "~~", "!~~", "~~*", "!~~*"}
+)
+SAFE_NODES = frozenset(
+    {
+        "RawStmt",
+        "SelectStmt",
+        "ResTarget",
+        "ColumnRef",
+        "A_Star",
+        "String",
+        "Integer",
+        "Float",
+        "Boolean",
+        "A_Const",
+        "RangeVar",
+        "Alias",
+        "JoinExpr",
+        "A_Expr",
+        "BoolExpr",
+        "NullTest",
+        "BooleanTest",
+        "SortBy",
+        "WithClause",
+        "CommonTableExpr",
+        "RangeSubselect",
+        "SubLink",
+        "FuncCall",
+        "TypeCast",
+        "TypeName",
+        "CoalesceExpr",
+        "CaseExpr",
+        "CaseWhen",
+    }
+)
 
 
 class SQLAdmissionError(ValueError):
     def __init__(self, message: str, location: int | None = None):
         self.location = location
-        super().__init__(f"{message}" + (f" at character {location}" if location is not None else ""))
+        super().__init__(
+            f"{message}" + (f" at character {location}" if location is not None else "")
+        )
 
 
 @dataclass(frozen=True)
@@ -75,7 +121,9 @@ class _Inspect(Visitor):
     def inspect_node(self, ancestors: Any, node: Any) -> None:
         kind = type(node).__name__
         if kind not in SAFE_NODES:
-            raise SQLAdmissionError(f"unsupported authored SQL node {kind}", getattr(node, "location", None))
+            raise SQLAdmissionError(
+                f"unsupported authored SQL node {kind}", getattr(node, "location", None)
+            )
         if isinstance(node, ast.SelectStmt) and (node.intoClause or node.lockingClause):
             raise SQLAdmissionError("SELECT INTO and row locking are unsupported")
         if isinstance(node, ast.FuncCall):
@@ -90,10 +138,14 @@ class _Inspect(Visitor):
             if len(name) != 2 or name[0] != "pg_catalog" or name[1] not in SAFE_TYPES:
                 raise SQLAdmissionError(f"unsupported type {'.'.join(name)}", node.location)
             if node.arrayBounds or node.setof or node.pct_type:
-                raise SQLAdmissionError("array/set/column type casts are unsupported", node.location)
+                raise SQLAdmissionError(
+                    "array/set/column type casts are unsupported", node.location
+                )
         if isinstance(node, ast.A_Expr):
             name = tuple(n.sval for n in node.name or ())
-            if name and (name[-1] not in SAFE_OPERATORS or (len(name) > 1 and name[:-1] != ("pg_catalog",))):
+            if name and (
+                name[-1] not in SAFE_OPERATORS or (len(name) > 1 and name[:-1] != ("pg_catalog",))
+            ):
                 raise SQLAdmissionError(f"unsupported operator {'.'.join(name)}", node.location)
 
 
@@ -139,32 +191,52 @@ def admit_sql(
     with conn.begin():
         conn.exec_driver_sql("SET TRANSACTION READ ONLY")
         conn.exec_driver_sql("SET LOCAL search_path = pg_catalog")
-        role = conn.execute(text(
-            "SELECT current_user, session_user, rolsuper, rolcreaterole, rolcreatedb, rolbypassrls "
-            "FROM pg_roles WHERE rolname=current_user"
-        )).one()
+        role = conn.execute(
+            text(
+                "SELECT current_user, session_user, rolsuper, rolcreaterole, "
+                "rolcreatedb, rolbypassrls "
+                "FROM pg_roles WHERE rolname=current_user"
+            )
+        ).one()
         if role[0] != execution_role or role[1] != execution_role or any(role[2:]):
-            raise SQLAdmissionError("catalog admission requires the actual restricted execution login")
+            raise SQLAdmissionError(
+                "catalog admission requires the actual restricted execution login"
+            )
         for name in relations:
             t = metadata.tables[name]
-            columns = conn.execute(text(
-                "SELECT c.oid, c.relkind, a.attname, n.nspname, y.typname, "
-                "pg_has_role(current_user,c.relowner,'USAGE'), "
-                "has_schema_privilege(current_user,c.relnamespace,'CREATE') "
-                "FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace "
-                "JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped "
-                "JOIN pg_type y ON y.oid=a.atttypid JOIN pg_namespace n ON n.oid=y.typnamespace "
-                "WHERE s.nspname=:schema AND c.relname=:name ORDER BY a.attnum"
-            ), {"schema": t.schema, "name": t.name}).all()
-            if not columns or any(r[1] not in ("r", "p") or r[3] != "pg_catalog" or r[4] not in SAFE_TYPES or r[5] or r[6] for r in columns):
+            columns = conn.execute(
+                text(
+                    "SELECT c.oid, c.relkind, a.attname, n.nspname, y.typname, "
+                    "pg_has_role(current_user,c.relowner,'USAGE'), "
+                    "has_schema_privilege(current_user,c.relnamespace,'CREATE') "
+                    "FROM pg_class c JOIN pg_namespace s ON s.oid=c.relnamespace "
+                    "JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped "
+                    "JOIN pg_type y ON y.oid=a.atttypid "
+                    "JOIN pg_namespace n ON n.oid=y.typnamespace "
+                    "WHERE s.nspname=:schema AND c.relname=:name ORDER BY a.attnum"
+                ),
+                {"schema": t.schema, "name": t.name},
+            ).all()
+            if not columns or any(
+                r[1] not in ("r", "p")
+                or r[3] != "pg_catalog"
+                or r[4] not in SAFE_TYPES
+                or r[5]
+                or r[6]
+                for r in columns
+            ):
                 raise SQLAdmissionError(f"unsupported or writable catalog dependency {name}")
             dependencies.extend((name, str(r[0]), r[2], r[3], r[4]) for r in columns)
         for function in functions:
-            rows = conn.execute(text(
-                "SELECT p.oid, pg_get_function_identity_arguments(p.oid), p.provolatile, p.prosecdef "
-                "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
-                "WHERE n.nspname='pg_catalog' AND p.proname=:name ORDER BY p.oid"
-            ), {"name": function}).all()
+            rows = conn.execute(
+                text(
+                    "SELECT p.oid, pg_get_function_identity_arguments(p.oid), "
+                    "p.provolatile, p.prosecdef "
+                    "FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+                    "WHERE n.nspname='pg_catalog' AND p.proname=:name ORDER BY p.oid"
+                ),
+                {"name": function},
+            ).all()
             if not rows or any(r[2] == "v" or r[3] for r in rows):
                 raise SQLAdmissionError(f"unsupported catalog function pg_catalog.{function}")
             dependencies.extend(("function", function, str(r[0]), r[1], r[2]) for r in rows)
@@ -178,8 +250,16 @@ def admit_sql(
             cur.execute("EXPLAIN (FORMAT JSON) " + sql, prepare=False)
             cur.fetchone()
         server_version = conn.exec_driver_sql("SHOW server_version").scalar_one()
-    return AuthoredSQL(sql, release_id, physical_id, relations, functions,
-                       tuple(dependencies), version("pglast"), server_version)
+    return AuthoredSQL(
+        sql,
+        release_id,
+        physical_id,
+        relations,
+        functions,
+        tuple(dependencies),
+        version("pglast"),
+        server_version,
+    )
 
 
 def decode_artifact(content: bytes) -> dict[str, Any]:
@@ -199,11 +279,15 @@ def admit_archived_sql(
 
     inputs = table("sem.input")
     admitted = table("sem.sql_admission")
-    rows = conn.execute(select(inputs.c.input_name, inputs.c.content).where(
-        inputs.c.release_id == release_id,
-        inputs.c.input_kind == "dependency",
-        inputs.c.input_name.startswith("authored-sql/"),
-    ).order_by(inputs.c.input_name)).all()
+    rows = conn.execute(
+        select(inputs.c.input_name, inputs.c.content)
+        .where(
+            inputs.c.release_id == release_id,
+            inputs.c.input_kind == "dependency",
+            inputs.c.input_name.startswith("authored-sql/"),
+        )
+        .order_by(inputs.c.input_name)
+    ).all()
     if rows and reader_conn is None:
         raise SQLAdmissionError("authored SQL activation requires a restricted reader connection")
     artifacts = []
@@ -215,17 +299,32 @@ def admit_archived_sql(
         except UnicodeDecodeError as exc:
             raise SQLAdmissionError(f"authored SQL {name} is not UTF-8") from exc
         assert reader_conn is not None
-        artifact = admit_sql(reader_conn, sql, release_id=release_id, metadata=metadata,
-                             physical_id=PHYSICAL_MODEL_ID)
-        values = dict(release_id=release_id, input_kind="dependency", input_name=name,
-                      physical_id=PHYSICAL_MODEL_ID, content=artifact.content,
-                      content_digest=artifact.digest)
+        artifact = admit_sql(
+            reader_conn,
+            sql,
+            release_id=release_id,
+            metadata=metadata,
+            physical_id=PHYSICAL_MODEL_ID,
+        )
+        values = dict(
+            release_id=release_id,
+            input_kind="dependency",
+            input_name=name,
+            physical_id=PHYSICAL_MODEL_ID,
+            content=artifact.content,
+            content_digest=artifact.digest,
+        )
         conn.execute(insert(admitted).values(**values).on_conflict_do_nothing())
-        prior = conn.execute(select(admitted.c.content).where(
-            admitted.c.release_id == release_id, admitted.c.input_name == name,
-            admitted.c.physical_id == PHYSICAL_MODEL_ID,
-        )).scalar_one()
+        prior = conn.execute(
+            select(admitted.c.content).where(
+                admitted.c.release_id == release_id,
+                admitted.c.input_name == name,
+                admitted.c.physical_id == PHYSICAL_MODEL_ID,
+            )
+        ).scalar_one()
         if bytes(prior) != artifact.content:
-            raise SQLAdmissionError(f"catalog admission changed for {name}; rebuild the realization")
+            raise SQLAdmissionError(
+                f"catalog admission changed for {name}; rebuild the realization"
+            )
         artifacts.append(artifact)
     return tuple(artifacts)
