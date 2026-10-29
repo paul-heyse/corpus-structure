@@ -37,6 +37,34 @@ and semantic facts use different scoped keys; confidence/evidence are support ra
 identity. The [owning plan](../plans/semantic-model-pivot/semantic-model-and-releases.md) retains
 verification scope and support limits.
 
+## Released domain operation declarations
+
+**Implemented, 2026-10-29; explicit semantic profile.** Domain class/property applicability,
+identity groups, enum memberships and subsets come from the admitted release. Class scope/case,
+property roles, functional declarations, qualifier roles and parameter-map declarations are
+archived compiler products. Genuine keyed LinkML inlined collections remain maps with validated
+member identifiers; they do not become ordered lists. Unknown required constructs refuse
+preparation or admission.
+
+String slots that refer to materialized facts declare `cs:reference_role: fact`. Source-local
+references resolve in dependency order to canonical fact IDs; ordinary literal fields keep their
+text. Native publication checks the bound fact universe or explicitly verified input lineage.
+
+Boundary source creation uses a lightweight schema/vocabulary preview. Full pure preparation is
+reused in a bounded cache keyed by immutable inputs and the current compiler/library stack.
+Archive loads still verify exact input/artifact bytes and relational projections. Compiler 6 uses
+LinkML runtime's native RDFC-1.0 canonicalizer for OWL/SHACL; unsupported nonstandard RDF refuses
+instead of entering its slow fallback. RDF 1.1 string normalization changes canonical artifact
+bytes, so existing releases retain their original compiler identity.
+
+Current domain and core rules are archived together as `operation/domain-rules.yaml` with the
+release's applicable identity policy. Rule compilation uses the release-derived typed language
+and vocabulary before preparation succeeds. A run never reopens a current schema, rule file or
+ontology service to reinterpret a recorded operation. Pydantic Settings still selects and validates
+process configuration once; it does not supply semantic defaults or merge method policies.
+
+> Decision: ADR-0027
+
 ## 1. Principles
 
 1. **One declaration per domain.** A domain pack's LinkML schema is the single source for entity

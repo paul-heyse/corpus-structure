@@ -17,6 +17,40 @@ conflicts are decided; how confidence is estimated and calibrated; how judgments
 validation set status. Consolidation is methods M17 and M18 of
 [D4](D4-method-catalog.md#11-consolidation-summary) and the only writer of knowledge rows.
 
+## Semantic domain operation entry points
+
+**Implemented profile, 2026-10-29; acceptance and remaining obligations belong to
+[SP-07](../plans/semantic-model-pivot/domain-operations.md#SP-07).**
+`semantic.domain_operations` projects a sealed observation cut into independent source occurrences,
+qualified facts and explicit policy assessments. Source declarations, scientific selection and
+protected storage validation remain distinct. Existing typed rule evaluation and mathematical
+comparison algorithms consume release-derived views; unsupported or ambiguous interpretations
+remain explicit rather than becoming a passing check.
+
+Local columnar set operations use one `AnalysisScope` and its DuckDB connection. Their operation
+subjects are declared explicitly: source occurrences can be compared without losing independent
+reports, while canonical fact IDs remain separate. Qualified positive inference uses relational
+joins and a finite conclusion set, then publishes admitted direct proofs through the same native
+publisher. Initial premises are selected positive stated asserted/defined facts with located source
+support; negative assertions, suppositions and unsupported readings do not authorize conclusions.
+Exact qualification, scope and source macro meaning remain visible.
+
+Alternative groups retain sorted distinct canonical fact members, reasons and operation versions
+in compact relational rows. Explanation returns those groups and typed assessments; independent
+source occurrences remain separate. Numerical comparison applies within exact qualification to
+declared functional value slots. Nonfunctional relations can retain several targets, and distinct
+conditional values remain distinct assertions.
+
+Selected input identity/display facts carry verified input lineage without fabricated source
+occurrences. A completed result replays its immutable receipts even if its original input later
+advances. Runtime math interpretation uses frozen task configuration with source macro overrides.
+
+A fresh evaluated realization is published atomically with its inference receipts and final run
+pointer. Finishing does not authorize later mutation of that result. The detailed legacy pass
+contracts below continue to describe the selected default until the planned cutover.
+
+> Decision: ADR-0027
+
 ## 1. Shape
 
 Consolidation is a **pure function** of: the run's effective observations

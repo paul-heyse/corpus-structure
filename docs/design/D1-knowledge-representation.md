@@ -16,6 +16,24 @@ storage ([D3](D3-database.md)) and of the methods that produce it ([D4](D4-metho
 Every other document refers to the types defined here. The [worked trace](trace.md) shows each
 type on real Siegrist text.
 
+## Semantic source and qualification profile
+
+**Implemented, 2026-10-29; package acceptance remains scoped by
+[SP-06/SP-07](../plans/semantic-model-pivot/domain-operations.md).** The opt-in
+`model/semantic/core.yaml` declares mathematical expressions, source-bound macro environments,
+explicit expression bindings, typed semantic scope, and compositional conditions. Membership,
+comparison, quantification and claim references have distinct node types; an arbitrary predicate
+IRI does not acquire a built-in operation from its spelling. Hedging, attribution and partial
+validity intervals remain meaning-bearing qualification. Missing bounds or inclusivity stay absent.
+
+Source occurrences preserve their exact reported values even when a canonical fact groups their
+meaning. Decimal spelling and timestamp offsets do not select scientific truth. Parsing outcomes,
+normal forms, numerical/symbolic comparisons and confidence are operation results, separate from
+proposition identity. Located source markup can establish a source statement and what that source
+presents as a proof; it does not establish mathematical validity.
+
+> Decision: ADR-0027
+
 ## 1. Scope and design goals
 
 The representation must:

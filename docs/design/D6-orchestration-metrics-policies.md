@@ -5,6 +5,30 @@ reuse, debug slices, GPU sharing on the RTX 5090, the metrics every stage record
 policy language that decides which methods run where. Tables are in
 [D3 §4](D3-database.md#4-ops-methods-policies-runs-and-tasks); methods in [D4](D4-method-catalog.md).
 
+## Semantic run binding and source preparation
+
+**Accepted target, 2026-10-29; implementation progress is owned by
+[SP-06](../plans/semantic-model-pivot/domain-operations.md#SP-06).** Explicit semantic execution
+uses the current source method graph with one immutable release, input realization/revision,
+source/configuration snapshot and operation dependency manifest. Native task attempts, stable
+invocation identities and sealed effective-input cuts replace installed-model interpretation on
+this path. Source readiness, automated agent work and final domain publication have distinct
+results; source readiness alone does not establish completed consolidation or grading.
+
+Automated submissions retain the existing two-submission contract: the first unclean result is
+held durably, and a second result completes with its uncertainty or typed refusal report. Reclaimed
+leases expose the prior issues. Invalid content never becomes an admitted semantic claim; its
+coverage remains explicit. No human grading step is introduced.
+
+Task reuse requires the complete recorded binding, including meaning-bearing policy and
+configuration. This conservative initial profile can recompute deterministic source work after a
+policy-only change; it cannot reuse a result under changed meaning merely because document bytes
+match. Stale attempts, reopened cuts and cross-binding reuse are refused natively. The later
+sections describe the legacy selected path until SP-09; their timestamp-cut details are not a
+second authority for the semantic path.
+
+> Decision: ADR-0027
+
 ## 1. Principles
 
 - **One orchestrator, a database queue.** A Python process drives runs; workers claim tasks
