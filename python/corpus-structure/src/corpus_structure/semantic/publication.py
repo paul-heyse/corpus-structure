@@ -31,6 +31,13 @@ class EntityRow:
 
 
 @dataclass(frozen=True)
+class EntitySourceRow:
+    entity_id: str
+    observation_id: int
+    local_id: str
+
+
+@dataclass(frozen=True)
 class MembershipRow:
     entity_id: str
     class_id: str
@@ -199,6 +206,7 @@ class CoverageRow:
 # The fixed transport schema is shared with the narrow native DDL companion.
 _ROW_TYPES = {
     "entity": EntityRow,
+    "entity_source": EntitySourceRow,
     "membership": MembershipRow,
     "typed_value": ValueRow,
     "value_role": RoleRow,
@@ -241,6 +249,7 @@ class PublicationBatch:
     realization_id: str
     batch_id: str
     entity: tuple[EntityRow, ...] = ()
+    entity_source: tuple[EntitySourceRow, ...] = ()
     membership: tuple[MembershipRow, ...] = ()
     typed_value: tuple[ValueRow, ...] = ()
     value_role: tuple[RoleRow, ...] = ()
