@@ -142,12 +142,13 @@ class ValueComparator:
         names = sorted(grammar_name(k) for v in (a, b) for k in (getattr(v, "symbols", None) or {}))
         variables = tuple(dict.fromkeys(names))
         cform = _json(sorted(_json(canonical_condition(c, self.macros, _IDENTITY)) for c in conds))
-        key = (*sorted((fa, fb)), cform, variables)
-        hit = self._cache.get(key)  # type: ignore[arg-type]
+        left_form, right_form = sorted((fa, fb))
+        key = (left_form, right_form, cform, variables)
+        hit = self._cache.get(key)
         if hit is not None:
             return hit
         out = self._compare(str(ta), a, b, fa, fb, conds, cform, variables)
-        self._cache[key] = out  # type: ignore[index]
+        self._cache[key] = out
         self.log.append(out)
         return out
 
@@ -498,12 +499,18 @@ def normalize_tree(node: V.StoredCondition | None) -> V.StoredCondition | None:
             n = normalize_tree(arg)
             if n is None:
                 continue
-            args.extend(n.args if type(n) is type(node) else [n])  # type: ignore[union-attr]
+            if isinstance(node, V.StoredAnd) and isinstance(n, V.StoredAnd):
+                args.extend(n.args)
+            elif isinstance(node, V.StoredOr) and isinstance(n, V.StoredOr):
+                args.extend(n.args)
+            else:
+                args.append(n)
         if not args:
             return None
         if len(args) == 1:
             return args[0]
-        return type(node)(op=node.op, args=tuple(args))  # type: ignore[arg-type]
+        return (V.StoredAnd(op="and", args=tuple(args))
+                if isinstance(node, V.StoredAnd) else V.StoredOr(op="or", args=tuple(args)))
     if isinstance(node, V.StoredNot):
         inner = normalize_tree(node.arg)
         return node if inner is None else V.StoredNot(op="not", arg=inner)
