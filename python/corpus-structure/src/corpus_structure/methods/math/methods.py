@@ -45,7 +45,7 @@ from corpus_structure.core.method import (
     PackSection,
     Reader,
     Resources,
-    RunView,
+    SourceRunContext,
     UnitRef,
     UnitResult,
     UnitView,
@@ -176,7 +176,7 @@ def _rendition(reader: Reader, rendition_id: int) -> _Rendition:
     )
 
 
-def _units(run: RunView) -> list[UnitRef]:
+def _units(run: SourceRunContext) -> list[UnitRef]:
     return [
         UnitRef(TaskUnitType.RENDITION, r.rendition_id, r.document_key)
         for r in run.reader.renditions()
@@ -215,7 +215,7 @@ class _PerRendition:
     confidence_source: ConfidenceSource | None = None
     resources = Resources(worker="cpu", batch_size=4)
 
-    def select(self, run: RunView, cfg: Any) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: Any) -> Iterable[UnitRef]:
         return _units(run)
 
 

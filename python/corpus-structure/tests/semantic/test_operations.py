@@ -53,7 +53,7 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine,semantic
         rows=cut_observations(c,cut)
         assert [r['payload'] for r in rows]==[{'text':'same'},{'text':'same'}]
         assert len({r['observation_key'] for r in rows})==2
-    with pytest.raises(DBAPIError):
+    with pytest.raises(OperationConflict):
         with e.begin() as c:
             complete_task(c,task_id=pending,attempt=later['attempt'],holder='late',prepared=p,observations=observations)
     with pytest.raises(DBAPIError):
@@ -69,7 +69,7 @@ def test_binding_revision_and_wrong_attempt(semantic_db_engine,semantic_writer_e
         config=record_method(c,SimpleNamespace(name='read',version='1',family='ingest',tier='deterministic',confidence_source=None),'default',{},'config:one')
         task=create_task(c,run_id=run,config_id=config,stage='ingest',unit_type='run',input_hash='same')
         claim_tasks(c,run_id=run,config_id=config,holder='worker')
-    with pytest.raises(DBAPIError):
+    with pytest.raises(OperationConflict):
         with e.begin() as c:complete_task(c,task_id=task,attempt=2,holder='worker',prepared=p,observations=[],outcome='empty')
     with e.connect() as c:assert not c.execute(select(table('kb.observation'))).first()
 

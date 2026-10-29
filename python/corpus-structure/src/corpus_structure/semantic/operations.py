@@ -7,6 +7,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any, Mapping, Sequence
+from contextlib import AbstractContextManager
+from pydantic import JsonValue
+from corpus_structure.core.evidence import RenditionContent
+from corpus_structure.core.method import RunRendition, MeasurementView, ObservationReading, UnitResult, Method
+from corpus_structure.core.vocab import RunKind, ObservationKind, ObservationOutcome
 from sqlalchemy import Connection, select, insert, update, text, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .identity import canonical_bytes
@@ -122,13 +127,24 @@ def complete_task(conn:Connection, *,task_id:int,attempt:int,holder:str,
     for ordinal,raw in enumerate(observations):
         data=dict(raw); definition=data.pop('payload_definition'); item=data.pop('item_key')
         payload=prepared.validate_python(definition,data.pop('payload')).model_dump(mode='json')
+        if data.get('rendition_id') is None and task['unit_type']=='segment':
+            segments=table('kb.segment')
+            data['rendition_id']=conn.execute(select(segments.c.rendition_id).where(segments.c.id==task['unit_id'])).scalar_one()
+            data.setdefault('segment_id',task['unit_id'])
+        elif data.get('rendition_id') is None and task['unit_type']=='rendition':
+            data['rendition_id']=task['unit_id']
         supplied_key=data.pop('observation_key',None)
         if definition=='SourceObservation' and supplied_key!=payload['observation_key']:
             raise OperationConflict('source observation identity differs from bound report')
         rows.append(dict(data,ordinal=ordinal,payload_definition=definition,payload=payload,
             observation_key=supplied_key or observation_key(binding,task['input_hash'],definition,item)))
     import json
-    result=conn.execute(text('SELECT ops.complete_task(:task,:attempt,:holder,CAST(:rows AS jsonb),:outcome,CAST(:error AS jsonb),CAST(:envelope AS jsonb))'),dict(task=task_id,attempt=attempt,holder=holder,rows=json.dumps(rows),outcome=outcome,error=json.dumps(error),envelope=json.dumps(envelope) if envelope is not None else None)).scalar_one()
+    try:
+        result=conn.execute(text('SELECT ops.complete_task(:task,:attempt,:holder,CAST(:rows AS jsonb),:outcome,CAST(:error AS jsonb),CAST(:envelope AS jsonb))'),dict(task=task_id,attempt=attempt,holder=holder,rows=json.dumps(rows),outcome=outcome,error=json.dumps(error),envelope=json.dumps(envelope) if envelope is not None else None)).scalar_one()
+    except Exception as exc:
+        if getattr(getattr(exc,'orig',None),'sqlstate',None) in {'P0004','55000'}:
+            raise OperationConflict('task attempt lost or run sealed') from exc
+        raise
     return list(result)
 
 
@@ -166,7 +182,7 @@ def read_original(conn:Connection,document_id:int)->bytes:
     return data
 
 
-def store_rendition(conn:Connection, *,run_id:int,document_id:int,content:Any,
+def store_rendition(conn:Connection, *,run_id:int,document_id:int,content:RenditionContent,
                     task_id:int,config_id:int,parse_detail:Mapping[str,Any])->int:
     """Preserve physical content sharing separately from method build provenance."""
     payload=content.model_dump(mode='json')
@@ -201,14 +217,14 @@ def store_rendition(conn:Connection, *,run_id:int,document_id:int,content:Any,
     return rendition_id
 
 
-def read_rendition(conn:Connection,rendition_id:int)->Any:
+def read_rendition(conn:Connection,rendition_id:int)->RenditionContent:
     from corpus_structure.core.evidence import RenditionContent
     t=table('kb.rendition');payload=conn.execute(select(t.c.content).where(t.c.id==rendition_id)).scalar_one()
     return RenditionContent.model_validate(payload)
 
 
 def complete_unit_result(conn:Connection, *,task_id:int,attempt:int,holder:str,
-                         prepared:PreparedRelease,result:Any,method:Any,
+                         prepared:PreparedRelease,result:UnitResult,method:Method[Any],
                          configuration_hash:str,source:str)->list[int]:
     """The actual recognizer terminal boundary: binding, source storage and one native fence."""
     from .observations import bind_result,source_python
@@ -256,27 +272,27 @@ def complete_unit_result(conn:Connection, *,task_id:int,attempt:int,holder:str,
 @dataclass(frozen=True)
 class BoundRunView:
     run_id:int
-    kind:Any
+    kind:RunKind
     phase:int
     reference_run_id:int|None
     binding:OperationBinding
     prepared:PreparedRelease
-    options:Mapping[str,Any]
-    reader:Any
+    options:Mapping[str,JsonValue]
+    reader:BoundReader
 
 
 @dataclass(frozen=True)
 class SourceObservationView:
     id:int
     task_id:int
-    kind:Any
+    kind:ObservationKind
     rendition_id:int|None
     segment_id:int|None
     span_id:int|None
-    payload:Mapping[str,Any]
+    payload:Mapping[str,JsonValue]
     payload_hash:str
     score:float|None
-    outcome:Any
+    outcome:ObservationOutcome
     observation_key:str
     release_id:str
 
@@ -286,20 +302,20 @@ class BoundReader:
     def __init__(self,conn:Connection,run_id:int,prepared:PreparedRelease,cut_id:int|None=None):
         self.conn,self.run_id,self.prepared,self.cut_id=conn,run_id,prepared,cut_id
 
-    def renditions(self):
+    def renditions(self)->Sequence[RunRendition]:
         from corpus_structure.core.method import RunRendition
         rr,d,r=table('ops.run_rendition'),table('kb.document'),table('kb.rendition')
         q=select(d.c.id,d.c.key,r.c.id.label('rendition_id'),r.c.key.label('rendition_key')).join_from(rr,d,rr.c.document_id==d.c.id).join(r,rr.c.rendition_id==r.c.id).where(rr.c.run_id==self.run_id).order_by(d.c.key)
         return [RunRendition(row.id,row.key,row.rendition_id,row.rendition_key) for row in self.conn.execute(q)]
 
-    def content(self,rendition_id:int):
+    def content(self,rendition_id:int)->RenditionContent:
         return read_rendition(self.conn,rendition_id)
 
-    def segments(self,rendition_id:int):
+    def segments(self,rendition_id:int)->Mapping[str,int]:
         s=table('kb.segment')
         return {row.segment_key:row.id for row in self.conn.execute(select(s.c.segment_key,s.c.id).where(s.c.rendition_id==rendition_id))}
 
-    def observations(self,rendition_id:int,method:str,kind:Any):
+    def observations(self,rendition_id:int,method:str,kind:ObservationKind)->Sequence[ObservationReading]:
         from corpus_structure.core.method import payload_hash
         from corpus_structure.core.vocab import ObservationKind,ObservationOutcome
         from .observations import source_python
@@ -315,6 +331,13 @@ class BoundReader:
             out.append(SourceObservationView(row['id'],row['task_id'],ObservationKind(row['kind']),row['rendition_id'],row['segment_id'],row['span_id'],payload,payload_hash(payload),float(row['score']) if row['score'] is not None else None,ObservationOutcome(row['outcome']),row['observation_key'],row['release_id']))
         return out
 
+    def measurements(self,method:str,metric:str)->Sequence[MeasurementView]:
+        from corpus_structure.core.method import MeasurementView
+        from corpus_structure.core.vocab import MeasurementScope
+        t,c,m,v=table('ops.task'),table('ops.method_config'),table('ops.method'),table('ops.measurement')
+        q=select(v).select_from(t).join(v,v.c.task_id==func.coalesce(t.c.reused_task_id,t.c.id)).join(c,t.c.method_config_id==c.c.id).join(m,c.c.method_id==m.c.id).where(t.c.run_id==self.run_id,m.c.name==method,v.c.metric==metric)
+        return [MeasurementView(row['id'],row['task_id'],row['metric'],MeasurementScope(row['scope_type']),row['scope_id'],row['scope_key'],float(row['value']) if row['value'] is not None else None,row['detail']) for row in self.conn.execute(q).mappings()]
+
     def guideline(self)->str:
         r=table('ops.run')
         return self.conn.execute(select(r.c.guideline).where(r.c.id==self.run_id)).scalar_one()
@@ -324,7 +347,7 @@ class BoundReader:
             if artifact.digest==artifact_hash:return artifact.content
         raise LookupError('artifact does not belong to the run release')
 
-    def connection(self):
+    def connection(self)->AbstractContextManager[Connection]:
         from contextlib import nullcontext
         return nullcontext(self.conn)
 
