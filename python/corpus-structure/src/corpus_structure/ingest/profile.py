@@ -111,7 +111,7 @@ def parse_profile(name: str, data: Any, *, prepared: Any = None) -> SourceProfil
     try:
         context=release_vocabulary(prepared) if prepared is not None else None
         profile=SourceProfile.model_validate(data,context=context)
-        if prepared is not None:
+        if context is not None:
             kinds=set(context['statement_kinds'])
             problems=[field for field,kind in profile.statement_kinds() if str(kind) not in kinds]
             problems += [field for field,predicate in profile.predicates() if predicate not in context['predicates']]
