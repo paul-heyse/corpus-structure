@@ -22,7 +22,7 @@ from corpus_structure.semantic.query import SnapshotBinding
 R,Z,C,P,Q='release:infer','realization:infer','https://example/Thing','https://example/p','https://example/q'
 
 
-def setup(admin, writer, edges, *, rules=('transitive','inverse'), contexts=None, positive=True, prepared=None, bundle=None, evidence=True, predicate=P):
+def setup(admin, writer, edges, *, rules=('transitive','inverse'), contexts=None, positive=True, prepared=None, bundle=None, evidence=True, predicate=P, modality='asserted', establishment='stated', selected=True):
     r=prepared.release_id if prepared is not None else R
     if prepared is not None:
         from corpus_structure.semantic.releases import persist_release
@@ -52,13 +52,13 @@ def setup(admin, writer, edges, *, rules=('transitive','inverse'), contexts=None
     entities=sorted({e for edge in edges for e in edge})
     contexts=contexts or ['same']*len(edges)
     values=[ValueRow('v:'+e,'entity',entity_id=e) for e in entities]
-    values += [ValueRow('modality','string',text_value='asserted'),ValueRow('polarity','boolean',boolean_value=positive)]
+    values += [ValueRow('modality','string',text_value=modality),ValueRow('polarity','boolean',boolean_value=positive)]
     roles=[]; facts=[]; occurrences=[]; supports=[]
     for i,((s,o),ctx) in enumerate(zip(edges,contexts,strict=True)):
         q='qual:'+str(i)
         values.extend((ValueRow(q,'record' if prepared else 'mapping',datatype='https://example/Qualification' if prepared else None),ValueRow('scope:'+str(i),'string',text_value=ctx)))
         roles.extend((RoleRow(q,'modality',0,'modality'),RoleRow(q,'polarity',0,'polarity'),RoleRow(q,'scope',0,'scope:'+str(i))))
-        fid=fact_key(r,Z,s,predicate,o,{'modality':'asserted','polarity':positive,'scope':ctx})
+        fid=fact_key(r,Z,s,predicate,o,{'modality':modality,'polarity':positive,'scope':ctx})
         facts.append(FactRow(fid,s,predicate,'v:'+o,q))
         oid=occurrence_key(r,Z,'source',str(i))
         occurrences.append(OccurrenceRow(oid,fid,'source',str(i),'v:'+o,q))
@@ -69,8 +69,8 @@ def setup(admin, writer, edges, *, rules=('transitive','inverse'), contexts=None
         occurrence_evidence=tuple(OccurrenceEvidenceRow(o.occurrence_id,'ev') for o in occurrences) if evidence else (),
         evidence=(EvidenceRow('ev','source','page#unit','test','1'),),
         typed_value=tuple(values),value_role=tuple(roles),fact=tuple(facts),occurrence=tuple(occurrences),
-        occurrence_establishment=tuple(OccurrenceEstablishmentRow(o.occurrence_id,'stated') for o in occurrences),
-        support=tuple(supports),selection=tuple(SelectionRow(f.fact_id) for f in facts))
+        occurrence_establishment=tuple(OccurrenceEstablishmentRow(o.occurrence_id,establishment) for o in occurrences),
+        support=tuple(supports),selection=tuple(SelectionRow(f.fact_id,selected) for f in facts))
     receipt=publish_batch(writer,batch)
     return SnapshotBinding(r,Z,receipt.data_revision,'test'),batch
 
@@ -196,3 +196,20 @@ def test_real_archived_binary_release_round_trip(semantic_db_engine,semantic_wri
     from corpus_structure.semantic.publication import admit_release
     with pytest.raises(ValueError,match='binary entity'):
         admit_release(bad)
+
+
+@pytest.mark.parametrize('changes',[{'modality':'supposed'},{'establishment':'agent_asserted'},{'selected':False}])
+def test_unauthorized_modality_establishment_and_selection_do_not_seed(semantic_db_engine,semantic_writer_engine,changes):
+    binding,_=setup(semantic_db_engine,semantic_writer_engine,[('a','b'),('b','c')],**changes)
+    assert compute(semantic_writer_engine,binding).batch.fact==()
+
+
+def test_direct_proof_cannot_cross_canonical_contexts(semantic_db_engine,semantic_writer_engine):
+    binding,sources=setup(semantic_db_engine,semantic_writer_engine,[('a','b'),('b','c')],
+        rules=('transitive',),contexts=['one','two'])
+    head=fact_key(R,Z,'a',P,'c',{'modality':'asserted','polarity':True,'scope':'one'})
+    d,ps=proof(head,tuple(f.fact_id for f in sources.fact),'rule:transitive')
+    bad=PublicationBatch(R,Z,'context-crossing',fact=(FactRow(head,'a',P,'v:c','qual:0'),),
+        derivation=(d,),derivation_premise=ps)
+    with pytest.raises(DBAPIError,match='head/context'):
+        publish_batch(semantic_writer_engine,bad)
