@@ -87,3 +87,58 @@ def _unit(conn:Any,view:Any,ref:Any)->UnitView:
         row=conn.execute(select(s.c.rendition_id,r.c.document_id).join(r,s.c.rendition_id==r.c.id).where(s.c.id==ref.unit_id)).one()
         return UnitView(ref,view,document_id=row.document_id,rendition_id=row.rendition_id)
     return UnitView(ref,view)
+
+
+def _packet_for_unit(conn:Any,run_id:int,prepared:Any,ref:Any,configuration:Mapping[str,Any]):
+    """Shared queue/serve preparation including recorded M13 standing context."""
+    from corpus_structure.core.evidence import MacroDef
+    from corpus_structure.core.locators import LocatorIndex
+    from corpus_structure.methods.llm.packet import unit_inputs
+    from corpus_structure.semantic.proposals import ProposalFrame,ProposalSentence,proposal_packet
+    view=run_view(conn,run_id,prepared)
+    unit=_unit(conn,view,ref)
+    if unit.rendition_id is None or ref.unit_key is None:
+        raise OperationConflict('an agent proposal requires a located source unit')
+    raw_math=configuration.get('math',{})
+    macros={name:MacroDef(body=body) for name,body in raw_math.get('macros',{}).items()}
+    inputs=unit_inputs(view.reader,rendition_id=unit.rendition_id,document_id=unit.document_id,
+        unit_key=ref.unit_key,reference_run_id=None,pack_macros=macros)
+    rendered=inputs.packet(configuration.get('packet_cap_chars',18000))
+    index=LocatorIndex(inputs.content,inputs.page)
+    sentences=[]
+    for item in rendered.sentences:
+        segment=index.resolve(item.locator)
+        if inputs.content.canonical_text[segment.start:segment.end]!=item.text:
+            raise OperationConflict('packet sentence differs from source frame')
+        sentences.append(ProposalSentence(item.id,item.locator,segment.start,segment.end))
+    return proposal_packet(prepared,ProposalFrame(ref.unit_key,inputs.content.canonical_text,tuple(sentences)),
+        guideline=view.reader.guideline(),configuration=configuration,macros=inputs.macros)
+
+
+def agent_packet(conn:Any,run_id:int,task_id:int,prepared:Any):
+    """Rebuild exactly the packet hashed by queue_agent; no active release lookup."""
+    t,c=table('ops.task'),table('ops.method_config')
+    row=conn.execute(select(t,c.c.params).join(c,t.c.method_config_id==c.c.id).where(t.c.id==task_id,t.c.run_id==run_id)).mappings().one()
+    ref=UnitRef(TaskUnitType(row['unit_type']),row['unit_id'],row['unit_key'])
+    packet=_packet_for_unit(conn,run_id,prepared,ref,row['params'])
+    if row['packet_hash']!=packet.hash:raise OperationConflict('recorded agent packet changed')
+    return packet
+
+
+def queue_agent(conn:Any,*,run_id:int,prepared:Any,configuration:Mapping[str,Any],
+                units:Any,configuration_name:str='extract')->list[int]:
+    """Queue policy-selected source units under the same packet definition used by MCP."""
+    from hashlib import sha256
+    from corpus_structure.methods.llm.agent_opus import AgentOpus
+    if not configuration.get('model'):raise ValueError('agent configuration declares its model')
+    method=AgentOpus()
+    config_hash='configuration:'+sha256(canonical_bytes([method.name,method.version,dict(configuration)])).hexdigest()
+    config_id=record_method(conn,method,configuration_name,configuration,config_hash)
+    binding=run_view(conn,run_id,prepared).binding
+    tasks=[]
+    for ref in units:
+        packet=_packet_for_unit(conn,run_id,prepared,ref,configuration)
+        digest=sha256(canonical_bytes([binding.release_id,binding.input_realization_id,binding.input_revision,
+            binding.dependency_digest,method.version,config_hash,packet.hash])).hexdigest()
+        tasks.append(create_task(conn,run_id=run_id,config_id=config_id,stage='propose',unit_type=str(ref.unit_type),unit_id=ref.unit_id,unit_key=ref.unit_key,input_hash=digest,packet_hash=packet.hash,agent=True))
+    return tasks
