@@ -2341,4 +2341,4 @@ classes:
         - source_uri
     annotations:
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}]'
-      ph:checks: '["split IN (''dev'',''test'')"]'
+      ph:checks: '["split IN (''dev'',''test'',''reserved'')"]'

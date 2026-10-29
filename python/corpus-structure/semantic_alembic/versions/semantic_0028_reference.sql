@@ -6,6 +6,7 @@ GRANT USAGE ON SCHEMA sem,data,ops,kb TO corpus_sem_evaluator;
 GRANT SELECT ON ALL TABLES IN SCHEMA sem,data,ops,kb TO corpus_sem_evaluator;
 CREATE SCHEMA eval AUTHORIZATION corpus_sem_publisher;
 SET LOCAL ROLE corpus_sem_publisher;
+GRANT SELECT ON ALL TABLES IN SCHEMA sem,data,ops,kb TO corpus_sem_evaluator;
 
 CREATE TABLE eval.document_split (
 	id BIGINT GENERATED ALWAYS AS IDENTITY, 
@@ -15,7 +16,7 @@ CREATE TABLE eval.document_split (
 	CONSTRAINT pk_document_split PRIMARY KEY (id), 
 	CONSTRAINT uq_document_split_project_id_source_uri UNIQUE (project_id, source_uri), 
 	CONSTRAINT fk_document_split_project_id FOREIGN KEY(project_id) REFERENCES data.project (project_id), 
-	CONSTRAINT ck_document_split_physical_23de252598 CHECK (split IN ('dev','test'))
+	CONSTRAINT ck_document_split_physical_23de252598 CHECK (split IN ('dev','test','reserved'))
 )
 
 ;
@@ -138,7 +139,12 @@ END $body$;
 CREATE FUNCTION eval.add_reference_unit(p_set bigint,p_rendition bigint,p_key text,p_context jsonb) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
 DECLARE result bigint;
 BEGIN
- IF p_key='' OR jsonb_typeof(p_context)<>'array' OR NOT EXISTS(SELECT FROM eval.reference_set s JOIN kb.document d ON d.project_id=s.project_id JOIN kb.rendition r ON r.document_id=d.id WHERE s.id=p_set AND r.id=p_rendition) THEN RAISE EXCEPTION 'reference unit source binding differs' USING ERRCODE='23514'; END IF;
+ IF p_key='' OR jsonb_typeof(p_context)<>'array' OR NOT EXISTS(
+ SELECT FROM eval.reference_set s JOIN ops.completed_result c ON c.run_id=s.source_run_id
+ JOIN ops.cut_task ct ON ct.cut_id=c.cut_id JOIN kb.observation o ON o.task_id=ct.origin_task_id
+ JOIN kb.rendition r ON r.id=o.rendition_id JOIN kb.document d ON d.id=r.document_id AND d.project_id=s.project_id
+ JOIN eval.document_split ds ON ds.project_id=s.project_id AND ds.source_uri=d.source_uri AND ds.split=s.split
+ WHERE s.id=p_set AND r.id=p_rendition AND o.payload_definition='AgentStoredBatch' AND o.payload->>'unit_ref'=p_key) THEN RAISE EXCEPTION 'reference unit source binding differs' USING ERRCODE='23514'; END IF;
  INSERT INTO eval.reference_unit(set_id,rendition_id,unit_key,context) VALUES(p_set,p_rendition,p_key,p_context) RETURNING id INTO result;
  RETURN result;
 END $body$;
