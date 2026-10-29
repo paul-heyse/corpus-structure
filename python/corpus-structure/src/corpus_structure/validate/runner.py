@@ -155,7 +155,7 @@ def accepted_items(raw: dict[str, Any], report: BatchReport) -> tuple[dict[str, 
     rejected = set(report.rejected_paths())
     drops: list[Drop] = []
     gone: set[str] = set()
-    for sec, i in sorted(rejected, key=lambda p: (SECTIONS.index(str(p[0])), p[1])):
+    for sec, i in sorted(rejected, key=lambda p: (SECTIONS.index(p[0]), p[1])):
         ref = raw[sec][i].get("local_ref") if isinstance(raw[sec][i], dict) else None
         if ref:
             gone.add(ref)

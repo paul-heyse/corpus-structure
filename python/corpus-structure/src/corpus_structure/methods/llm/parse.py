@@ -639,7 +639,7 @@ class _Parser:
                 assert_never(node)
 
     def _node_span(
-        self, node: V.AuthoredPhraseNode, path: str
+        self, node: V.AuthoredPhraseNode | V.AuthoredUnsupportedNode, path: str
     ) -> tuple[str, int, int, bool] | None:
         placed = self.place(path, node.text, _text(node.sentence), fallback=self.unit.segment)
         if placed is None:

@@ -572,6 +572,6 @@ def _tree_eq(x: Any, y: Any, value_eq: Callable[[Any, Any], bool], m: TreeMatch)
             return (
                 x.var == y.var and value_eq(x.set, y.set) and _tree_eq(x.body, y.body, value_eq, m)
             )
-        case V.StoredPhraseNode():  # `unsupported` leaves included
+        case V.StoredPhraseNode() | V.StoredUnsupportedNode():
             return m.span_eq(x, y)
     return False

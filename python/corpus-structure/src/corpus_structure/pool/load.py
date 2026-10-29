@@ -21,7 +21,7 @@ NUMERIC or an infinite timestamp. `connect(url)` opens a connection on a libpq U
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
@@ -45,7 +45,7 @@ class CutMismatch(ValueError):
 
 
 @contextmanager
-def connect(url: str) -> Iterator[adbc.Connection]:
+def connect(url: str) -> Generator[adbc.Connection,None,None]:
     """An ADBC connection on a libpq URL, closed afterwards."""
     with adbc.connect(url) as conn:
         yield conn
@@ -85,7 +85,6 @@ def load(
     kinds: Iterable[str] = ALL_KINDS,
 ) -> Pool:
     """The pool of run `run_id` as of `cut` (module doc)."""
-    run_id = int(run_id)
     selected = sorted({ObservationKind(k).value for k in kinds})
     cur = conn.cursor()
     try:
@@ -103,7 +102,7 @@ def load(
         )
         entities = aliases = None
         if run.reference_run_id is not None:
-            ref = int(run.reference_run_id)
+            ref = run.reference_run_id
             where = f"e.run_id = {ref} AND e.scope = 'global'"
             entity = contract.reference_schema(contract.REFERENCE_ENTITIES)
             alias = contract.reference_schema(contract.REFERENCE_ALIASES)

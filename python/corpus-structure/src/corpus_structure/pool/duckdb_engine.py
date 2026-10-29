@@ -23,7 +23,7 @@ cannot-links (phase 2, probe Q-7) are where it fits.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from typing import Any
 
@@ -161,7 +161,7 @@ class DuckDBEngine:
         self.close()
 
     @contextmanager
-    def _registered(self, *tables: pa.Table) -> Iterator[None]:
+    def _registered(self, *tables: pa.Table) -> Generator[None,None,None]:
         names = []
         try:
             for table in tables:

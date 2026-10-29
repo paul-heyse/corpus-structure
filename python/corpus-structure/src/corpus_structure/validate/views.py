@@ -513,7 +513,7 @@ class ClaimView:
             info = b.qualifiers.get(prefixed)
             raw = dumped.get(prefixed)
             values[attr] = _qualifier_value(info.object_kind if info else "", prefixed, raw)
-        values[b.identifiers["core:modality"]] = str(q.modality)
+        values[b.identifiers["core:modality"]] = q.modality
         values[b.identifiers["core:polarity"]] = str(q.polarity)
         return QualifiersView(values)
 

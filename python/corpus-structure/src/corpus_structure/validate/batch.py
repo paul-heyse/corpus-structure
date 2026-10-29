@@ -782,7 +782,7 @@ class _Check:
         if cp is None:
             self.add(IssueCode.UNKNOWN_CONDITION_PREDICATE, (*at, "name"), owner, value=name)
             return
-        arity = str(cp.arity or "")
+        arity = cp.arity or ""
         if (arity.endswith("+") and arity[:-1].isdigit() and len(args) < int(arity[:-1])) or (
             arity.isdigit() and len(args) != int(arity)
         ):
