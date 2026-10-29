@@ -42,3 +42,26 @@ def test_statistics_domain_retains_predicates_identity_and_structured_qualifiers
     assert q.scope.locator=='Normal.html#first'
     with pytest.raises(ValidationError):
         prepared.property_adapter('FamilyParameter','parameter_role').validate_python('made_up_role',strict=True)
+
+
+def test_operation_products_are_deterministic_across_fresh_interpreters():
+    import subprocess
+    import sys
+    code = '''
+from hashlib import sha256
+from corpus_structure.semantic import SourceArtifact,SourceBundle,prepare_release
+from corpus_structure.semantic.identity import canonical_bytes
+source=b"""id: https://example.org/x
+name: x
+prefixes: {ex: 'https://example.org/'}
+default_prefix: ex
+types: {string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}}
+classes: {Thing: {attributes: {name: {}}}}
+enums: {Choice: {permissible_values: {allowed: {}}}}
+"""
+p=prepare_release(SourceBundle('x',(SourceArtifact('x',source),)))
+print(sha256(canonical_bytes([(r.kind,r.name,r.body.hex()) for r in p.registry_rows])).hexdigest())
+'''
+    first=subprocess.run([sys.executable,'-c',code],check=True,capture_output=True,text=True).stdout
+    second=subprocess.run([sys.executable,'-c',code],check=True,capture_output=True,text=True).stdout
+    assert first==second

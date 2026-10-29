@@ -150,6 +150,7 @@ _ALLOWED = {
     "types": _METADATA | {"typeof", "base", "uri", "repr", "pattern", "annotations"},
     "enums": _METADATA
     | {
+        "enum_uri",
         "permissible_values",
         "reachable_from",
         "concepts",
@@ -240,6 +241,9 @@ def _view(bundle: SourceBundle) -> SchemaView:
                         if schema.default_prefix
                         else f"{schema.id}/{attr.name}"
                     )
+        for enum in cast(dict[str, Any], schema.enums or {}).values():
+            if enum.enum_uri is None:
+                enum.enum_uri = f"{prefix}:{enum.name}" if schema.default_prefix else f"{schema.id}/{enum.name}"
         for slot in cast(dict[str, Any], schema.slots or {}).values():
             if slot.range is None:
                 slot.range = schema.default_range or "string"
@@ -293,7 +297,7 @@ def _primitive(view: SchemaView, name: str, seen: tuple[str, ...] = ()) -> Any:
 def _annotations(element: Any) -> dict[str, str]:
     raw = element.annotations or {}
     items = raw.items() if hasattr(raw, "items") else vars(raw).items()
-    return {str(k): str(getattr(v, "value", v)) for k, v in items}
+    return {str(k): str(getattr(v, "value", v)) for k, v in items if str(k) in _SAFE_ANNOTATIONS}
 
 
 def _bounds(view: SchemaView, rng: str) -> tuple[list[Decimal], list[Decimal], list[str]]:
