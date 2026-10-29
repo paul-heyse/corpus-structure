@@ -3,6 +3,7 @@
 SQLAlchemy owns every transaction, including COPY. The native routine independently
 checks identities, exact batch bytes and semantic constraints; these Python rows are input.
 """
+
 from __future__ import annotations
 
 import json
@@ -15,9 +16,11 @@ import psycopg
 from psycopg import sql
 from psycopg.types.json import Jsonb
 from sqlalchemy import Connection, Engine, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import DBAPIError
 
 from .identity import canonical_bytes
+from .metadata import table
 from .types import PreparedRelease
 
 
@@ -71,6 +74,8 @@ class OccurrenceRow:
     fact_id: str
     source: str
     item: str
+    report_object_value_id: str
+    report_qualification_value_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -82,6 +87,7 @@ class SupportRow:
 @dataclass(frozen=True)
 class SelectionRow:
     fact_id: str
+    selected: bool = True
 
 
 @dataclass(frozen=True)
@@ -131,21 +137,34 @@ class CoverageRow:
 
 
 # The fixed transport schema is shared with the narrow native DDL companion.
+_ROW_TYPES = {
+    "entity": EntityRow,
+    "membership": MembershipRow,
+    "typed_value": ValueRow,
+    "value_role": RoleRow,
+    "fact": FactRow,
+    "occurrence": OccurrenceRow,
+    "support": SupportRow,
+    "selection": SelectionRow,
+    "evidence": EvidenceRow,
+    "occurrence_evidence": OccurrenceEvidenceRow,
+    "membership_support": MembershipSupportRow,
+    "derivation": DerivationRow,
+    "derivation_premise": DerivationPremiseRow,
+    "coverage": CoverageRow,
+}
+_DIALECT = postgresql.dialect()
 STAGE_TYPES: dict[str, tuple[type, tuple[str, ...]]] = {
-    "entity": (EntityRow, ("text",)),
-    "membership": (MembershipRow, ("text", "text", "text")),
-    "typed_value": (ValueRow, ("text", "text", "text", "numeric", "numeric", "text", "boolean", "text", "text", "text", "jsonb")),
-    "value_role": (RoleRow, ("text", "text", "integer", "text")),
-    "fact": (FactRow, ("text", "text", "text", "text", "text")),
-    "occurrence": (OccurrenceRow, ("text", "text", "text", "text")),
-    "support": (SupportRow, ("text", "text")),
-    "selection": (SelectionRow, ("text",)),
-    "evidence": (EvidenceRow, ("text", "text", "text", "text", "text")),
-    "occurrence_evidence": (OccurrenceEvidenceRow, ("text", "text")),
-    "membership_support": (MembershipSupportRow, ("text", "text", "text")),
-    "derivation": (DerivationRow, ("text", "text", "text", "text")),
-    "derivation_premise": (DerivationPremiseRow, ("text", "integer", "text")),
-    "coverage": (CoverageRow, ("text", "text", "text", "text", "text")),
+    name: (
+        row_type,
+        tuple(
+            "boolean"
+            if name == "selection" and field.name == "selected"
+            else table("data." + name).c[field.name].type.compile(dialect=_DIALECT).lower()
+            for field in fields(row_type)
+        ),
+    )
+    for name, row_type in _ROW_TYPES.items()
 }
 
 
@@ -170,7 +189,10 @@ class PublicationBatch:
     coverage: tuple[CoverageRow, ...] = ()
 
     def __post_init__(self) -> None:
-        if not all((self.release_id, self.realization_id, self.batch_id)):
+        if any(
+            type(value) is not str or not value
+            for value in (self.release_id, self.realization_id, self.batch_id)
+        ):
             raise ValueError("publication requires release, realization and batch identity")
         for name, (row_type, _) in STAGE_TYPES.items():
             rows = getattr(self, name)
@@ -196,7 +218,11 @@ class PublicationBatch:
                 for row in rows:
                     for index in (3, 4):
                         if row[index] is not None:
-                            row[index] = format(row[index], "f") if isinstance(row[index], Decimal) else str(row[index])
+                            row[index] = (
+                                format(row[index], "f")
+                                if isinstance(row[index], Decimal)
+                                else str(row[index])
+                            )
             body[name] = sorted(rows, key=canonical_bytes)
         return canonical_bytes([self.release_id, self.realization_id, body])
 
@@ -214,11 +240,25 @@ class PublicationConflict(ValueError):
 
 def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[str, Any]]:
     """Prepare native datatype and exact bound lowerings once per release projection."""
-    primitives = {"string", "integer", "decimal", "boolean", "date", "datetime", "float", "double", "uri", "uriorcurie"}
+    primitives = {
+        "string",
+        "integer",
+        "decimal",
+        "boolean",
+        "date",
+        "datetime",
+        "float",
+        "double",
+        "uri",
+        "uriorcurie",
+    }
     classes = {d.name for d in prepared.definitions}
     enums = {v.enum for v in prepared.vocabularies}
-    definitions = {row.name: json.loads(row.body) for row in prepared.registry_rows if row.kind == "type"}
+    definitions = {
+        row.name: json.loads(row.body) for row in prepared.registry_rows if row.kind == "type"
+    }
     resolved = {name: name for name in primitives | classes | enums}
+
     def resolve(name: str, path: frozenset[str] = frozenset()) -> str:
         if name in resolved:
             return resolved[name]
@@ -226,14 +266,21 @@ def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[
             raise ValueError(f"unsupported native range {name}")
         definition = definitions[name]
         parent = definition.get("typeof") or definition.get("base") or "string"
-        parent = {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}.get(parent, parent)
+        parent = {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}.get(
+            parent, parent
+        )
         resolved[name] = resolve(parent, path | {name})
         return resolved[name]
+
     result = {}
     for definition in prepared.definitions:
         for prop in definition.properties:
             constraints = asdict(prop)
             constraints["native_range"] = resolve(prop.range)
+            if constraints["native_range"] in {"float", "double"} and (
+                prop.minimum is not None or prop.maximum is not None
+            ):
+                raise ValueError("exact float bounds have no admitted native lowering")
             for bound in ("minimum", "maximum"):
                 raw = getattr(prop, bound)
                 if raw is not None:
@@ -259,7 +306,14 @@ def admit_release(prepared: PreparedRelease) -> None:
                 raise ValueError("Python regular expressions have no admitted native equivalence")
             if prop.inverse or prop.symmetric or prop.transitive:
                 raise ValueError("required graph integrity has no admitted native lowering")
-    if any(d.outcome in {"unsupported", "unresolved", "unchecked"} for d in prepared.diagnostics):
+    if any(
+        d.outcome in {"unsupported", "unresolved"}
+        or (
+            d.outcome == "unchecked"
+            and not (d.code == "unchecked_term" and d.message == "not4curation:unchecked")
+        )
+        for d in prepared.diagnostics
+    ):
         raise ValueError("release contains unresolved or unchecked required semantics")
 
 
@@ -290,8 +344,12 @@ def publish_on_connection(connection: Connection, batch: PublicationBatch) -> Pu
     stage_batch(connection, batch)
     revision = connection.execute(
         text("SELECT data.publish_batch(:release,:realization,:batch,:content)"),
-        {"release": batch.release_id, "realization": batch.realization_id,
-         "batch": batch.batch_id, "content": batch.content},
+        {
+            "release": batch.release_id,
+            "realization": batch.realization_id,
+            "batch": batch.batch_id,
+            "content": batch.content,
+        },
     ).scalar_one()
     return PublicationReceipt(batch.batch_id, revision, sha256(batch.content).hexdigest())
 
@@ -299,7 +357,10 @@ def publish_on_connection(connection: Connection, batch: PublicationBatch) -> Pu
 def lookup_receipt(engine: Engine, batch: PublicationBatch) -> PublicationReceipt | None:
     with engine.connect() as connection:
         row = connection.execute(
-            text("SELECT content,content_digest,data_revision FROM data.batch WHERE release_id=:r AND realization_id=:z AND batch_id=:b"),
+            text(
+                "SELECT content,content_digest,data_revision FROM data.batch "
+                "WHERE release_id=:r AND realization_id=:z AND batch_id=:b"
+            ),
             {"r": batch.release_id, "z": batch.realization_id, "b": batch.batch_id},
         ).one_or_none()
     if row is None:
@@ -309,15 +370,19 @@ def lookup_receipt(engine: Engine, batch: PublicationBatch) -> PublicationReceip
     return PublicationReceipt(batch.batch_id, row.data_revision, row.content_digest)
 
 
-def publish_batch(engine: Engine, batch: PublicationBatch, *, attempts: int = 3) -> PublicationReceipt:
+def publish_batch(
+    engine: Engine, batch: PublicationBatch, *, attempts: int = 3
+) -> PublicationReceipt:
     """Retry a whole immutable batch; resolve ambiguous commits using the same identity."""
     if attempts < 1:
         raise ValueError("attempts must be positive")
     for attempt in range(attempts):
         try:
-            with engine.connect().execution_options(isolation_level="SERIALIZABLE") as connection:
-                with connection.begin():
-                    receipt = publish_on_connection(connection, batch)
+            with (
+                engine.connect().execution_options(isolation_level="SERIALIZABLE") as connection,
+                connection.begin(),
+            ):
+                receipt = publish_on_connection(connection, batch)
             return receipt
         except (DBAPIError, psycopg.Error) as exc:
             original: Any = exc.orig if isinstance(exc, DBAPIError) else exc
