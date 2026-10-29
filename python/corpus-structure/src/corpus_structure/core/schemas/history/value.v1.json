@@ -1,0 +1,397 @@
+{
+  "entry": {
+    "class_": "sys:ValuePayload",
+    "kind": "value",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.value.json",
+    "arrow_schema": "/////4ACAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAAOAAAAAEAAAAAwAAAGgAAAAwAAAABAAAAAT+//8UAAAABAAAAAUAAAB2YWx1ZQAAAAoAAABjcy5wYXlsb2FkAAAs/v//IAAAAAQAAAAQAAAAc3lzOlZhbHVlUGF5bG9hZAAAAAAIAAAAY3MuY2xhc3MAAAAAYP7//1AAAAAEAAAAQAAAAGE1OTE5NmM0YTg5NGRiZmFmNDAwNTY3YTZkOWU5YWM5ZWQ5OTE1ODA3NDVlYTQ4YmZkYTFjMTFiZTEyNzRkMDMAAAAAEQAAAGNzLm1vZGVsX3JldmlzaW9uAAAAAwAAAIwAAABEAAAABAAAANT///8AAAEFEAAAABwAAAAEAAAAAAAAAAkAAABtYXRoX2tpbmQAAADQ/v//EAAUAAgABgAHAAwAAAAQABAAAAAAAAEFEAAAACAAAAAEAAAAAAAAAAsAAABwYXJzZV9lcnJvcgAEAAYABAAAAAAAEgAYAAgAAAAHAAwAAAAQABQAEgAAAAAAAAUUAAAA0AAAAAgAAAAUAAAAAAAAAAUAAAB2YWx1ZQAAAAMAAACAAAAAQAAAAAQAAACU////GAAAAAQAAAAKAAAAYXJyb3cuanNvbgAAFAAAAEFSUk9XOmV4dGVuc2lvbjpuYW1lAAAAAMz///8QAAAABAAAAAAAAAAAAAAAGAAAAEFSUk9XOmV4dGVuc2lvbjptZXRhZGF0YQAAAAAIAAwABAAIAAgAAAAYAAAABAAAAAoAAABjb3JlOlZhbHVlAAAIAAAAY3MuY2xhc3MAAAAABAAEAAQAAAAAAAAA",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.value.json",
+    "$defs": {
+      "BindKind": {
+        "description": "The kinds of symbol binding (D1 \u00a76.1). Lifecycle: static.",
+        "enum": [
+          "variable",
+          "param_of",
+          "param_expr_of",
+          "family_param",
+          "free",
+          "constant",
+          "unresolved"
+        ],
+        "type": "string"
+      },
+      "BoolValue": {
+        "additionalProperties": false,
+        "description": "A truth value.",
+        "properties": {
+          "t": {
+            "const": "bool",
+            "type": "string"
+          },
+          "v": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "t",
+          "v"
+        ],
+        "type": "object"
+      },
+      "DateValue": {
+        "additionalProperties": false,
+        "description": "A date or date-time kept verbatim as ISO 8601.",
+        "properties": {
+          "t": {
+            "const": "date",
+            "type": "string"
+          },
+          "v": {
+            "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "t",
+          "v"
+        ],
+        "type": "object"
+      },
+      "Formula": {
+        "additionalProperties": false,
+        "description": "A formula as written, with its symbol bindings (D1 \u00a76.1).",
+        "properties": {
+          "t": {
+            "const": "formula",
+            "type": "string"
+          },
+          "latex": {
+            "type": "string"
+          },
+          "symbols": {
+            "additionalProperties": {
+              "$ref": "#/$defs/SymbolBinding"
+            },
+            "type": "object"
+          },
+          "sympy": {
+            "type": "string"
+          },
+          "parse": {
+            "$ref": "#/$defs/ParseOutcome"
+          }
+        },
+        "required": [
+          "t",
+          "latex"
+        ],
+        "type": "object"
+      },
+      "IntervalValue": {
+        "additionalProperties": false,
+        "description": "An interval; an absent bound is unbounded.",
+        "properties": {
+          "t": {
+            "const": "interval",
+            "type": "string"
+          },
+          "start": {
+            "discriminator": {
+              "mapping": {
+                "date": "#/$defs/DateValue",
+                "formula": "#/$defs/Formula",
+                "number": "#/$defs/NumberValue"
+              },
+              "propertyName": "t"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/NumberValue"
+              },
+              {
+                "$ref": "#/$defs/DateValue"
+              },
+              {
+                "$ref": "#/$defs/Formula"
+              }
+            ]
+          },
+          "end": {
+            "discriminator": {
+              "mapping": {
+                "date": "#/$defs/DateValue",
+                "formula": "#/$defs/Formula",
+                "number": "#/$defs/NumberValue"
+              },
+              "propertyName": "t"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/NumberValue"
+              },
+              {
+                "$ref": "#/$defs/DateValue"
+              },
+              {
+                "$ref": "#/$defs/Formula"
+              }
+            ]
+          },
+          "start_incl": {
+            "type": "boolean"
+          },
+          "end_incl": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "t"
+        ],
+        "type": "object"
+      },
+      "MathKind": {
+        "description": "The typed start symbol of the math grammar that read a value's span (ValuePayload.math_kind,\nM11). Lifecycle: static.",
+        "enum": [
+          "formula",
+          "relation",
+          "membership",
+          "set",
+          "list"
+        ],
+        "type": "string"
+      },
+      "NumberValue": {
+        "additionalProperties": false,
+        "description": "A number as its D1 \u00a76.2 canonical decimal; `unit` and `basis` as the source states them.",
+        "properties": {
+          "t": {
+            "const": "number",
+            "type": "string"
+          },
+          "v": {
+            "pattern": "^(?:0|-?(?:[1-9][0-9]*(?:\\.[0-9]*[1-9])?|0\\.[0-9]*[1-9]))$",
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "basis": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "t",
+          "v"
+        ],
+        "type": "object"
+      },
+      "ParseOutcome": {
+        "description": "The math grammar's parse outcome for a formula or set value (D4 M11). Lifecycle: static.",
+        "enum": [
+          "ok",
+          "partial",
+          "ambiguous",
+          "failed"
+        ],
+        "type": "string"
+      },
+      "SetValue": {
+        "additionalProperties": false,
+        "description": "A set written in LaTeX, such as \\R, (0, \\infty) or \\R \\setminus \\{0\\}.",
+        "properties": {
+          "t": {
+            "const": "set",
+            "type": "string"
+          },
+          "latex": {
+            "type": "string"
+          },
+          "symbols": {
+            "additionalProperties": {
+              "$ref": "#/$defs/SymbolBinding"
+            },
+            "type": "object"
+          },
+          "sympy": {
+            "type": "string"
+          },
+          "parse": {
+            "$ref": "#/$defs/ParseOutcome"
+          }
+        },
+        "required": [
+          "t",
+          "latex"
+        ],
+        "type": "object"
+      },
+      "StoredEnumValue": {
+        "additionalProperties": false,
+        "description": "A member of a schema enum: the enum by its local name when authored (`ParameterRole`), by its\nprefixed name when stored (`stat:ParameterRole`).",
+        "properties": {
+          "t": {
+            "const": "enum",
+            "type": "string"
+          },
+          "enum": {
+            "pattern": "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "v": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "t",
+          "enum",
+          "v"
+        ],
+        "type": "object"
+      },
+      "StoredPhrase": {
+        "additionalProperties": false,
+        "description": "Text kept but not interpreted. The model-facing form names the sentence it lies in; the\nstored form adds the offsets the quote cascade located.",
+        "properties": {
+          "t": {
+            "const": "phrase",
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "start": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "end": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "coarse": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "t",
+          "text",
+          "start",
+          "end"
+        ],
+        "type": "object"
+      },
+      "StoredValue": {
+        "discriminator": {
+          "mapping": {
+            "bool": "#/$defs/BoolValue",
+            "date": "#/$defs/DateValue",
+            "enum": "#/$defs/StoredEnumValue",
+            "formula": "#/$defs/Formula",
+            "interval": "#/$defs/IntervalValue",
+            "number": "#/$defs/NumberValue",
+            "phrase": "#/$defs/StoredPhrase",
+            "set": "#/$defs/SetValue",
+            "text": "#/$defs/TextValue"
+          },
+          "propertyName": "t"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/TextValue"
+          },
+          {
+            "$ref": "#/$defs/NumberValue"
+          },
+          {
+            "$ref": "#/$defs/BoolValue"
+          },
+          {
+            "$ref": "#/$defs/StoredEnumValue"
+          },
+          {
+            "$ref": "#/$defs/Formula"
+          },
+          {
+            "$ref": "#/$defs/SetValue"
+          },
+          {
+            "$ref": "#/$defs/DateValue"
+          },
+          {
+            "$ref": "#/$defs/IntervalValue"
+          },
+          {
+            "$ref": "#/$defs/StoredPhrase"
+          }
+        ]
+      },
+      "SymbolBinding": {
+        "additionalProperties": false,
+        "description": "How one symbol of a formula is bound (D1 \u00a76.1); the kind decides which fields it has.",
+        "properties": {
+          "bind": {
+            "$ref": "#/$defs/BindKind"
+          },
+          "entity": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "claim": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "param": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "bind"
+        ],
+        "type": "object"
+      },
+      "TextValue": {
+        "additionalProperties": false,
+        "description": "Free text that is the value itself.",
+        "properties": {
+          "t": {
+            "const": "text",
+            "type": "string"
+          },
+          "v": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "t",
+          "v"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A parsed value (M11).",
+    "properties": {
+      "value": {
+        "$ref": "#/$defs/StoredValue"
+      },
+      "parse_error": {
+        "type": "string"
+      },
+      "math_kind": {
+        "$ref": "#/$defs/MathKind"
+      }
+    },
+    "required": [
+      "value"
+    ],
+    "type": "object"
+  }
+}

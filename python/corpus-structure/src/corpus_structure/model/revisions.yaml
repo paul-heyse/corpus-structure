@@ -66,3 +66,58 @@
     judgment_carry_over: null
     compiled_artifacts: []
     source_profiles: []
+- label: 0.5.0
+  content_hash: 10c8462e734f6c89d33f3898a6fd242c825dc5cac79b1eb66552bd142886c8b1
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '2'
+    linkml-runtime: 1.12.1
+  parent: eceef3291d1f4e84fffaef165547425644c47c8784cf9323b4c6ca5c5e4c1cdb
+  change_record:
+    from_revision: eceef3291d1f4e84fffaef165547425644c47c8784cf9323b4c6ca5c5e4c1cdb
+    to_revision: 10c8462e734f6c89d33f3898a6fd242c825dc5cac79b1eb66552bd142886c8b1
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Preserve unresolved claim-position relationship roles and first-sentence ordering in materialized
+        knowledge.
+      authorized_by: operator-approved consolidation and queries execution plan, 2026-10-29
+      decision: null
+      upcaster: null
+    - element: sys:EntityRefRole#binding_param
+      change: added
+      aspect: null
+      compatibility_class: relational-additive
+      reason: Preserve unresolved claim-position relationship roles and first-sentence ordering in materialized
+        knowledge.
+      authorized_by: operator-approved consolidation and queries execution plan, 2026-10-29
+      decision: null
+      upcaster: null
+    - element: sys:EntityRefRole#condition_premise
+      change: added
+      aspect: null
+      compatibility_class: relational-additive
+      reason: Preserve unresolved claim-position relationship roles and first-sentence ordering in materialized
+        knowledge.
+      authorized_by: operator-approved consolidation and queries execution plan, 2026-10-29
+      decision: null
+      upcaster: null
+    - element: sys:KbEntity.statement_ordinal
+      change: added
+      aspect: null
+      compatibility_class: relational-additive
+      reason: Preserve unresolved claim-position relationship roles and first-sentence ordering in materialized
+        knowledge.
+      authorized_by: operator-approved consolidation and queries execution plan, 2026-10-29
+      decision: null
+      upcaster: null
+    name_map: {}
+    alembic_revision: '0003'
+    key_consequences: null
+    judgment_carry_over: null
+    compiled_artifacts: []
+    source_profiles: []

@@ -1,0 +1,58 @@
+{
+  "entry": {
+    "class_": "sys:AttributePayload",
+    "kind": "attribute",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.attribute.json",
+    "arrow_schema": "/////ygDAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAAOgAAAAEAAAAAwAAAHAAAAA0AAAABAAAAFz9//8YAAAABAAAAAkAAABhdHRyaWJ1dGUAAAAKAAAAY3MucGF5bG9hZAAAiP3//yQAAAAEAAAAFAAAAHN5czpBdHRyaWJ1dGVQYXlsb2FkAAAAAAgAAABjcy5jbGFzcwAAAADA/f//UAAAAAQAAABAAAAAYTU5MTk2YzRhODk0ZGJmYWY0MDA1NjdhNmQ5ZTlhYzllZDk5MTU4MDc0NWVhNDhiZmRhMWMxMWJlMTI3NGQwMwAAAAARAAAAY3MubW9kZWxfcmV2aXNpb24AAAADAAAAKAEAAOQAAAAEAAAA9v7//wAAAAUUAAAAvAAAAAgAAAAUAAAAAAAAAAUAAAB2YWx1ZQAAAAMAAAB4AAAAQAAAAAQAAAB0/v//GAAAAAQAAAAKAAAAYXJyb3cuanNvbgAAFAAAAEFSUk9XOmV4dGVuc2lvbjpuYW1lAAAAAKz+//8QAAAABAAAAAAAAAAAAAAAGAAAAEFSUk9XOmV4dGVuc2lvbjptZXRhZGF0YQAAAADg/v//FAAAAAQAAAAEAAAAanNvbgAAAAAHAAAAY3MubnVsbADM/v//EAAUAAgAAAAHAAwAAAAQABAAAAAAAAAFEAAAABwAAAAEAAAAAAAAAAUAAABncm91cAAAAAQABgAEAAAAAAASABgACAAAAAcADAAAABAAFAASAAAAAAAABRQAAADYAAAACAAAABgAAAAAAAAACwAAAG1lbnRpb25fcmVmAAMAAACAAAAAQAAAAAQAAACU////GAAAAAQAAAAKAAAAYXJyb3cuanNvbgAAFAAAAEFSUk9XOmV4dGVuc2lvbjpuYW1lAAAAAMz///8QAAAABAAAAAAAAAAAAAAAGAAAAEFSUk9XOmV4dGVuc2lvbjptZXRhZGF0YQAAAAAIAAwABAAIAAgAAAAcAAAABAAAAA4AAABzeXM6TWVudGlvblJlZgAACAAAAGNzLmNsYXNzAAAAAAQABAAEAAAA",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.attribute.json",
+    "$defs": {
+      "JsonValue": {},
+      "MentionRef": {
+        "additionalProperties": false,
+        "description": "A mention by its task and ordinal; the task is absent inside the same task.",
+        "properties": {
+          "task": {
+            "type": "integer"
+          },
+          "ordinal": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ordinal"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "An attribute of a mention.",
+    "properties": {
+      "mention_ref": {
+        "$ref": "#/$defs/MentionRef"
+      },
+      "group": {
+        "type": "string"
+      },
+      "value": {
+        "$ref": "#/$defs/JsonValue"
+      }
+    },
+    "required": [
+      "mention_ref",
+      "group",
+      "value"
+    ],
+    "type": "object"
+  }
+}

@@ -33,10 +33,10 @@ def test_init_creates_and_migrates_then_migrate_reports(cli: Any, db_server: Any
         assert report == {
             "database": name,
             "created": True,
-            "revision": "0002",
-            "head": "0002",
+            "revision": "0003",
+            "head": "0003",
             "model_revision": CONTENT_HASH,
-            "applied": ["0001", "0002"],
+            "applied": ["0001", "0002", "0003"],
         }
         again = cli("db", "migrate", "--json", settings=lambda: settings(db_server, name))
         assert again.exit_code == 0, again.stderr

@@ -8,7 +8,7 @@ description: >-
   agent_reuse by_unit. System classes are tables unless ci:store says otherwise; their table is the
   snake case of the class name (or the native local_names sql entry) in the schema their subset
   names; a single-valued class-ranged attribute is a foreign key column named <attribute>_id.
-version: 0.4.0
+version: 0.5.0
 license: https://creativecommons.org/publicdomain/zero/1.0/
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -1932,6 +1932,10 @@ classes:
       reference_descriptor:
         range: ReferenceDescriptor
         description: The external reference descriptor in stored form; offsets are on the run rendition of scope_segment. Absent for other entity types and historical rows without a recorded descriptor.
+      statement_ordinal:
+        range: integer
+        minimum_value: 1
+        description: First-sentence ordinal within the statement anchor; absent on non-statements and historical materializations without a recorded ordinal.
   EntityAlias:
     in_subset:
     - kb
@@ -3246,6 +3250,8 @@ enums:
     permissible_values:
       qualifier: {description: An entity-ranged qualifier.}
       pred_arg: {description: A pred node argument.}
+      condition_premise: {description: An unresolved external reference in a condition claim position.}
+      binding_param: {description: An unresolved external reference in a claim-valued parameter binding.}
       binding_variable: {description: A variable binding.}
       binding_family_param: {description: A family_param binding.}
   MathKind:

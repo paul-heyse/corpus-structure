@@ -713,6 +713,8 @@ class EntityRefRole(StrEnum):
 
     QUALIFIER = "qualifier"
     PRED_ARG = "pred_arg"
+    CONDITION_PREMISE = "condition_premise"
+    BINDING_PARAM = "binding_param"
     BINDING_VARIABLE = "binding_variable"
     BINDING_FAMILY_PARAM = "binding_family_param"
 

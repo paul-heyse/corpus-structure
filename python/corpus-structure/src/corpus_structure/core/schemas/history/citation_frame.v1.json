@@ -1,0 +1,47 @@
+{
+  "entry": {
+    "class_": "sys:FrameEntries",
+    "kind": "citation_frame",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/citation_frame.json",
+    "arrow_schema": "/////0ACAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAABABAAAEAAAABAAAAJgAAABgAAAALAAAAAQAAABM/v//FAAAAAQAAAAHAAAAZW50cmllcwAHAAAAY3Mucm9vdABw/v//HAAAAAQAAAAOAAAAY2l0YXRpb25fZnJhbWUAAAoAAABjcy5wYXlsb2FkAACg/v//IAAAAAQAAAAQAAAAc3lzOkZyYW1lRW50cmllcwAAAAAIAAAAY3MuY2xhc3MAAAAA1P7//1AAAAAEAAAAQAAAAGE1OTE5NmM0YTg5NGRiZmFmNDAwNTY3YTZkOWU5YWM5ZWQ5OTE1ODA3NDVlYTQ4YmZkYTFjMTFiZTEyNzRkMDMAAAAAEQAAAGNzLm1vZGVsX3JldmlzaW9uAAAAAQAAABgAAAAAABIAGAAIAAYABwAMAAAAEAAUABIAAAAAAAEFFAAAANQAAAAIAAAAFAAAAAAAAAAHAAAAZW50cmllcwADAAAAgAAAAEAAAAAEAAAAlP///xgAAAAEAAAACgAAAGFycm93Lmpzb24AABQAAABBUlJPVzpleHRlbnNpb246bmFtZQAAAADM////EAAAAAQAAAAAAAAAAAAAABgAAABBUlJPVzpleHRlbnNpb246bWV0YWRhdGEAAAAACAAMAAQACAAIAAAAHAAAAAQAAAAOAAAAc3lzOkZyYW1lRW50cnkAAAgAAABjcy5jbGFzcwAAAAAEAAQABAAAAAAAAAA=",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/citation_frame.json",
+    "$defs": {
+      "FrameEntry": {
+        "additionalProperties": false,
+        "description": "One cited sentence: its locator (D1 \u00a73.4) and its canonical text.",
+        "properties": {
+          "locator": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "locator",
+          "text"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Maps each cited sentence id (`sN`, or `cN` of the standing context) to locator and text.",
+    "patternProperties": {
+      "^[sc][0-9]+$": {
+        "$ref": "#/$defs/FrameEntry"
+      }
+    },
+    "type": "object"
+  }
+}

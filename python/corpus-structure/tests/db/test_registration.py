@@ -84,8 +84,7 @@ def test_the_model_revision_and_payload_schema_rows(db: Connection) -> None:
     kinds = set(
         sql(
             db,
-            "SELECT kind FROM meta.payload_schema WHERE model_revision_id = :m",
-            m=ref.model_revision_id,
+            "SELECT kind FROM meta.payload_schema",
         ).scalars()
     )
     # every payload the version's writers write has a registered schema
@@ -291,7 +290,7 @@ def test_concurrent_ensure_leaves_one_row_per_identity(committing_db: Engine) ->
             "SELECT count(*) - count(DISTINCT (schema_version_id, compiler, "
             "compiler_version, kind)) FROM meta.compiled_artifact",
         ).scalar_one()
-    assert c["meta.schema_version"] == 1 and c["meta.model_revision"] == 2
+    assert c["meta.schema_version"] == 1 and c["meta.model_revision"] == 3
     assert c["meta.compiled_artifact"] == 6 and duplicates == 0
 
 
@@ -309,3 +308,26 @@ def test_fresh_registry_preserves_payload_parent_artifacts(db: Connection) -> No
     assert (new[1], new[2], new[4]) == (2, old[0], "0.4.0")
     assert pa.ipc.read_schema(pa.BufferReader(old[3])).field("limit").nullable is False
     assert pa.ipc.read_schema(pa.BufferReader(new[3])).field("limit").nullable is True
+
+
+def test_unchanged_payloads_keep_original_defining_revision(db: Connection) -> None:
+    registry.ensure(db, project(db), [MINIMAL], "human:test")
+    versions = sql(db, "SELECT p.version, p.json_schema_id, r.label FROM meta.payload_schema p "
+                   "JOIN meta.model_revision r ON r.id = p.model_revision_id").all()
+    initial = [row for row in versions if row[0] == 1]
+    assert len(initial) == 22
+    assert all(row[2] == "0.3.0" and "/a59196c4a894/" in row[1] for row in initial)
+    assert [(row[2], row[1]) for row in versions if row[0] == 2] == [
+        ("0.4.0", "https://corpus-structure.dev/schemas/eceef3291d1f/policy_action.json")
+    ]
+
+
+def test_conflicting_registered_payload_bytes_are_refused(db: Connection) -> None:
+    pid = project(db)
+    registry.ensure(db, pid, [MINIMAL], "human:test")
+    sql(db, "UPDATE meta.payload_schema SET arrow_schema = :bad WHERE class = 'sys:PolicyAction' "
+            "AND version = 1", bad=b"corrupt")
+    with pytest.raises(
+        registry.RegistrationError, match="registered payload differs in arrow_schema"
+    ):
+        registry.ensure(db, pid, [MINIMAL], "human:test")

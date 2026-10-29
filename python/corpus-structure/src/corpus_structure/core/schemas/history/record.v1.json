@@ -1,0 +1,75 @@
+{
+  "entry": {
+    "class_": "sys:RecordPayload",
+    "kind": "record",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.record.json",
+    "arrow_schema": "/////ygDAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAAOAAAAAEAAAAAwAAAGgAAAAwAAAABAAAAIz9//8UAAAABAAAAAYAAAByZWNvcmQAAAoAAABjcy5wYXlsb2FkAAC0/f//IAAAAAQAAAARAAAAc3lzOlJlY29yZFBheWxvYWQAAAAIAAAAY3MuY2xhc3MAAAAA6P3//1AAAAAEAAAAQAAAAGE1OTE5NmM0YTg5NGRiZmFmNDAwNTY3YTZkOWU5YWM5ZWQ5OTE1ODA3NDVlYTQ4YmZkYTFjMTFiZTEyNzRkMDMAAAAAEQAAAGNzLm1vZGVsX3JldmlzaW9uAAAAAwAAAOgBAAAAAQAAGAAAAAAAEgAYAAgABgAHAAwAAAAQABQAEgAAAAAAAQUUAAAAwAAAAAgAAAAUAAAAAAAAAAYAAABhbmNob3IAAAMAAAB4AAAAQAAAAAQAAACw/v//GAAAAAQAAAAKAAAAYXJyb3cuanNvbgAAFAAAAEFSUk9XOmV4dGVuc2lvbjpuYW1lAAAAAOj+//8QAAAABAAAAAAAAAAAAAAAGAAAAEFSUk9XOmV4dGVuc2lvbjptZXRhZGF0YQAAAAAc////FAAAAAQAAAAEAAAAanNvbgAAAAAHAAAAY3MubnVsbAAEAAYABAAAAAAAEgAYAAgAAAAHAAwAAAAQABQAEgAAAAAAAAUUAAAAxAAAAAgAAAAUAAAAAAAAAAYAAABmaWVsZHMAAAMAAACAAAAAQAAAAAQAAACU////GAAAAAQAAAAKAAAAYXJyb3cuanNvbgAAFAAAAEFSUk9XOmV4dGVuc2lvbjpuYW1lAAAAAMz///8QAAAABAAAAAAAAAAAAAAAGAAAAEFSUk9XOmV4dGVuc2lvbjptZXRhZGF0YQAAAAAIAAwABAAIAAgAAAAUAAAABAAAAAQAAABqc29uAAAAAAcAAABjcy5udWxsAMT///8QABQACAAAAAcADAAAABAAEAAAAAAAAAUQAAAAIAAAAAQAAAAAAAAACQAAAHN0cnVjdHVyZQAAAAQABAAEAAAA",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.record.json",
+    "$defs": {
+      "JsonValue": {},
+      "RecordField": {
+        "additionalProperties": false,
+        "description": "A field of a record.",
+        "properties": {
+          "start": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "end": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          },
+          "score": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "text",
+          "score"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A record structure.",
+    "properties": {
+      "structure": {
+        "type": "string"
+      },
+      "fields": {
+        "additionalProperties": {
+          "items": {
+            "$ref": "#/$defs/RecordField"
+          },
+          "type": "array"
+        },
+        "type": "object"
+      },
+      "anchor": {
+        "$ref": "#/$defs/JsonValue"
+      }
+    },
+    "required": [
+      "structure",
+      "fields"
+    ],
+    "type": "object"
+  }
+}

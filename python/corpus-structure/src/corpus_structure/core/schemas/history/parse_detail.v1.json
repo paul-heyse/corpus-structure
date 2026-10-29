@@ -1,0 +1,256 @@
+{
+  "entry": {
+    "class_": "sys:ParseDetail",
+    "kind": "parse_detail",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/parse_detail.json",
+    "arrow_schema": "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",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/parse_detail.json",
+    "$defs": {
+      "ExcludedElement": {
+        "additionalProperties": false,
+        "description": "An element a profile exclusion rule removed (excluded text is recorded per rule).",
+        "properties": {
+          "rule": {
+            "type": "string"
+          },
+          "tag": {
+            "type": "string"
+          },
+          "classes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "chars": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rule",
+          "tag",
+          "chars"
+        ],
+        "type": "object"
+      },
+      "MathAnomaly": {
+        "additionalProperties": false,
+        "description": "A delimiting anomaly outside any math span (a stray closer).",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "delimiter": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "delimiter",
+          "context"
+        ],
+        "type": "object"
+      },
+      "OrphanRun": {
+        "additionalProperties": false,
+        "description": "Text placed directly in a container, kept as an orphan paragraph.",
+        "properties": {
+          "container": {
+            "$ref": "#/$defs/SegmentKind"
+          },
+          "text": {
+            "type": "string"
+          },
+          "sourceline": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "container",
+          "text"
+        ],
+        "type": "object"
+      },
+      "ParserError": {
+        "additionalProperties": false,
+        "description": "One html5lib parse error.",
+        "properties": {
+          "line": {
+            "type": "integer"
+          },
+          "column": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "line",
+          "column",
+          "code"
+        ],
+        "type": "object"
+      },
+      "RoleConflict": {
+        "additionalProperties": false,
+        "description": "An element two exclusive profile roles claim.",
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "classes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "tag",
+          "roles"
+        ],
+        "type": "object"
+      },
+      "SegmentKind": {
+        "description": "The kinds of segment of a rendition (D1 \u00a73.2), with their member properties. Lifecycle:\nstatic.",
+        "enum": [
+          "document",
+          "section",
+          "unit",
+          "paragraph",
+          "list",
+          "list_item",
+          "details",
+          "math_display",
+          "math_inline",
+          "heading",
+          "table",
+          "table_row",
+          "table_cell",
+          "caption",
+          "footnote",
+          "figure",
+          "sentence",
+          "email_message",
+          "quoted_block",
+          "signature"
+        ],
+        "type": "string"
+      },
+      "UnicodeChange": {
+        "additionalProperties": false,
+        "description": "A chunk of text NFC normalization changed.",
+        "properties": {
+          "before": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "An ingest build's diagnostics, never part of the rendition's content (D4 M01; D1 \u00a73.2): kept\non `kb.rendition_build`, never on segments, so they are outside the rendition's content digest.",
+    "properties": {
+      "encoding": {
+        "type": "string"
+      },
+      "parser_errors": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/ParserError"
+        },
+        "type": "array"
+      },
+      "data_loss_warnings": {
+        "type": "integer"
+      },
+      "role_conflicts": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/RoleConflict"
+        },
+        "type": "array"
+      },
+      "exclusions": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/ExcludedElement"
+        },
+        "type": "array"
+      },
+      "math_anomalies": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/MathAnomaly"
+        },
+        "type": "array"
+      },
+      "orphans": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/OrphanRun"
+        },
+        "type": "array"
+      },
+      "unicode_changed": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/UnicodeChange"
+        },
+        "type": "array"
+      },
+      "references_rendered": {
+        "default": 0,
+        "type": "integer"
+      },
+      "macro_notes": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "synthesize_notes": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "data_loss_warnings"
+    ],
+    "type": "object"
+  }
+}

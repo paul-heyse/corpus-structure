@@ -1,0 +1,51 @@
+{
+  "entry": {
+    "class_": "sys:InterventionTarget",
+    "kind": "intervention_target",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/intervention_target.json",
+    "arrow_schema": "/////5ABAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAAPgAAAAEAAAAAwAAAIAAAAA8AAAABAAAAJT///8gAAAABAAAABMAAABpbnRlcnZlbnRpb25fdGFyZ2V0AAoAAABjcy5wYXlsb2FkAADI////JAAAAAQAAAAWAAAAc3lzOkludGVydmVudGlvblRhcmdldAAACAAAAGNzLmNsYXNzAAAAAAgADAAEAAgACAAAAFAAAAAEAAAAQAAAAGE1OTE5NmM0YTg5NGRiZmFmNDAwNTY3YTZkOWU5YWM5ZWQ5OTE1ODA3NDVlYTQ4YmZkYTFjMTFiZTEyNzRkMDMAAAAAEQAAAGNzLm1vZGVsX3JldmlzaW9uAAAAAgAAADwAAAAEAAAA3P///wAAAAUQAAAAFAAAAAQAAAAAAAAAAwAAAHJlZgDI////EAAUAAgAAAAHAAwAAAAQABAAAAAAAAAFEAAAABwAAAAEAAAAAAAAAAQAAABraW5kAAAAAAQABAAEAAAA",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/intervention_target.json",
+    "$defs": {
+      "InterventionTargetKind": {
+        "description": "What an intervention acts on (InterventionTarget.kind, D3 \u00a76.3). Lifecycle: static.",
+        "enum": [
+          "unit",
+          "claim",
+          "alternative_group",
+          "golden_unit",
+          "schema",
+          "guideline",
+          "policy",
+          "run"
+        ],
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "`ops.intervention.target`; a `promotion` targets the run it promotes. `ref` is the target's\nkey, or its id's decimal text for a target named by id (a run): the kind says which.",
+    "properties": {
+      "kind": {
+        "$ref": "#/$defs/InterventionTargetKind"
+      },
+      "ref": {
+        "minLength": 1,
+        "type": "string"
+      }
+    },
+    "required": [
+      "kind",
+      "ref"
+    ],
+    "type": "object"
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "entry": {
+    "class_": "sys:VerificationPayload",
+    "kind": "verification",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.verification.json",
+    "arrow_schema": "/////4gDAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAAOwAAAAEAAAAAwAAAHQAAAA4AAAABAAAAIT9//8cAAAABAAAAAwAAAB2ZXJpZmljYXRpb24AAAAACgAAAGNzLnBheWxvYWQAALT9//8kAAAABAAAABcAAABzeXM6VmVyaWZpY2F0aW9uUGF5bG9hZAAIAAAAY3MuY2xhc3MAAAAA7P3//1AAAAAEAAAAQAAAAGE1OTE5NmM0YTg5NGRiZmFmNDAwNTY3YTZkOWU5YWM5ZWQ5OTE1ODA3NDVlYTQ4YmZkYTFjMTFiZTEyNzRkMDMAAAAAEQAAAGNzLm1vZGVsX3JldmlzaW9uAAAABQAAADgCAAD4AQAAzAEAAPQAAAAEAAAAJv///wAAAQUUAAAAyAAAAAgAAAAcAAAAAAAAAA4AAABjb3VudGVyZXhhbXBsZQAAAwAAAHgAAABAAAAABAAAALD+//8YAAAABAAAAAoAAABhcnJvdy5qc29uAAAUAAAAQVJST1c6ZXh0ZW5zaW9uOm5hbWUAAAAA6P7//xAAAAAEAAAAAAAAAAAAAAAYAAAAQVJST1c6ZXh0ZW5zaW9uOm1ldGFkYXRhAAAAABz///8UAAAABAAAAAQAAABqc29uAAAAAAcAAABjcy5udWxsAAQABgAEAAAAAAASABgACAAGAAcADAAAABAAFAASAAAAAAABBRQAAADEAAAACAAAABQAAAAAAAAABgAAAGRldGFpbAAAAwAAAIAAAABAAAAABAAAAJT///8YAAAABAAAAAoAAABhcnJvdy5qc29uAAAUAAAAQVJST1c6ZXh0ZW5zaW9uOm5hbWUAAAAAzP///xAAAAAEAAAAAAAAAAAAAAAYAAAAQVJST1c6ZXh0ZW5zaW9uOm1ldGFkYXRhAAAAAAgADAAEAAgACAAAABQAAAAEAAAABAAAAGpzb24AAAAABwAAAGNzLm51bGwAcP///6z///8AAAAFEAAAABgAAAAEAAAAAAAAAAcAAAB2ZXJkaWN0AJj////U////AAAABRAAAAAcAAAABAAAAAAAAAAIAAAAdmVyaWZpZXIAAAAAxP///xAAFAAIAAAABwAMAAAAEAAQAAAAAAAABRAAAAAgAAAABAAAAAAAAAAJAAAAY2xhaW1fa2V5AAAABAAEAAQAAAAAAAAA",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/payload.verification.json",
+    "$defs": {
+      "JsonValue": {},
+      "RuleSeverity": {
+        "description": "`meta.schema_rule.severity`. Lifecycle: static.",
+        "enum": [
+          "warning",
+          "error"
+        ],
+        "type": "string"
+      },
+      "VerificationDetail": {
+        "additionalProperties": false,
+        "description": "What M19 writes for a failing rule.",
+        "properties": {
+          "rule": {
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/$defs/RuleSeverity"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule",
+          "severity",
+          "message"
+        ],
+        "type": "object"
+      },
+      "VerificationVerdict": {
+        "description": "A verifier's verdict on a claim (M19-M21). Lifecycle: static.",
+        "enum": [
+          "consistent",
+          "refuted",
+          "not_checkable"
+        ],
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "A verifier's verdict on a claim.",
+    "properties": {
+      "claim_key": {
+        "type": "string"
+      },
+      "verifier": {
+        "type": "string"
+      },
+      "verdict": {
+        "$ref": "#/$defs/VerificationVerdict"
+      },
+      "detail": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/VerificationDetail"
+          },
+          {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          }
+        ]
+      },
+      "counterexample": {
+        "$ref": "#/$defs/JsonValue"
+      }
+    },
+    "required": [
+      "claim_key",
+      "verifier",
+      "verdict"
+    ],
+    "type": "object"
+  }
+}
