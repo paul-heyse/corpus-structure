@@ -45,3 +45,19 @@ chains:
         metrics = conn.execute(text("SELECT trigger_metrics FROM ops.task WHERE run_id=:r AND stage='propose' LIMIT 1"), {'r':first.run_id}).scalar_one()
         assert metrics['values']['phase'] == 0
         assert metrics['values']['unit.claim_bearing'] is True
+
+
+def test_wait_is_refused_without_leaving_a_run(committing_db: Any):
+    import pytest
+    from corpus_structure.orchestrate.commands import CommandError
+    from corpus_structure.core.vocab import AgentMode
+
+    with committing_db.begin() as conn:
+        project.init_project(conn, domain='statistics', name='wait-refusal',
+            corpus=REPO / 'fixtures/trace/corpus', registry=phase0.registry(REPO / 'domains/statistics'))
+    url = committing_db.url.set(drivername='postgresql').render_as_string(hide_password=False)
+    with pytest.raises(CommandError, match='wait barrier is not implemented'):
+        run_to_completion(committing_db, url=url, project_name='wait-refusal', slice='trace',
+                          agent_mode=AgentMode.WAIT)
+    with committing_db.connect() as conn:
+        assert conn.execute(text('SELECT count(*) FROM ops.run')).scalar_one() == 0
