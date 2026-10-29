@@ -26,7 +26,7 @@ class MarkupProjection:
 
 def project_markup(
     prepared: PreparedRelease, realization_id: str, *, observation_key: str,
-    payload: Mapping[str, Any], content: RenditionContent, page: str, rendition_key: str,
+    payload: Mapping[str, Any], content: RenditionContent, page: str, source_uri: str, rendition_key: str,
     segment_key: str, provider: str, operation_version: str,
 ) -> MarkupProjection:
     """Only an explicit admitted source-profile synthesis can emit a source relation.
@@ -65,7 +65,7 @@ def project_markup(
         if not (segment.start<=start<end<=segment.end):
             raise ValueError('synthesized evidence lies outside its source segment')
         eid='evidence:'+sha256(canonical_bytes([observation_key,ordinal,start,end])).hexdigest()
-        evidence.append(EvidenceRow(eid,page,subject_locator,provider,operation_version))
+        evidence.append(EvidenceRow(eid,source_uri,subject_locator,provider,operation_version))
         ranges.append((eid,start,end))
     refs=tuple(evidence)
     subject=statement_identity(prepared.release_id,realization_id,rendition_key,subject_locator)

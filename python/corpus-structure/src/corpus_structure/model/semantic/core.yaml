@@ -60,6 +60,8 @@ classes:
         required: true
       unit:
         required: true
+      basis:
+        description: The reference basis stated by the source, when present.
   EntityValue:
     is_a: Value
     attributes:
@@ -104,6 +106,18 @@ classes:
     attributes:
       id:
         identifier: true
+      label:
+        description: Source display name; selection does not replace source naming
+          occurrences.
+        annotations:
+          cs:role: display
+          cs:constraint_scope: accepted_value
+      aliases:
+        multivalued: true
+        description: Source naming alternatives, independent of semantic identity
+          rules.
+        annotations:
+          cs:role: display
   SemanticScope:
     attributes:
       extent:
@@ -420,6 +434,8 @@ classes:
           cs:role: predicate
         in_subset:
         - structural
+        description: The source presents this block as a proof or solution of the
+          referenced statement. Mathematical verification is assessed separately.
   FloatValue:
     is_a: Value
     attributes:

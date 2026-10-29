@@ -64,9 +64,22 @@ def assemble(
             return {k: plain(v) for k, v in value.items()}
         return value
 
+    def representation(value: Any) -> Any:
+        if isinstance(value, Decimal):
+            return ["decimal-report", str(value)]
+        if isinstance(value, datetime):
+            return ["datetime-report", value.isoformat()]
+        if isinstance(value, date):
+            return ["date-report", value.isoformat()]
+        if isinstance(value, dict):
+            return ["mapping", [[key, representation(item)] for key, item in sorted(value.items())]]
+        if isinstance(value, (tuple, list)):
+            return ["sequence", [representation(item) for item in value]]
+        return _meaning(value)
+
     def lower(value: Any, range_name: str | None = None, inlined: bool = False) -> str:
         raw = plain(value)
-        identity = [range_name, _meaning(raw)]
+        identity = [range_name, representation(raw)]
         key = 'value:' + sha256(canonical_bytes(identity)).hexdigest()
         if key in values:
             return key
@@ -86,7 +99,7 @@ def assemble(
                 if prop.collection_key:
                     child = lower(item, prop.range, True)
                 elif prop.multivalued:
-                    child = 'value:' + sha256(canonical_bytes([prop.range, prop.inlined, _meaning(plain(item))])).hexdigest()
+                    child = 'value:' + sha256(canonical_bytes([prop.range, prop.inlined, representation(plain(item))])).hexdigest()
                     values[child] = ValueRow(child, 'sequence')
                     for index, member in enumerate(item):
                         roles[child, 'item', index] = RoleRow(child, 'item', index, lower(member, prop.range, prop.inlined))
@@ -141,7 +154,10 @@ def assemble(
         previous = memberships.get((item.subject, definition.iri))
         membership_basis = 'stated' if item.establishment == 'stated' or (previous is not None and previous.establishment == 'stated') else 'agent_asserted'
         memberships[item.subject, definition.iri] = MembershipRow(item.subject, definition.iri, membership_basis)
-        facts[fact_id] = FactRow(fact_id, item.subject, prop.iri, object_id, qualification_id)
+        fact = FactRow(fact_id, item.subject, prop.iri, object_id, qualification_id)
+        if fact_id in facts:
+            fact = min((facts[fact_id], fact), key=lambda row: (row.object_value_id, row.qualification_value_id or ''))
+        facts[fact_id] = fact
         occurrences[occurrence_id] = occurrence
         establishment = OccurrenceEstablishmentRow(occurrence_id, item.establishment)
         if occurrence_id in establishments and establishments[occurrence_id] != establishment:

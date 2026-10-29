@@ -1,4 +1,5 @@
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -72,7 +73,8 @@ def test_assembly_publishes_with_native_identity_and_scoped_source_support(seman
         assert len(conn.execute(select(table('data.occurrence_establishment'))).all()) == 3
 
 
-def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(semantic_db_engine, semantic_writer_engine):
+@pytest.mark.parametrize("confidence", (Decimal("0.9500"), Decimal("-0.0000")))
+def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(semantic_db_engine, semantic_writer_engine, confidence):
     from decimal import Decimal
     from corpus_structure.semantic.publication import AssessmentRow, PublicationBatch, publish_batch
     from corpus_structure.semantic.arrow_publication import ArrowPublicationBatch, publish_arrow
@@ -88,12 +90,12 @@ def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(sem
     item=SourceItem('subject','Thing','id','subject',{'modality':'asserted','polarity':True},'source','identity','stated',(EvidenceRow('evidence','source','page#p','parser','1'),))
     source = assemble(release,'realization','source',(item,))
     publish_batch(semantic_writer_engine,source)
-    assessment = PublicationBatch(release.release_id,'realization','assessment',assessment=(AssessmentRow('a','operation','1','undecided',fact_id=source.fact[0].fact_id,confidence=Decimal('0.9500'),uncertainty='symbolic comparison incomplete'),))
+    assessment = PublicationBatch(release.release_id,'realization','assessment',assessment=(AssessmentRow('a','operation','1','undecided',fact_id=source.fact[0].fact_id,confidence=confidence,uncertainty='symbolic comparison incomplete'),))
     arrow = ArrowPublicationBatch.from_rows(assessment)
     assert arrow.content == assessment.content
     assert publish_arrow(semantic_writer_engine,arrow) == publish_batch(semantic_writer_engine,assessment)
     with semantic_writer_engine.connect() as conn:
-        assert conn.execute(select(table('data.assessment').c.confidence)).scalar_one() == Decimal('0.9500')
+        assert conn.execute(select(table('data.assessment').c.confidence)).scalar_one() == confidence
 
 
 def test_non_utc_instants_publish_with_equivalent_identity(semantic_db_engine,semantic_writer_engine):
@@ -120,4 +122,31 @@ def test_non_utc_instants_publish_with_equivalent_identity(semantic_db_engine,se
     publish_batch(semantic_writer_engine,batch)
     with semantic_writer_engine.connect() as conn:
         values=table('data.typed_value')
-        assert conn.execute(select(values.c.text_value).where(values.c.kind=='datetime')).scalar_one()=='2026-10-29T10:00:00+00:00'
+        assert conn.execute(select(values.c.text_value).where(values.c.kind=='datetime')).scalars().all()==['2026-10-29T10:00:00+00:00']*2
+
+
+def test_report_decimal_representations_survive_fact_fusion(semantic_db_engine,semantic_writer_engine):
+    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
+    from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.publication import publish_batch
+    from corpus_structure.semantic.metadata import table
+    from sqlalchemy import insert, text
+    bundle=inputs()
+    body=yaml.safe_load(bundle.sources[0].content)
+    body['classes']['Thing']['attributes']['amount']={'range':'decimal'}
+    bundle=SourceBundle(bundle.root,(SourceArtifact(bundle.sources[0].name,yaml.safe_dump(body).encode()),*bundle.sources[1:]))
+    release=prepare_release(bundle)
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn,bundle,ResolvedDependencies(),PreparationProfile(),release)
+        conn.execute(insert(table('data.project')).values(project_id='p'))
+        conn.execute(insert(table('data.realization')).values(realization_id='z',project_id='p',release_id=release.release_id))
+    first=SourceItem('subject','Thing','amount',Decimal('1.2300'),{'modality':'asserted','polarity':True},'source','one','stated',(EvidenceRow('ev','source','page#p','parser','1'),))
+    second=replace(first,item='two',object=Decimal('1.23'))
+    identity=replace(first,item='id',property_name='id',object='subject')
+    batch=assemble(release,'z','representations',(identity,first,second))
+    assert batch.content==assemble(release,'z','representations',(second,identity,first)).content
+    assert len(batch.fact)==2  # amount plus declared identity, not one fact per representation
+    publish_batch(semantic_writer_engine,batch)
+    with semantic_writer_engine.connect() as conn:
+        found=conn.execute(text("SELECT v.decimal_lexical FROM data.occurrence o JOIN data.typed_value v ON (v.release_id,v.realization_id,v.value_id)=(o.release_id,o.realization_id,o.report_object_value_id) WHERE v.kind='decimal' ORDER BY o.item")).scalars().all()
+        assert found==['1.2300','1.23']
