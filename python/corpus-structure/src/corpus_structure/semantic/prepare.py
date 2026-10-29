@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
-from functools import reduce
+from functools import lru_cache, reduce
 from hashlib import sha256
 from importlib.metadata import version
 from operator import or_
@@ -32,16 +33,19 @@ from .identity import canonical_bytes
 from .types import (
     SEMANTIC_COMPILER_VERSION,
     ClassDefinition,
+    ClassPreview,
     Diagnostic,
     PreparationError,
     PreparationProfile,
     PreparedArtifact,
     PreparedRelease,
     PropertyDefinition,
+    PropertyPreview,
     QueryDescriptor,
     RegistryRow,
     ResolvedDependencies,
     SourceBundle,
+    SchemaPreview,
     VocabularyMember,
     VocabularySnapshot,
 )
@@ -360,14 +364,21 @@ _EMPTY_DEPENDENCIES = ResolvedDependencies()
 _DEFAULT_PROFILE = PreparationProfile()
 
 
-def prepare_release(
-    bundle: SourceBundle,
-    dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
-    profile: PreparationProfile = _DEFAULT_PROFILE,
-) -> PreparedRelease:
-    """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
-    if profile.version != "semantic-1" or profile.compiler_version != SEMANTIC_COMPILER_VERSION:
-        _fail("profile", "profile", "unsupported profile", "unsupported")
+_LIBRARIES = (
+    "linkml", "linkml-runtime", "pydantic", "rdflib", "pyshacl", "oaklib",
+    "linkml-term-validator", "valuesets", "pyoxigraph",
+)
+
+
+def _compiler_stack() -> tuple[tuple[str, str], ...]:
+    # Read the current stack at the cache boundary, not once at module import.
+    return (("compiler", SEMANTIC_COMPILER_VERSION), ("python", sys.version),
+            *((name, version(name)) for name in _LIBRARIES))
+
+
+def _view_and_vocabularies(
+    bundle: SourceBundle, dependencies: ResolvedDependencies
+) -> tuple[SchemaView, tuple[VocabularySnapshot, ...], tuple[Diagnostic, ...]]:
     view = _view(bundle)
     supplied = {s.enum: s for s in dependencies.vocabularies}
     if len(supplied) != len(dependencies.vocabularies):
@@ -454,6 +465,61 @@ def prepare_release(
         diagnostics.extend(
             Diagnostic("unchecked_term", name, item, "unchecked") for item in snapshot.unchecked
         )
+    return view, tuple(vocabularies), tuple(diagnostics)
+
+
+def preview_schema(
+    bundle: SourceBundle, dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES
+) -> SchemaPreview:
+    """Resolve exact names/vocabulary without generating models, graphs or release artifacts."""
+    view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies)
+    classes = tuple(
+        ClassPreview(
+            str(name), str(view.get_uri(cls, expand=True)),
+            tuple(sorted(str(parent) for parent in view.class_ancestors(name, reflexive=False))),
+            tuple(PropertyPreview(str(slot.name), str(view.get_uri(slot, expand=True)))
+                  for slot in view.class_induced_slots(name)),
+            bool(cls.abstract),
+        ) for name, cls in sorted(view.all_classes().items())
+    )
+    return SchemaPreview(classes, vocabularies, diagnostics)
+
+
+def prepare_release(
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
+    profile: PreparationProfile = _DEFAULT_PROFILE,
+) -> PreparedRelease:
+    """Prepare a complete interpretation; cache only immutable pure inputs, never database state."""
+    if profile.version != "semantic-1" or profile.compiler_version != SEMANTIC_COMPILER_VERSION:
+        _fail("profile", "profile", "unsupported profile", "unsupported")
+    stack = _compiler_stack()
+    try:
+        hash((bundle, dependencies, profile))
+    except TypeError:
+        # Malformed mutable inputs still reach the existing preparation diagnostics.
+        return _prepare_release_uncached(bundle, dependencies, profile, stack)
+    return _prepare_release_cached(bundle, dependencies, profile, stack)
+
+
+@lru_cache(maxsize=8)
+def _prepare_release_cached(
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies,
+    profile: PreparationProfile,
+    stack: tuple[tuple[str, str], ...],
+) -> PreparedRelease:
+    return _prepare_release_uncached(bundle, dependencies, profile, stack)
+
+
+def _prepare_release_uncached(
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies,
+    profile: PreparationProfile,
+    stack: tuple[tuple[str, str], ...],
+) -> PreparedRelease:
+    """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
+    view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies)
     enum_types = {s.enum: _LITERAL[tuple(m.value for m in s.members)] for s in vocabularies}
     definitions: list[ClassDefinition] = []
     classes = {str(name): cls for name, cls in view.all_classes().items()}
@@ -659,19 +725,7 @@ def prepare_release(
         {
             "root": bundle.root,
             "profile": asdict(profile),
-            "libraries": {
-                name: version(name)
-                for name in (
-                    "linkml",
-                    "linkml-runtime",
-                    "pydantic",
-                    "rdflib",
-                    "pyshacl",
-                    "oaklib",
-                    "linkml-term-validator",
-                    "valuesets",
-                )
-            },
+            "libraries": {name: value for name, value in stack if name in _LIBRARIES},
             "sources": sorted((s.name, s.digest) for s in bundle.sources),
             "dependencies": sorted((a.name, a.digest) for a in dependencies.artifacts),
             "ontology_sources": sorted(dependencies.ontology_sources),

@@ -21,7 +21,7 @@ from corpus_structure.core.evidence import MacroDef
 from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
 from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 
-from .prepare import prepare_release
+from .prepare import preview_schema
 from .publication import native_constraints
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
@@ -41,15 +41,15 @@ def proposal_inputs(
     bundle=observation_inputs(bundle)
     if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
         raise ValueError("reserved agent module name already supplied")
-    candidate = prepare_release(bundle, dependencies)
+    candidate = preview_schema(bundle, dependencies)
     module = yaml.safe_load(_MODEL.read_bytes())
-    qualification = next((d for d in candidate.definitions if d.name == qualification_class), None)
+    qualification = next((d for d in candidate.classes if d.name == qualification_class), None)
     if qualification is None or not (
         qualification.name == "Qualification" or "Qualification" in qualification.ancestors
     ):
         raise ValueError("agent operation needs an explicit Qualification class or subclass")
     module["classes"]["AgentClaim"]["attributes"]["qualification"]["range"] = qualification_class
-    entities = [d for d in candidate.definitions if not d.abstract and (d.name == "Entity" or "Entity" in d.ancestors)]
+    entities = [d for d in candidate.classes if not d.abstract and (d.name == "Entity" or "Entity" in d.ancestors)]
     if not entities:
         raise ValueError("agent proposals require a declared Entity hierarchy")
     predicates = {p.iri for definition in entities for p in definition.properties if p.name != "id"}
