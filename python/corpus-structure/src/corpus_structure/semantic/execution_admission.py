@@ -22,6 +22,7 @@ _NATIVE_CAPABILITIES = frozenset(
         "scoped_publication",
         "typed_values",
         "execution.lifecycle.v1",
+        "execution.identity_exclusions.v1",
         "conditional_rules_native",
     }
 )
@@ -57,6 +58,7 @@ def admit_execution_release(
             )
     if prepared.execution_model_id is None and set(prepared.required_capabilities) & {
         "execution.lifecycle.v1",
+        "execution.identity_exclusions.v1",
         "conditional_rules_native",
     }:
         raise ExecutionAdmissionError("native execution capabilities require a composed model")
@@ -172,7 +174,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 
 # Frozen from reviewed migration ASTs when semantic_0026 was authored.
-_DESCRIPTOR_SHA256 = "a42335877d5aaa2c4d32eb1fac32d83e5a6ed774e8db3f47ea1bd526cba9ccd2"
+_DESCRIPTOR_SHA256 = "db67766a3284a44c99f0defc456bcb7a6ab41637e255e503cbdd962098c1cdec"
 _REQUIRE_SHA256 = "9b110a9f5d81d3bd0c7c859ced7a3d8f41ee2899e09363e6c0fe3d4c16f1d78b"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

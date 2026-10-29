@@ -2042,3 +2042,41 @@ classes:
         unique_key_slots: [release_id, metric_id]
     annotations:
       ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
+
+  identity_exclusion:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      exclusion_id: {range: string, required: true}
+      observation_id: {range: integer, required: true}
+      local_id: {range: string, required: true}
+      left_kind: {range: string, required: true}
+      left_ref: {range: string, required: true}
+      right_kind: {range: string, required: true}
+      right_ref: {range: string, required: true}
+      left_entity_id: {range: string, required: true}
+      right_entity_id: {range: string, required: true}
+      reason: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      operation_version: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [realization_id, release_id, exclusion_id]
+      declaration:
+        unique_key_slots: [realization_id, release_id, observation_id, local_id]
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "left_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["realization_id", "release_id", "right_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
+      ph:checks: '["left_entity_id <> right_entity_id", "left_kind IN (''local'',''known'')", "right_kind IN (''local'',''known'')"]'
+  identity_exclusion_evidence:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      exclusion_id: {range: string, required: true}
+      evidence_id: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [realization_id, release_id, exclusion_id, evidence_id]
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "exclusion_id"], "target": "data.identity_exclusion.realization_id,release_id,exclusion_id"}, {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
