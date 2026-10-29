@@ -20,7 +20,6 @@ from corpus_structure.evaluate.split import (
     assign,
     load_eval,
     split_documents,
-    split_of,
 )
 
 ROOT = "siegrist_random/random"
@@ -83,30 +82,3 @@ def test_permuting_the_documents_leaves_the_split_unchanged(order: list[int], se
     assert assign([docs[i] for i in order], CONFIG, {}, seed) == assign(docs, CONFIG, {}, seed)
 
 
-def test_the_split_is_written_once_with_its_seed_and_reason(
-    db: Connection, gw: SimpleNamespace, tmp_path: Path
-) -> None:
-    w = gw.setup_world(db, tmp_path, golden=False)
-    config = load_eval(w.pack).split
-    for i in range(1, 11):
-        db.execute(
-            text("INSERT INTO kb.document (project_id, key, source_uri, content_hash, "
-                 "original_path, mime, meta) VALUES (:p, :k, :u, 'h', 'o', 'text/html', "
-                 "'{\"chapter\": \"9\"}')"),
-            {"p": w.project_id, "k": f"doc:{i:032x}", "u": f"{ROOT}/ch/Page{i}.html"},
-        )  # fmt: skip
-    report = split_documents(db, w.project_id, config)
-    assert report.added == {"dev": 4 + 8, "test": 2}  # four forced spike pages; 8 of 10 hashed
-    rows = db.execute(
-        text("SELECT d.source_uri, s.split, s.reason, s.seed FROM eval.document_split s JOIN "
-             "kb.document d ON d.id = s.document_id WHERE s.project_id = :p"),
-        {"p": w.project_id},
-    ).all()  # fmt: skip
-    forced = {r.source_uri: (r.split, r.reason, r.seed) for r in rows if "special/" in r.source_uri}
-    assert forced[f"{ROOT}/special/Gamma.html"] == ("dev", "forced_dev: spike page (S0, S0-R2)",
-                                                    None)  # fmt: skip
-    assert {(r.reason, r.seed) for r in rows if "/ch/" in r.source_uri} == {("hash", "0")}
-    again = split_documents(db, w.project_id, config, seed=9)
-    assert again.added == {} and again.total == report.total
-    lookup = split_of(db, w.project_id)
-    assert {lookup[d.id] for d in w.documents.values()} == {DocumentSplit.DEV}

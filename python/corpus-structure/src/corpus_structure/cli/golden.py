@@ -60,10 +60,11 @@ def status_command(ctx:typer.Context,label:str|None=None,project:str|None=None,j
         s=table('eval.reference_set');q=select(s).where(s.c.project_id==pid)
         if label is not None:q=q.where(s.c.label==label)
         result=[{**references.golden_set_status(conn,row.id),'label':row.label,'split':row.split,'release_id':row.release_id,'source_run_id':row.source_run_id} for row in conn.execute(q.order_by(s.c.id))]
+        if label is not None and not result:raise references.ReferenceError(f'no reference set {label!r}')
     output(result,json)
 
 @golden_app.command('submit')
-def submit_command(ctx:typer.Context,unit:int,pass_kind:Annotated[str,typer.Option('--pass')],actor:str,authored:Annotated[Path,typer.Option(exists=True,dir_okay=False,readable=True)],frame:Annotated[Path,typer.Option(exists=True,dir_okay=False,readable=True)],project:str|None=None,json:JsonOpt=False):
+def submit_command(ctx:typer.Context,unit:Annotated[int,typer.Option()],pass_kind:Annotated[str,typer.Option('--pass')],actor:Annotated[str,typer.Option()],authored:Annotated[Path,typer.Option(exists=True,dir_okay=False,readable=True)],frame:Annotated[Path,typer.Option(exists=True,dir_okay=False,readable=True)],project:str|None=None,json:JsonOpt=False):
     """Store an automated independent pass and its exact source citation frame."""
     from corpus_structure.semantic.proposals import ProposalFrame,ProposalSentence
     with reference_session(ctx,project) as (conn,pid):
