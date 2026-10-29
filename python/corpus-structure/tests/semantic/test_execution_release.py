@@ -367,3 +367,59 @@ def test_native_project_generation_cannot_reset_or_skip(semantic_db_engine):
         with pytest.raises(DBAPIError, match="generation must start"), conn.begin_nested():
             conn.execute(insert(table("data.project")).values(project_id=str(uuid4()),
                          active_release_id=prepared.release_id, generation=5))
+
+
+@pytest.mark.parametrize("flag", ["transitive", "symmetric"])
+def test_native_constructor_refuses_scalar_inference_relation(
+    semantic_db_engine, semantic_writer_engine, flag
+):
+    import yaml
+    from corpus_structure.semantic.publication import _admit_inference
+
+    domain = yaml.safe_load(_bundle().sources[0].content)
+    domain["slots"] = {"scalar_relation": {"range": "string", flag: True}}
+    domain["classes"]["Item"]["slots"] = ["scalar_relation"]
+    bundle = SourceBundle("domain", (SourceArtifact("domain", yaml.safe_dump(domain).encode()),))
+    dependencies = composed_dependencies(ResolvedDependencies())
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
+    with pytest.raises(ValueError, match="binary entity relations"):
+        _admit_inference(prepared)
+    with semantic_db_engine.begin() as conn:
+        releases.persist_release(conn, bundle, dependencies, profile, prepared)
+        project = _project(conn)
+    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="native binary inference profile") as failure:
+        conn.execute(text("SELECT data.initialize_source_project(:p,:r,:z)"),
+                     {"p": project, "r": prepared.release_id, "z": str(uuid4())})
+    assert failure.value.orig.sqlstate == "23514"
+
+
+@pytest.mark.parametrize("capability", ["execute", "select"])
+def test_native_readiness_requires_positive_application_capabilities(semantic_db_engine, capability):
+    with semantic_db_engine.begin() as conn:
+        *_, prepared = _stage(conn)
+        project = _project(conn)
+        owner = conn.dialect.identifier_preparer.quote(conn.scalar(text("SELECT current_user")))
+        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
+        if capability == "execute":
+            conn.execute(text("REVOKE EXECUTE ON FUNCTION ops.create_run(text,text,text,bigint,bytea,text,bigint,jsonb,text,text) FROM corpus_sem_writer"))
+        else:
+            conn.execute(text("REVOKE SELECT ON data.occurrence_context FROM corpus_sem_writer"))
+        with pytest.raises(ExecutionAdmissionError, match="native execution deployment"):
+            releases.activate_release(conn, project, prepared.release_id,
+                                      expected_parent=None, expected_generation=0)
+        conn.execute(text("SET LOCAL ROLE " + owner))
+        assert releases.activation_token(conn, project) == releases.ActivationToken(None, 0)
+
+
+def test_native_empty_realization_cannot_rebind_interpretation(semantic_db_engine):
+    with semantic_db_engine.begin() as conn:
+        *_, prepared = _stage(conn)
+        project = _project(conn)
+        realization = str(uuid4())
+        conn.execute(insert(table("data.realization")).values(
+            realization_id=realization, project_id=project, release_id=prepared.release_id))
+        other_project = _project(conn)
+        with pytest.raises(DBAPIError, match="binding is immutable"), conn.begin_nested():
+            conn.execute(update(table("data.realization")).where(
+                table("data.realization").c.realization_id==realization).values(project_id=other_project))
