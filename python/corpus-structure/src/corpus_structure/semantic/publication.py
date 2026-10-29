@@ -251,7 +251,11 @@ class PublicationBatch:
             for row in rows:
                 for index, typ in enumerate(STAGE_TYPES[name][1]):
                     if typ == "numeric" and row[index] is not None:
-                        row[index] = format(row[index], "f") if isinstance(row[index], Decimal) else str(row[index])
+                        value = row[index]
+                        if isinstance(value, Decimal):
+                            row[index] = format(value.copy_abs() if value.is_zero() else value, "f")
+                        else:
+                            row[index] = str(value)
             body[name] = sorted(rows, key=canonical_bytes)
         return canonical_bytes([self.release_id, self.realization_id, body])
 

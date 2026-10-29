@@ -384,7 +384,7 @@ def test_actual_builtin_linkml_types_are_explicit_manifest_dependencies():
 def test_known_annotation_on_unsupported_host_refuses():
     with pytest.raises(PreparationError) as error:
         prepare_release(
-            bundle(lambda d: d["classes"]["Thing"].update(annotations={"cs:case": "casefold"}))
+            bundle(lambda d: d["classes"]["Thing"].update(annotations={"cs:key_role": "provenance"}))
         )
     assert error.value.diagnostics[0].code == "unsupported_annotation_placement"
 
@@ -461,3 +461,12 @@ def test_manifest_owns_supported_compiler_version():
             prepare_release(bundle(), profile=PreparationProfile(compiler_version=unsupported))
         assert err.value.diagnostics[0].code == "profile"
         assert err.value.diagnostics[0].outcome == "unsupported"
+
+
+def test_class_scope_and_case_are_admitted_operation_policy_not_property_key_roles():
+    release=prepare_release(bundle(lambda d:d['classes']['Thing'].update(annotations={'cs:scope':'global','cs:case':'casefold'})))
+    row=next(r for r in release.registry_rows if r.kind=='operation_class' and r.name=='Thing')
+    assert json.loads(row.body)['cs:scope']=='global'
+    assert json.loads(row.body)['cs:case']=='casefold'
+    with pytest.raises(PreparationError,match='unsupported entity scope'):
+        prepare_release(bundle(lambda d:d['classes']['Thing'].update(annotations={'cs:scope':'guessed'})))
