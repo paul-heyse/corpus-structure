@@ -86,7 +86,7 @@ def encode_token(
 def decode_token(token: str) -> dict[str, Any]:
     try:
         body = json.loads(base64.urlsafe_b64decode(token.encode("ascii")))
-    except binascii.Error, ValueError, UnicodeEncodeError:
+    except binascii.Error, ValueError:
         raise StaleToken("not a page token") from None
     if not isinstance(body, dict) or set(body) != {"run", "query", "version", "params", "position", "release", "realization", "revision", "projection", "arithmetic"}:
         raise StaleToken("not a page token")

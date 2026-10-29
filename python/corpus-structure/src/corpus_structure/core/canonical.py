@@ -54,7 +54,7 @@ def _normalize(value: Any, path: str) -> Any:
     if value is None or isinstance(value, bool):
         return value
     if isinstance(value, int):
-        return int(value)  # an IntEnum or other subclass becomes a plain integer
+        return int.__int__(value)  # an IntEnum or other subclass becomes a plain integer
     if isinstance(value, str):
         return _string(value, path)
     if isinstance(value, dict):

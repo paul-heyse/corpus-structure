@@ -65,7 +65,7 @@ def _decimals(value: Any, path: str) -> Any:
     if isinstance(value, bool):
         return value
     if isinstance(value, int):
-        return str(int(value))  # an integer's canonical decimal is its digits
+        return str(int.__int__(value))  # an integer's canonical decimal is its digits
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError(f"{path}: payload holds a non-finite float {value!r}")
