@@ -10,7 +10,7 @@ from collections.abc import Callable
 
 import typer
 
-from corpus_structure.cli import status
+from corpus_structure.cli import schema, status
 from corpus_structure.cli.planned import Planned
 
 _F, _S, _I, _O = "foundations", "schema and rules", "ingest and math", "orchestration"
@@ -18,7 +18,7 @@ _C, _E, _A = "consolidation and queries", "evaluation and goldens", "agent inter
 
 REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     Planned("db", "Create or migrate the database.", f"{_F}, P0-F-4").register,
-    Planned("schema", "Compile the pack; diff schema versions.", f"{_S}, P0-S-1").register,
+    schema.register,
     Planned("ingest", "Run M01-M03 over a slice or paths.", f"{_I}, P0-I-1b").register,
     Planned("project", "Create the project from a pack and corpus.", f"{_O}, P0-O-1").register,
     Planned("run", "Start or cancel a run.", f"{_O}, P0-O-1").register,

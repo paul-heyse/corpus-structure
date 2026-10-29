@@ -1,0 +1,161 @@
+# Statistics pack rules (D2 §7.4, §9). Sections: views (pool facts compiled for the generic view
+# builder), rules (named checks with severity and call sites), guideline (the guideline rules code can
+# check: always warnings, at both call sites), tables (lookup tables compiled to typed $ builtins and
+# rendered by the annotator reference), derive (derivations, M23; none in v0).
+#
+# Rule language (one helper, shared with policies): rule-engine 5.1 under a typed context generated
+# from the schema version; OBJECT symbols read through getattr; no mapping dot-access; UTC; one
+# context per rule; $now, $today and $random rejected. Symbols are the claim view's (D5 §8.2).
+
+views:
+  family_params:
+    description: Canonical names of the parameters the claim's object family has.
+    applies_to: stat:has_distribution
+    source: stat:has_parameter                 # the source predicate
+    match: {source: subject, claim: object}    # source claims whose subject is this claim's object
+    project: object.identity.canonical_name    # what each matching source claim contributes
+
+rules:
+  - id: stat.param_keys_known
+    applies_to: stat:has_distribution
+    severity: warning
+    at: [finalize]
+    description: >-
+      Every param_values key is the canonical name of a parameter the family has in this run, or a
+      ParameterRole value. A family's parameters are complete only at finalize.
+    check: >-
+      $all([k in claim.family_params or k in $enums['ParameterRole']
+            for k in (claim.qualifiers.param_values ?? {}).keys])
+
+  - id: stat.one_distribution_per_statement
+    applies_to: stat:has_distribution
+    severity: error
+    at: [batch, finalize]
+    description: >-
+      At most one asserted or defined stated has_distribution per variable per statement, unless the
+      claims are marked as alternatives; derived claims are exempt.
+    when: "claim.establishment == 'stated' and claim.qualifiers.modality in ['asserted', 'defined']"
+    check: "$all([o in claim.alternative_of for o in claim.same_slot])"
+
+  - id: stat.domain_is_set
+    applies_to: [stat:parameter_domain, stat:takes_values_in, stat:support]
+    severity: warning
+    at: [finalize]
+    description: >-
+      The object parses as a set (parse ok under the set kind); otherwise a warning, and the object is
+      kept as written. Reads the grammar's parse status, so it runs at finalize only.
+    check: "(claim.value&.parse ?? '') == 'ok'"
+
+  - id: stat.no_family_on_variable
+    applies_to: stat:has_parameter
+    severity: error
+    at: [batch, finalize]
+    description: >-
+      The subject of has_parameter is not a random variable. Subsumed by the predicate's domain
+      (Parameterized) once the side-table type check runs; kept as the check of the $is_a builtin.
+    check: "not $is_a(claim.subject.type, 'RandomVariable')"
+
+guideline:
+  - id: guideline.structural_role_modality
+    applies_to: subset:structural
+    description: Structural claims take no statement_role and are asserted (guideline §10.3, §10.6).
+    check: "claim.statement_role == null and claim.qualifiers.modality == 'asserted'"
+
+  - id: guideline.role_by_kind
+    applies_to: any
+    description: A claim's statement_role is one its statement's kind gives (guideline §10.3).
+    when: "not ('structural' in claim.groups) and claim.statement_kind != null"
+    check: >-
+      not (claim.statement_kind in $roles_by_kind)
+      or (claim.statement_role ?? 'none') in $roles_by_kind[claim.statement_kind]
+
+  - id: guideline.modality_by_role
+    applies_to: any
+    description: A claim's modality follows from its statement_role (guideline §10.6).
+    when: "not ('structural' in claim.groups) and claim.statement_role != null"
+    check: >-
+      not (claim.statement_role in $modality_by_role)
+      or claim.qualifiers.modality == $modality_by_role[claim.statement_role]
+
+  - id: guideline.structural_no_conditions
+    applies_to: subset:structural
+    description: Structural claims carry no conditions (guideline §10.7 rule 4).
+    check: "claim.condition_nodes.is_empty"
+
+  - id: guideline.premise_conditions_index_only
+    applies_to: any
+    description: >-
+      Premises and example values carry no conditions except the range of an index they are stated
+      for; restrictions go to the claims that depend on them (guideline §10.7 rule 1).
+    when: "not ('structural' in claim.groups) and claim.statement_role in ['premise', 'example_value']"
+    check: >-
+      $all([n.op == 'and' or (n.op == 'member' and (n.x_latex ?? '') in claim.subject.index_symbols)
+            for n in claim.condition_nodes])
+
+  - id: guideline.no_claim_nodes_on_form
+    applies_to: [subset:formula_definition, subset:family_structure]
+    description: >-
+      Formula and family-structure claims carry no claim nodes, only restrictions on their own
+      symbols (guideline §10.7 rule 2).
+    when: "not (claim.statement_role in ['premise', 'example_value'])"
+    check: "claim.claim_refs.is_empty"
+
+  - id: guideline.references_a_premise
+    applies_to: any
+    description: >-
+      Every other claim carries a claim node for the premises it depends on: it references at least
+      one premise of its statement or of a context-premise assumption (guideline §10.7 rule 3).
+    when: >-
+      not ('structural' in claim.groups or 'formula_definition' in claim.groups
+           or 'family_structure' in claim.groups)
+      and not (claim.statement_role in ['premise', 'example_value'])
+    check: "claim.statement_premises.is_empty or $any([p in claim.claim_refs for p in claim.statement_premises])"
+
+  - id: guideline.parameter_role_differs
+    applies_to: stat:parameter_role
+    description: A parameter_role claim is stated only when the role differs from the canonical name (guideline §10.4).
+    check: "(claim.value&.v ?? '') == '' or (claim.value&.v ?? '') != (claim.subject.identity&['canonical_name'] ?? '')"
+
+  - id: guideline.formula_excludes_defined_variable
+    applies_to: [stat:defined_as, stat:construction_formula]
+    description: A formula that defines a variable or generates a family excludes the variable it defines (guideline §10.7).
+    check: "not ((claim.value&.latex ?? '') =~ r'\\s*[A-Za-z]\\w*(_\\{?\\w+\\}?)?\\s*=')"
+
+  - id: guideline.symbol_keys_no_backslash
+    applies_to: any
+    description: Symbol-map keys are written without backslash (guideline §10.7).
+    check: "$all([not (b.symbol =~ r'\\\\') for b in claim.bindings])"
+
+  - id: guideline.binding_priority
+    applies_to: any
+    description: >-
+      A symbol another claim gives as a parameter value binds param_of, not free or family_param,
+      unless the claim is about the family as such (guideline §10.7 rows 2-4).
+    check: >-
+      $all([not (b.symbol in claim.given_by_others and b.bind in ['free', 'family_param']
+                 and not (b.symbol in claim.gives_symbols)
+                 and not ('family_structure' in claim.groups and b.bind == 'family_param'))
+            for b in claim.bindings])
+
+tables:
+  roles_by_kind:                 # statement kind -> statement roles its non-structural claims take; none: no role
+    definition: [definiens, premise]
+    theorem: [premise, conclusion, definiens]
+    proposition: [premise, conclusion, definiens]
+    corollary: [premise, conclusion, definiens]
+    lemma: [premise, conclusion, definiens]
+    remark: [premise, conclusion, definiens, none]
+    example: [example_value]
+    exercise: [example_value]
+    convention: [none]
+    assumption: [premise]
+    proof: []
+    solution: []
+  modality_by_role:              # statement role -> the modality it takes
+    premise: supposed
+    definiens: defined
+    conclusion: asserted
+    example_value: exemplified
+
+derive: []                       # derivation rules (D2 §7.4, M23); none in v0. Closures come from
+                                 # the native symmetric and transitive metaslots of the predicates

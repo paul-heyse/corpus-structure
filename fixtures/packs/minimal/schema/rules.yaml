@@ -1,0 +1,18 @@
+# Minimal pack rules: one view and one rule (schema and rules §6, Generality).
+views:
+  gadget_settings:
+    description: Names of the settings the claim's subject gadget has.
+    applies_to: min:runs_at
+    source: min:has_parameter
+    match: {source: subject, claim: subject}
+    project: object.identity.setting_name
+rules:
+  - id: min.settings_known
+    applies_to: min:runs_at
+    severity: warning
+    at: [finalize]
+    description: Every settings key names a setting the gadget has.
+    check: "$all([k in claim.gadget_settings for k in (claim.qualifiers.settings ?? {}).keys])"
+guideline: []
+tables: {}
+derive: []

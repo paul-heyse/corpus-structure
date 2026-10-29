@@ -1,0 +1,96 @@
+id: https://corpus-structure.dev/fixtures/minimal
+name: minimal
+title: Minimal compile-test pack
+description: >-
+  The smallest pack that exercises every compiler (schema and rules §6, Generality): one
+  parameterized entity class with its parameter class, a map qualifier named by ci:param_map, a
+  family_structure subset, a pack statement kind, a pack modality, a ci:case preserve slot, one
+  view, one rule and one worked example. It shares the local name has_parameter with statistics, so
+  the two in one schema version are refused by the name map.
+version: 0.1.0
+license: https://creativecommons.org/publicdomain/zero/1.0/
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  min: https://corpus-structure.dev/fixtures/minimal/
+  core: https://corpus-structure.dev/core/
+default_prefix: min
+default_range: string
+imports:
+  - linkml:types
+  - core
+
+subsets:
+  family_structure:
+    description: Claims about a gadget's settings as such; stated only where the gadget is defined.
+
+classes:
+  Gadget:
+    is_a: Entity
+    description: A configurable device, named in the source.
+    examples:
+      - value: the blender
+    annotations:
+      ci:scope: global
+      ci:extract: mention
+  GadgetSetting:
+    is_a: Entity
+    description: A setting of a gadget, such as its speed.
+    slots: [gadget, setting_name]
+    slot_usage:
+      gadget: {required: true}
+      setting_name: {required: true}
+    unique_keys:
+      identity:
+        unique_key_slots: [gadget, setting_name]
+    annotations:
+      ci:scope: global
+      ci:extract: mention
+      ci:parameter_class: gadget
+  SettingValue:
+    is_a: MapEntry
+    description: "One entry of a settings map: a setting name and the formula it takes."
+    slot_usage:
+      value: {range: Formula, inlined: true}
+
+slots:
+  gadget:
+    range: Gadget
+    description: The gadget the setting belongs to.
+  setting_name:
+    description: The setting's name as written; a symbol keeps its case.
+    annotations: {ci:case: preserve}
+  has_parameter:
+    domain: Gadget
+    range: GadgetSetting
+    in_subset: [family_structure]
+    description: The gadget has this setting.
+    annotations: {ci:role: predicate, ci:extract: llm}
+  runs_at:
+    domain: Gadget
+    range: Formula
+    description: The gadget runs at the stated rate, with its settings.
+    annotations:
+      ci:role: predicate
+      ci:qualifiers: settings
+      ci:identity_qualifiers: settings
+      ci:param_map: settings
+      ci:extract: llm
+  settings:
+    range: SettingValue
+    multivalued: true
+    inlined: true
+    description: The settings the sentence states, from setting names to formulas.
+    annotations: {ci:role: qualifier}
+
+enums:
+  MinimalStatementKind:
+    description: The pack's statement kinds, beside the core ones.
+    inherits: [StatementKind]
+    permissible_values:
+      instruction: {description: An operating instruction., in_subset: [claim_bearing]}
+  MinimalModality:
+    description: The pack's modalities, beside the core ones.
+    inherits: [ClaimModality]
+    permissible_values:
+      reported: {description: Reported from a manual., in_subset: [attribution_identifying]}

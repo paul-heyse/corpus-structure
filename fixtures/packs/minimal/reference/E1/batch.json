@@ -1,0 +1,16 @@
+{
+ "unit_ref": "E1",
+ "statements": [{"local_ref": "st1", "kind": "instruction", "anchor": ["s1"]}],
+ "entities": [
+  {"local_ref": "B", "type": "Gadget", "label": "the blender", "scope": "global"},
+  {"local_ref": "R", "type": "GadgetSetting", "label": "r", "scope": "global",
+   "identity": {"gadget": "B", "setting_name": "r"}}
+ ],
+ "claims": [
+  {"local_ref": "c1", "predicate": "has_parameter", "subject": "B", "object": {"ref": "R"},
+   "statement": "st1", "evidence": [{"sentence": "s1", "quote": "setting \\(r = 2\\)", "role": "primary"}]},
+  {"local_ref": "c2", "predicate": "runs_at", "subject": "B", "object": {"t": "formula", "latex": "v"},
+   "qualifiers": {"modality": "reported", "settings": {"r": {"t": "formula", "latex": "2"}}},
+   "statement": "st1", "evidence": [{"sentence": "s1", "quote": "Run the blender at speed", "role": "primary"}]}
+ ]
+}

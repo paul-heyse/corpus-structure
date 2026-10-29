@@ -55,10 +55,10 @@ def test_json_is_a_command_option_not_a_root_option(cli) -> None:
 
 
 def test_planned_group_names_its_owner_on_stderr(cli) -> None:
-    result = cli("schema", "compile", "--domain", "statistics", settings=refuse)
+    result = cli("db", "upgrade", settings=refuse)
     assert result.exit_code == 1
     assert result.stdout == ""
-    assert "schema and rules" in result.stderr
+    assert "foundations" in result.stderr
 
 
 def test_a_mistyped_field_inside_a_section_is_refused(cli) -> None:
