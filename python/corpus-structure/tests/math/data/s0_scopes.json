@@ -1,0 +1,298 @@
+{
+ "records": [
+  "s0.m13-probe-2"
+ ],
+ "source": "results/s0/m13_probe.reference.patterns.h3h4.tsv",
+ "scopes": [
+  {
+   "unit": "T1",
+   "page": "special/LocationScale.html",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 41,
+     "end": 436
+    },
+    {
+     "kind": "unit",
+     "start": 450,
+     "end": 744
+    }
+   ],
+   "symbol": "Z",
+   "annotated": "section",
+   "spike": "section"
+  },
+  {
+   "unit": "T1",
+   "page": "special/LocationScale.html",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 41,
+     "end": 436
+    },
+    {
+     "kind": "unit",
+     "start": 450,
+     "end": 744
+    }
+   ],
+   "symbol": "X",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "T2",
+   "page": "special/Normal.html",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 11565,
+     "end": 11826
+    }
+   ],
+   "symbol": "X",
+   "annotated": "section",
+   "spike": "section"
+  },
+  {
+   "unit": "T3",
+   "page": "special/Normal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 14382,
+     "end": 14925
+    }
+   ],
+   "symbol": "X",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "T4",
+   "page": "special/LogNormal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 54,
+     "end": 518
+    }
+   ],
+   "symbol": "Y",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "T4",
+   "page": "special/LogNormal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 54,
+     "end": 518
+    }
+   ],
+   "symbol": "X",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "T4",
+   "page": "special/LogNormal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 54,
+     "end": 518
+    }
+   ],
+   "symbol": "Z",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "T4",
+   "page": "special/LogNormal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 54,
+     "end": 518
+    }
+   ],
+   "symbol": "W",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U10",
+   "page": "special/Gamma.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 10263,
+     "end": 10480
+    }
+   ],
+   "symbol": "Z",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U10",
+   "page": "special/Gamma.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 10263,
+     "end": 10480
+    }
+   ],
+   "symbol": "X",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U11",
+   "page": "special/Gamma.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 16771,
+     "end": 17354
+    }
+   ],
+   "symbol": "X_1",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U11",
+   "page": "special/Gamma.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 16771,
+     "end": 17354
+    }
+   ],
+   "symbol": "X_2",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U11",
+   "page": "special/Gamma.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 16771,
+     "end": 17354
+    }
+   ],
+   "symbol": "X_i",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U12",
+   "page": "special/Gamma.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 7253,
+     "end": 7672
+    }
+   ],
+   "symbol": "X",
+   "annotated": "section",
+   "spike": "section"
+  },
+  {
+   "unit": "U5",
+   "page": "special/Normal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 15741,
+     "end": 16491
+    }
+   ],
+   "symbol": "X_1",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U5",
+   "page": "special/Normal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 15741,
+     "end": 16491
+    }
+   ],
+   "symbol": "X_2",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U5",
+   "page": "special/Normal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 15741,
+     "end": 16491
+    }
+   ],
+   "symbol": "X_i",
+   "annotated": "statement",
+   "spike": "statement"
+  },
+  {
+   "unit": "U6",
+   "page": "special/Normal.html",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 14927,
+     "end": 15341
+    }
+   ],
+   "symbol": "X",
+   "annotated": "statement",
+   "spike": "section"
+  },
+  {
+   "unit": "U6",
+   "page": "special/Normal.html",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 14927,
+     "end": 15341
+    }
+   ],
+   "symbol": "Z",
+   "annotated": "statement",
+   "spike": "section"
+  },
+  {
+   "unit": "U9",
+   "page": "special/LogNormal.html",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 10048,
+     "end": 10936
+    }
+   ],
+   "symbol": "X_i",
+   "annotated": "statement",
+   "spike": "statement"
+  }
+ ]
+}

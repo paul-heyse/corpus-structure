@@ -1,0 +1,299 @@
+{
+ "records": [
+  "s0r2.inputs",
+  "s0r2.scores"
+ ],
+ "source": "results/s0r2/sample.json",
+ "units": {
+  "T1": {
+   "page": "special/LocationScale.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 41,
+     "end": 436
+    },
+    {
+     "kind": "unit",
+     "start": 450,
+     "end": 744
+    }
+   ],
+   "context": []
+  },
+  "T2": {
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 11565,
+     "end": 11826
+    }
+   ],
+   "context": [
+    {
+     "id": "c1",
+     "start": 9433,
+     "end": 9572,
+     "text": "Suppose that \\( X \\) has the normal distribution with location parameter \\( \\mu \\in \\R \\) and scale parameter \\( \\sigma \\in (0, \\infty) \\)."
+    },
+    {
+     "id": "c2",
+     "start": 10864,
+     "end": 10995,
+     "text": "Let \\(F\\) denote the distribution function of \\( X \\), and as above, let \\(\\Phi\\) denote the standard normal distribution function."
+    }
+   ]
+  },
+  "T3": {
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 14382,
+     "end": 14925
+    }
+   ],
+   "context": []
+  },
+  "T4": {
+   "page": "special/LogNormal.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 54,
+     "end": 518
+    }
+   ],
+   "context": []
+  },
+  "U5": {
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 15741,
+     "end": 16491
+    }
+   ],
+   "context": []
+  },
+  "U6": {
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 14927,
+     "end": 15341
+    }
+   ],
+   "context": []
+  },
+  "U7": {
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "paragraph",
+     "start": 21098,
+     "end": 21680
+    }
+   ],
+   "context": []
+  },
+  "U8": {
+   "page": "special/Normal.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 20257,
+     "end": 20769
+    }
+   ],
+   "context": []
+  },
+  "U9": {
+   "page": "special/LogNormal.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 10048,
+     "end": 10936
+    }
+   ],
+   "context": []
+  },
+  "U10": {
+   "page": "special/Gamma.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 10263,
+     "end": 10480
+    }
+   ],
+   "context": []
+  },
+  "U11": {
+   "page": "special/Gamma.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 16771,
+     "end": 17354
+    }
+   ],
+   "context": []
+  },
+  "U12": {
+   "page": "special/Gamma.html",
+   "set": "core",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 7253,
+     "end": 7672
+    }
+   ],
+   "context": [
+    {
+     "id": "c1",
+     "start": 7090,
+     "end": 7192,
+     "text": "Suppose that \\( X \\) has the standard gamma distribution with shape parameter \\( k \\in (0, \\infty) \\)."
+    }
+   ]
+  },
+  "H1": {
+   "page": "special/Pareto.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 235,
+     "end": 668
+    }
+   ],
+   "context": []
+  },
+  "H2": {
+   "page": "special/Pareto.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 9161,
+     "end": 9398
+    }
+   ],
+   "context": []
+  },
+  "H3": {
+   "page": "special/Pareto.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 11780,
+     "end": 11931
+    }
+   ],
+   "context": [
+    {
+     "id": "c1",
+     "start": 2123,
+     "end": 2239,
+     "text": "Suppose that random variable \\( Z \\) has the basic Pareto distribution with shape parameter \\( a \\in (0, \\infty) \\)."
+    },
+    {
+     "id": "c2",
+     "start": 9504,
+     "end": 9648,
+     "text": "Suppose again that \\( X \\) has the Pareto distribution with shape parameter \\( a \\in (0, \\infty) \\) and scale parameter \\( b \\in (0, \\infty) \\)."
+    }
+   ]
+  },
+  "H4": {
+   "page": "special/ChiSquare.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 6836,
+     "end": 7463
+    }
+   ],
+   "context": []
+  },
+  "H5": {
+   "page": "special/ChiSquare.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 8200,
+     "end": 8442
+    }
+   ],
+   "context": []
+  },
+  "H6": {
+   "page": "special/Pareto.html",
+   "set": "held_out",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 17189,
+     "end": 17827
+    }
+   ],
+   "context": []
+  },
+  "E1": {
+   "page": "special/Weibull.html",
+   "set": "example",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 10158,
+     "end": 10395
+    }
+   ],
+   "context": []
+  },
+  "E2": {
+   "page": "special/Weibull.html",
+   "set": "example",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 15721,
+     "end": 16151
+    }
+   ],
+   "context": []
+  },
+  "E3": {
+   "page": "special/Weibull.html",
+   "set": "example",
+   "parts": [
+    {
+     "kind": "unit",
+     "start": 22349,
+     "end": 22773
+    }
+   ],
+   "context": []
+  }
+ }
+}

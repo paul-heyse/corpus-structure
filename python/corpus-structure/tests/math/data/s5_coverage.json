@@ -1,0 +1,1142 @@
+{
+ "records": [
+  "s5.coverage"
+ ],
+ "source": "results/s5/parse.tsv",
+ "extended": {
+  "ok": 25353,
+  "ambiguous": 3013,
+  "partial": 4,
+  "failed": 586
+ },
+ "pages": {
+  "bernoulli/BetaBernoulli.html": {
+   "spans": 247,
+   "bounds_sha256": "5305c72de1924186c973c0bd899ca3178f627826cb66e0115b0e06f1a4d4681b",
+   "status": "ooaoaoooaoooooooooooooooooooooaooooffofooooooooooooooooooooooooooooofoofffaoooooooooooofooooooooooooooooooaooooooooooaoooooooooooooooooooooaooooooooooooooooooofoooooooooooofofaoofoaoooooooooooooofooooooooooooooooooooooooofoooooooooaaoooaoooaoooffo",
+   "failed": {
+    "35": "unexpected-token",
+    "36": "unexpected-token",
+    "38": "unexpected-token",
+    "68": "unexpected-token",
+    "71": "unexpected-token",
+    "72": "unexpected-command",
+    "73": "unexpected-token",
+    "87": "unexpected-token",
+    "159": "unexpected-token",
+    "172": "unexpected-token",
+    "174": "unexpected-token",
+    "178": "unexpected-command",
+    "195": "punctuation-or-list",
+    "221": "timeout",
+    "244": "unexpected-token",
+    "245": "alignment"
+   }
+  },
+  "bernoulli/Binomial.html": {
+   "spans": 876,
+   "bounds_sha256": "123d0b1966dc72a1d09035e875471fdc4d73eda5596e030e3334e5fec02b495f",
+   "status": "ooooooooooooooooooooooooooooooaoaoooaooooaooooooooooooaooooooaaoooaaooooooooaaooooaoaooooooooooooooooooooooooooooooaoooooooooooooooooooofooooofooaooooooooooooooooooooaooooooooooooaooooooooooooooofooooofooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooooaooooooooooooooooooooooooooooooooffoooooooooooooooooooooooooooooooooooooaoooaooooooooooooooooaoaooaoooooaoooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooaoaooooooooooooooooooooooooooooooooaooooooooooooooooaaoaooooooooooaoooooaooaoooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaaooooooooooooooooooofooooaooaoooooooooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooafooooooooooooaoooooofooaooooaooaoooooaaaaoaooaaooaooaoaoaooaooooaaaooooooooooooo",
+   "failed": {
+    "136": "timeout",
+    "142": "unexpected-token",
+    "195": "unexpected-token",
+    "201": "unexpected-token",
+    "360": "unexpected-command",
+    "361": "unexpected-command",
+    "715": "unexpected-token",
+    "796": "punctuation-or-list",
+    "816": "punctuation-or-list"
+   }
+  },
+  "bernoulli/Geometric.html": {
+   "spans": 737,
+   "bounds_sha256": "2d94e739c96fac4d3af982550d1e006503bc499391dfaae41df1214873cca244",
+   "status": "oooooooooooooooooooaofooooooaoooooooooooooooooooooooooofofooooooofoooooooaoooooaooooooaooooooofoooooooooaaoooooaooooooooooooooaooooaooooooaoooooooooooooooooooooooooaoooaoaaaooooooooooooooooaooooooooooaoaooaooaooooooooooooooooooooooooooooooooooooooooooaoooooooaooooooooooooooooooooooooooooaooooooooooooooooooaaoooooooooooooofooooooooooooooaaoooooaoaoaooooooooooooooooooooaooooooooofooooaoooooooooooooooooooaoooooaooooooooooooooooooooooooooaooooaoooooooooooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooaooooaooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooaoooaoaoooooooooooooooooooaooaooaoaooooooooooooaafaoooaooooooooaafoooooooafooooooooooooooooooooooooooooooooooooooaooooooooaooooooooaoooaoofaooooooooooooooff",
+   "failed": {
+    "21": "unexpected-token",
+    "55": "unexpected-token",
+    "57": "unexpected-token",
+    "65": "punctuation-or-list",
+    "94": "unexpected-token",
+    "323": "unexpected-token",
+    "380": "unexpected-token",
+    "630": "unexpected-token",
+    "646": "unexpected-token",
+    "655": "unexpected-token",
+    "719": "unexpected-token",
+    "735": "unexpected-command",
+    "736": "unexpected-command"
+   }
+  },
+  "bernoulli/Introduction.html": {
+   "spans": 195,
+   "bounds_sha256": "9f1e422cb85c1f5c53129f9d2929da5f43406e3f7210201a946034e5787a4882",
+   "status": "ooooooooooooooooofooooaoooaoooooooooooaoooooooooooooooaaooooooooooaooaaaaoaoooooooooooooooooooooooooooooooooooofooooooooooaoooaoooooooooooooooooooooooooooofooooooooofoooooooooooooooooooooooooooof",
+   "failed": {
+    "17": "unexpected-token",
+    "111": "punctuation-or-list",
+    "155": "incomplete",
+    "165": "unexpected-token",
+    "194": "unexpected-command"
+   }
+  },
+  "bernoulli/Multinomial.html": {
+   "spans": 98,
+   "bounds_sha256": "a788709a6580cca9a68ee9bc7996f8c508dfee9a8b6fb2ff09c2c23a3f72f760",
+   "status": "ooooooooofooooofoofoooofooooooooooooooooooooooooooooaoooooofoooooooooooaoooooooooooooooooooooofooo",
+   "failed": {
+    "9": "unexpected-token",
+    "15": "punctuation-or-list",
+    "18": "unexpected-token",
+    "23": "punctuation-or-list",
+    "59": "unexpected-token",
+    "94": "punctuation-or-list"
+   }
+  },
+  "bernoulli/NegativeBinomial.html": {
+   "spans": 582,
+   "bounds_sha256": "a34965cfaf7aae22e18268fa696ae28d92ca8800e3a5d72cc0ded75e0c2c63db",
+   "status": "oofoooooooooooooooooooooooooooofooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooffoooooooooooooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooooaoooooooooooooooooooaaoooaoooaoooaoooooooooaooooooooooooooooooooooooaooaooooooooaooooaooooooooaoaoooooooooooooooooooooooooaoaooooooooooooooooooooooooooooooooooooooooooooaoooooaoooooaooooooooooooooofooooaaoooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooaooaaoooooooooooooooooooooooooaoaooooooooooooooooooooooooooo",
+   "failed": {
+    "2": "unexpected-token",
+    "31": "unsupported-relation",
+    "122": "unexpected-token",
+    "123": "unexpected-token",
+    "454": "unexpected-token"
+   }
+  },
+  "bernoulli/Walk.html": {
+   "spans": 197,
+   "bounds_sha256": "43cf5d3dfa4a176d11421f564e32bc8d49e5874487987e31a53b4d929e86c060",
+   "status": "ooooooooooooooaoooooooooooooooooooooooooooofooaaooooooooooooooooooooooooooooooooooooooooooaaaoooooooooffofofffooffoooooooooooooooaoooaoooaaaoooooaaooooooooooooooooooooooooofoooooooooooooooooooaaaaa",
+   "failed": {
+    "43": "unexpected-token",
+    "102": "unexpected-command",
+    "103": "unexpected-command",
+    "105": "unexpected-command",
+    "107": "unexpected-command",
+    "108": "unexpected-command",
+    "109": "unexpected-token",
+    "112": "unexpected-command",
+    "113": "unexpected-command",
+    "172": "unexpected-command"
+   }
+  },
+  "dist/CDF.html": {
+   "spans": 693,
+   "bounds_sha256": "a89847b71611b3006c3355da3b34abef042f6da724a5ff1edc89d6238c3f51d8",
+   "status": "ooooaooooooooooaoaooooofooooaaooaooaaoooooooooooooooooooooooooooooooooooaaaaaooooaoaoaoaoaoooooooooaooooooooaoooaooooooooooooofoaoofoooaooooaooooaoooooooooofoaoooooaooooaooooooooooooooooooaoooooooooaoooooaaaooaoaaoaoaooaoaoaaoooooaooaoaoooaoaaaoooooooooaaoaooooaoaooaooaooaoaooooaoooooooooooooofaoooooooaoooooooooaoaooooooooaooaaooooooaoaooaoooaaaoaaooooaoooaaoaaoaooaooooaaoaaoaooooooooaaoaoooaaaoaaaaoaaaoooooooooaaooaoooooooooooooooooooooooaaooofooooooooaoooooooooooaooooooooooaooaoooooooaoaoooooooooaaoooooooooooaooooooaofooooooooooooooooooooaoaoooaaooooooooofoaoooooaofoooooooooooaooooooooooaaooooaooooooaoaoooooooaaoooooooooooooooooooooooooooooaoofooooooooooofoooffoooooooooooooooooooooo",
+   "failed": {
+    "23": "unexpected-command",
+    "126": "punctuation-or-list",
+    "131": "punctuation-or-list",
+    "156": "punctuation-or-list",
+    "294": "unexpected-token",
+    "448": "punctuation-or-list",
+    "525": "unexpected-token",
+    "563": "unexpected-token",
+    "573": "unexpected-token",
+    "653": "unexpected-token",
+    "665": "punctuation-or-list",
+    "669": "punctuation-or-list",
+    "670": "punctuation-or-list"
+   }
+  },
+  "dist/Conditional.html": {
+   "spans": 1005,
+   "bounds_sha256": "e8fad9d34688d26dda05bde6b8d10265eda5c6797eaf30b1bd9c93ad8ab79ec4",
+   "status": "oooooaooooooooooooooooooooaooooaoooaaooaoofoaaooooooooooooooaoooofoooooooaoofaoooooaooooooaooaoofoooooooaoooaooooooooooaooaooooooaafaooooofooooooooooofooooaooooooaoaoofooooooaoaoooooooaooooaoaoaoooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooooooaoooooooooooooooooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooaooooooaoooooooooooooooaoooooooooooooooooooooooooooaooooooaooooooooooooaoooooooooooooooaooooaoooooooaaaoooooooooooooooaooooofoooooooooaaoooooooooooooooooooooooooooooooooaoooooooooaoooooooooooaoooooooooooooooooooooaoooooooooooooooooooooaoooooooooooooooooooooaooooooooooooooooooooaooooooooooooooooooooaooaaoooooooooooooooooooooooaoooooooooooooooooooaoaoaooooooooooooooooooooofooooaooaoooooooooooaoooaoaoaoaooooooooooooooooooooooooooooooooooooooofoofooofoofoofoofooooooooooooooooooooaoooooooooooooooooooooooooaoooooooooooooaoaoooooooooooooooooooooooooooooaofooooooooooooooooooooooaooofoooooooooooooaoaoooofofooofoooaooooooooooooooooooaoooooooooooooooooooooo",
+   "failed": {
+    "42": "unexpected-token",
+    "65": "unexpected-token",
+    "76": "punctuation-or-list",
+    "96": "unexpected-command",
+    "131": "unexpected-command",
+    "138": "punctuation-or-list",
+    "150": "unexpected-command",
+    "167": "unexpected-command",
+    "475": "unexpected-token",
+    "724": "unexpected-token",
+    "794": "unexpected-token",
+    "797": "unexpected-token",
+    "801": "unexpected-token",
+    "804": "punctuation-or-list",
+    "807": "punctuation-or-list",
+    "810": "punctuation-or-list",
+    "905": "punctuation-or-list",
+    "932": "punctuation-or-list",
+    "953": "punctuation-or-list",
+    "955": "punctuation-or-list",
+    "959": "punctuation-or-list"
+   }
+  },
+  "dist/Continuous.html": {
+   "spans": 873,
+   "bounds_sha256": "3cb1dc3f44500fa1b8ca477fb39d49dbdb3ac7aa989d8fd76e0cdd88cd67109d",
+   "status": "oooooooooooooooooooooooooofooooooaooooooooooooooooooooaaoooaoaaaooaoofaooooooooooooaoaaaoaoooooooaoooooaooaooooaoooaoaoooooaoooooaooaoaaoaoooooooooaoooooofooooooooooooooaooaaooooooooaooooaoooooooooooooooooooooooooooooooooaoooooaoooooooooooooaoaoooooooooooooooaoooaoaoooooooooooaoooooooaoooooooooooaooaooaoooooaooooooooooooooooooooooooaooooaooooooooooooooooooooooooooaoaooooooooooaooooooooooooaooooooooooooooooooooaooooooooooooooooaoooooofoaooooooooooaooaoooooaooooooooaooaooooaooooooaooaooooaoooooooooooooooooooooaoaoaoooooooapooooooaooooooooaaoaooooooooooaooooooooooaooooooooooaoooooooooooooooooooooooaoooooofooooaooooooooooaoooaooooooooooaoooooooaoooaoooooaooooooooooooooooooooooooaaoaafooooooooooooaooooofooooaooaoaooooooooooaaoooofooooaooaoaooooooooooooaoooooooooaoooooooooofoooaooaooooooaaoaoooooooooaoooofooooooooooooooooooooooooooooooooooooaooooooooooooaaaaaaaaaaaao",
+   "failed": {
+    "26": "unexpected-token",
+    "69": "unexpected-command",
+    "154": "unexpected-command",
+    "437": "unexpected-command",
+    "609": "unexpected-token",
+    "688": "incomplete",
+    "707": "unexpected-token",
+    "734": "unexpected-command",
+    "778": "unexpected-token",
+    "810": "punctuation-or-list"
+   }
+  },
+  "dist/Convergence.html": {
+   "spans": 985,
+   "bounds_sha256": "5002a2e460cb6b644561b1b929256c711d75bf819c4ec5803e6d19326620ff1d",
+   "status": "fooooooooooooooooooooooaooooooooooooooooaoooooooooooooooooooooooooaoooooooooooooooooooooooooaoooooaoaoooaoooaoooooaoaoooooooooaooooaoooooooooooaooooaooooooaooooooooooooooooooooaoooooooooooooaooaoooaooooooaooooooooaooooofofooooaoaooooooooooooooaoaaoaoooaoooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooaoooaoaaoooooooooaooooooooooooaaaoaoooaoooooaaaoaoooaoaooaoooaooooooooooooooaaoooooooooaaoaoaaoooooooooooooooooooooooooooooooooaoooofoooooooooooaoofooooooooffaooaooaoaoaaooaooooooooooooofooooooooooooooooooooooooooooooooooooooaoooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooaooooaooooooooooooaoooooooooooooaooooooooooooooooaooooooooooooooooooooooooooooaooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooaoooooooooooooooooaoooooooooofofoooooofoooooaooooaoooooooooaooooaooooaoofooooaooooooooofoooooaoooaoofooooofooooooaoooooooooooooooooaoooooooooooooooooooooooaaooooooooooaaoaoaaooaoofoooooooooooaoaoooaoooaoooaoooooooooooooffooaooo",
+   "failed": {
+    "0": "unexpected-token",
+    "219": "punctuation-or-list",
+    "221": "punctuation-or-list",
+    "460": "unexpected-command",
+    "475": "unexpected-command",
+    "484": "unexpected-command",
+    "485": "unexpected-command",
+    "514": "unexpected-token",
+    "787": "incomplete",
+    "789": "punctuation-or-list",
+    "796": "unexpected-command",
+    "830": "unexpected-command",
+    "845": "unexpected-command",
+    "858": "unexpected-command",
+    "864": "unexpected-command",
+    "937": "limit-arrow",
+    "977": "unexpected-command",
+    "978": "unexpected-command"
+   }
+  },
+  "dist/Discrete.html": {
+   "spans": 986,
+   "bounds_sha256": "9a8129e479904d733db2cfe28d624d365a9e4096e80ca6cf13eb9515cb5e2309",
+   "status": "aooooaooooaoooaoooooaaaooaaoooooooaoaaaoaoofaoooooooooooooooaoooooooaoooooooooofaooooooaooaaoooaooaooaoaoooooooooooooooaooooooooooofoaoooooooooaoaoooooooooooaoooafooaoooooooaoooaoooooooaoaoooooooaoooooooooooooooooooooooaoooaooooooooaoooaoooooooaaooooooooooooooooooooooooaoooooooooooaoooooooooooooaooooooooooooaooooooooooooooofooooooooooooooaaaoooooooaooooooooooooaoaooaoooaoooaaoaooooooooooooooooooooooaofooooooooooooooooofoooooooooooaoooooooooooooaoaooaoooaoooaaoaoooooooooooooooooaoooooaaaaaaooooooooooooaaaaaaooooooooooooaooooooooooaooooofoooooooaooooooooooooooooaoooooooooooofoooooooooooaooooooaaaaaaooooooooooooooaoooaoooaooooooooaaaaaaaaaaaaaaaaaaooooooaoooooooooooaaaaaaaoooooaaaaaaaaaoooooooooooooooooooooooooooooooooaoooaooooooaoaooooooooooaooooooooooooooooooooooooooooofoooooooooaooooooooaooooooooooaooooooooooaaaaooooooooooaafaaoooooooooaooooooooaooaoooaoooaaoaooooooooooooooooooooooooooooaoooooooooaooooooooooooaoooooooooooooaooooooooooooooooooooooooooaooooaoooaaaaaoooooooo",
+   "failed": {
+    "43": "unexpected-command",
+    "79": "unexpected-token",
+    "131": "unexpected-command",
+    "162": "unexpected-token",
+    "325": "text-in-math",
+    "404": "text-in-math",
+    "422": "unexpected-token",
+    "541": "unexpected-token",
+    "579": "unexpected-token",
+    "779": "unexpected-command",
+    "836": "punctuation-or-list"
+   }
+  },
+  "dist/Introduction.html": {
+   "spans": 209,
+   "bounds_sha256": "06207f304be7857c03e7fb73d061316d09cb5f4803338a4057d5074a008e44dd",
+   "status": "oooooaaoaoooooooooooofoooooooooooooooooaaoaoooooooaooaooooofaoooooooooooooooooooooooooooooooooooooooaooaoaoooaoaaoaoaoofaoaoooooooaoooaooooaoooooaooooooooooaooooaooooaoooooooooooooaoooooofooofooooooooooaooaaoo",
+   "failed": {
+    "21": "unexpected-command",
+    "59": "unexpected-command",
+    "119": "unexpected-command",
+    "187": "unexpected-command",
+    "191": "unexpected-command"
+   }
+  },
+  "dist/Joint.html": {
+   "spans": 1246,
+   "bounds_sha256": "fc729f9ce9b76fc4af447fcb2ee1ee602d662874a0b8ab61a556a160d3b8a030",
+   "status": "ooooaaaooooaaoaooooooaaaooaaoooaooofooaooooooooooooooaaooaaooooaaaaaaooaoooooffoooaooooooooaoooooooooaooooaoaoofafooooaoaoooooooooafoaoaoooaoaooooooooooooooooooooooofoooooofooooooooooaoooooooooaoaooooaoooooaooooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooaooaoooooaooooooooaooooooooooooooooooooooooooooaooooooaooooooooooooooooooaoooooooooooooooooaooooooooooooooooooooaooaooaoooooooooooooooooooaoooooooaooooaoaooaoaoooooooooooooooaooaooooooooooooooooooooooaoooooaoaoaooooooooooaoaoaoooooooooooooooaoaoooooooaoooooooaooaaooooooaooooaooooooooooooooooaoaoaooooooooooooooooooooofooooooooaoaoooaaooaoooooooooooooooaooaaaooaoaoaooaoooooooooooooooooooooooooooooooooooooooaaaoooooooooooaooooooooooaoooaoooaoooooooooaooooooooaoofooaooooofoaoooaoaooooooafooaooaoooaoooaoooaooooaooooooooooooooooooooaooooooooooooooooooooooooooooooaoooaoooooooooaoaooooooooaooooaoooooooooooooooooooooooaoooaoooaoooooooooooooooooooooooooooooooooooofoooooaofoaooooooooaoaooooooooooaooooaofooooooooooooooooooooofoaofoaofoaofoooooooooooooaooooooooooooooooaooooooooooooooooooooooooooooooooooooaaoooooooooooooooooaooaooooooooaoooaaooooooooooooooaoooooooooaooooooaooooooooooooooooooooooooooooooooooooooooaooooooaooooooooooaooooaooooaoaaaooaaaoooaooooaoaaaooo",
+   "failed": {
+    "35": "incomplete",
+    "77": "punctuation-or-list",
+    "78": "punctuation-or-list",
+    "111": "punctuation-or-list",
+    "113": "punctuation-or-list",
+    "131": "punctuation-or-list",
+    "165": "unexpected-command",
+    "172": "unexpected-token",
+    "598": "unexpected-token",
+    "743": "unexpected-command",
+    "752": "unexpected-token",
+    "768": "punctuation-or-list",
+    "942": "punctuation-or-list",
+    "950": "punctuation-or-list",
+    "981": "punctuation-or-list",
+    "1003": "punctuation-or-list",
+    "1007": "punctuation-or-list",
+    "1011": "punctuation-or-list",
+    "1015": "punctuation-or-list"
+   }
+  },
+  "dist/Mixed.html": {
+   "spans": 170,
+   "bounds_sha256": "f771d5f7415b707b9eea3f7e394e471fef91afaf65bc11a6281180bcf04ff18c",
+   "status": "oooooooooooooooooooooooaoofooooooaoooooooooooooooooooooaooaoooooaoooooooooooooaoaaooaaoooooaoooooooaoooooaooooooaoooaooaoooooooaoaoooooooaooooaaoaoaooooaooaoooooooooooooo",
+   "failed": {
+    "26": "unexpected-token"
+   }
+  },
+  "dist/Transformations.html": {
+   "spans": 1091,
+   "bounds_sha256": "5cdf597b9791cb215585747a44af17e59f087bd8b5efb63aa3390a754d14a569",
+   "status": "ooooaaaoooaoooooffofooooooooaaooooooooooaoooooofoofoooaoooooooooooooooooofooofooooooooooooooooaooooooooaooaooooooooaooaoooooooaafaoooooooooooffaafffoooaooaofoafoaoooooooooofoooaoofoooooooooaofoooaoooaooooooooofooaoafooooooooooooooofooffoooooooooooooooooooooooooaoooooofaaaaooaaoooooooooooooooooooooooaooaooooaooooooooooooooooooooooooooooooooooooooaoooaoaoaoaaaoooooofoafooaoooofoaaofoooooooooooooooooooooooaoooaoofaofaooooooooooooooooaoooooaoooaooaaoooooaooaaaooooaaoooooooooooooooaaoooooooooaooooooaoooaoaoooooooooooaoooaoooooaooooaooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooooaoaoaoooooooooooooaoooooaooooooaoooooaooaooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooaoaaoooaoooaooaoaooaoaaaaoooooooooooooooooaoooooooooooooooooaooooooaoooooooooooooaaoooooooooooooooooooooooooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooaoooooooofoooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofofooooooooooaoooooooooooooaooooooooooooooooooooooooooooooooooooooooooooaooooooooooooaaaooaaaoooooaoooooaoooooooooooooooooooaooooaooooooooooooo",
+   "failed": {
+    "16": "unexpected-token",
+    "17": "unexpected-token",
+    "19": "unexpected-token",
+    "47": "unexpected-token",
+    "50": "unexpected-token",
+    "73": "punctuation-or-list",
+    "77": "unexpected-token",
+    "128": "unexpected-token",
+    "141": "unexpected-command",
+    "142": "unexpected-command",
+    "145": "unexpected-token",
+    "146": "unexpected-token",
+    "147": "unexpected-token",
+    "156": "unexpected-token",
+    "159": "unexpected-token",
+    "172": "punctuation-or-list",
+    "179": "unexpected-token",
+    "191": "unexpected-command",
+    "209": "unexpected-command",
+    "215": "punctuation-or-list",
+    "231": "unexpected-command",
+    "234": "unexpected-token",
+    "235": "unexpected-command",
+    "268": "unexpected-command",
+    "366": "unexpected-command",
+    "369": "incomplete",
+    "377": "unexpected-command",
+    "382": "unexpected-command",
+    "413": "unexpected-command",
+    "416": "unexpected-command",
+    "883": "unexpected-command",
+    "948": "unexpected-command",
+    "950": "sum-bounds"
+   }
+  },
+  "expect/Conditional.html": {
+   "spans": 761,
+   "bounds_sha256": "ca82ef515aa7ad3acd30e70509bc064e36226d4d09cb89bfedf9bff5065d1ec0",
+   "status": "ooooaoooooooooooooooooooooaaaooooaoaoooaooooooooooooaooooooooooaooaooaoooaaaaaaoooaoooooooooooooooooooooooooaoooaoooooooooooooooaofoooaaooaooaooooooooooooaoooofooooooaaooooaaoooaooooooooooooooooooaooaaoooooaooooaooooooooooofooooooooaoaoaaooaaaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofoooofoooooofooooooaoaoooooooooooooooooaooooooooooooooooaoooooooooooooooooooaooooooooooooooooooooooooooaoaoaoooooooafaoaooooooaaoaooooooaoofoooooooooooooooaooaoooooooooooooooooooooooaaaooooooooooooooooooooooooooooooooooooooooooooooooaaaoooooooooooooooooaoooooooooooooooooooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooooooaaoooaaofooooooooooooooooffoooaoooooooooooooooaoooooooooooooooooooooooooaoooaoaaoofaooooo",
+   "failed": {
+    "130": "unexpected-token",
+    "159": "unexpected-token",
+    "223": "unexpected-command",
+    "316": "unexpected-token",
+    "321": "timeout",
+    "328": "incomplete",
+    "432": "unexpected-command",
+    "455": "incomplete",
+    "680": "unexpected-command",
+    "697": "unexpected-token",
+    "698": "unexpected-token",
+    "754": "unexpected-token"
+   }
+  },
+  "expect/Conditional2.html": {
+   "spans": 588,
+   "bounds_sha256": "22d4e935f4ff430381e56850aa9822e9dde1e22927c4795b7b8772f7e07e89b9",
+   "status": "oooooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofoooooooooooooooooooofoooooooooooooooooooooooooooaoooooooooooooooooooooooffooooooooooooooooooooooofaooooaaoooooooooafoooooooooooooooooofoooooooooooooooooooofoooofoooooooooooooooaoooooooooooooooooooooofooaooofoooooooooooooooofooofofooooooooooooooooofooofofofaoofooooaoooooooaoooaaooooaooaooaoooooafooaooooooaooooofooooooooooooofooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofaoooooooooooooooooooooooofooooofoooofooooooao",
+   "failed": {
+    "132": "unexpected-token",
+    "153": "punctuation-or-list",
+    "205": "unexpected-command",
+    "206": "unexpected-command",
+    "230": "incomplete",
+    "248": "unexpected-token",
+    "267": "unexpected-command",
+    "288": "unexpected-command",
+    "293": "unexpected-command",
+    "332": "unexpected-command",
+    "339": "unexpected-command",
+    "356": "unexpected-command",
+    "360": "punctuation-or-list",
+    "362": "unexpected-command",
+    "380": "unexpected-command",
+    "384": "punctuation-or-list",
+    "386": "unexpected-command",
+    "388": "punctuation-or-list",
+    "392": "unexpected-token",
+    "428": "unexpected-token",
+    "444": "unexpected-token",
+    "458": "unexpected-token",
+    "542": "unexpected-command",
+    "568": "timeout",
+    "574": "unexpected-token",
+    "579": "incomplete"
+   }
+  },
+  "expect/Covariance.html": {
+   "spans": 702,
+   "bounds_sha256": "467047ccdec10e5e028cc672bc06fa11e36db70c14e2398ce07aaeea79e1b3c4",
+   "status": "oooooooaoaooooooooooooaaooaooooooooooooooooooooooofoooooooooooooooooooooooooooooooooooooooaooooooooooooooooooooooooofooooooooooooooooooooooooooooooooooooooooooaooooooooooooooooofooooooooooooooooooooooooooooooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooooofooooooooooooooooooooooooofaaaoaooooooooooooooooooooaoooooooaoaooofooooooooooooooooooooooaooaooooooooooaoooaaaaaooooooooooooooooooooooooooooaooooooooooooooooooooooaooaoooooooooaoaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofooooooooooooooooaooooooooooooaoooooooooooaoooooooooooooaooooooooooooooaoooooooooooaooooooooooooo",
+   "failed": {
+    "50": "incomplete",
+    "116": "unexpected-token",
+    "177": "unexpected-token",
+    "340": "unexpected-token",
+    "366": "unexpected-token",
+    "406": "incomplete",
+    "605": "unexpected-token"
+   }
+  },
+  "expect/Generating.html": {
+   "spans": 711,
+   "bounds_sha256": "525cabfb2cc342b1b1e12c6e240a2b7b179d539237d6b4546d55d7c458a821bd",
+   "status": "ooooooooaooooaooooaooooooooooooooaoooooaoaaaooooooooaooaoofoaooooooooooaoaooooaooaoooaooaooooooooooooooooooooaoaoaooooooaooaooooooaoafooooooooooooaoaooooooaoaoooaoaoaoaooaooooooooooooaooooooooaooooooaoooooaoaooooooaoaoooooooaoaooaooooaooooooooaooaaoooooooooaooaoooaooofaooooooooaaaoooooaooaoooooooooooaooaooaaaaaoooooooofooaoooooooooooofoooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooaooooooooooaooooooooaooooooaoooooooooooaaooooooooooooooaaooaoooooooooooooooooooooooooooaoooaooooaooooaoaoaoooaooooaooaooaaoooaooooooooaooaooafooooooofoooooooooaaoooaoooaofoooooooooooooooooooooooooooooooaoooooofoooooooooooooooooooaoaoaoaoooooooooooooooooooooooooooooooofooooooooooofoooooooooaooooooaoooooaaoaoooooo",
+   "failed": {
+    "58": "unexpected-command",
+    "133": "unexpected-token",
+    "268": "punctuation-or-list",
+    "320": "unexpected-command",
+    "336": "unexpected-command",
+    "539": "unexpected-token",
+    "547": "unexpected-command",
+    "568": "unexpected-command",
+    "607": "unexpected-token",
+    "666": "unexpected-token",
+    "678": "unexpected-token"
+   }
+  },
+  "expect/Integral.html": {
+   "spans": 254,
+   "bounds_sha256": "6a1ef97608fd4b239d1096ca16d10a454f5a633b76b1b538c4283cb6d57d3c5d",
+   "status": "oooooaoaaooooooooofoooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooaooaoooaaooafoaoooooooooaoafoooooaooooooooooooaooaooooooooaoooooooaooooaoooooooooooooooooooooooooooooooooooooooooofooooooooafooooofffoooooooooooooooooooaooooooooooooo",
+   "failed": {
+    "18": "incomplete",
+    "100": "unexpected-token",
+    "115": "unexpected-token",
+    "202": "unexpected-command",
+    "212": "unexpected-command",
+    "218": "unexpected-command",
+    "219": "unexpected-command",
+    "220": "unexpected-command"
+   }
+  },
+  "expect/Kernels.html": {
+   "spans": 849,
+   "bounds_sha256": "fb7dee267ba04342e44fe2499b672ca55ed072ed305d86800309a4a7b98d3262",
+   "status": "aoooooaoooofaoooooooaooooooaoooooooaofoooaoooofoooofooooooooooooaooaaaaoooaooooooaoaaoofooooooooooooooooooofoofooooaaoaoafooofaoooffooooaaooooofooaafoooofofofooaoooooooaooooooooooooaoaoooooaaoooaafoofooooooooooooaoooooooooaooooaaooooaaoaaoaafooooooooofooooooffoaaoooaaooooooaofooofoofoaaoaaoaooaooafooofooaafoooaaoaaoaaaaafooaaooaaoaooaaooaaooaoooooaaooaaoaooooaoooooooaaooooooooooaoooooooaaoaooooooooooooooooaaoaaoaoaaoaoaafoffoaoooaaooaooaooooaofooaaffofooooooaooaoooooaaoofooofoooooaaooofoaooaoooaaoooaoooooofoooofofoooooofoooooooooofoooooooaaooaaooaaofoofoooooofoooooooooooooooaoooooooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaaoooooooooaaoooooaoooaooaoooooaoooooooofoofaaooooooooooooaooaooooooaooooooooooooooooooooooooooooaoaoooooooaoaofoooaoaoooooooaoaoaooooooooooooooooooooaoaooffooooooooaoooooofooooafoooooof",
+   "failed": {
+    "11": "incomplete",
+    "37": "unexpected-command",
+    "46": "unexpected-command",
+    "51": "incomplete",
+    "87": "unexpected-command",
+    "107": "unexpected-command",
+    "110": "unexpected-command",
+    "121": "punctuation-or-list",
+    "125": "punctuation-or-list",
+    "130": "unexpected-command",
+    "131": "unexpected-token",
+    "143": "unexpected-command",
+    "148": "unexpected-token",
+    "153": "unexpected-token",
+    "155": "unexpected-command",
+    "157": "unexpected-command",
+    "196": "punctuation-or-list",
+    "199": "punctuation-or-list",
+    "241": "punctuation-or-list",
+    "251": "punctuation-or-list",
+    "258": "unexpected-command",
+    "259": "unexpected-token",
+    "276": "incomplete",
+    "280": "incomplete",
+    "283": "incomplete",
+    "298": "incomplete",
+    "302": "incomplete",
+    "307": "incomplete",
+    "322": "punctuation-or-list",
+    "424": "unexpected-token",
+    "426": "unexpected-token",
+    "427": "unexpected-token",
+    "447": "unexpected-command",
+    "452": "punctuation-or-list",
+    "453": "incomplete",
+    "455": "incomplete",
+    "475": "punctuation-or-list",
+    "479": "unexpected-token",
+    "490": "punctuation-or-list",
+    "511": "unexpected-token",
+    "516": "unexpected-token",
+    "518": "unexpected-token",
+    "525": "punctuation-or-list",
+    "536": "unexpected-token",
+    "555": "punctuation-or-list",
+    "558": "unexpected-token",
+    "565": "unexpected-token",
+    "703": "unexpected-token",
+    "706": "unexpected-token",
+    "774": "punctuation-or-list",
+    "818": "punctuation-or-list",
+    "819": "punctuation-or-list",
+    "835": "punctuation-or-list",
+    "841": "punctuation-or-list",
+    "848": "punctuation-or-list"
+   }
+  },
+  "expect/Matrices.html": {
+   "spans": 409,
+   "bounds_sha256": "2b408b4097e1b52c521aa9be3232ee8c8c1a37b41ff6c373b2f04ed0f75f1a7f",
+   "status": "oooooaaooooooooooaaaoofoooaaoofofooooaoaaooaooaaoooooaoaoaooaoooooaoaoooaoaoooaoaooooooooooooooaoaoooooooaoaooooooooaoooaooooooooaoooaooaooaooaoooooooooooooooooooooooaoaooooooooooooooaoaoooooooooaooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooooooooooooooofoooooofooooooooooooooooooofooooooooooooooooooooofaaoooaooaoaooooooaoaoooooaoaooooooooaoaoooooofaoooooooffffoooooaooooaooaooao",
+   "failed": {
+    "22": "punctuation-or-list",
+    "30": "punctuation-or-list",
+    "32": "punctuation-or-list",
+    "283": "punctuation-or-list",
+    "290": "punctuation-or-list",
+    "310": "punctuation-or-list",
+    "332": "unexpected-token",
+    "378": "punctuation-or-list",
+    "387": "punctuation-or-list",
+    "388": "punctuation-or-list",
+    "389": "punctuation-or-list",
+    "390": "unexpected-command"
+   }
+  },
+  "expect/Properties.html": {
+   "spans": 652,
+   "bounds_sha256": "13c202900b2fd90277a73ca9af99227e471bdf3f3da9fcd458a1b4d246514a60",
+   "status": "ooooaoooooaooooooooooooaoooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaaaoooaaoooofoooooooaooaooaoooooooaoooooooaoooaoaoooooaooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooooooooooaaaoaooooooaaaooooooooooooooooooooooooaoooaoooofaoaoaoaoaaooooaoaoaooooaooaooooaaooaooooooooooaoooooooooooooooooooooooooooooooooooooooooooaooooaoooooooooooooooooooooooooooooooooooooooooooooooooooopooooooooooaaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooaoooaoooooooooooooooooooooaooooooooooaoooooaoaoaoooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooaoa",
+   "failed": {
+    "112": "unexpected-token",
+    "294": "unexpected-token"
+   }
+  },
+  "expect/Properties2.html": {
+   "spans": 256,
+   "bounds_sha256": "5e368ee5440b804363f351601cfc59c4534485b4a4c4e004b19b485ccb117222",
+   "status": "ooooooooooooooaooofooooooooooooooooooooooooooooooooooooooooooaaaooaoooaoooooooaofoaoooooooaaoooooooooooooooaoooooaaooooooooooooooaaoooooooooooooooaoooooaaoooooooooooooaoooaoaooaaaaoooooooooooooooooooooooooooaoooofooaoooooooooooaoooooooooaooooooooooooooooao",
+   "failed": {
+    "18": "unexpected-token",
+    "80": "punctuation-or-list",
+    "212": "unexpected-token"
+   }
+  },
+  "expect/Skew.html": {
+   "spans": 309,
+   "bounds_sha256": "0d4125956a6c405c0a8bbf9302b7113534846342ccb6d4ea26a02049d0b063b1",
+   "status": "ooooaooooooooooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooaaaooooooooooooooooooooooooooooooooooooooooooooooooooooaooooooooaoooooooaooooooooooooooaoooooooooooaoooooooooooooooooooooooooooooooaooaoooooooooooooooooooooooaoooooooooooooooooaoooooooaooaaaoooooooooooooooooooooooooooooooooaooaaoaooooo",
+   "failed": {}
+  },
+  "expect/Spaces.html": {
+   "spans": 582,
+   "bounds_sha256": "cb84d03febd828af1fbced3d505caf42aba04e02a5e81558ddf36eef391c910b",
+   "status": "oooooaooooooooooooooooooooooooooooooooofooooooooooooooooooooooooooooooooofooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofoooooooooooooooooooooooooooooooooooooooooooooaoooooooooooofofoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofoofffooffooooooffoooooofoooooofooooooooooooooooooooooooooooofoofoofofooooooooooooooooooofooooooofooooooooofooooooooooooooooooooooooooffoooofooooofoooooooaafooaoaofofoooofffofooaooaooaoooooooaoooooooooooooooofoooooaoooooooooooooooooooooaooooooooaooooooooofooooooaoooofoooooooaoooooooooooooooooooooooooooooooo",
+   "failed": {
+    "39": "unexpected-token",
+    "73": "unexpected-command",
+    "142": "punctuation-or-list",
+    "201": "unexpected-command",
+    "203": "unexpected-command",
+    "274": "punctuation-or-list",
+    "277": "punctuation-or-list",
+    "278": "punctuation-or-list",
+    "279": "punctuation-or-list",
+    "282": "punctuation-or-list",
+    "283": "punctuation-or-list",
+    "290": "punctuation-or-list",
+    "291": "punctuation-or-list",
+    "298": "punctuation-or-list",
+    "305": "punctuation-or-list",
+    "335": "punctuation-or-list",
+    "338": "punctuation-or-list",
+    "341": "punctuation-or-list",
+    "343": "punctuation-or-list",
+    "363": "punctuation-or-list",
+    "371": "punctuation-or-list",
+    "381": "punctuation-or-list",
+    "408": "punctuation-or-list",
+    "409": "punctuation-or-list",
+    "414": "punctuation-or-list",
+    "420": "punctuation-or-list",
+    "430": "unexpected-token",
+    "437": "unexpected-token",
+    "439": "unexpected-token",
+    "444": "unexpected-token",
+    "445": "unexpected-token",
+    "446": "unexpected-token",
+    "448": "unexpected-token",
+    "482": "unexpected-command",
+    "529": "punctuation-or-list",
+    "541": "punctuation-or-list"
+   }
+  },
+  "expect/Uniform.html": {
+   "spans": 355,
+   "bounds_sha256": "69f8ba63650ba47b7ef0502b14356330fc0ba6fc81ecfb6aa641c341358f80c2",
+   "status": "oooooaoooooooooofoooooooooooofoooooooooooooooooooooooooooooooooooofoooooooooooooooooooooooooooooooooooooofoooooooooooooooooooooooooooooooooaooooooooooooffoooooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooofoofoooooooooooooooooooooooooofoooooooooooooooooooaoooooooooooooooooooooooooooooooofooaoofooooooooooooooafoooooofoo",
+   "failed": {
+    "16": "incomplete",
+    "29": "unexpected-token",
+    "66": "unexpected-token",
+    "105": "punctuation-or-list",
+    "152": "unexpected-token",
+    "153": "unexpected-token",
+    "240": "punctuation-or-list",
+    "243": "unexpected-token",
+    "270": "unexpected-token",
+    "323": "unexpected-token",
+    "329": "unexpected-token",
+    "345": "unexpected-command",
+    "352": "unexpected-command"
+   }
+  },
+  "expect/Variance.html": {
+   "spans": 441,
+   "bounds_sha256": "736b30cba84692e27d7b77ac04c8b51dd8fa6f1f3af40315007ab12bc57ce68b",
+   "status": "ooooaoooooooooooooooooooooooooooooooooooooooooooooooooooooaooaoooooaoaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooooaooooooooooooooooooooooaooaooooofaooooooooooooooooooooooooooooooooooooooopaaooooooooooaoooooaaaooooooooooooaooooooooooooooooooooaooooooooooooooooofoooooooooooooooooooooooaoooaaooooooooooooooooooooooooooaoooaoooooooooooooooooooooooooooooaoooooaooooaooooooooooooooooooooaooooaooooooooooooooooooooo",
+   "failed": {
+    "178": "unexpected-token",
+    "292": "unexpected-token"
+   }
+  },
+  "poisson/Compound.html": {
+   "spans": 173,
+   "bounds_sha256": "c08a5f3258086129a0bce56258c7b94cd826e6d8852409c807ee33d76449db75",
+   "status": "ooooooooooooaoooooooooooooooooooooooooaooooooooooooooooooooaooofoooooooofooooooooooooooooooaofooaoooooooaooooooooooooooooooooaoofoooaooaooaooaoooooooooooooooooooooaooaaooooo",
+   "failed": {
+    "63": "unexpected-token",
+    "72": "unexpected-token",
+    "93": "unexpected-token",
+    "128": "unexpected-token"
+   }
+  },
+  "poisson/Exponential.html": {
+   "spans": 581,
+   "bounds_sha256": "4cd6a866a9a720908f315bc3b7b4a23828bee16503c09a3865f26e529bcf2731",
+   "status": "aooooaoooooaooaoooooooooaooooooooooooooooooooooooooooaoaaoooooooooaoooaooooaooooooaoooooooaoooooooooooooooaooooooooooofoooooooooooooooooooooooooooooooooooooaooooooooooooooooooooooooooooooooaooaoooooooooooooaooooaoooooooooaooooooooaooooooooooooooooooooooooooooooooooooooaoooooooooofooooooofoooooofooooooooooooooooaoooooooooooooooaooooaoooooooooooaoooooooooooooooooooooofaoooaoooooooooooofaoooooooooooooooooooooooooooooooooooooooooooaooaaoooooofooooooffooooooooooooooooaaooooooofoooooooofofofofoofoooooooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+   "failed": {
+    "118": "unexpected-token",
+    "280": "unexpected-command",
+    "288": "unexpected-command",
+    "295": "incomplete",
+    "368": "unexpected-command",
+    "386": "unexpected-command",
+    "442": "unexpected-command",
+    "449": "unexpected-token",
+    "450": "unexpected-command",
+    "476": "unexpected-token",
+    "485": "unexpected-token",
+    "487": "unexpected-token",
+    "489": "unexpected-token",
+    "491": "unexpected-token",
+    "494": "unexpected-token"
+   }
+  },
+  "poisson/Gamma.html": {
+   "spans": 254,
+   "bounds_sha256": "c2094b3f220f558f13ee6b66850a2addb122a56b636ff145de0a194f8bcc90b5",
+   "status": "oooooooooooooooooooooooooooooooooaoooooooooooooofoaoooaooaoaoooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooaooooooooaooooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooooooooooo",
+   "failed": {
+    "48": "incomplete"
+   }
+  },
+  "poisson/General.html": {
+   "spans": 253,
+   "bounds_sha256": "9c4c6c6000dccb73868240abf2bb9d35800074ca95cab32ee2cedc4df313e59d",
+   "status": "ooooooaoooooooooooooooooafaoaooaooooaaooaaooooaaoooooaaooooooooooooooaoooooooooaooaooaaoaooaooooooaoooaooooaoooooaoooooooooaoooaooaoaaaaaaooaaooooooooooaaaoaaooaaaoaoaaooaooaooooaaaoaooooooaooooofooofoooaoooooooaoooooooooooafooooooooooaofoooooooooaooooo",
+   "failed": {
+    "25": "unexpected-command",
+    "195": "unexpected-token",
+    "199": "unexpected-command",
+    "224": "punctuation-or-list",
+    "237": "unexpected-token"
+   }
+  },
+  "poisson/Introduction.html": {
+   "spans": 94,
+   "bounds_sha256": "afa0fa68a2f9bfea9520a5f3359e62beab218318e502ea82a1cccbb96a6765f1",
+   "status": "aooooooooooooaofoooooooooofoooooaaooaofaooooaooooooooooooooooooooooooooooooaoooooooooooooooooo",
+   "failed": {
+    "15": "punctuation-or-list",
+    "26": "unexpected-command",
+    "38": "unexpected-token"
+   }
+  },
+  "poisson/Nonhomogeneous.html": {
+   "spans": 167,
+   "bounds_sha256": "638c9c21e23854eda69f46e0454c6b7585de34dccd26cebe0dbe9b65cd486f2e",
+   "status": "aoooooaooaooooaooaoaaoooaooooooooaoooooooaaoaaaoooooooooooaoaaooaoaoaooooaoooaaofoaaooooooooofoooooaooooaoaoaoooaooaooaoooooooaaooaooaooaoooaooooaaooaoooooooaooaaooooa",
+   "failed": {
+    "80": "unexpected-command",
+    "93": "unexpected-token"
+   }
+  },
+  "poisson/Poisson.html": {
+   "spans": 480,
+   "bounds_sha256": "fb8e09bc452bf37696f5bc5d014973c362f62fd6b6e332bfcc254ffb3fdbec65",
+   "status": "aooooooooooooooooooaofooooooooaooooaoooooooooooooooaooooooaoooooooaoooooooaooooooooooooooaoooooooooaofooooooooooooooooooooooofoaoooaoaaaaoooooaoooaoooaofooaaooaaoaaaoooaaoaaoaoaofoaoooofoooofoooooooooooooofoooooooaooaooaoooooooooooaoooooooooooooooooooooooooooooooooooooooofoooaoaoaoaoooooaoooooaoooaoaooooooooooooaoofoooaoaooooooooooooooooooooooooooooooooooaooaoooooaooooooooaoooooooooooooooooooooooooooooooooooaooaoooaofoooooofoooofofooooooooooooooooooooooooooooooooooooooooooaoo",
+   "failed": {
+    "21": "punctuation-or-list",
+    "101": "punctuation-or-list",
+    "125": "punctuation-or-list",
+    "152": "unexpected-token",
+    "178": "unexpected-command",
+    "185": "punctuation-or-list",
+    "190": "punctuation-or-list",
+    "205": "punctuation-or-list",
+    "272": "punctuation-or-list",
+    "316": "unexpected-token",
+    "420": "punctuation-or-list",
+    "427": "timeout",
+    "432": "unexpected-token",
+    "434": "unexpected-command"
+   }
+  },
+  "poisson/Splitting.html": {
+   "spans": 169,
+   "bounds_sha256": "cf24f863f186026dbf4ad4d711d730e013720449e5d2edb9c1cefa2bb860dfc8",
+   "status": "ooaooooaooofoaoooofooooooooaooooooooooooooooooooooooooooooofoooooooooooooooaoaffooooooooooooooooooooooooooooooooooooooooooooooooooooooofooooofoaooooooaoaaaaoaaoooooooooo",
+   "failed": {
+    "11": "punctuation-or-list",
+    "18": "unexpected-token",
+    "59": "unexpected-token",
+    "78": "punctuation-or-list",
+    "79": "punctuation-or-list",
+    "135": "punctuation-or-list",
+    "141": "punctuation-or-list"
+   }
+  },
+  "special/Arcsine.html": {
+   "spans": 164,
+   "bounds_sha256": "c8b3a6c188ac5d0158c3310ee18e55078b202c1d30c6a7956e6101f18941e716",
+   "status": "aoaooaooooaooooooaooooaaaooooooaoaooooaoooooooooooafoooooooooooooooooooooooooooooaoooooooooooaooaoooooofoooaoooooaooooooooooooooooooooaooooooooooooooooooooooooooooa",
+   "failed": {
+    "51": "unexpected-token",
+    "103": "unexpected-token"
+   }
+  },
+  "special/Benford.html": {
+   "spans": 225,
+   "bounds_sha256": "793df02efb83bdcd3529984fd448c6c85164ddb7b4b486723680ba55d694970d",
+   "status": "ooooaoooooooooooaooooaaaooooooooooaaaaaooooooooooooooooooooooooooooooaooaoooaooooooooaoooooooaooooooaooofoooooooooooooooaooooooaoooooooooaooooaooooaoaoooooooooooooooofofoofffofaoofooooooooooooooooooooaoooooooooooooooooooooooo",
+   "failed": {
+    "104": "unexpected-token",
+    "166": "unexpected-token",
+    "168": "unexpected-token",
+    "171": "unexpected-token",
+    "172": "unexpected-token",
+    "173": "punctuation-or-list",
+    "175": "unexpected-token",
+    "179": "unexpected-token"
+   }
+  },
+  "special/Beta.html": {
+   "spans": 437,
+   "bounds_sha256": "f4ce1d3dbe4f23128c1c1d5c2915b7ab361ea07c1e6639750e18e000ba1f22f8",
+   "status": "ofooaoooaoooooaoooaoooooooooooooaaoaoooofooooooooooaooooooooooaaoffoaoooaooooooooooooooaooooooooaooooaooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooaooooofoooooooaoooooaooooaoooooooooaaooooaoffaoooooooooooooooooooooooooooooooaooooooooooooooooaooooooooooooaaofoooaoooooooooooooooooooooooaofoooooafoafoooooooooooooooooooooooooooooooooooooooooooooooaooooooooooooooooooooaoaooooooooooooooooaoaooooaooooooooooooaooooaoooooo",
+   "failed": {
+    "1": "punctuation-or-list",
+    "40": "unexpected-command",
+    "65": "punctuation-or-list",
+    "66": "punctuation-or-list",
+    "173": "punctuation-or-list",
+    "210": "unexpected-token",
+    "211": "unexpected-token",
+    "277": "unexpected-token",
+    "307": "punctuation-or-list",
+    "314": "unexpected-command",
+    "317": "unexpected-token"
+   }
+  },
+  "special/BetaPrime.html": {
+   "spans": 250,
+   "bounds_sha256": "5e7f2e0d8dc6c8f2670f4e41d654c555e6dd8b57fc1d9e89439f2ba141487483",
+   "status": "oooooooaoaoooooaoooooaaoofaoooooooooaooooooooaooooooooooooooooooooofooaooaooooaaooooooaoooooaoooooaoooooaooooaooooaooooooooooooooaaoooooooooooaoooooaoooaooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooaooooooooooooooofoooooooooooooooa",
+   "failed": {
+    "25": "unexpected-token",
+    "67": "punctuation-or-list",
+    "233": "unexpected-token"
+   }
+  },
+  "special/Cauchy.html": {
+   "spans": 264,
+   "bounds_sha256": "f6f6484c9ed215a9b5dbee730e14308e65885f81fbaa16aafe0c6280c820d2d5",
+   "status": "oooooooooaooaooooooooaoaoaaaoooooaoooaaaoaaooaoooooooooooooooooooooooooaoooaooaooooooaoooafaooooaoooooooooooooooooooaoaoaooooaoaooooooooooooooooooooooaooaooooaoooaaaaaooooooooaooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooaoooooaoooaooo",
+   "failed": {
+    "90": "unexpected-token"
+   }
+  },
+  "special/ChiSquare.html": {
+   "spans": 377,
+   "bounds_sha256": "585f7d73ea2ff48a275e80f3cf3a50943fba2f606afe3f63b49441a4d511a123",
+   "status": "oooooooaooooooooooaoooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaoooaooooooooooooooooooooooooooooooooooooooooaooooooooaooooooooooaaofaoooooaoooaoooooooooooooooaoooaooooooooooooooooooooooooaoooooooooooaooooooooooaoooaooooooooooooooaoaooaoooooooooooooofoooooooooooooooooooaaooooooooooooaooooooooooooooooooooooooooooooooooooooooooaooooooooaoooooooooooo",
+   "failed": {
+    "160": "unexpected-token",
+    "278": "unexpected-token"
+   }
+  },
+  "special/Divisible.html": {
+   "spans": 174,
+   "bounds_sha256": "c1614ff8c3f21517a67a62b347b6fc32018992554b6ed19431f2e6bdce258492",
+   "status": "ooooooooooooooooaooooooooooooooooooooooaooaaoooooofooooooooooooooooaooooooooooaoaoofoofofofooaaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+   "failed": {
+    "50": "unexpected-command",
+    "83": "unexpected-command",
+    "86": "unexpected-token",
+    "88": "unexpected-command",
+    "90": "unexpected-command"
+   }
+  },
+  "special/ExponentialLogarithmic.html": {
+   "spans": 281,
+   "bounds_sha256": "75d810629cc2f73a97759bbeae631b17492ea86e4d10e105393435ce14b449ae",
+   "status": "oaoaoaooaooooofoooaaaaoaooooooooaoaaooooooooooooffooooooaooooooooooooooooooaoooofooooooaoooaoooooaoooooaooaoooaaooooooooooooooooooooooooooooooaoaooooooooooooaoaooaaoooooaooooaaaaaoooooooooaoaaooaoooooooooooooooooaaoooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooo",
+   "failed": {
+    "14": "unexpected-token",
+    "48": "punctuation-or-list",
+    "49": "unexpected-token",
+    "80": "unexpected-command"
+   }
+  },
+  "special/ExtremeValue.html": {
+   "spans": 239,
+   "bounds_sha256": "b0c767afc4bdf70c4a2599b26e54bdac355f736078bbc8263e45c3e29e0da121",
+   "status": "ooooaoaooooooooofooaoofoooaooaoaooooooooaooooooooooffoooooooaoaoaoaoaooooooooooooooaoaoaoooooooooooooooooaooooooooooooooooooooooooaoaoooaooaoooaooaoooaoaooooooooooooooaoooooooooaoaooooooooooooooooooooooooooaoooooaoooooooooooooooooooooaoooo",
+   "failed": {
+    "16": "unexpected-token",
+    "22": "unexpected-command",
+    "51": "unexpected-command",
+    "52": "unexpected-command"
+   }
+  },
+  "special/Fisher.html": {
+   "spans": 346,
+   "bounds_sha256": "4b03eeedd3463fdb34c6808275ec293c5898914945c1be3b9ab6af159e5793e2",
+   "status": "oooooooooooooooooooooaoooooffoooafoaoooofoaooaoooooooooaooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaofoooooooaoooooooooooooooaooaoaoooaooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooooaooooaooooooooooaaoooooooooooooooooooaooaooooooooooooooooooooooooooooooooooooooaooaoooooooooooooooooooooooooooooooooaoooooa",
+   "failed": {
+    "27": "unexpected-token",
+    "28": "unexpected-token",
+    "33": "punctuation-or-list",
+    "40": "unexpected-token",
+    "123": "incomplete"
+   }
+  },
+  "special/FoldedNormal.html": {
+   "spans": 173,
+   "bounds_sha256": "510bbe16d75188f76151d565a5934e3bde1c69b5e5b121f5493c26d75027ad8d",
+   "status": "aaooooooaooooaoooooooooooofoaaooooofoaaooooooooofooofofoooooofooooooooooooooooooooooooooooooooooooooooooooooooooooooaoaooooooaooooooooaofoooooooooooooooooooooooooooooooooooo",
+   "failed": {
+    "26": "unexpected-token",
+    "35": "unexpected-token",
+    "48": "unexpected-command",
+    "52": "unexpected-command",
+    "54": "unexpected-command",
+    "61": "unexpected-token",
+    "136": "unexpected-token"
+   }
+  },
+  "special/Gamma.html": {
+   "spans": 273,
+   "bounds_sha256": "01a3f7e380c37747513445816a97921c17942c75c8f18abe89c3cd15d76662b3",
+   "status": "ooooooooooofaaoooofaoooooooooofoooaoaoooaoooaoooaoooooaoooaoooooooooooofooooooooooooooooooooooaooooaooooooooooooooaaoaoooooooooooooooooooooaoooooaoooaoooooooaooaoooooooooooooooooooooooooaoooooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaaaoooooooooooooooooo",
+   "failed": {
+    "11": "punctuation-or-list",
+    "18": "unexpected-token",
+    "30": "unexpected-command",
+    "71": "unexpected-command"
+   }
+  },
+  "special/GeneralExponential.html": {
+   "spans": 112,
+   "bounds_sha256": "1ec507e2bac6369d8264f10643ed547ad5361c0d51a74e78f679635b7e7133f9",
+   "status": "oooooaoaooofooooooooaoooooooooooooooooooofoooooooooaaaooooooaaoooooaaoooaooooofooooooooooooooooooooooooooooooooo",
+   "failed": {
+    "11": "incomplete",
+    "41": "punctuation-or-list",
+    "78": "unexpected-token"
+   }
+  },
+  "special/Gompertz.html": {
+   "spans": 263,
+   "bounds_sha256": "513daf9e1d4554915bf2d72876881a97c6d94510cbe1a750a9139befcb350ff0",
+   "status": "aoaoaooaooooaooaaaaoaoooaoooaoooooooofoofooooaoooooaoooooooaoaooaoaooaoooooooooaooaoooaaooooooooooooooooaofoooaooooooooooooooooaaoooooooooooaooooaoaoooaaaaaoooaoooooooofoofooaoooooaaooooooaaooaoooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooo",
+   "failed": {
+    "37": "unexpected-token",
+    "40": "unexpected-token",
+    "106": "unexpected-token",
+    "168": "unexpected-token",
+    "171": "unexpected-token"
+   }
+  },
+  "special/HyperbolicSecant.html": {
+   "spans": 150,
+   "bounds_sha256": "9239e7bd660c0980ef48bd5aa547684050ce2ba58e4c6aaeaec5e449860a5be7",
+   "status": "ofooooooooooooaoffooooaooaaaaooooooaoooooooooaoooaoooaoooooaooooooaoooaoaoooooooooooooooooaaoooofaooooaaaaaoooooooaoooooooooooooooooooooooooooooofoaoo",
+   "failed": {
+    "1": "unexpected-token",
+    "16": "unexpected-command",
+    "17": "unexpected-token",
+    "96": "unexpected-token",
+    "145": "unexpected-token"
+   }
+  },
+  "special/IrwinHall.html": {
+   "spans": 192,
+   "bounds_sha256": "02f0243786a1acf6d25b405191477dc46434e1ae15bbe6744296bc8347e4f9f2",
+   "status": "oaoooooaooooooooooooooooafooooooaooooooaooaoooooooooooooaooooooooaooooaoofooaafaooaooaooooooooooooooooooofaooooofooaoooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooooooooooooooooo",
+   "failed": {
+    "25": "unexpected-command",
+    "73": "unexpected-command",
+    "78": "integral-bounds",
+    "105": "unexpected-token",
+    "112": "unexpected-command"
+   }
+  },
+  "special/Laplace.html": {
+   "spans": 206,
+   "bounds_sha256": "a6ab33038679398a547909d6cfe402afbc13e8ac1378bab023af17e97f03fab1",
+   "status": "ooooooooaaooaaoooooooooooaoaaooooaooooooooaoooooooooooooooooaooooooooooofooofooooooofooooooooooooooaaooooooaoooooooooooooooooaaooaaoaooooaoooaaooooaoooooooooaoooooooooooooooooooooooooooooooooooooooaoooooooo",
+   "failed": {
+    "72": "unexpected-command",
+    "76": "unexpected-token",
+    "84": "unexpected-token"
+   }
+  },
+  "special/Levy.html": {
+   "spans": 149,
+   "bounds_sha256": "c6c73d94d521e1664f851e6b9197e146a83f98da47ab4cb3392cec6168672c51",
+   "status": "ooaooooooaoaooooaoaaaaaoooooooooooaoooffooooooooooooooooooooooooaoooooooaaoooooaoaaaaoooooooooaoooooooooooooaoooooooooooooooooooooooooooofooooooooooo",
+   "failed": {
+    "38": "unexpected-token",
+    "39": "unexpected-token",
+    "137": "unexpected-command"
+   }
+  },
+  "special/LocationScale.html": {
+   "spans": 195,
+   "bounds_sha256": "f9299ea283d277dedc178ff834652131ddb65715009fb24edbaff85587f4b662",
+   "status": "ooooaooooooooooooooooooaoaooooaooooaooooaoooooooooooooooooooooooooooooooooooooaooooooooaooooooaooooooooooaoooffoooooaoooooooooooooooooooooooooooaaoooooooooaoooooooooooooooooooooooooooaoaoooaaoaoo",
+   "failed": {
+    "109": "unexpected-command",
+    "110": "unexpected-command"
+   }
+  },
+  "special/LogLogistic.html": {
+   "spans": 339,
+   "bounds_sha256": "6ac7f9a9d879aa29b0c68d604b460211018a91bfdcae2e97c5e5b967824e14c7",
+   "status": "oaooooaaaoooaooooaoooooopooooooooofoooooaooooaooooooooooooooooaooooooooooaoooooooooooooooooooaooooooooaoooaooooooooooooooooooooooooooooooooooooooooooaooaoaoooooooooooaooooooooooooaooooooooooaooooooaooooooooaoooooaaooaooooooooooooooaaoooooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooaooooooooooooooooaooooooooooooooooooooooooooo",
+   "failed": {
+    "34": "unexpected-command"
+   }
+  },
+  "special/LogNormal.html": {
+   "spans": 192,
+   "bounds_sha256": "b8678d2ffcc7f722341d3b5a3921ff38a0599e7d62359be1f11fde4581068fb1",
+   "status": "ooooooooooooaoooooaooooaooooooooaoooaooooooaoooaoaaoooooooooooooooooaoooooooooooooaooooooooooooooooooooooooooooooooooooaaaooooooooooooooooooooooooooooooooooooooooooooooooooooooofffoooooooooooo",
+   "failed": {
+    "177": "unexpected-command",
+    "178": "unexpected-token",
+    "179": "unexpected-token"
+   }
+  },
+  "special/Logarithmic.html": {
+   "spans": 64,
+   "bounds_sha256": "71eda500c496b2e6b836467e965c962ff49809a586674f44163c40c523999cf6",
+   "status": "oooooooooooaafooaooooooofoooaoooooooooooofooooooooooooofooaoffoo",
+   "failed": {
+    "13": "unexpected-token",
+    "24": "unexpected-token",
+    "41": "unexpected-command",
+    "55": "unexpected-command",
+    "60": "unexpected-command",
+    "61": "unexpected-command"
+   }
+  },
+  "special/Logistic.html": {
+   "spans": 229,
+   "bounds_sha256": "f1b9960a5389becadba44e86f605790321a21e652c14e295228693529aef28bb",
+   "status": "ooooaoaoooooooooofooaooofoaoooaoofooooooooaooooooooooooooooooooooooooooooooooaoaoaooooooooooooooaooaoooooooooaoooooooooooooooooaooaoooooooooooaoaooooooooooooooooooaaooooaoooaoooaoooooooooaaoooooooooooooooooooooooooooooooooooooooo",
+   "failed": {
+    "17": "unexpected-token",
+    "24": "unexpected-command",
+    "33": "unexpected-token"
+   }
+  },
+  "special/Maxwell.html": {
+   "spans": 152,
+   "bounds_sha256": "7b9b7c512670c2f3074f03f8dc22b325eccb59c3905aa0a7ffe12b8690a25dea",
+   "status": "ooooooaooooooaoooofoaaooooooooooooooooooaoooooaaooooooofooooooooooooaooooooooooooooooooooooooooooooooooooooaaooooooooaooooooooaoooooooooaooooooooooooooo",
+   "failed": {
+    "18": "punctuation-or-list",
+    "55": "unexpected-command"
+   }
+  },
+  "special/MultiNormal.html": {
+   "spans": 633,
+   "bounds_sha256": "8853e281da202f4acddcd5688083e77fc0b8de173d8ca8617e309b42ef5d09a2",
+   "status": "oooaooooaoooooooooaooaooofoooooooooaooaoaoaooaooooooaoaooafoaaaaofooooooooooooaaoooooooooooaaoooooooooooooooooooooooooooooaaoooooooaoooooooooooooooooooaaoooooooooooooaaooaaoaaaaoaooaaoaoaooaoaooaaoooooooaoaooooaaaoooaooofooooaooooaooooaoooooaoooooooooaaaaoaaoooooaoooooooaoooooooaaooaaaoooooooaooaooaaaaaoooooooooaooaaooaooooaooooooaoooaoooooooaooooooaaaoooooooooooooaoofoaoofaoooooooooooooooooooofoooooooofaofoooooofooffofoooooooooooooooooooooooooooooaaooooooooooooooooooooooffofffoofooooooooooooooooooooooooooooooooooooaooooooooaooaooooaoooaoooooooooooooooaoooooaffffooooooooooooooaofofoooooooooooooofooooooooooooooooofoooooooooooo",
+   "failed": {
+    "25": "punctuation-or-list",
+    "58": "unexpected-token",
+    "65": "unexpected-command",
+    "220": "unexpected-command",
+    "370": "unexpected-command",
+    "375": "unexpected-command",
+    "397": "unexpected-token",
+    "406": "unexpected-token",
+    "409": "unexpected-token",
+    "416": "unexpected-command",
+    "419": "unexpected-token",
+    "420": "unexpected-command",
+    "422": "unexpected-command",
+    "476": "unexpected-command",
+    "477": "unexpected-command",
+    "479": "unexpected-command",
+    "480": "unexpected-command",
+    "481": "unexpected-token",
+    "484": "unexpected-command",
+    "565": "punctuation-or-list",
+    "566": "punctuation-or-list",
+    "567": "punctuation-or-list",
+    "568": "unexpected-command",
+    "585": "unexpected-token",
+    "587": "unexpected-token",
+    "602": "unexpected-command",
+    "620": "unexpected-command"
+   }
+  },
+  "special/Normal.html": {
+   "spans": 258,
+   "bounds_sha256": "97cc203953711d05e6dd850d909efda20da7d21f899bc577466e9c27d2116a80",
+   "status": "oooooooooooooooooooooooooooaooafoaooaoaoaooooooooooooooooaoooaaooaoooaaooaoofooooooooooooooooooooooooooaoaoooooooooooooooaooooooooaooooooooaoaoooooooooooooofoooooooooooooooooaoooooooooaoooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooaaaooooooooooo",
+   "failed": {
+    "31": "unexpected-command",
+    "76": "unexpected-command",
+    "156": "unexpected-command"
+   }
+  },
+  "special/Pareto.html": {
+   "spans": 274,
+   "bounds_sha256": "9500b2f6692ef56d37ba14ee985fbfb6063e24ff0f2bdd721ad49338086feb73",
+   "status": "oaooooaaaooooooooooaoooaooooooooooooaooooooooooaooooooooaooooooooooaoooooooooooooooooooooooooooooooooaooofooooooooooaoooaaooooooooooooooooooooooaooooooaooooooaoooooaaooaooooooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooaoooooaaoooooooooooooooooooooooooooa",
+   "failed": {
+    "105": "unexpected-token"
+   }
+  },
+  "special/PowerSeries.html": {
+   "spans": 131,
+   "bounds_sha256": "300767d49405bf5c399a8f3a86d648f09c4fae26790818c8e57056c01082339f",
+   "status": "ooooooooooaooooooooooaooooooooooaoooaoooaoaaooaoooaooooooooooaaoaaoooooooaoaoooooooooaooooooooooooooooooooooooooooooooooooooooooooo",
+   "failed": {}
+  },
+  "special/Rayleigh.html": {
+   "spans": 234,
+   "bounds_sha256": "62fe5ea5bd92cdd07b3fb172c65fce3b6c1220ccd1f7b35448a20386173c9ab7",
+   "status": "oooaaoaoooooaooooooooooooooooooooaooaooaooooooaoooooaooooooaoooooooooooooooooooooooooaoooooooooooooaoaoooooaooooaoaooooaaoooaooaoooooooooooooooooooooaoooooooooaoooaooaooaoooooaoooooaooooooaoooooooooaoooooooooooooooooooooaooofooooooooo",
+   "failed": {
+    "224": "unexpected-token"
+   }
+  },
+  "special/Semicircle.html": {
+   "spans": 199,
+   "bounds_sha256": "5f06d2b1b27de5a19f6318717ad85ba8bdb2ce72b4b0d73e5ddd1376b8ba006e",
+   "status": "aoooooooooooooooooooaoooaooooooooooooaoooooooooooaoooaoooaoooooooooooaoooooooooooooafaafoooafooooooooooooooaoooooooooooooooooooooaooaoaoooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooo",
+   "failed": {
+    "84": "unexpected-command",
+    "87": "unexpected-command",
+    "92": "incomplete"
+   }
+  },
+  "special/Sine.html": {
+   "spans": 139,
+   "bounds_sha256": "abea9bb6e6f2c4f02eafbc20a56d223570797f77a9c9197606685f8d60a2b6eb",
+   "status": "aooooooooooofooooaooooaooooooooaooaoaoooooooooooooooooaoaaooooooooooaooaooooooooooooooooooaooooooooaooooooaoooooofooooooooaooooaooooooooooa",
+   "failed": {
+    "12": "unexpected-command",
+    "113": "unexpected-command"
+   }
+  },
+  "special/Stable.html": {
+   "spans": 384,
+   "bounds_sha256": "19a7d3675e667ea7bed6db04a1d99814dee4c0a3caf704acb1476fbb1c7f98cb",
+   "status": "ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooooooooooaooooooooooooooooooooooaooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooaooooooooooooooooooooooooooooooooooooooaooooooooooaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+   "failed": {}
+  },
+  "special/Student.html": {
+   "spans": 207,
+   "bounds_sha256": "7e095e8397c51b4f2c91a926500c7fe4779bcf07af1b8d11bdaf0372470d6542",
+   "status": "oooooooooooooooooooooooooooafoaooooooooooooooooaoooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooooooofooofooooooooooooooooofoooooooooooooooooaooooooooooooooooooooooooooooooooooooooooooooooooo",
+   "failed": {
+    "28": "unexpected-token",
+    "117": "unexpected-command",
+    "121": "unexpected-command",
+    "139": "unexpected-command"
+   }
+  },
+  "special/Triangle.html": {
+   "spans": 352,
+   "bounds_sha256": "65feaba87dd9a0b45a8d79e9765b8a3a28bb29581d8a84bf3a92fcdef486adf1",
+   "status": "ooaooooooooooaaaaoooooooaoooooooooooooaoaoooooooooooooooooooooaooaoooooooooooooooaoooooooooooooooooaoooooooooooooooooooooooooooooooooooooooooooooaooaoooooooooooooooooooooooooooooooooooaoooaaaaoooooooooooooooooooooooaooooaooaoooaoooaoaooooooooooooooooooaoooooaooooooooooooooaooooooaooooaooooooooooooooooooaooooooooooooooooooooooooooooaoooooooooooooooooo",
+   "failed": {}
+  },
+  "special/UPower.html": {
+   "spans": 195,
+   "bounds_sha256": "b21e1b4d5455ba228c40c42dd0844f7ab3430918f1862585abe884b75241d40e",
+   "status": "oaoooooooooooofoooaoaoooaooooooooooooooooooooooooooaoooooooooooaaaoaoaoaooooooooooooaooooooooooooooooooooaoooooaooooaoaoooaooooooooooooooooooooooooooooooooooooooooooooooooooaooooooooooooooooooooo",
+   "failed": {
+    "14": "unexpected-command"
+   }
+  },
+  "special/Uniform.html": {
+   "spans": 156,
+   "bounds_sha256": "0ac54bb5965323481534559d781b2f935e74449d1fbdec34626e44a055b29e77",
+   "status": "oooooooaoooooaooooooofoooooooofoaoooooooooooooooaaoaoooooaooooooooooooooaoooooaaooooafaoooooaooooaooaaooaoaaooaaaooaaooooooaaooaoaooooaooooooooooooooooafoaa",
+   "failed": {
+    "21": "incomplete",
+    "30": "unexpected-token",
+    "85": "unexpected-token",
+    "152": "unexpected-token"
+   }
+  },
+  "special/UniformContinuous.html": {
+   "spans": 205,
+   "bounds_sha256": "1dc80aef298696a2c13e36fc01d2d232cba73679cbf3103efcbf7656ec71e4a3",
+   "status": "oooaoaoaoaooooaoooofooooaooooooaoooooaoooooooooooooaoaoaoooooaoaaooaooooaoaooaoaooooooooooooooooooooooooaoooooooooaooooaoooooooaooooaoaooaooooooooooooooooooaaaooaaoaoaaoofoooooooooooooooaooaoaoofoaaaoooooo",
+   "failed": {
+    "19": "unexpected-token",
+    "170": "unexpected-token",
+    "194": "punctuation-or-list"
+   }
+  },
+  "special/UniformDiscrete.html": {
+   "spans": 229,
+   "bounds_sha256": "cb4071637f77d9f1d9bc66c12de3258d0048da71f933965354c5f7d288587cdd",
+   "status": "ooooooooooaooooooooooaoaaooooofoooooooooooooooooooooooooaoaoooooooooooooooooooooooooooooooaoaaaaooooooaoooooooooooooooaoooooooooooooooooooooooooooooaooooooaoooooaoaaaaooooooooaoooooooaoaooooooooooooooooooooooooooooooaooooooooaooa",
+   "failed": {
+    "30": "unexpected-token"
+   }
+  },
+  "special/Wald.html": {
+   "spans": 256,
+   "bounds_sha256": "142d74c0d1a866b7a11d581f69bf7899897d269aa3fe06a0f6f2aae9be873bbf",
+   "status": "ooaooooooaoooaoaoooooooooooaaoooooooooooaooooofooooooaoaooooaooooooooooaoofaooooooooooooooooooooooooaooooaoooooofoooooooaooooooooooooooooooaoooooooooooooooooooooooooooooofooooaoooooooooooooaoaooooooooaooooooooooooooooooooooooooooooooooaoooooooooaaooooooooa",
+   "failed": {
+    "46": "punctuation-or-list",
+    "74": "unexpected-command",
+    "112": "unexpected-token",
+    "170": "unexpected-command"
+   }
+  },
+  "special/Weibull.html": {
+   "spans": 334,
+   "bounds_sha256": "b6d08bab193de5deb22cf63875462898b3443fe9877aacc012c455022595a3dd",
+   "status": "oaooooaaaoooooaoooooooooooooooaaooooaaooooooooooooaoaoooooaaoooooooooooooooooooooooooooooooooooooaooaaooooooooooooooooaoooaaooooaooaoaoooaooooooooooooaoooooooaooooooaooooooaooooaaaaaooooooooooooaoaooooooaaoooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooofooaooooooooooooaoooooaaooooooooooooooooooooooooooooo",
+   "failed": {
+    "281": "unexpected-token"
+   }
+  },
+  "special/Zeta.html": {
+   "spans": 94,
+   "bounds_sha256": "48651852345c96c3f0c01ee910c18419caeddab55f72b4d11379a1ac8391be32",
+   "status": "oooooaooaoaoaoaaoooaooooaoooaooooooaaoooaooaoaoooaoaooooooaaoooaoooooaoofoooooaooooooooooooooo",
+   "failed": {
+    "72": "unexpected-command"
+   }
+  }
+ }
+}
