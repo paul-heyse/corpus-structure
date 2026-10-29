@@ -10,7 +10,8 @@ import json
 from dataclasses import asdict, astuple, dataclass, fields
 from decimal import Decimal
 from hashlib import sha256
-from typing import Any
+from collections.abc import Callable
+from typing import Any, Protocol
 
 import psycopg
 from psycopg import sql
@@ -238,6 +239,19 @@ class PublicationConflict(ValueError):
     """An existing batch identity has different exact contents."""
 
 
+class PublicationInput(Protocol):
+    """Exact replay identity shared by row and Arrow transport."""
+
+    @property
+    def release_id(self) -> str: ...
+    @property
+    def realization_id(self) -> str: ...
+    @property
+    def batch_id(self) -> str: ...
+    @property
+    def content(self) -> bytes: ...
+
+
 def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[str, Any]]:
     """Prepare native datatype and exact bound lowerings once per release projection."""
     primitives = {
@@ -354,7 +368,7 @@ def publish_on_connection(connection: Connection, batch: PublicationBatch) -> Pu
     return PublicationReceipt(batch.batch_id, revision, sha256(batch.content).hexdigest())
 
 
-def lookup_receipt(engine: Engine, batch: PublicationBatch) -> PublicationReceipt | None:
+def lookup_receipt(engine: Engine, batch: PublicationInput) -> PublicationReceipt | None:
     with engine.connect() as connection:
         row = connection.execute(
             text(
@@ -374,6 +388,17 @@ def publish_batch(
     engine: Engine, batch: PublicationBatch, *, attempts: int = 3
 ) -> PublicationReceipt:
     """Retry a whole immutable batch; resolve ambiguous commits using the same identity."""
+    return _publish(engine, batch, publish_on_connection, attempts=attempts)
+
+
+def _publish(
+    engine: Engine,
+    batch: PublicationInput,
+    publish: Callable[[Connection, Any], PublicationReceipt],
+    *,
+    attempts: int,
+) -> PublicationReceipt:
+    """Single retry owner for both transports; source fencing stays inside publication."""
     if attempts < 1:
         raise ValueError("attempts must be positive")
     for attempt in range(attempts):
@@ -382,7 +407,7 @@ def publish_batch(
                 engine.connect().execution_options(isolation_level="SERIALIZABLE") as connection,
                 connection.begin(),
             ):
-                receipt = publish_on_connection(connection, batch)
+                receipt = publish(connection, batch)
             return receipt
         except (DBAPIError, psycopg.Error) as exc:
             original: Any = exc.orig if isinstance(exc, DBAPIError) else exc
