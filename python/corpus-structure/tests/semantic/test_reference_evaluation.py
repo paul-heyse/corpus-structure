@@ -4,6 +4,7 @@ import json
 import anyio
 import pytest
 from fastmcp import Client
+from pydantic import JsonValue
 from sqlalchemy import create_engine,select,text,insert
 from sqlalchemy.pool import NullPool
 from sqlalchemy.exc import DBAPIError
@@ -130,4 +131,34 @@ golden:
             replay=split_documents(conn,'resubmit',seed=999)
             assert replay['added']=={} and replay['total']==first['total']
             assert {row.source_uri:row.split for row in conn.execute(select(table('eval.document_split')))}==rows
+    finally:evaluator.dispose()
+
+
+def test_duplicate_premise_fact_preserves_later_local_claim_references(semantic_db_engine,semantic_writer_engine,tmp_path):
+    prepared,run,task,locator=source_task(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',composed=True)
+    async def source():
+        async with Client(build_semantic_server(SemanticAgentSession(semantic_writer_engine,run))) as client:
+            unit=await lease_and_read(client,run,task)
+            evidence=[{'sentence':unit['sentences'][0]['id'],'quote':'Alice is here.','role':'primary'}]
+            def claim(identity,condition=None):
+                qualification:dict[str,JsonValue]={'modality':'asserted','polarity':True}
+                if condition is not None:qualification['condition']={'kind':'claim','ref':condition}
+                return {'id':identity,'subject':'source_person','predicate':'https://example.org/name','object':{'kind':'text','text':'Alice'},'qualification':qualification,'establishment':'stated','evidence':evidence}
+            response=await client.call_tool('propose_claims',{'task_id':task,'batch':{'unit_ref':locator,'entities':[{'id':'source_person','class_iri':'https://example.org/Person','label':'Alice'}],'claims':[claim('first_premise'),claim('duplicate_premise'),claim('conclusion','duplicate_premise')]}})
+            assert response.structured_content is not None
+            assert response.structured_content['submission_disposition']=='completed_accepted'
+    anyio.run(source)
+    finalize_bound_run(semantic_writer_engine,run,'duplicate-premise-result')
+    # The independent expected claims have one premise and refer to that retained fact.
+    citation=[{'sentence':'independent_sentence','quote':'Alice is here.','role':'primary'}]
+    reference={'unit_ref':locator,'entities':[{'id':'reference_person','class_iri':'https://example.org/Person','label':'Alice'}],'claims':[
+        {'id':'expected_premise','subject':'reference_person','predicate':'https://example.org/name','object':{'kind':'text','text':'Alice'},'qualification':{'modality':'asserted','polarity':True},'establishment':'stated','evidence':citation},
+        {'id':'expected_conclusion','subject':'reference_person','predicate':'https://example.org/name','object':{'kind':'text','text':'Alice'},'qualification':{'modality':'asserted','polarity':True,'condition':{'kind':'claim','ref':'expected_premise'}},'establishment':'stated','evidence':citation}]}
+    evaluator=create_engine(semantic_db_engine.url.set(username='corpus_sem_evaluator'),poolclass=NullPool)
+    try:
+        with evaluator.begin() as conn:
+            made=create_reference_set(conn,project_id='resubmit',source_run_id=run,label='premise-alias',size=1)
+            record_pass(conn,unit_id=next(iter(made['units'].values())),pass_kind='C',actor='independent-reference',authored=json.dumps(reference).encode(),frame=ProposalFrame(locator,'Alice is here.',(ProposalSentence('independent_sentence',locator,0,14),)))
+            grade=reference_evaluate(conn,project_id='resubmit',run_id=run,set_id=made['set_id'])
+            assert grade.result['tiers']['full']=={'reference':2,'prediction':2,'matched':2,'precision':1.,'recall':1.,'f1':1.}
     finally:evaluator.dispose()
