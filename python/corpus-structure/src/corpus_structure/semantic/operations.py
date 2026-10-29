@@ -958,3 +958,35 @@ def hold_agent_result(
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("agent submission attempt lost or run sealed") from exc
         raise
+
+
+@dataclass(frozen=True)
+class ReleasedClaim:
+    task_id: int
+    attempt: int
+    reason: str
+
+
+def renew_claim(conn: Connection, *, task_id: int, attempt: int, holder: str) -> None:
+    """Renew only the current attempt through the protected native ownership guard."""
+    try:
+        conn.execute(text("SELECT ops.renew_claim(:task,:attempt,:holder)"),
+                     dict(task=task_id,attempt=attempt,holder=holder)).scalar_one()
+    except Exception as exc:
+        if getattr(getattr(exc,"orig",None),"sqlstate",None)=="P0004":
+            raise OperationConflict("task ownership changed before renewal") from exc
+        raise
+
+
+def release_claim(conn: Connection, *, task_id: int, attempt: int, holder: str, reason: str) -> ReleasedClaim:
+    """Release the current agent attempt while retaining durable held submission progress."""
+    if not reason:
+        raise ValueError("claim release requires a reason")
+    try:
+        conn.execute(text("SELECT ops.release_claim(:task,:attempt,:holder,:reason)"),
+                     dict(task=task_id,attempt=attempt,holder=holder,reason=reason)).scalar_one()
+    except Exception as exc:
+        if getattr(getattr(exc,"orig",None),"sqlstate",None)=="P0004":
+            raise OperationConflict("task ownership changed before release") from exc
+        raise
+    return ReleasedClaim(task_id,attempt,reason)

@@ -353,3 +353,15 @@ def test_product_conversion_never_coerces_integer_fields(value):
             {"role": "subject", "concept": "Fact", "minimum": value, "ordered": False, "unresolved": False},
             EndpointRole,
         )
+
+
+def test_native_kernel_bindings_require_complete_exact_signatures(inputs):
+    for mutation,code in [("missing","native_guard_coverage"),("signature","unapproved_native_guard")]:
+        data=body(inputs)
+        if mutation=="missing":
+            data["native_guards"].pop()
+        else:
+            data["native_guards"][0]["symbol"]="ops.execution_edge(text,text)"
+        with pytest.raises(PreparationError) as error:
+            compile_execution_model(changed(inputs,data))
+        assert error.value.diagnostics[0].code==code

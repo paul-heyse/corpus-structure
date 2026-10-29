@@ -4069,6 +4069,7 @@ operations:
   - task_claim
   - task_reclaim
   - task_reclaim_held
+  - task_claim_held
   projections: []
 - id: complete
   inputs: &id028
@@ -4882,6 +4883,62 @@ operations:
   projections:
   - append
   - snapshot_derived
+- id: renew_claim
+  inputs:
+  - TaskInvocation
+  - Attempt
+  results:
+  - TaskInvocation
+  - Attempt
+  applicability:
+  - attempt_fence
+  - immutable_binding
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects:
+  - renew_current_attempt_deadline
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: renew_claim
+  transitions:
+  - task_renew_claim
+  - task_renew_claim_held
+  projections: []
+- id: release_claim
+  inputs:
+  - TaskInvocation
+  - Attempt
+  results:
+  - TaskInvocation
+  - Attempt
+  applicability:
+  - attempt_fence
+  - immutable_binding
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects:
+  - release_current_attempt_preserving_held_progress
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: release_claim
+  transitions:
+  - task_release_claim
+  - task_release_claim_held
+  projections: []
 implementations:
 - id: prepare
   owner: semantic.prepare
@@ -5340,6 +5397,42 @@ implementations:
   effects: *id110
   required_capabilities:
   - execution.lifecycle.v1
+- id: renew_claim
+  owner: semantic.operations
+  symbol: renew_claim
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - Attempt
+  result_concepts:
+  - TaskInvocation
+  - Attempt
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - renew_current_attempt_deadline
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: release_claim
+  owner: semantic.operations
+  symbol: release_claim
+  version: '1'
+  placement: core
+  input_concepts:
+  - TaskInvocation
+  - Attempt
+  result_concepts:
+  - TaskInvocation
+  - Attempt
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - release_current_attempt_preserving_held_progress
+  required_capabilities:
+  - execution.lifecycle.v1
 projections:
 - id: occurrence
   sources:
@@ -5706,6 +5799,19 @@ lifecycles:
     - dimension: reuse_origin
       value: none
     terminal: false
+  - id: awaiting_agent_held
+    values:
+    - dimension: status
+      value: awaiting_agent
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: held
+    - dimension: terminal_result
+      value: none
+    - dimension: reuse_origin
+      value: none
+    terminal: false
   - id: running
     values:
     - dimension: status
@@ -5881,9 +5987,14 @@ lifecycles:
   - reused
   - skipped
   transitions:
+  - task_renew_claim
+  - task_renew_claim_held
+  - task_release_claim
+  - task_release_claim_held
   - task_claim
   - task_reclaim
   - task_reclaim_held
+  - task_claim_held
   - task_hold
   - task_complete
   - task_complete_held
@@ -6424,6 +6535,7 @@ transitions:
   operation: end_run
   from_states:
   - running_held
+  - awaiting_agent_held
   to_states:
   - cancelled_held
   immutable_bindings:
@@ -6635,6 +6747,105 @@ transitions:
   outcomes:
   - closed
   - invalid
+- id: task_renew_claim
+  lifecycle: task
+  operation: renew_claim
+  from_states:
+  - running
+  to_states:
+  - running
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - immutable_binding
+  effects:
+  - renew_current_attempt_deadline
+  outcomes:
+  - applied
+  - conflict
+- id: task_renew_claim_held
+  lifecycle: task
+  operation: renew_claim
+  from_states:
+  - running_held
+  to_states:
+  - running_held
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - immutable_binding
+  effects:
+  - renew_current_attempt_deadline
+  outcomes:
+  - applied
+  - conflict
+- id: task_release_claim
+  lifecycle: task
+  operation: release_claim
+  from_states:
+  - running
+  to_states:
+  - awaiting_agent
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - immutable_binding
+  effects:
+  - release_current_attempt_preserving_held_progress
+  outcomes:
+  - applied
+  - conflict
+- id: task_release_claim_held
+  lifecycle: task
+  operation: release_claim
+  from_states:
+  - running_held
+  to_states:
+  - awaiting_agent_held
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - immutable_binding
+  effects:
+  - release_current_attempt_preserving_held_progress
+  outcomes:
+  - applied
+  - conflict
+- id: task_claim_held
+  lifecycle: task
+  operation: claim
+  from_states:
+  - awaiting_agent_held
+  to_states:
+  - running_held
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects: []
+  outcomes:
+  - applied
+  - replay
+  - conflict
 outcome_domains:
 - id: preparation
   authority: code
@@ -6773,22 +6984,22 @@ outcome_translations:
 
 native_guards:
 - id: execution_edge
-  symbol: ops.execution_edge
+  symbol: ops.execution_edge(text,text,text)
   version: '1'
   invariants: [immutable_binding, terminal_result]
 - id: execution_task
-  symbol: ops.guard_execution_task
+  symbol: ops.guard_execution_task()
   version: '1'
   invariants: [attempt_fence, terminal_result, reuse_origin]
 - id: execution_run
-  symbol: ops.guard_execution_run
+  symbol: ops.guard_execution_run()
   version: '1'
   invariants: [final_cut_barrier, immutable_binding]
 - id: conditional_kernel
-  symbol: data.validate_conditions
+  symbol: data.validate_conditions(text,text)
   version: '1'
   invariants: []
 - id: completed_result
-  symbol: data.finish_evaluation
+  symbol: data.finish_evaluation(bigint,text,text)
   version: '1'
   invariants: [completed_result, writable_output, exact_replay]
