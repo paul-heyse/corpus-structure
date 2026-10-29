@@ -898,3 +898,48 @@ def test_report_record_class_must_match_even_when_field_meaning_is_equal(
         )
     with semantic_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
+
+
+def test_unused_alias_payloads_and_scalar_datatypes_are_refused(
+    semantic_db_engine, semantic_writer_engine
+):
+    seed(semantic_db_engine)
+    record = "https://example/Record"
+    with semantic_db_engine.begin() as conn:
+        conn.execute(
+            insert(table("sem.class_definition")).values(
+                release_id=R, class_id=record, name="Record", iri=record
+            )
+        )
+    for value in (
+        ValueRow("v", "interval", datatype=record),
+        ValueRow("v", "expression", text_value="ignored expression", datatype=record),
+        ValueRow("v", "missing", text_value="ignored reason", datatype=record),
+    ):
+        with pytest.raises(DBAPIError, match="unsupported physical value alias"):
+            publish_batch(
+                semantic_writer_engine,
+                PublicationBatch(R, Z, "alias-" + value.kind, typed_value=(value,)),
+            )
+    for value in (
+        ValueRow("v", "string", text_value="retained text", datatype=record),
+        ValueRow("v", "boolean", boolean_value=True, datatype=record),
+        ValueRow("v", "sequence", datatype=record),
+    ):
+        with pytest.raises(DBAPIError, match="datatype is supported only"):
+            publish_batch(
+                semantic_writer_engine,
+                PublicationBatch(R, Z, "datatype-" + value.kind, typed_value=(value,)),
+            )
+    assert (
+        publish_batch(
+            semantic_writer_engine,
+            PublicationBatch(
+                R, Z, "typed-record", typed_value=(ValueRow("v", "record", datatype=record),)
+            ),
+        ).data_revision
+        == 1
+    )
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
+        assert conn.scalar(text("SELECT kind FROM data.typed_value")) == "record"
