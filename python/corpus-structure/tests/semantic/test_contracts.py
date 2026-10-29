@@ -169,18 +169,16 @@ def test_cut_result_and_analytical_lifetime_dimensions(products):
         products.lifecycle("evaluation_result").state(
             {"visibility": "completed", "receipt_set": "incomplete"}
         )
-    borrowed = dict(input_kind="captured", scope_lifetime="open", result_lifetime="borrowed")
-    invalidated = {**borrowed, "scope_lifetime": "closed", "result_lifetime": "invalidated"}
-    products.validate_edge("analysis_close_captured_borrowed", borrowed, invalidated)
+    scope = dict(input_kind="captured", scope_lifetime="open")
+    closed = {**scope, "scope_lifetime": "closed"}
+    products.validate_edge("analysis_close_captured", scope, closed)
+    assert products.lifecycle("analysis").state(closed).terminal
+    assert {d.id for d in products.lifecycle("analysis").dimensions} == {
+        "input_kind", "scope_lifetime"
+    }
+    # A scope does not assign one exclusive lifetime to its many independent results.
     with pytest.raises(PreparationError):
-        products.lifecycle("analysis").state({**borrowed, "scope_lifetime": "closed"})
-    # Closing a borrowed result cannot manufacture a detached materialization.
-    with pytest.raises(PreparationError):
-        products.validate_edge(
-            "analysis_close_captured_borrowed",
-            borrowed,
-            {**invalidated, "result_lifetime": "detached"},
-        )
+        products.lifecycle("analysis").state({**scope, "result_lifetime": "detached"})
 
 
 def test_outcome_translation_preserves_unknown_and_unsupported(products):

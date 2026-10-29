@@ -146,7 +146,7 @@ class BorrowedHandle:
 
     def __getattr__(self, name: str) -> Any:
         self._owner._ensure_open()
-        if name == "close" and isinstance(self._native, duckdb.DuckDBPyConnection):
+        if name == "close" and self._native is self._owner._connection:
             return self._owner.close
         attribute = getattr(self._native, name)
         if not callable(attribute):
@@ -487,6 +487,7 @@ class AnalysisScope:
         self.packet = packet
         self._closed = False
         self._readers: list[pa.RecordBatchReader] = []
+        self._connections: list[duckdb.DuckDBPyConnection] = []
         self._registered: list[str] = []
         self._views: list[str] = []
         self._operation_id = 0
@@ -554,7 +555,11 @@ class AnalysisScope:
             if all(reader is not value for reader in self._readers):
                 self._readers.append(value)
             return BorrowedReader(self, value)
-        if isinstance(value, duckdb.DuckDBPyRelation | duckdb.DuckDBPyConnection):
+        if isinstance(value, duckdb.DuckDBPyConnection):
+            if value is not self._connection and all(connection is not value for connection in self._connections):
+                self._connections.append(value)
+            return BorrowedHandle(self, value)
+        if isinstance(value, duckdb.DuckDBPyRelation):
             return BorrowedHandle(self, value)
         return value
 
@@ -566,6 +571,7 @@ class AnalysisScope:
         actions = [reader.close for reader in self._readers]
         actions += [lambda name=name: self._connection.unregister(name) for name in self._registered]
         actions += [lambda name=name: self._connection.sql(f'DROP VIEW IF EXISTS "{name}"') for name in self._views]
+        actions += [connection.close for connection in self._connections]
         actions += [self._connection.close, self._scratch.cleanup]
         for action in actions:
             try:
