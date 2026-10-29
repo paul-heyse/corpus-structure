@@ -159,6 +159,17 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
         if '\\(' in body:
             kinds=set(c.execute(select(table('kb.observation').c.kind)).scalars())
             assert {'mention','value'} <= kinds
+            assert 'scope' in kinds
+            assert c.execute(select(table('kb.observation_input').c.role)).first()
+    replay=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path))
+    with e.connect() as c:
+        statuses=c.execute(select(table('ops.task').c.status).where(table('ops.task').c.run_id==replay.run_id)).scalars().all()
+        assert statuses==['reused']*5
+        assert [r['observation_key'] for r in cut_observations(c,report.cut_id)]==[r['observation_key'] for r in cut_observations(c,replay.cut_id)]
+    raw.write_text('changed after registered input')
+    with pytest.raises(OperationConflict,match='original content changed'):
+        run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path))
+
 
 
 def test_reuse_requires_complete_bound_meaning(semantic_db_engine,semantic_writer_engine):
@@ -211,3 +222,99 @@ def test_cli_initializes_indexed_source_project_without_active_pointer_changes(s
         assert project['active_release_id'] is None and project['generation']==0
         source=c.execute(select(table('kb.document')).where(table('kb.document').c.project_id=='new-project')).mappings().one()
         assert source['source_uri']=='toy/input.html' and source['meta']['page']=='input.html'
+
+
+@pytest.mark.parametrize('difference',['dependencies','project','release','revision','configuration','input','unit','packet','self'])
+def test_native_role_cannot_forge_reuse_binding(semantic_db_engine,semantic_writer_engine,difference):
+    from sqlalchemy import update
+    p=setup(semantic_db_engine);e=semantic_writer_engine
+    method=SimpleNamespace(name='read',version='1',family='ingest',tier='deterministic',confidence_source=None)
+    with e.begin() as c:
+        origin_run=create_run(c,project_id='p',binding=OperationBinding(p.release_id,'z',0,b'{}'),kind='full',options={},code_commit='test')
+        cfg=record_method(c,method,'default',{},'config')
+        origin=create_task(c,run_id=origin_run,config_id=cfg,stage='ingest',unit_type='run',input_hash='same')
+        claim_tasks(c,run_id=origin_run,config_id=cfg,holder='worker')
+        complete_task(c,task_id=origin,attempt=1,holder='worker',prepared=p,observations=[],outcome='empty')
+    project,release,z,rev,deps='p',p.release_id,'z',0,b'{}'
+    if difference=='dependencies':deps=b'{"policy":"changed"}'
+    if difference in {'project','release','revision'}:
+        with semantic_db_engine.begin() as c:
+            if difference=='project':
+                project,z='other','other-z'
+                c.execute(insert(table('data.project')).values(project_id=project))
+                c.execute(insert(table('data.realization')).values(realization_id=z,release_id=release,project_id=project))
+            elif difference=='release':
+                release,z='release:other','other-z'
+                c.execute(insert(table('sem.release')).values(release_id=release,content_digest='other',profile='test',prepared_bytes=b'{}',manifest_bytes=b'{}'))
+                c.execute(insert(table('data.realization')).values(realization_id=z,release_id=release,project_id=project))
+            else:
+                rev=1;c.execute(update(table('data.realization')).where(table('data.realization').c.realization_id==z).values(data_revision=rev))
+    with e.begin() as c:
+        run=create_run(c,project_id=project,binding=OperationBinding(release,z,rev,deps),kind='full',options={},code_commit='test')
+        if difference=='configuration':cfg=record_method(c,method,'other',{'other':True},'other')
+        target=create_task(c,run_id=run,config_id=cfg,stage='ingest',unit_type='run',input_hash='different' if difference in {'input','self'} else 'same',unit_key='different' if difference=='unit' else None,packet_hash='different' if difference=='packet' else None)
+    with pytest.raises(DBAPIError):
+        with e.begin() as c:
+            c.execute(update(table('ops.task')).where(table('ops.task').c.id==target).values(status='reused',reused_task_id=target if difference=='self' else origin))
+
+
+def test_native_cut_cannot_be_reopened_or_grow_from_empty_task(semantic_db_engine,semantic_writer_engine):
+    from sqlalchemy import update
+    p=setup(semantic_db_engine);e=semantic_writer_engine
+    with e.begin() as c:
+        run=create_run(c,project_id='p',binding=OperationBinding(p.release_id,'z',0,b'{}'),kind='full',options={},code_commit='test')
+        cfg=record_method(c,SimpleNamespace(name='read',version='1',family='ingest',tier='deterministic',confidence_source=None),'default',{},'config')
+        task=create_task(c,run_id=run,config_id=cfg,stage='ingest',unit_type='run',input_hash='same')
+        claim_tasks(c,run_id=run,config_id=cfg,holder='worker')
+        complete_task(c,task_id=task,attempt=1,holder='worker',prepared=p,observations=[],outcome='empty')
+        cut=seal_cut(c,run,'preview')
+    with pytest.raises(DBAPIError,match='terminal source task is immutable'):
+        with e.begin() as c:c.execute(update(table('ops.task')).where(table('ops.task').c.id==task).values(status='running',attempt=2))
+    with pytest.raises(OperationConflict):
+        with e.begin() as c:complete_task(c,task_id=task,attempt=2,holder='worker',prepared=p,observations=[{'payload_definition':'Report','item_key':'fake','payload':{'text':'invented'},'kind':'reading'}])
+    with e.begin() as c:
+        assert cut_observations(c,cut)==[]
+        final=seal_cut(c,run,'final',final=True)
+    with pytest.raises(DBAPIError):
+        with e.begin() as c:c.execute(update(table('ops.run')).where(table('ops.run').c.id==run).values(sealed=False,status='running'))
+    with e.connect() as c:
+        assert cut_observations(c,final)==[]
+        assert c.execute(select(table('ops.run').c.sealed).where(table('ops.run').c.id==run)).scalar_one()
+
+
+def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(semantic_db_engine,semantic_writer_engine):
+    p=setup(semantic_db_engine);e=semantic_writer_engine
+    method=SimpleNamespace(name='read',version='1',family='ingest',tier='deterministic',confidence_source=None)
+    with e.begin() as c:
+        run=create_run(c,project_id='p',binding=OperationBinding(p.release_id,'z',0,b'{}'),kind='full',options={},code_commit='test')
+        cfg=record_method(c,method,'default',{},'config')
+        first=create_task(c,run_id=run,config_id=cfg,stage='ingest',unit_type='run',input_hash='same')
+        claim_tasks(c,run_id=run,config_id=cfg,holder='worker')
+        rows=[{'payload_definition':'Report','item_key':'1','payload':{'text':'same'},'kind':'reading'}]
+        one=complete_task(c,task_id=first,attempt=1,holder='worker',prepared=p,observations=rows)
+        assert complete_task(c,task_id=first,attempt=1,holder='worker',prepared=p,observations=rows)==one
+        fresh=create_task(c,run_id=run,config_id=cfg,stage='ingest',unit_type='run',input_hash='same',fresh=True)
+        claim_tasks(c,run_id=run,config_id=cfg,holder='worker')
+        two=complete_task(c,task_id=fresh,attempt=1,holder='worker',prepared=p,observations=rows)
+        assert one!=two
+        keys=c.execute(select(table('kb.observation').c.observation_key)).scalars().all()
+        assert len(set(keys))==2
+        invocations=c.execute(select(table('ops.task').c.invocation_key)).scalars().all()
+        assert len(set(invocations))==2
+
+
+def test_native_cancel_drains_claims_and_blocks_late_completion(semantic_db_engine,semantic_writer_engine):
+    from corpus_structure.semantic.operations import end_source_run
+    p=setup(semantic_db_engine);e=semantic_writer_engine
+    with e.begin() as c:
+        run=create_run(c,project_id='p',binding=OperationBinding(p.release_id,'z',0,b'{}'),kind='full',options={},code_commit='test')
+        cfg=record_method(c,SimpleNamespace(name='read',version='1',family='ingest',tier='deterministic',confidence_source=None),'default',{},'config')
+        task=create_task(c,run_id=run,config_id=cfg,stage='ingest',unit_type='run',input_hash='same')
+        claim_tasks(c,run_id=run,config_id=cfg,holder='worker')
+        assert end_source_run(c,run)==1
+        assert end_source_run(c,run)==0
+    with pytest.raises(OperationConflict):
+        with e.begin() as c:complete_task(c,task_id=task,attempt=1,holder='worker',prepared=p,observations=[],outcome='empty')
+    with e.connect() as c:
+        assert c.execute(select(table('ops.task').c.status)).scalar_one()=='cancelled'
+        assert not c.execute(select(table('kb.observation'))).first()

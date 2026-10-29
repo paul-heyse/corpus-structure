@@ -114,6 +114,7 @@ def bind_result(
     operation_version: str,
     configuration_hash: str,
     input_hash: str,
+    invocation_key: str,
     result: UnitResult,
     method_confidence_source: str | None = None,
     coverage: Sequence[Mapping[str, str]] = (),
@@ -125,7 +126,7 @@ def bind_result(
     The operational repository still fences and persists this product atomically with the task.
     """
     unit_key = result.ref.unit_key
-    if not all((source, method, operation_version, configuration_hash, input_hash, unit_key)):
+    if not all((source, method, operation_version, configuration_hash, input_hash, invocation_key, unit_key)):
         raise ValueError("a source report requires complete source, unit and operation identity")
     observations = []
     for ordinal, draft in enumerate(result.observations):
@@ -148,6 +149,8 @@ def bind_result(
                 draft.payload.model_dump(mode="json", by_alias=True, serialize_as_any=True)
             ),
         }
+        if draft.input_refs:
+            row['inputs']=tuple({'observation_key':ref.observation_key,'role':ref.role} for ref in draft.input_refs)
         row["outcome"] = draft.outcome.value
         if draft.score is not None:
             row["score"] = source_value(draft.score)
@@ -167,6 +170,7 @@ def bind_result(
         observations.append(row)
     payload: dict[str, object] = {
         "release_id": prepared.release_id,
+        "invocation_key": invocation_key,
         "source": source,
         "method": method,
         "operation_version": operation_version,
@@ -188,6 +192,12 @@ def bind_result(
             *(dict(item) for item in coverage),
         ),
     }
+    payload['measurements']=tuple({
+        'metric':item.metric,'scope_type':str(item.scope_type),
+        **({'scope_id':item.scope_id} if item.scope_id is not None else {}),
+        **({'scope_key':item.scope_key} if item.scope_key is not None else {}),
+        'value':source_value(item.value),'detail':source_value(item.detail),
+    } for item in result.measurements)
     if result.error is not None:
         payload["error"] = result.error
     if result.cost is not None:

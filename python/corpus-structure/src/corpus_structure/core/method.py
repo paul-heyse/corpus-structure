@@ -170,6 +170,24 @@ class ObservationReading(Protocol):
     def outcome(self) -> ObservationOutcome: ...
 
 
+@dataclass(frozen=True, slots=True)
+class SourceObservationReference:
+    observation_key: str
+    role: str
+
+    def __post_init__(self) -> None:
+        if not self.observation_key or not self.role:
+            raise ValueError('source reference requires stable observation identity and role')
+
+
+@typing.runtime_checkable
+class StableObservationReading(ObservationReading, Protocol):
+    @property
+    def observation_key(self) -> str: ...
+    @property
+    def input_refs(self) -> tuple[SourceObservationReference, ...]: ...
+
+
 class Reader(Protocol):
     """What a method reads, already scoped to its run: upstream outputs only through reuse and the
     run's rendition selection (O1 implements it; P0CL-02)."""
@@ -280,6 +298,7 @@ class ObservationDraft[P: BaseModel]:
     score: float | None = None
     outcome: ObservationOutcome = ObservationOutcome.PRODUCED
     confidence_source: ConfidenceSource | Literal[_Source.METHOD] | None = METHOD_SOURCE
+    input_refs: tuple[SourceObservationReference, ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.payload) is not self.payload_class:

@@ -27,7 +27,7 @@ its tasks loudly with that error instead of parsing without a bound.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated, Any, Literal
 
 from pydantic import MISSING, BaseModel, ConfigDict, Field
@@ -46,6 +46,8 @@ from corpus_structure.core.method import (
     Reader,
     Resources,
     SourceRunContext,
+    SourceObservationReference,
+    StableObservationReading,
     UnitRef,
     UnitResult,
     UnitView,
@@ -364,8 +366,9 @@ class StoredMath:
     mentions: list[SymbolMention]
     relations: list[MathRelation]
     values: list[SpanValue]
-    refs: dict[tuple[int, int], MentionRef]
+    refs: dict[int, MentionRef]
     payload_hashes: dict[str, list[str]]
+    source_refs: dict[int,str] = field(default_factory=dict)
 
 
 def stored_math(reader: Reader, ren: _Rendition) -> StoredMath:
@@ -375,7 +378,7 @@ def stored_math(reader: Reader, ren: _Rendition) -> StoredMath:
     mention_rows = reader.observations(ren.id, M09, ObservationKind.MENTION)
     relation_rows = reader.observations(ren.id, M09, ObservationKind.RELATION)
     value_rows = reader.observations(ren.id, M11, ObservationKind.VALUE)
-    mentions, refs = [], {}
+    mentions, refs, source_refs = [], {}, {}
     ordinals: dict[int, int] = {}
     for row in mention_rows:  # mentions open M09's task, so their ordinals count from 0
         p = MentionPayload.model_validate(row.payload)
@@ -396,7 +399,8 @@ def stored_math(reader: Reader, ren: _Rendition) -> StoredMath:
         )
         ordinal = ordinals.get(row.task_id, 0)
         ordinals[row.task_id] = ordinal + 1
-        refs[(p.start, p.end)] = MentionRef(task=row.task_id, ordinal=ordinal)
+        refs[id(mentions[-1])] = MentionRef(task=row.task_id, ordinal=ordinal)
+        if isinstance(row,StableObservationReading):source_refs[id(mentions[-1])]=row.observation_key
     relations = []
     for row in relation_rows:
         r = RelationPayload.model_validate(row.payload)
@@ -424,7 +428,10 @@ def stored_math(reader: Reader, ren: _Rendition) -> StoredMath:
         "relations": [r.payload_hash for r in relation_rows],
         "values": [r.payload_hash for r in value_rows],
     }
-    return StoredMath(mentions, relations, values, refs, hashes)
+    for name,rows in (('mentions',mention_rows),('relations',relation_rows),('values',value_rows)):
+        keys=[row.observation_key for row in rows if isinstance(row,StableObservationReading)]
+        if keys:hashes[name+'_source_inputs']=keys
+    return StoredMath(mentions, relations, values, refs, hashes, source_refs)
 
 
 def _opt(value: Any) -> str | None:
@@ -432,12 +439,12 @@ def _opt(value: Any) -> str | None:
 
 
 def scope_drafts(
-    ren: _Rendition, scopes: Sequence[Scope], refs: Mapping[tuple[int, int], MentionRef]
+    ren: _Rendition, scopes: Sequence[Scope], refs: Mapping[int, MentionRef], source_refs:Mapping[int,str]|None=None
 ) -> list[ObservationDraft[Any]]:
     out: list[ObservationDraft[Any]] = []
 
     def at(m: SymbolMention) -> MentionAt:
-        return MentionAt(start=m.start, end=m.end, mention_ref=refs[(m.start, m.end)])
+        return MentionAt(start=m.start, end=m.end, mention_ref=refs[id(m)])
 
     for s in scopes:
         site = s.site
@@ -447,7 +454,7 @@ def scope_drafts(
         payload = ScopePayload(
             start=m.start,
             end=m.end,
-            mention_ref=refs[(m.start, m.end)],
+            mention_ref=refs[id(m)],
             binding_site=at(site.mention),
             scope_segment=ren.key_of(site.scope),
             extent=site.extent,
@@ -462,12 +469,16 @@ def scope_drafts(
                 rendition_id=ren.id,
                 segment_id=ren.segment_ids[ren.key_of(m.segment)],
                 span=(m.start, m.end) if m.end > m.start else None,
+                input_refs=tuple(SourceObservationReference(source_refs[id(mention)],role)
+                    for role,mention in (('mention',m),('binding_site',site.mention),*((('reopens',site.reopens.mention),) if site.reopens is not None else ()))
+                    if source_refs is not None and id(mention) in source_refs),
             )
         )
     return out
 
 
 class SymbolScope(_PerRendition):
+    version = "2"  # stable source input references and parallel reading preservation
     """`resolve.symbol_scope` (M13; module doc)."""
 
     name = M13
@@ -498,7 +509,7 @@ class SymbolScope(_PerRendition):
                 cfg.binders,
                 cfg.sentences,
             )
-            out.append(_result(unit, scope_drafts(ren, scopes, stored.refs)))
+            out.append(_result(unit, scope_drafts(ren, scopes, stored.refs, stored.source_refs)))
         return out
 
 

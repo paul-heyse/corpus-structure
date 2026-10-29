@@ -172,11 +172,11 @@ def run(
     if semantic_release is not None or realization is not None:
         if semantic_release is None or realization is None or project is None:
             raise typer.BadParameter('semantic source execution requires --semantic-release, --realization and --project')
-        if any(x is not None for x in (slice,scope,corpus,agent_mode,agent_reuse,gpu_mode,fresh)):
+        if any(x is not None for x in (slice,scope,corpus,agent_mode,agent_reuse,gpu_mode)):
             raise typer.BadParameter('source execution does not accept legacy run selectors or agent options')
         with _refusals(), ENGINE(settings) as engine:
             report = commands.start_bound_run(engine,release_id=semantic_release,realization_id=realization,
-                project_id=project,domain=domain,method_settings=method_settings,phase=phase)
+                project_id=project,domain=domain,method_settings=method_settings,phase=phase,fresh=tuple(fresh or ()))
         emit(report,json=json)
         return
     with _refusals(), ENGINE(settings) as engine:
