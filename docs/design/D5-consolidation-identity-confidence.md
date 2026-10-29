@@ -51,6 +51,17 @@ contracts below continue to describe the selected default until the planned cuto
 
 > Decision: ADR-0027
 
+## Identity exclusions in the semantic profile
+
+**Accepted target, 2026-10-29; implementation/verification owned by SP-07.** Evidence-backed
+exclusions name local declarations or bound input entities. Mandatory-key contradictions refuse
+publication; label-only candidates cannot merge excluded endpoints, including indirect merges.
+Source assignments, input lineage and protected native publication retain exact provenance.
+These operational constraints do not assert unqualified ontology differentFrom facts or enable
+scored fuzzy matching. Current readers expose their endpoints and supporting citations.
+
+> Decision: ADR-0028
+
 ## 1. Shape
 
 Consolidation is a **pure function** of: the run's effective observations
