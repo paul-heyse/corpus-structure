@@ -487,8 +487,8 @@ def activate_release(
 
     prepared = load_release(conn, release_id)
     with conn.begin_nested():
-        admit_release(prepared, connection=conn)
         admit_archived_sql(conn, release_id, reader_conn=sql_reader)
+        admit_release(prepared, connection=conn)
         project = _table("data.project")
         changed = conn.execute(
             update(project)

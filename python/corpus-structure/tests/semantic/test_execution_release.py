@@ -452,3 +452,114 @@ def test_native_constructor_admits_binary_rules_with_subtyped_range(
     with semantic_writer_engine.begin() as conn:
         assert conn.scalar(text("SELECT data.initialize_source_project(:p,:r,:z)"),
                            {"p": project, "r": prepared.release_id, "z": realization}) == realization
+
+
+def _stage_authored_sql(conn):
+    bundle = _bundle()
+    dependencies = composed_dependencies(ResolvedDependencies((
+        SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity"),
+    )))
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
+    releases.persist_release(conn, bundle, dependencies, profile, prepared)
+    return prepared
+
+
+def test_native_constructor_requires_existing_authored_sql_admission(
+    semantic_db_engine, semantic_writer_engine
+):
+    with semantic_db_engine.begin() as conn:
+        prepared = _stage_authored_sql(conn)
+        project = _project(conn)
+    with semantic_writer_engine.begin() as conn:
+        with pytest.raises(DBAPIError, match="required authored SQL"), conn.begin_nested():
+            conn.execute(text("SELECT data.initialize_source_project(:p,:r,:z)"),
+                         {"p": project, "r": prepared.release_id, "z": str(uuid4())})
+        assert releases.activation_token(conn, project) == releases.ActivationToken(None, 0)
+        assert conn.scalar(select(table("data.realization").c.realization_id).where(
+            table("data.realization").c.project_id == project)) is None
+
+
+def test_composed_activation_establishes_exact_restricted_sql_admission(
+    semantic_db_engine, semantic_reader_engine, semantic_writer_engine
+):
+    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+
+    with semantic_db_engine.begin() as conn:
+        prepared = _stage_authored_sql(conn)
+        project = _project(conn)
+        with semantic_reader_engine.connect() as reader:
+            token = releases.activate_release(conn, project, prepared.release_id,
+                expected_parent=None, expected_generation=0, sql_reader=reader)
+        assert token == releases.ActivationToken(prepared.release_id, 1)
+        artifact = conn.execute(select(table("sem.sql_admission")).where(
+            table("sem.sql_admission").c.release_id == prepared.release_id)).mappings().one()
+        assert sha256(bytes(artifact["content"])).hexdigest() == artifact["content_digest"]
+        assert artifact["physical_id"] == PHYSICAL_MODEL_ID
+        assert json.loads(bytes(artifact["content"]))["sql"] == "SELECT entity_id FROM data.entity"
+    with semantic_writer_engine.begin() as conn:
+        realization = str(uuid4())
+        assert conn.scalar(text("SELECT data.initialize_source_project(:p,:r,:z)"),
+            {"p": project, "r": prepared.release_id, "z": realization}) == realization
+
+
+@pytest.mark.parametrize("field,value", [
+    ("sql", "SELECT 'different'::text"),
+    ("release_id", "release:another"),
+    ("physical_id", "physical:another"),
+    ("content_digest", "0" * 64),
+])
+def test_native_constructor_requires_exact_sql_artifact_binding(
+    semantic_db_engine, semantic_reader_engine, semantic_writer_engine, field, value
+):
+    from corpus_structure.semantic.authored_sql import admit_archived_sql
+
+    with semantic_db_engine.begin() as conn:
+        prepared = _stage_authored_sql(conn)
+        project = _project(conn)
+        with semantic_reader_engine.connect() as reader:
+            artifact, = admit_archived_sql(conn, prepared.release_id, reader_conn=reader)
+        body = json.loads(artifact.content)
+        if field == "content_digest":
+            values = {"content_digest": value}
+        else:
+            body[field] = value
+            content = canonical_bytes(body)
+            values = {"content": content, "content_digest": sha256(content).hexdigest()}
+        admission = table("sem.sql_admission")
+        conn.execute(update(admission).where(admission.c.release_id == prepared.release_id).values(**values))
+    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="required authored SQL"):
+        conn.execute(text("SELECT data.initialize_source_project(:p,:r,:z)"),
+                     {"p": project, "r": prepared.release_id, "z": str(uuid4())})
+
+
+@pytest.mark.parametrize("outcome,code,message,refused", [
+    ("unsupported", "unsupported", "unsupported required semantics", True),
+    ("unresolved", "unresolved", "unresolved required semantics", True),
+    ("unchecked", "unchecked_term", "different unchecked term", True),
+    ("unchecked", "other_code", "not4curation:unchecked", True),
+    ("unchecked", "unchecked_term", "not4curation:unchecked", False),
+])
+def test_native_constructor_obeys_archived_diagnostic_policy(
+    semantic_db_engine, semantic_writer_engine, outcome, code, message, refused
+):
+    # Independent archive data exercises the native predicate, including its exact exception.
+    with semantic_db_engine.begin() as conn:
+        *_, prepared = _stage(conn)
+        project = _project(conn)
+        archive = json.loads(conn.scalar(select(table("sem.release").c.prepared_bytes).where(
+            table("sem.release").c.release_id == prepared.release_id)))
+        archive["products"]["diagnostics"] = [{
+            "outcome": outcome, "code": code, "message": message, "location": "test",
+        }]
+        conn.execute(update(table("sem.release")).where(
+            table("sem.release").c.release_id == prepared.release_id).values(
+                prepared_bytes=canonical_bytes(archive)))
+    with semantic_writer_engine.begin() as conn:
+        statement = text("SELECT data.initialize_source_project(:p,:r,:z)")
+        parameters = {"p": project, "r": prepared.release_id, "z": str(uuid4())}
+        if refused:
+            with pytest.raises(DBAPIError, match="unresolved or unchecked"), conn.begin_nested():
+                conn.execute(statement, parameters)
+        else:
+            assert conn.scalar(statement, parameters) == parameters["z"]
