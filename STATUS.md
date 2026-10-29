@@ -1,47 +1,56 @@
 # Status
 _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
 
-## Increment and slice
+## Current checkpoint
 
-- **SP-00–SP-05 implemented within declared profiles.** The [pivot coordinator](docs/plans/semantic-model-pivot_2026-10-29.md)
-  owns state and exact acceptance commands. [SP-04](docs/plans/semantic-model-pivot/queries-and-consumers.md)
-  owns semantic reads/explanation; [SP-05](docs/plans/semantic-model-pivot/interchange-and-analytics.md)
-  owns shared-snapshot Arrow/DuckDB operations and protected pgpq publication.
-- **ADR-0024/0025/0026 accepted:** immutable LinkML semantic releases, one derived MetaData,
-  protected PostgreSQL admission and one local DuckDB engine. Core selections and ADBC share a
-  snapshot; release-bound decimal profiles default to DECIMAL(38,12), HALF_EVEN. Source values stay exact.
-- Query handles/continuations bind release and realization revision; changed revisions refuse.
-  Occurrence/fact/accepted projections retain qualifications, evidence, unknown coverage and unresolved references.
-- Typed normalized Arrow packets, scoped DuckDB fusion/aliases/views and revision-fenced binary
-  COPY are implemented. pgpq 0.12.0 was added exactly pinned; arbitrary `write_arrow` was retired.
-- Full producer/consolidation/serving/evaluation migration and recursive inference remain later packages.
-  Legacy selected models/default runtime remain unchanged. Existing finding ownership remains
-  [phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition).
+- **Functional review completed; Proposed target, 2026-10-29.** The
+  [domain-model review](docs/functional_reviews/semantic-domain-model-completeness_2026-10-29.md)
+  and [target](docs/functional_reviews/semantic-domain-model-completeness_2026-10-29_target-model.md)
+  cover schemas, relations, composed state, transitions and operations in transitioned code.
+  Production execution remains stopped; no cleanup, deployment or feature work resumed.
+- SP-00–SP-05 retain their scoped implementation receipts. SP-06/SP-07 have an implemented,
+  scoped-tested profile; package completion and assembled qualification remain open. The
+  [coordinator §9](docs/plans/semantic-model-pivot_2026-10-29.md#9-sp-06sp-07-closeout-checkpoint-2026-10-29)
+  owns exact completed checks and stop boundaries; the
+  [domain-operations plan](docs/plans/semantic-model-pivot/domain-operations.md) owns delivered scope.
+- ADR-0027 and D1/D2/D5/D6 describe frozen release/source/configuration binding, deterministic
+  producers, automated two-submission agent work, source/fact separation, known-input lineage,
+  scientific decisions and grounded qualified inference. No human grading or prior-result regrade.
+- Compiler 6 uses native RDF canonicalization, lightweight preview and bounded pure preparation
+  reuse. The [scoped timing receipt](docs/design_review/evidence/2026-10-29_sp06-execution-fit/README.md)
+  records the same native statistics test body at 98.381 s before and 2.686 s after the repair.
+- All five sibling worktrees were integrated and deleted. `git worktree list` shows only this
+  main checkout; branch references remain. Workers are stopped. Latest committed integration:
+  `80fe11b`. Uncommitted formatting/lint corrections from the interrupted cleanup are preserved.
 
-## Last verified (2026-10-29; functional source `aac9aa6`)
+## Last completed checks (2026-10-29)
 
-| Command | Outcome and scope |
-|---|---|
-| Scoped `uv run pytest` union (exact command in coordinator §8) | `passed`: 917 semantic/core/schema/pool/settings tests, including native PostgreSQL/ADBC/COPY |
-| Explicit dbc driver `test_columnar_journey.py` (required driver-path prefix in coordinator) | `passed`: 1 native PostgreSQL → Arrow → DuckDB → protected-publication journey |
-| Scoped `uv run ruff check` / `uv run pyrefly check` (coordinator) | `passed`: 0 typing errors; 18 warnings |
-| `just docs-check`, `just adr-lint`, `uv run python scripts/check_pins.py`, `just ready` | `passed`: 214 pages, decision links, pins and tools |
-| `just turn-end` | `passed`; incidental unchanged pre-pivot formatting restored byte-for-byte |
-| `just test-all`, `just hygiene` | `not_run`: SP-10 owns assembled-series qualification |
+- **passed:** 76 method/math/validation cases and 86 preparation/proposal/archive/ontology cases;
+  focused native lineage, inference, source, scientific and publication controls retain their
+  original scopes. The coordinator records the boundaries; these are not full-package receipts.
+- **passed:** `uv run --no-sync pytest` merged-query/orchestration selection in coordinator §9:
+  7 cases.
+- **passed:** `uv run --no-sync pyrefly check --summary=none`, 0 errors.
+- These completed type and test results remain passing. Subsequent lint maintenance does not
+  invalidate them or create a requirement to repeat them.
+- **passed:** `just ready`; `just turn-end` (formatting/index command only).
+- **failed:** latest completed whole-project `uv run --no-sync ruff check --output-format=concise`.
+  Corrections overlapped that report; no final-tree lint-clean claim. Cleanup stopped.
+- `just test-all` and `just hygiene` remain the later SP-10 assembled-series scope; their absence
+  does not change the passing type and targeted-test results above. Remaining lint cleanup is
+  separate from functional verification.
+- Lint-only changes must not trigger follow-on type checking or testing (operator direction).
+- Review evidence is static source inspection and Context7/primary/installed library research;
+  product tests, type checks, probes and benchmarks were not rerun for this documentation work.
+- **passed (2026-10-29):** `just docs-check`, 224 canonical pages, no publication/link errors.
 
-## Operational handoff and next
+## Remaining boundary
 
-- Dedicated **`cs_semantic_20261029_0f70052`**, `18/corpus:5434`, is upgraded through `semantic_0005`.
-  Exact analytical release archive/activation/offline reload passed. Project `semantic-pivot` is
-  generation 2; empty active `columnar-foundation` is revision 0. `semantic-foundation` remains
-  revision 0 on its original release. Both full release IDs are in the coordinator. Use explicit
-  database URLs; default selection remains the old database until cutover.
-- The bundled ADBC driver and explicitly configured dbc PostgreSQL 1.13.0 driver both passed.
-  The system driver path is operational configuration, not a semantic release dependency.
-- Direct explanation premises are available; recursive inference, selective business projections
-  and full current consumer integration remain SP-07/SP-08. No performance claim is made.
-- Corrected initial failures retain their boundaries in package acceptance. Upstream OAK/SSSOM
-  warnings remain. No owned native-test databases remain. Implementation worktrees were integrated
-  and removed; paused phase-0 worktrees remain untouched.
-- Next: **SP-06** producer/orchestration binding; then SP-07/SP-08 business operations/consumers,
-  SP-09 regeneration/cutover and SP-10 assembled qualification. The paused phase-0 run was not restarted.
+- SP-06/SP-07 full obligation reconciliation and qualification remain open; SP-08–SP-10 remain
+  planned. Existing findings remain owned by [phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition).
+- Dedicated `cs_semantic_20261029_0f70052` on `18/corpus:5434` remains at `semantic_0005` with its
+  original compiler-2 release. Source includes migrations through `0021`; no operational deploy,
+  regeneration, default runtime cutover or paused phase-0 run restart occurred.
+- The review recommends a LinkML-centered composed model with typed behavioral contracts and
+  existing Core/native enforcement. Its O01–O07 are proposals; accepted plans/decisions are unchanged.
+  Adoption and implementation planning are separate next work. No production work is running.
