@@ -3,46 +3,44 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
-- **Completeness plan integration authored; Proposed, 2026-10-29.**
+- **SP-C01 implemented and scoped-tested; SP-C02 contract products/admission refusal implemented.**
   [Coordinator §10](docs/plans/semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
-  owns SP-C01–SP-C05 state, dependencies and completeness-review O01–O07 dispositions.
-- New [model/contracts plan](docs/plans/semantic-model-pivot/domain-model-completeness.md) owns
-  SP-C01/SP-C02; [realization plan](docs/plans/semantic-model-pivot/domain-model-realization.md)
-  owns SP-C03–SP-C05. The six existing package plans now link their required additions and
-  SP-08–SP-10 adoption/acceptance. No production implementation or deployment resumed.
-- Input [review](docs/functional_reviews/semantic-domain-model-completeness_2026-10-29.md) and
-  [target](docs/functional_reviews/semantic-domain-model-completeness_2026-10-29_target-model.md)
-  were consumed at `dcc5e0b`; the current dirty source was preserved.
-- SP-00–SP-05 retain scoped implementation/pass receipts. SP-06/SP-07 retain their implemented,
-  scoped-tested profile and enclosing open obligations. Additional completeness work does not
-  invalidate them. [Coordinator §9](docs/plans/semantic-model-pivot_2026-10-29.md#9-sp-06sp-07-closeout-checkpoint-2026-10-29)
-  owns prior closeout receipts; [domain operations](docs/plans/semantic-model-pivot/domain-operations.md)
-  owns delivered behavior. ADR-0024–0027 remain the accepted baseline.
-- All five sibling worktrees were integrated/deleted; only the main checkout remains. Existing
-  uncommitted formatting/lint corrections remain preserved. No worker is implementing code.
+  owns exact receipts, remaining admission closure and completeness opportunity dispositions.
+  [Model/contracts](docs/plans/semantic-model-pivot/domain-model-completeness.md) owns mechanisms.
+- Trusted LinkML schema/catalog define connected concepts, relations, composed state, operations,
+  invariants, implementations and projections. Compiler products remain separate from extractable
+  domain classes. Actual callable owners and static references/state edges are checked.
+- Compiler 7 preserves semantic-1 and adds explicit semantic-2 inputs, native LinkML conditional
+  fragments with strict Pydantic validation/export, exact archive2 and trusted compatibility.
+  jsonschema 4.26.0 is now a direct product dependency; no transitive versions moved.
+- semantic_0022 source natively blocks unenforced composed-model realization construction;
+  archiving also requires its enabled fence. Required execution.lifecycle.v1 and conditional native
+  enforcement remain unavailable: admission closure awaits SP-C03–SP-C05, not permission flags.
+- Existing SP-00–SP-07 passing receipts remain passing and scoped. All completeness opportunities
+  remain open until their current consumer/enforcement closure boundaries are actually met.
+- All work stayed in main; existing dirty work was preserved. No operational migration, project
+  activation, default cutover, prior-result regrade or paused phase-0 run restart occurred.
 
-## Checks and evidence (2026-10-29)
+## Verification (2026-10-29)
 
-- **passed, retained:** 76 method/math/validation cases, 86 preparation/proposal/archive/ontology
-  cases, 7 merged query/orchestration cases and focused native lineage/proof/source/science controls.
-- **passed, retained:** `uv run --no-sync pyrefly check --summary=none`, 0 errors.
-  These existing type/test results remain passing; lint-only changes do not require repeats.
-- **passed, retained:** `just ready`; `just turn-end` (formatting/index command only).
-- **failed, retained:** latest whole-project `uv run --no-sync ruff check --output-format=concise`;
-  corrections overlapped its report. Remaining lint cleanup is separate from functional verification.
-- Product tests, typing, probes, benchmarks, installations and migrations were **not_run for plan
-  authoring**; this does not change the retained passing receipts above.
-- **passed:** `just docs-check`, 226 canonical pages and no publication/link errors for the
-  integrated plan documents. This is documentation validation, not new product qualification.
+- **passed:** targeted preparation/proposal/observation/conditional/composed scope, 94 cases.
+- Root expanded scope (exact pytest files in coordinator): 150 passed, one diagnostic-order case
+  failed. **Corrected and passed:** final affected contracts component, 25 cases. Unaffected
+  passing scope includes archive corruption/CAS, enabled-fence and authenticated native refusal.
+- **passed:** uv run --no-sync pyrefly check --summary=none, zero whole-project errors;
+  final affected contracts scoped Pyrefly also passed. Static implementation review found no
+  material correctness issue; it did not run product checks.
+- **passed:** scoped Ruff after formatting; just ready and just turn-end. No type/test reruns
+  followed lint-only changes. Prior unrelated lint cleanup remains outside this scope.
+- **not_run:** whole-series test-all/hygiene; SP-10 still owns assembled qualification.
+- **passed:** just docs-check, 226 canonical pages and no publication/link errors.
 
 ## Next boundary
 
-- Next implementation capability is SP-C01 if execution is separately authorized. SP-C02 has
-  contract-products and admission-closure milestones; the latter waits for actual enforcement.
-  SP-C03–SP-C05 adopt contracts in transitioned callers, then SP-08–SP-10 consume them.
-- Existing findings remain owned by [phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition).
-- Dedicated `cs_semantic_20261029_0f70052` on `18/corpus:5434` remains at `semantic_0005` with its
-  original compiler-2 release. Source includes compiler 6/migrations through `0021`; no operational
-  deploy, regeneration, default cutover, prior-result regrade or paused-run restart occurred.
-- Required complete-scope qualification remains SP-10. Lint-only maintenance must not trigger
-  follow-on type checking/tests. Production work is stopped at this documentation checkpoint.
+- SP-C03 supplies actual native lifecycle guards/consumer adoption, with SP-C04 outcomes/science
+  and SP-C05 projection/analytics realization. SP-C02 admission closure requires those actual
+  enforcing implementations. Contract products alone do not complete the enclosing pivot.
+- The operational database cs_semantic_20261029_0f70052 at 18/corpus:5434 remains semantic_0005;
+  source now includes compiler 7/migration0022. Only owned native test databases exercised upgrades.
+- Remaining consumer migration, regeneration/cutover and assembled qualification stay SP-08–SP-10.
+  Existing findings remain owned by [phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition).

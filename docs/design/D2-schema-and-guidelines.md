@@ -15,6 +15,25 @@ instance authority and consolidation ownership.
 LLM output, validation and the annotation guideline, and the first version of the statistics
 pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-representation.md).
 
+## Composed execution contracts
+
+**Implemented source, 2026-10-29; scoped verification and admission limits belong to
+[SP-C01/SP-C02](../plans/semantic-model-pivot/domain-model-completeness.md).** Trusted LinkML
+contract schema/catalog inputs describe operational concepts, relationships, state dimensions,
+transitions, operations, invariants, implementation owners and projection contracts. The same
+strict boundary compiler normalizes them; they are not extractable domain classes. Explicit
+composed dependencies archive their bytes and normalized products with the semantic release.
+
+Compiler 7 retains semantic-1 and adds explicit semantic-2 composition. Native LinkML-generated
+conditional fragments supply the bounded presence/finite-string profile to strict Pydantic
+boundaries and exported schemas, without another rule interpreter or full recursive revalidation.
+Required unsupported branches refuse. Exact values and omitted/null distinctions remain explicit.
+
+Compiled contract products do not authorize runtime effects. Activation requires compatible
+trusted execution identity and actual enforcement capabilities; semantic-2 realization construction
+is natively fenced until SP-C03 supplies the required guards. The application cannot activate an
+unenforced profile by supplying capability flags. No operational database/default was changed.
+
 ## Semantic release preparation entry point
 
 **Implemented (2026-10-29), preparation only.** `corpus_structure.semantic.prepare_release`

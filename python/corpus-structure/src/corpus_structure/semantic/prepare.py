@@ -17,8 +17,8 @@ import yaml
 from linkml_runtime.dumpers import json_dumper
 from linkml_runtime.linkml_model import SchemaDefinition, SchemaDefinitionName
 from linkml_runtime.loaders import yaml_loader
-from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from linkml_runtime.utils.schemaview import SchemaView
+from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from pydantic import (
     MISSING,
     AfterValidator,
@@ -29,6 +29,12 @@ from pydantic import (
     create_model,
 )
 
+from .conditional_rules import (
+    CONDITIONAL_RULE_OPTIONS,
+    compile_conditional_rules,
+    conditional_model_namespace,
+    inspect_rule_declarations,
+)
 from .identity import canonical_bytes
 from .types import (
     SEMANTIC_COMPILER_VERSION,
@@ -44,8 +50,8 @@ from .types import (
     QueryDescriptor,
     RegistryRow,
     ResolvedDependencies,
-    SourceBundle,
     SchemaPreview,
+    SourceBundle,
     VocabularyMember,
     VocabularySnapshot,
 )
@@ -76,7 +82,21 @@ _UNSUPPORTED = frozenset(
         "slot_conditions",
     }
 )
-_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case", "cs:role", "cs:qualifiers", "cs:identity_qualifiers", "cs:param_map", "cs:extract", "cs:functional", "cs:scope", "cs:reference_role"})
+_SAFE_ANNOTATIONS = frozenset(
+    {
+        "cs:constraint_scope",
+        "cs:key_role",
+        "cs:case",
+        "cs:role",
+        "cs:qualifiers",
+        "cs:identity_qualifiers",
+        "cs:param_map",
+        "cs:extract",
+        "cs:functional",
+        "cs:scope",
+        "cs:reference_role",
+    }
+)
 _PRIMITIVES: dict[str, Any] = {
     "string": str,
     "integer": int,
@@ -172,16 +192,29 @@ _ALLOWED["attributes"] = _ALLOWED["slots"]
 _ALLOWED["slot_usage"] = _ALLOWED["slots"]
 
 
-def _inspect(value: Any, location: str) -> None:
+def _inspect(value: Any, location: str, profile: PreparationProfile | None = None) -> None:
     if isinstance(value, dict):
         parts = location.split("/")
         parent = parts[-2] if len(parts) > 1 else ""
         if parent in _ALLOWED:
             for key in value:
-                if key not in _ALLOWED[parent]:
+                if key not in _ALLOWED[parent] and not (
+                    key == "rules"
+                    and parent == "classes"
+                    and profile is not None
+                    and profile.version == "semantic-2"
+                ):
                     _fail("unsupported_construct", f"{location}/{key}", str(key), "unsupported")
         for key, item in value.items():
             child = f"{location}/{key}"
+            if (
+                key == "rules"
+                and parent == "classes"
+                and profile is not None
+                and profile.version == "semantic-2"
+            ):
+                inspect_rule_declarations(item, child)
+                continue
             if key in _UNSUPPORTED and item:
                 _fail("unsupported_construct", child, f"{key} is outside semantic-1", "unsupported")
             if key == "annotations":
@@ -193,14 +226,23 @@ def _inspect(value: Any, location: str) -> None:
                         "unsupported",
                     )
                 for annotation in item or {}:
-                    if parent == "classes" and annotation not in {"cs:scope", "cs:case", "cs:extract"}:
-                        _fail("unsupported_annotation_placement", child, str(annotation), "unsupported")
+                    if parent == "classes" and annotation not in {
+                        "cs:scope",
+                        "cs:case",
+                        "cs:extract",
+                    }:
+                        _fail(
+                            "unsupported_annotation_placement",
+                            child,
+                            str(annotation),
+                            "unsupported",
+                        )
                     if annotation not in _SAFE_ANNOTATIONS:
                         _fail("unsupported_annotation", child, str(annotation), "unsupported")
-            _inspect(item, child)
+            _inspect(item, child, profile)
     elif isinstance(value, list):
         for i, item in enumerate(value):
-            _inspect(item, f"{location}/{i}")
+            _inspect(item, f"{location}/{i}", profile)
 
 
 class _SchemaYamlLoader(DupCheckYamlLoader):
@@ -215,7 +257,7 @@ class _SchemaYamlLoader(DupCheckYamlLoader):
         )
 
 
-def _view(bundle: SourceBundle) -> SchemaView:
+def _view(bundle: SourceBundle, profile: PreparationProfile | None = None) -> SchemaView:
     schemas: dict[str, SchemaDefinition] = {}
     elements: dict[tuple[str, str], str] = {}
     prefixes: dict[str, str] = {}
@@ -226,7 +268,7 @@ def _view(bundle: SourceBundle) -> SchemaView:
             body = yaml.load(source.content, Loader=_SchemaYamlLoader)
             if not isinstance(body, dict):
                 _fail("schema", source.name, "schema must be a mapping")
-            _inspect(body, source.name)
+            _inspect(body, source.name, profile)
             schema = cast(SchemaDefinition, yaml_loader.load(body, SchemaDefinition))
         except PreparationError:
             raise
@@ -263,7 +305,9 @@ def _view(bundle: SourceBundle) -> SchemaView:
                     )
         for enum in cast(dict[str, Any], schema.enums or {}).values():
             if enum.enum_uri is None:
-                enum.enum_uri = f"{prefix}:{enum.name}" if schema.default_prefix else f"{schema.id}/{enum.name}"
+                enum.enum_uri = (
+                    f"{prefix}:{enum.name}" if schema.default_prefix else f"{schema.id}/{enum.name}"
+                )
         for slot in cast(dict[str, Any], schema.slots or {}).values():
             if slot.range is None:
                 slot.range = schema.default_range or "string"
@@ -326,6 +370,7 @@ def _keyed_members(key: str):
             if getattr(member, key) != name:
                 raise ValueError("inlined collection key differs from its member identifier")
         return value
+
     return validate
 
 
@@ -365,21 +410,34 @@ _DEFAULT_PROFILE = PreparationProfile()
 
 
 _LIBRARIES = (
-    "linkml", "linkml-runtime", "pydantic", "rdflib", "pyshacl", "oaklib",
-    "linkml-term-validator", "valuesets", "pyoxigraph",
+    "linkml",
+    "linkml-runtime",
+    "pydantic",
+    "rdflib",
+    "pyshacl",
+    "oaklib",
+    "linkml-term-validator",
+    "valuesets",
+    "pyoxigraph",
+    "jsonschema",
 )
 
 
 def _compiler_stack() -> tuple[tuple[str, str], ...]:
     # Read the current stack at the cache boundary, not once at module import.
-    return (("compiler", SEMANTIC_COMPILER_VERSION), ("python", sys.version),
-            *((name, version(name)) for name in _LIBRARIES))
+    return (
+        ("compiler", SEMANTIC_COMPILER_VERSION),
+        ("python", sys.version),
+        *((name, version(name)) for name in _LIBRARIES),
+    )
 
 
 def _view_and_vocabularies(
-    bundle: SourceBundle, dependencies: ResolvedDependencies
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies,
+    profile: PreparationProfile | None = None,
 ) -> tuple[SchemaView, tuple[VocabularySnapshot, ...], tuple[Diagnostic, ...]]:
-    view = _view(bundle)
+    view = _view(bundle, profile)
     supplied = {s.enum: s for s in dependencies.vocabularies}
     if len(supplied) != len(dependencies.vocabularies):
         _fail("vocabulary", "dependencies", "duplicate vocabulary snapshots")
@@ -475,12 +533,16 @@ def preview_schema(
     view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies)
     classes = tuple(
         ClassPreview(
-            str(name), str(view.get_uri(cls, expand=True)),
+            str(name),
+            str(view.get_uri(cls, expand=True)),
             tuple(sorted(str(parent) for parent in view.class_ancestors(name, reflexive=False))),
-            tuple(PropertyPreview(str(slot.name), str(view.get_uri(slot, expand=True)))
-                  for slot in view.class_induced_slots(name)),
+            tuple(
+                PropertyPreview(str(slot.name), str(view.get_uri(slot, expand=True)))
+                for slot in view.class_induced_slots(name)
+            ),
             bool(cls.abstract),
-        ) for name, cls in sorted(view.all_classes().items())
+        )
+        for name, cls in sorted(view.all_classes().items())
     )
     return SchemaPreview(classes, vocabularies, diagnostics)
 
@@ -491,7 +553,10 @@ def prepare_release(
     profile: PreparationProfile = _DEFAULT_PROFILE,
 ) -> PreparedRelease:
     """Prepare a complete interpretation; cache only immutable pure inputs, never database state."""
-    if profile.version != "semantic-1" or profile.compiler_version != SEMANTIC_COMPILER_VERSION:
+    if (
+        profile.version not in {"semantic-1", "semantic-2"}
+        or profile.compiler_version != SEMANTIC_COMPILER_VERSION
+    ):
         _fail("profile", "profile", "unsupported profile", "unsupported")
     stack = _compiler_stack()
     try:
@@ -519,7 +584,18 @@ def _prepare_release_uncached(
     stack: tuple[tuple[str, str], ...],
 ) -> PreparedRelease:
     """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
-    view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies)
+    execution = None
+    if profile.version == "semantic-2":
+        from .composed import execution_model_from_dependencies
+
+        try:
+            execution = execution_model_from_dependencies(dependencies)
+        except (ValueError, KeyError, TypeError) as exc:
+            _fail("execution_model", "execution", str(exc))
+    elif any(a.name.startswith("execution/") for a in dependencies.artifacts):
+        _fail("execution_model", "execution", "execution inputs require semantic-2")
+    view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies, profile)
+    rule_fragments = compile_conditional_rules(view) if profile.version == "semantic-2" else {}
     enum_types = {s.enum: _LITERAL[tuple(m.value for m in s.members)] for s in vocabularies}
     definitions: list[ClassDefinition] = []
     classes = {str(name): cls for name, cls in view.all_classes().items()}
@@ -544,12 +620,24 @@ def _prepare_release_uncached(
             if ann.get("cs:key_role", "meaning") not in {"meaning", "identity", "provenance"}:
                 _fail("key_role", f"{name}/{sn}", "unsupported key role", "unsupported")
             if "cs:functional" in ann and ann["cs:functional"].lower() not in {"true", "false"}:
-                _fail("functional_policy", f"{name}/{sn}", "functional must be an explicit boolean", "unsupported")
+                _fail(
+                    "functional_policy",
+                    f"{name}/{sn}",
+                    "functional must be an explicit boolean",
+                    "unsupported",
+                )
             reference_role = ann.get("cs:reference_role")
             if reference_role not in {None, "fact"}:
                 _fail("reference_role", f"{name}/{sn}", "unsupported reference role", "unsupported")
-            if reference_role and (rng in classes or rng in enum_types or _primitive(view, rng) is not str):
-                _fail("reference_role", f"{name}/{sn}", "fact references require a string range", "unsupported")
+            if reference_role and (
+                rng in classes or rng in enum_types or _primitive(view, rng) is not str
+            ):
+                _fail(
+                    "reference_role",
+                    f"{name}/{sn}",
+                    "fact references require a string range",
+                    "unsupported",
+                )
             scope = ann.get("cs:constraint_scope", profile.constraint_scope)
             if scope not in {"shape", "occurrence", "accepted_value", "context"}:
                 _fail("constraint_scope", f"{name}/{sn}", scope)
@@ -612,7 +700,9 @@ def _prepare_release_uncached(
                 _fail("incompatible_bounds", f"{name}/{sn}", "minimum exceeds maximum")
             collection_key = None
             if slot.multivalued and slot.inlined and not slot.inlined_as_list and rng in classes:
-                identifiers = [str(field.name) for field in view.class_induced_slots(rng) if field.identifier]
+                identifiers = [
+                    str(field.name) for field in view.class_induced_slots(rng) if field.identifier
+                ]
                 if len(identifiers) == 1:
                     collection_key = identifiers[0]
             prop = PropertyDefinition(
@@ -674,7 +764,9 @@ def _prepare_release_uncached(
             if prop.multivalued:
                 annotation = _DICT[str, annotation] if collection_key else _TUPLE[annotation, ...]
                 if collection_key:
-                    annotation = _ANNOTATED[annotation, AfterValidator(_keyed_members(collection_key))]
+                    annotation = _ANNOTATED[
+                        annotation, AfterValidator(_keyed_members(collection_key))
+                    ]
                 limits = {}
                 if scope == "shape" and prop.minimum_cardinality is not None:
                     limits["min_length"] = prop.minimum_cardinality
@@ -712,7 +804,12 @@ def _prepare_release_uncached(
         )
         try:
             models[name] = create_model(
-                name, __config__=ConfigDict(frozen=True, extra="forbid", strict=True, allow_inf_nan=False), **fields
+                name,
+                __namespace__=conditional_model_namespace(rule_fragments.get(name, {})),
+                __config__=ConfigDict(
+                    frozen=True, extra="forbid", strict=True, allow_inf_nan=False
+                ),
+                **fields,
             )
         except Exception as exc:
             _fail("boundary", name, str(exc))
@@ -724,6 +821,7 @@ def _prepare_release_uncached(
     manifest = canonical_bytes(
         {
             "root": bundle.root,
+            **({"execution_model_id": execution.model_id} if execution is not None else {}),
             "profile": asdict(profile),
             "libraries": {name: value for name, value in stack if name in _LIBRARIES},
             "sources": sorted((s.name, s.digest) for s in bundle.sources),
@@ -736,6 +834,26 @@ def _prepare_release_uncached(
     artifacts = [
         PreparedArtifact("definitions.json", canonical_bytes([asdict(d) for d in definitions]))
     ]
+    if profile.version == "semantic-2":
+        artifacts.extend(
+            (
+                PreparedArtifact("conditional_rules.json", canonical_bytes(rule_fragments)),
+                PreparedArtifact(
+                    "conditional_rule_options.json", canonical_bytes(CONDITIONAL_RULE_OPTIONS)
+                ),
+                PreparedArtifact(
+                    "conditional_rule_coverage.json",
+                    canonical_bytes(
+                        {
+                            "boundary": "native_json_schema",
+                            "persisted_state": "requires_native_enforcement",
+                            "shacl": "not_lowered",
+                            "owl": "not_lowered",
+                        }
+                    ),
+                ),
+            )
+        )
 
     def boundary(name: str, model: Any) -> Any:
         if classes[name].abstract and "kind" in model.model_fields:
@@ -838,7 +956,9 @@ def _prepare_release_uncached(
                 candidates.append(("symmetric", None))
             if prop.transitive:
                 candidates.append(("transitive", None))
-            candidates.extend(("subproperty", target) for child, target in hierarchy if child == prop.iri)
+            candidates.extend(
+                ("subproperty", target) for child, target in hierarchy if child == prop.iri
+            )
             for kind, target in candidates:
                 body = {"kind": kind, "predicate": prop.iri}
                 if target is not None:
@@ -846,7 +966,8 @@ def _prepare_release_uncached(
                 digest = sha256(canonical_bytes(body)).hexdigest()
                 rule_id = "rule:" + digest
                 rule_products[rule_id] = RegistryRow(
-                    "inference_rule", rule_id,
+                    "inference_rule",
+                    rule_id,
                     canonical_bytes({**body, "rule_id": rule_id, "rule_version": digest}),
                 )
                 if kind == "inverse":
@@ -854,12 +975,18 @@ def _prepare_release_uncached(
                     reverse_digest = sha256(canonical_bytes(reverse)).hexdigest()
                     reverse_id = "rule:" + reverse_digest
                     rule_products[reverse_id] = RegistryRow(
-                        "inference_rule", reverse_id,
-                        canonical_bytes({**reverse, "rule_id": reverse_id, "rule_version": reverse_digest}),
+                        "inference_rule",
+                        reverse_id,
+                        canonical_bytes(
+                            {**reverse, "rule_id": reverse_id, "rule_version": reverse_digest}
+                        ),
                     )
     rows += tuple(
-        RegistryRow("property_hierarchy", child + " -> " + parent,
-                    canonical_bytes({"property": child, "ancestor": parent}))
+        RegistryRow(
+            "property_hierarchy",
+            child + " -> " + parent,
+            canonical_bytes({"property": child, "ancestor": parent}),
+        )
         for child, parent in sorted(hierarchy)
     )
     rows += tuple(rule_products[key] for key in sorted(rule_products))
@@ -871,25 +998,52 @@ def _prepare_release_uncached(
         for name, prefix in sorted(cast(dict[str, Any], schema.prefixes or {}).items())
     )
     rows += tuple(
-        RegistryRow("operation_class", definition.name, canonical_bytes({
-            "class": definition.name, "iri": definition.iri,
-            **_annotations(view.get_class(definition.name)),
-        }))
+        RegistryRow(
+            "operation_class",
+            definition.name,
+            canonical_bytes(
+                {
+                    "class": definition.name,
+                    "iri": definition.iri,
+                    **_annotations(view.get_class(definition.name)),
+                }
+            ),
+        )
         for definition in definitions
     )
     rows += tuple(
-        RegistryRow("operation_property", f"{definition.name}/{prop.name}", canonical_bytes({
-            "class": definition.name, "property": prop.iri, "name": prop.name,
-            "groups": tuple(str(group) for group in (view.induced_slot(prop.name, definition.name).in_subset or ())),
-            **_annotations(view.induced_slot(prop.name, definition.name)),
-        }))
-        for definition in definitions for prop in definition.properties
+        RegistryRow(
+            "operation_property",
+            f"{definition.name}/{prop.name}",
+            canonical_bytes(
+                {
+                    "class": definition.name,
+                    "property": prop.iri,
+                    "name": prop.name,
+                    "groups": tuple(
+                        str(group)
+                        for group in (view.induced_slot(prop.name, definition.name).in_subset or ())
+                    ),
+                    **_annotations(view.induced_slot(prop.name, definition.name)),
+                }
+            ),
+        )
+        for definition in definitions
+        for prop in definition.properties
     )
     rows += tuple(
         RegistryRow("enum_definition", str(name), canonical_bytes(json_dumper.to_dict(enum)))
         for name, enum in sorted(view.all_enums().items())
     )
     rows += tuple(RegistryRow("enum", v.enum, canonical_bytes(asdict(v))) for v in vocabularies)
+    if execution is not None:
+        artifacts.append(PreparedArtifact("execution/contracts.json", execution.content))
+        rows += (RegistryRow("execution_model", execution.model_id, execution.content),)
+    required = ("semantic_registry", "scoped_publication", "typed_values")
+    if execution is not None:
+        required += execution.required_capabilities
+    if rule_fragments:
+        required += ("conditional_rules_native",)
     prepared = PreparedRelease(
         release_id,
         manifest,
@@ -898,9 +1052,10 @@ def _prepare_release_uncached(
         rows,
         tuple(QueryDescriptor(d.iri, d.properties) for d in definitions),
         tuple(artifacts),
-        ("semantic_registry", "scoped_publication", "typed_values"),
+        tuple(sorted(set(required))),
         tuple(diagnostics),
         adapters,
+        execution.model_id if execution is not None else None,
     )
 
     # Admission must not archive an operation artifact whose required rules cannot execute.

@@ -1,0 +1,718 @@
+id: https://corpus-structure.dev/semantic/contracts
+name: semantic_contracts
+description: Trusted execution companion types. These are definitions, not domain-extractable
+  corpus classes.
+prefixes:
+  execution: https://corpus-structure.dev/execution/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: execution
+default_range: string
+types:
+  string:
+    base: str
+    uri: xsd:string
+  integer:
+    base: int
+    uri: xsd:integer
+  boolean:
+    base: bool
+    uri: xsd:boolean
+classes:
+  ConceptDefinition:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:ConceptDefinition_id
+      family:
+        range: ConceptFamily
+        required: true
+        slot_uri: execution:ConceptDefinition_family
+      meaning:
+        range: string
+        required: true
+        slot_uri: execution:ConceptDefinition_meaning
+      identity:
+        range: string
+        required: true
+        slot_uri: execution:ConceptDefinition_identity
+      scope:
+        range: ConceptScope
+        required: true
+        slot_uri: execution:ConceptDefinition_scope
+      attributes:
+        range: AttributeDefinition
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ConceptDefinition_attributes
+      relationships:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:ConceptDefinition_relationships
+  EndpointRole:
+    attributes:
+      role:
+        range: string
+        required: true
+        slot_uri: execution:EndpointRole_role
+      concept:
+        range: string
+        required: true
+        slot_uri: execution:EndpointRole_concept
+      minimum:
+        range: integer
+        required: true
+        minimum_value: 0
+        slot_uri: execution:EndpointRole_minimum
+      maximum:
+        range: integer
+        required: false
+        minimum_value: 0
+        slot_uri: execution:EndpointRole_maximum
+      ordered:
+        range: boolean
+        required: true
+        slot_uri: execution:EndpointRole_ordered
+      unresolved:
+        range: boolean
+        required: true
+        slot_uri: execution:EndpointRole_unresolved
+      unresolved_concept:
+        range: string
+        required: false
+        slot_uri: execution:EndpointRole_unresolved_concept
+  RelationshipDefinition:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:RelationshipDefinition_id
+      kind:
+        range: string
+        required: true
+        slot_uri: execution:RelationshipDefinition_kind
+      direction:
+        range: Direction
+        required: true
+        slot_uri: execution:RelationshipDefinition_direction
+      cardinality_scope:
+        range: string
+        required: true
+        slot_uri: execution:RelationshipDefinition_cardinality_scope
+      identity_kind:
+        range: RelationshipIdentity
+        required: true
+        slot_uri: execution:RelationshipDefinition_identity_kind
+      multiplicity:
+        range: Multiplicity
+        required: true
+        slot_uri: execution:RelationshipDefinition_multiplicity
+      reference_scope:
+        range: ReferenceScope
+        required: true
+        slot_uri: execution:RelationshipDefinition_reference_scope
+      identity_roles:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:RelationshipDefinition_identity_roles
+      identity_context:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:RelationshipDefinition_identity_context
+      qualifications:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:RelationshipDefinition_qualifications
+      invariants:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:RelationshipDefinition_invariants
+      endpoints:
+        range: EndpointRole
+        required: true
+        multivalued: true
+        minimum_cardinality: 2
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:RelationshipDefinition_endpoints
+  StateDimension:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:StateDimension_id
+      values:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:StateDimension_values
+  StateValue:
+    attributes:
+      dimension:
+        range: string
+        required: true
+        slot_uri: execution:StateValue_dimension
+      value:
+        range: string
+        required: true
+        slot_uri: execution:StateValue_value
+  ComposedState:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:ComposedState_id
+      terminal:
+        range: boolean
+        required: true
+        slot_uri: execution:ComposedState_terminal
+      values:
+        range: StateValue
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ComposedState_values
+  LifecycleDefinition:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:LifecycleDefinition_id
+      subject:
+        range: string
+        required: true
+        slot_uri: execution:LifecycleDefinition_subject
+      initial_states:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:LifecycleDefinition_initial_states
+      transitions:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:LifecycleDefinition_transitions
+      invariants:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:LifecycleDefinition_invariants
+      dimensions:
+        range: StateDimension
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:LifecycleDefinition_dimensions
+      states:
+        range: ComposedState
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:LifecycleDefinition_states
+  TransitionDefinition:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:TransitionDefinition_id
+      lifecycle:
+        range: string
+        required: true
+        slot_uri: execution:TransitionDefinition_lifecycle
+      operation:
+        range: string
+        required: true
+        slot_uri: execution:TransitionDefinition_operation
+      from_states:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:TransitionDefinition_from_states
+      to_states:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:TransitionDefinition_to_states
+      immutable_bindings:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:TransitionDefinition_immutable_bindings
+      invariants:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:TransitionDefinition_invariants
+      effects:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:TransitionDefinition_effects
+      outcomes:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:TransitionDefinition_outcomes
+  InvariantDefinition:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:InvariantDefinition_id
+      meaning:
+        range: string
+        required: true
+        slot_uri: execution:InvariantDefinition_meaning
+      scope:
+        range: InvariantScope
+        required: true
+        slot_uri: execution:InvariantDefinition_scope
+      failure_code:
+        range: string
+        required: true
+        slot_uri: execution:InvariantDefinition_failure_code
+      implementation:
+        range: string
+        required: true
+        slot_uri: execution:InvariantDefinition_implementation
+      subjects:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:InvariantDefinition_subjects
+      relationships:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:InvariantDefinition_relationships
+      required_capability:
+        range: string
+        required: false
+        slot_uri: execution:InvariantDefinition_required_capability
+  ImplementationBinding:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:ImplementationBinding_id
+      owner:
+        range: string
+        required: true
+        slot_uri: execution:ImplementationBinding_owner
+      symbol:
+        range: string
+        required: true
+        slot_uri: execution:ImplementationBinding_symbol
+      version:
+        range: string
+        required: true
+        slot_uri: execution:ImplementationBinding_version
+      placement:
+        range: ExecutionPlacement
+        required: true
+        slot_uri: execution:ImplementationBinding_placement
+      input_concepts:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:ImplementationBinding_input_concepts
+      result_concepts:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:ImplementationBinding_result_concepts
+      features:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:ImplementationBinding_features
+      effects:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:ImplementationBinding_effects
+      required_capabilities:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:ImplementationBinding_required_capabilities
+  OperationContract:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:OperationContract_id
+      universe:
+        range: string
+        required: true
+        slot_uri: execution:OperationContract_universe
+      outcome_domain:
+        range: string
+        required: true
+        slot_uri: execution:OperationContract_outcome_domain
+      precision:
+        range: string
+        required: true
+        slot_uri: execution:OperationContract_precision
+      implementation:
+        range: string
+        required: true
+        slot_uri: execution:OperationContract_implementation
+      inputs:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:OperationContract_inputs
+      results:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:OperationContract_results
+      applicability:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:OperationContract_applicability
+      effects:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:OperationContract_effects
+      outcomes:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:OperationContract_outcomes
+      dependencies:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:OperationContract_dependencies
+      transitions:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:OperationContract_transitions
+      projections:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:OperationContract_projections
+  ProjectionContract:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:ProjectionContract_id
+      universe:
+        range: string
+        required: true
+        slot_uri: execution:ProjectionContract_universe
+      precision:
+        range: string
+        required: true
+        slot_uri: execution:ProjectionContract_precision
+      collections:
+        range: string
+        required: true
+        slot_uri: execution:ProjectionContract_collections
+      completeness:
+        range: string
+        required: true
+        slot_uri: execution:ProjectionContract_completeness
+      lifetime:
+        range: ProjectionLifetime
+        required: true
+        slot_uri: execution:ProjectionContract_lifetime
+      implementation:
+        range: string
+        required: true
+        slot_uri: execution:ProjectionContract_implementation
+      sources:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:ProjectionContract_sources
+      relationships:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:ProjectionContract_relationships
+      preserves:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:ProjectionContract_preserves
+      omissions:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:ProjectionContract_omissions
+  OutcomeDomain:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: execution:OutcomeDomain_id
+      authority:
+        range: OutcomeAuthority
+        required: true
+        slot_uri: execution:OutcomeDomain_authority
+      values:
+        range: string
+        required: false
+        multivalued: true
+        minimum_cardinality: 0
+        slot_uri: execution:OutcomeDomain_values
+  OutcomeTranslation:
+    attributes:
+      source_domain:
+        range: string
+        required: true
+        slot_uri: execution:OutcomeTranslation_source_domain
+      source:
+        range: string
+        required: true
+        slot_uri: execution:OutcomeTranslation_source
+      target_domain:
+        range: string
+        required: true
+        slot_uri: execution:OutcomeTranslation_target_domain
+      target:
+        range: string
+        required: true
+        slot_uri: execution:OutcomeTranslation_target
+      retained_meaning:
+        range: string
+        required: true
+        slot_uri: execution:OutcomeTranslation_retained_meaning
+      invariant:
+        range: string
+        required: true
+        slot_uri: execution:OutcomeTranslation_invariant
+  ExecutionCatalog:
+    attributes:
+      version:
+        range: string
+        required: true
+        equals_string: execution-1
+        slot_uri: execution:ExecutionCatalog_version
+      required_capabilities:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: execution:ExecutionCatalog_required_capabilities
+      concepts:
+        range: ConceptDefinition
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_concepts
+      relationships:
+        range: RelationshipDefinition
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_relationships
+      lifecycles:
+        range: LifecycleDefinition
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_lifecycles
+      transitions:
+        range: TransitionDefinition
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_transitions
+      invariants:
+        range: InvariantDefinition
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_invariants
+      implementations:
+        range: ImplementationBinding
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_implementations
+      operations:
+        range: OperationContract
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_operations
+      projections:
+        range: ProjectionContract
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_projections
+      outcome_domains:
+        range: OutcomeDomain
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_outcome_domains
+      outcome_translations:
+        range: OutcomeTranslation
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: execution:ExecutionCatalog_outcome_translations
+  AttributeDefinition:
+    attributes:
+      name:
+        required: true
+        slot_uri: execution:AttributeDefinition_name
+      range:
+        required: true
+        slot_uri: execution:AttributeDefinition_range
+      required:
+        range: boolean
+        required: true
+        slot_uri: execution:AttributeDefinition_required
+      multivalued:
+        range: boolean
+        required: true
+        slot_uri: execution:AttributeDefinition_multivalued
+enums:
+  ConceptFamily:
+    permissible_values:
+      interpretation: {}
+      execution: {}
+      source: {}
+      measurement: {}
+      result: {}
+      knowledge: {}
+      decision: {}
+      read: {}
+      analytics: {}
+  ConceptScope:
+    permissible_values:
+      global: {}
+      release: {}
+      realization: {}
+      run: {}
+      snapshot: {}
+      unit: {}
+  Direction:
+    permissible_values:
+      directed: {}
+      symmetric: {}
+      nary: {}
+  RelationshipIdentity:
+    permissible_values:
+      ordered_roles: {}
+      unordered_distinct: {}
+      occurrence: {}
+      qualified: {}
+  Multiplicity:
+    permissible_values:
+      set: {}
+      bag: {}
+      sequence: {}
+      keyed: {}
+  ReferenceScope:
+    permissible_values:
+      execution: {}
+      same_realization: {}
+      authorized_lineage: {}
+  InvariantScope:
+    permissible_values:
+      local: {}
+      relational: {}
+      lifecycle: {}
+      scientific: {}
+      snapshot: {}
+      resource: {}
+  ExecutionPlacement:
+    permissible_values:
+      pure: {}
+      python: {}
+      core: {}
+      native: {}
+      graph: {}
+      analytical: {}
+  ProjectionLifetime:
+    permissible_values:
+      binding: {}
+      transaction: {}
+      snapshot: {}
+      scope: {}
+      detached: {}
+  OutcomeAuthority:
+    permissible_values:
+      code: {}
+      release: {}

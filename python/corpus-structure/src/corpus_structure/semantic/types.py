@@ -8,7 +8,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
-SEMANTIC_COMPILER_VERSION = "6"  # rules, keyed collections and operation products are release-bound
+SEMANTIC_COMPILER_VERSION = "7"  # rules, keyed collections and operation products are release-bound
 
 
 @dataclass(frozen=True)
@@ -171,10 +171,12 @@ class PreparedRelease:
     required_capabilities: tuple[str, ...]
     diagnostics: tuple[Diagnostic, ...]
     _adapters: tuple[tuple[str, TypeAdapter[BaseModel]], ...] = field(repr=False, compare=False)
+    execution_model_id: str | None = None
 
     def expand_name(self, name: str) -> str:
         """Resolve only prefixes archived with this release; never installed namespaces."""
         import json
+
         if name.startswith(("http://", "https://", "urn:")):
             return name
         prefix, separator, local = name.partition(":")
@@ -187,18 +189,26 @@ class PreparedRelease:
     def enum_members(self, name: str, *, subset: str | None = None) -> frozenset[str]:
         """Closed membership and authored member properties share release authority."""
         import json
+
         vocabulary = next(v for v in self.vocabularies if v.enum == name)
         if subset is None:
             return frozenset(m.value for m in vocabulary.members)
         row = next(r for r in self.registry_rows if r.kind == "enum_definition" and r.name == name)
         definition = json.loads(row.body)
         return frozenset(
-            m.value for m in vocabulary.members
-            if subset in definition.get("permissible_values", {}).get(m.value, {}).get("in_subset", ())
+            m.value
+            for m in vocabulary.members
+            if subset
+            in definition.get("permissible_values", {}).get(m.value, {}).get("in_subset", ())
         )
 
     def entity_keys(
-        self, class_name: str, realization: str, values: dict[str, object], *, include_identifier: bool = True
+        self,
+        class_name: str,
+        realization: str,
+        values: dict[str, object],
+        *,
+        include_identifier: bool = True,
     ) -> tuple[str, ...]:
         """Canonical candidate keys for each declared unique group; not entity resolution."""
         from .identity import _meaning, canonical_bytes
@@ -230,7 +240,9 @@ class PreparedRelease:
     def qualification_definition(self, class_name: str = "Qualification") -> ClassDefinition:
         """Resolve an explicitly named qualification type; never guess from submitted fields."""
         definition = next((d for d in self.definitions if d.name == class_name), None)
-        if definition is None or not (definition.name == "Qualification" or "Qualification" in definition.ancestors):
+        if definition is None or not (
+            definition.name == "Qualification" or "Qualification" in definition.ancestors
+        ):
             raise ValueError(f"{class_name!r} is not an admitted Qualification class")
         return definition
 
@@ -241,7 +253,8 @@ class PreparedRelease:
         predicate: str,
         object_: object,
         qualification: dict[str, object],
-        *, qualification_class: str = "Qualification",
+        *,
+        qualification_class: str = "Qualification",
     ) -> str:
         """Key canonical values using the admitted Qualification key-role/case definitions."""
         from .identity import fact_key
@@ -272,7 +285,10 @@ class PreparedRelease:
                 annotation = field.rebuild_annotation()
                 if item:
                     from typing import get_origin
-                    annotation = get_args(field.annotation)[-1 if get_origin(field.annotation) is dict else 0]
+
+                    annotation = get_args(field.annotation)[
+                        -1 if get_origin(field.annotation) is dict else 0
+                    ]
                 return TypeAdapter(annotation)
         raise KeyError(class_name)
 

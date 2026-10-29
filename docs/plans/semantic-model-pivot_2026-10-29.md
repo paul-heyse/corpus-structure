@@ -1,6 +1,6 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 implementation is closed out at operator request with scoped tests; package qualification remains open. SP-C01–SP-C05 are planned completeness extensions; SP-08–SP-10 remain planned with updated dependencies. **Created:** 2026-10-29 · **Revised:** 2026-10-29.
+**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 implementation is closed out at operator request with scoped tests; package qualification remains open. SP-C01 and SP-C02 contract products are implemented within the scoped boundary in §10; admission closure and SP-C03–SP-C05 remain pending; SP-08–SP-10 remain planned with updated dependencies. **Created:** 2026-10-29 · **Revised:** 2026-10-29.
 **Claim strength:** ADR-0024–ADR-0027 govern the accepted baseline. The completeness extension is selected for planning and remains Proposed. Implemented/Tested claims are bounded to the declared package profiles and receipts; consumer cutover and assembled qualification remain open.
 
 ## 1. Scope, authority and baseline
@@ -349,7 +349,7 @@ restart production work or turn lint maintenance into a reason to rerun passing 
 ## 10. Domain-model completeness integration
 
 **Planned · Proposed, 2026-10-29.** Source review/target consumed at `dcc5e0b`. All seven
-completeness opportunities are selected for planning; none is claimed implemented or closed.
+completeness opportunities are selected; none is closed solely by the delivered contract products.
 This section is their single scheduled-disposition owner. The supporting plans contain design,
 packages and local evidence, not competing progress registers.
 
@@ -367,14 +367,13 @@ packages and local evidence, not competing progress registers.
 
 | Package | Current state | Next capability/readiness boundary |
 |---|---|---|
-| SP-C01 | Planned | Author/load connected definitions and owned contracts; settle shared semantics first |
-| SP-C02 | Planned | Compile usable contract products, then close admission only with actual required enforcement |
+| SP-C01 | Implemented; scoped checks below | Connected trusted definitions and contract products are available; actual lifecycle consumers remain SP-C03 |
+| SP-C02 | Contract products/admission refusal implemented; closure pending | Actual required native lifecycle/conditional enforcement remains unavailable until SP-C03–SP-C05 |
 | SP-C03 | Planned | Connect native lifecycle/effects and migrated source/agent callers |
 | SP-C04 | Planned | Connect coverage/assessment/scientific/inference consumers; integrate against working native publication |
 | SP-C05 | Planned | Connect declared graph/read/analytical projections and their existing consumers |
 
-SP-C01 is the next implementation capability if execution is separately authorized. There is no
-production execution running. SP-06/SP-07 retain their prior implemented profile and outstanding
+The next dependent capability is SP-C03, followed by relevant SP-C04/SP-C05 realization and SP-C02 admission closure. SP-06/SP-07 retain their prior implemented profile and outstanding
 enclosing obligations; SP-00–SP-05 retain scoped passing receipts. Additional completeness work
 is not a retrospective failure or an automatic rerun of those checks.
 
@@ -400,3 +399,34 @@ This revision is documentation-only plan integration. Product checks, typing, pr
 installations, migrations and cutover were not run. Documentation publication is recorded in STATUS;
 existing passing type/tests remain passing. No new finding ledger, alignment gate or proof system
 is introduced, and no phase-0 disposition is copied or closed.
+
+### SP-C01/SP-C02 execution receipts (2026-10-29)
+
+Source includes compiler 7, explicit composed contracts, native conditional fragments, archive2
+and semantic_0022 admission fence. No operational deployment or default cutover occurred.
+Existing profile/receipt history remains intact; all completeness-review opportunity rows stay
+open until their actual consumer/enforcement closure boundaries are met.
+
+- Root targeted union: pytest test_contracts.py, test_composed.py, test_conditional_rules.py,
+  test_prepare.py, test_rule_products.py, test_proposals.py, test_observations.py,
+  test_execution_release.py, test_releases.py, test_release_publication.py and test_migrations.py
+  under python/corpus-structure/tests/semantic, with --tb=short: 150 passed, one diagnostic-order
+  expectation failed; the affected contract component is rerun after correction. Earlier initial
+  collection/catalog failures are superseded and receive no passing credit.
+- uv run --no-sync pyrefly check --summary=none: passed, zero errors at the integrated endpoint.
+- Separate native archive/CAS scope before the final archive-fence case: 26 passed. The root
+  union above includes the enabled-fence check and actual authenticated initializer refusal.
+- Admission closure: blocked by missing future native lifecycle/conditional enforcement, as
+  deliberately required. SP-C01/SP-C02 products do not claim SP-C03–SP-C05 implementation.
+
+Final affected-component correction: uv run --no-sync pytest
+python/corpus-structure/tests/semantic/test_contracts.py --tb=short: passed, 25 cases after the
+reference-first diagnostic fix. Its scoped Pyrefly also passed. Together with the root union's
+passing unaffected cases, this establishes the selected component/native scope; the failed
+initial diagnostic expectation is not credited as a pass. Independent static review reported
+no material correctness findings. Broader SP-C03–SP-C05 and SP-10 claims remain open.
+
+Scoped Ruff passed after formatting and two lint-only edits (a variable rename and literal-line
+split). Product typing/tests were not repeated after lint. just ready passed; the jsonschema
+lock diff adds the direct dependency only. Documentation publication is recorded in STATUS.
+Product checks remain distinct from formatting/index maintenance.

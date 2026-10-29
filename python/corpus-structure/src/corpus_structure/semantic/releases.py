@@ -37,6 +37,7 @@ _LIBRARIES = (
     "oaklib",
     "linkml-term-validator",
     "valuesets",
+    "jsonschema",
 )
 
 
@@ -66,7 +67,7 @@ def _digest(content: bytes) -> str:
 
 
 def _products(prepared: PreparedRelease) -> dict[str, Any]:
-    return {
+    products = {
         "release_id": prepared.release_id,
         "definitions": [asdict(x) for x in prepared.definitions],
         "vocabularies": [asdict(x) for x in prepared.vocabularies],
@@ -79,6 +80,9 @@ def _products(prepared: PreparedRelease) -> dict[str, Any]:
         "required_capabilities": prepared.required_capabilities,
         "diagnostics": [asdict(x) for x in prepared.diagnostics],
     }
+    if prepared.execution_model_id is not None:
+        products["execution_model_id"] = prepared.execution_model_id
+    return products
 
 
 def _archive_bytes(
@@ -86,7 +90,11 @@ def _archive_bytes(
 ) -> bytes:
     return canonical_bytes(
         {
-            "format": "semantic-release-archive-1",
+            "format": (
+                "semantic-release-archive-2"
+                if prepared.execution_model_id is not None
+                else "semantic-release-archive-1"
+            ),
             "root": bundle.root,
             "sources": [s.name for s in bundle.sources],
             "dependencies": [s.name for s in dependencies.artifacts],
@@ -101,17 +109,28 @@ def _validate_manifest(
     profile: PreparationProfile,
     prepared: PreparedRelease,
 ) -> None:
-    expected = canonical_bytes(
-        {
-            "root": bundle.root,
-            "profile": asdict(profile),
-            "libraries": {name: version(name) for name in _LIBRARIES},
-            "sources": sorted((s.name, s.digest) for s in bundle.sources),
-            "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
-            "ontology_sources": sorted(dependencies.ontology_sources),
-            "vocabularies": [asdict(v) for v in prepared.vocabularies],
-        }
-    )
+    manifest: dict[str, Any] = {
+        "root": bundle.root,
+        "profile": asdict(profile),
+        "libraries": {name: version(name) for name in _LIBRARIES},
+        "sources": sorted((s.name, s.digest) for s in bundle.sources),
+        "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
+        "ontology_sources": sorted(dependencies.ontology_sources),
+        "vocabularies": [asdict(v) for v in prepared.vocabularies],
+    }
+    if profile.version == "semantic-2":
+        from .composed import execution_model_from_dependencies
+
+        try:
+            execution = execution_model_from_dependencies(dependencies)
+        except Exception as exc:
+            raise ReleaseConflict(f"cannot reconstruct execution inputs: {exc}") from exc
+        if prepared.execution_model_id != execution.model_id:
+            raise ReleaseConflict("prepared execution model differs from exact inputs")
+        manifest["execution_model_id"] = execution.model_id
+    elif prepared.execution_model_id is not None:
+        raise ReleaseConflict("execution model requires the composed semantic-2 profile")
+    expected = canonical_bytes(manifest)
     if prepared.manifest != expected or prepared.release_id != "release:" + _digest(expected):
         raise ReleaseConflict(
             "prepared release does not match exact inputs, profile or compiler versions"
@@ -250,6 +269,10 @@ def persist_release(
     and never recompiles while writing projection rows. The caller commits or rolls back.
     """
     _validate_manifest(bundle, dependencies, profile, prepared)
+    if prepared.execution_model_id is not None:
+        from .execution_admission import require_archive_fence
+
+        require_archive_fence(conn)
     archive = _archive_bytes(bundle, dependencies, prepared)
     release_row = {
         "release_id": prepared.release_id,
@@ -340,7 +363,7 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
         if _digest(archive_bytes) != row["content_digest"]:
             raise ReleaseConflict("archive digest differs")
         archive = json.loads(archive_bytes)
-        if archive["format"] != "semantic-release-archive-1":
+        if archive["format"] not in {"semantic-release-archive-1", "semantic-release-archive-2"}:
             raise ReleaseConflict("unsupported archive format")
         inputs = _table("sem.input")
         source: dict[tuple[str, str], bytes] = {}

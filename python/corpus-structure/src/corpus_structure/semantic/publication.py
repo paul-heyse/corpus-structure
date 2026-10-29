@@ -450,14 +450,24 @@ def _admit_inference(prepared: PreparedRelease) -> None:
                 if getattr(prop, flag) and (flag, prop.iri, prop.iri) not in signatures:
                     raise ValueError("required graph characteristic has no compiled rule")
             if prop.inverse:
-                targets = {p.iri for d in prepared.definitions for p in d.properties
-                           if prop.inverse in {p.name, p.iri}}
-                if len(targets) != 1 or ("inverse", prop.iri, next(iter(targets))) not in signatures:
+                targets = {
+                    p.iri
+                    for d in prepared.definitions
+                    for p in d.properties
+                    if prop.inverse in {p.name, p.iri}
+                }
+                if (
+                    len(targets) != 1
+                    or ("inverse", prop.iri, next(iter(targets))) not in signatures
+                ):
                     raise ValueError("required inverse has no compiled target rule")
 
 
 def admit_release(prepared: PreparedRelease) -> None:
     """Refuse required semantics outside the currently implemented native lowering."""
+    from .execution_admission import admit_execution_release
+
+    admit_execution_release(prepared)
     native_constraints(prepared)
     _admit_inference(prepared)
     for definition in prepared.definitions:

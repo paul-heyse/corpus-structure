@@ -1,6 +1,6 @@
 # Complete domain model and executable contracts
 
-**Status:** Planned · **Created:** 2026-10-29 · **Proposed implementation target.**
+**Status:** SP-C01 implemented; SP-C02 contract products and admission refusal implemented, admission closure pending required enforcement · **Created:** 2026-10-29 · **Proposed implementation target.**
 [Coordinator](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
 owns current package state, queue and opportunity disposition. This document owns SP-C01/SP-C02
 and the shared definitions consumed by [realization](domain-model-realization.md).
@@ -232,3 +232,29 @@ production validators; tests of a validator/model retain independent expectation
 These are planned checks. This document was authored from source/review/primary-library evidence;
 it does not claim new product checks or changed package completion. Existing passing receipts
 stand. SP-10 owns assembled-series qualification, expanded through the acceptance plan.
+
+## Execution checkpoint (2026-10-29)
+
+Implemented source: trusted contracts.yaml and execution-model.yaml, normalized immutable
+contract products, reference/state/implementation-owner validation and an eight-entry pure cache.
+The catalog contains 101 concepts, 43 relationships, 37 operations, 7 lifecycle definitions,
+24 invariants and 8 projections, including measurements and distinct outcome translations.
+These counts describe this catalog, not an automatic proof of semantic completeness.
+
+Compiler 7 retains semantic-1 and adds explicit semantic-2 inputs through composed_dependencies.
+Execution inputs/products are archived independently of the domain extraction namespace. The
+conditional profile uses native LinkML rule fragments and the same strict Pydantic boundaries;
+unsupported branches refuse. jsonschema 4.26.0 is now a direct product pin; no transitive versions
+changed. Exact archives, generation CAS and baseline publication remain intact.
+
+SP-C02 activation checks trusted execution identity and required capabilities. New native
+migration semantic_0022 blocks semantic-2 realization construction, including the authenticated
+source-project initializer. Composed archive persistence also checks that this fence is enabled;
+a server without it cannot store a new composed archive and expose it to an old write path.
+This is admission refusal, not the future SP-C03 transition enforcement implementation.
+
+SP-C02 admission closure remains blocked by required execution.lifecycle.v1 and, for conditional
+rules, conditional_rules_native enforcement. Contract consumers can use compiled definitions;
+no permission flag or graph-generation success authorizes an unenforced release. Current runtime
+transition adoption, scientific outcomes and analytical projections remain SP-C03–SP-C05.
+Operational bootstrap/default selection was not changed. Scoped receipts are in coordinator §10.

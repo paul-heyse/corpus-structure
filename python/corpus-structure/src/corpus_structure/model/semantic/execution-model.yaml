@@ -1,0 +1,6772 @@
+# Trusted finite catalog: application-owned definitions; requirements are not deployment receipts.
+version: execution-1
+required_capabilities:
+- execution.lifecycle.v1
+concepts:
+- id: SourceArtifact
+  family: interpretation
+  scope: global
+  meaning: SourceArtifact in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: name
+    range: text
+    required: true
+    multivalued: false
+  - name: content
+    range: bytes
+    required: true
+    multivalued: false
+  - name: digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - bundle_contains
+- id: SourceBundle
+  family: interpretation
+  scope: global
+  meaning: SourceBundle in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: root
+    range: text
+    required: true
+    multivalued: false
+  - name: artifacts
+    range: SourceArtifact
+    required: true
+    multivalued: true
+  relationships:
+  - bundle_contains
+  - release_prepared_from
+- id: ResolvedDependencies
+  family: interpretation
+  scope: global
+  meaning: ResolvedDependencies in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: artifacts
+    range: SourceArtifact
+    required: true
+    multivalued: true
+  - name: vocabularies
+    range: VocabularySnapshot
+    required: true
+    multivalued: true
+  - name: ontology_sources
+    range: text
+    required: true
+    multivalued: true
+  relationships:
+  - dependencies_capture
+  - release_prepared_from
+- id: VocabularySnapshot
+  family: interpretation
+  scope: global
+  meaning: VocabularySnapshot in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: enum
+    range: text
+    required: true
+    multivalued: false
+  - name: members
+    range: text
+    required: true
+    multivalued: true
+  - name: dependency
+    range: text
+    required: true
+    multivalued: false
+  - name: digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - dependencies_capture
+- id: PreparationProfile
+  family: interpretation
+  scope: global
+  meaning: PreparationProfile in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: version
+    range: text
+    required: true
+    multivalued: false
+  - name: compiler_version
+    range: text
+    required: true
+    multivalued: false
+  - name: constraint_scope
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - release_prepared_from
+- id: PreparationResult
+  family: interpretation
+  scope: global
+  meaning: PreparationResult in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: outcome
+    range: text
+    required: true
+    multivalued: false
+  - name: diagnostics
+    range: json
+    required: true
+    multivalued: true
+  relationships: []
+- id: ModelRevision
+  family: interpretation
+  scope: global
+  meaning: ModelRevision in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: scope
+    range: text
+    required: true
+    multivalued: false
+  - name: source_digests
+    range: text
+    required: true
+    multivalued: true
+  - name: dependency_digests
+    range: text
+    required: true
+    multivalued: true
+  - name: execution_model_id
+    range: text
+    required: true
+    multivalued: false
+  - name: projection_revision
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - release_prepared_from
+- id: SemanticRelease
+  family: interpretation
+  scope: global
+  meaning: SemanticRelease in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: manifest
+    range: bytes
+    required: true
+    multivalued: false
+  - name: products
+    range: bytes
+    required: true
+    multivalued: false
+  - name: compiler
+    range: text
+    required: true
+    multivalued: false
+  - name: execution_model_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - release_prepared_from
+  - archive_preserves
+  - project_selects
+  - realization_interprets
+- id: Archive
+  family: interpretation
+  scope: global
+  meaning: Archive in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: exact_bytes
+    range: bytes
+    required: true
+    multivalued: false
+  relationships:
+  - archive_preserves
+- id: Project
+  family: interpretation
+  scope: global
+  meaning: Project in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: generation
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - project_selects
+  - realization_interprets
+- id: ActivationToken
+  family: interpretation
+  scope: global
+  meaning: ActivationToken in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: parent
+    range: text
+    required: false
+    multivalued: false
+  - name: generation
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - project_selects
+- id: OperationPolicy
+  family: interpretation
+  scope: release
+  meaning: OperationPolicy in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: version
+    range: text
+    required: true
+    multivalued: false
+  - name: rules
+    range: InferenceRule
+    required: true
+    multivalued: true
+  relationships: []
+- id: RunBinding
+  family: execution
+  scope: run
+  meaning: RunBinding in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: project_id
+    range: text
+    required: true
+    multivalued: false
+  - name: input_realization
+    range: text
+    required: true
+    multivalued: false
+  - name: input_revision
+    range: integer
+    required: true
+    multivalued: false
+  - name: dependencies
+    range: text
+    required: true
+    multivalued: true
+  - name: execution_model_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - run_consumes
+- id: Run
+  family: execution
+  scope: run
+  meaning: Run in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: integer
+    required: true
+    multivalued: false
+  - name: status
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - run_consumes
+  - task_belongs
+  - run_rendition
+  - entity_input
+  - fact_input
+  - run_result
+- id: TaskInvocation
+  family: execution
+  scope: run
+  meaning: TaskInvocation in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: integer
+    required: true
+    multivalued: false
+  - name: stage
+    range: text
+    required: true
+    multivalued: false
+  - name: invocation_digest
+    range: text
+    required: true
+    multivalued: false
+  - name: unit
+    range: TaskUnit
+    required: true
+    multivalued: false
+  - name: configuration
+    range: MethodConfiguration
+    required: true
+    multivalued: false
+  relationships:
+  - task_belongs
+  - task_reuses
+  - attempt_owns
+  - rendition_build
+  - held_submission
+  - measurement_context
+  - cut_origin
+- id: Attempt
+  family: execution
+  scope: run
+  meaning: Attempt in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: number
+    range: integer
+    required: true
+    multivalued: false
+  - name: holder
+    range: text
+    required: true
+    multivalued: false
+  - name: deadline
+    range: datetime
+    required: true
+    multivalued: false
+  relationships:
+  - attempt_owns
+  - held_submission
+- id: MethodDefinition
+  family: execution
+  scope: run
+  meaning: MethodDefinition in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: version
+    range: text
+    required: true
+    multivalued: false
+  - name: unit_kinds
+    range: text
+    required: true
+    multivalued: true
+  - name: report_families
+    range: text
+    required: true
+    multivalued: true
+  - name: effects
+    range: text
+    required: true
+    multivalued: true
+  relationships:
+  - task_belongs
+  - measurement_context
+- id: MethodConfiguration
+  family: execution
+  scope: run
+  meaning: MethodConfiguration in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: identity
+    range: text
+    required: true
+    multivalued: false
+  - name: parameters
+    range: json
+    required: true
+    multivalued: false
+  relationships:
+  - task_belongs
+- id: TaskUnit
+  family: execution
+  scope: run
+  meaning: TaskUnit in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  - name: reference
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - task_belongs
+- id: Lease
+  family: execution
+  scope: run
+  meaning: Lease in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: holder
+    range: text
+    required: true
+    multivalued: false
+  - name: deadline
+    range: datetime
+    required: true
+    multivalued: false
+  relationships:
+  - attempt_owns
+- id: Document
+  family: source
+  scope: global
+  meaning: Document in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  - name: original
+    range: bytes
+    required: true
+    multivalued: false
+  - name: source_uri
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - rendition_build
+  - run_rendition
+- id: Rendition
+  family: source
+  scope: global
+  meaning: Rendition in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: integer
+    required: true
+    multivalued: false
+  - name: normalized_text
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - rendition_build
+  - rendition_segments
+  - run_rendition
+- id: RenditionBuild
+  family: source
+  scope: global
+  meaning: RenditionBuild in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: provider
+    range: Provider
+    required: true
+    multivalued: false
+  - name: configuration
+    range: MethodConfiguration
+    required: true
+    multivalued: false
+  - name: build_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - rendition_build
+  - run_rendition
+- id: Segment
+  family: source
+  scope: global
+  meaning: Segment in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  - name: ordinal
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - rendition_segments
+- id: Span
+  family: source
+  scope: global
+  meaning: Span in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: start
+    range: integer
+    required: true
+    multivalued: false
+  - name: end
+    range: integer
+    required: true
+    multivalued: false
+  - name: coordinate_system
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - rendition_segments
+- id: Provider
+  family: source
+  scope: global
+  meaning: Provider in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: version
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: SourceFrame
+  family: source
+  scope: global
+  meaning: SourceFrame in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: unit
+    range: TaskUnit
+    required: true
+    multivalued: false
+  - name: macro_context
+    range: json
+    required: true
+    multivalued: false
+  relationships:
+  - packet_obligations
+- id: SourceObservation
+  family: source
+  scope: run
+  meaning: SourceObservation in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: family
+    range: text
+    required: true
+    multivalued: false
+  - name: schema
+    range: text
+    required: true
+    multivalued: false
+  - name: provider
+    range: Provider
+    required: true
+    multivalued: false
+  - name: payload
+    range: json
+    required: true
+    multivalued: false
+  - name: source_unit
+    range: TaskUnit
+    required: true
+    multivalued: false
+  - name: ordinal
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - result_reports
+  - observation_inputs
+  - occurrence_reports
+  - entity_source
+- id: ObservationInput
+  family: source
+  scope: run
+  meaning: ObservationInput in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: role
+    range: text
+    required: true
+    multivalued: false
+  - name: ordinal
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - observation_inputs
+  - measurement_context
+- id: SourceCoverage
+  family: source
+  scope: run
+  meaning: SourceCoverage in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: family
+    range: text
+    required: true
+    multivalued: false
+  - name: scope
+    range: SemanticScope
+    required: true
+    multivalued: false
+  - name: outcome
+    range: text
+    required: true
+    multivalued: false
+  - name: reason
+    range: json
+    required: false
+    multivalued: false
+  relationships:
+  - result_reports
+- id: WorkPacket
+  family: source
+  scope: run
+  meaning: WorkPacket in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: digest
+    range: text
+    required: true
+    multivalued: false
+  - name: schema
+    range: bytes
+    required: true
+    multivalued: false
+  - name: source_frame
+    range: SourceFrame
+    required: true
+    multivalued: false
+  - name: known_references
+    range: ReferenceDescriptor
+    required: true
+    multivalued: true
+  relationships:
+  - packet_obligations
+  - held_submission
+- id: ReadObligation
+  family: source
+  scope: run
+  meaning: ReadObligation in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: reference
+    range: text
+    required: true
+    multivalued: false
+  - name: fulfilled
+    range: boolean
+    required: true
+    multivalued: false
+  relationships:
+  - packet_obligations
+- id: SubmissionResult
+  family: source
+  scope: run
+  meaning: SubmissionResult in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: disposition
+    range: text
+    required: true
+    multivalued: false
+  - name: diagnostics
+    range: json
+    required: true
+    multivalued: true
+  relationships: []
+- id: HeldSubmission
+  family: source
+  scope: run
+  meaning: HeldSubmission in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: attempt
+    range: integer
+    required: true
+    multivalued: false
+  - name: packet_digest
+    range: text
+    required: true
+    multivalued: false
+  - name: checked_result
+    range: SubmissionResult
+    required: true
+    multivalued: false
+  relationships:
+  - held_submission
+- id: TaskResultEnvelope
+  family: source
+  scope: run
+  meaning: TaskResultEnvelope in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: protocol_outcome
+    range: text
+    required: true
+    multivalued: false
+  - name: report_ids
+    range: text
+    required: true
+    multivalued: true
+  - name: coverage
+    range: SourceCoverage
+    required: true
+    multivalued: true
+  - name: failure
+    range: json
+    required: false
+    multivalued: false
+  relationships:
+  - result_reports
+  - cut_origin
+- id: MetricDefinition
+  family: measurement
+  scope: global
+  meaning: MetricDefinition in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: value_type
+    range: text
+    required: true
+    multivalued: false
+  - name: subject_kind
+    range: text
+    required: true
+    multivalued: false
+  - name: detail_schema
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - measurement_context
+- id: Measurement
+  family: measurement
+  scope: run
+  meaning: Measurement in the transitioned semantic model
+  identity: producing invocation + metric + typed subject scope; measurement is not fact truth
+  attributes:
+  - name: metric
+    range: MetricDefinition
+    required: true
+    multivalued: false
+  - name: subject
+    range: MeasurementSubject
+    required: true
+    multivalued: false
+  - name: value
+    range: TypedValue
+    required: true
+    multivalued: false
+  - name: detail
+    range: MeasurementDetail
+    required: true
+    multivalued: false
+  relationships:
+  - measurement_context
+- id: MeasurementSubject
+  family: measurement
+  scope: run
+  meaning: MeasurementSubject in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  - name: scope
+    range: SemanticScope
+    required: true
+    multivalued: false
+  - name: reference
+    range: ReferenceDescriptor
+    required: true
+    multivalued: false
+  relationships:
+  - measurement_context
+- id: MeasurementDetail
+  family: measurement
+  scope: run
+  meaning: MeasurementDetail in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: schema
+    range: text
+    required: true
+    multivalued: false
+  - name: detail
+    range: json
+    required: true
+    multivalued: false
+  relationships: []
+- id: InputCut
+  family: result
+  scope: run
+  meaning: InputCut in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: integer
+    required: true
+    multivalued: false
+  - name: input_revision
+    range: integer
+    required: true
+    multivalued: false
+  - name: final
+    range: boolean
+    required: true
+    multivalued: false
+  relationships:
+  - cut_origin
+  - candidate_projection
+- id: FinalCut
+  family: result
+  scope: run
+  meaning: FinalCut in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: integer
+    required: true
+    multivalued: false
+  - name: input_revision
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - run_result
+- id: EvaluationResult
+  family: result
+  scope: run
+  meaning: EvaluationResult in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: operation_id
+    range: text
+    required: true
+    multivalued: false
+  - name: policy_id
+    range: text
+    required: true
+    multivalued: false
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - run_result
+  - realization_completed_result
+- id: PublicationReceipt
+  family: result
+  scope: run
+  meaning: PublicationReceipt in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: batch_id
+    range: text
+    required: true
+    multivalued: false
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  - name: data_revision
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - run_result
+  - derived_publication
+  - append_publication
+- id: Realization
+  family: result
+  scope: realization
+  meaning: Realization in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: project_id
+    range: text
+    required: true
+    multivalued: false
+  - name: data_revision
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - realization_interprets
+  - run_result
+  - realization_completed_result
+- id: Entity
+  family: knowledge
+  scope: realization
+  meaning: Entity in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: identity_keys
+    range: text
+    required: true
+    multivalued: true
+  - name: display_label
+    range: text
+    required: false
+    multivalued: false
+  relationships:
+  - entity_membership
+  - fact_denotes
+  - entity_source
+  - entity_input
+- id: Membership
+  family: knowledge
+  scope: realization
+  meaning: Membership in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: class_iri
+    range: text
+    required: true
+    multivalued: false
+  - name: establishment
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - entity_membership
+  - membership_support
+- id: SemanticFact
+  family: knowledge
+  scope: realization
+  meaning: SemanticFact in the transitioned semantic model
+  identity: release/realization + subject, predicate, canonical value and identity qualification; reasons/confidence
+    excluded
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: predicate
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - fact_denotes
+  - occurrence_reports
+  - fact_support
+  - fact_selected
+  - group_alternatives
+  - derivation_premises
+  - fact_input
+  - query_explanation
+- id: AssertionOccurrence
+  family: knowledge
+  scope: realization
+  meaning: AssertionOccurrence in the transitioned semantic model
+  identity: release/realization + independent source report and source item; repeated reports retained
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: source_item
+    range: text
+    required: true
+    multivalued: false
+  - name: reported_value
+    range: TypedValue
+    required: true
+    multivalued: false
+  - name: qualification
+    range: Qualification
+    required: true
+    multivalued: false
+  relationships:
+  - occurrence_reports
+  - occurrence_evidence
+  - fact_support
+  - membership_support
+  - query_explanation
+- id: Evidence
+  family: knowledge
+  scope: realization
+  meaning: Evidence in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: source
+    range: Span
+    required: true
+    multivalued: false
+  - name: provider
+    range: Provider
+    required: true
+    multivalued: false
+  - name: placement
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - occurrence_evidence
+- id: OccurrenceEvidence
+  family: knowledge
+  scope: realization
+  meaning: OccurrenceEvidence in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: role
+    range: EvidenceRole
+    required: true
+    multivalued: false
+  relationships:
+  - occurrence_evidence
+- id: Support
+  family: knowledge
+  scope: realization
+  meaning: Support in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - fact_support
+- id: MembershipSupport
+  family: knowledge
+  scope: realization
+  meaning: MembershipSupport in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: establishment
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - membership_support
+- id: EntitySource
+  family: knowledge
+  scope: realization
+  meaning: EntitySource in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: source_key
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - entity_source
+- id: EntityInput
+  family: knowledge
+  scope: realization
+  meaning: EntityInput in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: authorization
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - entity_input
+- id: FactInput
+  family: knowledge
+  scope: realization
+  meaning: FactInput in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: authorization
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - fact_input
+- id: AlternativeGroup
+  family: knowledge
+  scope: realization
+  meaning: AlternativeGroup in the transitioned semantic model
+  identity: release/realization + unordered distinct fact membership; reason excluded
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: reason
+    range: text
+    required: false
+    multivalued: false
+  relationships:
+  - group_alternatives
+- id: AlternativeMember
+  family: knowledge
+  scope: realization
+  meaning: AlternativeMember in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: role
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: Derivation
+  family: knowledge
+  scope: realization
+  meaning: Derivation in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: rule_id
+    range: text
+    required: true
+    multivalued: false
+  - name: rule_version
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - derivation_premises
+  - query_explanation
+- id: DerivationPremise
+  family: knowledge
+  scope: realization
+  meaning: DerivationPremise in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: role
+    range: text
+    required: true
+    multivalued: false
+  - name: ordinal
+    range: integer
+    required: true
+    multivalued: false
+  relationships:
+  - derivation_premises
+- id: Selection
+  family: knowledge
+  scope: realization
+  meaning: Selection in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: context
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - fact_selected
+- id: Assessment
+  family: knowledge
+  scope: realization
+  meaning: Assessment in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: outcome
+    range: text
+    required: true
+    multivalued: false
+  - name: operation
+    range: text
+    required: true
+    multivalued: false
+  - name: version
+    range: text
+    required: true
+    multivalued: false
+  - name: reason
+    range: text
+    required: false
+    multivalued: false
+  - name: uncertainty
+    range: text
+    required: false
+    multivalued: false
+  relationships:
+  - assessment_subjects
+  - query_explanation
+- id: TypedValue
+  family: knowledge
+  scope: release
+  meaning: TypedValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - value_member
+  - fact_denotes
+- id: TextValue
+  family: knowledge
+  scope: release
+  meaning: TextValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: text
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: NumberValue
+  family: knowledge
+  scope: release
+  meaning: NumberValue in the transitioned semantic model
+  identity: exact canonical decimal value; source lexical reporting retained separately
+  attributes:
+  - name: canonical
+    range: text
+    required: true
+    multivalued: false
+  - name: lexical
+    range: text
+    required: false
+    multivalued: false
+  - name: unit
+    range: text
+    required: false
+    multivalued: false
+  - name: basis
+    range: text
+    required: false
+    multivalued: false
+  relationships: []
+- id: BooleanValue
+  family: knowledge
+  scope: release
+  meaning: BooleanValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: value
+    range: boolean
+    required: true
+    multivalued: false
+  relationships: []
+- id: DateValue
+  family: knowledge
+  scope: release
+  meaning: DateValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: iso_date
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: InstantValue
+  family: knowledge
+  scope: release
+  meaning: InstantValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: instant
+    range: datetime
+    required: true
+    multivalued: false
+  relationships: []
+- id: ExpressionValue
+  family: knowledge
+  scope: release
+  meaning: ExpressionValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: expression
+    range: text
+    required: true
+    multivalued: false
+  - name: macro_environment
+    range: json
+    required: true
+    multivalued: false
+  relationships: []
+- id: RecordValue
+  family: knowledge
+  scope: release
+  meaning: RecordValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: roles
+    range: RoleBinding
+    required: true
+    multivalued: true
+  relationships: []
+- id: SequenceValue
+  family: knowledge
+  scope: release
+  meaning: SequenceValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: members
+    range: RoleBinding
+    required: true
+    multivalued: true
+  relationships: []
+- id: MapValue
+  family: knowledge
+  scope: release
+  meaning: MapValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: entries
+    range: RoleBinding
+    required: true
+    multivalued: true
+  relationships: []
+- id: EntityValue
+  family: knowledge
+  scope: release
+  meaning: EntityValue in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: reference
+    range: ReferenceDescriptor
+    required: true
+    multivalued: false
+  relationships: []
+- id: RoleBinding
+  family: knowledge
+  scope: release
+  meaning: RoleBinding in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: role
+    range: text
+    required: true
+    multivalued: false
+  - name: ordinal
+    range: integer
+    required: false
+    multivalued: false
+  - name: key
+    range: text
+    required: false
+    multivalued: false
+  - name: value
+    range: TypedValue
+    required: true
+    multivalued: false
+  relationships:
+  - value_member
+- id: Qualification
+  family: knowledge
+  scope: release
+  meaning: Qualification in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: polarity
+    range: boolean
+    required: true
+    multivalued: false
+  - name: modality
+    range: text
+    required: true
+    multivalued: false
+  - name: attribution
+    range: text
+    required: false
+    multivalued: false
+  - name: scope
+    range: SemanticScope
+    required: true
+    multivalued: false
+  - name: conditions
+    range: Condition
+    required: true
+    multivalued: true
+  - name: source_validity
+    range: text
+    required: false
+    multivalued: false
+  relationships:
+  - fact_denotes
+- id: SemanticScope
+  family: knowledge
+  scope: release
+  meaning: SemanticScope in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  - name: reference
+    range: text
+    required: false
+    multivalued: false
+  relationships: []
+- id: Condition
+  family: knowledge
+  scope: release
+  meaning: Condition in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: predicate
+    range: text
+    required: true
+    multivalued: false
+  - name: value
+    range: TypedValue
+    required: true
+    multivalued: false
+  relationships: []
+- id: EvidenceRole
+  family: knowledge
+  scope: release
+  meaning: EvidenceRole in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: role
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: ReferenceDescriptor
+  family: knowledge
+  scope: release
+  meaning: ReferenceDescriptor in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  - name: release_id
+    range: text
+    required: false
+    multivalued: false
+  - name: realization_id
+    range: text
+    required: false
+    multivalued: false
+  - name: local_key
+    range: text
+    required: false
+    multivalued: false
+  - name: unresolved_reason
+    range: text
+    required: false
+    multivalued: false
+  relationships: []
+- id: InferenceRule
+  family: knowledge
+  scope: release
+  meaning: InferenceRule in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: version
+    range: text
+    required: true
+    multivalued: false
+  - name: premise_roles
+    range: text
+    required: true
+    multivalued: true
+  - name: qualification_policy
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - derivation_premises
+- id: AssessmentTarget
+  family: decision
+  scope: realization
+  meaning: AssessmentTarget in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  - name: reference
+    range: ReferenceDescriptor
+    required: true
+    multivalued: false
+  relationships:
+  - assessment_subjects
+- id: AssessmentCounterpart
+  family: decision
+  scope: realization
+  meaning: AssessmentCounterpart in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  - name: reference
+    range: ReferenceDescriptor
+    required: true
+    multivalued: false
+  relationships:
+  - assessment_subjects
+- id: ScientificContext
+  family: decision
+  scope: run
+  meaning: ScientificContext in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: constants
+    range: json
+    required: true
+    multivalued: false
+  - name: comparison_domain
+    range: text
+    required: true
+    multivalued: false
+  - name: macro_environment
+    range: json
+    required: true
+    multivalued: false
+  relationships: []
+- id: SnapshotBinding
+  family: read
+  scope: snapshot
+  meaning: SnapshotBinding in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: realization_id
+    range: text
+    required: true
+    multivalued: false
+  - name: data_revision
+    range: integer
+    required: true
+    multivalued: false
+  - name: snapshot_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - run_consumes
+  - query_snapshot
+  - captured_projection
+  - derived_publication
+- id: QueryDefinition
+  family: read
+  scope: snapshot
+  meaning: QueryDefinition in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: projection
+    range: text
+    required: true
+    multivalued: false
+  - name: universe
+    range: text
+    required: true
+    multivalued: false
+  - name: output_filter
+    range: json
+    required: true
+    multivalued: false
+  relationships:
+  - query_snapshot
+- id: QueryHandle
+  family: read
+  scope: snapshot
+  meaning: QueryHandle in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: snapshot_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - query_snapshot
+- id: Continuation
+  family: read
+  scope: snapshot
+  meaning: Continuation in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: snapshot_id
+    range: text
+    required: true
+    multivalued: false
+  - name: after
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
+- id: QueryResult
+  family: read
+  scope: snapshot
+  meaning: QueryResult in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: knowledge
+    range: QueryKnowledge
+    required: true
+    multivalued: false
+  - name: page
+    range: PageCompleteness
+    required: true
+    multivalued: false
+  relationships:
+  - query_snapshot
+  - query_coverage
+- id: Explanation
+  family: read
+  scope: snapshot
+  meaning: Explanation in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: fact_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - query_explanation
+- id: SemanticCoverage
+  family: read
+  scope: snapshot
+  meaning: SemanticCoverage in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: family
+    range: text
+    required: true
+    multivalued: false
+  - name: scope
+    range: SemanticScope
+    required: true
+    multivalued: false
+  - name: outcome
+    range: text
+    required: true
+    multivalued: false
+  - name: reason
+    range: json
+    required: false
+    multivalued: false
+  relationships:
+  - query_coverage
+- id: QueryKnowledge
+  family: read
+  scope: snapshot
+  meaning: QueryKnowledge in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: outcome
+    range: text
+    required: true
+    multivalued: false
+  - name: coverage
+    range: SemanticCoverage
+    required: true
+    multivalued: false
+  relationships:
+  - query_coverage
+- id: PageCompleteness
+  family: read
+  scope: snapshot
+  meaning: PageCompleteness in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: outcome
+    range: text
+    required: true
+    multivalued: false
+  - name: continuation
+    range: Continuation
+    required: false
+    multivalued: false
+  relationships:
+  - query_coverage
+- id: CapturedPacket
+  family: analytics
+  scope: snapshot
+  meaning: CapturedPacket in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: snapshot
+    range: SnapshotBinding
+    required: true
+    multivalued: false
+  - name: projection_id
+    range: text
+    required: true
+    multivalued: false
+  - name: arithmetic_profile
+    range: text
+    required: true
+    multivalued: false
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - captured_projection
+- id: CandidateInput
+  family: analytics
+  scope: snapshot
+  meaning: CandidateInput in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: cut
+    range: InputCut
+    required: true
+    multivalued: false
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: projection_id
+    range: text
+    required: true
+    multivalued: false
+  - name: provenance
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - candidate_projection
+- id: AnalysisScope
+  family: analytics
+  scope: snapshot
+  meaning: AnalysisScope in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: input_kind
+    range: text
+    required: true
+    multivalued: false
+  - name: lifetime
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - analysis_result
+- id: AnalysisResult
+  family: analytics
+  scope: snapshot
+  meaning: AnalysisResult in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: kind
+    range: text
+    required: true
+    multivalued: false
+  - name: computational_completeness
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - analysis_result
+- id: BorrowedResult
+  family: analytics
+  scope: snapshot
+  meaning: BorrowedResult in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: scope_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - analysis_result
+- id: DetachedResult
+  family: analytics
+  scope: snapshot
+  meaning: DetachedResult in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: content
+    range: bytes
+    required: true
+    multivalued: false
+  relationships:
+  - analysis_result
+- id: AppendPublication
+  family: analytics
+  scope: snapshot
+  meaning: AppendPublication in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: batch_id
+    range: text
+    required: true
+    multivalued: false
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - append_publication
+- id: SnapshotDerivedPublication
+  family: analytics
+  scope: snapshot
+  meaning: SnapshotDerivedPublication in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: batch_id
+    range: text
+    required: true
+    multivalued: false
+  - name: content_digest
+    range: text
+    required: true
+    multivalued: false
+  - name: source
+    range: SnapshotBinding
+    required: true
+    multivalued: false
+  - name: operation_id
+    range: text
+    required: true
+    multivalued: false
+  - name: projection_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - derived_publication
+- id: ProjectionProfile
+  family: analytics
+  scope: snapshot
+  meaning: ProjectionProfile in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: version
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - captured_projection
+  - candidate_projection
+- id: ArithmeticProfile
+  family: analytics
+  scope: snapshot
+  meaning: ArithmeticProfile in the transitioned semantic model
+  identity: Explicit scoped identifier and immutable producing binding; no display-label identity
+  attributes:
+  - name: id
+    range: text
+    required: true
+    multivalued: false
+  - name: precision
+    range: integer
+    required: true
+    multivalued: false
+  - name: scale
+    range: integer
+    required: true
+    multivalued: false
+  - name: rounding
+    range: text
+    required: true
+    multivalued: false
+  - name: overflow
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - captured_projection
+relationships:
+- id: bundle_contains
+  kind: ownership
+  direction: directed
+  endpoints:
+  - role: bundle
+    concept: SourceBundle
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: artifact
+    concept: SourceArtifact
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - bundle
+  - artifact
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - qualified_reference
+- id: dependencies_capture
+  kind: ownership
+  direction: directed
+  endpoints:
+  - role: dependencies
+    concept: ResolvedDependencies
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: snapshot
+    concept: VocabularySnapshot
+    minimum: 0
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - dependencies
+  - snapshot
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - qualified_reference
+- id: release_prepared_from
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: release
+    concept: SemanticRelease
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: source
+    concept: SourceBundle
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: dependencies
+    concept: ResolvedDependencies
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: profile
+    concept: PreparationProfile
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: execution
+    concept: ModelRevision
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - release
+  - source
+  - dependencies
+  - profile
+  - execution
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - qualified_reference
+- id: archive_preserves
+  kind: ownership
+  direction: directed
+  endpoints:
+  - role: archive
+    concept: Archive
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: release
+    concept: SemanticRelease
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - archive
+  - release
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - exact_archive
+- id: project_selects
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: project
+    concept: Project
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: release
+    concept: SemanticRelease
+    minimum: 0
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: generation
+    concept: ActivationToken
+    minimum: 0
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - project
+  - release
+  - generation
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - activation_cas
+- id: realization_interprets
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: realization
+    concept: Realization
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: project
+    concept: Project
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: release
+    concept: SemanticRelease
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - realization
+  - project
+  - release
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - qualified_reference
+- id: run_consumes
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: run
+    concept: Run
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: binding
+    concept: RunBinding
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: input
+    concept: SnapshotBinding
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - run
+  - binding
+  - input
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - immutable_binding
+- id: task_belongs
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: invocation
+    concept: TaskInvocation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: run
+    concept: Run
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: method
+    concept: MethodDefinition
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: configuration
+    concept: MethodConfiguration
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: unit
+    concept: TaskUnit
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - invocation
+  - run
+  - method
+  - configuration
+  - unit
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - immutable_binding
+- id: task_reuses
+  kind: reuse
+  direction: directed
+  endpoints:
+  - role: invocation
+    concept: TaskInvocation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: origin
+    concept: TaskInvocation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - invocation
+  - origin
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - reuse_origin
+- id: attempt_owns
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: invocation
+    concept: TaskInvocation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: attempt
+    concept: Attempt
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: lease
+    concept: Lease
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - invocation
+  - attempt
+  - lease
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - attempt_fence
+- id: result_reports
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: result
+    concept: TaskResultEnvelope
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: report
+    concept: SourceObservation
+    minimum: 1
+    ordered: true
+    unresolved: false
+  - role: coverage
+    concept: SourceCoverage
+    minimum: 1
+    ordered: true
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - result
+  - report
+  - coverage
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: sequence
+  reference_scope: execution
+  invariants:
+  - terminal_result
+- id: observation_inputs
+  kind: input_lineage
+  direction: nary
+  endpoints:
+  - role: observation
+    concept: SourceObservation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: input
+    concept: SourceObservation
+    minimum: 1
+    ordered: true
+    unresolved: false
+  - role: role
+    concept: ObservationInput
+    minimum: 1
+    ordered: true
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - observation
+  - input
+  - role
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: sequence
+  reference_scope: execution
+  invariants:
+  - completed_source
+- id: rendition_build
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: document
+    concept: Document
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: build
+    concept: RenditionBuild
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: rendition
+    concept: Rendition
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: task
+    concept: TaskInvocation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - document
+  - build
+  - rendition
+  - task
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - qualified_reference
+- id: rendition_segments
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: rendition
+    concept: Rendition
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: segment
+    concept: Segment
+    minimum: 1
+    ordered: true
+    unresolved: false
+  - role: span
+    concept: Span
+    minimum: 1
+    ordered: true
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - rendition
+  - segment
+  - span
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: sequence
+  reference_scope: execution
+  invariants:
+  - qualified_reference
+- id: run_rendition
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: run
+    concept: Run
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: document
+    concept: Document
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: rendition
+    concept: Rendition
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: build
+    concept: RenditionBuild
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - run
+  - document
+  - rendition
+  - build
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - qualified_reference
+- id: packet_obligations
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: packet
+    concept: WorkPacket
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: frame
+    concept: SourceFrame
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: obligation
+    concept: ReadObligation
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - packet
+  - frame
+  - obligation
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - packet_reads
+- id: held_submission
+  kind: ownership
+  direction: nary
+  endpoints:
+  - role: invocation
+    concept: TaskInvocation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: attempt
+    concept: Attempt
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: packet
+    concept: WorkPacket
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: result
+    concept: HeldSubmission
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - invocation
+  - attempt
+  - packet
+  - result
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - attempt_fence
+  - packet_reads
+- id: measurement_context
+  kind: measurement
+  direction: nary
+  endpoints:
+  - role: measurement
+    concept: Measurement
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: metric
+    concept: MetricDefinition
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: subject
+    concept: MeasurementSubject
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: producer
+    concept: TaskInvocation
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: method
+    concept: MethodDefinition
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: input
+    concept: ObservationInput
+    minimum: 0
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - measurement
+  - metric
+  - subject
+  - producer
+  - method
+  - input
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - measurement_scope
+- id: cut_origin
+  kind: effective_origin
+  direction: nary
+  endpoints:
+  - role: cut
+    concept: InputCut
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: selected
+    concept: TaskInvocation
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: effective
+    concept: TaskInvocation
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: result
+    concept: TaskResultEnvelope
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - cut
+  - selected
+  - effective
+  - result
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - final_cut_barrier
+  - reuse_origin
+- id: entity_membership
+  kind: ownership
+  direction: directed
+  endpoints:
+  - role: entity
+    concept: Entity
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: membership
+    concept: Membership
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - entity
+  - membership
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - qualified_reference
+- id: value_member
+  kind: value_structure
+  direction: nary
+  endpoints:
+  - role: parent
+    concept: TypedValue
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: member
+    concept: TypedValue
+    minimum: 1
+    ordered: true
+    unresolved: false
+  - role: role
+    concept: RoleBinding
+    minimum: 1
+    ordered: true
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - parent
+  - member
+  - role
+  identity_context:
+  - binding
+  qualifications:
+  - RoleBinding
+  multiplicity: sequence
+  reference_scope: execution
+  invariants:
+  - qualified_reference
+- id: fact_denotes
+  kind: qualified_proposition
+  direction: nary
+  endpoints:
+  - role: subject
+    concept: Entity
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: fact
+    concept: SemanticFact
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: object
+    concept: TypedValue
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: qualification
+    concept: Qualification
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: qualified
+  identity_roles:
+  - subject
+  - fact
+  - object
+  - qualification
+  identity_context:
+  - release
+  - realization
+  qualifications:
+  - Qualification
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - qualified_reference
+- id: occurrence_reports
+  kind: assertion
+  direction: nary
+  endpoints:
+  - role: occurrence
+    concept: AssertionOccurrence
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: fact
+    concept: SemanticFact
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: report
+    concept: SourceObservation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: occurrence
+  identity_roles:
+  - occurrence
+  - fact
+  - report
+  identity_context:
+  - release
+  - realization
+  qualifications:
+  - Qualification
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - qualified_reference
+  - source_authorization
+- id: occurrence_evidence
+  kind: evidence
+  direction: nary
+  endpoints:
+  - role: occurrence
+    concept: AssertionOccurrence
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: evidence
+    concept: Evidence
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: role
+    concept: OccurrenceEvidence
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - occurrence
+  - evidence
+  - role
+  identity_context:
+  - release
+  - realization
+  qualifications:
+  - EvidenceRole
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - source_authorization
+- id: fact_support
+  kind: support
+  direction: nary
+  endpoints:
+  - role: fact
+    concept: SemanticFact
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: occurrence
+    concept: AssertionOccurrence
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: support
+    concept: Support
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - fact
+  - occurrence
+  - support
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - source_authorization
+- id: membership_support
+  kind: support
+  direction: nary
+  endpoints:
+  - role: membership
+    concept: Membership
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: support
+    concept: MembershipSupport
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: occurrence
+    concept: AssertionOccurrence
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - membership
+  - support
+  - occurrence
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - source_authorization
+- id: entity_source
+  kind: support
+  direction: nary
+  endpoints:
+  - role: entity
+    concept: Entity
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: source
+    concept: SourceObservation
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: authorization
+    concept: EntitySource
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - entity
+  - source
+  - authorization
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - source_authorization
+- id: fact_selected
+  kind: selection
+  direction: directed
+  endpoints:
+  - role: selection
+    concept: Selection
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: fact
+    concept: SemanticFact
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - selection
+  - fact
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - scientific_selection
+- id: assessment_subjects
+  kind: assessment
+  direction: nary
+  endpoints:
+  - role: assessment
+    concept: Assessment
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: target
+    concept: AssessmentTarget
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: counterpart
+    concept: AssessmentCounterpart
+    minimum: 0
+    ordered: false
+    unresolved: true
+    unresolved_concept: ReferenceDescriptor
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - assessment
+  - target
+  - counterpart
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - qualified_reference
+  - scientific_selection
+- id: group_alternatives
+  kind: alternative
+  direction: directed
+  endpoints:
+  - role: group
+    concept: AlternativeGroup
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: fact
+    concept: SemanticFact
+    minimum: 2
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: unordered_distinct
+  identity_roles:
+  - group
+  - fact
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - alternative_identity
+- id: derivation_premises
+  kind: inference
+  direction: nary
+  endpoints:
+  - role: conclusion
+    concept: SemanticFact
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: derivation
+    concept: Derivation
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: rule
+    concept: InferenceRule
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: premise
+    concept: SemanticFact
+    minimum: 1
+    ordered: false
+    unresolved: false
+  - role: role
+    concept: DerivationPremise
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - conclusion
+  - derivation
+  - rule
+  - premise
+  - role
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - positive_grounding
+- id: entity_input
+  kind: input_lineage
+  direction: nary
+  endpoints:
+  - role: output
+    concept: Entity
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: input
+    concept: Entity
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: authorization
+    concept: EntityInput
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: run
+    concept: Run
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - output
+  - input
+  - authorization
+  - run
+  identity_context:
+  - input_release
+  - input_realization
+  - output_release
+  - output_realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: authorized_lineage
+  invariants:
+  - verified_lineage
+- id: fact_input
+  kind: input_lineage
+  direction: nary
+  endpoints:
+  - role: output
+    concept: SemanticFact
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: input
+    concept: SemanticFact
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: authorization
+    concept: FactInput
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: run
+    concept: Run
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - output
+  - input
+  - authorization
+  - run
+  identity_context:
+  - input_release
+  - input_realization
+  - output_release
+  - output_realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: authorized_lineage
+  invariants:
+  - verified_lineage
+- id: run_result
+  kind: completed_output
+  direction: nary
+  endpoints:
+  - role: run
+    concept: Run
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: cut
+    concept: FinalCut
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: result
+    concept: EvaluationResult
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: output
+    concept: Realization
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: receipt
+    concept: PublicationReceipt
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - run
+  - cut
+  - result
+  - output
+  - receipt
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - completed_result
+  - final_cut_barrier
+- id: realization_completed_result
+  kind: seal_predicate
+  direction: directed
+  endpoints:
+  - role: output
+    concept: Realization
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: result
+    concept: EvaluationResult
+    minimum: 0
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - output
+  - result
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - completed_result
+  - writable_output
+- id: query_snapshot
+  kind: snapshot
+  direction: nary
+  endpoints:
+  - role: query
+    concept: QueryDefinition
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: snapshot
+    concept: SnapshotBinding
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: handle
+    concept: QueryHandle
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: result
+    concept: QueryResult
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - query
+  - snapshot
+  - handle
+  - result
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - same_snapshot
+- id: query_explanation
+  kind: explanation
+  direction: nary
+  endpoints:
+  - role: explanation
+    concept: Explanation
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: fact
+    concept: SemanticFact
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: occurrence
+    concept: AssertionOccurrence
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: assessment
+    concept: Assessment
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: derivation
+    concept: Derivation
+    minimum: 0
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - explanation
+  - fact
+  - occurrence
+  - assessment
+  - derivation
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - same_snapshot
+  - qualified_reference
+- id: query_coverage
+  kind: coverage
+  direction: nary
+  endpoints:
+  - role: result
+    concept: QueryResult
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: knowledge
+    concept: QueryKnowledge
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: coverage
+    concept: SemanticCoverage
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: page
+    concept: PageCompleteness
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - result
+  - knowledge
+  - coverage
+  - page
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - coverage_lowering
+- id: captured_projection
+  kind: projection
+  direction: nary
+  endpoints:
+  - role: packet
+    concept: CapturedPacket
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: snapshot
+    concept: SnapshotBinding
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: profile
+    concept: ProjectionProfile
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: arithmetic
+    concept: ArithmeticProfile
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - packet
+  - snapshot
+  - profile
+  - arithmetic
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - same_snapshot
+  - projection_fidelity
+- id: candidate_projection
+  kind: projection
+  direction: nary
+  endpoints:
+  - role: candidate
+    concept: CandidateInput
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: cut
+    concept: InputCut
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: profile
+    concept: ProjectionProfile
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - candidate
+  - cut
+  - profile
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - projection_fidelity
+- id: analysis_result
+  kind: resource_lifetime
+  direction: nary
+  endpoints:
+  - role: scope
+    concept: AnalysisScope
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: result
+    concept: AnalysisResult
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: borrowed
+    concept: BorrowedResult
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: detached
+    concept: DetachedResult
+    minimum: 0
+    ordered: false
+    unresolved: false
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - scope
+  - result
+  - borrowed
+  - detached
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - analysis_lifetime
+- id: derived_publication
+  kind: publication
+  direction: nary
+  endpoints:
+  - role: intent
+    concept: SnapshotDerivedPublication
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: input
+    concept: SnapshotBinding
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: receipt
+    concept: PublicationReceipt
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - intent
+  - input
+  - receipt
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - derived_revision
+  - exact_replay
+- id: append_publication
+  kind: publication
+  direction: directed
+  endpoints:
+  - role: intent
+    concept: AppendPublication
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  - role: receipt
+    concept: PublicationReceipt
+    minimum: 1
+    ordered: false
+    unresolved: false
+    maximum: 1
+  cardinality_scope: per subject in the declared bound context
+  identity_kind: ordered_roles
+  identity_roles:
+  - intent
+  - receipt
+  identity_context:
+  - binding
+  qualifications: []
+  multiplicity: set
+  reference_scope: execution
+  invariants:
+  - exact_replay
+invariants:
+- id: qualified_reference
+  meaning: Persisted scoped references retain release and realization; no global local-key joins
+  subjects:
+  - Entity
+  - SemanticFact
+  - AssertionOccurrence
+  - AlternativeGroup
+  relationships:
+  - bundle_contains
+  - dependencies_capture
+  - release_prepared_from
+  - realization_interprets
+  - rendition_build
+  - rendition_segments
+  - run_rendition
+  - entity_membership
+  - value_member
+  - fact_denotes
+  - occurrence_reports
+  - assessment_subjects
+  - query_explanation
+  scope: relational
+  failure_code: execution.qualified_reference
+  implementation: publish
+  required_capability: execution.lifecycle.v1
+- id: exact_archive
+  meaning: Exact authored bytes and derived products reconstruct without latest defaults
+  subjects:
+  - Archive
+  - SemanticRelease
+  relationships:
+  - archive_preserves
+  scope: relational
+  failure_code: execution.exact_archive
+  implementation: reload
+- id: activation_cas
+  meaning: Expected parent and generation change the project pointer atomically
+  subjects:
+  - Project
+  - ActivationToken
+  relationships:
+  - project_selects
+  scope: lifecycle
+  failure_code: execution.activation_cas
+  implementation: activate
+  required_capability: execution.lifecycle.v1
+- id: immutable_binding
+  meaning: Run/invocation result-affecting input binding never changes
+  subjects:
+  - RunBinding
+  - TaskInvocation
+  relationships:
+  - run_consumes
+  - task_belongs
+  scope: lifecycle
+  failure_code: execution.immutable_binding
+  implementation: start_run
+  required_capability: execution.lifecycle.v1
+- id: reuse_origin
+  meaning: Reuse resolves one compatible completed done/empty non-reused origin
+  subjects:
+  - TaskInvocation
+  - InputCut
+  relationships:
+  - task_reuses
+  - cut_origin
+  scope: relational
+  failure_code: execution.reuse_origin
+  implementation: schedule
+  required_capability: execution.lifecycle.v1
+- id: attempt_fence
+  meaning: Current positive attempt and holder authorize work; expiry alone does not transfer ownership
+  subjects:
+  - TaskInvocation
+  - Attempt
+  - HeldSubmission
+  relationships:
+  - attempt_owns
+  - held_submission
+  scope: lifecycle
+  failure_code: execution.attempt_fence
+  implementation: claim
+  required_capability: execution.lifecycle.v1
+- id: terminal_result
+  meaning: Terminal task envelopes and outcome agree and are immutable
+  subjects:
+  - TaskInvocation
+  - TaskResultEnvelope
+  relationships:
+  - result_reports
+  scope: lifecycle
+  failure_code: execution.terminal_result
+  implementation: complete
+  required_capability: execution.lifecycle.v1
+- id: completed_source
+  meaning: Prior source reports are eligible completed inputs with typed roles
+  subjects:
+  - SourceObservation
+  - ObservationInput
+  relationships:
+  - observation_inputs
+  scope: relational
+  failure_code: execution.completed_source
+  implementation: complete_unit
+  required_capability: execution.lifecycle.v1
+- id: packet_reads
+  meaning: Packet identity, read obligations and source location checks precede submission
+  subjects:
+  - WorkPacket
+  - ReadObligation
+  - SubmissionResult
+  relationships:
+  - packet_obligations
+  - held_submission
+  scope: relational
+  failure_code: execution.packet_reads
+  implementation: locate
+- id: measurement_scope
+  meaning: Metric type, subject scope and producing method/input context agree; measurements do not assert
+    facts
+  subjects:
+  - MetricDefinition
+  - Measurement
+  - MeasurementSubject
+  relationships:
+  - measurement_context
+  scope: local
+  failure_code: execution.measurement_scope
+  implementation: complete_unit
+- id: final_cut_barrier
+  meaning: Final cut captures effective completed origins and atomically seals source production
+  subjects:
+  - Run
+  - InputCut
+  - FinalCut
+  relationships:
+  - cut_origin
+  - run_result
+  scope: lifecycle
+  failure_code: execution.final_cut_barrier
+  implementation: cut
+  required_capability: execution.lifecycle.v1
+- id: source_authorization
+  meaning: Published source evidence is within the selected cut and agrees with source placement/meaning
+  subjects:
+  - AssertionOccurrence
+  - Evidence
+  - Support
+  relationships:
+  - occurrence_reports
+  - occurrence_evidence
+  - fact_support
+  - membership_support
+  - entity_source
+  scope: relational
+  failure_code: execution.source_authorization
+  implementation: publish
+  required_capability: execution.lifecycle.v1
+- id: scientific_selection
+  meaning: Selection/comparison uses bound scientific policy, context and explicit uncertainty
+  subjects:
+  - Selection
+  - Assessment
+  - ScientificContext
+  relationships:
+  - fact_selected
+  - assessment_subjects
+  scope: scientific
+  failure_code: execution.scientific_selection
+  implementation: scientific_policy
+- id: alternative_identity
+  meaning: Alternative identity is distinct unordered scoped fact membership, with reason outside identity
+  subjects:
+  - AlternativeGroup
+  - SemanticFact
+  relationships:
+  - group_alternatives
+  scope: relational
+  failure_code: execution.alternative_identity
+  implementation: publish
+  required_capability: execution.lifecycle.v1
+- id: positive_grounding
+  meaning: Admitted positive rules and exact qualification ground finite proofs in eligible source/input
+    support
+  subjects:
+  - Derivation
+  - DerivationPremise
+  - InferenceRule
+  relationships:
+  - derivation_premises
+  scope: relational
+  failure_code: execution.positive_grounding
+  implementation: derive
+  required_capability: execution.lifecycle.v1
+- id: verified_lineage
+  meaning: Cross-realization lineage names exact authorized input/output bindings and never copies source
+    occurrences
+  subjects:
+  - EntityInput
+  - FactInput
+  - RunBinding
+  relationships:
+  - entity_input
+  - fact_input
+  scope: relational
+  failure_code: execution.verified_lineage
+  implementation: publish
+  required_capability: execution.lifecycle.v1
+- id: completed_result
+  meaning: Finished output, final cut, source/proof receipts and result pointer become visible atomically
+    and immutable
+  subjects:
+  - Run
+  - EvaluationResult
+  - PublicationReceipt
+  relationships:
+  - run_result
+  - realization_completed_result
+  scope: lifecycle
+  failure_code: execution.completed_result
+  implementation: evaluate
+  required_capability: execution.lifecycle.v1
+- id: writable_output
+  meaning: Writable realization has no completed EvaluationResult relationship; no independent mutable
+    seal flag
+  subjects:
+  - Realization
+  - EvaluationResult
+  relationships:
+  - realization_completed_result
+  scope: relational
+  failure_code: execution.writable_output
+  implementation: publish
+  required_capability: execution.lifecycle.v1
+- id: same_snapshot
+  meaning: All bound handles, references and captured relations share one explicit snapshot/revision
+  subjects:
+  - SnapshotBinding
+  - QueryHandle
+  - CapturedPacket
+  relationships:
+  - query_snapshot
+  - query_explanation
+  - captured_projection
+  scope: snapshot
+  failure_code: execution.same_snapshot
+  implementation: read
+- id: coverage_lowering
+  meaning: Coverage translation retains family/scope/reason; query page completeness cannot imply knowledge
+    completeness
+  subjects:
+  - SourceCoverage
+  - SemanticCoverage
+  - QueryKnowledge
+  - PageCompleteness
+  relationships:
+  - query_coverage
+  scope: relational
+  failure_code: execution.coverage_lowering
+  implementation: evaluate
+- id: projection_fidelity
+  meaning: Declared projection preserves scoped identity, collection/null and arithmetic interpretation
+  subjects:
+  - CapturedPacket
+  - CandidateInput
+  - ProjectionProfile
+  - ArithmeticProfile
+  relationships:
+  - captured_projection
+  - candidate_projection
+  scope: local
+  failure_code: execution.projection_fidelity
+  implementation: projection
+- id: analysis_lifetime
+  meaning: Scope owns borrowed resources; detached materialized values survive close; all teardowns attempted
+  subjects:
+  - AnalysisScope
+  - BorrowedResult
+  - DetachedResult
+  relationships:
+  - analysis_result
+  scope: resource
+  failure_code: execution.analysis_lifetime
+  implementation: analysis_close
+- id: derived_revision
+  meaning: Snapshot-derived publication requires exact unchanged input revision; stale computation must
+    recompute
+  subjects:
+  - SnapshotDerivedPublication
+  - SnapshotBinding
+  relationships:
+  - derived_publication
+  scope: snapshot
+  failure_code: execution.derived_revision
+  implementation: publish_arrow
+  required_capability: execution.lifecycle.v1
+- id: exact_replay
+  meaning: Same operation identity and bytes returns original receipt; conflicting content refuses
+  subjects:
+  - PublicationReceipt
+  - AppendPublication
+  - SnapshotDerivedPublication
+  relationships:
+  - derived_publication
+  - append_publication
+  scope: relational
+  failure_code: execution.exact_replay
+  implementation: publish
+  required_capability: execution.lifecycle.v1
+operations:
+- id: prepare
+  inputs: &id001
+  - SourceBundle
+  - ResolvedDependencies
+  - PreparationProfile
+  results: &id002
+  - PreparationResult
+  - SemanticRelease
+  applicability: []
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id003 []
+  outcomes:
+  - prepared
+  - invalid
+  - unsupported
+  - unresolved
+  outcome_domain: preparation
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: prepare
+  transitions: []
+  projections: []
+- id: archive
+  inputs: &id004
+  - SemanticRelease
+  results: &id005
+  - Archive
+  applicability:
+  - exact_archive
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id006
+  - persist_exact_archive
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: archive
+  transitions: []
+  projections: []
+- id: reload
+  inputs: &id007
+  - Archive
+  results: &id008
+  - SemanticRelease
+  applicability:
+  - exact_archive
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id009 []
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: reload
+  transitions: []
+  projections: []
+- id: activate
+  inputs: &id010
+  - Project
+  - SemanticRelease
+  - ActivationToken
+  results: &id011
+  - Project
+  - ActivationToken
+  applicability:
+  - activation_cas
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id012
+  - atomic_parent_generation_cas
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: activate
+  transitions: []
+  projections: []
+- id: construct_project
+  inputs: &id013
+  - Project
+  - SemanticRelease
+  results: &id014
+  - Project
+  - Realization
+  applicability:
+  - qualified_reference
+  - writable_output
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id015
+  - initialize_project_and_empty_writable_realization
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: project
+  transitions: []
+  projections: []
+- id: start_run
+  inputs: &id016
+  - RunBinding
+  results: &id017
+  - Run
+  applicability:
+  - immutable_binding
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id018
+  - construct_new_run
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: start_run
+  transitions: []
+  projections: []
+- id: configure_method
+  inputs: &id019
+  - MethodDefinition
+  - MethodConfiguration
+  results: &id020
+  - MethodDefinition
+  - MethodConfiguration
+  applicability:
+  - immutable_binding
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id021
+  - freeze_method_configuration
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: method
+  transitions: []
+  projections: []
+- id: schedule
+  inputs: &id022
+  - Run
+  - MethodDefinition
+  - MethodConfiguration
+  - TaskUnit
+  results: &id023
+  - TaskInvocation
+  applicability:
+  - immutable_binding
+  - reuse_origin
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id024
+  - schedule_pending_or_reused_or_skipped
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: schedule
+  transitions: []
+  projections: []
+- id: claim
+  inputs: &id025
+  - Run
+  - TaskInvocation
+  - Attempt
+  results: &id026
+  - TaskInvocation
+  - Attempt
+  applicability:
+  - attempt_fence
+  - immutable_binding
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id027
+  - atomic_attempt_holder_deadline_change
+  outcomes: &id115
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: claim
+  transitions:
+  - task_claim
+  - task_reclaim
+  - task_reclaim_held
+  projections: []
+- id: complete
+  inputs: &id028
+  - Run
+  - TaskInvocation
+  - Attempt
+  - TaskResultEnvelope
+  results: &id029
+  - TaskResultEnvelope
+  - SourceObservation
+  - SourceCoverage
+  applicability:
+  - attempt_fence
+  - terminal_result
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id030
+  - atomic_terminal_result_and_reports
+  outcomes: &id117
+  - done
+  - empty
+  - failed
+  outcome_domain: protocol
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: complete
+  transitions:
+  - task_complete
+  - task_complete_held
+  projections: []
+- id: complete_unit
+  inputs: &id031
+  - Run
+  - TaskInvocation
+  - Attempt
+  - TaskResultEnvelope
+  results: &id032
+  - TaskResultEnvelope
+  - SourceObservation
+  - Measurement
+  applicability:
+  - attempt_fence
+  - terminal_result
+  - completed_source
+  - measurement_scope
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id033
+  - persist_typed_source_and_measurement_reports
+  outcomes:
+  - done
+  - empty
+  - failed
+  outcome_domain: protocol
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: complete_unit
+  transitions: []
+  projections: []
+- id: hold_submission
+  inputs: &id034
+  - TaskInvocation
+  - Attempt
+  - WorkPacket
+  - SubmissionResult
+  results: &id035
+  - HeldSubmission
+  - SubmissionResult
+  applicability:
+  - attempt_fence
+  - packet_reads
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id036
+  - durable_checked_progress
+  - renew_deadline
+  outcomes: &id116
+  - held
+  - refused_context
+  outcome_domain: submission
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: hold
+  transitions:
+  - task_hold
+  - submission_hold
+  projections: []
+- id: capture_cut
+  inputs: &id037
+  - Run
+  - TaskInvocation
+  results: &id038
+  - InputCut
+  - FinalCut
+  applicability:
+  - final_cut_barrier
+  - reuse_origin
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id039
+  - immutable_cut
+  - final_cut_seals_source_atomically
+  outcomes: &id112
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: cut
+  transitions:
+  - run_final_cut
+  projections: []
+- id: execute_source
+  inputs: &id040
+  - Run
+  - MethodDefinition
+  - MethodConfiguration
+  - TaskUnit
+  results: &id041
+  - TaskResultEnvelope
+  - SourceObservation
+  - Measurement
+  applicability:
+  - immutable_binding
+  - attempt_fence
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id042
+  - source_execution
+  outcomes: &id111
+  - done
+  - empty
+  - failed
+  - skipped
+  - reused
+  - cancelled
+  outcome_domain: protocol
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: source_execution
+  transitions:
+  - run_start_source
+  projections: []
+- id: end_run
+  inputs: &id043
+  - Run
+  - TaskInvocation
+  results: &id044
+  - Run
+  - TaskInvocation
+  applicability:
+  - immutable_binding
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id045
+  - coordinated_run_and_task_terminalization
+  - retain_held_diagnostics
+  outcomes: &id114
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: end_run
+  transitions:
+  - run_fail_open
+  - run_fail_sealed
+  - task_cancel
+  - task_cancel_held
+  projections: []
+- id: register_document
+  inputs: &id046
+  - SourceArtifact
+  results: &id047
+  - Document
+  applicability: []
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id048
+  - preserve_original_bytes
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: register_document
+  transitions: []
+  projections: []
+- id: read_original
+  inputs: &id049
+  - Document
+  results: &id050
+  - SourceArtifact
+  applicability: []
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id051 []
+  outcomes:
+  - source_ready
+  - missing
+  - invalid
+  outcome_domain: read
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: read_original
+  transitions: []
+  projections: []
+- id: store_rendition
+  inputs: &id052
+  - Document
+  - Provider
+  - MethodConfiguration
+  - TaskInvocation
+  results: &id053
+  - Rendition
+  - RenditionBuild
+  - Segment
+  - Span
+  applicability:
+  - immutable_binding
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id054
+  - preserve_original_normalized_distinction
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: store_rendition
+  transitions: []
+  projections: []
+- id: read_rendition
+  inputs: &id055
+  - Rendition
+  results: &id056
+  - Rendition
+  - Segment
+  - Span
+  applicability: []
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id057 []
+  outcomes:
+  - source_ready
+  - missing
+  - invalid
+  outcome_domain: read
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: read_rendition
+  transitions: []
+  projections: []
+- id: bind_report
+  inputs: &id058
+  - TaskResultEnvelope
+  - SourceObservation
+  results: &id059
+  - TaskResultEnvelope
+  - SourceObservation
+  applicability:
+  - completed_source
+  - terminal_result
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id060 []
+  outcomes:
+  - done
+  - empty
+  - failed
+  outcome_domain: protocol
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: bind_report
+  transitions: []
+  projections: []
+- id: make_packet
+  inputs: &id061
+  - SourceFrame
+  - SnapshotBinding
+  results: &id062
+  - WorkPacket
+  - ReadObligation
+  applicability:
+  - same_snapshot
+  - packet_reads
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id063 []
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: packet
+  transitions: []
+  projections: []
+- id: check_submission
+  inputs: &id064
+  - WorkPacket
+  - Attempt
+  - SubmissionResult
+  results: &id065
+  - SubmissionResult
+  - SourceObservation
+  applicability:
+  - packet_reads
+  - attempt_fence
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id066 []
+  outcomes: &id118
+  - completed_accepted
+  - completed_refused
+  - refused_context
+  outcome_domain: submission
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: locate
+  transitions:
+  - submission_clean
+  - submission_resubmit
+  projections: []
+- id: assemble
+  inputs: &id067
+  - InputCut
+  - SourceObservation
+  - Qualification
+  results: &id068
+  - Entity
+  - SemanticFact
+  - AssertionOccurrence
+  - Support
+  applicability:
+  - qualified_reference
+  - source_authorization
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id069
+  - private_canonical_assembly
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: assemble
+  transitions: []
+  projections:
+  - occurrence
+  - fact
+- id: evaluate
+  inputs: &id070
+  - FinalCut
+  - RunBinding
+  - OperationPolicy
+  results: &id071
+  - EvaluationResult
+  - Realization
+  - PublicationReceipt
+  - Assessment
+  - Selection
+  - AlternativeGroup
+  applicability:
+  - final_cut_barrier
+  - source_authorization
+  - verified_lineage
+  - completed_result
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id072
+  - private_compute
+  - atomic_source_proof_result_publication
+  outcomes: &id113
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: evaluate
+  transitions:
+  - run_finish
+  - realization_complete
+  - result_publish
+  projections:
+  - candidate
+  - accepted
+- id: scientific_policy
+  inputs: &id073
+  - CandidateInput
+  - OperationPolicy
+  - ScientificContext
+  results: &id074
+  - Assessment
+  - Selection
+  - AlternativeGroup
+  applicability:
+  - scientific_selection
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id075 []
+  outcomes:
+  - accepted
+  - rejected
+  - candidate
+  - ambiguous
+  - equivalent
+  - different
+  - undecided
+  - unsupported
+  outcome_domain: scientific
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: scientific_policy
+  transitions: []
+  projections:
+  - candidate
+- id: derive
+  inputs: &id076
+  - SnapshotBinding
+  - InferenceRule
+  results: &id077
+  - Derivation
+  - SemanticFact
+  applicability:
+  - positive_grounding
+  - same_snapshot
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id078
+  - private_finite_positive_proof
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: derive
+  transitions: []
+  projections:
+  - accepted
+- id: publish_inference
+  inputs: &id079
+  - SnapshotBinding
+  - Derivation
+  results: &id080
+  - PublicationReceipt
+  applicability:
+  - positive_grounding
+  - exact_replay
+  - writable_output
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id081
+  - protected_proof_publication
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: publish_inference
+  transitions: []
+  projections: []
+- id: publish
+  inputs: &id082
+  - Realization
+  - Entity
+  - SemanticFact
+  - AssertionOccurrence
+  results: &id083
+  - PublicationReceipt
+  applicability:
+  - qualified_reference
+  - source_authorization
+  - writable_output
+  - exact_replay
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id084
+  - atomic_native_publication
+  - monotone_revision
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: publish
+  transitions: []
+  projections: []
+- id: admit
+  inputs: &id085
+  - SemanticRelease
+  results: &id086
+  - SemanticRelease
+  applicability:
+  - qualified_reference
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id087 []
+  outcomes:
+  - admissible
+  - unsupported
+  - unresolved
+  outcome_domain: admission
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: native_admission
+  transitions: []
+  projections: []
+- id: open_read
+  inputs: &id088
+  - Realization
+  results: &id089
+  - SnapshotBinding
+  - QueryHandle
+  applicability:
+  - same_snapshot
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id090 []
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: read
+  transitions: []
+  projections:
+  - occurrence
+  - fact
+  - accepted
+- id: query
+  inputs: &id091
+  - SnapshotBinding
+  - QueryDefinition
+  - QueryHandle
+  results: &id092
+  - QueryResult
+  - SemanticCoverage
+  - PageCompleteness
+  applicability:
+  - same_snapshot
+  - coverage_lowering
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id093 []
+  outcomes:
+  - observed
+  - absent
+  - unknown
+  outcome_domain: query_knowledge
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: query
+  transitions: []
+  projections:
+  - occurrence
+  - fact
+  - accepted
+- id: explain
+  inputs: &id094
+  - SnapshotBinding
+  - SemanticFact
+  results: &id095
+  - Explanation
+  applicability:
+  - same_snapshot
+  - qualified_reference
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id096 []
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: explain
+  transitions: []
+  projections:
+  - explanation
+- id: compile_projection
+  inputs: &id097
+  - SemanticRelease
+  - SnapshotBinding
+  results: &id098
+  - ProjectionProfile
+  - ArithmeticProfile
+  applicability:
+  - projection_fidelity
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id099 []
+  outcomes:
+  - compiled
+  - invalid
+  - unsupported
+  outcome_domain: projection
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact lexical/canonical value separate from DECIMAL(38,scale), HALF_EVEN, overflow/rounding
+    outcomes
+  implementation: projection
+  transitions: []
+  projections:
+  - captured
+- id: capture_analytics
+  inputs: &id100
+  - SnapshotBinding
+  - ProjectionProfile
+  - ArithmeticProfile
+  results: &id101
+  - CapturedPacket
+  applicability:
+  - same_snapshot
+  - projection_fidelity
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id102
+  - materialize_same_snapshot_before_source_close
+  outcomes:
+  - captured
+  - invalid
+  - unsupported
+  outcome_domain: projection
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: capture
+  transitions: []
+  projections:
+  - captured
+- id: open_analysis
+  inputs: &id103
+  - CapturedPacket
+  - CandidateInput
+  - ProjectionProfile
+  results: &id104
+  - AnalysisScope
+  - BorrowedResult
+  - DetachedResult
+  applicability:
+  - projection_fidelity
+  - analysis_lifetime
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id105
+  - own_engine_readers_registrations_scratch
+  outcomes:
+  - opened
+  - borrowed
+  - detached
+  - invalid
+  outcome_domain: resource
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: analysis
+  transitions: []
+  projections:
+  - captured
+  - candidate
+- id: close_analysis
+  inputs: &id106
+  - AnalysisScope
+  - AnalysisResult
+  results:
+  - AnalysisScope
+  applicability:
+  - analysis_lifetime
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id107
+  - attempt_every_owned_teardown
+  - preserve_failure_and_cancellation
+  outcomes:
+  - closed
+  - invalid
+  outcome_domain: resource
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: analysis_close
+  transitions:
+  - analysis_close_captured_none
+  - analysis_close_captured_borrowed
+  - analysis_close_captured_detached
+  - analysis_close_candidate_none
+  - analysis_close_candidate_borrowed
+  - analysis_close_candidate_detached
+  projections: []
+- id: publish_arrow
+  inputs: &id108
+  - AppendPublication
+  - SnapshotDerivedPublication
+  results: &id109
+  - PublicationReceipt
+  applicability:
+  - derived_revision
+  - exact_replay
+  - writable_output
+  universe: Exact explicit bound inputs; no ambient latest model
+  effects: &id110
+  - protected_copy_same_transaction
+  outcomes:
+  - applied
+  - replay
+  - conflict
+  - recompute_required
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact authored/canonical values; no implicit rounding
+  implementation: publish_arrow
+  transitions: []
+  projections:
+  - append
+  - snapshot_derived
+implementations:
+- id: prepare
+  owner: semantic.prepare
+  symbol: prepare_release
+  version: '1'
+  placement: pure
+  input_concepts: *id001
+  result_concepts: *id002
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id003
+  required_capabilities: []
+- id: archive
+  owner: semantic.releases
+  symbol: persist_release
+  version: '1'
+  placement: core
+  input_concepts: *id004
+  result_concepts: *id005
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id006
+  required_capabilities: []
+- id: reload
+  owner: semantic.releases
+  symbol: load_release
+  version: '1'
+  placement: core
+  input_concepts: *id007
+  result_concepts: *id008
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id009
+  required_capabilities: []
+- id: activate
+  owner: semantic.releases
+  symbol: activate_release
+  version: '1'
+  placement: core
+  input_concepts: *id010
+  result_concepts: *id011
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id012
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: project
+  owner: orchestrate.project
+  symbol: init_bound_project
+  version: '1'
+  placement: core
+  input_concepts: *id013
+  result_concepts: *id014
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id015
+  required_capabilities: []
+- id: start_run
+  owner: semantic.operations
+  symbol: create_run
+  version: '1'
+  placement: core
+  input_concepts: *id016
+  result_concepts: *id017
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id018
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: method
+  owner: semantic.operations
+  symbol: record_method
+  version: '1'
+  placement: core
+  input_concepts: *id019
+  result_concepts: *id020
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id021
+  required_capabilities: []
+- id: schedule
+  owner: semantic.operations
+  symbol: create_task
+  version: '1'
+  placement: core
+  input_concepts: *id022
+  result_concepts: *id023
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id024
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: claim
+  owner: semantic.operations
+  symbol: claim_tasks
+  version: '1'
+  placement: core
+  input_concepts: *id025
+  result_concepts: *id026
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id027
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: complete
+  owner: semantic.operations
+  symbol: complete_task
+  version: '1'
+  placement: core
+  input_concepts: *id028
+  result_concepts: *id029
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id030
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: complete_unit
+  owner: semantic.operations
+  symbol: complete_unit_result
+  version: '1'
+  placement: core
+  input_concepts: *id031
+  result_concepts: *id032
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id033
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: hold
+  owner: semantic.operations
+  symbol: hold_agent_result
+  version: '1'
+  placement: core
+  input_concepts: *id034
+  result_concepts: *id035
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id036
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: cut
+  owner: semantic.operations
+  symbol: seal_cut
+  version: '1'
+  placement: core
+  input_concepts: *id037
+  result_concepts: *id038
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id039
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: source_execution
+  owner: orchestrate.semantic
+  symbol: run_source_methods
+  version: '1'
+  placement: core
+  input_concepts: *id040
+  result_concepts: *id041
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id042
+  required_capabilities: []
+- id: end_run
+  owner: semantic.operations
+  symbol: end_source_run
+  version: '1'
+  placement: core
+  input_concepts: *id043
+  result_concepts: *id044
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id045
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: register_document
+  owner: semantic.operations
+  symbol: register_document
+  version: '1'
+  placement: core
+  input_concepts: *id046
+  result_concepts: *id047
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id048
+  required_capabilities: []
+- id: read_original
+  owner: semantic.operations
+  symbol: read_original
+  version: '1'
+  placement: core
+  input_concepts: *id049
+  result_concepts: *id050
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id051
+  required_capabilities: []
+- id: store_rendition
+  owner: semantic.operations
+  symbol: store_rendition
+  version: '1'
+  placement: core
+  input_concepts: *id052
+  result_concepts: *id053
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id054
+  required_capabilities: []
+- id: read_rendition
+  owner: semantic.operations
+  symbol: read_rendition
+  version: '1'
+  placement: core
+  input_concepts: *id055
+  result_concepts: *id056
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id057
+  required_capabilities: []
+- id: bind_report
+  owner: semantic.observations
+  symbol: bind_result
+  version: '1'
+  placement: pure
+  input_concepts: *id058
+  result_concepts: *id059
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id060
+  required_capabilities: []
+- id: packet
+  owner: semantic.proposals
+  symbol: proposal_packet
+  version: '1'
+  placement: pure
+  input_concepts: *id061
+  result_concepts: *id062
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id063
+  required_capabilities: []
+- id: locate
+  owner: semantic.proposals
+  symbol: locate_proposal
+  version: '1'
+  placement: pure
+  input_concepts: *id064
+  result_concepts: *id065
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id066
+  required_capabilities: []
+- id: assemble
+  owner: semantic.consolidation
+  symbol: assemble
+  version: '1'
+  placement: pure
+  input_concepts: *id067
+  result_concepts: *id068
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id069
+  required_capabilities: []
+- id: evaluate
+  owner: semantic.domain_operations
+  symbol: consolidate_cut
+  version: '1'
+  placement: core
+  input_concepts: *id070
+  result_concepts: *id071
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id072
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: scientific_policy
+  owner: semantic.domain_operations
+  symbol: ReleasedRulesPolicy.evaluate
+  version: '1'
+  placement: core
+  input_concepts: *id073
+  result_concepts: *id074
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id075
+  required_capabilities: []
+- id: derive
+  owner: semantic.inference
+  symbol: derive
+  version: '1'
+  placement: core
+  input_concepts: *id076
+  result_concepts: *id077
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id078
+  required_capabilities: []
+- id: publish_inference
+  owner: semantic.inference
+  symbol: publish_inference
+  version: '1'
+  placement: core
+  input_concepts: *id079
+  result_concepts: *id080
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id081
+  required_capabilities: []
+- id: publish
+  owner: semantic.publication
+  symbol: publish_batch
+  version: '1'
+  placement: core
+  input_concepts: *id082
+  result_concepts: *id083
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id084
+  required_capabilities:
+  - execution.lifecycle.v1
+- id: native_admission
+  owner: semantic.publication
+  symbol: admit_release
+  version: '1'
+  placement: core
+  input_concepts: *id085
+  result_concepts: *id086
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id087
+  required_capabilities: []
+- id: read
+  owner: semantic.query
+  symbol: read_session
+  version: '1'
+  placement: core
+  input_concepts: *id088
+  result_concepts: *id089
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id090
+  required_capabilities: []
+- id: query
+  owner: semantic.query
+  symbol: ReadSession.query
+  version: '1'
+  placement: core
+  input_concepts: *id091
+  result_concepts: *id092
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id093
+  required_capabilities: []
+- id: explain
+  owner: semantic.query
+  symbol: ReadSession.explain
+  version: '1'
+  placement: core
+  input_concepts: *id094
+  result_concepts: *id095
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id096
+  required_capabilities: []
+- id: projection
+  owner: semantic.analytics
+  symbol: compile_projection
+  version: '1'
+  placement: pure
+  input_concepts: *id097
+  result_concepts: *id098
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id099
+  required_capabilities: []
+- id: capture
+  owner: semantic.analytics
+  symbol: capture_packet
+  version: '1'
+  placement: core
+  input_concepts: *id100
+  result_concepts: *id101
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id102
+  required_capabilities: []
+- id: analysis
+  owner: semantic.analytics
+  symbol: AnalysisScope
+  version: '1'
+  placement: analytical
+  input_concepts: *id103
+  result_concepts: *id104
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id105
+  required_capabilities: []
+- id: analysis_close
+  owner: semantic.analytics
+  symbol: AnalysisScope.close
+  version: '1'
+  placement: analytical
+  input_concepts: *id106
+  result_concepts:
+  - AnalysisScope
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id107
+  required_capabilities: []
+- id: publish_arrow
+  owner: semantic.arrow_publication
+  symbol: publish_arrow
+  version: '1'
+  placement: core
+  input_concepts: *id108
+  result_concepts: *id109
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects: *id110
+  required_capabilities:
+  - execution.lifecycle.v1
+projections:
+- id: occurrence
+  sources:
+  - AssertionOccurrence
+  - SourceObservation
+  - Evidence
+  relationships:
+  - occurrence_reports
+  - occurrence_evidence
+  - fact_support
+  universe: Every independent source item in the declared query scope
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - input_provenance
+  omissions:
+  - accepted_truth
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
+    separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  completeness: Declared knowledge universe independent of output-page filtering
+  lifetime: snapshot
+  implementation: query
+- id: fact
+  sources:
+  - SemanticFact
+  - Qualification
+  relationships:
+  - fact_denotes
+  - fact_support
+  universe: Qualified canonical facts in the declared universe
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - input_provenance
+  omissions:
+  - source_item_deduplication_is_not_fact_identity
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
+    separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  completeness: Declared knowledge universe independent of output-page filtering
+  lifetime: snapshot
+  implementation: query
+- id: accepted
+  sources:
+  - SemanticFact
+  - Selection
+  - Derivation
+  relationships:
+  - fact_selected
+  - derivation_premises
+  universe: Eligible accepted positive projection with exact qualification
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - input_provenance
+  omissions:
+  - negative_hypothetical_premises
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
+    separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  completeness: Declared knowledge universe independent of output-page filtering
+  lifetime: snapshot
+  implementation: query
+- id: explanation
+  sources:
+  - Explanation
+  - SemanticFact
+  - AssertionOccurrence
+  - Assessment
+  - Derivation
+  relationships:
+  - query_explanation
+  - fact_support
+  - occurrence_evidence
+  - fact_input
+  universe: Same-snapshot source/input lineage and direct proof closure
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - input_provenance
+  omissions: []
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
+    separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  completeness: Declared knowledge universe independent of output-page filtering
+  lifetime: snapshot
+  implementation: explain
+- id: captured
+  sources:
+  - CapturedPacket
+  - SnapshotBinding
+  - ProjectionProfile
+  - ArithmeticProfile
+  relationships:
+  - captured_projection
+  universe: One repeatable PostgreSQL snapshot and full declared computation universe
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - input_provenance
+  omissions: []
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
+    separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  completeness: Declared knowledge universe independent of output-page filtering
+  lifetime: detached
+  implementation: capture
+- id: candidate
+  sources:
+  - CandidateInput
+  - InputCut
+  - Assessment
+  relationships:
+  - candidate_projection
+  universe: Cut-bound private source/decision candidates; no database snapshot claim
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - input_provenance
+  omissions: []
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
+    separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  completeness: Declared knowledge universe independent of output-page filtering
+  lifetime: scope
+  implementation: analysis
+- id: append
+  sources:
+  - AppendPublication
+  relationships:
+  - append_publication
+  universe: Exact append batch, no source-snapshot derivation claim
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - input_provenance
+  omissions:
+  - snapshot_derivation
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
+    separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  completeness: Declared knowledge universe independent of output-page filtering
+  lifetime: transaction
+  implementation: publish_arrow
+- id: snapshot_derived
+  sources:
+  - SnapshotDerivedPublication
+  - SnapshotBinding
+  relationships:
+  - derived_publication
+  universe: Exact captured input revision and operation/projection identity
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - input_provenance
+  omissions: []
+  precision: Exact canonical/source lexical values; analytical DECIMAL(38,scale) HALF_EVEN is an explicitly
+    separate projection
+  collections: Sequence positions, bag occurrence identity and map keys retained; no set coercion
+  completeness: Declared knowledge universe independent of output-page filtering
+  lifetime: transaction
+  implementation: publish_arrow
+lifecycles:
+- id: run
+  subject: Run
+  dimensions:
+  - id: status
+    values:
+    - created
+    - running
+    - consolidating
+    - finished
+    - failed
+    - cancelled
+  - id: final_cut
+    values:
+    - absent
+    - present
+  - id: completed_result
+    values:
+    - absent
+    - present
+  - id: receipts
+    values:
+    - absent
+    - present
+  states:
+  - id: created
+    values:
+    - dimension: status
+      value: created
+    - dimension: final_cut
+      value: absent
+    - dimension: completed_result
+      value: absent
+    - dimension: receipts
+      value: absent
+    terminal: false
+  - id: running
+    values:
+    - dimension: status
+      value: running
+    - dimension: final_cut
+      value: absent
+    - dimension: completed_result
+      value: absent
+    - dimension: receipts
+      value: absent
+    terminal: false
+  - id: consolidating
+    values:
+    - dimension: status
+      value: consolidating
+    - dimension: final_cut
+      value: present
+    - dimension: completed_result
+      value: absent
+    - dimension: receipts
+      value: absent
+    terminal: false
+  - id: finished
+    values:
+    - dimension: status
+      value: finished
+    - dimension: final_cut
+      value: present
+    - dimension: completed_result
+      value: present
+    - dimension: receipts
+      value: present
+    terminal: true
+  - id: failed_open
+    values:
+    - dimension: status
+      value: failed
+    - dimension: final_cut
+      value: absent
+    - dimension: completed_result
+      value: absent
+    - dimension: receipts
+      value: absent
+    terminal: true
+  - id: failed_sealed
+    values:
+    - dimension: status
+      value: failed
+    - dimension: final_cut
+      value: present
+    - dimension: completed_result
+      value: absent
+    - dimension: receipts
+      value: absent
+    terminal: true
+  - id: cancelled_open
+    values:
+    - dimension: status
+      value: cancelled
+    - dimension: final_cut
+      value: absent
+    - dimension: completed_result
+      value: absent
+    - dimension: receipts
+      value: absent
+    terminal: true
+  - id: cancelled_sealed
+    values:
+    - dimension: status
+      value: cancelled
+    - dimension: final_cut
+      value: present
+    - dimension: completed_result
+      value: absent
+    - dimension: receipts
+      value: absent
+    terminal: true
+  initial_states:
+  - created
+  transitions:
+  - run_start_source
+  - run_final_cut
+  - run_finish
+  - run_fail_open
+  - run_fail_sealed
+  invariants:
+  - immutable_binding
+  - final_cut_barrier
+  - completed_result
+- id: task
+  subject: TaskInvocation
+  dimensions:
+  - id: status
+    values:
+    - pending
+    - awaiting_agent
+    - running
+    - done
+    - empty
+    - failed
+    - reused
+    - skipped
+    - cancelled
+  - id: attempt_owner
+    values:
+    - absent
+    - current
+  - id: submission_progress
+    values:
+    - none
+    - held
+  - id: terminal_result
+    values:
+    - none
+    - content
+    - empty
+    - failure
+    - origin
+    - reason
+    - cancelled
+  - id: reuse_origin
+    values:
+    - none
+    - completed
+  states:
+  - id: pending
+    values:
+    - dimension: status
+      value: pending
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: none
+    - dimension: reuse_origin
+      value: none
+    terminal: false
+  - id: awaiting_agent
+    values:
+    - dimension: status
+      value: awaiting_agent
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: none
+    - dimension: reuse_origin
+      value: none
+    terminal: false
+  - id: running
+    values:
+    - dimension: status
+      value: running
+    - dimension: attempt_owner
+      value: current
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: none
+    - dimension: reuse_origin
+      value: none
+    terminal: false
+  - id: running_held
+    values:
+    - dimension: status
+      value: running
+    - dimension: attempt_owner
+      value: current
+    - dimension: submission_progress
+      value: held
+    - dimension: terminal_result
+      value: none
+    - dimension: reuse_origin
+      value: none
+    terminal: false
+  - id: done
+    values:
+    - dimension: status
+      value: done
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: content
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: done_held
+    values:
+    - dimension: status
+      value: done
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: held
+    - dimension: terminal_result
+      value: content
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: empty
+    values:
+    - dimension: status
+      value: empty
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: empty
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: empty_held
+    values:
+    - dimension: status
+      value: empty
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: held
+    - dimension: terminal_result
+      value: empty
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: failed
+    values:
+    - dimension: status
+      value: failed
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: failure
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: failed_held
+    values:
+    - dimension: status
+      value: failed
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: held
+    - dimension: terminal_result
+      value: failure
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: reused
+    values:
+    - dimension: status
+      value: reused
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: origin
+    - dimension: reuse_origin
+      value: completed
+    terminal: true
+  - id: skipped
+    values:
+    - dimension: status
+      value: skipped
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: reason
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: skipped_held
+    values:
+    - dimension: status
+      value: skipped
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: held
+    - dimension: terminal_result
+      value: reason
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: cancelled
+    values:
+    - dimension: status
+      value: cancelled
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: none
+    - dimension: terminal_result
+      value: cancelled
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  - id: cancelled_held
+    values:
+    - dimension: status
+      value: cancelled
+    - dimension: attempt_owner
+      value: absent
+    - dimension: submission_progress
+      value: held
+    - dimension: terminal_result
+      value: cancelled
+    - dimension: reuse_origin
+      value: none
+    terminal: true
+  initial_states:
+  - pending
+  - awaiting_agent
+  - reused
+  - skipped
+  transitions:
+  - task_claim
+  - task_reclaim
+  - task_reclaim_held
+  - task_hold
+  - task_complete
+  - task_complete_held
+  - task_cancel
+  - task_cancel_held
+  invariants:
+  - attempt_fence
+  - terminal_result
+  - immutable_binding
+  - reuse_origin
+- id: submission
+  subject: SubmissionResult
+  dimensions:
+  - id: progress
+    values:
+    - none
+    - held
+  - id: disposition
+    values:
+    - none
+    - held
+    - completed_accepted
+    - completed_refused
+    - refused_context
+  states:
+  - id: new
+    values:
+    - dimension: progress
+      value: none
+    - dimension: disposition
+      value: none
+    terminal: false
+  - id: held
+    values:
+    - dimension: progress
+      value: held
+    - dimension: disposition
+      value: held
+    terminal: false
+  - id: clean
+    values:
+    - dimension: progress
+      value: none
+    - dimension: disposition
+      value: completed_accepted
+    terminal: true
+  - id: accepted
+    values:
+    - dimension: progress
+      value: held
+    - dimension: disposition
+      value: completed_accepted
+    terminal: true
+  - id: refused
+    values:
+    - dimension: progress
+      value: held
+    - dimension: disposition
+      value: completed_refused
+    terminal: true
+  - id: context_refused
+    values:
+    - dimension: progress
+      value: none
+    - dimension: disposition
+      value: refused_context
+    terminal: true
+  initial_states:
+  - new
+  transitions:
+  - submission_hold
+  - submission_clean
+  - submission_resubmit
+  invariants:
+  - attempt_fence
+  - packet_reads
+- id: cut
+  subject: InputCut
+  dimensions:
+  - id: kind
+    values:
+    - nonfinal
+    - final
+  - id: source_tasks
+    values:
+    - live
+    - terminal
+  states:
+  - id: nonfinal_live
+    values:
+    - dimension: kind
+      value: nonfinal
+    - dimension: source_tasks
+      value: live
+    terminal: true
+  - id: nonfinal_terminal
+    values:
+    - dimension: kind
+      value: nonfinal
+    - dimension: source_tasks
+      value: terminal
+    terminal: true
+  - id: final
+    values:
+    - dimension: kind
+      value: final
+    - dimension: source_tasks
+      value: terminal
+    terminal: true
+  initial_states:
+  - nonfinal_live
+  - nonfinal_terminal
+  - final
+  transitions: []
+  invariants:
+  - final_cut_barrier
+- id: realization
+  subject: Realization
+  dimensions:
+  - id: completed_result
+    values:
+    - absent
+    - present
+  - id: writability
+    values:
+    - writable
+    - sealed
+  states:
+  - id: writable
+    values:
+    - dimension: completed_result
+      value: absent
+    - dimension: writability
+      value: writable
+    terminal: false
+  - id: completed
+    values:
+    - dimension: completed_result
+      value: present
+    - dimension: writability
+      value: sealed
+    terminal: true
+  initial_states:
+  - writable
+  transitions:
+  - realization_complete
+  invariants:
+  - writable_output
+  - completed_result
+- id: evaluation_result
+  subject: EvaluationResult
+  dimensions:
+  - id: visibility
+    values:
+    - private
+    - completed
+  - id: receipt_set
+    values:
+    - incomplete
+    - complete
+  states:
+  - id: private
+    values:
+    - dimension: visibility
+      value: private
+    - dimension: receipt_set
+      value: incomplete
+    terminal: false
+  - id: completed
+    values:
+    - dimension: visibility
+      value: completed
+    - dimension: receipt_set
+      value: complete
+    terminal: true
+  initial_states:
+  - private
+  transitions:
+  - result_publish
+  invariants:
+  - completed_result
+- id: analysis
+  subject: AnalysisScope
+  dimensions:
+  - id: input_kind
+    values:
+    - captured
+    - candidate
+  - id: scope_lifetime
+    values:
+    - open
+    - closed
+  - id: result_lifetime
+    values:
+    - none
+    - borrowed
+    - detached
+    - invalidated
+  states:
+  - id: captured_open_none
+    values:
+    - dimension: input_kind
+      value: captured
+    - dimension: scope_lifetime
+      value: open
+    - dimension: result_lifetime
+      value: none
+    terminal: false
+  - id: captured_open_borrowed
+    values:
+    - dimension: input_kind
+      value: captured
+    - dimension: scope_lifetime
+      value: open
+    - dimension: result_lifetime
+      value: borrowed
+    terminal: false
+  - id: captured_open_detached
+    values:
+    - dimension: input_kind
+      value: captured
+    - dimension: scope_lifetime
+      value: open
+    - dimension: result_lifetime
+      value: detached
+    terminal: false
+  - id: captured_closed_none
+    values:
+    - dimension: input_kind
+      value: captured
+    - dimension: scope_lifetime
+      value: closed
+    - dimension: result_lifetime
+      value: none
+    terminal: true
+  - id: captured_closed_detached
+    values:
+    - dimension: input_kind
+      value: captured
+    - dimension: scope_lifetime
+      value: closed
+    - dimension: result_lifetime
+      value: detached
+    terminal: true
+  - id: captured_closed_invalidated
+    values:
+    - dimension: input_kind
+      value: captured
+    - dimension: scope_lifetime
+      value: closed
+    - dimension: result_lifetime
+      value: invalidated
+    terminal: true
+  - id: candidate_open_none
+    values:
+    - dimension: input_kind
+      value: candidate
+    - dimension: scope_lifetime
+      value: open
+    - dimension: result_lifetime
+      value: none
+    terminal: false
+  - id: candidate_open_borrowed
+    values:
+    - dimension: input_kind
+      value: candidate
+    - dimension: scope_lifetime
+      value: open
+    - dimension: result_lifetime
+      value: borrowed
+    terminal: false
+  - id: candidate_open_detached
+    values:
+    - dimension: input_kind
+      value: candidate
+    - dimension: scope_lifetime
+      value: open
+    - dimension: result_lifetime
+      value: detached
+    terminal: false
+  - id: candidate_closed_none
+    values:
+    - dimension: input_kind
+      value: candidate
+    - dimension: scope_lifetime
+      value: closed
+    - dimension: result_lifetime
+      value: none
+    terminal: true
+  - id: candidate_closed_detached
+    values:
+    - dimension: input_kind
+      value: candidate
+    - dimension: scope_lifetime
+      value: closed
+    - dimension: result_lifetime
+      value: detached
+    terminal: true
+  - id: candidate_closed_invalidated
+    values:
+    - dimension: input_kind
+      value: candidate
+    - dimension: scope_lifetime
+      value: closed
+    - dimension: result_lifetime
+      value: invalidated
+    terminal: true
+  initial_states:
+  - captured_open_none
+  - captured_open_borrowed
+  - captured_open_detached
+  - candidate_open_none
+  - candidate_open_borrowed
+  - candidate_open_detached
+  transitions:
+  - analysis_close_captured_none
+  - analysis_close_captured_borrowed
+  - analysis_close_captured_detached
+  - analysis_close_candidate_none
+  - analysis_close_candidate_borrowed
+  - analysis_close_candidate_detached
+  invariants:
+  - analysis_lifetime
+  - projection_fidelity
+transitions:
+- id: run_start_source
+  lifecycle: run
+  operation: execute_source
+  from_states:
+  - created
+  to_states:
+  - running
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - immutable_binding
+  effects: []
+  outcomes: *id111
+- id: run_final_cut
+  lifecycle: run
+  operation: capture_cut
+  from_states:
+  - created
+  - running
+  to_states:
+  - consolidating
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - final_cut_barrier
+  effects:
+  - capture_final_cut
+  - seal_source_production
+  outcomes: *id112
+- id: run_finish
+  lifecycle: run
+  operation: evaluate
+  from_states:
+  - consolidating
+  to_states:
+  - finished
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - completed_result
+  - final_cut_barrier
+  effects:
+  - publish_receipts_and_completed_result_atomically
+  outcomes: *id113
+- id: run_fail_open
+  lifecycle: run
+  operation: end_run
+  from_states:
+  - created
+  - running
+  to_states:
+  - failed_open
+  - cancelled_open
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - immutable_binding
+  effects: []
+  outcomes: *id114
+- id: run_fail_sealed
+  lifecycle: run
+  operation: end_run
+  from_states:
+  - consolidating
+  to_states:
+  - failed_sealed
+  - cancelled_sealed
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - immutable_binding
+  effects: []
+  outcomes: *id114
+- id: task_claim
+  lifecycle: task
+  operation: claim
+  from_states:
+  - pending
+  - awaiting_agent
+  to_states:
+  - running
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects: []
+  outcomes: *id115
+- id: task_reclaim
+  lifecycle: task
+  operation: claim
+  from_states:
+  - running
+  to_states:
+  - running
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects: []
+  outcomes: *id115
+- id: task_reclaim_held
+  lifecycle: task
+  operation: claim
+  from_states:
+  - running_held
+  to_states:
+  - running_held
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects: []
+  outcomes: *id115
+- id: task_hold
+  lifecycle: task
+  operation: hold_submission
+  from_states:
+  - running
+  to_states:
+  - running_held
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - packet_reads
+  effects: []
+  outcomes: *id116
+- id: task_complete
+  lifecycle: task
+  operation: complete
+  from_states:
+  - running
+  to_states:
+  - done
+  - empty
+  - failed
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - terminal_result
+  effects: []
+  outcomes: *id117
+- id: task_complete_held
+  lifecycle: task
+  operation: complete
+  from_states:
+  - running_held
+  to_states:
+  - done_held
+  - empty_held
+  - failed_held
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - terminal_result
+  effects: []
+  outcomes: *id117
+- id: task_cancel
+  lifecycle: task
+  operation: end_run
+  from_states:
+  - pending
+  - awaiting_agent
+  - running
+  to_states:
+  - cancelled
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects: []
+  outcomes: *id114
+- id: task_cancel_held
+  lifecycle: task
+  operation: end_run
+  from_states:
+  - running_held
+  to_states:
+  - cancelled_held
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  effects: []
+  outcomes: *id114
+- id: submission_hold
+  lifecycle: submission
+  operation: hold_submission
+  from_states:
+  - new
+  to_states:
+  - held
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - packet_reads
+  effects: []
+  outcomes: *id116
+- id: submission_clean
+  lifecycle: submission
+  operation: check_submission
+  from_states:
+  - new
+  to_states:
+  - clean
+  - context_refused
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - packet_reads
+  effects: []
+  outcomes: *id118
+- id: submission_resubmit
+  lifecycle: submission
+  operation: check_submission
+  from_states:
+  - held
+  to_states:
+  - accepted
+  - refused
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - attempt_fence
+  - packet_reads
+  effects: []
+  outcomes: *id118
+- id: realization_complete
+  lifecycle: realization
+  operation: evaluate
+  from_states:
+  - writable
+  to_states:
+  - completed
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - writable_output
+  - completed_result
+  effects: []
+  outcomes: *id113
+- id: result_publish
+  lifecycle: evaluation_result
+  operation: evaluate
+  from_states:
+  - private
+  to_states:
+  - completed
+  immutable_bindings:
+  - release
+  - input_revision
+  - method_configuration
+  - invocation_identity
+  invariants:
+  - completed_result
+  effects: []
+  outcomes: *id113
+- id: analysis_close_captured_none
+  lifecycle: analysis
+  operation: close_analysis
+  from_states:
+  - captured_open_none
+  to_states:
+  - captured_closed_none
+  immutable_bindings:
+  - input_binding
+  - projection
+  - scope_identity
+  invariants:
+  - analysis_lifetime
+  effects:
+  - release_owned_resources
+  - preserve_existing_detached_values
+  outcomes:
+  - closed
+  - invalid
+- id: analysis_close_captured_borrowed
+  lifecycle: analysis
+  operation: close_analysis
+  from_states:
+  - captured_open_borrowed
+  to_states:
+  - captured_closed_invalidated
+  immutable_bindings:
+  - input_binding
+  - projection
+  - scope_identity
+  invariants:
+  - analysis_lifetime
+  effects:
+  - release_owned_resources
+  - preserve_existing_detached_values
+  outcomes:
+  - closed
+  - invalid
+- id: analysis_close_captured_detached
+  lifecycle: analysis
+  operation: close_analysis
+  from_states:
+  - captured_open_detached
+  to_states:
+  - captured_closed_detached
+  immutable_bindings:
+  - input_binding
+  - projection
+  - scope_identity
+  invariants:
+  - analysis_lifetime
+  effects:
+  - release_owned_resources
+  - preserve_existing_detached_values
+  outcomes:
+  - closed
+  - invalid
+- id: analysis_close_candidate_none
+  lifecycle: analysis
+  operation: close_analysis
+  from_states:
+  - candidate_open_none
+  to_states:
+  - candidate_closed_none
+  immutable_bindings:
+  - input_binding
+  - projection
+  - scope_identity
+  invariants:
+  - analysis_lifetime
+  effects:
+  - release_owned_resources
+  - preserve_existing_detached_values
+  outcomes:
+  - closed
+  - invalid
+- id: analysis_close_candidate_borrowed
+  lifecycle: analysis
+  operation: close_analysis
+  from_states:
+  - candidate_open_borrowed
+  to_states:
+  - candidate_closed_invalidated
+  immutable_bindings:
+  - input_binding
+  - projection
+  - scope_identity
+  invariants:
+  - analysis_lifetime
+  effects:
+  - release_owned_resources
+  - preserve_existing_detached_values
+  outcomes:
+  - closed
+  - invalid
+- id: analysis_close_candidate_detached
+  lifecycle: analysis
+  operation: close_analysis
+  from_states:
+  - candidate_open_detached
+  to_states:
+  - candidate_closed_detached
+  immutable_bindings:
+  - input_binding
+  - projection
+  - scope_identity
+  invariants:
+  - analysis_lifetime
+  effects:
+  - release_owned_resources
+  - preserve_existing_detached_values
+  outcomes:
+  - closed
+  - invalid
+outcome_domains:
+- id: preparation
+  authority: code
+  values:
+  - prepared
+  - invalid
+  - unsupported
+  - unresolved
+- id: protocol
+  authority: code
+  values:
+  - done
+  - empty
+  - failed
+  - reused
+  - skipped
+  - cancelled
+- id: submission
+  authority: code
+  values:
+  - held
+  - completed_accepted
+  - completed_refused
+  - refused_context
+- id: source_coverage
+  authority: code
+  values:
+  - complete
+  - partial
+  - unknown
+  - unsupported
+  - failed
+- id: semantic_coverage
+  authority: code
+  values:
+  - complete
+  - partial
+  - unanalysed
+  - failed
+- id: scientific
+  authority: code
+  values:
+  - accepted
+  - rejected
+  - candidate
+  - ambiguous
+  - equivalent
+  - different
+  - undecided
+  - unsupported
+  - warning
+  - refuted
+- id: query_knowledge
+  authority: code
+  values:
+  - observed
+  - absent
+  - unknown
+- id: query_page
+  authority: code
+  values:
+  - complete
+  - partial
+- id: read
+  authority: code
+  values:
+  - source_ready
+  - missing
+  - invalid
+  - unsupported
+- id: transaction
+  authority: code
+  values:
+  - applied
+  - replay
+  - conflict
+  - stale_binding
+  - run_closed
+  - recompute_required
+  - infrastructure_failure
+- id: resource
+  authority: code
+  values:
+  - opened
+  - closed
+  - borrowed
+  - detached
+  - invalid
+- id: projection
+  authority: code
+  values:
+  - compiled
+  - captured
+  - invalid
+  - unsupported
+- id: admission
+  authority: code
+  values:
+  - admissible
+  - unsupported
+  - unresolved
+- id: domain_policy
+  authority: release
+  values: []
+outcome_translations:
+- source_domain: source_coverage
+  source: complete
+  target_domain: semantic_coverage
+  target: complete
+  retained_meaning: Same family/scope and completed transformation obligations only
+  invariant: coverage_lowering
+- source_domain: source_coverage
+  source: partial
+  target_domain: semantic_coverage
+  target: partial
+  retained_meaning: Covered/uncovered or uncertain scope and reason
+  invariant: coverage_lowering
+- source_domain: source_coverage
+  source: unknown
+  target_domain: semantic_coverage
+  target: unanalysed
+  retained_meaning: Originating unknown outcome and reason
+  invariant: coverage_lowering
+- source_domain: source_coverage
+  source: unsupported
+  target_domain: semantic_coverage
+  target: unanalysed
+  retained_meaning: Unsupported operation/construct and required capability
+  invariant: coverage_lowering
+- source_domain: source_coverage
+  source: failed
+  target_domain: semantic_coverage
+  target: failed
+  retained_meaning: Typed source failure and affected scope
+  invariant: coverage_lowering

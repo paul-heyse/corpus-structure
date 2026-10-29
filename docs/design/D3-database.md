@@ -40,6 +40,15 @@ probe Q-3 and package P0-M-2). Once the generated rendering exists, this documen
 revision and keeps only the explanatory prose. Column comments that would repeat D1 are omitted.
 > Decision: [ADR-0020](../adr/0020-one-model-generated-projections.md), [ADR-0021](../adr/0021-instance-and-structure-authorities.md)
 
+## Composed-model admission fence
+
+**Implemented source, 2026-10-29; native verification belongs to SP-C02.** Migration
+semantic_0022 prevents direct realization creation/rebinding under semantic-2 while required
+execution lifecycle enforcement is unavailable. This complements Python activation admission;
+archiving a candidate does not permit bypass through direct realization insertion and native
+publication. SP-C03 replaces this refusal with actual trusted enforcement before admission
+closure. Existing semantic-1 publication and immutable migration history remain intact.
+
 ## 1. Choices
 
 | Need | Choice | Why not the alternatives |
