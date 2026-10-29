@@ -315,7 +315,7 @@ def test_identity_exclusions_locate_and_bind_endpoints():
         "evidence": [{"sentence": "s1", "quote": "Alice is here.", "role": "primary"}]}]
     result = locate_proposal(release, proposal, frame())
     assert result.clean
-    assert result.stored.identity_exclusions[0].evidence[0].outcome == "located"
+    assert result.stored.model_dump()["identity_exclusions"][0]["evidence"][0]["outcome"] == "located"
     proposal["identity_exclusions"][0]["right"]["target"] = "missing"
     with pytest.raises(ProposalRefused, match="outside the bound packet"):
         locate_proposal(release, proposal, frame())
