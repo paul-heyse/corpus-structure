@@ -30,6 +30,7 @@ class SourceItem:
     item: str
     establishment: str
     evidence: tuple[EvidenceRow, ...]
+    qualification_class: str = "Qualification"
 
 
 def assemble(
@@ -121,10 +122,11 @@ def assemble(
         definition = definitions[item.class_name]
         prop = next(p for p in definition.properties if p.name == item.property_name)
         obj = prepared.property_adapter(item.class_name, item.property_name, item=prop.multivalued).validate_python(item.object, strict=True)
-        qualification = prepared.validate_python('Qualification', item.qualification)
+        prepared.qualification_definition(item.qualification_class)
+        qualification = prepared.validate_python(item.qualification_class, item.qualification)
         object_id = lower(obj, prop.range, prop.inlined)
-        qualification_id = lower(qualification, 'Qualification', True)
-        fact_id = prepared.fact_identity(realization_id, item.subject, prop.iri, plain(obj), plain(qualification))
+        qualification_id = lower(qualification, item.qualification_class, True)
+        fact_id = prepared.fact_identity(realization_id, item.subject, prop.iri, plain(obj), plain(qualification), qualification_class=item.qualification_class)
         occurrence_id = occurrence_key(prepared.release_id, realization_id, item.source, item.item)
         occurrence = OccurrenceRow(occurrence_id, fact_id, item.source, item.item, object_id, qualification_id)
         if occurrence_id in occurrences and occurrences[occurrence_id] != occurrence:
