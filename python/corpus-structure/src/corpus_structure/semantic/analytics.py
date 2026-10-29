@@ -465,6 +465,9 @@ def _cleanup_after_failure(error: BaseException, cleanup: Callable[[], None]) ->
         if not isinstance(error, Exception):
             error.add_note(f"analysis cleanup also failed: {failure!r}")
             raise error
+        if not isinstance(failure, Exception):
+            failure.add_note(f"analysis also failed: {error!r}")
+            raise failure from error
         raise BaseExceptionGroup("analysis and cleanup failed", [error, failure]) from None
 
 
