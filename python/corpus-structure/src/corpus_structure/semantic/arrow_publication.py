@@ -75,16 +75,24 @@ def _encoder(name: str, schema: pa.Schema) -> ArrowToPostgresBinaryEncoder:
     return encoder
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ArrowPublicationBatch:
     release_id: str
     realization_id: str
     batch_id: str
-    relations: Mapping[str, pa.Table | tuple[pa.RecordBatch, ...]]
+    relations: Mapping[str, pa.Table]
     expected_data_revision: int | None = None
     _content: bytes = field(init=False, repr=False)
 
-    def __post_init__(self) -> None:
+    def __init__(
+        self, release_id: str, realization_id: str, batch_id: str,
+        relations: Mapping[str, pa.Table | tuple[pa.RecordBatch, ...]],
+        expected_data_revision: int | None = None,
+    ) -> None:
+        object.__setattr__(self, "release_id", release_id)
+        object.__setattr__(self, "realization_id", realization_id)
+        object.__setattr__(self, "batch_id", batch_id)
+        object.__setattr__(self, "expected_data_revision", expected_data_revision)
         if any(type(v) is not str or not v for v in
                (self.release_id, self.realization_id, self.batch_id)):
             raise ArrowPublicationError("publication requires release, realization and batch identity")
@@ -92,13 +100,13 @@ class ArrowPublicationBatch:
             type(self.expected_data_revision) is not int or self.expected_data_revision < 0
         ):
             raise ArrowPublicationError("expected revision must be a nonnegative integer")
-        unknown = self.relations.keys() - STAGE_TYPES.keys()
+        unknown = relations.keys() - STAGE_TYPES.keys()
         if unknown:
             raise ArrowPublicationError(f"unknown staging relations: {sorted(unknown)}")
         frozen = {}
         body = {}
         for name in STAGE_TYPES:
-            source = self.relations.get(name)
+            source = relations.get(name)
             if source is None:
                 value = pa.Table.from_batches([], schema=stage_schema(name))
             elif isinstance(source, pa.Table):
@@ -158,11 +166,17 @@ class ArrowPublicationBatch:
             if name == "typed_value":
                 for column in ("integer_value", "numeric_value"):
                     candidates = [Decimal(r[column]) for r in rows if r[column] is not None]
-                    scale = max((max(-v.as_tuple().exponent, 0) for v in candidates), default=0)
-                    # A shared scale must fit every value exactly; values beyond it retain
-                    # only lexical meaning. Never invoke context-sensitive Decimal rounding.
-                    if scale > 38:
-                        scale = 0
+                    scales = []
+                    for value in candidates:
+                        exponent = value.as_tuple().exponent
+                        if not isinstance(exponent, int):
+                            raise ArrowPublicationError("non-finite numeric projection")
+                        scale = max(-exponent, 0)
+                        if max(len(value.as_tuple().digits) + exponent, 0) + scale <= 38:
+                            scales.append(scale)
+                    scale = max(scales, default=0)
+                    # Individually out-of-profile values do not force exact smaller
+                    # values to lose their projection. Shared-scale overflow is NULL.
                     decimal_type = pa.decimal128(38, scale)
                     decimals[column] = decimal_type
                     for row in rows:
@@ -170,6 +184,8 @@ class ArrowPublicationBatch:
                             try:
                                 pa.scalar(row[column], type=decimal_type)
                             except (pa.ArrowInvalid, OverflowError):
+                                if column == "integer_value" and row["text_value"] is None:
+                                    row["text_value"] = str(row[column])
                                 row[column] = None
             relations[name] = pa.Table.from_pylist(rows, schema=stage_schema(name, decimals=decimals))
         return cls(batch.release_id, batch.realization_id, batch.batch_id, relations,
@@ -200,7 +216,7 @@ def publish_arrow_on_connection(connection: Connection, batch: ArrowPublicationB
     """Stage and publish without committing the SQLAlchemy-owned transaction."""
     stage_arrow(connection, batch)
     function = "data.publish_batch(:r,:z,:b,:c)"
-    params = {"r": batch.release_id, "z": batch.realization_id,
+    params: dict[str, str | bytes | int] = {"r": batch.release_id, "z": batch.realization_id,
               "b": batch.batch_id, "c": batch.content}
     if batch.expected_data_revision is not None:
         function = "data.publish_analysis_batch(:r,:z,:b,:c,:expected)"
