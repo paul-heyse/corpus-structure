@@ -470,3 +470,13 @@ def test_class_scope_and_case_are_admitted_operation_policy_not_property_key_rol
     assert json.loads(row.body)['cs:case']=='casefold'
     with pytest.raises(PreparationError,match='unsupported entity scope'):
         prepare_release(bundle(lambda d:d['classes']['Thing'].update(annotations={'cs:scope':'guessed'})))
+
+
+
+def test_duplicate_schema_definitions_refuse_before_interpretation():
+    source = bundle().sources[0]
+    duplicate = source.content + b"classes: {Other: {attributes: {name: {}}}}\n"
+    with pytest.raises(PreparationError) as failure:
+        prepare_release(SourceBundle('example', (SourceArtifact('example', duplicate),)))
+    assert failure.value.diagnostics[0].code == 'schema'
+    assert 'Duplicate key' in failure.value.diagnostics[0].message
