@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from corpus_structure.core.db import metadata
 from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.core.vocab import PolicyChain, SkipReason, Stage, StatementKind, TOP_LEVEL_ANNOTATION_UNIT
+from corpus_structure.core.vocab import PolicyChain, SkipReason, Stage, StatementKind, TOP_LEVEL_ANNOTATION_UNIT, MethodTier
 from corpus_structure.orchestrate import agent, context, policy, runs, tasks
 from corpus_structure.orchestrate.registry import RunConfigs
 from corpus_structure.orchestrate.runner import unit_view
@@ -56,6 +56,8 @@ def propose(conn: Connection, run_id: int, registry: Any) -> None:
     matched_units: dict[str, list[str]] = {}
     for entry in rules.entries(PolicyChain.PROPOSE):
         method = registry.method(entry.method)
+        if entry.unit_type != method.unit_type or method.tier != MethodTier.AGENT:
+            raise ValueError(f'phase 0 propose requires an agent configuration with matching unit type: {entry.key}')
         name = options.method_configs.get(entry.method, entry.entry.do.method.split('/',1)[1])
         if '/' in name:
             name = name.split('/',1)[1]
