@@ -182,6 +182,10 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
         assert len(c.execute(select(table('ops.rendition_build'))).all())==2
         assert len(c.execute(select(table('kb.rendition'))).all())==1
         assert len(c.execute(select(table('ops.measurement')).where(table('ops.measurement').c.run_id==fresh_run.run_id)).all())>0
+    fresh_all=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path),fresh=('ingest.html','profile.segments','extract.math','normalize.formula','resolve.symbol_scope'))
+    with e.connect() as c:
+        assert 'reused' not in c.execute(select(table('ops.task').c.status).where(table('ops.task').c.run_id==fresh_all.run_id)).scalars().all()
+        assert {r['observation_key'] for r in cut_observations(c,report.cut_id)}.isdisjoint(r['observation_key'] for r in cut_observations(c,fresh_all.cut_id))
     changed_policy=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path),policy_source="version: 'changed'\nchains: {}\n")
     with e.connect() as c:
         states=c.execute(select(table('ops.task').c.status).where(table('ops.task').c.run_id==changed_policy.run_id)).scalars().all()

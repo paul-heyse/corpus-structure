@@ -28,7 +28,11 @@ def observation_inputs(bundle: SourceBundle) -> SourceBundle:
     """Include the source-report module through archived, hashed release preparation."""
     names = {source.name for source in bundle.sources}
     if names & {"observations", "observation-root"}:
-        raise ValueError("reserved observation module name already supplied")
+        from .prepare import _view
+        module=next((source for source in bundle.sources if source.name=='observations'),None)
+        if module is not None and module.content==_MODEL.read_bytes() and 'SourceObservation' in _view(bundle).all_classes():
+            return bundle
+        raise ValueError("reserved observation module name already supplied with another meaning")
     return SourceBundle(
         "observation-root",
         (
@@ -138,6 +142,7 @@ def bind_result(
             operation_version,
             configuration_hash,
             input_hash,
+            invocation_key,
             unit_key,
             item_key,
         ]
