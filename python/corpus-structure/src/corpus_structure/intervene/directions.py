@@ -28,5 +28,5 @@ def record_direction(engine: Engine, direction: str, scope: str | None = None, *
             raise ToolFailure("initialize and start a semantic project run before recording guidance")
         iid = conn.execute(text("SELECT ops.record_direction(:r,:a,:s,CAST(:b AS jsonb))"),
             {"r": row.id, "a": actor, "s": session_ref or "operator",
-             "b": json.dumps({"text": direction, "scope": scope, "project_id": row.project_id})}).scalar_one()
+             "b": json.dumps({"text": direction, "scope": scope or "all", "project_id": row.project_id})}).scalar_one()
     return DirectionRecorded(intervention_id=iid, project=row.project_id, file="ops.intervention")

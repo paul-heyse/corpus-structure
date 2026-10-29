@@ -3,7 +3,10 @@
 import anyio
 import pytest
 from fastmcp import Client
-from sqlalchemy import text
+from sqlalchemy import select, text
+from typer.testing import CliRunner
+from contextlib import contextmanager
+from corpus_structure.semantic.metadata import table
 
 from corpus_structure.intervene.semantic_server import SemanticProjectSession
 from corpus_structure.intervene.server import build_server
@@ -56,3 +59,97 @@ def test_db_migrate_uses_semantic_history_and_refuses_legacy(semantic_db_engine)
         conn.execute(text("CREATE TABLE meta.project(id bigint)"))
     with pytest.raises(DbRefused, match="legacy database refused"):
         _migrate(semantic_db_engine, "owned-test", False)
+
+
+def test_default_mcp_and_direct_share_protected_direction_log(
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+):
+    from corpus_structure.cli import orchestrate
+    from corpus_structure.cli.app import app
+    import json
+
+    _, run, _, _ = source_task(semantic_db_engine, semantic_writer_engine, tmp_path / "source.html")
+    session = SemanticProjectSession(semantic_writer_engine, "resubmit")
+
+    async def record():
+        async with Client(build_server(session)) as client:
+            result = (await client.call_tool("record_direction", {"text": "Preserve exact quotations."})).structured_content
+            assert result is not None and result["project"] == "resubmit"
+            assert result["file"] == "ops.intervention"
+
+    anyio.run(record)
+
+    @contextmanager
+    def engine(settings, **kwargs):
+        yield semantic_writer_engine
+
+    monkeypatch.setattr(orchestrate, "ENGINE", engine)
+    result = CliRunner().invoke(app, ["direct", "Retain unresolved conflicts.", "--project", "resubmit", "--json"])
+    assert result.exit_code == 0, (result.output, result.exception)
+    assert json.loads(result.stdout)["project"] == "resubmit"
+    with semantic_writer_engine.connect() as conn:
+        log = table("ops.intervention")
+        rows = conn.execute(select(log.c.body, log.c.actor).where(log.c.run_id == run).order_by(log.c.id)).all()
+        assert [row.body["text"] for row in rows] == ["Preserve exact quotations.", "Retain unresolved conflicts."]
+        assert [row.actor for row in rows] == ["agent:session", "human:operator"]
+        assert all(row.body["scope"] == "all" for row in rows)
+
+
+def test_default_cli_mcp_stdio_starts_with_protocol_response(semantic_db_engine):
+    import json
+    import os
+    import select as readiness
+    import subprocess
+    import sys
+
+    app_url = semantic_db_engine.url.set(drivername="postgresql", username="corpus_sem_writer").render_as_string(hide_password=False)
+    env = {**os.environ, "CORPUS_DATABASE__URL": app_url}
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "from corpus_structure.cli.app import main; main()", "mcp", "serve"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, text=True,
+    )
+    try:
+        assert proc.stdin is not None and proc.stdout is not None
+        hello = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+            "protocolVersion": "2025-06-18", "capabilities": {},
+            "clientInfo": {"name": "semantic-smoke", "version": "1"},
+        }}
+        proc.stdin.write(json.dumps(hello) + "\n")
+        proc.stdin.flush()
+        assert readiness.select([proc.stdout], [], [], 30)[0], "semantic stdio handshake timed out"
+        reply = json.loads(proc.stdout.readline())
+        assert reply["id"] == 1 and "result" in reply
+    finally:
+        proc.kill()
+        proc.communicate(timeout=10)
+
+
+def test_default_status_and_task_listing_do_not_select_another_project(
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+):
+    import json
+    from corpus_structure.cli import orchestrate
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.settings import Settings
+
+    _, run, _, _ = source_task(semantic_db_engine, semantic_writer_engine, tmp_path / "source.html")
+
+    @contextmanager
+    def engine(settings, **kwargs):
+        yield semantic_writer_engine
+
+    monkeypatch.setattr(orchestrate, "ENGINE", engine)
+    runner = CliRunner()
+    for command in ("tasks", "status"):
+        result = runner.invoke(app, [command, "--json"], obj=CliState(lambda: Settings()))
+        assert result.exit_code == 0, (result.output, result.exception)
+        body = json.loads(result.stdout)
+        if command == "tasks":
+            assert body["run_id"] is None and body["tasks"] == []
+        else:
+            assert body["progress"]["run"] is None
+        selected = runner.invoke(app, [command, "--project", "resubmit", "--json"])
+        assert selected.exit_code == 0, (selected.output, selected.exception)
+        result = json.loads(selected.stdout)
+        assert (result["run_id"] if command == "tasks" else result["progress"]["run"]["run_id"]) == run

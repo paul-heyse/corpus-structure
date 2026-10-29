@@ -212,6 +212,8 @@ class SemanticProjectSession:
                                          for queue in self.for_run(run).status().queues])
 
     def next(self, mode: str, max_units: int | None) -> service.QueueNext:
+        if max_units is not None and max_units < 1:
+            raise ProposalRefused("max_units must be positive")
         for run in self.pending_runs():
             result = self.for_run(run).next(mode, max_units)
             if result.tasks:
