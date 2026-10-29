@@ -19,25 +19,32 @@ from pydantic import BaseModel
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
+from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 
 from .prepare import prepare_release
 from .publication import native_constraints
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
+_EMPTY_DEPENDENCIES = ResolvedDependencies()
+SEMANTIC_AGENT_VERSION = "semantic-1"
 
 
 def proposal_inputs(
-    bundle: SourceBundle, dependencies: ResolvedDependencies = ResolvedDependencies(),
-    *, qualification_class: str = "Qualification",
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
+    *,
+    qualification_class: str = "Qualification",
 ) -> SourceBundle:
-    """Archive model-facing boundaries with the exact candidate's vocabulary, not installed packs."""
+    """Archive model-facing boundaries with the exact candidate vocabulary."""
     if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
         raise ValueError("reserved agent module name already supplied")
     candidate = prepare_release(bundle, dependencies)
     module = yaml.safe_load(_MODEL.read_bytes())
     qualification = next((d for d in candidate.definitions if d.name == qualification_class), None)
-    if qualification is None or not (qualification.name == "Qualification" or "Qualification" in qualification.ancestors):
+    if qualification is None or not (
+        qualification.name == "Qualification" or "Qualification" in qualification.ancestors
+    ):
         raise ValueError("agent operation needs an explicit Qualification class or subclass")
     module["classes"]["AgentClaim"]["attributes"]["qualification"]["range"] = qualification_class
     entities = [d for d in candidate.definitions if d.name == "Entity" or "Entity" in d.ancestors]
@@ -46,8 +53,14 @@ def proposal_inputs(
     predicates = {p.iri for definition in entities for p in definition.properties if p.name != "id"}
     if not predicates:
         raise ValueError("agent proposals require at least one declared entity property")
+    module["enums"]["AgentStatementKind"]["permissible_values"] = {
+        **{name: {} for name in sorted(candidate.enum_members("StatementKind"))},
+        "outside": {"description": "An explicitly unresolved external statement reference."},
+    }
     module["enums"]["AgentClassIRI"]["permissible_values"] = {d.iri: {} for d in entities}
-    module["enums"]["AgentPropertyIRI"]["permissible_values"] = {iri: {} for iri in sorted(predicates)}
+    module["enums"]["AgentPropertyIRI"]["permissible_values"] = {
+        iri: {} for iri in sorted(predicates)
+    }
     return SourceBundle(
         "agent-root",
         (
@@ -56,8 +69,11 @@ def proposal_inputs(
             SourceArtifact(
                 "agent-root",
                 yaml.safe_dump(
-                    {"id": "https://corpus-structure.dev/semantic/agent-root", "name": "semantic_agent_root",
-                     "imports": [bundle.root, "agent"]}
+                    {
+                        "id": "https://corpus-structure.dev/semantic/agent-root",
+                        "name": "semantic_agent_root",
+                        "imports": [bundle.root, "agent"],
+                    }
                 ).encode(),
             ),
         ),
@@ -79,10 +95,14 @@ class ProposalFrame:
     sentences: tuple[ProposalSentence, ...]
 
     def __post_init__(self) -> None:
-        if not self.unit_ref or len({sentence.id for sentence in self.sentences}) != len(self.sentences):
+        if not self.unit_ref or len({sentence.id for sentence in self.sentences}) != len(
+            self.sentences
+        ):
             raise ValueError("proposal frame needs a unit and unique sentence identities")
-        if any(not sentence.locator or not 0 <= sentence.start < sentence.end <= len(self.text)
-               for sentence in self.sentences):
+        if any(
+            not sentence.locator or not 0 <= sentence.start < sentence.end <= len(self.text)
+            for sentence in self.sentences
+        ):
             raise ValueError("proposal sentence lies outside canonical source text")
 
 
@@ -115,31 +135,43 @@ def _property_value(value: Mapping[str, Any], range_name: str) -> Any:
         return value["text"]
     if range_name in {"integer", "decimal"} and value["kind"] == "number":
         number = value["number"]
-        if range_name == "integer" and isinstance(number, Decimal) and number == number.to_integral_value():
+        if (
+            range_name == "integer"
+            and isinstance(number, Decimal)
+            and number == number.to_integral_value()
+        ):
             return int(number)
         return number
+    if range_name in {"float", "double"} and value["kind"] == "float":
+        return value["number"]
     if range_name == "boolean" and value["kind"] == "boolean":
         return value["boolean"]
     if range_name == "date" and value["kind"] == "date":
         return value["date"]
-    if range_name == "datetime" and value["kind"] == "datetime":
+    if range_name == "datetime" and value["kind"] == "instant":
         return value["instant"]
     if range_name == "Entity" and value["kind"] == "entity":
         return value["target"]
     return dict(value)
 
 
-def _check_references(prepared: PreparedRelease, raw: Mapping[str, Any], known: Mapping[str, tuple[str, ...]]) -> None:
+def _check_references(
+    prepared: PreparedRelease, raw: Mapping[str, Any], known: Mapping[str, tuple[str, ...]]
+) -> None:
     sections = ("entities", "statements", "claims", "alternatives", "unsupported")
     identifiers = [item["id"] for section in sections for item in raw.get(section, ())]
-    if any(not identifier for identifier in identifiers) or len(identifiers) != len(set(identifiers)):
+    if any(not identifier for identifier in identifiers) or len(identifiers) != len(
+        set(identifiers)
+    ):
         raise ProposalRefused("proposal local identifiers must be nonempty and unique")
     entities = {item["id"]: item for item in raw.get("entities", ())}
     statements = {item["id"] for item in raw.get("statements", ())}
     claims = {item["id"] for item in raw.get("claims", ())}
     definitions = {definition.iri: definition for definition in prepared.definitions}
     for alternative in raw.get("alternatives", ()):
-        if len(alternative["members"]) < 2 or len(set(alternative["members"])) != len(alternative["members"]):
+        if len(alternative["members"]) < 2 or len(set(alternative["members"])) != len(
+            alternative["members"]
+        ):
             raise ProposalRefused("an alternative needs at least two distinct claim references")
         if set(alternative["members"]) - claims:
             raise ProposalRefused("alternative refers to an undeclared claim")
@@ -148,24 +180,33 @@ def _check_references(prepared: PreparedRelease, raw: Mapping[str, Any], known: 
 
     def check_value(value, definition, prop):
         range_definition = by_name.get(prop.range)
-        if range_definition is not None and (range_definition.name == "Entity" or "Entity" in range_definition.ancestors):
+        if range_definition is not None and (
+            range_definition.name == "Entity" or "Entity" in range_definition.ancestors
+        ):
             if value.get("kind") != "entity":
-                raise ProposalRefused("entity-ranged property requires an explicit entity reference")
-            target = value["target"]["id"]
+                raise ProposalRefused(
+                    "entity-ranged property requires an explicit entity reference"
+                )
+            target = value["target"]
             if target in entities:
                 target_classes = (entities[target]["class_iri"],)
             else:
                 target_classes = known.get(target, ())
-            if not any(iri in definitions and (definitions[iri].name == prop.range or prop.range in definitions[iri].ancestors)
-                       for iri in target_classes):
+            if not any(
+                iri in definitions
+                and (
+                    definitions[iri].name == prop.range or prop.range in definitions[iri].ancestors
+                )
+                for iri in target_classes
+            ):
                 raise ProposalRefused("entity reference lacks the declared range membership")
             return
         native_range = constraints[definition.iri, prop.iri]["native_range"]
         if prop.range in {vocab.enum for vocab in prepared.vocabularies}:
             native_range = "string"
-        prepared.property_adapter(definition.name, prop.name, item=prop.multivalued).validate_python(
-            _property_value(value, native_range), strict=True
-        )
+        prepared.property_adapter(
+            definition.name, prop.name, item=prop.multivalued
+        ).validate_python(_property_value(value, native_range), strict=True)
 
     for entity in entities.values():
         definition = definitions[entity["class_iri"]]
@@ -183,10 +224,17 @@ def _check_references(prepared: PreparedRelease, raw: Mapping[str, Any], known: 
         elif claim["subject"] in known:
             class_iris = known[claim["subject"]]
         else:
-            raise ProposalRefused("claim subject must be declared locally or in the bound reference snapshot")
-        applicable = [(definition, prop) for iri in class_iris if iri in definitions
-                      for definition in (definitions[iri],) for prop in definition.properties
-                      if prop.iri == claim["predicate"]]
+            raise ProposalRefused(
+                "claim subject must be declared locally or in the bound reference snapshot"
+            )
+        applicable = [
+            (definition, prop)
+            for iri in class_iris
+            if iri in definitions
+            for definition in (definitions[iri],)
+            for prop in definition.properties
+            if prop.iri == claim["predicate"]
+        ]
         if not applicable:
             raise ProposalRefused("claim property does not apply to its declared subject class")
         # The generated property adapter, not a second list of ranges, owns domain validation.
@@ -198,7 +246,53 @@ def _check_references(prepared: PreparedRelease, raw: Mapping[str, Any], known: 
             except ValueError as exc:
                 errors.append(str(exc))
         else:
-            raise ProposalRefused("claim object violates its release-derived property boundary: " + "; ".join(errors))
+            raise ProposalRefused(
+                "claim object violates its release-derived property boundary: " + "; ".join(errors)
+            )
+
+
+def _refuse_rounded_decimals(prepared: PreparedRelease, batch: Mapping[str, Any]) -> None:
+    """Use Pydantic's two schema modes to find Decimal input positions before JSON conversion."""
+    validation = prepared.json_schema("AgentAuthoredBatch", mode="validation")
+    serialization = prepared.json_schema("AgentAuthoredBatch", mode="serialization")
+
+    def resolve(schema, root, value):
+        while "$ref" in schema:
+            reference = schema["$ref"]
+            if not reference.startswith("#/$defs/"):
+                raise ProposalRefused("proposal schema has an external unresolved reference")
+            schema = root["$defs"][reference.removeprefix("#/$defs/")]
+        discriminator = schema.get("discriminator")
+        if discriminator is not None and isinstance(value, Mapping):
+            reference = discriminator["mapping"].get(value.get(discriminator["propertyName"]))
+            if reference is not None:
+                return resolve({"$ref": reference}, root, value)
+        return schema
+
+    def visit(value, before, after, path):
+        before, after = resolve(before, validation, value), resolve(after, serialization, value)
+        accepts_number = before.get("type") == "number" or any(
+            branch.get("type") == "number" for branch in before.get("anyOf", ())
+        )
+        if type(value) is float and accepts_number and after.get("type") == "string":
+            raise ProposalRefused(
+                f"{path}: exact decimals require lexical strings or exact integers, "
+                "not binary floats"
+            )
+        if isinstance(value, Mapping):
+            for name, item in value.items():
+                if name in before.get("properties", {}) and name in after.get("properties", {}):
+                    visit(
+                        item,
+                        before["properties"][name],
+                        after["properties"][name],
+                        f"{path}.{name}",
+                    )
+        elif isinstance(value, (tuple, list)) and "items" in before and "items" in after:
+            for index, item in enumerate(value):
+                visit(item, before["items"], after["items"], f"{path}[{index}]")
+
+    visit(batch, validation, serialization, "$")
 
 
 def locate_proposal(
@@ -209,15 +303,70 @@ def locate_proposal(
     macros: Mapping[str, MacroDef] | None = None,
     known_classes: Mapping[str, tuple[str, ...]] | None = None,
 ) -> LocatedProposal:
-    """Validate rich proposals and locate every claim/unsupported citation without dropping items."""
-    authored = prepared.validate_json("AgentAuthoredBatch", json.dumps(batch, ensure_ascii=False))
+    """Validate rich proposals and locate every citation without dropping items."""
+    _refuse_rounded_decimals(prepared, batch)
+
+    def decimal_lexical(value):
+        if isinstance(value, Decimal) and value.is_finite():
+            return str(value)
+        raise TypeError(f"unsupported authored JSON value {type(value).__name__}")
+
+    authored = prepared.validate_json(
+        "AgentAuthoredBatch",
+        json.dumps(batch, ensure_ascii=False, allow_nan=False, default=decimal_lexical),
+    )
     raw = authored.model_dump(mode="python")
     if raw["unit_ref"] != frame.unit_ref:
         raise ProposalRefused("proposal unit does not match its bound source frame")
     _check_references(prepared, raw, known_classes or {})
+    declared = {item["id"]: item["class_iri"] for item in raw.get("entities", ())}
+    known = known_classes or {}
+    definitions = {definition.name: definition for definition in prepared.definitions}
+    iri_definitions = {definition.iri: definition for definition in prepared.definitions}
+
+    def check_nested(value):
+        from pydantic import MISSING
+
+        if isinstance(value, BaseModel):
+            definition = definitions[value.__class__.__name__]
+            for prop in definition.properties:
+                item = getattr(value, prop.name)
+                if item is MISSING:
+                    continue
+                target = definitions.get(prop.range)
+                if (
+                    target is not None
+                    and (target.name == "Entity" or "Entity" in target.ancestors)
+                    and not prop.inlined
+                ):
+                    refs = item if prop.multivalued else (item,)
+                    for ref in refs:
+                        classes = (declared[ref],) if ref in declared else known.get(ref, ())
+                        if not any(
+                            iri in iri_definitions
+                            and (
+                                iri_definitions[iri].name == target.name
+                                or target.name in iri_definitions[iri].ancestors
+                            )
+                            for iri in classes
+                        ):
+                            raise ProposalRefused(
+                                "nested entity reference must be declared with its required class"
+                            )
+                else:
+                    check_nested(item)
+        elif isinstance(value, tuple):
+            for item in value:
+                check_nested(item)
+
+    check_nested(authored)
     stored = copy.deepcopy(raw)
     sentences = {sentence.id: sentence for sentence in frame.sentences}
-    cascade = Cascade(frame.text, [FrameSentence(s.id, s.start, s.end) for s in frame.sentences], dict(macros or {}))
+    cascade = Cascade(
+        frame.text,
+        [FrameSentence(s.id, s.start, s.end) for s in frame.sentences],
+        dict(macros or {}),
+    )
     issues = []
     for section in ("claims", "unsupported"):
         for index, item in enumerate(stored.get(section, ())):
@@ -225,7 +374,9 @@ def locate_proposal(
             for ordinal, citation in enumerate(item["evidence"]):
                 path = f"{section}[{index}].evidence[{ordinal}]"
                 if not citation["quote"] or citation["sentence"] not in sentences:
-                    raise ProposalRefused(f"{path}: citation needs nonempty quote and a declared sentence")
+                    raise ProposalRefused(
+                        f"{path}: citation needs nonempty quote and a declared sentence"
+                    )
                 found = cascade.locate(citation["quote"], citation["sentence"])
                 row = dict(citation)
                 row["placement"] = found.step.value if found.step is not None else "not_found"
@@ -238,13 +389,25 @@ def locate_proposal(
                     row["fuzzy_counts"] = found.fuzzy_counts
                 row["outcome"] = "unlocated"
                 if found.found and found.sentence is not None:
-                    row.update(locator=sentences[found.sentence].locator, start=found.start, end=found.end,
-                               outcome="coarse" if found.step in {Step.TOKENS, Step.CHARACTERS} else "located")
+                    row.update(
+                        locator=sentences[found.sentence].locator,
+                        start=found.start,
+                        end=found.end,
+                        outcome="coarse"
+                        if found.step in {Step.TOKENS, Step.CHARACTERS}
+                        else "located",
+                    )
                 if row["outcome"] != "located":
-                    issues.append(ProposalIssue(path, row["outcome"], "source quote placement is " + row["outcome"]))
+                    issues.append(
+                        ProposalIssue(
+                            path, row["outcome"], "source quote placement is " + row["outcome"]
+                        )
+                    )
                 located.append(row)
             item["evidence"] = tuple(located)
-    return LocatedProposal(authored, prepared.validate_python("AgentStoredBatch", stored), tuple(issues))
+    return LocatedProposal(
+        authored, prepared.validate_python("AgentStoredBatch", stored), tuple(issues)
+    )
 
 
 @dataclass(frozen=True)
@@ -260,37 +423,61 @@ class ProposalPacket:
     @property
     def schema_hash(self) -> str:
         from hashlib import sha256
+
         return sha256(self.schema).hexdigest()
 
     @property
     def hash(self) -> str:
         from dataclasses import asdict
         from hashlib import sha256
-        from .identity import canonical_bytes
-        return sha256(canonical_bytes([
-            self.release_id, asdict(self.frame), self.schema_hash,
-            self.guideline, self.configuration.decode(), self.known_classes,
-            [(name, macro.model_dump(mode="json")) for name, macro in self.macros],
-        ])).hexdigest()
 
-    def parts(self):
-        from corpus_structure.methods.llm.parts import Part, text_hash
         from .identity import canonical_bytes
+
+        return sha256(
+            canonical_bytes(
+                [
+                    self.release_id,
+                    asdict(self.frame),
+                    self.schema_hash,
+                    self.guideline,
+                    self.configuration.decode(),
+                    self.known_classes,
+                    [(name, macro.model_dump(mode="json")) for name, macro in self.macros],
+                ]
+            )
+        ).hexdigest()
+
+    def parts(self) -> tuple[Part, ...]:
+        from .identity import canonical_bytes
+
         data = {
             "schema": self.schema.decode(),
             "guideline": self.guideline,
-            "unit": canonical_bytes({
-                "unit_ref": self.frame.unit_ref,
-                "sentences": [
-                    {"id": sentence.id, "locator": sentence.locator,
-                     "text": self.frame.text[sentence.start:sentence.end]}
-                    for sentence in self.frame.sentences
-                ],
-                "known_classes": dict(self.known_classes),
-                "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
-            }).decode(),
+            "unit": canonical_bytes(
+                {
+                    "unit_ref": self.frame.unit_ref,
+                    "sentences": [
+                        {
+                            "id": sentence.id,
+                            "locator": sentence.locator,
+                            "text": self.frame.text[sentence.start : sentence.end],
+                        }
+                        for sentence in self.frame.sentences
+                    ],
+                    "known_classes": dict(self.known_classes),
+                    "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
+                }
+            ).decode(),
         }
         return tuple(Part(name, text, text_hash(text)) for name, text in data.items())
+
+    def part_pages(self, part: Part) -> list[str]:
+        """Use the existing packet character cap for source pages; never truncate source text."""
+        configuration = json.loads(self.configuration)
+        size = configuration.get("packet_cap_chars", 18_000) if part.name == "unit" else PAGE_CHARS
+        if type(size) is not int or size < 1:
+            raise ProposalRefused("packet_cap_chars must be a positive integer")
+        return part.pages(size=size)
 
 
 def proposal_packet(
@@ -304,10 +491,15 @@ def proposal_packet(
 ) -> ProposalPacket:
     """Bind all model-facing parts and their complete source frame before queuing agent work."""
     from .identity import canonical_bytes
-    schema = prepared.json_schema("AgentAuthoredBatch")
+
+    schema = prepared.json_schema("AgentAuthoredBatch", mode="serialization")
     schema["$id"] = prepared.release_id + "/agent/authored"
     return ProposalPacket(
-        prepared.release_id, frame, canonical_bytes(schema), guideline,
-        canonical_bytes(dict(configuration)), tuple(sorted((known_classes or {}).items())),
+        prepared.release_id,
+        frame,
+        canonical_bytes(schema),
+        guideline,
+        canonical_bytes(dict(configuration)),
+        tuple(sorted((known_classes or {}).items())),
         tuple(sorted((macros or {}).items())),
     )

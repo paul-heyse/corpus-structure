@@ -56,12 +56,17 @@ def _session(ctx: Context) -> Session:
     return ctx.lifespan_context["session"]
 
 
-def build_server(session: Session | None = None, *, semantic_run: int | None = None,
-                 settings: Settings | None = None) -> FastMCP:
+def build_server(
+    session: Session | None = None,
+    *,
+    semantic_run: int | None = None,
+    settings: Settings | None = None,
+) -> FastMCP:
     """The main profile; `session` is injected by tests (the lifespan then opens no store)."""
 
     if semantic_run is not None:
         from corpus_structure.intervene.semantic_server import build_semantic_server
+
         return build_semantic_server(run_id=semantic_run, settings=settings)
 
     @lifespan
@@ -72,7 +77,9 @@ def build_server(session: Session | None = None, *, semantic_run: int | None = N
         from corpus_structure.core.db.store import open_store
         from corpus_structure.settings import Settings
 
-        with open_store(settings if settings is not None else Settings(), "ci-mcp", max_size=4) as store:
+        with open_store(
+            settings if settings is not None else Settings(), "ci-mcp", max_size=4
+        ) as store:
             yield {"session": Session(store.engine)}
 
     mcp = FastMCP(
