@@ -85,7 +85,7 @@ def test_released_conditions_preserve_operators_nested_math_and_uncertain_dates(
     qualification = prepared.validate_python('StatisticsQualification', {
         'modality': 'asserted', 'polarity': True, 'condition': condition,
         'hedge': {'kind': 'text', 'text': 'usually'},
-        'valid_time': {'kind': 'interval',
+        'valid_time': {'kind': 'validity_interval',
                        'start': {'kind': 'partial_date', 'lexical': '2026-10'}},
     })
     assert qualification.condition.terms[0].x.expression == 'x'
