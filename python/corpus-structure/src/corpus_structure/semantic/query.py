@@ -1030,6 +1030,16 @@ class ReadSession:
             for row in receipts
         }
 
+    def qualification(self, value_id: str, decoded: dict[str, Any], nodes: tuple[ValueNode, ...]) -> Any:
+        """Validate the explicit archived subtype carried by the stored qualification node."""
+        node = next(node for node in nodes if node.value_id == value_id)
+        definition = next((definition for definition in self.prepared.definitions
+                           if definition.name == node.datatype or definition.iri == node.datatype), None)
+        if definition is None:
+            raise WrongRelease("qualification datatype is absent from the bound release")
+        self.prepared.qualification_definition(definition.name)
+        return self.prepared.validate_python(definition.name, decoded[value_id])
+
     def query(self, spec: QuerySpec, *, continuation: str | None = None) -> QueryResult:
         cls, prop = self._property(spec)
         after = self._after(spec, continuation)
@@ -1061,9 +1071,7 @@ class ReadSession:
                 qualification_value_id=row["qualification_value_id"],
                 qualification=None
                 if row["qualification_value_id"] is None
-                else self.prepared.validate_python(
-                    "Qualification", decoded[row["qualification_value_id"]]
-                ),
+                else self.qualification(row["qualification_value_id"], decoded, nodes),
                 occurrence_id=row.get("occurrence_id"),
                 source=row.get("source"),
                 item=row.get("item"),

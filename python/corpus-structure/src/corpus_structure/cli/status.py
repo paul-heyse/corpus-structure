@@ -74,7 +74,8 @@ def _render_status(result: BaseModel) -> RenderableType:
 def status(
     ctx: typer.Context,
     run_id: Annotated[int | None, typer.Argument(metavar="[RUN]")] = None,
-    semantic: Annotated[bool, typer.Option(help="Show explicitly semantic run progress.")] = False,
+    project: Annotated[str | None, typer.Option(help="Project (default: runtime.default_project).")] = None,
+    semantic: Annotated[bool, typer.Option(hidden=True)] = False,
     json: JsonOpt = False,
 ) -> None:
     """Show a run's progress (the latest by default) and the resolved settings."""
@@ -88,7 +89,9 @@ def status(
 
     try:
         with orchestrate.ENGINE(settings, timeout=5.0) as engine, engine.connect() as conn:
-            progress = (commands.bound_status if semantic else commands.status)(conn, run_id)
+            progress = commands.bound_status(
+                conn, run_id, project_id=project or (settings.runtime.default_project if run_id is None else None)
+            )
     except commands.CommandError as error:
         stderr_console().print(f"refused: {error}")
         raise typer.Exit(code=1) from None

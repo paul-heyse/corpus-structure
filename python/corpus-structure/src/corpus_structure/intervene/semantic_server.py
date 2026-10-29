@@ -169,27 +169,89 @@ class SemanticAgentSession:
         return service.QueueNext(tasks=out)
 
 
+@dataclass
+class SemanticProjectSession:
+    """Dynamic project queue; each leased task retains its immutable run interpretation."""
+
+    engine: Engine
+    project_id: str
+    instance: str = field(default_factory=lambda: "mcp-semantic-" + secrets.token_hex(6))
+    runs: dict[int, SemanticAgentSession] = field(default_factory=dict)
+    sessions: dict[int, ProposalSession] = field(default_factory=dict)
+    lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
+
+    def for_run(self, run_id: int) -> SemanticAgentSession:
+        from corpus_structure.semantic.metadata import table
+
+        with self.lock:
+            if run_id not in self.runs:
+                runs = table("ops.run")
+                with self.engine.connect() as conn:
+                    exists = conn.execute(select(runs.c.id).where(
+                        runs.c.id == run_id, runs.c.project_id == self.project_id
+                    )).scalar_one_or_none()
+                if exists is None:
+                    raise ProposalRefused("run does not belong to this semantic project")
+                self.runs[run_id] = SemanticAgentSession(
+                    self.engine, run_id, instance=self.instance, sessions=self.sessions
+                )
+            return self.runs[run_id]
+
+    def pending_runs(self) -> tuple[int, ...]:
+        from corpus_structure.semantic.metadata import table
+
+        runs, tasks = table("ops.run"), table("ops.task")
+        with self.engine.connect() as conn:
+            return tuple(conn.execute(select(runs.c.id).join(tasks, tasks.c.run_id == runs.c.id)
+                .where(runs.c.project_id == self.project_id, runs.c.status.in_(("created", "running")),
+                       tasks.c.status == "awaiting_agent")
+                .distinct().order_by(runs.c.id.desc())).scalars())
+
+    def status(self) -> service.QueueStatus:
+        return service.QueueStatus(queues=[queue for run in self.pending_runs()
+                                         for queue in self.for_run(run).status().queues])
+
+    def next(self, mode: str, max_units: int | None) -> service.QueueNext:
+        if max_units is not None and max_units < 1:
+            raise ProposalRefused("max_units must be positive")
+        for run in self.pending_runs():
+            result = self.for_run(run).next(mode, max_units)
+            if result.tasks:
+                return result
+        return service.QueueNext(tasks=[])
+
+    def active(self, task_id: int) -> ProposalSession:
+        from corpus_structure.semantic.metadata import table
+
+        tasks = table("ops.task")
+        with self.engine.connect() as conn:
+            run = conn.execute(select(tasks.c.run_id).where(tasks.c.id == task_id)).scalar_one_or_none()
+        if run is None:
+            raise ProposalTaskNotOpen("unknown semantic task")
+        return self.for_run(run).active(task_id)
+
+
+SemanticSession = SemanticAgentSession | SemanticProjectSession
+
 def build_semantic_server(
-    session: SemanticAgentSession | None = None,
+    session: SemanticSession | None = None,
     *,
     run_id: int | None = None,
     settings: Settings | None = None,
 ) -> FastMCP:
-    if session is None and run_id is None:
-        raise ValueError("semantic MCP requires an explicit run")
-
     @lifespan
-    async def open_session(server: FastMCP) -> AsyncIterator[dict[str, SemanticAgentSession]]:
+    async def open_session(server: FastMCP) -> AsyncIterator[dict[str, SemanticSession]]:
         if session is not None:
             yield {"session": session}
             return
-        from corpus_structure.core.db.store import open_store
+        from corpus_structure.semantic.runtime import open_runtime_engine
         from corpus_structure.settings import Settings
 
         selected = settings if settings is not None else Settings()
-        assert run_id is not None
-        with open_store(selected, "ci-mcp-semantic", max_size=4) as store:
-            yield {"session": SemanticAgentSession(store.engine, run_id)}
+        with open_runtime_engine(selected, "ci-mcp-semantic", max_size=4) as engine:
+            active: SemanticSession = (SemanticAgentSession(engine, run_id) if run_id is not None
+                else SemanticProjectSession(engine, selected.runtime.default_project))
+            yield {"session": active}
 
     server = FastMCP(
         "corpus-structure",
@@ -209,11 +271,13 @@ def build_semantic_server(
         lifespan=open_session,
     )
 
-    def current(ctx: Context) -> SemanticAgentSession:
+    def current(ctx: Context) -> SemanticSession:
         return ctx.lifespan_context["session"]
 
-    def bound_run(ctx: Context, run: int | None) -> SemanticAgentSession:
+    def bound_run(ctx: Context, run: int | None) -> SemanticSession:
         found = current(ctx)
+        if isinstance(found, SemanticProjectSession):
+            return found.for_run(run) if run is not None else found
         if run is not None and run != found.run_id:
             raise ToolError("this server is bound to a different semantic run")
         return found
@@ -376,5 +440,14 @@ def build_semantic_server(
             return service.Released(task_id=task_id, released=True, reason=reason)
         except (ProposalRefused, OperationConflict) as error:
             raise ToolError(str(error)) from None
+
+    @server.tool
+    def record_direction(ctx: Context, text: str, scope: str | None = None) -> service.DirectionRecorded:
+        from corpus_structure.intervene.directions import record_direction as record
+
+        active = current(ctx)
+        return record(active.engine, text, scope, actor="agent:session", session_ref=active.instance,
+                      project=active.project_id if isinstance(active, SemanticProjectSession) else None,
+                      run_id=active.run_id if isinstance(active, SemanticAgentSession) else None)
 
     return server

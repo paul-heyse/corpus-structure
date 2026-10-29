@@ -7,7 +7,6 @@ from typing import Literal
 import typer
 from sqlalchemy import text
 
-from corpus_structure.cli.orchestrate import ENGINE
 from corpus_structure.cli.output import JsonOpt, emit, state
 from corpus_structure.cli.query import context, refusal
 from corpus_structure.serve.explain import explain as explain_query
@@ -23,9 +22,11 @@ def _explain(
     project: str | None,
     json: bool,
 ) -> None:
-    with refusal(json), ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    settings=state(ctx).settings()
+    with refusal(json), open_runtime_engine(settings,application_name="ci-explain",purpose="read") as engine, engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn, conn.begin():
         conn.execute(text("SET TRANSACTION READ ONLY"))
-        _, rid, _ = context(conn, project, run)
+        _, rid, _ = context(conn, project or settings.runtime.default_project, run)
         emit(explain_query(conn, rid, kind, key), json=json)
 
 

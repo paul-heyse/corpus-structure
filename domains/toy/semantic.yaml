@@ -1,0 +1,49 @@
+id: https://corpus-structure.dev/domains/toy/semantic
+name: toy_semantic
+prefixes:
+  toy: https://corpus-structure.dev/domains/toy/
+  cs: https://corpus-structure.dev/semantic/
+default_prefix: toy
+default_range: string
+imports: [semantic_core]
+classes:
+  Organization:
+    is_a: Entity
+    slots: [registry_id, owns]
+    slot_usage:
+      registry_id: {required: true}
+    unique_keys:
+      identity: {unique_key_slots: [registry_id]}
+    annotations: {cs:scope: global, cs:extract: mention}
+  Asset:
+    is_a: Entity
+    annotations: {cs:scope: global, cs:extract: mention}
+  Source:
+    is_a: Entity
+    annotations: {cs:scope: global, cs:extract: mention}
+  ToyQualification:
+    is_a: Qualification
+    attributes:
+      share:
+        range: NumberValue
+        inlined: true
+      filing_ref:
+        annotations: {cs:key_role: provenance}
+slots:
+  registry_id:
+    annotations: {cs:case: preserve}
+  owns:
+    domain: Organization
+    range: Asset
+    multivalued: true
+    annotations: {cs:constraint_scope: accepted_value, cs:role: predicate, cs:extract: llm}
+enums:
+  ToyStatementKind:
+    inherits: [StatementKind]
+    permissible_values:
+      clause: {in_subset: [claim_bearing]}
+      notice: {}
+  ToyModality:
+    inherits: [ClaimModality]
+    permissible_values:
+      reported: {in_subset: [attribution_identifying]}

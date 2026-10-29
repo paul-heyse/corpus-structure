@@ -29,17 +29,16 @@ run_app = typer.Typer(help="Start or cancel a run.", invoke_without_command=True
 
 @contextmanager
 def _open_engine(settings: Any, timeout: float = 30.0) -> Iterator[Any]:
-    from corpus_structure.core.db.store import open_store
+    from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with open_store(settings, "ci", timeout=timeout) as store:
-        yield store.engine
+    with open_runtime_engine(settings, timeout=timeout) as engine:
+        yield engine
 
 
 ENGINE: Callable[..., Any] = _open_engine
 
 
 def _phase0() -> dict[str, Any]:
-    from corpus_structure.consolidate import run_pass
     from corpus_structure.orchestrate import phase0
     from corpus_structure.schema.pack import DOMAINS
 
@@ -47,8 +46,6 @@ def _phase0() -> dict[str, Any]:
         "registry_for": phase0.registry,
         "graph": phase0.PHASE0,
         "domains": DOMAINS,
-        "run_pass": run_pass,
-        "evaluate": phase0.stub_evaluate,
     }
 
 
@@ -111,46 +108,17 @@ def project_init(
     settings = state(ctx).settings()
     seams = PHASE0()
     with _refusals(), ENGINE(settings) as engine, engine.begin() as conn:
-        if semantic_release is not None or realization is not None:
-            if semantic_release is None or realization is None:
-                raise typer.BadParameter(
-                    "semantic initialization requires --semantic-release and --realization"
-                )
-            report = project.init_bound_project(
-                conn,
-                domain=domain,
-                corpus=corpus,
-                release_id=semantic_release,
-                realization_id=realization,
-                name=name,
-                domains=seams["domains"],
-                registry=seams["registry_for"](seams["domains"] / domain),
-            )
-        else:
-            registry = seams["registry_for"](seams["domains"] / domain)
-            report = project.init_project(
-                conn,
-                domain=domain,
-                corpus=corpus,
-                registry=registry,
-                name=name,
-                domains=seams["domains"],
-            )
+        if semantic_release is None or realization is None:
+            raise typer.BadParameter("initialization requires --semantic-release and --realization")
+        report = project.init_bound_project(
+            conn, domain=domain, corpus=corpus, release_id=semantic_release,
+            realization_id=realization, name=name or settings.runtime.default_project,
+            domains=seams["domains"], registry=seams["registry_for"](seams["domains"] / domain),
+        )
     emit(report, json=json, render=lambda r: _table("project", r))
 
 
 # --- ci run, ci run cancel --------------------------------------------------------------------
-
-
-def _render_run(result: BaseModel) -> RenderableType:
-    from corpus_structure.orchestrate.commands import RunReport
-
-    assert isinstance(result, RunReport)
-    table = Table("option", "value", "source", title=f"run {result.run_id}: {result.status}")
-    dumped = result.options.options.model_dump(mode="json")
-    for name, value in dumped.items():
-        table.add_row(name, str(value), result.options.sources.get(name, ""))
-    return table
 
 
 @run_app.callback()
@@ -185,72 +153,42 @@ def run(
     from corpus_structure.orchestrate import commands
 
     settings = state(ctx).settings()
-    explicit = {
-        "agent_mode": agent_mode,
-        "agent_reuse": agent_reuse,
-        "gpu_mode": gpu_mode,
-        "fresh": tuple(fresh) if fresh else None,
-    }
+    from corpus_structure.semantic.runtime import resolve_source_binding
+
     method_settings = MethodSettings(
         data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
     )
-    if semantic_release is not None or realization is not None:
-        if semantic_release is None or realization is None or project is None:
-            raise typer.BadParameter(
-                "semantic source execution requires --semantic-release, --realization and --project"
-            )
-        if gpu_mode is not None:
-            raise typer.BadParameter(
-                "semantic source execution has no GPU operation in the selected graph"
-            )
-        with _refusals(), ENGINE(settings) as engine:
-            report = commands.start_bound_run(
-                engine,
-                release_id=semantic_release,
-                realization_id=realization,
-                project_id=project,
-                domain=domain,
-                method_settings=method_settings,
-                phase=phase,
-                fresh=tuple(fresh or ()),
-                slice=slice,
-                scope=scope,
-                corpus=corpus,
-                agent_mode=str(agent_mode or (AgentMode.WAIT if slice else AgentMode.COMPLETE)),
-                agent_reuse=str(agent_reuse or AgentReuse.FULL),
-                **{k: v for k, v in PHASE0().items() if k in {"registry_for", "graph", "domains"}},
-            )
-        emit(report, json=json)
-        return
+    if gpu_mode is not None:
+        raise typer.BadParameter("the selected semantic graph has no GPU operation")
+    project = project or settings.runtime.default_project
     with _refusals(), ENGINE(settings) as engine:
-        report = commands.start_run(
-            engine,
-            url=settings.database.url,
-            project_name=project,
-            phase=phase,
-            slice=slice,
-            scope=scope,
-            corpus=corpus,
-            explicit=explicit,
-            settings=settings,
-            method_settings=method_settings,
-            **PHASE0(),
+        with engine.connect() as conn:
+            release_id, realization_id = resolve_source_binding(
+                conn, project, release_id=semantic_release, realization_id=realization
+            )
+        report = commands.start_bound_run(
+            engine, release_id=release_id, realization_id=realization_id,
+            project_id=project, domain=domain, method_settings=method_settings,
+            phase=phase, fresh=tuple(fresh or ()), slice=slice, scope=scope, corpus=corpus,
+            agent_mode=str(agent_mode or AgentMode.COMPLETE),
+            agent_reuse=str(agent_reuse or AgentReuse.FULL),
+            **{k: v for k, v in PHASE0().items() if k in {"registry_for", "graph", "domains"}},
         )
-    emit(report, json=json, render=_render_run)
+    emit(report, json=json)
 
 
 @run_app.command("cancel")
 def run_cancel(
     ctx: typer.Context,
     run_id: Annotated[int, typer.Argument(metavar="RUN")],
-    semantic: Annotated[bool, typer.Option(help="Cancel an explicitly semantic run.")] = False,
+    semantic: Annotated[bool, typer.Option(hidden=True)] = False,
     json: JsonOpt = False,
 ) -> None:
     """Cancel a run and its open tasks."""
     from corpus_structure.orchestrate import commands
 
     with _refusals(), ENGINE(state(ctx).settings()) as engine:
-        report = (commands.cancel_bound_run if semantic else commands.cancel)(engine, run_id)
+        report = commands.cancel_bound_run(engine, run_id)
     emit(report, json=json, render=lambda r: _table("cancelled", r))
 
 
@@ -310,18 +248,21 @@ def _render_tasks(result: BaseModel) -> RenderableType:
 def tasks(
     ctx: typer.Context,
     run_id: Annotated[int | None, typer.Argument(metavar="[RUN]")] = None,
+    project: Annotated[str | None, typer.Option(help="Project (default: runtime.default_project).")] = None,
     status: Annotated[list[TaskStatus] | None, typer.Option(help="Only this status.")] = None,
     method: Annotated[list[str] | None, typer.Option(help="Only this method.")] = None,
     limit: Annotated[int, typer.Option(help="At most this many.")] = 50,
-    semantic: Annotated[bool, typer.Option(help="List explicitly semantic run tasks.")] = False,
+    semantic: Annotated[bool, typer.Option(hidden=True)] = False,
     json: JsonOpt = False,
 ) -> None:
     """List a run's tasks (the latest run by default)."""
     from corpus_structure.orchestrate import commands
 
     with _refusals(), ENGINE(state(ctx).settings()) as engine, engine.connect() as conn:
-        listing = (commands.bound_task_listing if semantic else commands.task_listing)(
-            conn, run_id, statuses=status or (), methods=method or (), limit=limit
+        listing = commands.bound_task_listing(
+            conn, run_id,
+            project_id=project or (state(ctx).settings().runtime.default_project if run_id is None else None),
+            statuses=status or (), methods=method or (), limit=limit
         )
     emit(listing, json=json, render=_render_tasks)
 

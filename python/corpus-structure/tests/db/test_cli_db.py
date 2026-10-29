@@ -9,7 +9,8 @@ from typing import Any
 import pytest
 from sqlalchemy.engine import make_url
 
-from corpus_structure.core._model.revision import CONTENT_HASH
+from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+from corpus_structure.semantic.migrations import head_revision
 from corpus_structure.core.db import extensions
 from corpus_structure.settings import Settings
 
@@ -19,6 +20,7 @@ def settings(db_server: Any, name: str, template: str | None = None) -> Settings
     database = {
         "url": url.render_as_string(hide_password=False),
         "template": template or db_server.template,
+        "maintenance_url": url.render_as_string(hide_password=False),
     }
     return Settings(database=database)  # type: ignore[arg-type]
 
@@ -30,14 +32,11 @@ def test_init_creates_and_migrates_then_migrate_reports(cli: Any, db_server: Any
         made = cli("db", "init", "--json", settings=lambda: settings(db_server, name))
         assert made.exit_code == 0, made.stderr
         report = json.loads(made.stdout)
-        assert report == {
-            "database": name,
-            "created": True,
-            "revision": "0003",
-            "head": "0003",
-            "model_revision": CONTENT_HASH,
-            "applied": ["0001", "0002", "0003"],
-        }
+        assert report["database"] == name and report["created"] is True
+        assert report["revision"] == report["head"] == head_revision()
+        assert report["model_revision"] == PHYSICAL_MODEL_ID
+        assert report["applied"][0] == "semantic_0001"
+        assert report["applied"][-1] == head_revision()
         again = cli("db", "migrate", "--json", settings=lambda: settings(db_server, name))
         assert again.exit_code == 0, again.stderr
         assert json.loads(again.stdout)["applied"] == []
