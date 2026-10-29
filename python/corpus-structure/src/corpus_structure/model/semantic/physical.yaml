@@ -1,0 +1,911 @@
+# Trusted physical projection. Edit with its consumers and an explicit Alembic revision.
+id: https://corpus-structure.org/model/semantic/physical
+name: semantic_physical
+description: Trusted fixed PostgreSQL realization; candidate semantic releases never supply physical annotations.
+prefixes:
+  linkml: https://w3id.org/linkml/
+  xsd: http://www.w3.org/2001/XMLSchema#
+  ph: https://corpus-structure.org/physical/
+imports:
+- linkml:types
+default_range: string
+subsets:
+  sem: {}
+  data: {}
+types:
+  bytes:
+    typeof: string
+    annotations:
+      ph:sql_type: bytea
+  json_payload:
+    typeof: string
+    annotations:
+      ph:sql_type: jsonb
+  exact_numeric:
+    typeof: decimal
+    annotations:
+      ph:sql_type: numeric
+classes:
+  release:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      parent_release_id:
+        range: string
+        required: false
+      content_digest:
+        range: string
+        required: true
+      profile:
+        range: string
+        required: true
+      prepared_bytes:
+        range: bytes
+        required: true
+      manifest_bytes:
+        range: bytes
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["parent_release_id"], "target": "sem.release.release_id"}]'
+  input:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      input_kind:
+        range: string
+        required: true
+      input_name:
+        range: string
+        required: true
+      content:
+        range: bytes
+        required: true
+      content_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - input_kind
+        - input_name
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+  artifact:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      artifact_name:
+        range: string
+        required: true
+      media_type:
+        range: string
+        required: true
+      content:
+        range: bytes
+        required: true
+      content_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - artifact_name
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+  registry_row:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      name:
+        range: string
+        required: true
+      body:
+        range: bytes
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - kind
+        - name
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+  class_definition:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      class_id:
+        range: string
+        required: true
+      name:
+        range: string
+        required: true
+      iri:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - class_id
+      unique_0:
+        unique_key_slots:
+        - release_id
+        - iri
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+  property_definition:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      property_id:
+        range: string
+        required: true
+      name:
+        range: string
+        required: true
+      iri:
+        range: string
+        required: true
+      value_kind:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - property_id
+      unique_0:
+        unique_key_slots:
+        - release_id
+        - iri
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+  class_hierarchy:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      class_id:
+        range: string
+        required: true
+      ancestor_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - class_id
+        - ancestor_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
+        {"columns": ["release_id", "ancestor_id"], "target": "sem.class_definition.release_id,class_id"}]'
+  property_applicability:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      class_id:
+        range: string
+        required: true
+      property_id:
+        range: string
+        required: true
+      range_name:
+        range: string
+        required: true
+      required:
+        range: boolean
+        required: true
+      multivalued:
+        range: boolean
+        required: true
+      minimum_cardinality:
+        range: integer
+        required: false
+      maximum_cardinality:
+        range: integer
+        required: false
+      constraint_scope:
+        range: string
+        required: true
+      constraints:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - class_id
+        - property_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
+        {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
+      ph:checks: '["minimum_cardinality IS NULL OR minimum_cardinality >= 0", "maximum_cardinality IS
+        NULL OR maximum_cardinality >= 0", "minimum_cardinality IS NULL OR maximum_cardinality IS NULL
+        OR minimum_cardinality <= maximum_cardinality"]'
+  identity_slot:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      class_id:
+        range: string
+        required: true
+      group_id:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      property_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - class_id
+        - group_id
+        - position
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
+        {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
+      ph:checks: '["position >= 0"]'
+  vocabulary_member:
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        range: string
+        required: true
+      vocabulary_id:
+        range: string
+        required: true
+      value:
+        range: string
+        required: true
+      meaning:
+        range: string
+        required: false
+      label:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - vocabulary_id
+        - value
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
+  project:
+    in_subset:
+    - data
+    attributes:
+      project_id:
+        range: string
+        required: true
+      active_release_id:
+        range: string
+        required: false
+      generation:
+        range: integer
+        required: true
+        annotations:
+          ph:default: '0'
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - project_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["active_release_id"], "target": "sem.release.release_id"}]'
+      ph:checks: '["generation >= 0"]'
+  realization:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      project_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      state:
+        range: string
+        required: true
+        annotations:
+          ph:default: '''active'''
+      data_revision:
+        range: integer
+        required: true
+        annotations:
+          ph:default: '0'
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+      unique_0:
+        unique_key_slots:
+        - realization_id
+        - release_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}, {"columns":
+        ["release_id"], "target": "sem.release.release_id"}]'
+      ph:checks: '["state IN (''active'', ''building'', ''retired'', ''failed'')", "data_revision >= 0"]'
+  batch:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      batch_id:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
+      content:
+        range: bytes
+        required: true
+      data_revision:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - batch_id
+      unique_0:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - data_revision
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
+      ph:checks: '["data_revision > 0"]'
+  entity:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      entity_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - entity_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
+  membership:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      entity_id:
+        range: string
+        required: true
+      class_id:
+        range: string
+        required: true
+      establishment:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - entity_id
+        - class_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"},
+        {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
+      ph:indexes: '[["realization_id", "release_id", "class_id", "entity_id"]]'
+  typed_value:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      value_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      text_value:
+        range: string
+        required: false
+      integer_value:
+        range: exact_numeric
+        required: false
+      numeric_value:
+        range: exact_numeric
+        required: false
+      decimal_lexical:
+        range: string
+        required: false
+      boolean_value:
+        range: boolean
+        required: false
+      entity_id:
+        range: string
+        required: false
+      language:
+        range: string
+        required: false
+      datatype:
+        range: string
+        required: false
+      opaque_payload:
+        range: json_payload
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - value_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}]'
+      ph:checks: '["kind IN (''string'',''integer'',''decimal'',''number'',''boolean'',''entity'',''null'',''missing'',''sequence'',''mapping'',''record'',''interval'',''expression'',''date'',''datetime'',''float'',''opaque'')",
+        "(kind IN (''string'',''integer'',''date'',''datetime'',''float'',''expression'',''missing'')
+        AND text_value IS NOT NULL AND decimal_lexical IS NULL AND boolean_value IS NULL AND entity_id
+        IS NULL AND opaque_payload IS NULL) OR (kind IN (''decimal'',''number'') AND text_value IS NULL
+        AND decimal_lexical IS NOT NULL AND boolean_value IS NULL AND entity_id IS NULL AND opaque_payload
+        IS NULL) OR (kind IN (''boolean'') AND text_value IS NULL AND decimal_lexical IS NULL AND boolean_value
+        IS NOT NULL AND entity_id IS NULL AND opaque_payload IS NULL) OR (kind IN (''entity'') AND text_value
+        IS NULL AND decimal_lexical IS NULL AND boolean_value IS NULL AND entity_id IS NOT NULL AND opaque_payload
+        IS NULL) OR (kind IN (''opaque'') AND text_value IS NULL AND decimal_lexical IS NULL AND boolean_value
+        IS NULL AND entity_id IS NULL AND opaque_payload IS NOT NULL) OR (kind IN (''null'',''sequence'',''mapping'',''record'',''interval'')
+        AND text_value IS NULL AND decimal_lexical IS NULL AND boolean_value IS NULL AND entity_id IS
+        NULL AND opaque_payload IS NULL)", "numeric_value IS NULL OR kind IN (''decimal'',''number'')",
+        "CASE WHEN numeric_value IS NULL THEN true ELSE numeric_value = decimal_lexical::numeric END",
+        "decimal_lexical IS NULL OR decimal_lexical ~ ''^[+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([eE][+-]?[0-9]+)?$''",
+        "integer_value IS NULL OR kind = ''integer''", "CASE WHEN integer_value IS NULL THEN true ELSE
+        integer_value = trunc(integer_value) AND integer_value = text_value::numeric END", "kind <> ''integer''
+        OR text_value ~ ''^[+-]?[0-9]+$''"]'
+      ph:indexes: '[["realization_id", "release_id", "kind", "text_value"], ["realization_id", "release_id",
+        "kind", "numeric_value"], ["realization_id", "release_id", "entity_id"]]'
+  value_role:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      parent_value_id:
+        range: string
+        required: true
+      role:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      child_value_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - parent_value_id
+        - role
+        - position
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "parent_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
+        {"columns": ["realization_id", "release_id", "child_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
+      ph:checks: '["position >= 0"]'
+  fact:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      fact_id:
+        range: string
+        required: true
+      subject_id:
+        range: string
+        required: true
+      property_id:
+        range: string
+        required: true
+      object_value_id:
+        range: string
+        required: true
+      qualification_value_id:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - fact_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "subject_id"], "target": "data.entity.realization_id,release_id,entity_id"},
+        {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"},
+        {"columns": ["realization_id", "release_id", "object_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
+        {"columns": ["realization_id", "release_id", "qualification_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
+      ph:indexes: '[["realization_id", "release_id", "property_id", "subject_id"], ["realization_id",
+        "release_id", "property_id", "object_value_id"]]'
+  occurrence:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      fact_id:
+        range: string
+        required: true
+      source:
+        range: string
+        required: true
+      item:
+        range: string
+        required: true
+      batch_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - occurrence_id
+      unique_0:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - occurrence_id
+        - fact_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"},
+        {"columns": ["realization_id", "release_id", "batch_id"], "target": "data.batch.realization_id,release_id,batch_id"}]'
+      ph:indexes: '[["realization_id", "release_id", "source", "item"]]'
+  support:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      fact_id:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - fact_id
+        - occurrence_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "occurrence_id", "fact_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id,fact_id"}]'
+  selection:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      fact_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - fact_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
+  evidence:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      evidence_id:
+        range: string
+        required: true
+      source_uri:
+        range: string
+        required: true
+      locator:
+        range: string
+        required: true
+      provider:
+        range: string
+        required: true
+      operation_version:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - evidence_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
+  occurrence_evidence:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      evidence_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - occurrence_id
+        - evidence_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"},
+        {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
+  membership_support:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      entity_id:
+        range: string
+        required: true
+      class_id:
+        range: string
+        required: true
+      evidence_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - entity_id
+        - class_id
+        - evidence_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "entity_id", "class_id"], "target": "data.membership.realization_id,release_id,entity_id,class_id"},
+        {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
+  derivation:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      derivation_id:
+        range: string
+        required: true
+      conclusion_fact_id:
+        range: string
+        required: true
+      rule:
+        range: string
+        required: true
+      rule_version:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - derivation_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "conclusion_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
+  derivation_premise:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      derivation_id:
+        range: string
+        required: true
+      position:
+        range: integer
+        required: true
+      premise_fact_id:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - derivation_id
+        - position
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
+        {"columns": ["realization_id", "release_id", "derivation_id"], "target": "data.derivation.realization_id,release_id,derivation_id"},
+        {"columns": ["realization_id", "release_id", "premise_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
+      ph:checks: '["position >= 0"]'
+  coverage:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      coverage_id:
+        range: string
+        required: true
+      family:
+        range: string
+        required: true
+      scope:
+        range: string
+        required: true
+      outcome:
+        range: string
+        required: true
+      reason:
+        range: string
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - coverage_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
+      ph:checks: '["outcome IN (''complete'',''partial'',''unanalysed'',''failed'')"]'
+  sql_admission:
+    description: Derived authored-SQL admission tied to the frozen dependency and physical catalog.
+    in_subset:
+    - sem
+    attributes:
+      release_id:
+        required: true
+      input_kind:
+        required: true
+        annotations:
+          ph:default: '''dependency'''
+      input_name:
+        required: true
+      physical_id:
+        required: true
+      content:
+        range: bytes
+        required: true
+      content_digest:
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - input_name
+        - physical_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id", "input_kind", "input_name"], "target": "sem.input.release_id,input_kind,input_name"}]'
+      ph:checks: '["input_kind = ''dependency''"]'

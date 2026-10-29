@@ -59,6 +59,7 @@ SQL, so a changed expression is a new name that Alembic's `checkconstraint_bynam
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -73,7 +74,9 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Identity,
     Integer,
+    Index,
     MetaData,
+    Numeric,
     PrimaryKeyConstraint,
     SmallInteger,
     Table,
@@ -585,9 +588,64 @@ def invariant_sql(inv: Invariant, columns: Mapping[str, str], literals: list[str
     raise ModelError([f"invariant {inv}: no SQL template"])
 
 
-def compile_metadata(view: View) -> MetaData:
-    """The `MetaData` of the model's tables (module doc); `view` is the `system` module's."""
+def compile_metadata(view: View, *, target: str = "legacy") -> MetaData:
+    """Compile the selected trusted model; legacy rendering remains byte compatible.
+
+    ``semantic`` is an explicit compiler target for the application-owned physical module.
+    Runtime candidate schemas are never passed to this target by release preparation.
+    """
+    if target == "semantic":
+        return _compile_physical(view)
+    if target != "legacy":
+        raise ModelError([f"unknown relational target {target!r}"])
     return _Compiler(view).compile()
+
+
+def _compile_physical(view: View) -> MetaData:
+    if str(view.schema.id) != "https://corpus-structure.org/model/semantic/physical":
+        raise ModelError(["semantic target requires the trusted physical module"])
+    md = MetaData(naming_convention=dict(NAMING_CONVENTION))
+    physical_types = {"bytea": BYTEA, "jsonb": JSONB, "numeric": Numeric}
+    for name, cls in view.schema.classes.items():
+        subsets = [str(s) for s in cls.in_subset]
+        if len(subsets) != 1 or subsets[0] not in {"sem", "data"}:
+            raise ModelError([f"{name}: physical table needs exactly one sem/data subset"])
+        columns = []
+        for slot in view.class_induced_slots(name):
+            rng = str(slot.range or "string")
+            declared = view.get_type(rng)
+            sql_type = ci_annotations(declared).get("ph:sql_type")
+            if sql_type is not None:
+                typ = physical_types[str(sql_type)]()
+            elif rng == "integer":
+                typ = BigInteger()
+            elif rng == "boolean":
+                typ = Boolean()
+            elif rng == "string":
+                typ = Text()
+            else:
+                raise ModelError([f"{name}.{slot.name}: unsupported physical range {rng}"])
+            default = ci_annotations(slot).get("ph:default")
+            columns.append(Column(str(slot.name), typ, nullable=not slot.required,
+                                  server_default=text(default) if default is not None else None))
+        table = Table(str(name), md, *columns, schema=subsets[0], info={"model_class": str(name)})
+        for key_name, key in cls.unique_keys.items():
+            constraint = PrimaryKeyConstraint if key_name == "primary_key" else UniqueConstraint
+            table.append_constraint(constraint(*map(str, key.unique_key_slots)))
+    for name, cls in view.schema.classes.items():
+        schema = str(cls.in_subset[0])
+        table = md.tables[f"{schema}.{name}"]
+        ann = ci_annotations(cls)
+        for fk in json.loads(ann.get("ph:foreign_keys", "[]")):
+            target_name, remote = fk["target"].rsplit(".", 1)
+            local = fk["columns"]
+            target = [f"{target_name}.{col}" for col in remote.split(",")]
+            table.append_constraint(ForeignKeyConstraint(local, target, info={"shared": tuple(local[:-1])}))
+        for sql in json.loads(ann.get("ph:checks", "[]")):
+            table.append_constraint(CheckConstraint(sql, name=check_name(table.name, "physical", sql)))
+        for columns in json.loads(ann.get("ph:indexes", "[]")):
+            Index(None, *(table.c[c] for c in columns))
+    return md
 
 
 # --- Rendering ---------------------------------------------------------------------------------
