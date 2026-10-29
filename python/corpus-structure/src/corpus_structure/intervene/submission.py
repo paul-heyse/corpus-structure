@@ -88,6 +88,7 @@ class RuleFinding(BaseModel):
 
 
 class SubmissionResult(BaseModel):
+    submission_disposition: Literal["held", "completed_accepted", "completed_refused", "refused_context"] | None = None
     task_id: int
     status: Literal["held", "done", "empty", "not_open"]
     task_open: bool

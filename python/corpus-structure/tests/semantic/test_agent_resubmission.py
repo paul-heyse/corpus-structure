@@ -138,7 +138,7 @@ def source_task(admin, engine, path):
         complete_task(
             conn,
             task_id=source,
-            attempt=claim["attempt"],
+            attempt=claim.attempt,
             holder="source",
             prepared=prepared,
             observations=[],
@@ -229,6 +229,7 @@ def test_uncertain_first_hold_survives_session_restart_and_terminal_second_repor
             ).structured_content
             assert protocol is not None
             assert protocol["status"] == "held"
+            assert protocol["submission_disposition"] == "refused_context"
             with engine.connect() as conn:
                 assert (
                     conn.execute(
@@ -241,6 +242,7 @@ def test_uncertain_first_hold_survives_session_restart_and_terminal_second_repor
             ).structured_content
             assert held is not None
             assert held["status"] == "held" and held["rejected"] and held["task_open"]
+            assert held["submission_disposition"] == "held"
             with engine.connect() as conn:
                 row = (
                     conn.execute(select(table("ops.task")).where(table("ops.task").c.id == task))
@@ -288,6 +290,7 @@ def test_uncertain_first_hold_survives_session_restart_and_terminal_second_repor
             ).structured_content
             assert repeated is not None
             assert repeated["status"] == "not_open"
+            assert terminal["submission_disposition"] == ("completed_refused" if refused else "completed_accepted")
 
     anyio.run(journey)
     with engine.connect() as conn:

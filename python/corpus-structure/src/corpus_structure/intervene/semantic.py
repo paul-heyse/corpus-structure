@@ -21,6 +21,7 @@ from corpus_structure.semantic.proposals import (
     locate_proposal,
 )
 from corpus_structure.semantic.types import PreparedRelease
+from corpus_structure.semantic.operation_results import OperationResult, CompletionResult
 
 
 class ProposalProtocolRefused(ProposalRefused):
@@ -37,10 +38,16 @@ class RefusedProposal:
         return False
 
 
-@dataclass(frozen=True)
-class ProposalCommit:
-    status: Literal["held", "done"]
-    observation_ids: tuple[int, ...] = ()
+class HeldProposalCommit(OperationResult):
+    disposition: Literal["held"] = "held"
+
+
+class CompletedProposalCommit(OperationResult):
+    disposition: Literal["completed_accepted", "completed_refused"]
+    completion: CompletionResult
+
+
+type ProposalCommit = HeldProposalCommit | CompletedProposalCommit
 
 
 @dataclass
@@ -149,7 +156,7 @@ class ProposalSession:
             ),
             "authored": source_value(authored),
         }
-        if hold_agent_result(
+        holding = hold_agent_result(
             conn,
             task_id=self.task_id,
             attempt=self.attempt,
@@ -157,8 +164,9 @@ class ProposalSession:
             packet_hash=self.packet.hash,
             clean=checked.clean,
             result=diagnostic,
-        ):
-            return ProposalCommit("held")
+        )
+        if holding.disposition == "held":
+            return HeldProposalCommit()
         # The native helper holds the run/task locks through the terminal fence, including a
         # clean result racing an uncertain result. The durable first result cannot be lost.
         error = conn.execute(select(tasks.c.error).where(tasks.c.id == self.task_id)).scalar_one()
@@ -226,4 +234,7 @@ class ProposalSession:
             envelope=envelope,
             observations=(observation,),
         )
-        return ProposalCommit("done", tuple(observations))
+        return CompletedProposalCommit(
+            disposition="completed_refused" if isinstance(checked, RefusedProposal) else "completed_accepted",
+            completion=observations,
+        )

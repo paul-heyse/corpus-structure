@@ -170,7 +170,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
         complete_task(
             conn,
             task_id=task,
-            attempt=claim["attempt"],
+            attempt=claim.attempt,
             holder="source",
             prepared=prepared,
             observations=[],

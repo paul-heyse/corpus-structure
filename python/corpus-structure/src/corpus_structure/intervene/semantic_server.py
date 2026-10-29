@@ -138,32 +138,27 @@ class SemanticAgentSession:
                     agent=True,
                 )
                 for task in leased:
-                    packet = agent_packet(conn, self.run_id, task["id"], prepared)
-                    if packet.hash != task["packet_hash"]:
+                    packet = agent_packet(conn, self.run_id, task.task_id, prepared)
+                    if packet.hash != task.packet_hash:
                         raise ProposalRefused(
                             "queued task does not match its recorded source packet"
                         )
                     session = ProposalSession(
-                        prepared, packet, task["id"], task["attempt"], self.holder
+                        prepared, packet, task.task_id, task.attempt, self.holder
                     )
-                    self.sessions[task["id"]] = session
+                    self.sessions[task.task_id] = session
                     pages = packet.part_pages(
                         next(part for part in packet.parts() if part.name == "unit")
                     )
                     out.append(
                         service.LeasedTask(
-                            task_id=task["id"],
+                            task_id=task.task_id,
                             run_id=self.run_id,
                             unit_key=packet.frame.unit_ref,
                             parts=len(pages),
                             chars=sum(map(len, pages)),
                             previous_issues=TypeAdapter(tuple[ProposalIssue, ...]).validate_python(
-
-                                    (task["error"] or {})
-                                    .get("semantic_proposal_first_result", {})
-                                    .get("result", {})
-                                    .get("issues", ())
-
+                                task.held_progress.result.get("issues", ()) if task.held_progress else ()
                             ),
                         )
                     )
@@ -308,10 +303,11 @@ def build_semantic_server(
             )
             with session.engine.begin() as conn:
                 result = active.commit(conn, checked)
-            if result.status == "held":
+            if result.disposition == "held":
                 return submission.SubmissionResult(
                     task_id=task_id,
                     status="held",
+                    submission_disposition="held",
                     task_open=True,
                     rejected=[
                         submission.ItemIssue(
@@ -326,7 +322,8 @@ def build_semantic_server(
                 task_id=task_id,
                 status="done",
                 task_open=False,
-                observation_id=result.observation_ids[0],
+                submission_disposition=result.disposition,
+                observation_id=result.completion.receipt.observation_ids[0],
                 rejected=[
                     submission.ItemIssue(
                         path=issue.path, category="parse", code=issue.code, message=issue.detail
@@ -340,12 +337,13 @@ def build_semantic_server(
             )
         except (OperationConflict, ProposalTaskNotOpen) as error:
             return submission.SubmissionResult(
-                task_id=task_id, status="not_open", task_open=False, reason=str(error)
+                task_id=task_id, status="not_open", submission_disposition="refused_context", task_open=False, reason=str(error)
             )
         except (ProposalRefused, ValidationError) as error:
             return submission.SubmissionResult(
                 task_id=task_id,
                 status="held",
+                submission_disposition="refused_context",
                 task_open=True,
                 rejected=[
                     submission.ItemIssue(

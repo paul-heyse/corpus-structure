@@ -29,6 +29,7 @@ from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, Run
 
 from .identity import canonical_bytes
 from .metadata import table
+from .operation_results import ClaimedTask, CompletionResult, HeldProgress, HoldDecision
 from .types import PreparedRelease
 
 
@@ -266,7 +267,7 @@ def claim_tasks(
     holder: str,
     limit: int = 1,
     agent: bool = False,
-) -> list[dict[str, Any]]:
+) -> tuple[ClaimedTask, ...]:
     if limit < 1:
         raise ValueError("positive claim limit required")
     if not isinstance(holder, str) or not holder:
@@ -277,7 +278,7 @@ def claim_tasks(
         conn.execute(select(r).where(r.c.id == run_id).with_for_update(read=True)).mappings().one()
     )
     if run["sealed"] or run["status"] not in {"created", "running"}:
-        return []
+        return ()
     eligible = (t.c.status == "awaiting_agent") if agent else (t.c.status == "pending")
     eligible = eligible | ((t.c.status == "running") & (t.c.lease_until < func.clock_timestamp()))
     ids = (
@@ -301,7 +302,17 @@ def claim_tasks(
         )
         .returning(t)
     ).mappings()
-    return [dict(row) for row in rows]
+    from corpus_structure.core.vocab import TaskUnitType
+
+    return tuple(ClaimedTask(
+        task_id=row["id"], run_id=row["run_id"], release_id=row["release_id"],
+        method_config_id=row["method_config_id"], unit_type=TaskUnitType(row["unit_type"]),
+        unit_id=row["unit_id"], unit_key=row["unit_key"], packet_hash=row["packet_hash"],
+        attempt=row["attempt"], holder=row["claimed_by"], deadline=row["lease_until"],
+        invocation_key=row["invocation_key"],
+        held_progress=HeldProgress.model_validate(row["error"]["semantic_proposal_first_result"])
+        if row["error"] and "semantic_proposal_first_result" in row["error"] else None,
+    ) for row in rows)
 
 
 def observation_key(
@@ -335,7 +346,7 @@ def complete_task(
     outcome: str = "done",
     error: Mapping[str, Any] | None = None,
     envelope: Mapping[str, Any] | None = None,
-) -> list[int]:
+) -> CompletionResult:
     """Validate the bound producer envelope, then atomically fence and append source results."""
     if outcome not in {"done", "empty", "failed"}:
         raise ValueError("invalid terminal outcome")
@@ -383,7 +394,7 @@ def complete_task(
         result = conn.execute(
             text(
                 "SELECT ops.complete_task(:task,:attempt,:holder,CAST(:rows AS jsonb),"
-                ":outcome,CAST(:error AS jsonb),CAST(:envelope AS jsonb))"
+                ":outcome,CAST(:error AS jsonb),CAST(:envelope AS jsonb))::text"
             ),
             dict(
                 task=task_id,
@@ -399,7 +410,7 @@ def complete_task(
         if getattr(getattr(exc, "orig", None), "sqlstate", None) in {"P0004", "55000"}:
             raise OperationConflict("task attempt lost or run sealed") from exc
         raise
-    return list(result)
+    return CompletionResult.model_validate_json(result, strict=True)
 
 
 def seal_cut(conn: Connection, run_id: int, name: str, *, final: bool = False) -> int:
@@ -592,7 +603,7 @@ def complete_unit_result(
     method: Method[Any],
     configuration_hash: str,
     source: str,
-) -> list[int]:
+) -> CompletionResult:
     """The actual recognizer terminal boundary: binding, source storage and one native fence."""
     from .observations import bind_result, source_python
 
@@ -937,12 +948,12 @@ def hold_agent_result(
     packet_hash: str,
     clean: bool,
     result: Mapping[str, JsonValue],
-) -> bool:
+) -> HoldDecision:
     """Lock one live submission; persist only its first well-typed uncertain result."""
     import json
 
     try:
-        return conn.execute(
+        held = conn.execute(
             text(
                 "SELECT ops.hold_agent_result(:task,:attempt,:holder,:packet,:clean,"
                 "CAST(:result AS jsonb))"
@@ -956,6 +967,8 @@ def hold_agent_result(
                 "result": json.dumps(dict(result)),
             },
         ).scalar_one()
+        return HoldDecision(task_id=task_id,attempt=attempt,packet_hash=packet_hash,
+                            disposition="held" if held else "proceed")
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("agent submission attempt lost or run sealed") from exc

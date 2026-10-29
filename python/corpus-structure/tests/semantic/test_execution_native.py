@@ -84,7 +84,7 @@ def test_native_attempt_and_nonterminal_transition_fences(semantic_db_engine,sem
             conn.execute(table("ops.task").update().where(table("ops.task").c.id==task).values(**mutation))
     with semantic_writer_engine.begin() as conn:
         claimed=claim_tasks(conn,run_id=run,config_id=config,holder="worker")[0]
-        assert claimed["attempt"]==1
+        assert claimed.attempt==1
     with pytest.raises(DBAPIError,match="claim or reclaim"),semantic_writer_engine.begin() as conn:
         conn.execute(table("ops.task").update().where(table("ops.task").c.id==task).values(attempt=2,claimed_by="stolen"))
 
@@ -92,7 +92,7 @@ def test_native_attempt_and_nonterminal_transition_fences(semantic_db_engine,sem
 def test_protected_release_and_reclaim_preserve_held_progress(semantic_db_engine,semantic_writer_engine):
     from types import SimpleNamespace
     from corpus_structure.semantic.operations import (OperationBinding,OperationConflict,create_run,create_task,
-        record_method,claim_tasks,hold_agent_result,renew_claim,release_claim)
+        record_method,claim_tasks,hold_agent_result,renew_claim,release_claim,complete_task)
     from .test_operations import setup
 
     prepared=setup(semantic_db_engine)
@@ -104,15 +104,25 @@ def test_protected_release_and_reclaim_preserve_held_progress(semantic_db_engine
         conn.execute(table("sem.release").update().where(table("sem.release").c.release_id==prepared.release_id).values(profile="semantic-2"))
     with semantic_writer_engine.begin() as conn:
         first=claim_tasks(conn,run_id=run,config_id=config,holder="first",agent=True)[0]
-        assert hold_agent_result(conn,task_id=task,attempt=first["attempt"],holder="first",packet_hash="packet",clean=False,result={"issues":["uncertain"]})
-        renew_claim(conn,task_id=task,attempt=first["attempt"],holder="first")
-        released=release_claim(conn,task_id=task,attempt=first["attempt"],holder="first",reason="handoff")
+        assert hold_agent_result(conn,task_id=task,attempt=first.attempt,holder="first",packet_hash="packet",clean=False,result={"issues":["uncertain"]}).disposition=="held"
+        renew_claim(conn,task_id=task,attempt=first.attempt,holder="first")
+        released=release_claim(conn,task_id=task,attempt=first.attempt,holder="first",reason="handoff")
         assert released.task_id==task
         second=claim_tasks(conn,run_id=run,config_id=config,holder="second",agent=True)[0]
-        assert second["attempt"]==2
-        assert second["error"]["semantic_proposal_first_result"]["attempt"]==1
+        assert second.attempt==2
+        assert second.held_progress is not None
+        assert second.held_progress.attempt==1
+        completed=complete_task(conn,task_id=task,attempt=second.attempt,holder="second",
+                                prepared=prepared,observations=(),outcome="empty")
+        assert completed.receipt.protocol=="empty"
+        assert completed.transaction=="applied"
+        replay=complete_task(conn,task_id=task,attempt=second.attempt,holder="second",
+                            prepared=prepared,observations=(),outcome="empty")
+        assert replay.transaction=="replay" and replay.receipt==completed.receipt
+        retained=conn.scalar(text("SELECT error FROM ops.task WHERE id=:task"),dict(task=task))
+        assert retained["semantic_proposal_first_result"]["attempt"]==1
     with pytest.raises(OperationConflict),semantic_writer_engine.begin() as conn:
-        renew_claim(conn,task_id=task,attempt=first["attempt"],holder="first")
+        renew_claim(conn,task_id=task,attempt=first.attempt,holder="first")
 
 
 def test_method_version_binds_unit_and_configuration_schema(semantic_writer_engine):
