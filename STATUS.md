@@ -3,58 +3,45 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Increment and slice
 
-- **Three active plans** ([plans index](docs/plans/README.md)):
-  [design-phase](docs/plans/design-phase_2026-10-28.md),
-  [spike series](docs/plans/design-spikes-s0-s1_2026-10-28.md) and
-  [phase 0 series](docs/plans/phase-0_2026-10-28.md) (the build); a
-  [roadmap](docs/plans/roadmap-phases-1-5_2026-10-28.md) for phases 1–5.
-- **Build lane:** the phase 0 series' tiers 0–3 (the domain-model alignment review integrated).
-  The coordinator's header and §7 list what is built.
-  - **Built:** the one LinkML model with Stage A and Stage B generation (no hand-kept mirror), with key
-    scheme 1 frozen; migration 0001, the store and the repository; packs, rules and registration;
-    ingest and math as registered methods; orchestration (runs, tasks, leases, the seal, fates, commands);
-    parse and the MCP agent interface; the golden split and agreement; consolidation; the pool and its
-    two engines.
-  - **Partly built:** O2 (policy loader only), P3 (bulk writer only) and C2 (`serve/` core only).
-- **Process:** probes only for fundamental uncertainty (operator, 2026-10-28). PostgreSQL: cluster
-  `18/corpus` (port 5434, D3 §13), no backups.
-- **Decisions in force:** ADR-0010–0015, 0018–0023 accepted (0020 one model, 0021 authorities,
-  0022 schema change, 0023 declared identity; 0016 and 0017 superseded).
+- **Current direction:** the operator paused production implementation and requested a complete
+  semantic PostgreSQL/LinkML/ontology pivot, with clean regeneration and no historical compatibility.
+- **Review completed (Proposed):** [functional-extension review](docs/functional_reviews/semantic-postgresql-model_2026-10-29.md)
+  and [target-model companion](docs/functional_reviews/semantic-postgresql-model_2026-10-29_target-model.md).
+  They recommend immutable semantic releases, a stable qualified-assertion/typed-value core,
+  explicit ontology dependencies, transactional admission and model-governed consumers.
+  These are recommendations; no production pivot or ADR supersession has been implemented.
+- **Inspected production baseline:** `7855c4a`, with existing dirty consolidation/packet/trace work.
+  Source includes query work beyond the previous checkpoint. Pending worktree commits were not
+  integrated. No assembled qualification of that implementation is claimed here.
+- **Active plans retained:** [design-phase](docs/plans/design-phase_2026-10-28.md),
+  [spike series](docs/plans/design-spikes-s0-s1_2026-10-28.md),
+  [phase 0](docs/plans/phase-0_2026-10-28.md); [roadmap](docs/plans/roadmap-phases-1-5_2026-10-28.md).
+- **Decisions still in force:** ADR-0010–0015, 0018–0023; review RC01–RC04 propose changes through
+  subsequent plan/decision routes. Existing plans and evidence are preserved.
 
-## Last verified (2026-10-29)
+## Last verified (2026-10-29; review documentation only)
 
 | Command | Outcome and scope |
 |---|---|
-| `uv run ruff check python/`, `uv run ruff format --check python/` | `passed` |
-| `uv run pyrefly check python/corpus-structure` | `passed` (0 errors) |
-| `just model check` | `passed` (revision 0.3.0 `a59196c4a894`) |
-| `uv run pytest python/corpus-structure/tests` | `passed` except `test_db_fixtures.py::test_sweep_honours_leases_and_template_age`, which failed while a stale run was being killed; rerun alone `passed` (12) |
-| Workers' final targeted runs (A1 192, I2b 131, O2 195, C2 5, P3 and M5 suites) | `passed`, per their reports |
-| `just test-all`, `just hygiene` | `not_run`: phase-end checks (AGENTS.md) |
+| `just docs-check` | `failed`: supplied `docs/semantic_postgresql_model.md` lacks title/H1; ADR lint and agent lint passed before publication stopped |
+| `uv run --no-project --offline --no-python-downloads python` (scoped H1/local-link check) | `passed`: all 3 changed documents and 16 local links/fragments |
+| `just turn-end` | `passed` (exit status); emitted existing lint diagnostics; incidental Python formatting/fixes reverted to preserve paused source |
+| `just test-all`, `just hygiene` | `not_run`: no product implementation in this review; paused production remains unqualified by this turn |
 
 ## Known failures, blocks and decisions
 
-- Open build findings are rows in the coordinator's
-  [§11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition):
-  - **F2E-01:** what evidence a derived claim carries. It blocks `derived_from` links.
-  - **C2-01:** the `ExternalReference` descriptor is not stored.
-  - **O2-01:** `PolicyAction.limit` is required, but a policy entry may omit it.
-  - **O2-02:** D6 §7.1 and orchestration §3.10 disagree on how confidence `caps` are keyed. The
-    design owner decides.
-  - **I2A-01:** the 78-page coverage test can hang, because it forks its process pool from a
-    multi-threaded process.
-  - Also open: I2B-01, A1-01, P3-01, F3-02, Q4-01, IR-13, IR-14 and X2-01.
-- The `docs/libraries/pgevector.md` → `pgvector.md` rename is uncommitted (the operator's), so the D9
-  and S7 links fail `docs-check`.
-- Q-7's partial outputs (`results/q7/`) are uncommitted and unfinalized.
+- The [phase 0 coordinator §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition)
+  remains the single owner of scheduled alignment findings; this review closes none.
+- The previous checkpoint's build/qualification inventory is stale relative to landed and dirty
+  source. Reconcile it against the chosen pivot before resuming implementation; do not infer
+  completion from old plan headers or historical focused test receipts.
+- Exact library-stack compatibility, supported generator/inference coverage, qualified RDF
+  mappings and transactional publication behavior remain implementation acceptance obligations,
+  bounded in the review. No dependency was installed or changed.
 
 ## Next
 
-- **Build lane:** finish O2, then P3 and C2. The P3 and C2 remainders are in §11 rows P3-01 and C2-01
-  and in the workers' scope.
-  - **O2:** slices and scope, the agent barrier, the `complete`-run protocol and the run driver.
-  - **P3:** `ci export` and the `referencing.Registry`.
-  - **C2:** queries, `explain` and the CLI.
-- **After those:** A2 (golden server), E2b (scoring), then A3, E3, C3 and C4. E2b replaces the
-  `evaluate.score` stub.
-- **Phase end:** `just test-all` and `just hygiene`, then a completion audit of the phase 0 scope.
+- Select the integrated review recommendations for plan creation, including its RC01–RC04
+  decision impacts. Amend architectural owners through ADRs and reconcile phase 0 scope explicitly.
+- Plan the clean regeneration implementation and native acceptance from the target's journeys.
+  Keep production work paused until that scope and authority change are resolved.
