@@ -20,7 +20,7 @@ def record_direction(engine: Engine, direction: str, scope: str | None = None, *
         if run_id is not None:
             query = query.where(runs.c.id == run_id)
         elif project is not None:
-            query = query.where(runs.c.project_id == project)
+            query = query.where(runs.c.project_id == project, runs.c.status.in_(("created", "running")))
         else:
             raise ToolFailure("a semantic project or run is required")
         row = conn.execute(query.order_by(runs.c.id.desc()).limit(1)).one_or_none()
