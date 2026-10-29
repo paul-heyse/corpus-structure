@@ -115,7 +115,8 @@ def test_batch_is_immutable_and_numeric_receipt_encoding():
     )
     assert b'"100"' in value.content
     with pytest.raises(FrozenInstanceError):
-        setattr(value, "batch_id", "other")
+        invalid_mutation: Any = value
+        invalid_mutation.batch_id = "other"
     with pytest.raises(TypeError):
         invalid_rows: Any = [EntityRow("e")]
         PublicationBatch(R, Z, "b", entity=invalid_rows)
