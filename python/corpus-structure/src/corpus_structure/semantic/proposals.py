@@ -549,7 +549,9 @@ def proposal_packet(
     schema = prepared.json_schema("AgentAuthoredBatch", mode="serialization")
     if prepared.execution_model_id is None:
         schema = copy.deepcopy(schema)
-        schema.get("properties", {}).pop("identity_exclusions", None)
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            properties.pop("identity_exclusions", None)
     schema["$id"] = prepared.release_id + "/agent/authored"
     return ProposalPacket(
         prepared.release_id,
