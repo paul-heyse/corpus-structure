@@ -16,11 +16,11 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from hashlib import sha256
-from typing import Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Connection, Engine, Select, and_, exists, select
+from sqlalchemy import Connection, Engine, Select, and_, exists, literal, select
 from sqlalchemy.sql.elements import ColumnElement
 
 from .identity import canonical_bytes
@@ -28,6 +28,10 @@ from .metadata import table
 from .outcomes import ScientificOutcome
 from .releases import load_release
 from .types import ClassDefinition, PreparedRelease, PropertyDefinition
+
+
+if TYPE_CHECKING:
+    from .ontology import QualifiedGraphProjection
 
 
 class StaleSnapshot(ValueError):
@@ -688,7 +692,9 @@ class ReadSession:
         """
         return self._identity_exclusions(None if entity_id is None else (entity_id,))
 
-    def identity_exclusion_graph(self, entity_id: str | None = None):
+    def identity_exclusion_graph(
+        self, entity_id: str | None = None
+    ) -> QualifiedGraphProjection:
         """Qualified validation projection with the entire selected constraint closure."""
         from .ontology import QualifiedGraphProjection, QualifiedGraphReference
 
@@ -698,6 +704,8 @@ class ReadSession:
                 "id": row.exclusion_id,
                 "left": QualifiedGraphReference(row.left.entity.entity_id),
                 "right": QualifiedGraphReference(row.right.entity.entity_id),
+                "left_source": {"kind": row.left.kind, "target": row.left.target},
+                "right_source": {"kind": row.right.kind, "target": row.right.target},
                 "evidence": tuple(QualifiedGraphReference(e.evidence_id) for e in row.evidence),
                 "reason": row.reason,
                 "operation_id": row.operation_id,
@@ -727,9 +735,9 @@ class ReadSession:
         )
 
     def _identity_exclusions(
-        self, entity_ids: tuple[str, ...] | None
+        self, entity_ids: tuple[str, ...] | Select | None
     ) -> tuple[IdentityExclusion, ...]:
-        if entity_ids == ():
+        if isinstance(entity_ids, tuple) and not entity_ids:
             return ()
         relation, observation = table("data.identity_exclusion"), table("kb.observation")
         stmt = select(relation, observation.c.observation_key).join(
@@ -1192,14 +1200,12 @@ class ReadSession:
         closure = closure.union(select(roles.c.child_value_id).join(
             closure, roles.c.parent_value_id == closure.c.value_id
         ).where(_scope(self.binding, roles)))
-        referenced_entities = {fact["subject_id"]} | set(self.connection.scalars(
-            select(value_relation.c.entity_id).where(
-                _scope(self.binding, value_relation), value_relation.c.value_id.in_(select(closure)),
-                value_relation.c.kind == "entity",
-            )
-        ))
+        referenced_entities = select(value_relation.c.entity_id).where(
+            _scope(self.binding, value_relation), value_relation.c.value_id.in_(select(closure)),
+            value_relation.c.kind == "entity",
+        ).union(select(literal(fact["subject_id"])))
         return Explanation(
-            identity_exclusions=self._identity_exclusions(tuple(sorted(referenced_entities))),
+            identity_exclusions=self._identity_exclusions(referenced_entities),
             alternatives=tuple(
                 AlternativeGroup(
                     **{

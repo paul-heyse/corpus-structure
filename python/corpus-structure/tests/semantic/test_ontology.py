@@ -624,5 +624,5 @@ def test_identity_exclusions_are_qualified_constraints_with_complete_closure():
         replace(projection, identity_exclusions=({**first, "right": first["left"]},)).graph()
     with pytest.raises(OntologyError, match="typed endpoint references"):
         replace(projection, identity_exclusions=({**first, "left": "urn:entity:a"},)).graph()
-    with pytest.raises(OntologyError, match="needs evidence"):
+    with pytest.raises(OntologyError, match="typed evidence"):
         replace(projection, identity_exclusions=({**first, "evidence": ()},)).graph()
