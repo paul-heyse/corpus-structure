@@ -81,20 +81,41 @@ classes:
     is_a: AgentUnsupported
     slot_usage:
       evidence: {range: AgentLocatedEvidence}
+  IdentityEndpoint:
+    attributes:
+      kind: {range: IdentityEndpointKind, required: true}
+      target: {required: true}
+  AgentIdentityExclusion:
+    attributes:
+      id: {required: true}
+      left: {range: IdentityEndpoint, inlined: true, required: true}
+      right: {range: IdentityEndpoint, inlined: true, required: true}
+      reason: {required: true}
+      evidence: {range: AgentEvidence, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
+  AgentStoredIdentityExclusion:
+    is_a: AgentIdentityExclusion
+    slot_usage:
+      evidence: {range: AgentLocatedEvidence}
   AgentAuthoredBatch:
     attributes:
       unit_ref: {required: true}
       entities: {range: AgentEntity, inlined: true, multivalued: true}
       statements: {range: AgentStatement, inlined: true, multivalued: true}
       claims: {range: AgentClaim, inlined: true, multivalued: true}
+      identity_exclusions: {range: AgentIdentityExclusion, inlined: true, multivalued: true}
       alternatives: {range: AgentAlternative, inlined: true, multivalued: true}
       unsupported: {range: AgentUnsupported, inlined: true, multivalued: true}
   AgentStoredBatch:
     is_a: AgentAuthoredBatch
     slot_usage:
+      identity_exclusions: {range: AgentStoredIdentityExclusion}
       claims: {range: AgentStoredClaim}
       unsupported: {range: AgentStoredUnsupported}
 enums:
+  IdentityEndpointKind:
+    permissible_values:
+      local: {}
+      known: {}
   AgentStatementKind:
     permissible_values: {}
   AgentStatementRole:
