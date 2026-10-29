@@ -54,5 +54,5 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 python-version = "3.14"
 project-includes = ["scripts", "tests", "tools", "python"]
 project-excludes = ["fixtures/**", ".claude/**", "**/target/**"]
-search-path = ["scripts", "tools/evidence/src", "python/corpus-structure/src"]
+search-path = ["scripts", "tools/evidence/src", "python/corpus-structure/src", "python/corpus-structure/tests"]
 site-package-path = [".venv/lib/python3.14/site-packages"]
