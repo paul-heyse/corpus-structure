@@ -142,6 +142,31 @@ class PreparedRelease:
     diagnostics: tuple[Diagnostic, ...]
     _adapters: tuple[tuple[str, TypeAdapter[BaseModel]], ...] = field(repr=False, compare=False)
 
+    def expand_name(self, name: str) -> str:
+        """Resolve only prefixes archived with this release; never installed namespaces."""
+        import json
+        if name.startswith(("http://", "https://", "urn:")):
+            return name
+        prefix, separator, local = name.partition(":")
+        if separator:
+            for row in self.registry_rows:
+                if row.kind == "prefix" and row.name == prefix:
+                    return str(json.loads(row.body)["uri"]) + local
+        raise KeyError(f"unresolved release name {name}")
+
+    def enum_members(self, name: str, *, subset: str | None = None) -> frozenset[str]:
+        """Closed membership and authored member properties share release authority."""
+        import json
+        vocabulary = next(v for v in self.vocabularies if v.enum == name)
+        if subset is None:
+            return frozenset(m.value for m in vocabulary.members)
+        row = next(r for r in self.registry_rows if r.kind == "enum_definition" and r.name == name)
+        definition = json.loads(row.body)
+        return frozenset(
+            m.value for m in vocabulary.members
+            if subset in definition.get("permissible_values", {}).get(m.value, {}).get("in_subset", ())
+        )
+
     def entity_keys(
         self, class_name: str, realization: str, values: dict[str, object]
     ) -> tuple[str, ...]:
