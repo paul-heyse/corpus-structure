@@ -350,7 +350,14 @@ def test_packet_cache_preserves_each_configurations_cap(agent: SimpleNamespace, 
         return SimpleNamespace(packet=lambda cap: P.render(content, selected["page"], "T2", segments, context, cap=cap))
     monkeypatch.setattr(AgentOpus, "inputs", inputs)
     method = AgentOpus()
-    unit = SimpleNamespace(rendition_id=1, ref=SimpleNamespace(unit_key="T2"), run=SimpleNamespace(run_id=1))
+    from unittest.mock import create_autospec
+    from corpus_structure.core.method import Reader, RunView, UnitRef, UnitView
+    from corpus_structure.core.vocab import RunKind, TaskUnitType
+    view = RunView(run_id=1, kind=RunKind.SLICE, phase=0, reference_run_id=None,
+                   model_revision="test", schema_version_id=1, guideline_version_id=None,
+                   policy_version_id=None, key_scheme=1, options={},
+                   reader=create_autospec(Reader, instance=True))
+    unit = UnitView(UnitRef(TaskUnitType.SEGMENT, 1, "T2"), view, rendition_id=1)
     cfg = AgentOpusConfig()
     method.packet(unit, cfg)
     with pytest.raises(P.PacketTooLarge):

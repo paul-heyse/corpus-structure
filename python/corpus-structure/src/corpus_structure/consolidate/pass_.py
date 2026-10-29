@@ -161,8 +161,12 @@ def pages_of(conn: Connection, run_id: int, pack_macros: dict[str, MacroDef]) ->
 def documents_of(conn: Connection, run_id: int) -> dict[int, int]:
     rows = conn.execute(
         text(
-            "SELECT DISTINCT r.id, r.document_id FROM kb.run_observation o JOIN kb.rendition r "
-            "ON r.id = o.rendition_id WHERE o.run_id = :run"
+            "SELECT DISTINCT r.id, current.document_id FROM kb.run_observation o "
+            "JOIN kb.rendition r ON r.id = o.rendition_id "
+            "JOIN kb.document origin ON origin.id = r.document_id "
+            "JOIN kb.run_rendition current ON current.run_id = o.run_id "
+            "JOIN kb.document target ON target.id = current.document_id "
+            "AND target.source_uri = origin.source_uri WHERE o.run_id = :run"
         ),
         {"run": run_id},
     )
