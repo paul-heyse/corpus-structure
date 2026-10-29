@@ -1,4 +1,5 @@
 """Actual source-task publication of grounded identity exclusions."""
+import json
 import anyio
 from fastmcp import Client
 from sqlalchemy import select
@@ -9,8 +10,8 @@ from corpus_structure.semantic.metadata import table
 from .test_agent_resubmission import lease_and_read, source_task
 
 
-def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1, keyed=False):
-    prepared, run, task, locator = source_task(admin, writer, tmp_path / "exclusions.html", composed=True, identity_keyed=keyed)
+def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1, keyed=False, global_names=False):
+    prepared, run, task, locator = source_task(admin, writer, tmp_path / "exclusions.html", composed=True, identity_keyed=keyed, global_names=global_names)
     session = SemanticAgentSession(writer, run)
     async def submit():
         async with Client(build_semantic_server(session)) as client:
@@ -22,7 +23,7 @@ def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1, key
                     "right": {"kind": "local", "target": "q"}, "reason": "separate source identities",
                     "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}, *([{ "sentence": unit["sentences"][0]["id"], "quote": "Alice", "role": "supporting"}] if citations == 2 else [])]}]}})
             assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted"
+            assert response.structured_content["submission_disposition"] == "completed_accepted", json.dumps(response.structured_content, indent=2)
     anyio.run(submit)
     if not finalize:
         from corpus_structure.semantic.operations import seal_cut
@@ -74,7 +75,7 @@ def test_known_input_exclusions_follow_participating_endpoints(
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.orchestrate.semantic import queue_agent
     from corpus_structure.semantic.operations import OperationBinding, create_run
-    prepared, old_run, _, first = exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path)
+    prepared, old_run, _, first = exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path, global_names=True)
     assert first is not None
     with semantic_writer_engine.begin() as conn:
         previous = conn.execute(select(table("ops.run")).where(table("ops.run").c.id == old_run)).mappings().one()
@@ -88,6 +89,20 @@ def test_known_input_exclusions_follow_participating_endpoints(
         rendition = conn.execute(select(table("kb.rendition")).where(table("kb.rendition").c.id == segment["rendition_id"])).mappings().one()
         content = RenditionContent.model_validate(rendition["content"])
         locator = str(LocatorIndex(content, "source.html").generate(content.document.children[0]))
+        from corpus_structure.semantic.operations import create_task, claim_tasks, store_rendition, complete_task
+        source_config = conn.scalar(select(table("ops.task").c.method_config_id).where(
+            table("ops.task").c.run_id == old_run, table("ops.task").c.stage == "ingest"))
+        assert source_config is not None
+        source_task_id = create_task(conn, run_id=run, config_id=source_config,
+            stage="ingest", unit_type="run", input_hash="same-source-new-input")
+        claim = claim_tasks(conn, run_id=run, config_id=source_config, holder="source")[0]
+        rid = store_rendition(conn, run_id=run, document_id=rendition["document_id"],
+            content=content, task_id=source_task_id, config_id=source_config, parse_detail={})
+        complete_task(conn, task_id=source_task_id, attempt=claim.attempt, holder="source",
+            prepared=prepared, observations=[], outcome="empty")
+        segment = conn.execute(select(table("kb.segment")).where(
+            table("kb.segment").c.rendition_id == rid,
+            table("kb.segment").c.kind == "paragraph")).mappings().one()
         task, = queue_agent(conn, run_id=run, prepared=prepared, configuration=config,
             units=(UnitRef(TaskUnitType.SEGMENT, segment["id"], locator),))
         inherited = conn.execute(select(table("data.identity_exclusion")).where(
@@ -103,7 +118,7 @@ def test_known_input_exclusions_follow_participating_endpoints(
                     "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}]}
                     for i, entity in enumerate(endpoints)]}})
             assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted"
+            assert response.structured_content["submission_disposition"] == "completed_accepted", json.dumps(response.structured_content, indent=2)
     anyio.run(submit_known)
     second = finalize_bound_run(semantic_writer_engine, run, "inherited-result")
     with semantic_writer_engine.connect() as conn:
