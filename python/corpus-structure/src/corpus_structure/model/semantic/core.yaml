@@ -271,6 +271,8 @@ classes:
         equals_string: param_of
       claim:
         required: true
+        annotations:
+          cs:reference_role: fact
       parameter:
         required: true
   ParameterExpressionOfBinding:
@@ -280,6 +282,8 @@ classes:
         equals_string: param_expr_of
       claim:
         required: true
+        annotations:
+          cs:reference_role: fact
       parameter:
         required: true
   FreeBinding:
@@ -455,6 +459,8 @@ classes:
         equals_string: claim
       ref:
         required: true
+        annotations:
+          cs:reference_role: fact
   AllCondition:
     is_a: Condition
     attributes:

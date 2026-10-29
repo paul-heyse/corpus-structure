@@ -480,3 +480,15 @@ def test_duplicate_schema_definitions_refuse_before_interpretation():
         prepare_release(SourceBundle('example', (SourceArtifact('example', duplicate),)))
     assert failure.value.diagnostics[0].code == 'schema'
     assert 'Duplicate key' in failure.value.diagnostics[0].message
+
+
+
+@pytest.mark.parametrize('range_name, role', [('integer', 'fact'), ('string', 'guess')])
+def test_invalid_reference_role_declarations_refuse(range_name, role):
+    source = bundle(lambda schema: schema['classes']['Thing']['attributes'].update(
+        premise={'range': range_name, 'annotations': {'cs:reference_role': role}},
+    ))
+    with pytest.raises(PreparationError) as failure:
+        prepare_release(source)
+    assert failure.value.diagnostics[0].code == 'reference_role'
+    assert failure.value.diagnostics[0].outcome == 'unsupported'
