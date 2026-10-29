@@ -91,6 +91,21 @@ def create_run(
         raise
 
 
+def start_run(conn: Connection, run_id: int) -> int:
+    """Start a source run through guarded DML; an exact running replay is harmless."""
+    run = table("ops.run")
+    started = conn.execute(
+        update(run).where(run.c.id == run_id, run.c.status == "created", run.c.sealed.is_(False))
+        .values(status="running").returning(run.c.id)
+    ).scalar_one_or_none()
+    if started is not None:
+        return started
+    current = conn.execute(select(run.c.status, run.c.sealed).where(run.c.id == run_id)).one_or_none()
+    if current is not None and current.status == "running" and not current.sealed:
+        return run_id
+    raise OperationConflict("run no longer accepts source execution")
+
+
 def binding_of(conn: Connection, run_id: int) -> OperationBinding:
     r = table("ops.run")
     row = conn.execute(select(r).where(r.c.id == run_id)).mappings().one()
@@ -252,6 +267,8 @@ def claim_tasks(
 ) -> list[dict[str, Any]]:
     if limit < 1:
         raise ValueError("positive claim limit required")
+    if not isinstance(holder, str) or not holder:
+        raise ValueError("nonempty claim holder required")
     t = table("ops.task")
     r = table("ops.run")
     run = (
