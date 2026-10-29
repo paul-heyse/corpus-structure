@@ -47,7 +47,7 @@ from .types import PreparedRelease
 if TYPE_CHECKING:
     from .query import ReadSession, SnapshotBinding
 
-COMPILER_VERSION = "analytical-2"
+COMPILER_VERSION = "analytical-3"
 SPINE = (
     "entity",
     "entity_input",
@@ -104,7 +104,7 @@ class CompiledProjection:
 
 
 @dataclass(frozen=True)
-class AnalyticalPacket:
+class CapturedPacket:
     binding: SnapshotBinding
     projection_id: str
     profile_digest: str
@@ -114,6 +114,68 @@ class AnalyticalPacket:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
+
+
+
+# Existing capture callers retain their import while the two provenance types stay disjoint.
+AnalyticalPacket = CapturedPacket
+
+
+@dataclass(frozen=True)
+class CandidateInput:
+    binding: SnapshotBinding
+    projection_id: str
+    profile_digest: str
+    cut_id: str
+    decision_universe: str
+    relations: Mapping[str, pa.Table]
+    property_ids: tuple[str, ...] = ()
+    scale: int = 12
+
+    def __post_init__(self) -> None:
+        if not self.cut_id or not self.decision_universe:
+            raise ValueError("candidate input requires cut and decision universe")
+        object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
+
+
+class BorrowedHandle:
+    """DuckDB objects borrow the scope; materialized Arrow/Python results detach."""
+
+    def __init__(self, owner: AnalysisScope, native: Any):
+        self._owner, self._native = owner, native
+
+    def __getattr__(self, name: str) -> Any:
+        self._owner._ensure_open()
+        if name == "close" and isinstance(self._native, duckdb.DuckDBPyConnection):
+            return self._owner.close
+        attribute = getattr(self._native, name)
+        if not callable(attribute):
+            return self._owner._borrow(attribute)
+
+        def invoke(*args: Any, **kwargs: Any) -> Any:
+            self._owner._ensure_open()
+            def unwrap(value: Any) -> Any:
+                if isinstance(value, BorrowedHandle):
+                    value._owner._ensure_open()
+                    if value._owner is not self._owner:
+                        raise ValueError("analytical handle belongs to another scope")
+                    return value._native
+                return value
+            result = attribute(*(unwrap(v) for v in args), **{k: unwrap(v) for k,v in kwargs.items()})
+            return self._owner._borrow(result)
+        return invoke
+
+
+class BorrowedReader(BorrowedHandle):
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self._owner._ensure_open()
+        return self._native.read_next_batch()
+
+    def close(self) -> None:
+        self._native.close()
 
 
 def _scalar_type(sql_type: Any) -> pa.DataType:
@@ -158,10 +220,28 @@ def _fields(name: str, scale: int) -> list[pa.Field]:
     return fields
 
 
-def compile_projection(prepared: PreparedRelease, binding: SnapshotBinding) -> CompiledProjection:
+def compile_projection(
+    prepared: PreparedRelease, binding: SnapshotBinding, *, kind: str = "captured"
+) -> CompiledProjection:
     """One trusted physical mapping produces Core selections and their exact Arrow schemas."""
     if prepared.release_id != binding.release_id:
         raise ValueError("projection release differs from snapshot")
+    if kind not in {"captured", "candidate"}:
+        raise ValueError("unknown analytical projection contract")
+    contract: Any = kind
+    if prepared.execution_model_id is not None:
+        import json
+        model = next((row for row in prepared.registry_rows
+                      if row.kind == "execution_model" and row.name == prepared.execution_model_id), None)
+        if model is None:
+            raise ValueError("missing archived execution projection authority")
+        body = json.loads(model.body)
+        contract = next((row for row in body["projections"] if row["id"] == kind), None)
+        if contract is None:
+            raise ValueError("missing named analytical projection contract")
+        expected = ("capture", "detached") if kind == "captured" else ("analysis", "scope")
+        if (contract["implementation"], contract["lifetime"]) != expected:
+            raise ValueError("analytical projection has incompatible implementation/lifetime")
     profile = AnalyticalProfile.from_release(prepared)
     identity = (
         "projection:"
@@ -172,6 +252,7 @@ def compile_projection(prepared: PreparedRelease, binding: SnapshotBinding) -> C
                     PHYSICAL_MODEL_ID,
                     COMPILER_VERSION,
                     profile.digest,
+                    contract,
                 ]
             )
         ).hexdigest()
@@ -381,7 +462,7 @@ class AnalysisScope:
 
     def __init__(
         self,
-        packet: AnalyticalPacket,
+        packet: CapturedPacket | CandidateInput,
         *,
         threads: int = 4,
         memory_limit: str = "2GB",
@@ -405,12 +486,13 @@ class AnalysisScope:
         self._scratch = TemporaryDirectory(prefix="corpus-analysis-", dir=scratch_path)
         config["temp_directory"] = self._scratch.name
         try:
-            self.connection = duckdb.connect(":memory:", config=config)
+            self._connection = duckdb.connect(":memory:", config=config)
+            self.connection = BorrowedHandle(self, self._connection)
         except BaseException:
             self._scratch.cleanup()
             raise
         try:
-            if set(packet.relations) != set(SPINE):
+            if isinstance(packet, CapturedPacket) and set(packet.relations) != set(SPINE):
                 raise ValueError("packet does not contain the complete normalized spine")
             for name, rows in packet.relations.items():
                 if name not in SPINE:
@@ -443,27 +525,54 @@ class AnalysisScope:
     def __enter__(self) -> AnalysisScope:
         return self
 
-    def __exit__(self, *exc: object) -> None:
-        self.close()
+    def __exit__(self, kind: object, error: BaseException | None, traceback: object) -> None:
+        try:
+            self.close()
+        except BaseException as cleanup:
+            if error is not None:
+                if not isinstance(error, Exception):
+                    error.add_note(f"analysis cleanup also failed: {cleanup!r}")
+                    raise error
+                raise BaseExceptionGroup("analysis and cleanup failed", [error, cleanup]) from None
+            raise
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("analysis scope is closed")
+
+    def _borrow(self, value: Any) -> Any:
+        if isinstance(value, pa.RecordBatchReader):
+            if all(reader is not value for reader in self._readers):
+                self._readers.append(value)
+            return BorrowedReader(self, value)
+        if isinstance(value, duckdb.DuckDBPyRelation | duckdb.DuckDBPyConnection):
+            return BorrowedHandle(self, value)
+        return value
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
-        try:
-            for reader in self._readers:
-                reader.close()
-        finally:
+        failures: list[BaseException] = []
+        actions = [reader.close for reader in self._readers]
+        actions += [lambda name=name: self._connection.unregister(name) for name in self._registered]
+        actions += [lambda name=name: self._connection.sql(f'DROP VIEW IF EXISTS "{name}"') for name in self._views]
+        actions += [self._connection.close, self._scratch.cleanup]
+        for action in actions:
             try:
-                for name in self._registered:
-                    self.connection.unregister(name)
-                for name in self._views:
-                    self.connection.sql(f'DROP VIEW IF EXISTS "{name}"')
-            finally:
-                try:
-                    self.connection.close()
-                finally:
-                    self._scratch.cleanup()
+                action()
+            except BaseException as exc:
+                failures.append(exc)
+        self.cleanup_failures = tuple(failures)
+        # Cancellation remains primary, after every independent teardown has settled.
+        for failure in failures:
+            if not isinstance(failure, Exception):
+                for other in failures:
+                    if other is not failure:
+                        failure.add_note(f"cleanup also failed: {other!r}")
+                raise failure
+        if failures:
+            raise BaseExceptionGroup("analysis cleanup failed", failures)
 
     def relation(self, name: str) -> duckdb.DuckDBPyRelation:
         if self._closed:
@@ -659,9 +768,8 @@ class AnalysisScope:
         if self._closed:
             raise RuntimeError("analysis scope is closed")
         reader = relation.to_arrow_reader(batch_size)
-        self._readers.append(reader)
         try:
             yield reader
         finally:
             reader.close()
-            self._readers.remove(reader)
+            self._readers.remove(reader._native)

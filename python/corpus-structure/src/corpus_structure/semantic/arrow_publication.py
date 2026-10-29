@@ -20,6 +20,7 @@ from pgpq.schema import Jsonb
 from psycopg import sql
 from sqlalchemy import Connection, Engine, text
 
+from .query import SnapshotBinding
 from .identity import canonical_bytes
 from .publication import STAGE_TYPES, PublicationBatch, PublicationReceipt, _publish
 
@@ -85,12 +86,11 @@ def _encoder(name: str, schema: pa.Schema) -> ArrowToPostgresBinaryEncoder:
 
 
 @dataclass(frozen=True, init=False)
-class ArrowPublicationBatch:
+class AppendPublication:
     release_id: str
     realization_id: str
     batch_id: str
     relations: Mapping[str, pa.Table]
-    expected_data_revision: int | None = None
     _content: bytes = field(init=False, repr=False)
 
     def __init__(
@@ -99,12 +99,10 @@ class ArrowPublicationBatch:
         realization_id: str,
         batch_id: str,
         relations: Mapping[str, pa.Table | tuple[pa.RecordBatch, ...]],
-        expected_data_revision: int | None = None,
     ) -> None:
         object.__setattr__(self, "release_id", release_id)
         object.__setattr__(self, "realization_id", realization_id)
         object.__setattr__(self, "batch_id", batch_id)
-        object.__setattr__(self, "expected_data_revision", expected_data_revision)
         if any(
             type(v) is not str or not v
             for v in (self.release_id, self.realization_id, self.batch_id)
@@ -112,10 +110,6 @@ class ArrowPublicationBatch:
             raise ArrowPublicationError(
                 "publication requires release, realization and batch identity"
             )
-        if self.expected_data_revision is not None and (
-            type(self.expected_data_revision) is not int or self.expected_data_revision < 0
-        ):
-            raise ArrowPublicationError("expected revision must be a nonnegative integer")
         unknown = relations.keys() - STAGE_TYPES.keys()
         if unknown:
             raise ArrowPublicationError(f"unknown staging relations: {sorted(unknown)}")
@@ -184,8 +178,8 @@ class ArrowPublicationBatch:
 
     @classmethod
     def from_rows(
-        cls, batch: PublicationBatch, *, expected_data_revision: int | None = None
-    ) -> ArrowPublicationBatch:
+        cls, batch: PublicationBatch
+    ) -> AppendPublication:
         """Adapt legitimate row producers at freeze, retaining exact optional projections.
 
         Decimal128 overflow clears only the optional numeric projection, never lexical text.
@@ -248,11 +242,65 @@ class ArrowPublicationBatch:
             batch.realization_id,
             batch.batch_id,
             relations,
-            expected_data_revision,
         )
 
 
-def stage_arrow(connection: Connection, batch: ArrowPublicationBatch) -> None:
+
+@dataclass(frozen=True, init=False)
+class SnapshotDerivedPublication:
+    transport: AppendPublication
+    source: SnapshotBinding
+    operation_id: str
+    projection_id: str
+
+    def __init__(
+        self, release_id: str, realization_id: str, batch_id: str,
+        relations: Mapping[str, pa.Table | tuple[pa.RecordBatch, ...]], *,
+        source: SnapshotBinding, operation_id: str, projection_id: str,
+    ) -> None:
+        if type(source.data_revision) is not int or source.data_revision < 0:
+            raise ArrowPublicationError("derived source revision must be a nonnegative integer")
+        if any(type(v) is not str or not v for v in (operation_id, projection_id, source.capture_id, source.release_id, source.realization_id)):
+            raise ArrowPublicationError("derived publication requires operation, projection and snapshot identity")
+        object.__setattr__(self, "transport", AppendPublication(release_id, realization_id, batch_id, relations))
+        object.__setattr__(self, "source", source)
+        object.__setattr__(self, "operation_id", operation_id)
+        object.__setattr__(self, "projection_id", projection_id)
+
+    @property
+    def release_id(self) -> str:
+        return self.transport.release_id
+
+    @property
+    def realization_id(self) -> str:
+        return self.transport.realization_id
+
+    @property
+    def batch_id(self) -> str:
+        return self.transport.batch_id
+
+    @property
+    def relations(self) -> Mapping[str, pa.Table]:
+        return self.transport.relations
+
+    @property
+    def content(self) -> bytes:
+        return self.transport.content
+
+    @classmethod
+    def from_rows(
+        cls, batch: PublicationBatch, *, source: SnapshotBinding,
+        operation_id: str, projection_id: str,
+    ) -> SnapshotDerivedPublication:
+        append = AppendPublication.from_rows(batch)
+        return cls(append.release_id, append.realization_id, append.batch_id, append.relations,
+                   source=source, operation_id=operation_id, projection_id=projection_id)
+
+
+# Existing name denotes append transport only; omission can no longer select derived intent.
+ArrowPublicationBatch = AppendPublication
+
+def stage_arrow(connection: Connection, batch: AppendPublication | SnapshotDerivedPublication) -> None:
     connection.execute(text("SELECT data.begin_stage()"))
     driver = connection.connection.driver_connection
     if not isinstance(driver, psycopg.Connection):
@@ -272,7 +320,7 @@ def stage_arrow(connection: Connection, batch: ArrowPublicationBatch) -> None:
 
 
 def publish_arrow_on_connection(
-    connection: Connection, batch: ArrowPublicationBatch
+    connection: Connection, batch: AppendPublication | SnapshotDerivedPublication
 ) -> PublicationReceipt:
     """Stage and publish without committing the SQLAlchemy-owned transaction."""
     stage_arrow(connection, batch)
@@ -283,9 +331,11 @@ def publish_arrow_on_connection(
         "b": batch.batch_id,
         "c": batch.content,
     }
-    if batch.expected_data_revision is not None:
-        function = "data.publish_analysis_batch(:r,:z,:b,:c,:expected)"
-        params["expected"] = batch.expected_data_revision
+    if isinstance(batch, SnapshotDerivedPublication):
+        function = "data.publish_derived_batch(:r,:z,:b,:c,:sr,:sz,:revision,:capture,:operation,:projection)"
+        params.update(sr=batch.source.release_id, sz=batch.source.realization_id,
+                      revision=batch.source.data_revision, capture=batch.source.capture_id,
+                      operation=batch.operation_id, projection=batch.projection_id)
     try:
         revision = connection.execute(text("SELECT " + function), params).scalar_one()
     except Exception as exc:
@@ -298,6 +348,6 @@ def publish_arrow_on_connection(
 
 
 def publish_arrow(
-    engine: Engine, batch: ArrowPublicationBatch, *, attempts: int = 3
+    engine: Engine, batch: AppendPublication | SnapshotDerivedPublication, *, attempts: int = 3
 ) -> PublicationReceipt:
     return _publish(engine, batch, publish_arrow_on_connection, attempts=attempts)

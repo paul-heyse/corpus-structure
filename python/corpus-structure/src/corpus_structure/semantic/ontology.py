@@ -14,6 +14,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import MappingProxyType
 from typing import Any
 
 from linkml.generators.owlgen import OwlSchemaGenerator
@@ -395,6 +396,97 @@ def qualified_assertion_graph(assertions: Iterable[Mapping[str, Any]]) -> Graph:
     return graph
 
 
+
+@dataclass(frozen=True)
+class QualifiedGraphProjection:
+    """Explicit validation universe; output focus does not narrow its required closure."""
+
+    release_id: str
+    realization_id: str
+    data_revision: int
+    projection_id: str
+    assertions: tuple[Mapping[str, Any], ...]
+    related_nodes: Mapping[str, Mapping[str, Any]]
+    references: Mapping[str, tuple[str, ...]]
+
+    def __post_init__(self) -> None:
+        def freeze(value: Any) -> Any:
+            if isinstance(value, Mapping):
+                return MappingProxyType({key: freeze(child) for key, child in value.items()})
+            if isinstance(value, tuple | list):
+                return tuple(freeze(child) for child in value)
+            return value
+        object.__setattr__(self, "assertions", freeze(self.assertions))
+        object.__setattr__(self, "related_nodes", freeze(self.related_nodes))
+        object.__setattr__(self, "references", freeze(self.references))
+
+    def graph(self) -> Graph:
+        if not self.release_id or not self.realization_id or not self.projection_id:
+            raise OntologyError("graph projection requires release, realization and projection")
+        if type(self.data_revision) is not int or self.data_revision < 0:
+            raise OntologyError("graph projection requires snapshot revision")
+        assertions = {str(row["id"]): row for row in self.assertions}
+        if len(assertions) != len(self.assertions):
+            raise OntologyError("duplicate projected occurrence identity")
+        overlap = assertions.keys() & self.related_nodes.keys()
+        if overlap:
+            raise OntologyError("related nodes overlap assertion identities")
+        available = {**self.related_nodes, **assertions}
+        required = set(assertions)
+        pending = list(required)
+        while pending:
+            source = pending.pop()
+            for target in self.references.get(source, ()):
+                if target not in available:
+                    raise OntologyError(f"missing required related node {target!r}")
+                if target not in required:
+                    required.add(target)
+                    pending.append(target)
+        graph = Graph()
+        binding = {"release": self.release_id, "realization": self.realization_id,
+                   "data_revision": self.data_revision, "projection": self.projection_id}
+
+        def structure(owner: URIRef, path: tuple[str, ...], value: Any) -> URIRef | Literal:
+            if isinstance(value, URIRef | Literal):
+                return value
+            if not isinstance(value, Mapping | tuple | list):
+                return Literal(value)
+            # Paths retain duplicate member positions, independently of RDF set semantics.
+            node = URIRef("urn:cs:projection-value:" + hashlib.sha256(
+                json.dumps([binding, str(owner), path], sort_keys=True).encode()).hexdigest())
+            if isinstance(value, Mapping):
+                graph.add((node, RDF.type, CS.Record))
+                for key, child in value.items():
+                    graph.add((node, CS[str(key)], structure(owner, (*path, str(key)), child)))
+            else:
+                graph.add((node, RDF.type, CS.Collection))
+                for position, child in enumerate(value):
+                    member = URIRef(str(node) + ":" + str(position))
+                    graph.add((node, CS.member, member))
+                    graph.add((member, RDF.type, CS.CollectionMember))
+                    graph.add((member, CS.position, Literal(position)))
+                    graph.add((member, CS.value, structure(owner, (*path, str(position)), child)))
+            return node
+
+        for assertion in self.assertions:
+            node = URIRef(str(assertion["id"]))
+            graph.add((node, RDF.type, RDF.Statement))
+            graph.add((node, RDF.subject, URIRef(str(assertion["subject"]))))
+            graph.add((node, RDF.predicate, URIRef(str(assertion["predicate"]))))
+            graph.add((node, RDF.object, structure(node, ("object",), assertion["object"])))
+        for identity in sorted(required):
+            node = URIRef(identity)
+            for key, value in binding.items():
+                graph.add((node, CS[key], Literal(value)))
+            row = available[identity]
+            for key, value in row.items():
+                if key in {"id", "subject", "predicate", "object"} and identity in assertions:
+                    continue
+                graph.add((node, CS[str(key) + "Node"], structure(node, (str(key),), value)))
+            for target in self.references.get(identity, ()):
+                graph.add((node, CS.requiredNode, URIRef(target)))
+        return graph
+
 def validate_graph(data: Graph, shapes: Graph, ontology: Graph | None = None) -> GraphValidation:
     """Conformance only: no implicit entailment, imports, mutation or SHACL rules."""
     conforms, report, message = validate(
@@ -553,3 +645,14 @@ def validate_bindings(
     context = ValidationContext(_schema(view), target_class=target_class)
     plugin.pre_process(context)
     return tuple(str(result.message) for result in plugin.process(dict(instance), context))
+
+
+def qualified_validation_graph(projection: QualifiedGraphProjection) -> Graph:
+    """Materialize the declared qualified validation closure, never a bare-domain graph."""
+    return projection.graph()
+
+
+def validate_projected_graph(
+    projection: QualifiedGraphProjection, shapes: Graph, ontology: Graph | None = None
+) -> GraphValidation:
+    return validate_graph(qualified_validation_graph(projection), shapes, ontology)

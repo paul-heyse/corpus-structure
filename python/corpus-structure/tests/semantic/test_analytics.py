@@ -656,3 +656,49 @@ def test_native_qualification_key_excludes_provenance_and_preserves_occurrence_v
     assert {
         row["report_qualification_value_id"] for row in packet.relations["occurrence"].to_pylist()
     } == {"q0", "q1"}
+
+
+def test_borrowed_handles_refuse_after_close_while_materialized_results_detach():
+    scope = AnalysisScope(empty_packet(prepared_inputs()[2]))
+    relation = scope.connection.sql("SELECT 1 AS value").project("value + 1 AS value")
+    detached = relation.to_arrow_table()
+    reader = relation.to_arrow_reader()
+    delayed_fetch = relation.fetchall
+    scope.close()
+    assert detached.to_pylist() == [{"value": 2}]
+    for operation in (delayed_fetch, lambda: reader.read_all(), lambda: scope.connection.sql("SELECT 2")):
+        with pytest.raises(RuntimeError, match="scope is closed"):
+            operation()
+
+
+def test_candidate_input_has_explicit_universe_without_fabricated_capture():
+    from corpus_structure.semantic.analytics import CandidateInput
+
+    packet = empty_packet(prepared_inputs()[2])
+    candidate = CandidateInput(packet.binding, packet.projection_id, packet.profile_digest,
+                               "cut-1", "asserted-positive-candidates", {}, scale=packet.scale)
+    with AnalysisScope(candidate) as scope:
+        assert scope.connection.sql("SELECT 3").fetchall() == [(3,)]
+    with pytest.raises(ValueError, match="cut and decision universe"):
+        replace(candidate, cut_id="")
+
+
+def test_cleanup_attempts_all_and_retains_failures(monkeypatch):
+    scope = AnalysisScope(empty_packet(prepared_inputs()[2]))
+    events = []
+
+    class Reader:
+        def __init__(self, fail):
+            self.fail = fail
+        def close(self):
+            events.append(self.fail)
+            if self.fail:
+                raise ValueError("first reader failure")
+
+    monkeypatch.setattr(scope, "_readers", [Reader(True), Reader(False)])
+    with pytest.raises(ExceptionGroup, match="analysis cleanup failed"):
+        scope.close()
+    assert events == [True, False]
+    assert len(scope.cleanup_failures) == 1
+    assert not __import__('pathlib').Path(scope._scratch.name).exists()
+    scope.close()
