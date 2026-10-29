@@ -10,7 +10,7 @@ from typing import Any, Mapping, Sequence
 from contextlib import AbstractContextManager
 from pydantic import JsonValue
 from corpus_structure.core.evidence import RenditionContent
-from corpus_structure.core.method import RunRendition, MeasurementView, ObservationReading, UnitResult, Method
+from corpus_structure.core.method import RunRendition, MeasurementView, ObservationReading, UnitResult, Method, SourceObservationReference
 from corpus_structure.core.vocab import RunKind, ObservationKind, ObservationOutcome
 from sqlalchemy import Connection, select, insert, update, text, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -60,11 +60,22 @@ def binding_of(conn:Connection,run_id:int)->OperationBinding:
     return OperationBinding(row['release_id'],row['input_realization_id'],row['input_revision'],bytes(row['dependencies']))
 
 
+@dataclass(frozen=True)
+class OperationDescriptor:
+    name:str
+    version:str
+    family:str
+    tier:str
+    confidence_source:str|None=None
+
+
 def record_method(conn:Connection, method:Any, name:str, params:Mapping[str,Any],config_hash:str)->int:
     m=table('ops.method'); c=table('ops.method_config')
     values=dict(name=method.name,version=method.version,family=str(method.family),tier=str(method.tier),confidence_source=str(method.confidence_source) if method.confidence_source is not None else None)
     conn.execute(pg_insert(m).values(**values).on_conflict_do_nothing())
-    mid=conn.execute(select(m.c.id).where(m.c.name==method.name,m.c.version==method.version)).scalar_one()
+    declared=conn.execute(select(m).where(m.c.name==method.name,m.c.version==method.version)).mappings().one()
+    if any(declared[k]!=value for k,value in values.items()):raise OperationConflict('operation version denotes another method contract')
+    mid=declared['id']
     conn.execute(pg_insert(c).values(method_id=mid,name=name,params=dict(params),config_hash=config_hash).on_conflict_do_nothing())
     row=conn.execute(select(c).where(c.c.method_id==mid,c.c.config_hash==config_hash)).mappings().one()
     if row['params'] != dict(params):raise OperationConflict('configuration hash denotes different parameters')
@@ -73,12 +84,14 @@ def record_method(conn:Connection, method:Any, name:str, params:Mapping[str,Any]
 
 def create_task(conn:Connection, *,run_id:int,config_id:int,stage:str,unit_type:str,
                 input_hash:str,unit_id:int|None=None,unit_key:str|None=None,
-                packet_hash:str|None=None,agent:bool=False)->int:
+                packet_hash:str|None=None,agent:bool=False,fresh:bool=False)->int:
     r=table('ops.run'); run=conn.execute(select(r).where(r.c.id==run_id).with_for_update(read=True)).mappings().one()
     if run['sealed'] or run['status'] not in {'created','running'}:raise OperationConflict('run no longer accepts tasks')
     t=table('ops.task'); old_run=r.alias('origin_run')
-    twin=conn.execute(select(t.c.id).join(old_run,t.c.run_id==old_run.c.id).where(
+    twin=None if fresh else conn.execute(select(t.c.id).join(old_run,t.c.run_id==old_run.c.id).where(
         t.c.method_config_id==config_id,t.c.input_hash==input_hash,t.c.status.in_(['done','empty']),
+        t.c.unit_type==unit_type,t.c.unit_id.is_not_distinct_from(unit_id),t.c.unit_key.is_not_distinct_from(unit_key),t.c.packet_hash.is_not_distinct_from(packet_hash),
+        old_run.c.project_id==run['project_id'],
         old_run.c.release_id==run['release_id'],old_run.c.input_realization_id==run['input_realization_id'],
         old_run.c.input_revision==run['input_revision'],old_run.c.dependency_digest==run['dependency_digest']
     ).order_by(t.c.id).limit(1)).scalar_one_or_none()
@@ -109,8 +122,8 @@ def claim_tasks(conn:Connection, *,run_id:int, config_id:int,holder:str,limit:in
     return [dict(row) for row in rows]
 
 
-def observation_key(binding:OperationBinding,input_hash:str,definition:str,item_key:str)->str:
-    return 'observation:'+sha256(canonical_bytes([binding.release_id,binding.dependency_digest,input_hash,definition,item_key])).hexdigest()
+def observation_key(binding:OperationBinding,input_hash:str,definition:str,item_key:str,invocation_key:str)->str:
+    return 'observation:'+sha256(canonical_bytes([binding.release_id,binding.dependency_digest,input_hash,definition,item_key,invocation_key])).hexdigest()
 
 
 def complete_task(conn:Connection, *,task_id:int,attempt:int,holder:str,
@@ -137,7 +150,7 @@ def complete_task(conn:Connection, *,task_id:int,attempt:int,holder:str,
         if definition=='SourceObservation' and supplied_key!=payload['observation_key']:
             raise OperationConflict('source observation identity differs from bound report')
         rows.append(dict(data,ordinal=ordinal,payload_definition=definition,payload=payload,
-            observation_key=supplied_key or observation_key(binding,task['input_hash'],definition,item)))
+            observation_key=supplied_key or observation_key(binding,task['input_hash'],definition,item,task['invocation_key'])))
     import json
     try:
         result=conn.execute(text('SELECT ops.complete_task(:task,:attempt,:holder,CAST(:rows AS jsonb),:outcome,CAST(:error AS jsonb),CAST(:envelope AS jsonb))'),dict(task=task_id,attempt=attempt,holder=holder,rows=json.dumps(rows),outcome=outcome,error=json.dumps(error),envelope=json.dumps(envelope) if envelope is not None else None)).scalar_one()
@@ -208,8 +221,10 @@ def store_rendition(conn:Connection, *,run_id:int,document_id:int,content:Rendit
     b=table('ops.rendition_build');build=dict(document_id=document_id,method_config_id=config_id,
         rendition_id=rendition_id,task_id=task_id,parse_detail=dict(parse_detail))
     conn.execute(pg_insert(b).values(**build).on_conflict_do_nothing())
-    prev=conn.execute(select(b).where(b.c.document_id==document_id,b.c.method_config_id==config_id)).mappings().one()
-    if prev['rendition_id']!=rendition_id:raise OperationConflict('deterministic rendition build changed content')
+    tasks=table('ops.task')
+    current_hash=conn.execute(select(tasks.c.input_hash).where(tasks.c.id==task_id)).scalar_one()
+    previous=conn.execute(select(b.c.rendition_id).join(tasks,b.c.task_id==tasks.c.id).where(b.c.document_id==document_id,b.c.method_config_id==config_id,tasks.c.input_hash==current_hash)).scalars().all()
+    if any(value!=rendition_id for value in previous):raise OperationConflict('deterministic rendition build changed content')
     rr=table('ops.run_rendition')
     conn.execute(pg_insert(rr).values(run_id=run_id,document_id=document_id,rendition_id=rendition_id).on_conflict_do_nothing())
     chosen=conn.execute(select(rr.c.rendition_id).where(rr.c.run_id==run_id,rr.c.document_id==document_id)).scalar_one()
@@ -235,7 +250,7 @@ def complete_unit_result(conn:Connection, *,task_id:int,attempt:int,holder:str,
     if task['attempt']!=attempt or task['claimed_by']!=holder:
         raise OperationConflict('recognizer attempt lost')
     bound=bind_result(prepared,source=source,method=method.name,operation_version=method.version,
-        configuration_hash=configuration_hash,input_hash=task['input_hash'],result=result,
+        configuration_hash=configuration_hash,input_hash=task['input_hash'],invocation_key=task['invocation_key'],result=result,
         method_confidence_source=str(method.confidence_source) if method.confidence_source is not None else None)
     envelope=bound.model_dump(mode='python');items=envelope.pop('observations',[])
     rendition_id=None
@@ -243,6 +258,11 @@ def complete_unit_result(conn:Connection, *,task_id:int,attempt:int,holder:str,
         if result.ref.unit_id is None:raise ValueError('ingest result requires document id')
         rendition_id=store_rendition(conn,run_id=task['run_id'],document_id=result.ref.unit_id,
             content=result.rendition,task_id=task_id,config_id=task['method_config_id'],parse_detail=result.parse_detail or {})
+    elif result.rendition is not None:
+        builds=table('ops.rendition_build')
+        rendition_id=conn.execute(select(builds.c.rendition_id).where(builds.c.task_id==task_id)).scalar_one()
+        if read_rendition(conn,rendition_id)!=result.rendition:
+            raise OperationConflict('terminal rendition result differs from published content')
     rows=[]
     for item in items:
         rid=item.get('rendition_id',rendition_id)
@@ -295,6 +315,7 @@ class SourceObservationView:
     outcome:ObservationOutcome
     observation_key:str
     release_id:str
+    input_refs:tuple[SourceObservationReference,...] = ()
 
 
 class BoundReader:
@@ -328,7 +349,7 @@ class BoundReader:
             payload=source_python(row['payload']['payload']) if row['payload_definition']=='SourceObservation' else row['payload']
             # ObservationView is the recognizer's pure source representation. Domain boundary
             # interpretation stays in PreparedRelease, not the legacy payload-schema registry.
-            out.append(SourceObservationView(row['id'],row['task_id'],ObservationKind(row['kind']),row['rendition_id'],row['segment_id'],row['span_id'],payload,payload_hash(payload),float(row['score']) if row['score'] is not None else None,ObservationOutcome(row['outcome']),row['observation_key'],row['release_id']))
+            out.append(SourceObservationView(row['id'],row['task_id'],ObservationKind(row['kind']),row['rendition_id'],row['segment_id'],row['span_id'],payload,payload_hash(payload),float(row['score']) if row['score'] is not None else None,ObservationOutcome(row['outcome']),row['observation_key'],row['release_id'],tuple(SourceObservationReference(ref['observation_key'],ref['role']) for ref in row['payload'].get('inputs',()))))
         return out
 
     def measurements(self,method:str,metric:str)->Sequence[MeasurementView]:
@@ -358,3 +379,9 @@ def run_view(conn:Connection,run_id:int,prepared:PreparedRelease,*,cut_id:int|No
     binding=binding_of(conn,run_id)
     if binding.release_id!=prepared.release_id:raise OperationConflict('reader release differs from run')
     return BoundRunView(run_id,RunKind(row['kind']),row['phase'],None,binding,prepared,row['options'],BoundReader(conn,run_id,prepared,cut_id))
+
+
+def end_source_run(conn:Connection,run_id:int,*,failure:Mapping[str,str]|None=None)->int:
+    import json
+    return conn.execute(text('SELECT ops.end_source_run(:run,CAST(:failure AS jsonb))'),
+        {'run':run_id,'failure':json.dumps(failure) if failure is not None else None}).scalar_one()

@@ -1245,6 +1245,10 @@ classes:
     in_subset:
     - ops
     attributes:
+      invocation_key:
+        required: true
+        annotations:
+          ph:default: gen_random_uuid()::text
       id:
         range: integer
         required: true
@@ -1389,6 +1393,8 @@ classes:
         unique_key_slots:
         - release_id
         - id
+      source_identity:
+        unique_key_slots: [release_id, observation_key]
     annotations:
       ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
         {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["rendition_id",
@@ -1439,8 +1445,7 @@ classes:
     unique_keys:
       primary_key:
         unique_key_slots:
-        - document_id
-        - method_config_id
+        - task_id
     annotations:
       ph:foreign_keys: '[{"columns": ["document_id", "rendition_id"], "target": "kb.rendition.document_id,id"},
         {"columns": ["method_config_id"], "target": "ops.method_config.id"}, {"columns":
@@ -1714,3 +1719,32 @@ classes:
         - task_id
     annotations:
       ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"}]'
+
+  observation_input:
+    in_subset:
+    - kb
+    attributes:
+      release_id:
+        range: string
+        required: true
+      observation_id:
+        range: integer
+        required: true
+      position:
+        range: integer
+        required: true
+      source_observation_key:
+        range: string
+        required: true
+      role:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - observation_id
+        - position
+    annotations:
+      ph:foreign_keys: '[{"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"},
+        {"columns": ["release_id", "source_observation_key"], "target": "kb.observation.release_id,observation_key"}]'
+      ph:checks: '["position >= 0", "role <> ''''"]'
