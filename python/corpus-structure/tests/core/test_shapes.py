@@ -572,7 +572,7 @@ def test_a_link_names_a_candidate_key_or_a_new_entity() -> None:
 def test_the_citation_frame_keys_are_sentence_ids() -> None:
     entry = {"locator": "p@sentence:A", "text": "A."}
     frame = CitationFrame.model_validate({"s1": entry, "c2": entry})
-    assert list(frame) == ["s1", "c2"] and "s1" in frame
+    assert list(frame.keys()) == ["s1", "c2"] and "s1" in frame
     with pytest.raises(ValidationError):
         CitationFrame.model_validate({"x1": entry})
     assert not Draft202012Validator(schema("citation_frame")).is_valid({"x1": entry})

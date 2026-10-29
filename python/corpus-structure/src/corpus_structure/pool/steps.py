@@ -168,9 +168,11 @@ class ViewSpec:
             (attr in PROJECTED and not slot) or (attr == "identity" and slot)
         ):
             raise ValueError(f"view {name}: cannot project {declaration['project']!r}")
+        if head=='subject':selected_head:Side='subject'
+        else:selected_head='object'
         match = declaration["match"]
         return cls(name, frozenset(applies_to), str(declaration["source"]), match["source"],
-                   match["claim"], head, attr, slot or None)  # type: ignore[arg-type]  # fmt: skip
+                   match["claim"], selected_head, attr, slot or None)  # fmt: skip
 
 
 def view_inputs(

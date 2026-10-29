@@ -26,7 +26,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any,Literal
 
 from corpus_structure.consolidate.assemble import (
     REFERENCE,
@@ -57,7 +57,7 @@ GRAMMAR_KINDS = {
     "set_expr": MathKind.SET,
     "list": MathKind.LIST,
 }
-START = {"formula": "any_value", "set": "set_expr"}
+START:dict[str,Literal["any_value","set_expr"]] = {"formula": "any_value", "set": "set_expr"}
 
 
 @dataclass(frozen=True)
@@ -106,7 +106,7 @@ def read_values(knowledge: Knowledge, inputs: Inputs) -> dict[tuple[str, tuple],
         ):
             ident = (token_form(value["latex"], page.macros), table, value["t"])
             if ident not in cache:
-                result = grammar.parse(value["latex"], START[value["t"]], page.macros)  # type: ignore[arg-type]
+                result = grammar.parse(value["latex"], START[value["t"]], page.macros)
                 names = sorted({o.name for o in result.occurrences if not o.constant})
                 kind = GRAMMAR_KINDS.get(result.kind or "")
                 cache[ident] = Reading(result.status, kind, tuple(names))

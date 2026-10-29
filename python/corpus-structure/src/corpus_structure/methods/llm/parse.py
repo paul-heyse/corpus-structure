@@ -69,7 +69,7 @@ from corpus_structure.core.vocab import (
     FrameFailureReason,
     ScopeExtent,
 )
-from corpus_structure.methods.llm.cascade import CASCADE_VERSION, Cascade, FrameSentence, Located
+from corpus_structure.methods.llm.cascade import CASCADE_VERSION, REGEX_TIMEOUT, REFINE_TIMEOUT, Cascade, FrameSentence, Located
 
 _ENTITY_BINDINGS = frozenset({BindKind.VARIABLE, BindKind.FAMILY_PARAM})
 STATEMENT_BLOCK = STATEMENT_ANCHOR | SENTENCE_SPLIT
@@ -212,7 +212,9 @@ class _Parser:
             for o in self.outcomes.values()
             if o.segment is not None
         ]
-        self.cascade = Cascade(self.text, sentences, view.macros, **timeouts)  # type: ignore[arg-type]
+        if set(timeouts)-{'regex_timeout','refine_timeout'}:
+            raise ValueError('unknown citation cascade timeout option')
+        self.cascade = Cascade(self.text,sentences,view.macros,regex_timeout=timeouts.get('regex_timeout',REGEX_TIMEOUT),refine_timeout=timeouts.get('refine_timeout',REFINE_TIMEOUT))
         self.segments: list[Segment] = list(view.content.document.walk())
         self.quotes: list[QuoteRecord] = []
         self.problems: list[Problem] = []

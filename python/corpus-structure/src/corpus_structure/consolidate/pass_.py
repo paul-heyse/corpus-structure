@@ -175,7 +175,9 @@ def documents_of(conn: Connection, run_id: int) -> dict[int, int]:
 
 def adbc_url(conn: Connection) -> str:
     """The libpq connection string of the caller's connection, for the pool's ADBC reader."""
-    info = conn.connection.dbapi_connection.info  # type: ignore[union-attr]
+    dbapi=conn.connection.dbapi_connection
+    if dbapi is None:raise ValueError('ADBC capture requires an open database connection')
+    info = dbapi.info
     return make_conninfo(info.dsn, password=info.password) if info.password else info.dsn
 
 
