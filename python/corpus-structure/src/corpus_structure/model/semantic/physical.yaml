@@ -942,7 +942,7 @@ classes:
       project_id:
         range: string
         required: true
-      source_key:
+      key:
         range: string
         required: true
       source_uri:
@@ -960,7 +960,7 @@ classes:
       title:
         range: string
         required: false
-      metadata:
+      meta:
         range: json_payload
         required: true
     unique_keys:
@@ -970,7 +970,7 @@ classes:
       unique_0:
         unique_key_slots:
         - project_id
-        - source_key
+        - key
       unique_1:
         unique_key_slots:
         - project_id
@@ -990,7 +990,7 @@ classes:
       document_id:
         range: integer
         required: true
-      rendition_key:
+      key:
         range: string
         required: true
       content_digest:
@@ -1011,7 +1011,7 @@ classes:
         - id
       unique_0:
         unique_key_slots:
-        - rendition_key
+        - key
       unique_1:
         unique_key_slots:
         - document_id
@@ -1385,6 +1385,10 @@ classes:
         unique_key_slots:
         - task_id
         - ordinal
+      bound_observation:
+        unique_key_slots:
+        - release_id
+        - id
     annotations:
       ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
         {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["rendition_id",
@@ -1610,9 +1614,10 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "evidence_id"],
         "target": "data.evidence.realization_id,release_id,evidence_id"}, {"columns":
-        ["observation_id"], "target": "kb.observation.id"}, {"columns": ["rendition_id"],
-        "target": "kb.rendition.id"}, {"columns": ["rendition_id", "span_id"], "target":
-        "kb.span.rendition_id,id"}]'
+        ["release_id", "observation_id"], "target": "kb.observation.release_id,id"},
+        {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["rendition_id",
+        "span_id"], "target": "kb.span.rendition_id,id"}, {"columns": ["realization_id",
+        "release_id"], "target": "data.realization.realization_id,release_id"}]'
       ph:checks: '[]'
   occurrence_establishment:
     in_subset:
@@ -1638,9 +1643,9 @@ classes:
         - occurrence_id
     annotations:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "occurrence_id"],
-        "target": "data.occurrence.realization_id,release_id,occurrence_id"}]'
+        "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns":
+        ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
       ph:checks: '["establishment IN (''stated'',''derived'',''agent_asserted'')"]'
-
   assessment:
     in_subset:
     - data
@@ -1687,6 +1692,25 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "fact_id"], "target":
         "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id",
-        "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}]'
+        "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"},
+        {"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
       ph:checks: '["(fact_id IS NULL) <> (occurrence_id IS NULL)", "confidence IS NULL
         OR (confidence >= 0 AND confidence <= 1)"]'
+  task_result:
+    in_subset:
+    - ops
+    attributes:
+      task_id:
+        range: integer
+        required: true
+      release_id:
+        required: true
+      body:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - task_id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"}]'

@@ -137,6 +137,9 @@ def run(
     agent_reuse: Annotated[AgentReuse | None, typer.Option(help="full or by_unit.")] = None,
     gpu_mode: Annotated[GpuMode | None, typer.Option(help="The GPU mode.")] = None,
     fresh: Annotated[list[str] | None, typer.Option(help="A method not to reuse.")] = None,
+    semantic_release: Annotated[str | None, typer.Option(help="Explicit admitted semantic release for source execution.")] = None,
+    realization: Annotated[str | None, typer.Option(help="Explicit semantic input realization.")] = None,
+    domain: Annotated[str, typer.Option(help="Method pack for explicit semantic source execution.")] = 'statistics',
     json: JsonOpt = False,
 ) -> None:
     """Start a run over the project's corpus and run it to its end."""
@@ -155,6 +158,16 @@ def run(
     method_settings = MethodSettings(
         data_dir=settings.paths.data_dir, model_cache=settings.paths.model_cache
     )
+    if semantic_release is not None or realization is not None:
+        if semantic_release is None or realization is None or project is None:
+            raise typer.BadParameter('semantic source execution requires --semantic-release, --realization and --project')
+        if any(x is not None for x in (slice,scope,corpus,agent_mode,agent_reuse,gpu_mode,fresh)):
+            raise typer.BadParameter('source execution does not accept legacy run selectors or agent options')
+        with _refusals(), ENGINE(settings) as engine:
+            report = commands.start_bound_run(engine,release_id=semantic_release,realization_id=realization,
+                project_id=project,domain=domain,method_settings=method_settings,phase=phase)
+        emit(report,json=json)
+        return
     with _refusals(), ENGINE(settings) as engine:
         report = commands.start_run(
             engine,
