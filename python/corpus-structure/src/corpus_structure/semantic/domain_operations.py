@@ -1126,6 +1126,7 @@ def _project_cut(
                 role = payload["synthesize"]["evidence"][ordinal].get("role")
                 if role is not None:
                     evidence_roles[eid] = role
+                evidence_roles[eid] = citation["role"]
                 source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
             for locator in projected.unresolved:
                 coverage_row("author_markup", locator, "partial", "unresolved source reference")
@@ -1390,6 +1391,7 @@ def _project_cut(
                     canonical_bytes({"locator": citation["locator"], "start": start,
                                      "end": end, "role": citation["role"]}).decode(),
                     descriptor["provider"], descriptor["version"]))
+                evidence_roles[eid] = citation["role"]
                 source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
             for endpoint in (exclusion["left"], exclusion["right"]):
                 if endpoint["kind"] != "local":
@@ -1585,6 +1587,7 @@ def _project_cut(
                     canonical_bytes({"locator": citation["locator"], "start": start,
                                      "end": end, "role": citation["role"]}).decode(),
                     descriptor["provider"], descriptor["version"]))
+                evidence_roles[eid] = citation["role"]
                 source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
                 exclusion_links.append(IdentityExclusionEvidenceRow(xid, eid))
                 for identity, value in ((left, exclusion["left"]), (right, exclusion["right"])):
