@@ -25,6 +25,11 @@ def test_statistics_domain_retains_predicates_identity_and_structured_qualifiers
         'special_case_of','transformation_of','limit_of','member_of_construction',
         'support','pdf','cdf','mgf','mean_value','variance_value','has_parameter',
     }
+    import json
+    role = next(json.loads(r.body) for r in prepared.registry_rows if r.kind == 'operation_property' and r.name == 'RandomVariable/has_distribution')
+    assert role['cs:role'] == 'predicate'
+    assert role['cs:functional'].lower() == 'true'
+    assert role['groups'] == ['distribution']
     assert definitions['FamilyParameter'].identity_groups == (('id',), ('family','canonical_name'))
     assert definitions['RandomVariable'].identity_groups == (('id',), ('symbol','scope_locator'))
     q=prepared.validate_python('StatisticsQualification',{

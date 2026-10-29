@@ -112,6 +112,7 @@ classes:
     attributes:
       modality:
         required: true
+        range: ClaimModality
       polarity:
         range: boolean
         required: true
@@ -493,3 +494,56 @@ enums:
         description: Narrative text between units that states claims.
         in_subset:
         - claim_bearing
+  ClaimModality:
+    description: How the source holds a claim (D1 §5.2; guideline §10.6).
+    permissible_values:
+      asserted:
+        description: Concluded or stated as true; structural claims.
+        in_subset:
+        - conflict_bearing
+      supposed:
+        description: 'A supposition: suppose, assume, if, or let about something taken
+          as given.'
+        in_subset:
+        - premise_forming
+      defined:
+        description: What a definition stipulates, including a formula introducing
+          a variable.
+        in_subset:
+        - conflict_bearing
+      conventional:
+        description: A convention.
+      exemplified:
+        description: Setup values in examples and exercises.
+      posed:
+        description: Reserved until an asks_for predicate exists (OPEN-D2-15).
+        in_subset:
+        - reserved
+      cited:
+        description: Attributed to another source.
+        in_subset:
+        - attribution_identifying
+  StatementRole:
+    description: The part a claim plays in its statement (guideline §10.3).
+    permissible_values:
+      premise:
+        description: A supposition the statement makes.
+      conclusion:
+        description: What a theorem, corollary or remark concludes.
+      definiens:
+        description: What a definition stipulates, or a formula introducing a variable.
+      restriction:
+        description: Reserved; restrictions are condition nodes in guideline v1.
+      example_value:
+        description: A setup value of an example or exercise.
+  EvidenceRole:
+    description: The part an evidence span plays for its claim (guideline §10.8).
+    permissible_values:
+      primary:
+        description: The minimal span that states the claim.
+      supporting:
+        description: An introducer that determines the modality.
+      condition:
+        description: The span of a condition.
+      definition:
+        description: The span of a definition the claim relies on.
