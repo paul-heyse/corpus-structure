@@ -10,6 +10,7 @@ from unicodedata import unidata_version
 from alembic import op
 
 revision = "semantic_0003"
+physical_model_id = "physical:f58ffa92ea042f73bf2aba9da93286fd43de1da8d72953a75b60645cbda05370"
 down_revision = "semantic_0002"
 branch_labels = None
 depends_on = None

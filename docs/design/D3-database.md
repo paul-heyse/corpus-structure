@@ -5,11 +5,27 @@
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
 remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
 migrates their consumers. They do not constrain new releases or require historical compatibility.
-SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer adoption belong
-to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
-instance authority and consolidation ownership.
+SP-01 prepares logical artifacts. SP-02/SP-03 implement the new release archive, fixed physical
+schema and protected publication route; their current verification boundary is owned by the
+[PostgreSQL package](../plans/semantic-model-pivot/postgresql-and-publication.md). Consumer adoption
+belongs to later packages. The decision's carried-forward clauses preserve source fidelity,
+qualification, instance authority and consolidation ownership.
 
 > Decision: ADR-0024
+
+**Implemented target route (2026-10-29; scoped verification in the plan).**
+`model/semantic/physical.yaml` owns fixed `sem` and `data` relations. The explicit semantic target
+of `schema/relational.py` produces the shared `semantic.metadata.metadata`; candidate releases
+populate registry rows instead of constructing tables. `semantic_alembic` is an independent,
+fresh-database migration history. `semantic.releases` archives exact inputs and products,
+reconstructs them offline, and activates through a parent-plus-generation comparison.
+`semantic.publication` lends the existing SQLAlchemy transaction to typed psycopg COPY;
+`semantic.routines` supplies the reviewed PostgreSQL gap for protected staging, grants and native
+enforcement. Restricted logins are provisioned separately with `just db-semantic-roles` on
+18/corpus:5434. The application never receives migration credentials. The operator's asynchronous
+commit policy remains a regenerable-data choice, not a crash-durable acknowledgement guarantee.
+
+> Decision: ADR-0025
 
 **Proposed (2026-10-28).** The physical realization of [D1](D1-knowledge-representation.md) and
 of the operations model in one PostgreSQL 18 database. PostgreSQL is the transactional authority for

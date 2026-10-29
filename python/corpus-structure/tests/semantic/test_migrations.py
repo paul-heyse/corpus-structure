@@ -132,3 +132,48 @@ def test_bootstrap_downgrade_refuses_destructive_reversal(semantic_db_engine: En
             downgrade(conn)
         assert current_revision(conn) == before
         assert "selected_fact" in inspect(conn).get_view_names(schema="data")
+
+
+def test_partial_scalar_indexes_do_not_limit_exact_payload_size(semantic_db_engine: Engine) -> None:
+    lexical = "9" * 10000
+    with semantic_db_engine.begin() as conn:
+        _seed(conn)
+        values = table("data.typed_value")
+        conn.execute(
+            insert(values),
+            [
+                dict(
+                    realization_id="ra",
+                    release_id="a",
+                    value_id="text",
+                    kind="string",
+                    text_value=lexical,
+                    decimal_lexical=None,
+                    numeric_value=None,
+                ),
+                dict(
+                    realization_id="ra",
+                    release_id="a",
+                    value_id="decimal",
+                    kind="decimal",
+                    text_value=None,
+                    decimal_lexical=lexical,
+                    numeric_value=Decimal(lexical),
+                ),
+            ],
+        )
+        assert (
+            conn.scalar(text("SELECT text_value FROM data.typed_value WHERE value_id='text'"))
+            == lexical
+        )
+        assert (
+            conn.scalar(
+                text("SELECT numeric_value::text FROM data.typed_value WHERE value_id='decimal'")
+            )
+            == lexical
+        )
+        predicates = [
+            item["dialect_options"].get("postgresql_where", "")
+            for item in inspect(conn).get_indexes("typed_value", schema="data")
+        ]
+        assert sum("octet_length" in p for p in predicates) == 2

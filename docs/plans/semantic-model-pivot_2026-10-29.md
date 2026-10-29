@@ -1,7 +1,7 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** SP-00 implemented; SP-01 implemented with scoped acceptance passed. Later packages not started. **Created:** 2026-10-29.
-**Claim strength:** ADR-0024 accepts the target. Implemented/Tested claims below are bounded to SP-00/SP-01; later packages remain unimplemented.
+**Status:** SP-00–SP-03 implemented within their declared supported profiles; scoped acceptance below. SP-04–SP-10 not started. **Created:** 2026-10-29.
+**Claim strength:** ADR-0024/ADR-0025 accept the target. Implemented/Tested claims are bounded to SP-00–SP-03; consumer cutover and assembled qualification remain open.
 
 ## 1. Scope, authority and baseline
 
@@ -9,7 +9,7 @@ Implement the whole target in the [functional review](../functional_reviews/sema
 
 This is a dedicated new series. Existing plan scopes/statuses are unchanged. Their findings retain their current owners, especially [phase 0 §11](phase-0_2026-10-28.md#11-findings-disposition). This series owns only its pivot packages and new pivot issues; it does not copy old findings, certify their closure, or silently absorb unfinished phase 0 features. Replacement of current consumers and capabilities necessary to demonstrate the new target are in scope. Unrelated provider additions and product features are not.
 
-Execution began from `cea3f73`; final scoped implementation source is `7474f7a` (2026-10-29).
+Foundation execution began from `cea3f73`; its scoped implementation source is `7474f7a` (2026-10-29).
 The selected legacy core/system model and generated physical metadata remain byte-identical to
 that starting selection. Supplied documents and prior dirty work were already committed at
 execution start. Pending sibling worktrees from the paused task were not integrated. Refresh
@@ -66,7 +66,11 @@ Supporting documents own package design and local evidence. This coordinator alo
 
 ## 5. Dependencies and execution queue
 
-SP-00 is implemented; SP-01 is implemented with scoped acceptance passed. SP-02–SP-10 are not started. No assembled-series qualification is claimed. Stable IDs link to implementation visions in the supporting documents.
+SP-00–SP-03 are implemented within their declared profiles. SP-02/SP-03 supply fixed physical
+metadata, exact archived releases, generation-checked activation and protected native publication.
+Their [package owner](semantic-model-pivot/postgresql-and-publication.md) states capability/refusal
+boundaries. SP-04–SP-10 are not started. No assembled-series qualification is claimed. Stable IDs
+link to the supporting documents.
 
 | Package | Required working input | Delivered capability |
 |---|---|---|
@@ -84,7 +88,9 @@ SP-00 is implemented; SP-01 is implemented with scoped acceptance passed. SP-02�
 
 Useful route: SP-00 → SP-01 → SP-02 → SP-03 → SP-04, then SP-05/SP-06 where independently ready, followed by their consumers. Designing a consumer can begin from agreed contracts; claiming its integration requires the working prerequisite. SP-05 does not block the first PostgreSQL write/read journey. SP-08 queries unrelated to derived facts need not wait for all SP-07 inference. These are capability dependencies, not whole-document barriers or fixed worker lanes.
 
-SP-02 is the next package; it is not implemented by this scope. No automatic restart of the paused phase 0 run follows from this foundation implementation.
+SP-04 is next: use the working release/publication contracts for a declaration → qualified write →
+semantic query/explain journey. SP-05 can develop its lossless Arrow bindings independently.
+No automatic restart of the paused phase 0 run follows from this implementation.
 
 ## 6. Opportunity coverage and completion
 
@@ -127,7 +133,7 @@ record; they do not establish final-source acceptance. Full-series qualification
 
 
 SP-01 completion is bounded to pure preparation and its explicit diagnostic/refusal profile.
-Required database capabilities in artifacts are not implemented or activated. Native standard
+Its receipt does not establish later database capability. Native standard
 LinkML type imports, nested enum checks, source-relative imported IRIs, polymorphic boundaries,
 constraint scopes and contradictory inheritance refusals have regression controls. Earlier
 unsupported-import and projection-consistency failures were corrected rather than waived.
@@ -146,4 +152,20 @@ passed 777 tests before the final two inheritance refusal controls; final semant
 51 tests including those controls and native Valuesets import. The unchanged core/schema controls remain applicable, with the final semantic rerun establishing the changed scope. Ruff passed; Pyrefly reported 0 errors;
 docs-check published 212 canonical pages. Upstream OAK/SSSOM deprecation warnings remain.
 Owned implementation worktrees were removed after patch-equivalence and clean-state checks;
-paused-task worktrees were preserved. No SP-02 persistence/activation or SP-10 qualification is claimed.
+paused-task worktrees were preserved. That foundation receipt does not establish SP-02 or SP-10.
+
+SP-02/SP-03 execution (2026-10-29) began from `c84f59c`. [ADR-0025](../adr/0025-semantic-publication.md)
+and the [PostgreSQL package](semantic-model-pivot/postgresql-and-publication.md) own the concrete
+contracts. Fresh uniquely owned databases on 5434 use a 28-table trusted LinkML projection, a separate
+Alembic history through `semantic_0003`, and frozen routines/grants. Actual restricted logins verify
+publication; no historical database or selected legacy model/generated metadata was changed.
+Pglast 8.7 moved from development-only to the product dependency set; its version stayed fixed.
+Explicit ontology dependency selection and compiler profile `2` prevent unrelated binary/SQL
+artifacts from being parsed as ontologies and give changed compiler products a new identity.
+
+Package acceptance includes native archive/activation, ownership/privilege and staging attacks,
+identity/selection/recursive report fidelity, concurrency/retry/ambiguous and interrupted commit,
+actual pinned-ontology activation/publication, authored SQL catalog binding, exact ADBC boundaries
+and single-pool return/reset. Intermediate failures and their corrections remain in the package's
+acceptance account. Final command outcomes are recorded after final maintenance; no SP-10 or
+consumer-cutover claim follows from this package acceptance.

@@ -1,6 +1,89 @@
 # PostgreSQL schema model and Core execution
 
-**Status:** Planned · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Consumes O03 and the [semantic contracts](semantic-model-and-releases.md). Supplies native persistence, publication and relational access to all consumers.
+**Status:** Implemented within the native profile below; final integrated checks recorded by the [coordinator](../semantic-model-pivot_2026-10-29.md). **Created:** 2026-10-29. Consumes O03 and the [semantic contracts](semantic-model-and-releases.md). Supplies native persistence, publication and relational access to later consumers.
+
+## Implemented contracts and limits (2026-10-29)
+
+**Implemented/Tested, bounded package scope.** [ADR-0025](../../adr/0025-semantic-publication.md)
+records protected staging, deployment and publication ownership. The selected legacy model,
+generated metadata and runtime consumers remain selected until later packages migrate them.
+
+- `model/semantic/physical.yaml` derives the explicit semantic target of `schema/relational.py`.
+  `semantic.metadata` supplies one shared MetaData for the 28 fixed `sem`/`data` tables. Semantic
+  class/property identifiers are release-scoped IRIs. Composite FKs retain realization/release,
+  recursive entity references, occurrence reports, fact supports and evidence. Large exact scalar
+  values remain storable; scalar filter indexes exclude oversized index entries through declared
+  partial predicates. No performance benefit is claimed.
+- `semantic_alembic` owns the fresh bootstrap, selected-fact view and frozen publication SQL/grants
+  revisions. `semantic.migrations.upgrade(conn)` uses the caller's shared connection and imports no
+  selected legacy knowledge schema. Destructive downgrade refuses before changing the database.
+  A normal semantic extension leaves this migration head unchanged.
+- `semantic.releases` persists exact source/import/dependency bytes, explicit ontology-source
+  selection, vocabulary inputs, preparation profile and generated products. Repeated identical
+  persistence compares bytes without recompiling. Explicit load recompiles once offline, checks
+  compiler/library identities and compares every generated artifact and registry projection.
+  Native datatype aliases/bounds are lowered once per release projection. Compiler profile `2`
+  identifies the abstract/reference/explicit-dependency products added during integration.
+- Activation compares both expected parent and generation. Authored SQL dependencies use reserved
+  `authored-sql/*.sql` input names; their raw bytes belong to the release identity. Native admission
+  requires a fresh actual reader connection and stores a separate release/physical/catalog-bound
+  artifact in the same activation savepoint. Failed admission or stale activation preserves the
+  pointer. Existing realizations remain pinned.
+- `just db-semantic-roles` provisions only the dedicated `18/corpus:5434` principals and local peer
+  mappings. Migration administration remains separate. The writer cannot create arbitrary temp
+  tables, mutate admitted tables, alter protected staging or become the publisher. The NOLOGIN
+  publisher creates native transaction-local tables, grants payload-column INSERT, and verifies
+  their catalog identity/ownership/shape. No caller-owned table or validation flag is trusted.
+- `PublicationBatch` is immutable and typed. Its staging types derive from the shared metadata.
+  SQLAlchemy owns SERIALIZABLE, typed psycopg COPY and the outer commit. Native SQL independently
+  computes exact content and semantic keys, checks complete relevant admitted/candidate state,
+  and atomically records the data revision and receipt. A function result before outer COMMIT is
+  not a committed receipt. Serialization/deadlock retry restages the same batch; ambiguous commit
+  recovery looks up that identity. Interrupted uncommitted publication leaves no receipt/data.
+- Equal canonical facts can use different physical value IDs. Each occurrence retains its own
+  reported object and complete qualification, including provenance omitted from the fact key.
+  Reports independently satisfy structural ranges. Existing value trees and fact meanings are
+  immutable. Selection products can retract/replace accepted facts without deleting source
+  reports. Identity uniqueness applies declared case policy and selection scope.
+
+**Supported native integrity profile:** structural scalar/record/recursive reference ranges,
+closed pinned vocabularies, hierarchy, required/cardinality/identity rules, exact integer/decimal
+bounds, and `shape`/`accepted_value` projections. Interval, quantity, expression, missing and
+condition classes use concrete typed records with ordered recursive roles. Optional
+Not4Curation metadata remains explicitly unchecked; it does not waive vocabulary membership.
+
+**Explicit activation refusals:** `occurrence`/`context` integrity grouping without an admitted
+operation grouping contract, Python regex constraints, required inverse/symmetric/transitive graph
+integrity, float numeric bounds, unresolved types/meanings and unsupported required diagnostics.
+Opaque/language-tagged storage semantics have no admitted lowering. These are profile limits,
+not implemented generic integrity engines. Any later consumer requiring one must extend its
+meaning and native enforcement before admission. Cyclic value trees refuse atomically; no capacity
+or general OWL completeness claim is made.
+
+ADBC remains a separate read connection. Native interop controls verify exact NUMERIC as Arrow
+`opaque<PostgreSQL.numeric>` over UTF-8 storage, large lexical fallback, bytea/boolean values,
+stream closure and isolation from uncommitted psycopg writes. Full coherent Arrow/DuckDB loading
+is SP-05. The operator's asynchronous-commit/regenerable-data policy remains unchanged: a visible
+receipt is not a crash-durable acknowledgement promise.
+
+## Package acceptance
+
+The coordinator records final commands and source applicability. Native controls use uniquely
+owned fresh extension-only databases, actual restricted authenticated logins and the frozen Alembic
+deployment. They cover archive byte conflicts/tampering/offline load, CAS races/ABA/pinning,
+unchanged DDL for new definitions, scoped FKs/reflection, invalid COPY/rollback, staging attacks,
+independent identity vectors, selected conflicts, recursive records, source-report retention,
+serialization retry, ambiguous/post-COMMIT loss and native pre-COMMIT disconnect. Actual OAK
+membership passes preparation → archive → offline reload → activation → protected publication;
+an out-of-vocabulary report fails atomically. Authored SQL controls include CTE/quoted names,
+unknown columns/objects, malicious functions, syntax errors and exact changed-literal identity.
+
+Earlier failed checks are retained as failed intermediate outcomes: binary dependencies were
+incorrectly treated as OBO before explicit ontology selection; the ADBC test initially expected
+plain text rather than its opaque extension; teardown originally tried to terminate another role's
+departing backend; initial typing/lint and a large-scalar test placement failed. Each was corrected
+and affected checks rerun. No failed/interrupted result receives acceptance credit. No historical
+database was deleted/migrated. SP-04–SP-10 consumer/regeneration/assembled qualification remains open.
 
 ## SQLAlchemy is the relational foundation
 

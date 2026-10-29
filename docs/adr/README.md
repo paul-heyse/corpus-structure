@@ -20,6 +20,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0015](0015-agent-work-queue.md) | The agent tier works a recorded queue; the pipeline never calls it | 2026-10-28 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
 | [ADR-0018](0018-policy-routed-escalation.md) | Escalation is routed by versioned policies over measurements | 2026-10-28 | [§B6](../design/DESIGN.md#section-b6) | Interface-checked |  |
 | [ADR-0024](0024-semantic-release-preparation.md) | Semantic releases govern interpretation and preserve independent assertion occurrences | 2026-10-29 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0013](0013-claim-model.md), [ADR-0019](0019-identity-follows-content.md), [ADR-0020](0020-one-model-generated-projections.md), [ADR-0021](0021-instance-and-structure-authorities.md), [ADR-0022](0022-schema-change-modelled.md), [ADR-0023](0023-declared-identity.md) |
+| [ADR-0025](0025-semantic-publication.md) | Semantic publication uses protected staging and release-bound native enforcement | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

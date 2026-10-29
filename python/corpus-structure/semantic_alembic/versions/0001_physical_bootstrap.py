@@ -9,6 +9,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "semantic_0001"
+physical_model_id = "physical:f58ffa92ea042f73bf2aba9da93286fd43de1da8d72953a75b60645cbda05370"
 down_revision = None
 branch_labels = None
 depends_on = None
