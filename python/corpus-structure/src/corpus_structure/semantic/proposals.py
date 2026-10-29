@@ -1,0 +1,313 @@
+"""Rich agent proposal boundaries compiled from a named semantic release.
+
+Authored proposals are source reports. Locating their evidence never selects their claims or
+activates definitions. Semantic admission and scientific selection retain their existing owners.
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+from collections.abc import Mapping
+from dataclasses import dataclass
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
+
+import yaml
+from pydantic import BaseModel
+
+from corpus_structure.core.evidence import MacroDef
+from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
+
+from .prepare import prepare_release
+from .publication import native_constraints
+from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
+
+_MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
+
+
+def proposal_inputs(
+    bundle: SourceBundle, dependencies: ResolvedDependencies = ResolvedDependencies(),
+    *, qualification_class: str = "Qualification",
+) -> SourceBundle:
+    """Archive model-facing boundaries with the exact candidate's vocabulary, not installed packs."""
+    if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
+        raise ValueError("reserved agent module name already supplied")
+    candidate = prepare_release(bundle, dependencies)
+    module = yaml.safe_load(_MODEL.read_bytes())
+    qualification = next((d for d in candidate.definitions if d.name == qualification_class), None)
+    if qualification is None or not (qualification.name == "Qualification" or "Qualification" in qualification.ancestors):
+        raise ValueError("agent operation needs an explicit Qualification class or subclass")
+    module["classes"]["AgentClaim"]["attributes"]["qualification"]["range"] = qualification_class
+    entities = [d for d in candidate.definitions if d.name == "Entity" or "Entity" in d.ancestors]
+    if not entities:
+        raise ValueError("agent proposals require a declared Entity hierarchy")
+    predicates = {p.iri for definition in entities for p in definition.properties if p.name != "id"}
+    if not predicates:
+        raise ValueError("agent proposals require at least one declared entity property")
+    module["enums"]["AgentClassIRI"]["permissible_values"] = {d.iri: {} for d in entities}
+    module["enums"]["AgentPropertyIRI"]["permissible_values"] = {iri: {} for iri in sorted(predicates)}
+    return SourceBundle(
+        "agent-root",
+        (
+            *bundle.sources,
+            SourceArtifact("agent", yaml.safe_dump(module, sort_keys=True).encode()),
+            SourceArtifact(
+                "agent-root",
+                yaml.safe_dump(
+                    {"id": "https://corpus-structure.dev/semantic/agent-root", "name": "semantic_agent_root",
+                     "imports": [bundle.root, "agent"]}
+                ).encode(),
+            ),
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class ProposalSentence:
+    id: str
+    locator: str
+    start: int
+    end: int
+
+
+@dataclass(frozen=True)
+class ProposalFrame:
+    unit_ref: str
+    text: str
+    sentences: tuple[ProposalSentence, ...]
+
+    def __post_init__(self) -> None:
+        if not self.unit_ref or len({sentence.id for sentence in self.sentences}) != len(self.sentences):
+            raise ValueError("proposal frame needs a unit and unique sentence identities")
+        if any(not sentence.locator or not 0 <= sentence.start < sentence.end <= len(self.text)
+               for sentence in self.sentences):
+            raise ValueError("proposal sentence lies outside canonical source text")
+
+
+@dataclass(frozen=True)
+class ProposalIssue:
+    path: str
+    code: str
+    detail: str
+
+
+@dataclass(frozen=True)
+class LocatedProposal:
+    authored: BaseModel
+    stored: BaseModel
+    issues: tuple[ProposalIssue, ...]
+
+    @property
+    def clean(self) -> bool:
+        return not self.issues
+
+
+class ProposalRefused(ValueError):
+    """The batch is not meaningful under its declared source/release context."""
+
+
+def _property_value(value: Mapping[str, Any], range_name: str) -> Any:
+    # Structural Value types retain their full typed records; primitive property boundaries
+    # consume the contained primitive, keeping exact Decimal meaning and explicit null separate.
+    if range_name in {"string", "uri", "uriorcurie"} and value["kind"] == "text":
+        return value["text"]
+    if range_name in {"integer", "decimal"} and value["kind"] == "number":
+        number = value["number"]
+        if range_name == "integer" and isinstance(number, Decimal) and number == number.to_integral_value():
+            return int(number)
+        return number
+    if range_name == "boolean" and value["kind"] == "boolean":
+        return value["boolean"]
+    if range_name == "date" and value["kind"] == "date":
+        return value["date"]
+    if range_name == "datetime" and value["kind"] == "datetime":
+        return value["instant"]
+    if range_name == "Entity" and value["kind"] == "entity":
+        return value["target"]
+    return dict(value)
+
+
+def _check_references(prepared: PreparedRelease, raw: Mapping[str, Any], known: Mapping[str, tuple[str, ...]]) -> None:
+    sections = ("entities", "statements", "claims", "alternatives", "unsupported")
+    identifiers = [item["id"] for section in sections for item in raw.get(section, ())]
+    if any(not identifier for identifier in identifiers) or len(identifiers) != len(set(identifiers)):
+        raise ProposalRefused("proposal local identifiers must be nonempty and unique")
+    entities = {item["id"]: item for item in raw.get("entities", ())}
+    statements = {item["id"] for item in raw.get("statements", ())}
+    claims = {item["id"] for item in raw.get("claims", ())}
+    definitions = {definition.iri: definition for definition in prepared.definitions}
+    for alternative in raw.get("alternatives", ()):
+        if len(alternative["members"]) < 2 or len(set(alternative["members"])) != len(alternative["members"]):
+            raise ProposalRefused("an alternative needs at least two distinct claim references")
+        if set(alternative["members"]) - claims:
+            raise ProposalRefused("alternative refers to an undeclared claim")
+    constraints = native_constraints(prepared)
+    by_name = {definition.name: definition for definition in prepared.definitions}
+
+    def check_value(value, definition, prop):
+        range_definition = by_name.get(prop.range)
+        if range_definition is not None and (range_definition.name == "Entity" or "Entity" in range_definition.ancestors):
+            if value.get("kind") != "entity":
+                raise ProposalRefused("entity-ranged property requires an explicit entity reference")
+            target = value["target"]["id"]
+            if target in entities:
+                target_classes = (entities[target]["class_iri"],)
+            else:
+                target_classes = known.get(target, ())
+            if not any(iri in definitions and (definitions[iri].name == prop.range or prop.range in definitions[iri].ancestors)
+                       for iri in target_classes):
+                raise ProposalRefused("entity reference lacks the declared range membership")
+            return
+        native_range = constraints[definition.iri, prop.iri]["native_range"]
+        if prop.range in {vocab.enum for vocab in prepared.vocabularies}:
+            native_range = "string"
+        prepared.property_adapter(definition.name, prop.name, item=prop.multivalued).validate_python(
+            _property_value(value, native_range), strict=True
+        )
+
+    for entity in entities.values():
+        definition = definitions[entity["class_iri"]]
+        for attribute in entity.get("attributes", ()):
+            prop = next((p for p in definition.properties if p.iri == attribute["predicate"]), None)
+            if prop is None:
+                raise ProposalRefused("entity attribute does not apply to its declared class")
+            check_value(attribute["value"], definition, prop)
+
+    for claim in raw.get("claims", ()):
+        if claim.get("statement") is not None and claim["statement"] not in statements:
+            raise ProposalRefused("claim refers to an undeclared statement")
+        if claim["subject"] in entities:
+            class_iris = (entities[claim["subject"]]["class_iri"],)
+        elif claim["subject"] in known:
+            class_iris = known[claim["subject"]]
+        else:
+            raise ProposalRefused("claim subject must be declared locally or in the bound reference snapshot")
+        applicable = [(definition, prop) for iri in class_iris if iri in definitions
+                      for definition in (definitions[iri],) for prop in definition.properties
+                      if prop.iri == claim["predicate"]]
+        if not applicable:
+            raise ProposalRefused("claim property does not apply to its declared subject class")
+        # The generated property adapter, not a second list of ranges, owns domain validation.
+        errors = []
+        for definition, prop in applicable:
+            try:
+                check_value(claim["object"], definition, prop)
+                break
+            except ValueError as exc:
+                errors.append(str(exc))
+        else:
+            raise ProposalRefused("claim object violates its release-derived property boundary: " + "; ".join(errors))
+
+
+def locate_proposal(
+    prepared: PreparedRelease,
+    batch: Mapping[str, Any],
+    frame: ProposalFrame,
+    *,
+    macros: Mapping[str, MacroDef] | None = None,
+    known_classes: Mapping[str, tuple[str, ...]] | None = None,
+) -> LocatedProposal:
+    """Validate rich proposals and locate every claim/unsupported citation without dropping items."""
+    authored = prepared.validate_json("AgentAuthoredBatch", json.dumps(batch, ensure_ascii=False))
+    raw = authored.model_dump(mode="python")
+    if raw["unit_ref"] != frame.unit_ref:
+        raise ProposalRefused("proposal unit does not match its bound source frame")
+    _check_references(prepared, raw, known_classes or {})
+    stored = copy.deepcopy(raw)
+    sentences = {sentence.id: sentence for sentence in frame.sentences}
+    cascade = Cascade(frame.text, [FrameSentence(s.id, s.start, s.end) for s in frame.sentences], dict(macros or {}))
+    issues = []
+    for section in ("claims", "unsupported"):
+        for index, item in enumerate(stored.get(section, ())):
+            located = []
+            for ordinal, citation in enumerate(item["evidence"]):
+                path = f"{section}[{index}].evidence[{ordinal}]"
+                if not citation["quote"] or citation["sentence"] not in sentences:
+                    raise ProposalRefused(f"{path}: citation needs nonempty quote and a declared sentence")
+                found = cascade.locate(citation["quote"], citation["sentence"])
+                row = dict(citation)
+                row["placement"] = found.step.value if found.step is not None else "not_found"
+                row["matches"] = found.matches
+                row["picked"] = found.picked
+                row["timeouts"] = tuple(step.value for step in found.timeouts)
+                if found.score is not None:
+                    row["alignment_score"] = Decimal(str(found.score))
+                if found.fuzzy_counts is not None:
+                    row["fuzzy_counts"] = found.fuzzy_counts
+                row["outcome"] = "unlocated"
+                if found.found and found.sentence is not None:
+                    row.update(locator=sentences[found.sentence].locator, start=found.start, end=found.end,
+                               outcome="coarse" if found.step in {Step.TOKENS, Step.CHARACTERS} else "located")
+                if row["outcome"] != "located":
+                    issues.append(ProposalIssue(path, row["outcome"], "source quote placement is " + row["outcome"]))
+                located.append(row)
+            item["evidence"] = tuple(located)
+    return LocatedProposal(authored, prepared.validate_python("AgentStoredBatch", stored), tuple(issues))
+
+
+@dataclass(frozen=True)
+class ProposalPacket:
+    release_id: str
+    frame: ProposalFrame
+    schema: bytes
+    guideline: str
+    configuration: bytes
+    known_classes: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    macros: tuple[tuple[str, MacroDef], ...] = ()
+
+    @property
+    def schema_hash(self) -> str:
+        from hashlib import sha256
+        return sha256(self.schema).hexdigest()
+
+    @property
+    def hash(self) -> str:
+        from dataclasses import asdict
+        from hashlib import sha256
+        from .identity import canonical_bytes
+        return sha256(canonical_bytes([
+            self.release_id, asdict(self.frame), self.schema_hash,
+            self.guideline, self.configuration.decode(), self.known_classes,
+            [(name, macro.model_dump(mode="json")) for name, macro in self.macros],
+        ])).hexdigest()
+
+    def parts(self):
+        from corpus_structure.methods.llm.parts import Part, text_hash
+        from .identity import canonical_bytes
+        data = {
+            "schema": self.schema.decode(),
+            "guideline": self.guideline,
+            "unit": canonical_bytes({
+                "unit_ref": self.frame.unit_ref,
+                "sentences": [
+                    {"id": sentence.id, "locator": sentence.locator,
+                     "text": self.frame.text[sentence.start:sentence.end]}
+                    for sentence in self.frame.sentences
+                ],
+                "known_classes": dict(self.known_classes),
+                "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
+            }).decode(),
+        }
+        return tuple(Part(name, text, text_hash(text)) for name, text in data.items())
+
+
+def proposal_packet(
+    prepared: PreparedRelease,
+    frame: ProposalFrame,
+    *,
+    guideline: str,
+    configuration: Mapping[str, Any],
+    known_classes: Mapping[str, tuple[str, ...]] | None = None,
+    macros: Mapping[str, MacroDef] | None = None,
+) -> ProposalPacket:
+    """Bind all model-facing parts and their complete source frame before queuing agent work."""
+    from .identity import canonical_bytes
+    schema = prepared.json_schema("AgentAuthoredBatch")
+    schema["$id"] = prepared.release_id + "/agent/authored"
+    return ProposalPacket(
+        prepared.release_id, frame, canonical_bytes(schema), guideline,
+        canonical_bytes(dict(configuration)), tuple(sorted((known_classes or {}).items())),
+        tuple(sorted((macros or {}).items())),
+    )

@@ -26,6 +26,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.intervene import service, submission
 from corpus_structure.intervene.service import Session, ToolFailure
+from corpus_structure.settings import Settings
 
 INSTRUCTIONS = (
     "The corpus-structure work queue. Follow the work-queue skill: lease a unit with queue_next, "
@@ -55,8 +56,13 @@ def _session(ctx: Context) -> Session:
     return ctx.lifespan_context["session"]
 
 
-def build_server(session: Session | None = None) -> FastMCP:
+def build_server(session: Session | None = None, *, semantic_run: int | None = None,
+                 settings: Settings | None = None) -> FastMCP:
     """The main profile; `session` is injected by tests (the lifespan then opens no store)."""
+
+    if semantic_run is not None:
+        from corpus_structure.intervene.semantic_server import build_semantic_server
+        return build_semantic_server(run_id=semantic_run, settings=settings)
 
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
@@ -66,7 +72,7 @@ def build_server(session: Session | None = None) -> FastMCP:
         from corpus_structure.core.db.store import open_store
         from corpus_structure.settings import Settings
 
-        with open_store(Settings(), "ci-mcp", max_size=4) as store:
+        with open_store(settings if settings is not None else Settings(), "ci-mcp", max_size=4) as store:
             yield {"session": Session(store.engine)}
 
     mcp = FastMCP(
@@ -149,6 +155,6 @@ def build_server(session: Session | None = None) -> FastMCP:
     return mcp
 
 
-def serve() -> None:
+def serve(*, semantic_run: int | None = None, settings: Settings | None = None) -> None:
     """`ci mcp serve`: the main profile on stdio, no banner."""
-    build_server().run(show_banner=False)
+    build_server(semantic_run=semantic_run, settings=settings).run(show_banner=False)
