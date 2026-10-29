@@ -11,7 +11,7 @@ method from re-deriving those joins.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any
 
@@ -143,7 +143,7 @@ class DbReader:
         return str(body)
 
     @contextmanager
-    def connection(self) -> Iterator[Any]:
+    def connection(self) -> Generator[Connection]:
         yield self.conn
 
 

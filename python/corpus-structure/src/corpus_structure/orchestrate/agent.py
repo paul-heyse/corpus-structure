@@ -118,7 +118,7 @@ def settle_twins(
         ),
         {"ids": [r.task_id for r in found], "twins": [r.twin_id for r in found]},
     )
-    return int(done.rowcount)
+    return done.rowcount
 
 
 _LEASE = """

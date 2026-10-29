@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Literal
 
@@ -55,7 +55,7 @@ def open_runtime_engine(
     purpose: Purpose = "write",
     timeout: float = 30.0,
     max_size: int = 4,
-) -> Iterator[Engine]:
+) -> Generator[Engine]:
     """One psycopg pool; SQLAlchemy uses the store's NullPool adapter."""
     from corpus_structure.core.db.store import open_store
 
