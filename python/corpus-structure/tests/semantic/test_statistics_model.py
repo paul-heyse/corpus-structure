@@ -38,8 +38,9 @@ def test_statistics_domain_retains_predicates_identity_and_structured_qualifiers
         'param_values':{'scale':{'key':'scale','value':{'kind':'formula','language':'latex',
             'expression':'sigma','bindings':({'kind':'variable','symbol':'sigma','entity':'local:sigma'},)}}},
     })
-    assert q.param_values['scale'].value.bindings[0].entity=='local:sigma'
-    assert q.scope.locator=='Normal.html#first'
+    values = q.model_dump(exclude_unset=True)
+    assert values['param_values']['scale']['value']['bindings'][0]['entity']=='local:sigma'
+    assert values['scope']['locator']=='Normal.html#first'
     with pytest.raises(ValidationError):
         prepared.property_adapter('FamilyParameter','parameter_role').validate_python('made_up_role',strict=True)
 
@@ -88,12 +89,13 @@ def test_released_conditions_preserve_operators_nested_math_and_uncertain_dates(
         'valid_time': {'kind': 'validity_interval',
                        'start': {'kind': 'partial_date', 'lexical': '2026-10'}},
     })
-    assert qualification.condition.terms[0].x.expression == 'x'
-    assert qualification.condition.terms[1].relation == '>'
-    assert qualification.condition.terms[2].body.ref == 'claim:source-premise'
-    assert qualification.valid_time.start.lexical == '2026-10'
-    assert 'end' not in qualification.valid_time.model_fields_set
-    assert 'start_incl' not in qualification.valid_time.model_fields_set
+    values = qualification.model_dump(exclude_unset=True)
+    assert values['condition']['terms'][0]['x']['expression'] == 'x'
+    assert values['condition']['terms'][1]['relation'] == '>'
+    assert values['condition']['terms'][2]['body']['ref'] == 'claim:source-premise'
+    assert values['valid_time']['start']['lexical'] == '2026-10'
+    assert 'end' not in values['valid_time']
+    assert 'start_incl' not in values['valid_time']
     with pytest.raises(ValidationError):
         prepared.validate_python('ComparisonCondition', {
             'kind': 'compare', 'relation': 'roughly', 'lhs': formula, 'rhs': formula,
