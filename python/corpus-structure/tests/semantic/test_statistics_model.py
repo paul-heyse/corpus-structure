@@ -65,3 +65,56 @@ print(sha256(canonical_bytes([(r.kind,r.name,r.body.hex()) for r in p.registry_r
     first=subprocess.run([sys.executable,'-c',code],check=True,capture_output=True,text=True).stdout
     second=subprocess.run([sys.executable,'-c',code],check=True,capture_output=True,text=True).stdout
     assert first==second
+
+
+def test_released_conditions_preserve_operators_nested_math_and_uncertain_dates():
+    prepared = prepare_release(statistics_inputs())
+    formula = {'kind': 'formula', 'language': 'latex', 'expression': 'x'}
+    condition = {
+        'kind': 'all',
+        'terms': (
+            {'kind': 'member', 'x': formula,
+             'set': {'kind': 'set', 'language': 'latex', 'expression': r'\mathbb{R}'}},
+            {'kind': 'compare', 'relation': '>', 'lhs': formula,
+             'rhs': {'kind': 'expression', 'language': 'latex', 'expression': '0'}},
+            {'kind': 'forall', 'variable': 'x',
+             'set': {'kind': 'set', 'language': 'latex', 'expression': r'\mathbb{R}'},
+             'body': {'kind': 'claim', 'ref': 'claim:source-premise'}},
+        ),
+    }
+    qualification = prepared.validate_python('StatisticsQualification', {
+        'modality': 'asserted', 'polarity': True, 'condition': condition,
+        'hedge': {'kind': 'text', 'text': 'usually'},
+        'valid_time': {'kind': 'interval',
+                       'start': {'kind': 'partial_date', 'lexical': '2026-10'}},
+    })
+    assert qualification.condition.terms[0].x.expression == 'x'
+    assert qualification.condition.terms[1].relation == '>'
+    assert qualification.condition.terms[2].body.ref == 'claim:source-premise'
+    assert qualification.valid_time.start.lexical == '2026-10'
+    assert 'end' not in qualification.valid_time.model_fields_set
+    assert 'start_incl' not in qualification.valid_time.model_fields_set
+    with pytest.raises(ValidationError):
+        prepared.validate_python('ComparisonCondition', {
+            'kind': 'compare', 'relation': 'roughly', 'lhs': formula, 'rhs': formula,
+        })
+    with pytest.raises(ValidationError):
+        prepared.validate_python('MembershipCondition', {
+            'kind': 'member', 'x': {'kind': 'text', 'text': 'x'},
+            'set': {'kind': 'set', 'language': 'latex', 'expression': 'R'},
+        })
+
+
+
+def test_required_released_rules_are_compiled_at_preparation():
+    from corpus_structure.semantic import PreparationError, ResolvedDependencies
+    from corpus_structure.semantic.domain_operations import domain_rule_inputs
+
+    dependencies = domain_rule_inputs(ResolvedDependencies(), b"""rules:
+- id: invalid.unknown_property
+  at: [finalize]
+  check: claim.this_field_does_not_exist == 'accepted'
+""")
+    with pytest.raises(PreparationError) as failure:
+        prepare_release(statistics_inputs(), dependencies)
+    assert failure.value.diagnostics[0].code == 'domain_rules'

@@ -133,13 +133,23 @@ classes:
       polarity:
         range: boolean
         required: true
-      attribution: {}
+      hedge:
+        range: TextValue
+        inlined: true
+        description: Source hedging language; retained as meaning-bearing context.
+      attribution:
+        range: Entity
+        description: The entity to which the source attributes the assertion.
       scope:
         range: SemanticScope
         inlined: true
       condition:
         range: Condition
         inlined: true
+      valid_time:
+        range: IntervalValue
+        inlined: true
+        description: Source-stated validity, including partial or symbolic bounds.
       valid_from:
         range: datetime
       valid_until:
@@ -185,6 +195,11 @@ classes:
         range: Qualification
         inlined: true
         required: true
+  ExpressionValue:
+    is_a: MathematicalExpression
+    attributes:
+      kind:
+        equals_string: expression
   IntervalValue:
     is_a: Value
     attributes:
@@ -282,11 +297,10 @@ classes:
     attributes:
       kind:
         equals_string: unresolved
-  ExpressionValue:
+  MathematicalExpression:
     is_a: Value
+    abstract: true
     attributes:
-      kind:
-        equals_string: expression
       language:
         required: true
       expression:
@@ -305,6 +319,30 @@ classes:
         inlined: true
         description: Source-bound definitions needed to interpret this expression;
           supplied by source projection.
+  IntervalValue:
+    is_a: Value
+    description: An absent bound is unbounded; absent inclusivity remains unknown.
+    attributes:
+      kind:
+        equals_string: interval
+      start:
+        range: Value
+        inlined: true
+      end:
+        range: Value
+        inlined: true
+      start_incl:
+        range: boolean
+      end_incl:
+        range: boolean
+  PartialDateValue:
+    is_a: Value
+    description: An ISO date at the precision stated by the source, kept verbatim.
+    attributes:
+      kind:
+        equals_string: partial_date
+      lexical:
+        required: true
   MissingValue:
     is_a: Value
     attributes:
@@ -364,6 +402,60 @@ classes:
         range: Value
         inlined: true
         multivalued: true
+        required: true
+  MembershipCondition:
+    is_a: Condition
+    description: The expression denotes a member of the declared set expression.
+    attributes:
+      kind:
+        equals_string: member
+      x:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+      set:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+  ComparisonCondition:
+    is_a: Condition
+    description: Two expressions compare by the explicit relation; no predicate-name heuristic.
+    attributes:
+      kind:
+        equals_string: compare
+      relation:
+        range: ComparisonRelation
+        required: true
+      lhs:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+      rhs:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+  ForallCondition:
+    is_a: Condition
+    attributes:
+      kind:
+        equals_string: forall
+      variable:
+        required: true
+      set:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+      body:
+        range: Condition
+        inlined: true
+        required: true
+  ClaimCondition:
+    is_a: Condition
+    description: A source-local claim reference, resolved under the sealed source binding.
+    attributes:
+      kind:
+        equals_string: claim
+      ref:
         required: true
   AllCondition:
     is_a: Condition
@@ -476,6 +568,14 @@ classes:
       default:
         required: true
 enums:
+  ComparisonRelation:
+    permissible_values:
+      '<': {}
+      '<=': {}
+      '=': {}
+      '!=': {}
+      '>': {}
+      '>=': {}
   ExpressionForm:
     permissible_values:
       formula: {}
