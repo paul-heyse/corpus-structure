@@ -272,6 +272,24 @@ class MeasurementDraft:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class CoverageDraft:
+    """What a producer actually covered, independently of how many assertions it emitted."""
+
+    family: str
+    scope: str
+    outcome: Literal["complete", "partial", "unknown", "unsupported", "failed"]
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.family or not self.scope:
+            raise ValueError("coverage requires an operation family and source scope")
+        if self.outcome not in {"complete", "partial", "unknown", "unsupported", "failed"}:
+            raise ValueError("unsupported coverage outcome")
+        if self.outcome != "complete" and not self.reason:
+            raise ValueError("incomplete coverage requires a reason")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class UnitResult:
     """One unit's outcome (D4 §1 rule 2): `produced` with at least one observation, `empty` with
     none, or `failed` with an error and no output. `ingest.html` also returns the rendition
@@ -285,6 +303,7 @@ class UnitResult:
     cost: Cost | None = None
     rendition: RenditionContent | None = None
     parse_detail: Mapping[str, JsonValue] | None = None
+    coverage: tuple[CoverageDraft, ...] = ()
 
     def __post_init__(self) -> None:
         match self.outcome:

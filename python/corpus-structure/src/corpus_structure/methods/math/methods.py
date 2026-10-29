@@ -38,6 +38,7 @@ from corpus_structure.core.canonical import canonical_json
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment, segment_key
 from corpus_structure.core.method import (
     ConfigRef,
+    CoverageDraft,
     Digest,
     MethodContext,
     ObservationDraft,
@@ -66,6 +67,7 @@ from corpus_structure.core.vocab import (
     MethodTier,
     ObservationKind,
     ObservationOutcome,
+    ParseOutcome,
     TaskUnitType,
 )
 from corpus_structure.ingest.sentences import SentenceConfig
@@ -193,9 +195,11 @@ def _readings(ren: _Rendition, cfg: ExtractMathConfig | NormalizeFormulaConfig) 
     return read_spans(ren.content, macros, section.constants, seconds=cfg.parse_seconds)
 
 
-def _result(unit: UnitView, drafts: Sequence[ObservationDraft[Any]]) -> UnitResult:
+def _result(
+    unit: UnitView, drafts: Sequence[ObservationDraft[Any]], *, coverage: tuple[CoverageDraft, ...] = ()
+) -> UnitResult:
     outcome = ObservationOutcome.PRODUCED if drafts else ObservationOutcome.EMPTY
-    return UnitResult(ref=unit.ref, outcome=outcome, observations=tuple(drafts))
+    return UnitResult(ref=unit.ref, outcome=outcome, observations=tuple(drafts), coverage=coverage)
 
 
 def _rendition_id(unit: UnitView) -> int:
@@ -334,8 +338,18 @@ class ExtractMath(_PerRendition):
         out = []
         for unit in units:
             ren = _rendition(ctx.reader, _rendition_id(unit))
-            found = extract(_readings(ren, cfg))
-            out.append(_result(unit, math_drafts(ren, found.mentions, found.relations)))
+            readings = _readings(ren, cfg)
+            found = extract(readings)
+            coverage = tuple(
+                CoverageDraft(
+                    family=M09,
+                    scope=ren.key_of(reading.span.segment),
+                    outcome="complete" if reading.result.status == ParseOutcome.OK else "partial",
+                    reason=None if reading.result.status == ParseOutcome.OK else reading.result.status.value,
+                )
+                for reading in readings
+            )
+            out.append(_result(unit, math_drafts(ren, found.mentions, found.relations), coverage=coverage))
         return out
 
 

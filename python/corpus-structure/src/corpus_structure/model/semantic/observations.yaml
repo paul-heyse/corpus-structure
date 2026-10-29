@@ -1,0 +1,93 @@
+id: https://corpus-structure.dev/semantic/observations
+name: semantic_observations
+prefixes:
+  csobs: https://corpus-structure.dev/semantic/observations/
+default_prefix: csobs
+default_range: string
+classes:
+  SourceValue:
+    abstract: true
+    attributes:
+      kind: {required: true}
+  SourceText:
+    is_a: SourceValue
+    attributes:
+      kind: {equals_string: text}
+      text: {required: true}
+  SourceInteger:
+    is_a: SourceValue
+    attributes:
+      kind: {equals_string: integer}
+      integer: {range: integer, required: true}
+  SourceFloat:
+    is_a: SourceValue
+    attributes:
+      kind: {equals_string: float}
+      hexadecimal: {required: true}
+  SourceBoolean:
+    is_a: SourceValue
+    attributes:
+      kind: {equals_string: boolean}
+      boolean: {range: boolean, required: true}
+  SourceNull:
+    is_a: SourceValue
+    attributes:
+      kind: {equals_string: "null"}
+  SourceArray:
+    is_a: SourceValue
+    attributes:
+      kind: {equals_string: array}
+      items: {range: SourceValue, multivalued: true, inlined: true}
+  SourceField:
+    attributes:
+      name: {required: true}
+      position: {range: integer, minimum_value: 0, required: true}
+      value: {range: SourceValue, inlined: true, required: true}
+  SourceObject:
+    is_a: SourceValue
+    attributes:
+      kind: {equals_string: object}
+      fields: {range: SourceField, multivalued: true, inlined: true}
+  SourceObservation:
+    description: An immutable source report, not an admitted knowledge assertion.
+    attributes:
+      observation_key: {required: true}
+      item_key: {required: true}
+      family: {required: true}
+      outcome: {required: true}
+      score: {range: SourceFloat, inlined: true}
+      confidence_source: {}
+      payload: {range: SourceObject, inlined: true, required: true}
+      rendition_id: {range: integer}
+      segment_id: {range: integer}
+      span_start: {range: integer, minimum_value: 0}
+      span_end: {range: integer, minimum_value: 0}
+  SourceCoverage:
+    attributes:
+      family: {required: true}
+      scope: {required: true}
+      outcome: {range: SourceCoverageOutcome, required: true}
+      reason: {}
+  SourceObservationBatch:
+    attributes:
+      release_id: {required: true}
+      source: {required: true}
+      method: {required: true}
+      operation_version: {required: true}
+      configuration_hash: {required: true}
+      input_hash: {required: true}
+      unit_key: {required: true}
+      outcome: {required: true}
+      error: {}
+      cost: {range: SourceObject, inlined: true}
+      parse_detail: {range: SourceObject, inlined: true}
+      observations: {range: SourceObservation, multivalued: true, inlined: true}
+      coverage: {range: SourceCoverage, multivalued: true, inlined: true}
+enums:
+  SourceCoverageOutcome:
+    permissible_values:
+      complete: {}
+      partial: {}
+      unknown: {}
+      unsupported: {}
+      failed: {}
