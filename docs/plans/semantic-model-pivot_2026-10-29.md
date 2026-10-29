@@ -1,7 +1,7 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** Planned; production execution not started. **Created:** 2026-10-29.
-**Claim strength:** Proposed throughout. This series schedules the semantic PostgreSQL/LinkML pivot; writing it neither implements the target nor supersedes accepted ADRs.
+**Status:** SP-00 implemented; SP-01 implemented with scoped acceptance passed. Later packages not started. **Created:** 2026-10-29.
+**Claim strength:** ADR-0024 accepts the target. Implemented/Tested claims below are bounded to SP-00/SP-01; later packages remain unimplemented.
 
 ## 1. Scope, authority and baseline
 
@@ -9,7 +9,11 @@ Implement the whole target in the [functional review](../functional_reviews/sema
 
 This is a dedicated new series. Existing plan scopes/statuses are unchanged. Their findings retain their current owners, especially [phase 0 §11](phase-0_2026-10-28.md#11-findings-disposition). This series owns only its pivot packages and new pivot issues; it does not copy old findings, certify their closure, or silently absorb unfinished phase 0 features. Replacement of current consumers and capabilities necessary to demonstrate the new target are in scope. Unrelated provider additions and product features are not.
 
-Baseline: main `5ba9a5c`, with production source last committed at `7855c4a`; dirty `consolidate/pass_.py`, `tests/agent/test_packet.py` and untracked `tests/acceptance/test_trace.py` are preserved inputs, not qualified completion. Untracked library/semantic-model documents are supplied references. No sibling worktree is implicitly integrated. Record source/context again before execution; do not rely on stale plan headers for implemented capability.
+Execution began from `cea3f73`; final scoped implementation source is `8ce94f5` (2026-10-29).
+The selected legacy core/system model and generated physical metadata remain byte-identical to
+that starting selection. Supplied documents and prior dirty work were already committed at
+execution start. Pending sibling worktrees from the paused task were not integrated. Refresh
+source/context before SP-02; do not infer capability from stale old plan headers.
 
 Use the [architecture map](../design/README.md) and owning D1–D8 sections for current contracts, then the approved decision work below for replacements. Core 3.3, efficient-architecture heuristics and profile 1.4 selected by `standard.toml` govern design; their test-assessment companion governs evidence design. This focused foundation assessment does not initiate a broad diagnostic audit. Apply existing review cadence at changed architectural boundaries.
 
@@ -62,7 +66,7 @@ Supporting documents own package design and local evidence. This coordinator alo
 
 ## 5. Dependencies and execution queue
 
-All packages below are **not started**; no product acceptance has been run for this series. Stable IDs link to implementation visions in the supporting documents.
+SP-00 is implemented; SP-01 is implemented with scoped acceptance passed. SP-02–SP-10 are not started. No assembled-series qualification is claimed. Stable IDs link to implementation visions in the supporting documents.
 
 | Package | Required working input | Delivered capability |
 |---|---|---|
@@ -80,7 +84,7 @@ All packages below are **not started**; no product acceptance has been run for t
 
 Useful route: SP-00 → SP-01 → SP-02 → SP-03 → SP-04, then SP-05/SP-06 where independently ready, followed by their consumers. Designing a consumer can begin from agreed contracts; claiming its integration requires the working prerequisite. SP-05 does not block the first PostgreSQL write/read journey. SP-08 queries unrelated to derived facts need not wait for all SP-07 inference. These are capability dependencies, not whole-document barriers or fixed worker lanes.
 
-SP-00 is the next executable package once production execution is authorized. No automatic restart of the paused phase 0 run follows from plan publication.
+SP-02 is the next package; it is not implemented by this scope. No automatic restart of the paused phase 0 run follows from this foundation implementation.
 
 ## 6. Opportunity coverage and completion
 
@@ -107,4 +111,39 @@ Current inspection establishes a proposed implementable route, not tested compat
 
 ## 8. Publication evidence
 
-Plan-authoring verification is separate from product qualification. No product tests, database changes, dependency changes or production implementation were performed to create this series. Old plans, architectural owners and accepted ADRs were not amended. Local plan links/package references and whitespace are checked at publication; full documentation publication remains subject to the supplied semantic-model document's missing H1 until addressed by its owner.
+Plan-authoring evidence remains separate from subsequent execution. SP-00 adopts ADR-0024,
+which supersedes ADR-0013/0019/0020–0023 while preserving their surviving clauses and staged
+runtime selection. The exact ontology stack is installed; only existing setuptools moved
+(84.2.1 → 81.0.0 for OAK's <82 requirement). Python support declarations now match 3.14;
+interpreter 3.14.10 is unchanged. No database was deployed or legacy generated projection selected.
+Existing plans keep their scope and finding ownership; a stale pgvector link was repaired only.
+
+Execution evidence (2026-10-29): `just ready`, native library/plugin imports and selected existing
+model/shape checks passed. Combined semantic/core/schema controls passed. Final semantic corrections are covered by
+`uv run pytest python/corpus-structure/tests/semantic` on final source; unchanged core/schema
+controls retain their applicability. Scoped Ruff/Pyrefly passed after test typing repairs. Documentation publication passed after adding the supplied proposal's
+H1 and correcting two stale pgvector links. Failed intermediate checks remain in the execution
+record; they do not establish final-source acceptance. Full-series qualification remains SP-10.
+
+
+SP-01 completion is bounded to pure preparation and its explicit diagnostic/refusal profile.
+Required database capabilities in artifacts are not implemented or activated. Native standard
+LinkML type imports, nested enum checks, source-relative imported IRIs, polymorphic boundaries,
+constraint scopes and contradictory inheritance refusals have regression controls. Earlier
+unsupported-import and projection-consistency failures were corrected rather than waived.
+
+Final scoped commands: `uv run pytest python/corpus-structure/tests/semantic`,
+`uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/core python/corpus-structure/tests/schema`,
+`uv run ruff check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic`,
+`uv run pyrefly check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic`,
+`just docs-check`, `just ready`, and `uv run python scripts/check_pins.py` passed within their
+stated scopes. `just turn-end` passed; incidental pre-pivot formatting was restored byte-for-byte.
+`just test-all` and `just hygiene` were not run: assembled-series qualification remains SP-10.
+
+
+Final receipts (2026-10-29, implementation source `8ce94f5`): combined semantic/core/schema run
+passed 777 tests before the final two inheritance refusal controls; final semantic suite passed
+50 tests including those controls. The unchanged core/schema controls remain applicable, with the final semantic rerun establishing the changed scope. Ruff passed; Pyrefly reported 0 errors;
+docs-check published 212 canonical pages. Upstream OAK/SSSOM deprecation warnings remain.
+Owned implementation worktrees were removed after patch-equivalence and clean-state checks;
+paused-task worktrees were preserved. No SP-02 persistence/activation or SP-10 qualification is claimed.

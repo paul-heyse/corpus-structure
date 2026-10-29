@@ -1,6 +1,6 @@
 # Semantic model, ontology and releases
 
-**Status:** Planned · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns package state and shared scope. Consumes review O01/O02/O04; supplies every other supporting plan.
+**Status:** Implemented; scoped acceptance passed (2026-10-29) · **Created:** 2026-10-29 · **Target accepted by ADR-0024; implementation evidence is bounded below.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns package state and shared scope. Consumes review O01/O02/O04; supplies every other supporting plan.
 
 ## Target and foundation
 
@@ -59,3 +59,18 @@ Inputs are candidate sources, expected parent and resolved dependencies. Outputs
 Reuse existing frozen lookup/dynamic validators before adding wrappers. Generate relational metadata from SP-01 mappings under the [PostgreSQL plan](postgresql-and-publication.md), not from ad hoc per-domain SQL names. LinkML SQLStore/DDL generators are not assumed to supply runtime admission or migrations. LinkML-Datalog is deferred until a required rule exceeds the selected profile and exact values, qualification, modern LinkML coverage and derivation provenance are qualified.
 
 Sources: [review O01](../../functional_reviews/semantic-postgresql-model_2026-10-29.md#O01), [O02](../../functional_reviews/semantic-postgresql-model_2026-10-29.md#O02), [LinkML overview](../../libraries/linkml.md), [term-validator plugins](https://linkml.io/linkml-term-validator/plugin-reference/), [SchemaView](https://linkml.io/linkml/_modules/linkml_runtime/utils/schemaview.html). These are mechanism evidence, not native integration results.
+
+## Execution checkpoint — 2026-10-29
+
+ADR-0024 records the accepted target and current-runtime boundary. `corpus_structure.semantic`
+implements the explicit preparation API and `model/semantic/core.yaml` declares the opt-in target.
+The existing generator, selected model revision and physical metadata remain unchanged.
+
+The new path resolves supplied imports, normalizes definitions, compiles strict Pydantic boundaries,
+retains scoped constraints/query/registry products, and computes distinct occurrence/fact identities.
+Ontology expansion re-derives memberships from supplied bytes; RDF projections retain qualified
+occurrences. Unsupported constructs/placements refuse with diagnostics; unchecked ontology metadata
+is explicit and is not activation/enforcement evidence. SQL deployment remains SP-02/SP-03.
+
+Final package state and verification commands belong to the coordinator's execution evidence;
+this checkpoint does not claim broader consumer adoption or assembled qualification.

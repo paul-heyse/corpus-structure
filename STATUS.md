@@ -3,43 +3,40 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Increment and slice
 
-- **New pivot plan series created:** [coordinator](docs/plans/semantic-model-pivot_2026-10-29.md)
-  plus six supporting plans. O01–O06 are scheduled; RC01–RC04 were explicitly accepted for
-  planning on 2026-10-29. Production execution has not started; ADR changes are scheduled.
-- Target: immutable LinkML/ontology releases, a stable qualified-assertion/typed-value PostgreSQL
-  core, protected publication, model-governed consumers and lossless Arrow/DuckDB execution.
-  SQLAlchemy Core/MetaData is central; pglast, Alembic and Pydantic/Settings have explicit roles.
-- **Source inputs:** [review](docs/functional_reviews/semantic-postgresql-model_2026-10-29.md)
-  and [target](docs/functional_reviews/semantic-postgresql-model_2026-10-29_target-model.md), `5ba9a5c`.
-  Current code already uses psycopg-pool with SQLAlchemy NullPool; the plan preserves it.
-- **Production baseline:** `7855c4a` plus preserved dirty consolidation/packet/trace changes.
-  Pending worktree changes were not integrated. No production changes or dependencies were made.
-- **Existing plan scopes remain unchanged:** [design-phase](docs/plans/design-phase_2026-10-28.md),
-  [spikes](docs/plans/design-spikes-s0-s1_2026-10-28.md),
-  [phase 0](docs/plans/phase-0_2026-10-28.md) and [roadmap](docs/plans/roadmap-phases-1-5_2026-10-28.md).
-  Accepted ADRs remain in force until the scheduled decision work changes them.
+- **SP-00/SP-01 implemented:** [pivot coordinator](docs/plans/semantic-model-pivot_2026-10-29.md)
+  owns current state; [semantic scope](docs/plans/semantic-model-pivot/semantic-model-and-releases.md)
+  owns contracts. Explicit preparation produces immutable definitions, adapters, identities,
+  logical registry/query products and JSON Schema/OWL/SHACL artifacts without DB activation.
+- **ADR-0024 accepted:** replaces ADR-0013/0019/0020–0023's target clauses, carrying source fidelity,
+  qualification, instance authority and staged-runtime guarantees forward. ADR-0014 policy remains.
+- **Native ontology stack:** LinkML/runtime 1.12.1, RDFLib 7.6.0, PySHACL 0.40.1, OAK 0.7.4,
+  Valuesets 0.4.2, Term Validator 0.4.5. Python remains 3.14.10; support range is 3.14.
+  Only existing setuptools moved (84.2.1 → 81.0.0 for OAK); application pins were preserved.
+- Selected legacy model, generated database metadata and runtime remain unchanged. No database
+  deployment, release activation, migrated consumers or assembled pivot qualification is claimed.
+- Existing plan scope/finding ownership remains unchanged; only one stale old-plan hyperlink was
+  repaired. [Phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition) still owns its findings.
 
-## Last verified (2026-10-29; plan documents only)
+## Last verified (2026-10-29; bounded foundation scope)
 
 | Command | Outcome and scope |
 |---|---|
-| `uv run --no-project --offline --no-python-downloads python /tmp/check-semantic-pivot-plans.py` | `passed`: 7 plans, 51 local links/fragments, 11 unique package anchors and titles |
-| `just docs-check` | `failed`: supplied `docs/semantic_postgresql_model.md` lacks title/H1; ADR and agent lint passed before publication stopped |
-| `just turn-end` | `passed` exit status; existing lint diagnostics remain; incidental source formatting/fixes reverted to preserve paused work |
-| `just test-all`, `just hygiene` | `not_run`: plan creation only; no production qualification claimed |
+| `just ready`, `uv run python scripts/check_pins.py` | `passed`: tools and exact dependency policy |
+| `uv run pytest python/corpus-structure/tests/semantic` | `passed`: 50 final-source tests |
+| `uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/core python/corpus-structure/tests/schema` | `passed`: 777 tests before final two semantic controls; final 50 semantic tests cover those corrections |
+| `uv run ruff check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic` | `passed` |
+| `uv run pyrefly check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic` | `passed`, 0 errors |
+| `just docs-check` | `passed`: 212 pages after H1/stale-link repairs; earlier failed records retained |
+| `just turn-end` | `passed`; incidental legacy formatting/fixes restored byte-for-byte |
+| `just test-all`, `just hygiene` | `not_run`: SP-10 owns assembled-series qualification |
 
-## Known failures, blocks and decisions
+## Limits and next
 
-- The [phase 0 coordinator §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition)
-  remains the existing finding-disposition owner; no old finding was closed or transferred.
-- The pivot series owns its new packages only. Old execution inventories remain subject to
-  reconciliation; this turn does not resume or complete their unfinished feature scope.
-- Exact library compatibility and executable ontology/constraint coverage are SP-00/SP-01
-  obligations; race-safe publication and qualified mappings require native package evidence.
-
-## Next
-
-- When production execution is authorized, start SP-00 at the new coordinator: architectural
-  decisions, supported-profile contracts and exact library compatibility disposition.
-- Follow the early SP-01 → SP-02 → SP-03 → SP-04 declaration/write/query journey before broad
-  consumer migration. Clean regeneration, retirement and full qualification follow working scope.
+- Prepared capabilities are requirements for later lowering, not database-enforced guarantees.
+  Unsupported semantics and scope-weakening overrides refuse; unavailable/unchecked ontology
+  metadata stays explicit. No historical readers, dual writes or compatibility upcasters added.
+- Next is SP-02: persist/activate immutable releases and realize the stable schema via SQLAlchemy
+  MetaData/Alembic. SP-03 implements protected transactional publication. Later packages migrate
+  consumers, regenerate data and retire the selected legacy path.
+- Continue from the new coordinator, not old phase 0 completion headers. Existing worktrees from
+  the paused task are preserved; this scope does not integrate their unfinished work.

@@ -15,6 +15,28 @@ instance authority and consolidation ownership.
 LLM output, validation and the annotation guideline, and the first version of the statistics
 pack. The knowledge types the schema populates are defined in [D1](D1-knowledge-representation.md).
 
+## Semantic release preparation entry point
+
+**Implemented (2026-10-29), preparation only.** `corpus_structure.semantic.prepare_release`
+consumes a `SourceBundle`, `ResolvedDependencies` and `PreparationProfile`. Each source/import is
+supplied as named bytes; unresolved imports refuse before LinkML can fetch implicitly. The
+packaged `model/semantic/core.yaml` is the new opt-in target. The existing default model generator
+and selected database metadata are not changed by preparing it.
+
+`PreparedRelease` carries immutable normalized definitions, scoped identity operations, logical
+registry rows, query descriptors and deterministic JSON Schema/OWL/SHACL artifacts. It validates
+boundary objects through release-owned Pydantic adapters. Ontology memberships are re-expanded
+from supplied bytes through local OAK/Term Validator; unchecked term metadata is explicit.
+`required_capabilities` describes what later persistence/publication must implement, not evidence
+of activation or enforcement. SP-02 owns persistence/activation and binds descriptors to
+SQLAlchemy metadata; SP-03 owns SQL integrity checks.
+
+Source/import/ontology bytes and consumed library/compiler identities participate in the release
+manifest. Artifact identities do not use SQL fingerprints or blank-node labels. Source occurrences
+and semantic facts use different scoped keys; confidence/evidence are support rather than fact
+identity. The [owning plan](../plans/semantic-model-pivot/semantic-model-and-releases.md) retains
+verification scope and support limits.
+
 ## 1. Principles
 
 1. **One declaration per domain.** A domain pack's LinkML schema is the single source for entity

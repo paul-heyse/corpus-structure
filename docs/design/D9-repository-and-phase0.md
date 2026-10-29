@@ -116,7 +116,7 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 |---|---|---|
 | pydantic, pydantic-settings | 2.14.1, 2.16.1 | core types, method configs, settings |
 | sqlalchemy, psycopg[binary], psycopg-pool, alembic | 2.1.5, 3.3.6, 3.3.3, 1.20.0 | core.db (generated `MetaData`, overlay), migrations, bulk COPY; one psycopg-pool `ConnectionPool` per process (D3 §1) |
-| pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/pgevector.md)) | `halfvec` column type (phase 1, with `kb.embedding`) |
+| pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/pgvector.md)) | `halfvec` column type (phase 1, with `kb.embedding`) |
 | pg_textsearch (server extension) | 1.5.1 (Debian package `postgresql-18-pg-textsearch`; [overview](../libraries/postgresql-18-pg-textsearch.md)) | BM25 lexical search for `find` (D3 §5, D8 §5.1). A phase 0 server prerequisite: in `shared_preload_libraries`, and created once by the operator in the template database, so the cloned test databases (§4) carry it |
 | linkml-runtime; linkml (dev) | 1.12.1, 1.12.1 (as probed, schema-rules note) | `schema` loads the model and packs with `linkml-runtime`'s `SchemaView` and generates every projection from it (ADR-0020; added by P0-M-1); `linkml` (the linter, the `PydanticGenerator` Stage B may subclass) is a dev dependency, used in generation, tests and pack checks only |
 | pglast (dev) | 8.7 ([overview](../libraries/pglast.md)) | the port check of the generated DDL against S6's and the query check of D3 §9 (P0-M-2) |

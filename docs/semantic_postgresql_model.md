@@ -1,3 +1,5 @@
+# Semantic PostgreSQL model
+
 No—a constantly evolving schema does not necessarily mean you need a graph database. PostgreSQL can accommodate substantial evolution without repeatedly altering its physical schema.
 
 In fact, what you're describing sounds like a strong candidate for a hybrid relational–graph data model within PostgreSQL, particularly if most of the underlying data is structured and the evolution comes from discovering new entities, attributes, or relationships.
