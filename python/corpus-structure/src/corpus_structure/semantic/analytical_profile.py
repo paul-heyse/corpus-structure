@@ -13,10 +13,11 @@ from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, Source
 
 PROFILE_NAME = "analytical-profile.json"
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic"
+_EMPTY_DEPENDENCIES = ResolvedDependencies()
 
 
 def analytical_inputs(
-    bundle: SourceBundle, dependencies: ResolvedDependencies = ResolvedDependencies()
+    bundle: SourceBundle, dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES
 ) -> tuple[SourceBundle, ResolvedDependencies]:
     """Opt into the packaged profile through ordinary hashed, archived release inputs."""
     return (

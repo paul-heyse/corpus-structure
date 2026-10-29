@@ -160,9 +160,16 @@ def normalize_relation(raw: pa.Table, projection: Projection, profile: Analytica
         columns.extend((pa.array(values, type=pa.decimal128(38, 12)), pa.array(rounded, type=pa.bool_())))
         # Native safe casts enforce bounded integer/time precision and timezone support.
         # Explicit kind columns distinguish missing/null states from these nullable projections.
-        for kind, field in zip(("integer", "datetime", "date", "float"), _DERIVED[2:], strict=True):
-            lexical = pc.if_else(pc.equal(raw["kind"], kind), raw["text_value"], pa.scalar(None, pa.string()))
+        for kind, field in zip(("integer", "datetime", "date"), _DERIVED[2:5], strict=True):
+            source = pc.call_function("coalesce", [raw["text_value"], raw["integer_value"]]) if kind == "integer" else raw["text_value"]
+            lexical = pc.call_function("if_else", [pc.call_function("equal", [raw["kind"], pa.scalar(kind)]), source, pa.scalar(None, pa.string())])
             columns.append(lexical.cast(field.type, safe=True))
+        # Canonical float source uses Python's exact hexadecimal spelling, which Arrow's
+        # decimal-text cast does not parse. This scalar representation boundary preserves
+        # subnormals and signed zero; statistics remain explicitly float64.
+        float_lexical = pc.call_function("if_else", [pc.call_function("equal", [raw["kind"], pa.scalar("float")]), raw["text_value"], pa.scalar(None, pa.string())])
+        columns.append(pa.array([None if value is None else float.fromhex(value)
+                                 for value in float_lexical.to_pylist()], type=pa.float64()))
     return pa.Table.from_arrays(columns, schema=projection.schema)
 
 
@@ -221,7 +228,7 @@ class AnalysisScope:
         self._closed = False
         self._readers: list[pa.RecordBatchReader] = []
         self._registered: list[str] = []
-        config = {"threads": str(threads), "memory_limit": memory_limit, "TimeZone": "UTC"}
+        config: dict[str, bool | float | int | list[str] | str] = {"threads": str(threads), "memory_limit": memory_limit, "TimeZone": "UTC"}
         if scratch_path is not None:
             config["temp_directory"] = str(scratch_path)
         self.connection = duckdb.connect(":memory:", config=config)

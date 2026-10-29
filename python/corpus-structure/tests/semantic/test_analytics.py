@@ -141,7 +141,7 @@ def test_native_exported_snapshot_and_decimal_boundary(semantic_db_engine, seman
     def batch(label):
         f = fact_key(rid, realization, "e", "https://example/label", label, {})
         occurrence = occurrence_key(rid, realization, "s", label)
-        return PublicationBatch(rid,realization,label,entity=(EntityRow("e"),),membership=(MembershipRow("e","https://example/Thing","source"),),typed_value=(ValueRow("v"+label,"string",text_value=label), ValueRow("num"+label,"decimal",decimal_lexical="1.0000000000015",numeric_value=Decimal("1.0000000000015"))),fact=(FactRow(f,"e","https://example/label","v"+label),),occurrence=(OccurrenceRow(occurrence,f,"s",label,"v"+label),),support=(SupportRow(f,occurrence),),evidence=(EvidenceRow("ev"+label,"urn:s","line:1","test","1"),),membership_support=(MembershipSupportRow("e","https://example/Thing","ev"+label),))
+        return PublicationBatch(rid,realization,label,entity=(EntityRow("e"),),membership=(MembershipRow("e","https://example/Thing","source"),),typed_value=(ValueRow("v"+label,"string",text_value=label), ValueRow("num"+label,"decimal",decimal_lexical="1.0000000000015",numeric_value=Decimal("1.0000000000015")), ValueRow("nativeinteger"+label,"integer",text_value="42",integer_value=Decimal(42)), *(ValueRow("float"+str(index)+label,"float",text_value=value.hex()) for index,value in enumerate((1.25,float.fromhex("0x0.0000000000001p-1022"),-0.0)))),fact=(FactRow(f,"e","https://example/label","v"+label),),occurrence=(OccurrenceRow(occurrence,f,"s",label,"v"+label),),support=(SupportRow(f,occurrence),),evidence=(EvidenceRow("ev"+label,"urn:s","line:1","test","1"),),membership_support=(MembershipSupportRow("e","https://example/Thing","ev"+label),))
     publish_batch(semantic_writer_engine,batch("100%quote'"))
     uri = semantic_reader_engine.url.set(drivername="postgresql").render_as_string(hide_password=False)
     with read_session(semantic_reader_engine, realization) as session:
@@ -154,6 +154,11 @@ def test_native_exported_snapshot_and_decimal_boundary(semantic_db_engine, seman
     assert numeric["decimal_lexical"] == "1.0000000000015"
     assert numeric["decimal_value"] == Decimal("1.000000000002")
     assert numeric["decimal_rounded"] is True
+    integer = next(r for r in lexical if r["kind"] == "integer")
+    assert integer["text_value"] == "42" and integer["integer_value"] == "42"
+    assert integer["integer64_value"] == 42
+    floats = {r["text_value"]: r["float64_value"].hex() for r in lexical if r["kind"] == "float"}
+    assert floats == {"0x1.4000000000000p+0":"0x1.4000000000000p+0", "0x0.0000000000001p-1022":"0x0.0000000000001p-1022", "-0x0.0p+0":"-0x0.0p+0"}
     with AnalysisScope(packet) as scope:
         assert scope.fact_support().to_arrow_table().num_rows == 1
         assert scope.declared_view("https://example/label").to_arrow_table().num_rows == 1
@@ -170,7 +175,7 @@ def test_native_scalar_projection_preserves_source_and_missing_states():
         {"value_id":"i","kind":"integer","text_value":"9223372036854775807"},
         {"value_id":"t","kind":"datetime","text_value":"2026-10-29T01:02:03.123456789+02:00"},
         {"value_id":"date","kind":"date","text_value":"2026-10-29"},
-        {"value_id":"float","kind":"float","text_value":"1.25"},
+        {"value_id":"float","kind":"float","text_value":"0x1.4000000000000p+0"},
         {"value_id":"unknown","kind":"missing","text_value":"unknown"},
         {"value_id":"null","kind":"null"},
         {"value_id":"entity","kind":"entity","entity_id":"nested-target"},
