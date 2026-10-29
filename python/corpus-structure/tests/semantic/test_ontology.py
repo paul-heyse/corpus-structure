@@ -581,3 +581,48 @@ def test_qualified_projection_refuses_node_binding_relabeling():
     )
     with pytest.raises(OntologyError, match="wrong graph node scope"):
         projection.graph()
+
+
+def test_identity_exclusions_are_qualified_constraints_with_complete_closure():
+    from dataclasses import replace
+
+    from rdflib.namespace import OWL
+
+    from corpus_structure.semantic.ontology import (
+        QualifiedGraphProjection,
+        QualifiedGraphReference,
+        validate_projected_graph,
+    )
+
+    first = {
+        "id": "urn:exclusion:first",
+        "left": QualifiedGraphReference("urn:entity:a"),
+        "right": QualifiedGraphReference("urn:entity:b"),
+        "evidence": (QualifiedGraphReference("urn:evidence:first"),),
+        "reason": "source distinguishes the entities",
+    }
+    second = {**first, "id": "urn:exclusion:second"}
+    projection = QualifiedGraphProjection(
+        "release", "realization", 2, "qualified-identity-exclusions", (),
+        {
+            "urn:entity:a": {"kind": "entity"},
+            "urn:entity:b": {"kind": "entity"},
+            "urn:evidence:first": {"kind": "evidence"},
+        }, {}, (first, second),
+    )
+    graph = projection.graph()
+    assert set(graph.subjects(RDF.type, CS.IdentityExclusion)) == {
+        URIRef("urn:exclusion:first"), URIRef("urn:exclusion:second")
+    }
+    assert not list(graph.triples((None, OWL.differentFrom, None)))
+    assert (URIRef("urn:exclusion:first"), CS.left, URIRef("urn:entity:a")) in graph
+    assert (URIRef("urn:exclusion:first"), CS.requiredNode, URIRef("urn:evidence:first")) in graph
+    assert validate_projected_graph(projection).conforms
+    with pytest.raises(OntologyError, match="missing required related node"):
+        replace(projection, related_nodes={"urn:entity:a": {}}).graph()
+    with pytest.raises(OntologyError, match="endpoints collapse"):
+        replace(projection, identity_exclusions=({**first, "right": first["left"]},)).graph()
+    with pytest.raises(OntologyError, match="typed endpoint references"):
+        replace(projection, identity_exclusions=({**first, "left": "urn:entity:a"},)).graph()
+    with pytest.raises(OntologyError, match="needs evidence"):
+        replace(projection, identity_exclusions=({**first, "evidence": ()},)).graph()

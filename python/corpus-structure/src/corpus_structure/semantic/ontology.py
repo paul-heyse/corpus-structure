@@ -423,6 +423,7 @@ class QualifiedGraphProjection:
     assertions: tuple[Mapping[str, Any], ...]
     related_nodes: Mapping[str, Mapping[str, Any]]
     references: Mapping[str, tuple[str, ...]]
+    identity_exclusions: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         def freeze(value: Any) -> Any:
@@ -435,6 +436,7 @@ class QualifiedGraphProjection:
         object.__setattr__(self, "assertions", freeze(self.assertions))
         object.__setattr__(self, "related_nodes", freeze(self.related_nodes))
         object.__setattr__(self, "references", freeze(self.references))
+        object.__setattr__(self, "identity_exclusions", freeze(self.identity_exclusions))
 
     def graph(self) -> Graph:
         if not self.release_id or not self.realization_id or not self.projection_id:
@@ -444,10 +446,25 @@ class QualifiedGraphProjection:
         assertions = {str(row["id"]): row for row in self.assertions}
         if len(assertions) != len(self.assertions):
             raise OntologyError("duplicate projected occurrence identity")
-        overlap = assertions.keys() & self.related_nodes.keys()
+        exclusions = {str(row["id"]): row for row in self.identity_exclusions}
+        if len(exclusions) != len(self.identity_exclusions):
+            raise OntologyError("duplicate projected identity exclusion")
+        overlap = (assertions.keys() & self.related_nodes.keys()) | (
+            exclusions.keys() & (assertions.keys() | self.related_nodes.keys())
+        )
         if overlap:
-            raise OntologyError("related nodes overlap assertion identities")
-        available = {**self.related_nodes, **assertions}
+            raise OntologyError("projected node identities overlap")
+        for row in exclusions.values():
+            left, right = row.get("left"), row.get("right")
+            if not isinstance(left, QualifiedGraphReference) or not isinstance(
+                right, QualifiedGraphReference
+            ):
+                raise OntologyError("identity exclusion requires typed endpoint references")
+            if left == right:
+                raise OntologyError("identity exclusion endpoints collapse")
+            if not row.get("evidence"):
+                raise OntologyError("identity exclusion needs evidence closure")
+        available = {**self.related_nodes, **assertions, **exclusions}
         if self.references.keys() - available.keys():
             raise OntologyError("reference source is outside projected node universe")
         for row in available.values():
@@ -485,7 +502,7 @@ class QualifiedGraphProjection:
             references[identity].add(
                 subject.target_id if isinstance(subject, QualifiedGraphReference) else str(subject)
             )
-        required = set(assertions)
+        required = set(assertions) | set(exclusions)
         pending = list(required)
         while pending:
             source = pending.pop()
@@ -559,6 +576,11 @@ class QualifiedGraphProjection:
             )
             graph.add((node, RDF.predicate, URIRef(str(assertion["predicate"]))))
             graph.add((node, RDF.object, structure(node, ("object",), assertion["object"])))
+        for identity in exclusions:
+            node = URIRef(identity)
+            graph.add((node, RDF.type, CS.IdentityExclusion))
+            graph.add((node, CS.left, URIRef(exclusions[identity]["left"].target_id)))
+            graph.add((node, CS.right, URIRef(exclusions[identity]["right"].target_id)))
         for identity in sorted(required):
             node = URIRef(identity)
             for key, value in binding.items():
@@ -749,6 +771,11 @@ cs:StatementShape a sh:NodeShape; sh:targetClass rdf:Statement;
  sh:property [sh:path rdf:subject; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
  sh:property [sh:path rdf:predicate; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
  sh:property [sh:path rdf:object; sh:minCount 1; sh:maxCount 1] .
+cs:IdentityExclusionShape a sh:NodeShape; sh:targetClass cs:IdentityExclusion;
+ sh:property [sh:path cs:left; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
+ sh:property [sh:path cs:right; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
+ sh:sparql [sh:message "Identity exclusion endpoints must differ";
+ sh:select "SELECT $this WHERE { $this <https://corpus-structure.dev/semantic/left> ?e; <https://corpus-structure.dev/semantic/right> ?e . }"] .
 cs:MemberShape a sh:NodeShape; sh:targetClass cs:CollectionMember;
  sh:property [sh:path cs:position; sh:datatype xsd:integer;
               sh:minInclusive 0; sh:minCount 1; sh:maxCount 1];

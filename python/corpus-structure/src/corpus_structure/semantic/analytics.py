@@ -47,11 +47,13 @@ from .types import PreparedRelease
 if TYPE_CHECKING:
     from .query import ReadSession, SnapshotBinding
 
-COMPILER_VERSION = "analytical-3"
+COMPILER_VERSION = "analytical-4"
 SPINE = (
     "entity",
     "entity_input",
     "entity_source",
+    "identity_exclusion",
+    "identity_exclusion_evidence",
     "membership",
     "membership_support",
     "typed_value",
