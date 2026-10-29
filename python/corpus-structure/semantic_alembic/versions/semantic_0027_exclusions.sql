@@ -178,12 +178,12 @@ GRANT EXECUTE ON FUNCTION data.finish_evaluation(bigint,text,text) TO corpus_sem
 CREATE OR REPLACE FUNCTION data.check_evidence_source() RETURNS trigger LANGUAGE plpgsql
 SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE observation kb.observation; ev data.evidence; span kb.span; method_name text;
- operation_version text; uri text; matched boolean; synthesis jsonb;
+ operation_version text; uri text; rendition_key text; matched boolean; locator_matched boolean; synthesis jsonb;
 BEGIN
  SELECT * INTO STRICT observation FROM kb.observation WHERE id=NEW.observation_id;
  IF observation.release_id<>NEW.release_id OR observation.rendition_id IS DISTINCT FROM NEW.rendition_id THEN
   RAISE EXCEPTION 'evidence source differs from bound observation'; END IF;
- SELECT m.name,m.version,d.source_uri INTO STRICT method_name,operation_version,uri
+ SELECT m.name,m.version,d.source_uri,r.key INTO STRICT method_name,operation_version,uri,rendition_key
   FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id
   JOIN ops.method m ON m.id=c.method_id JOIN kb.rendition r ON r.id=NEW.rendition_id
   JOIN kb.document d ON d.id=r.document_id WHERE t.id=observation.task_id;
@@ -193,31 +193,33 @@ BEGIN
   RAISE EXCEPTION 'evidence provider/source differs from bound observation'; END IF;
  IF NEW.span_id IS NULL THEN
   IF observation.span_id IS NOT NULL THEN RAISE EXCEPTION 'evidence omitted bound source span'; END IF;
+  IF ev.locator<>'observation:'||observation.observation_key THEN RAISE EXCEPTION 'evidence locator differs from bound observation'; END IF;
   RETURN NEW;
  END IF;
  IF observation.span_id IS NOT NULL THEN
   IF observation.span_id<>NEW.span_id THEN RAISE EXCEPTION 'evidence span differs from bound observation'; END IF;
+  SELECT * INTO STRICT span FROM kb.span WHERE id=NEW.span_id;
+  IF ev.locator<>'rendition:'||rendition_key||':span:'||span.start_offset||':'||span.end_offset THEN RAISE EXCEPTION 'evidence locator differs from bound span'; END IF;
   RETURN NEW;
  END IF;
  SELECT * INTO STRICT span FROM kb.span WHERE id=NEW.span_id AND rendition_id=NEW.rendition_id;
+ locator_matched:=ev.locator='rendition:'||rendition_key||':span:'||span.start_offset||':'||span.end_offset;
  matched:=false;
  IF observation.payload_definition='AgentStoredBatch' THEN
   SELECT EXISTS(SELECT FROM jsonb_array_elements(
       COALESCE(observation.payload->'claims','[]'::jsonb)||COALESCE(observation.payload->'unsupported','[]'::jsonb)||COALESCE(observation.payload->'identity_exclusions','[]'::jsonb)) item
       CROSS JOIN LATERAL jsonb_array_elements(item->'evidence') citation
       WHERE citation->>'outcome'='located' AND (citation->>'start')::bigint=span.start_offset
-       AND (citation->>'end')::bigint=span.end_offset) INTO matched;
+       AND (citation->>'end')::bigint=span.end_offset AND (CASE WHEN locator_matched THEN true ELSE ev.locator::jsonb=jsonb_build_object('locator',citation->'locator','start',span.start_offset,'end',span.end_offset,'role',citation->'role') END)) INTO matched;
  ELSIF observation.payload_definition='SourceObservation' AND observation.kind='author_markup' THEN
   synthesis:=data.report_field(observation.payload->'payload','synthesize');
   SELECT EXISTS(SELECT FROM jsonb_array_elements(data.report_field(synthesis,'evidence')->'items') citation
     WHERE (data.report_field(citation,'start')->>'integer')::bigint=span.start_offset
-      AND (data.report_field(citation,'end')->>'integer')::bigint=span.end_offset) INTO matched;
+      AND (data.report_field(citation,'end')->>'integer')::bigint=span.end_offset AND locator_matched) INTO matched;
  END IF;
  IF NOT matched THEN RAISE EXCEPTION 'evidence span is not a located citation in bound source report'; END IF;
  RETURN NEW;
 END $fn$;
-ALTER FUNCTION data.check_evidence_source() OWNER TO corpus_sem_publisher;
-REVOKE ALL ON FUNCTION data.check_evidence_source() FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION data.validate_occurrence_context(r text,z text) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$

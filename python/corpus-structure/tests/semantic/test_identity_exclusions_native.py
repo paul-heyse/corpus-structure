@@ -21,7 +21,7 @@ def test_native_exclusion_publication_refuses_tampering(semantic_db_engine, sema
         'missing_citation':'evidence differs from source citations',
         'extra_citation':'evidence differs from source citations',
         'identity':'identity differs',
-        'locator':'evidence differs from source citations',
+        'locator':'evidence span is not a located citation',
         'attribute_source':'occurrence citation is outside bound source claim',
     }[attack]
     if attack=='attribute_source':
@@ -69,7 +69,7 @@ def test_native_exclusion_publication_refuses_tampering(semantic_db_engine, sema
             sid=conn.scalar(span.select().with_only_columns(span.c.id).where(span.c.rendition_id==rid,span.c.start_offset==start,span.c.end_offset==end))
             from corpus_structure.semantic.publication import EvidenceSourceRow
             sources.append(EvidenceSourceRow(eid,oid,rid,sid))
-    if attack=='extra_citation': sources.append(replace(sources[0],evidence_id='extra'))
+    if attack=='extra_citation': sources.append(replace(next(source for source in sources if source.evidence_id==batch.evidence[0].evidence_id),evidence_id='extra'))
     batch=replace(batch,evidence_source=tuple(sources))
     with pytest.raises(DBAPIError,match=expected), semantic_writer_engine.connect().execution_options(isolation_level='SERIALIZABLE') as conn, conn.begin():
         conn.execute(text('SELECT data.begin_evaluation(:cut,:z)'),{'cut':cut,'z':'excluded-result'})
