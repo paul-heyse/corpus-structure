@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any
 
-from pydantic import JsonValue
+from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, func, insert, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -25,7 +25,7 @@ from corpus_structure.core.method import (
     SourceObservationReference,
     UnitResult,
 )
-from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, RunKind
+from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, RunKind, TaskUnitType
 
 from .identity import canonical_bytes
 from .metadata import table
@@ -124,6 +124,8 @@ class OperationDescriptor:
     version: str
     family: str
     tier: str
+    unit_type: TaskUnitType
+    Config: type[BaseModel]
     confidence_source: str | None = None
 
 
