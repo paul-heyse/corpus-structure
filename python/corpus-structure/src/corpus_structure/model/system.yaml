@@ -95,19 +95,19 @@ classes:
       defaults to wait for kind slice and complete otherwise; no setting supplies it.
     annotations: {ci:store: nested, ci:payload: run_options}
     attributes:
-      agent_mode: {range: AgentMode, description: Which agent tasks the run resolves (D6 §2).}
-      agent_reuse: {range: AgentReuse, ifabsent: string(full), description: How M24's digest reads the guideline (D6 §4).}
-      gpu_mode: {range: GpuMode, ifabsent: string(auto), description: The GPU mode as resolved (D6 §5).}
-      corpus: {range: Json, description: The corpus slice and its expanded document keys (D6 §8).}
-      scope: {range: Json, description: The scope slice with its expanded entries and their hash (D6 §8).}
+      agent_mode: {range: AgentMode, required: true, description: Which agent tasks the run resolves (D6 §2).}
+      agent_reuse: {range: AgentReuse, required: true, ifabsent: string(full), description: How M24's digest reads the guideline (D6 §4).}
+      gpu_mode: {range: GpuMode, required: true, ifabsent: string(auto), description: The GPU mode as resolved (D6 §5).}
+      corpus: {range: Json, required: true, description: The corpus slice and its expanded document keys (D6 §8).}
+      scope: {range: Json, description: The scope slice with its expanded entries and their hash (D6 §8); absent for a run over its whole corpus.}
       fresh: {multivalued: true, description: Methods whose tasks skip reuse.}
-      configs: {range: Json, description: The resolved configuration map (orchestration §3.2).}
-      method_configs: {range: Json, description: "Method to configuration name, for this run only."}
+      configs: {range: Json, required: true, description: "The resolved configuration map, <method>/<name> to config hash (orchestration §3.2)."}
+      method_configs: {range: Json, required: true, description: "Method to configuration name, for this run only."}
   TaskCost:
     description: A task's cost (ops.task.cost, D3 §6.3).
     annotations: {ci:store: nested, ci:payload: task_cost}
     attributes:
-      wall_ms: {range: integer, description: Wall time in milliseconds.}
+      wall_ms: {range: integer, required: true, description: Wall time in milliseconds; every task has one.}
       gpu_ms: {range: integer, description: GPU time in milliseconds.}
       tokens_in: {range: integer, description: Model input tokens.}
       tokens_out: {range: integer, description: Model output tokens.}
@@ -181,6 +181,15 @@ classes:
       sentence: {identifier: true, range: SentenceId, description: The sentence id.}
       locator: {range: Locator, required: true, description: The sentence's locator.}
       text: {required: true, description: Its canonical text.}
+  GoldenBatchPayload:
+    description: >-
+      A golden pass's authored batch with one version of its citation frame (eval.golden_pass.batch
+      and eval.citation_frame.frame, D3 §7): the schema the pass's payload_schema_id names for
+      both, so a reader dispatches on the recorded schema and refuses an unknown one (DA-009).
+    annotations: {ci:store: nested, ci:payload: golden_batch}
+    attributes:
+      batch: {range: Batch, required: true, description: "The model-facing batch as authored (pass c: as adjudicated)."}
+      citation_frame: {range: FrameEntries, required: true, description: One version of the pass's citation frame.}
 
   # ---- observation payloads (D3 §6.2), one class per kind ----
   SpanPayload:
@@ -196,6 +205,14 @@ classes:
     attributes:
       label: {required: true, description: The label.}
       score: {range: Real, required: true, description: "The score in [0, 1]."}
+  GroupScore:
+    is_a: LabelScore
+    description: >-
+      The label an attribute group chose for a mention, with its score, keyed by the group (D2 §5's
+      span attribute groups: one enum with ci:extract attribute each).
+    annotations: {ci:store: nested}
+    attributes:
+      group: {identifier: true, description: The attribute group.}
   SynthesizedClaim:
     description: The claim a block's containment states (the source profile's synthesize).
     annotations: {ci:store: nested}
@@ -218,8 +235,8 @@ classes:
     attributes:
       label: {required: true, description: The class label.}
       text: {required: true, description: The mention text.}
-      attributes: {range: LabelScore, multivalued: true, inlined: true, description: Attribute groups.}
-      math_ref: {range: MentionRef, description: The math mention it decorates.}
+      attributes: {range: GroupScore, multivalued: true, inlined: true, description: Each attribute group to the label it chose and its score.}
+      math_ref: {range: Key, description: "The segment key of the math span a mention lies in (D4 M06, M09)."}
       math: {range: Json, description: M09's decoration of a symbol occurrence., annotations: {ci:null: json}}
   LabelledSpan:
     is_a: SpanPayload
@@ -297,11 +314,12 @@ classes:
       label: {required: true, description: The label.}
   LinkPayload:
     description: An entity-link candidate (M14, M15).
-    annotations: {ci:store: nested, ci:payload: link, ci:invariant: "exactly_one(mention_ref, pair)"}
+    annotations: {ci:store: nested, ci:payload: link, ci:invariant: "exactly_one(mention_ref, pair); exactly_one(candidate, new)"}
     attributes:
       mention_ref: {range: MentionRef, description: The mention (M14).}
       pair: {multivalued: true, description: The pair (M15).}
-      candidate: {required: true, description: The candidate entity key or a new entity.}
+      candidate: {description: The candidate entity's key.}
+      new: {range: NewEntity, description: The new entity the link proposes instead.}
       score: {range: Real, required: true, description: The score.}
       features: {range: Json, required: true, description: The features., annotations: {ci:null: json}}
       rank: {range: integer, description: The rank.}
@@ -312,26 +330,35 @@ classes:
       item: {range: Json, required: true, description: The item., annotations: {ci:null: json}}
       reason: {required: true, description: Why.}
   ClaimProposalPayload:
-    description: A stored batch; for authored proposals also the batch as written and its frame.
+    description: >-
+      A stored batch with its derivation: for authored proposals also the batch as written, its
+      frame and the quote cascade that located it; always the schema version that derived it (R06,
+      DA-009). Each claim carries its own establishment, derived_from and rule.
     annotations:
       ci:store: nested
       ci:payload: claim_proposal
-      ci:invariant: "together(authored, citation_frame); together(establishment, derived_from, rule)"
+      ci:invariant: "together(authored, citation_frame, cascade_version)"
     attributes:
       batch: {range: Batch, required: true, description: The stored batch.}
       authored: {range: Batch, description: The batch as authored.}
       citation_frame: {range: FrameEntries, description: Its citation frame.}
       rationale: {description: The rationale.}
       rejected: {range: RejectedItem, multivalued: true, inlined_as_list: true, description: Rejected items.}
-      establishment: {range: Establishment, description: derived for M23's proposals.}
-      derived_from: {multivalued: true, description: The source claim keys.}
-      rule: {description: The derive rule.}
+      schema_version:
+        required: true
+        pattern: "^[0-9a-f]{64}$"
+        description: The schema-version hash (D2 §2) whose compiled models derived the stored batch.
+      cascade_version: {description: "The quote cascade's version that located an authored batch (D4 §4.3)."}
   JudgmentTarget:
-    description: What a judgment is about; records the key scheme of the key it names.
-    annotations: {ci:store: nested}
+    description: >-
+      What a judgment is about: an observation by id, or a claim or group by key, with the key
+      scheme of that key (foundations §3.6: readers compare keys only within one scheme, or through
+      a carry-over map).
+    annotations: {ci:store: nested, ci:invariant: "iff_absent(key_scheme, kind = observation)"}
     attributes:
       kind: {range: JudgmentTargetKind, required: true, description: The target's kind.}
-      ref: {required: true, description: The target's key or id.}
+      ref: {required: true, description: "The target's key, or an observation's id as decimal text."}
+      key_scheme: {range: integer, minimum_value: 1, description: The key scheme of a key-named target.}
   JudgmentPayload:
     description: A decision under a guideline version.
     annotations: {ci:store: nested, ci:payload: judgment, ci:invariant: "iff_present(chosen, decision = choose)"}
@@ -360,6 +387,67 @@ classes:
       detail: {range: Json, description: The detail., annotations: {ci:null: json}}
       counterexample: {range: Json, description: A counterexample., annotations: {ci:null: json}}
 
+  # ---- a build's diagnostics (kb.rendition_build.parse_detail; D4 M01) ----
+  ParseDetail:
+    description: >-
+      An ingest build's diagnostics (D4 M01; D1 §3.2), kept on kb.rendition_build and never on
+      segments, so they are outside the rendition's content digest.
+    annotations: {ci:store: nested, ci:payload: parse_detail}
+    attributes:
+      encoding: {description: The encoding html5lib detected.}
+      parser_errors: {range: ParserError, multivalued: true, inlined_as_list: true, description: The parser's errors with their positions.}
+      data_loss_warnings: {range: integer, required: true, description: The parser's data-loss warnings (coerced names).}
+      role_conflicts: {range: RoleConflict, multivalued: true, inlined_as_list: true, description: Elements claimed by two exclusive profile roles.}
+      exclusions: {range: ExcludedElement, multivalued: true, inlined_as_list: true, description: "Excluded elements, per rule."}
+      math_anomalies: {range: MathAnomaly, multivalued: true, inlined_as_list: true, description: Delimiting anomalies outside any span (stray closers).}
+      orphans: {range: OrphanRun, multivalued: true, inlined_as_list: true, description: Text placed directly in a container.}
+      unicode_changed: {range: UnicodeChange, multivalued: true, inlined_as_list: true, description: Text NFC normalization changed.}
+      references_rendered: {range: integer, ifabsent: int(0), description: Empty reference links rendered.}
+      macro_notes: {multivalued: true, description: What the macro reader did not take as written.}
+      synthesize_notes: {multivalued: true, description: Declared containment claims a block could not carry.}
+  ParserError:
+    description: One html5lib parse error.
+    annotations: {ci:store: nested}
+    attributes:
+      line: {range: integer, required: true, description: The line.}
+      column: {range: integer, required: true, description: The column.}
+      code: {required: true, description: html5lib's error code.}
+  RoleConflict:
+    description: An element two exclusive profile roles claim.
+    annotations: {ci:store: nested}
+    attributes:
+      tag: {required: true, description: The element's tag.}
+      classes: {multivalued: true, description: The element's classes.}
+      roles: {multivalued: true, required: true, description: The roles that claim it.}
+  ExcludedElement:
+    description: An element a profile exclusion rule removed (D4 M01).
+    annotations: {ci:store: nested}
+    attributes:
+      rule: {required: true, description: The exclusion rule's name.}
+      tag: {required: true, description: The element's tag.}
+      classes: {multivalued: true, description: The element's classes.}
+      chars: {range: integer, required: true, description: The characters of its collapsed text.}
+  MathAnomaly:
+    description: A delimiting anomaly outside any math span (D1 §3.1).
+    annotations: {ci:store: nested}
+    attributes:
+      kind: {required: true, description: "The anomaly: stray closer."}
+      delimiter: {required: true, description: The delimiter.}
+      context: {required: true, description: The text around it.}
+  OrphanRun:
+    description: Text placed directly in a container, kept as an orphan paragraph (D1 §3.2).
+    annotations: {ci:store: nested}
+    attributes:
+      container: {range: SegmentKind, required: true, description: The container's segment kind.}
+      text: {required: true, description: Its opening text.}
+      sourceline: {range: integer, description: "The container's source line, when the parser gives one."}
+  UnicodeChange:
+    description: A chunk of text NFC normalization changed.
+    annotations: {ci:store: nested}
+    attributes:
+      before: {required: true, description: The chunk before.}
+      after: {required: true, description: The chunk after.}
+
   # ---- the source profile (RC12; D2 §12.1), typed against core vocabulary ----
   SourceProfile:
     description: >-
@@ -373,16 +461,21 @@ classes:
       index: {range: CorpusIndex, description: The corpus index that ci project init reads.}
       language: {range: TsConfig, ifabsent: string(english), description: The segments' text-search configuration.}
       applies_to: {required: true, description: The glob of the source's pages.}
-      exclude: {range: Json, description: "CSS selectors whose text is excluded, by rule name."}
+      encoding: {ifabsent: string(sniff), description: "sniff (WHATWG sniffing on the original bytes) or an explicit encoding label; a label is not implemented yet."}
+      exclude: {range: ExcludeRule, multivalued: true, inlined: true, description: "CSS selectors whose text is excluded, by rule name."}
       title: {description: The title selector.}
       sections: {multivalued: true, description: "Heading selectors that open sections, by level."}
+      section_source: {range: SectionSource, ifabsent: string(body), description: Where section headings come from; layout is not implemented yet.}
       unit: {description: The annotation unit selector.}
+      layout: {multivalued: true, description: Selectors of tables used for layout (read as blocks); not implemented yet.}
       block_hints: {range: BlockHint, multivalued: true, inlined: true, description: Statement-kind hints by block selector.}
       section_hints: {range: SectionHint, multivalued: true, inlined: true, description: Statement kinds of units under section titles.}
       details_kinds: {range: DetailsKinds, description: Statement kinds of details blocks.}
-      math: {range: Json, description: Math delimiters and the page macro selector.}
-      references: {range: Json, description: Reference selectors and their rendering.}
-      render: {range: Json, description: Rendering rules.}
+      math: {range: MathSpec, description: Math delimiters and the page macro selector.}
+      references: {range: ReferenceSpec, description: Reference selectors and their rendering.}
+      render: {range: RenderSpec, description: Rendering rules.}
+      verbatim: {multivalued: true, description: Selectors whose whitespace is kept; not implemented yet.}
+      img_alt: {range: boolean, description: "Whether img[alt] text is rendered as text; true is not implemented yet."}
       orphan_text: {range: SegmentKind, description: The kind of segment orphan text becomes.}
   CorpusIndex:
     description: The corpus index of a source profile.
@@ -410,7 +503,7 @@ classes:
     attributes:
       default: {range: StatementKind, required: true, description: The default kind.}
       inside_example_or_exercise: {range: StatementKind, description: The kind inside an example or exercise.}
-      by_summary: {range: Json, description: Summary text to statement kind.}
+      by_summary: {range: SummaryKind, multivalued: true, inlined: true, description: Statement kinds by summary text.}
       synthesize: {range: SynthesisRule, multivalued: true, inlined: true, description: "Claims the containment states, by statement kind."}
   SynthesisRule:
     description: The claim a block's containment states (D5 §3.5).
@@ -420,6 +513,46 @@ classes:
       predicate: {required: true, description: The prefixed predicate.}
       object: {range: SynthesisObject, required: true, description: What the object is.}
       evidence: {range: SynthesisEvidence, required: true, description: What the evidence is.}
+  SummaryKind:
+    description: The statement kind of details blocks with one summary text.
+    annotations: {ci:store: nested}
+    attributes:
+      summary: {identifier: true, description: The summary text.}
+      statement_kind: {range: StatementKind, required: true, description: The statement kind.}
+  ExcludeRule:
+    description: A named exclusion rule; excluded text is recorded per rule (D4 M01).
+    annotations: {ci:store: nested}
+    attributes:
+      name: {identifier: true, description: The rule's name.}
+      selector: {required: true, description: The CSS selector.}
+  MathSpec:
+    description: Math delimiters, bare display environments and the page macro source (D4 M01).
+    annotations: {ci:store: nested}
+    attributes:
+      inline: {multivalued: true, minimum_cardinality: 2, maximum_cardinality: 2, description: "The inline opener and closer."}
+      display: {multivalued: true, minimum_cardinality: 2, maximum_cardinality: 2, description: "The display opener and closer."}
+      display_environments: {multivalued: true, description: Environments that are display math when bare.}
+      page_macros: {description: The selector of the page's macro source.}
+  ReferenceSpec:
+    description: In-text reference links and their rendering (D1 §3.1).
+    annotations: {ci:store: nested}
+    attributes:
+      selector: {required: true, description: The reference link selector.}
+      render: {range: ReferenceRender, ifabsent: string(browser), description: How an empty reference renders.}
+  RenderSpec:
+    description: Rendering conventions for script- or style-produced text (D1 §3.1).
+    annotations: {ci:store: nested}
+    attributes:
+      q: {range: QuoteRender, ifabsent: string(bare), description: How q content renders.}
+      list_markers: {range: ListMarkerRule, multivalued: true, inlined: true, description: List markers by list selector.}
+      summary: {range: SummaryRender, ifabsent: string(heading), description: How a details summary renders.}
+      figure: {range: FigureRender, ifabsent: string(caption), description: How a figure renders.}
+  ListMarkerRule:
+    description: The item markers of the lists one selector matches.
+    annotations: {ci:store: nested}
+    attributes:
+      selector: {identifier: true, description: The list selector.}
+      style: {range: ListMarkerStyle, required: true, description: The marker style.}
 
   # ---- embeddings and the unit-feature vocabulary ----
   EmbeddingSpec:
@@ -438,6 +571,47 @@ classes:
     attributes:
       feature: {range: UnitFeatureKind, required: true, description: The feature.}
       value: {description: "The member it names: a SegmentKind or StatementKind member; absent for claim_bearing."}
+
+  # ---- compiled artifacts (D2 §7; D3 §3) ----
+  CompiledArtifactBody:
+    description: >-
+      The body of a meta.compiled_artifact row: one compiler's output for one schema version, any
+      JSON (a text artifact is a JSON string). An artifact is identified by its schema version,
+      compiler, compiler version and kind, and its body by its hash, so the registry holds one
+      payload schema for every body.
+    annotations: {ci:store: nested, ci:payload: compiled_artifact}
+    attributes:
+      body: {range: Json, required: true, description: "The compiler's output.", annotations: {ci:null: json}}
+
+  # ---- schema change (ADR-0022; model and projections §3.6) ----
+  ChangeRecord:
+    description: >-
+      One revision step of the model (in model/revisions.yaml and meta.model_revision) or of a pack
+      (meta.schema_version.migration): its element changes, each with its compatibility class, and
+      the migration mapping, key consequences and affected artifacts (TM §9).
+    annotations: {ci:store: nested}
+    attributes:
+      from_revision: {required: true, description: The parent revision's content hash or schema version.}
+      to_revision: {required: true, description: The revision this step reaches.}
+      changes: {range: ElementChange, multivalued: true, inlined_as_list: true, description: "The element changes, from the SchemaView diff."}
+      name_map: {range: Json, description: "Old prefixed element path to new, for mapped changes (renames, splits, merges)."}
+      alembic_revision: {description: The Alembic revision that realizes the relational changes.}
+      key_consequences: {range: Json, description: "The key-scheme change, its carry-over map and the affected key prefixes."}
+      judgment_carry_over: {range: Json, description: "By carry-over map, or orphaned with its report."}
+      compiled_artifacts: {multivalued: true, description: "The (compiler, kind) artifacts the step affects."}
+      source_profiles: {multivalued: true, description: The source profiles the step affects.}
+  ElementChange:
+    description: One element change of a step, with its declared class and why it is allowed.
+    annotations: {ci:store: nested}
+    attributes:
+      element: {required: true, description: "The element's path: a prefixed class, slot (Class.slot), enum or member (Enum#member)."}
+      change: {range: ChangeKind, required: true, description: "Added, removed or changed."}
+      aspect: {description: "What changed of the element: range, required, description, a ci: declaration, …"}
+      compatibility_class: {range: CompatibilityClass, required: true, description: The declared class; the classifier checks it against the diff.}
+      reason: {required: true, description: Why the change is made.}
+      authorized_by: {required: true, description: "The model rule permitting it, e.g. method_version:mention.gliner/3."}
+      decision: {description: "The recorded decision that permits a breaking change (DP-24)."}
+      upcaster: {description: "The upcast of a nested-additive change: absent, or a named upcaster."}
 
   # ---- tables (D3) ----
   ModelRevision:
@@ -472,7 +646,7 @@ classes:
         range: ModelRevision
         description: The parent id.
       change_record:
-        range: Json
+        range: ChangeRecord
         description: D2 §8; null for the first revision; the model source stays in Git
       created_at:
         range: Timestamp
@@ -484,6 +658,8 @@ classes:
     in_subset:
     - meta
     description: one version of one nested payload class (D2 §8); rows are added, never edited
+    annotations:
+      ci:invariant: iff_absent(parent, compatibility_class = initial)
     unique_keys:
       payload_schema_class_version:
         unique_key_slots:
@@ -513,8 +689,9 @@ classes:
         range: PayloadSchema
         description: The parent id.
       compatibility_class:
+        range: CompatibilityClass
         required: true
-        description: 'D2 §8: descriptive, nested-additive, mapped, ...'
+        description: 'D2 §8: how this version follows its parent; initial for a version without one'
       json_schema_id:
         required: true
         description: $id of the generated JSON Schema
@@ -603,7 +780,7 @@ classes:
         description: 'the pack files'' text: {"statistics.yaml": "...", "rules.yaml": "...", "core/rules.yaml":
           "..."}; the core module is named by model_revision_id'
       migration:
-        range: Json
+        range: ChangeRecord
         description: the change record from the parent (D2 §8); null for a first version
       state:
         range: VersionState
@@ -914,6 +1091,11 @@ classes:
         range: MethodFamily
         required: true
         description: The family.
+      confidence_source:
+        range: ConfidenceSource
+        description: >-
+          The source the method's observations contribute to confidence (D5 §6.2; DA-016); the
+          policy's confidence blocks are keyed by it. Null for a method that contributes none.
       description:
         description: The description.
   MethodConfig:
@@ -2611,6 +2793,27 @@ classes:
           ci:generated: insert_time
 
 enums:
+  CompatibilityClass:
+    description: >-
+      How a step carries data across revisions (ADR-0022; model and projections §3.6); the class decides
+      the route. `initial` marks a payload schema's first version, which has no parent and no route.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      initial: {description: A first version; no parent.}
+      descriptive: {description: "Descriptions, examples, titles: a new revision, no DDL."}
+      nested-additive: {description: "An optional field or closed-set member of a nested payload class no CHECK lists: a registry row with upcast absent; no DDL, no rewrite."}
+      relational-additive: {description: "A column, table, static member, index, edge kind or newly sql_visible path: a generated Alembic revision."}
+      version-scoped-additive: {description: "A pack's class, predicate, statement kind or member: a new schema version."}
+      mapped: {description: "A rename, split or merge, by the change record's name map; authored artifacts are never rewritten."}
+      key-bearing: {description: "An identity, canonical-form or key-part change: a new key scheme with carry-over."}
+      breaking: {description: "A removal or narrowing without a mapping: refused unless a decision is recorded (DP-24)."}
+  ChangeKind:
+    description: What happened to an element between two revisions (ElementChange.change).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      added: {}
+      removed: {}
+      changed: {}
   VersionState:
     description: "`meta.schema_version.state`, `meta.guideline_version.state`, `ops.policy_version.state`."
     annotations: {ci:lifecycle: static}
@@ -2781,13 +2984,6 @@ enums:
       ambiguous: {}
       conflicting: {}
       unsupported: {}
-  Establishment:
-    description: "`kb.claim.establishment`."
-    annotations: {ci:lifecycle: static}
-    permissible_values:
-      stated: {}
-      derived: {}
-      agent_asserted: {}
   LinkType:
     description: "`kb.claim_link.link_type`."
     annotations: {ci:lifecycle: static}
@@ -2894,20 +3090,23 @@ enums:
       full: {}
       evidence: {}
   DropReason:
-    description: "Why keying dropped a candidate or an alternative member (`core/keys.py`, D5 §5.2); C1's PassReport counts by it."
+    description: "Why keying dropped a candidate or an alternative member (`core/keys.py`, D5 §5.2), or parse (A0) an item it could not place on a rendition; C1's PassReport counts by it."
     annotations: {ci:lifecycle: static}
     permissible_values:
       unknown_predicate: {description: "the schema does not know the claim's predicate"}
       segment_not_on_rendition: {description: "a segment key off this rendition"}
-      outside_unresolved: {description: "an outside statement consolidation has not resolved"}
       unknown_reference: {description: "a reference to no candidate"}
+      wrong_kind_reference: {description: "a reference naming a candidate of another kind than its position takes (an entity where a claim is named)"}
+      uncited_reference: {description: "an external reference whose descriptor lies in no statement of the set"}
       dropped_dependency: {description: "a reference to a candidate keying dropped"}
-      unknown_claim_ref: {description: "a condition `claim` node naming no candidate claim"}
+      unknown_claim_ref: {description: "a claim reference (a condition `claim` node, a binding's claim) naming no candidate claim"}
       unknown_identity_entity: {description: "an identity slot naming no entity"}
       identity_cycle: {description: "entity identity slots that reference each other"}
       condition_cycle: {description: "claims whose conditions reference each other"}
       malformed_qualifier: {description: "a schema qualifier value that is no typed value"}
       malformed_value: {description: "a value with no canonical JSON form (a lone surrogate, keys equal after NFC)"}
+      unlocated_quote: {description: "parse (A0): a quote the cascade did not locate and whose cited sentence is not on the rendition, so it has no span; or a claim left without a placed evidence quote or phrase"}
+      unresolved_extent: {description: "parse (A0): a scope qualifier's or local entity's extent that resolves to no segment on the rendition"}
   FrameFailureReason:
     description: "Why a citation-frame entry did not resolve or re-address (`core/frame.py`, D1 §10.3)."
     annotations: {ci:lifecycle: static}
@@ -2984,6 +3183,7 @@ enums:
       relation: {description: A relation.}
       membership: {description: A membership statement.}
       set: {description: A set expression.}
+      list: {description: "A list of values (formulas, relations or memberships), read as one value."}
   MarkupKind:
     description: The kinds of author markup observation (AuthorMarkupPayload.markup, D4 M01).
     annotations: {ci:lifecycle: static}
@@ -3107,3 +3307,41 @@ enums:
     annotations: {ci:lifecycle: static}
     permissible_values:
       summary: {description: The details block's summary.}
+  SectionSource:
+    description: Where a source profile's section headings come from (D4 M01).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      body: {description: Heading elements of the body.}
+      layout: {description: Rows of layout tables (not implemented yet).}
+  ReferenceRender:
+    description: How an empty in-text reference link renders (D1 §3.1).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      browser: {description: "[n], n the referenced unit's ordinal, as the page script renders it."}
+      placeholder: {description: "[ref]."}
+      empty: {description: Nothing.}
+  QuoteRender:
+    description: How q content renders (D1 §3.1).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      quotes: {description: Between quotation marks.}
+      bare: {description: As its text.}
+  ListMarkerStyle:
+    description: How the items of a matched list are marked (D1 §3.1).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      parenthesized: {description: "(a) , (b) , ..."}
+      browser: {description: "a. , b. , ..."}
+      none: {description: No marker.}
+  SummaryRender:
+    description: How a details summary renders (D1 §3.1).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      heading: {description: A heading segment inside its details.}
+      drop: {description: Excluded.}
+  FigureRender:
+    description: How a figure renders (D1 §3.1).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      caption: {description: A figure segment holding its caption.}
+      drop: {description: Excluded.}

@@ -621,8 +621,12 @@ def content_hash(core: Path = CORE, system: Path = SYSTEM) -> str:
 
 def compilers() -> dict[str, str]:
     """The compiler versions a revision records: linkml-runtime and each generator's own."""
+    from corpus_structure.schema import interchange, relational  # they import this module
+
     return {"linkml-runtime": importlib.metadata.version("linkml-runtime"),
-            GENERATOR: GENERATOR_VERSION}  # fmt: skip
+            GENERATOR: GENERATOR_VERSION,
+            relational.COMPILER: relational.COMPILER_VERSION,
+            interchange.COMPILER: interchange.COMPILER_VERSION}  # fmt: skip
 
 
 def revision(model: Model) -> Revision:

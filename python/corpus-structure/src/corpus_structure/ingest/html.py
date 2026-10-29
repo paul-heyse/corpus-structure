@@ -45,17 +45,37 @@ from typing import Any
 import cssselect2
 from html5lib.constants import DataLossWarning
 from lxml.html import html5parser
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import JsonValue
 
 from corpus_structure.core.batch import StoredEvidence
-from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
+from corpus_structure.core.evidence import (
+    MacroDef,
+    RenditionContent,
+    Segment,
+    content_digest,
+    rendition_key,
+    segment_key,
+)
 from corpus_structure.core.locators import LocatorIndex, page_of
+from corpus_structure.core.parse_detail import (
+    ExcludedElement,
+    MathAnomaly,
+    OrphanRun,
+    ParseDetail,
+    ParserError,
+    RoleConflict,
+    UnicodeChange,
+)
 from corpus_structure.core.payloads import AuthorMarkupPayload, SynthesizedClaim
 from corpus_structure.core.values import EntityRef
 from corpus_structure.core.vocab import (
+    SENTENCE_SPLIT,
     DelimitingStatus,
     EvidenceRole,
+    ListMarkerStyle,
     MarkupKind,
+    QuoteRender,
+    ReferenceRender,
     SegmentKind,
     StatementKind,
 )
@@ -161,67 +181,6 @@ class MarkupDraft:
     payload: AuthorMarkupPayload
 
 
-class _Detail(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class ParserError(_Detail):
-    line: int
-    column: int
-    code: str
-
-
-class RoleConflict(_Detail):
-    tag: str
-    classes: list[str]
-    roles: list[str]
-
-
-class Exclusion(_Detail):
-    """An excluded element, per rule (D4 M01: excluded text is recorded per rule)."""
-
-    rule: str
-    tag: str
-    classes: list[str]
-    chars: int
-
-
-class Anomaly(_Detail):
-    kind: str
-    delimiter: str
-    context: str
-
-
-class Orphan(_Detail):
-    container: str
-    text: str
-    sourceline: int | None = None
-
-
-class UnicodeChange(_Detail):
-    before: str
-    after: str
-
-
-class ParseDetail(_Detail):
-    """A build's diagnostics (`kb.rendition_build.parse_detail`), never part of the content."""
-
-    encoding: str | None
-    parser_errors: list[ParserError]
-    data_loss_warnings: int
-    role_conflicts: list[RoleConflict] = Field(default_factory=list)
-    exclusions: list[Exclusion] = Field(default_factory=list)
-    math_anomalies: list[Anomaly] = Field(default_factory=list)
-    orphans: list[Orphan] = Field(default_factory=list)
-    unicode_changed: list[UnicodeChange] = Field(default_factory=list)
-    references_rendered: int = 0
-    macro_notes: list[str] = Field(default_factory=list)
-    synthesize_notes: list[str] = Field(default_factory=list)
-
-    def to_json(self) -> dict[str, JsonValue]:
-        return self.model_dump(mode="json")
-
-
 @dataclass(frozen=True, slots=True)
 class IngestResult:
     content: RenditionContent
@@ -297,9 +256,9 @@ class _Walker:
         self.profile = compiled.profile
         self.roles: dict[Any, list[Rule]] = {}
         self.role_conflicts: list[RoleConflict] = []
-        self.exclusions: list[Exclusion] = []
-        self.anomalies: list[Anomaly] = []
-        self.orphans: list[Orphan] = []
+        self.exclusions: list[ExcludedElement] = []
+        self.anomalies: list[MathAnomaly] = []
+        self.orphans: list[OrphanRun] = []
         self.unicode_changed: list[UnicodeChange] = []
         self.refs_rendered = 0
         for wrapper in cssselect2.ElementWrapper.from_html_root(root).iter_subtree():
@@ -311,7 +270,7 @@ class _Walker:
             exclusive = sorted({r.role for r in rules if r.role in EXCLUSIVE_ROLES})
             if len(exclusive) > 1:
                 self.role_conflicts.append(
-                    RoleConflict(tag=el.tag, classes=_classes(el), roles=list(exclusive))
+                    RoleConflict(tag=el.tag, classes=tuple(_classes(el)), roles=tuple(exclusive))
                 )
         units = [el for el in root.iter() if self.has(el, "unit")]
         self.unit_ordinal: dict[str, int] = {}
@@ -331,7 +290,9 @@ class _Walker:
             return None
         text = _collapse("".join(el.itertext()))
         self.exclusions.append(
-            Exclusion(rule=rules[0].name, tag=el.tag, classes=_classes(el), chars=len(text))
+            ExcludedElement(
+                rule=rules[0].name, tag=el.tag, classes=tuple(_classes(el)), chars=len(text)
+            )
         )
         return rules[0].name
 
@@ -367,9 +328,9 @@ class _Walker:
             target = href[href.find("#") + 1 :] if "#" in href else ""
             ordinal = self.unit_ordinal.get(target)
             text = {
-                "browser": f"[{ordinal}]" if ordinal is not None else "",
-                "placeholder": "[ref]",
-                "empty": "",
+                ReferenceRender.BROWSER: f"[{ordinal}]" if ordinal is not None else "",
+                ReferenceRender.PLACEHOLDER: "[ref]",
+                ReferenceRender.EMPTY: "",
             }[references[-1].data]
             self.refs_rendered += 1
             run.add(text)
@@ -377,7 +338,7 @@ class _Walker:
                 {"markup": "ref", "start": start, "end": run.size, "href": href, "rendered": text}
             )
             return
-        quotes = el.tag == "q" and render.q == "quotes"
+        quotes = el.tag == "q" and render.q is QuoteRender.QUOTES
         if quotes:
             run.add("“")
         if el.tag == "br":
@@ -442,7 +403,12 @@ class _Walker:
     def list_marker(self, li: Any) -> str:
         parent = li.getparent()
         rules = self.rules(parent, "list_marker") if parent is not None else []
-        if parent is None or parent.tag != "ol" or not rules or rules[-1].data == "none":
+        if (
+            parent is None
+            or parent.tag != "ol"
+            or not rules
+            or rules[-1].data is ListMarkerStyle.NONE
+        ):
             return ""
         try:
             first = int(parent.get("start") or 1)
@@ -450,7 +416,8 @@ class _Walker:
             first = 1
         items = [c for c in parent if isinstance(c.tag, str) and c.tag == "li"]
         letter = chr(ord("a") + first - 1 + items.index(li))
-        return f"({letter}) " if rules[-1].data == "parenthesized" else f"{letter}. "
+        parenthesized = rules[-1].data is ListMarkerStyle.PARENTHESIZED
+        return f"({letter}) " if parenthesized else f"{letter}. "
 
     def sectionize(self, children: list[Block | Run]) -> list[Block | Run]:
         top: list[Block | Run] = []
@@ -499,7 +466,7 @@ def _process_run(
     for stray in scan.strays:
         context = raw[max(0, stray.position - 40) : stray.position + 40]
         walker.anomalies.append(
-            Anomaly(kind="stray closer", delimiter=stray.delimiter, context=context)
+            MathAnomaly(kind="stray closer", delimiter=stray.delimiter, context=context)
         )
     in_math = [False] * len(raw)
     for span in scan.spans:
@@ -603,7 +570,11 @@ def _serialize(blk: Block, walker: _Walker) -> tuple[str, Node]:
                 if blk.kind not in TEXT_BLOCKS:
                     line = blk.element.sourceline if blk.element is not None else None
                     walker.orphans.append(
-                        Orphan(container=blk.kind.value, text=text[:80], sourceline=line)
+                        OrphanRun(
+                            container=blk.kind,
+                            text=text[:80],
+                            **({} if line is None else {"sourceline": line}),
+                        )
                     )
                 placed = [own]
         else:
@@ -679,28 +650,22 @@ def _leaf_blocks(root: Node) -> list[Node]:
     return [
         node
         for node, _ in root.walk()
-        if node.kind.value in sentences.SPLIT_KINDS
-        and not any(c.kind.value in sentences.SPLIT_KINDS for c in node.children)
+        if node.kind in SENTENCE_SPLIT and not any(c.kind in SENTENCE_SPLIT for c in node.children)
     ]
 
 
 def _add_sentences(root: Node, text: str, config: SentenceConfig) -> None:
     leaves = _leaf_blocks(root)
-    blocks = []
-    for node in leaves:
-        rel = lambda a, b, s=node.start: (a - s, b - s)  # noqa: E731
-        blocks.append(
-            sentences.Block(
-                text[node.start : node.end],
-                [rel(c.start, c.end) for c in node.children if c.kind is K.MATH_INLINE],
-                [rel(c.start, c.end) for c in node.children if c.kind is K.MATH_DISPLAY],
-                [
-                    rel(m["start"], m["end"])
-                    for m in node.markup
-                    if m["markup"] == "ref" and m["end"] > m["start"]
-                ],
-            )
+    blocks = [
+        sentences.block_of(
+            text,
+            node.start,
+            node.end,
+            ((c.kind, c.start, c.end) for c in node.children),
+            node.markup,
         )
+        for node in leaves
+    ]
     for node, extents in zip(leaves, sentences.split(blocks, config), strict=True):
         node.children += [Node(K.SENTENCE, node.start + a, node.start + b) for a, b in extents]
 
@@ -729,19 +694,29 @@ def _markup_drafts(
     profile: SourceProfile,
     page: str,
     notes: list[str],
+    document_key: str | None = None,
 ) -> list[MarkupDraft]:
+    """The `author_markup` drafts. With the document's key, each value names its segment by key
+    (`segment`) and a synthesized claim's enclosing unit by key beside its locator."""
     drafts: list[MarkupDraft] = []
     text = content.canonical_text
     index: LocatorIndex | None = None
     segments = {SegmentRef.of(s): s for s in content.document.walk()}
+    ren_key = rendition_key(document_key, content_digest(content)) if document_key else None
+
+    def key_of(node: Node) -> str | None:
+        return segment_key(ren_key, node.kind, node.start, node.end) if ren_key else None
 
     def draft(
         node: Node,
         markup: MarkupKind,
-        value: JsonValue,
+        value: dict[str, JsonValue],
         span: tuple[int, int] | None = None,
         **extra: Any,
     ) -> None:
+        key = key_of(node)
+        if key is not None:
+            value = {**value, "segment": key}
         payload = AuthorMarkupPayload(markup=markup, value=value, **extra)
         drafts.append(MarkupDraft(SegmentRef(node.kind, node.start, node.end), span, payload))
 
@@ -778,7 +753,7 @@ def _markup_drafts(
         kind = profile.details_kinds.kind_of(
             summary_text, unit is not None and _hint_kind(unit) in EXAMPLE_KINDS
         )
-        value = {"statement_kind": str(kind), "summary": summary_text}
+        details: dict[str, JsonValue] = {"statement_kind": str(kind), "summary": summary_text}
         rule = profile.details_kinds.rule_for(kind)
         extra: dict[str, Any] = {}
         if rule is not None and (unit is None or summary is None):
@@ -790,7 +765,11 @@ def _markup_drafts(
             if index is None:
                 index = LocatorIndex(content, page)
             unit_key = index.unit_key(segments[SegmentRef(unit.kind, unit.start, unit.end)])
-            value["unit"] = unit_key
+            enclosing: dict[str, JsonValue] = {"locator": unit_key}
+            unit_segment = key_of(unit)
+            if unit_segment is not None:
+                enclosing["segment"] = unit_segment
+            details["unit"] = enclosing
             extra["synthesize"] = SynthesizedClaim(
                 predicate=rule.predicate,
                 object=EntityRef(ref=unit_key),
@@ -798,7 +777,7 @@ def _markup_drafts(
                     StoredEvidence(start=summary.start, end=summary.end, role=EvidenceRole.PRIMARY),
                 ),
             )
-        draft(node, MarkupKind.DETAILS, value, **extra)
+        draft(node, MarkupKind.DETAILS, details, **extra)
     return drafts
 
 
@@ -813,10 +792,10 @@ def parse(raw: bytes) -> tuple[Any, ParseDetail]:
         root = html5parser.document_fromstring(raw, guess_charset=False, parser=parser)
     detail = ParseDetail(
         encoding=parser.documentEncoding,
-        parser_errors=[
+        parser_errors=tuple(
             ParserError(line=line, column=column, code=code)
             for (line, column), code, _ in parser.errors
-        ],
+        ),
         data_loss_warnings=sum(1 for w in caught if issubclass(w.category, DataLossWarning)),
     )
     return root, detail
@@ -842,6 +821,7 @@ def build_rendition_with_elements(
     sentence_config: SentenceConfig,
     *,
     source_uri: str,
+    document_key: str | None = None,
 ) -> tuple[IngestResult, dict[SegmentRef, Any]]:
     """`build_rendition`, and the source element of each segment built from one (for the
     independent text path of the corpus checks; the elements are not part of the result)."""
@@ -863,19 +843,20 @@ def build_rendition_with_elements(
     _add_sentences(top, text, sentence_config)
     content = RenditionContent(canonical_text=text, document=_segment(top), macros=macros)
     synth_notes: list[str] = []
-    drafts = _markup_drafts(top, content, prof, page, synth_notes)
+    drafts = _markup_drafts(top, content, prof, page, synth_notes, document_key)
     titles = [el for el in root.iter() if isinstance(el.tag, str) and walker.has(el, "title")]
-    detail = detail.model_copy(
-        update={
-            "role_conflicts": walker.role_conflicts,
-            "exclusions": walker.exclusions,
-            "math_anomalies": walker.anomalies,
-            "orphans": walker.orphans,
-            "unicode_changed": walker.unicode_changed,
-            "references_rendered": walker.refs_rendered,
-            "macro_notes": macro_notes,
-            "synthesize_notes": synth_notes,
-        }
+    detail = ParseDetail(
+        encoding=detail.encoding,
+        parser_errors=detail.parser_errors,
+        data_loss_warnings=detail.data_loss_warnings,
+        role_conflicts=tuple(walker.role_conflicts),
+        exclusions=tuple(walker.exclusions),
+        math_anomalies=tuple(walker.anomalies),
+        orphans=tuple(walker.orphans),
+        unicode_changed=tuple(walker.unicode_changed),
+        references_rendered=walker.refs_rendered,
+        macro_notes=tuple(macro_notes),
+        synthesize_notes=tuple(synth_notes),
     )
     result = IngestResult(
         content=content,
@@ -898,6 +879,11 @@ def build_rendition(
     sentence_config: SentenceConfig,
     *,
     source_uri: str,
+    document_key: str | None = None,
 ) -> IngestResult:
-    """M01 with M03 on one document's original bytes (pure: no database, no clock)."""
-    return build_rendition_with_elements(raw, profile, sentence_config, source_uri=source_uri)[0]
+    """M01 with M03 on one document's original bytes (pure: no database, no clock). Given the
+    document's key (`doc:`, which names the project), the markup drafts name their segments by
+    key on this rendition (D1 §10.1)."""
+    return build_rendition_with_elements(
+        raw, profile, sentence_config, source_uri=source_uri, document_key=document_key
+    )[0]

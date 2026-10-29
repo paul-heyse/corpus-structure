@@ -1,10 +1,11 @@
 """M03 `segment.sentences`, variant b', as a step of M01's task (D4 M03; ingest and math §3.4).
 
-Leaf text blocks (`paragraph`, `list_item`, `table_cell`, `caption` with no such block inside) are
-split into sentences on a spaCy `Doc` built from words and spaces: the prose between inline math
-spans and rendered reference markers is tokenized with `nlp.tokenizer`, and each inline math span
-and each marker enters as one word, so the Doc reproduces the block text exactly and token offsets
-are canonical-text offsets. Math words are tagged `NNP`; `is_sent_start = False` is preset on
+Leaf text blocks (segments whose kind has the member property `sentence_split`, D4 M03's
+`paragraph`, `list_item`, `table_cell` and `caption`, with no such segment inside) are split into
+sentences on a spaCy `Doc` built from words and spaces: the prose between inline math spans and
+rendered reference markers is tokenized with `nlp.tokenizer`, and each inline math span and each
+marker enters as one word, so the Doc reproduces the block text exactly and token offsets are
+canonical-text offsets. Math words are tagged `NNP`; `is_sent_start = False` is preset on
 markers and on every token of a display formula after its first, which the parser respects. Docs
 run through `nlp.pipe(..., as_tuples=True)` with the model loaded once per process. A sentence is
 trimmed of surrounding whitespace and never crosses its block.
@@ -18,16 +19,17 @@ from __future__ import annotations
 
 import functools
 import itertools
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any, Literal
 
 import spacy
 from pydantic import BaseModel, ConfigDict, Field
 from spacy.language import Language
 from spacy.tokens import Doc
 
-# The kinds M03 splits (D4 M03). They are named by D4's card, which no member property states yet.
-SPLIT_KINDS: frozenset[str] = frozenset({"paragraph", "list_item", "table_cell", "caption"})
+from corpus_structure.core.vocab import SegmentKind
+
 MATH_TAG = "NNP"
 
 
@@ -36,7 +38,8 @@ class SentenceConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    variant: str = "b-prime"
+    # b': inline math and reference markers each one word of a words-and-spaces Doc (D4 M03)
+    variant: Literal["math_as_word"] = "math_as_word"
     spacy_version: str = "3.8.18"
     model: str = "en_core_web_sm"
     model_version: str = "3.8.0"
@@ -73,6 +76,32 @@ class Block:
     inline: Sequence[tuple[int, int]]
     display: Sequence[tuple[int, int]]
     markers: Sequence[tuple[int, int]]
+
+
+def block_of(
+    text: str,
+    start: int,
+    end: int,
+    children: Iterable[tuple[SegmentKind, int, int]],
+    markup: Iterable[Mapping[str, Any]],
+) -> Block:
+    """The block M03 splits, from its canonical-text extent `[start, end)`, its children as
+    `(kind, start, end)` and its inline markup (canonical-text offsets): inline and display math,
+    and the rendered reference markers (`ref` markup with text). M01's sentence step and M13 both
+    build their Docs from this, so the two Docs are identical by construction."""
+    inline: list[tuple[int, int]] = []
+    display: list[tuple[int, int]] = []
+    for kind, a, b in children:
+        if kind is SegmentKind.MATH_INLINE:
+            inline.append((a - start, b - start))
+        elif kind is SegmentKind.MATH_DISPLAY:
+            display.append((a - start, b - start))
+    markers = []
+    for m in markup:
+        a, b = m.get("start"), m.get("end")
+        if m.get("markup") == "ref" and isinstance(a, int) and isinstance(b, int) and b > a:
+            markers.append((a - start, b - start))
+    return Block(text[start:end], inline, display, markers)
 
 
 def make_doc(nlp: Language, block: Block) -> Doc:

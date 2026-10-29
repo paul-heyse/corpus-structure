@@ -16,10 +16,7 @@ from hypothesis import strategies as st
 from pydantic import TypeAdapter, ValidationError
 
 from corpus_structure.core._model.qualifiers import MISSING, QualifierSpec
-from corpus_structure.core.candidates import (
-    CandidateStatement,
-    KeyedCandidateSet,
-)
+from corpus_structure.core.candidates import CandidateStatement, KeyedCandidateSet
 from corpus_structure.core.evidence import (
     MacroDef,
     RenditionContent,
@@ -37,6 +34,7 @@ from corpus_structure.core.keys import (
     LabelRules,
     Member,
     Rewrite,
+    Uniform,
     ValueSpec,
     alternative_group_key,
     canonical_condition,
@@ -65,8 +63,11 @@ MACROS = {"\\R": MacroDef(body="\\mathbb{R}")}
 DOC = document_key("statistics", "special/Test.html", "0" * 64)
 
 
-def ident(ref: str) -> str:
+def _ident(ref: str) -> str:
     return f"key:{ref}"
+
+
+ident = Uniform(_ident)  # every reference alike: these canonical forms are kind-blind
 
 
 # --- Label normalization (D5 §3.3 point 5) ---------------------------------------------------
@@ -271,6 +272,7 @@ def candidates(ctx: KeyContext, **claim: Any) -> KeyedCandidateSet:
             "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
     claims = claim.pop("claims", [{"id": "c1", **base, "qualifiers": claim.pop("qualifiers", {})}])
     return KeyedCandidateSet.model_validate({
+        "rendition": ctx.rendition_key,
         "entities": [
             {"id": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
              "scope_segment": seg_key(ctx, unit), "symbol": "X"},
@@ -479,7 +481,8 @@ def entity_keys(entities: list[dict], schema: KeySchema = SCHEMA) -> dict[str, s
     for e in entities:
         if e.get("scope") == "local":
             e.setdefault("scope_segment", seg_key(ctx, unit))
-    cands = KeyedCandidateSet.model_validate({"entities": entities})
+    cands = KeyedCandidateSet.model_validate({"rendition": ctx.rendition_key,
+                                              "entities": entities})
     return key_claims(cands, ctx, schema, RULES).entities
 
 
@@ -528,9 +531,10 @@ def test_local_entity_keys() -> None:
 
 
 def test_an_existing_key_is_kept() -> None:
-    keys = entity_keys([{"id": "a", "key": "ent:linked", "label": "x", "type": "stat:T",
+    linked = "ent:" + "a" * 32
+    keys = entity_keys([{"id": "a", "key": linked, "label": "x", "type": "stat:T",
                          "scope": "global"}])  # fmt: skip
-    assert keys["a"] == "ent:linked"
+    assert keys["a"] == linked
 
 
 # --- Statements: locators, and edits that stay local -----------------------------------------
@@ -544,7 +548,8 @@ def statement_keys(content: RenditionContent) -> dict[str, str]:
         for i, s in enumerate(sentences_of(content))
     ]
     return key_claims(
-        KeyedCandidateSet(statements=tuple(statements)), ctx, SCHEMA, RULES
+        KeyedCandidateSet(rendition=ctx.rendition_key, statements=tuple(statements)), ctx,
+        SCHEMA, RULES,
     ).statements
 
 
@@ -607,6 +612,7 @@ def t3(content: RenditionContent) -> tuple[KeyContext, KeyedCandidateSet]:
     in_r0 = member("b", "\\R \\setminus \\{0\\}")
     ev = [{"start": paragraph.start, "end": paragraph.end, "role": "primary"}]
     return ctx, KeyedCandidateSet.model_validate({
+        "rendition": ctx.rendition_key,
         "entities": [
             {"id": "X", "type": "stat:RandomVariable", "label": "X", "symbol": "X",
              "scope": "local",
@@ -792,7 +798,7 @@ def test_a_member_naming_a_dropped_or_unknown_item_is_dropped_with_its_reason() 
     keys = keys_for(claims, {c: m for c in ("c1", "c2", "c3", "c9")})
     assert set(keys.members) == {"c3"}
     assert keys.dropped_members["c1"] == Drop(Code.DROPPED_DEPENDENCY, "c9")
-    assert keys.dropped_members["c2"] == Drop(Code.UNKNOWN_REFERENCE, "nowhere")
+    assert keys.dropped_members["c2"] == Drop(Code.UNKNOWN_CLAIM_REF, "nowhere")  # a claim ref
     assert keys.dropped_members["c9"] == Drop(Code.DROPPED_DEPENDENCY, "c9")
     assert {"c1", "c2", "c3"} <= set(keys.claims)  # bindings are outside the base key
 
@@ -823,29 +829,14 @@ def test_a_statement_outside_every_unit_anchors_on_its_top_level_block() -> None
         ctx = context(content)
         st = CandidateStatement(id="s", kind="theorem", anchor=(seg_key(ctx, sentence),))
         anchor, ordinal = statement_anchor(st, ctx)
-        keys = key_claims(KeyedCandidateSet(statements=(st,)), ctx, SCHEMA, RULES)
+        cands = KeyedCandidateSet(rendition=ctx.rendition_key, statements=(st,))
+        keys = key_claims(cands, ctx, SCHEMA, RULES)
         return anchor, ordinal, keys.statements["s"]
 
     before = anchored(["Alpha one."])
     after = anchored(["Alpha one.", "Alpha two."])  # an edit in the preceding paragraph
     assert before[0].kind is SegmentKind.LIST and before[1] == 1
     assert before[2] == after[2]
-
-
-def test_outside_statements_wait_for_consolidation() -> None:
-    ctx = context(page(UNITS))
-    cands = candidates(ctx, claims=[
-        {"id": "c1", "predicate": "core:follows_from", "subject": "st1", "object": {"ref": "last"}},
-    ])  # fmt: skip
-    outside = CandidateStatement(id="last", kind="theorem", anchor="outside")
-    assert outside.key is None
-    pending = cands.model_copy(update={"statements": (*cands.statements, outside)})
-    keys = key_claims(pending, ctx, SCHEMA, RULES)
-    assert "last" in keys.outside
-    assert keys.dropped["c1"] == Drop(Code.OUTSIDE_UNRESOLVED, "last")
-    resolved = outside.model_copy(update={"key": "stm:resolved"})
-    later = cands.model_copy(update={"statements": (*cands.statements, resolved)})
-    assert "c1" in key_claims(later, ctx, SCHEMA, RULES).claims
 
 
 def test_and_or_drop_duplicates_and_equality_is_symmetric() -> None:

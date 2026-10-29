@@ -33,6 +33,7 @@ from corpus_structure.core.keys import (
     KeySchema,
     LabelRules,
     Member,
+    Uniform,
     ValueSpec,
     canonical_condition,
     canonical_qualifier,
@@ -56,8 +57,7 @@ PAGE = "special/Test.html"
 DOC = document_key("statistics", PAGE, "0" * 64)
 
 
-def resolve(ref: str) -> str:
-    return f"key:{ref}"
+resolve = Uniform(lambda ref: f"key:{ref}")  # every reference alike, whatever its kind
 
 
 def spec(name: str, canonical: CanonicalForm, range_: str = "string", *,
@@ -212,6 +212,7 @@ def keyed(claims: list[dict], entities: list[dict] | None = None, schema: KeySch
     base = {"predicate": "biz:owns", "subject": "A", "object": {"ref": "B"},
             "evidence": [{"start": 0, "end": 1, "role": "primary"}]}  # fmt: skip
     cands = KeyedCandidateSet.model_validate({
+        "rendition": ctx.rendition_key,
         "entities": [{"id": n, "type": "biz:Org", "label": n, "scope": "global",
                       "identity": {"biz:code": n}} for n in ("A", "B", "S", "J")]
                     + list(entities or ()),
@@ -284,8 +285,9 @@ def test_carry_over_maps_old_keys_to_new_and_reports_missing_inputs() -> None:
     old = PACK
     new = PACK.model_copy(update={"key_scheme": 2, "label_case": {}})
     entities = [{"id": "e", "type": "biz:Symbolic", "label": "X", "scope": "global"}]
-    cands = KeyedCandidateSet.model_validate({"entities": entities})
     ctx = context()
+    cands = KeyedCandidateSet.model_validate({"rendition": ctx.rendition_key,
+                                              "entities": entities})
 
     def keyer(schema: KeySchema):
         return lambda c, x: key_claims(c, x, schema, LabelRules())
@@ -312,8 +314,8 @@ def test_an_earlier_sentence_inserted_in_an_anchor_shifts_only_that_anchors_late
         statements = [{"id": f"st{i}", "kind": "theorem",
                        "anchor": [segment_key(ren, s.kind, s.start, s.end)]}
                       for i, s in enumerate(sents)]  # fmt: skip
-        out = key_claims(KeyedCandidateSet.model_validate({"statements": statements}), ctx,
-                         PACK, LabelRules())  # fmt: skip
+        cands = KeyedCandidateSet.model_validate({"rendition": ren, "statements": statements})
+        out = key_claims(cands, ctx, PACK, LabelRules())
         return [out.statements[f"st{i}"] for i in range(len(sents))]
 
     base = statement_keys(["Alpha a.", "Alpha b.", "|", "Bravo a."])

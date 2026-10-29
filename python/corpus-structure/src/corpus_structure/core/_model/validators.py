@@ -55,8 +55,48 @@ def evidence(obj: object) -> None:
     invariants.ordered(obj, "start", "end")
 
 
+def entity_item(obj: object) -> None:
+    """EntityItem: only_when(extent, scope = local); only_when(scope_segment, scope = local)."""
+    invariants.only_when(obj, "extent", "scope", ("local",))
+    invariants.only_when(obj, "scope_segment", "scope", ("local",))
+
+
+def reference_descriptor(obj: object) -> None:
+    """ReferenceDescriptor: ordered(start, end)."""
+    invariants.ordered(obj, "start", "end")
+
+
+def claim_item(obj: object) -> None:
+    """ClaimItem: iff_present(derived_from, establishment = derived); iff_present(rule,
+    establishment = derived).
+    """
+    invariants.iff_present(obj, "derived_from", "establishment", ("derived",))
+    invariants.iff_present(obj, "rule", "establishment", ("derived",))
+
+
 def unsupported_item(obj: object) -> None:
     """UnsupportedItem: ordered(start, end)."""
+    invariants.ordered(obj, "start", "end")
+
+
+def candidate_entity(obj: object) -> None:
+    """CandidateEntity: only_when(extent, scope = local); only_when(scope_segment, scope =
+    local).
+    """
+    invariants.only_when(obj, "extent", "scope", ("local",))
+    invariants.only_when(obj, "scope_segment", "scope", ("local",))
+
+
+def candidate_claim(obj: object) -> None:
+    """CandidateClaim: iff_present(derived_from, establishment = derived); iff_present(rule,
+    establishment = derived).
+    """
+    invariants.iff_present(obj, "derived_from", "establishment", ("derived",))
+    invariants.iff_present(obj, "rule", "establishment", ("derived",))
+
+
+def candidate_unsupported(obj: object) -> None:
+    """CandidateUnsupported: ordered(start, end)."""
     invariants.ordered(obj, "start", "end")
 
 
@@ -91,21 +131,32 @@ def scope_payload(obj: object) -> None:
 
 
 def link_payload(obj: object) -> None:
-    """LinkPayload: exactly_one(mention_ref, pair)."""
+    """LinkPayload: exactly_one(mention_ref, pair); exactly_one(candidate, new)."""
     invariants.exactly_one(obj, "mention_ref", "pair")
+    invariants.exactly_one(obj, "candidate", "new")
 
 
 def claim_proposal_payload(obj: object) -> None:
-    """ClaimProposalPayload: together(authored, citation_frame); together(establishment,
-    derived_from, rule).
+    """ClaimProposalPayload: together(authored, citation_frame, cascade_version); schema_version ~
+    ^[0-9a-f]{64}$.
     """
-    invariants.together(obj, "authored", "citation_frame")
-    invariants.together(obj, "establishment", "derived_from", "rule")
+    invariants.together(obj, "authored", "citation_frame", "cascade_version")
+    _pattern(obj, "schema_version", "^[0-9a-f]{64}$")
+
+
+def judgment_target(obj: object) -> None:
+    """JudgmentTarget: iff_absent(key_scheme, kind = observation)."""
+    invariants.iff_absent(obj, "key_scheme", "kind", ("observation",))
 
 
 def judgment_payload(obj: object) -> None:
     """JudgmentPayload: iff_present(chosen, decision = choose)."""
     invariants.iff_present(obj, "chosen", "decision", ("choose",))
+
+
+def payload_schema(obj: object) -> None:
+    """PayloadSchema: iff_absent(parent, compatibility_class = initial)."""
+    invariants.iff_absent(obj, "parent", "compatibility_class", ("initial",))
 
 
 def schema_rule(obj: object) -> None:
@@ -160,7 +211,13 @@ VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = {
     "PhraseNode": phrase_node,
     "UnsupportedNode": unsupported_node,
     "Evidence": evidence,
+    "EntityItem": entity_item,
+    "ReferenceDescriptor": reference_descriptor,
+    "ClaimItem": claim_item,
     "UnsupportedItem": unsupported_item,
+    "CandidateEntity": candidate_entity,
+    "CandidateClaim": candidate_claim,
+    "CandidateUnsupported": candidate_unsupported,
     "SpanPayload": span_payload,
     "MentionPayload": mention_payload,
     "LabelledSpan": labelled_span,
@@ -169,7 +226,9 @@ VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = {
     "ScopePayload": scope_payload,
     "LinkPayload": link_payload,
     "ClaimProposalPayload": claim_proposal_payload,
+    "JudgmentTarget": judgment_target,
     "JudgmentPayload": judgment_payload,
+    "PayloadSchema": payload_schema,
     "SchemaRule": schema_rule,
     "KbSegment": kb_segment,
     "Span": span,
@@ -188,19 +247,39 @@ INVARIANTS: Final[Mapping[str, tuple[str, ...]]] = {
     "PhraseNode": ("ordered(start, end)",),
     "UnsupportedNode": ("ordered(start, end)",),
     "Evidence": ("ordered(start, end)",),
+    "EntityItem": (
+        "only_when(extent, scope = local)",
+        "only_when(scope_segment, scope = local)",
+    ),
+    "ReferenceDescriptor": ("ordered(start, end)",),
+    "ClaimItem": (
+        "iff_present(derived_from, establishment = derived)",
+        "iff_present(rule, establishment = derived)",
+    ),
     "UnsupportedItem": ("ordered(start, end)",),
+    "CandidateEntity": (
+        "only_when(extent, scope = local)",
+        "only_when(scope_segment, scope = local)",
+    ),
+    "CandidateClaim": (
+        "iff_present(derived_from, establishment = derived)",
+        "iff_present(rule, establishment = derived)",
+    ),
+    "CandidateUnsupported": ("ordered(start, end)",),
     "SpanPayload": ("ordered(start, end)",),
     "MentionPayload": ("ordered(start, end)",),
     "LabelledSpan": ("ordered(start, end)",),
     "RecordField": ("ordered(start, end)",),
     "MentionAt": ("ordered(start, end)",),
     "ScopePayload": ("ordered(start, end)",),
-    "LinkPayload": ("exactly_one(mention_ref, pair)",),
-    "ClaimProposalPayload": (
-        "together(authored, citation_frame)",
-        "together(establishment, derived_from, rule)",
+    "LinkPayload": (
+        "exactly_one(mention_ref, pair)",
+        "exactly_one(candidate, new)",
     ),
+    "ClaimProposalPayload": ("together(authored, citation_frame, cascade_version)",),
+    "JudgmentTarget": ("iff_absent(key_scheme, kind = observation)",),
     "JudgmentPayload": ("iff_present(chosen, decision = choose)",),
+    "PayloadSchema": ("iff_absent(parent, compatibility_class = initial)",),
     "SchemaRule": (
         "iff_absent(severity, grp = derive)",
         "iff_absent(check_expr, grp = derive)",
@@ -220,5 +299,6 @@ INVARIANTS: Final[Mapping[str, tuple[str, ...]]] = {
     "CitationFrame": ("iff_absent(parent, version = 1)",),
 }
 PATTERNS: Final[Mapping[str, tuple[tuple[str, str], ...]]] = {
+    "ClaimProposalPayload": (("schema_version", "^[0-9a-f]{64}$"),),
     "KbSegment": (("parse_reason", "\\S"),),
 }

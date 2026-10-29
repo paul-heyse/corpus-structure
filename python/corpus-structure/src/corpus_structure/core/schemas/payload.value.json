@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.value.json",
   "$defs": {
     "BindKind": {
       "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
@@ -45,27 +46,6 @@
       },
       "required": [
         "t",
-        "v"
-      ],
-      "type": "object"
-    },
-    "EnumValue": {
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "const": "enum",
-          "type": "string"
-        },
-        "enum": {
-          "type": "string"
-        },
-        "v": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "t",
-        "enum",
         "v"
       ],
       "type": "object"
@@ -161,6 +141,17 @@
       ],
       "type": "object"
     },
+    "MathKind": {
+      "description": "The typed start symbol of the math grammar that read a value's span (ValuePayload.math_kind,\nM11). Lifecycle: static.",
+      "enum": [
+        "formula",
+        "relation",
+        "membership",
+        "set",
+        "list"
+      ],
+      "type": "string"
+    },
     "NumberValue": {
       "additionalProperties": false,
       "description": "A number as its D1 §6.2 canonical decimal; `unit` and `basis` as the source states them.",
@@ -225,6 +216,29 @@
       ],
       "type": "object"
     },
+    "StoredEnumValue": {
+      "additionalProperties": false,
+      "description": "The stored enum value: the enum by its prefixed name (`stat:ParameterRole`).",
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "pattern": "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
+      ],
+      "type": "object"
+    },
     "StoredPhrase": {
       "additionalProperties": false,
       "properties": {
@@ -260,7 +274,7 @@
         "mapping": {
           "bool": "#/$defs/BoolValue",
           "date": "#/$defs/DateValue",
-          "enum": "#/$defs/EnumValue",
+          "enum": "#/$defs/StoredEnumValue",
           "formula": "#/$defs/Formula",
           "interval": "#/$defs/IntervalValue",
           "number": "#/$defs/NumberValue",
@@ -281,7 +295,7 @@
           "$ref": "#/$defs/BoolValue"
         },
         {
-          "$ref": "#/$defs/EnumValue"
+          "$ref": "#/$defs/StoredEnumValue"
         },
         {
           "$ref": "#/$defs/Formula"
@@ -308,9 +322,11 @@
           "$ref": "#/$defs/BindKind"
         },
         "entity": {
+          "minLength": 1,
           "type": "string"
         },
         "claim": {
+          "minLength": 1,
           "type": "string"
         },
         "param": {
@@ -349,13 +365,7 @@
       "type": "string"
     },
     "math_kind": {
-      "enum": [
-        "formula",
-        "relation",
-        "membership",
-        "set"
-      ],
-      "type": "string"
+      "$ref": "#/$defs/MathKind"
     }
   },
   "required": [

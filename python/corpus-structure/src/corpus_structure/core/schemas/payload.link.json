@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.link.json",
   "$defs": {
     "JsonValue": {},
     "MentionRef": {
@@ -16,18 +17,6 @@
       },
       "required": [
         "ordinal"
-      ],
-      "type": "object"
-    },
-    "NewCandidate": {
-      "additionalProperties": false,
-      "properties": {
-        "new": {
-          "$ref": "#/$defs/NewEntity"
-        }
-      },
-      "required": [
-        "new"
       ],
       "type": "object"
     },
@@ -49,6 +38,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "An entity-link candidate: the mention (M14) or the pair (M15), and the candidate entity's\nkey or the new entity it proposes, exactly one of each.",
   "properties": {
     "mention_ref": {
       "$ref": "#/$defs/MentionRef"
@@ -67,14 +57,11 @@
       "type": "array"
     },
     "candidate": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "$ref": "#/$defs/NewCandidate"
-        }
-      ]
+      "minLength": 1,
+      "type": "string"
+    },
+    "new": {
+      "$ref": "#/$defs/NewEntity"
     },
     "score": {
       "maximum": 1,
@@ -92,7 +79,6 @@
     }
   },
   "required": [
-    "candidate",
     "score",
     "features"
   ],

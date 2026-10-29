@@ -113,8 +113,8 @@ def test_every_element_text_equals_an_independent_path(pages: list[Page]) -> Non
             for ref, el in page.elements.items()
             if ref.kind is not K.SECTION
         }
-        for selector in profile.exclude.values():
-            for el in CSSSelector(selector, translator="html")(root):
+        for rule in profile.exclude:
+            for el in CSSSelector(rule.selector, translator="html")(root):
                 parent = el.getparent()
                 if parent is None:
                     continue
@@ -251,4 +251,4 @@ def test_parse_detail_records_the_parser(pages: list[Page]) -> None:
     assert {p.result.parse_detail.encoding for p in pages} == {"utf-8"}
     assert sum(len(p.result.parse_detail.parser_errors) for p in pages) == 17
     assert sum(p.result.parse_detail.data_loss_warnings for p in pages) == 2
-    assert all(p.result.parse_detail.role_conflicts == [] for p in pages)
+    assert all(p.result.parse_detail.role_conflicts == () for p in pages)

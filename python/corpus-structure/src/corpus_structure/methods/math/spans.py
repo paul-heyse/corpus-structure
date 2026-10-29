@@ -50,6 +50,7 @@ _MATH_KIND = {
     "relation": MathKind.RELATION,
     "member": MathKind.MEMBERSHIP,
     "set_expr": MathKind.SET,
+    "list": MathKind.LIST,
 }
 _ENVIRONMENT_OPENER = "\\begin"
 _EQUALS = frozenset({"EQUAL"})
@@ -130,7 +131,7 @@ class SpanValue:
 
     @property
     def math_kind(self) -> MathKind | None:
-        """The payload's `math_kind`; a list reading has no member of `MathKind` yet."""
+        """The payload's `math_kind`: none when the value did not parse or its kind is ambiguous."""
         return _MATH_KIND.get(self.kind or "")
 
 

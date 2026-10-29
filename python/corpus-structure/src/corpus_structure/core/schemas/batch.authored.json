@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/batch.authored.json",
   "$defs": {
     "AlternativeItem": {
       "additionalProperties": false,
@@ -57,10 +58,27 @@
           "type": "string"
         },
         "statement": {
+          "minLength": 1,
           "type": "string"
         },
         "statement_role": {
           "$ref": "#/$defs/StatementRole"
+        },
+        "establishment": {
+          "$ref": "#/$defs/Establishment",
+          "default": "stated"
+        },
+        "derived_from": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "rule": {
+          "minLength": 1,
+          "type": "string"
         },
         "object": {
           "anyOf": [
@@ -141,6 +159,29 @@
         }
       ]
     },
+    "AuthoredDescriptor": {
+      "additionalProperties": false,
+      "description": "An authored external reference's citing text: the sentence and the quote that makes the\nreference, and the author's link target when the text gives one (a D1 §3.4 locator or author\nlink target, as written).",
+      "properties": {
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sentence",
+        "quote"
+      ],
+      "type": "object"
+    },
     "AuthoredEntity": {
       "additionalProperties": false,
       "properties": {
@@ -182,6 +223,29 @@
         "type",
         "label",
         "scope"
+      ],
+      "type": "object"
+    },
+    "AuthoredEnumValue": {
+      "additionalProperties": false,
+      "description": "The authored enum value: the enum by its local name (`ParameterRole`).",
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
       ],
       "type": "object"
     },
@@ -266,6 +330,29 @@
       "required": [
         "op",
         "args"
+      ],
+      "type": "object"
+    },
+    "AuthoredOutside": {
+      "additionalProperties": false,
+      "description": "A statement outside the unit (S4 V2): an `ExternalReference` node, with no kind.",
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "anchor": {
+          "const": "outside",
+          "type": "string"
+        },
+        "descriptor": {
+          "$ref": "#/$defs/AuthoredDescriptor"
+        }
+      },
+      "required": [
+        "local_ref",
+        "anchor",
+        "descriptor"
       ],
       "type": "object"
     },
@@ -356,10 +443,7 @@
         "anchor": {
           "anyOf": [
             {
-              "enum": [
-                "unit",
-                "outside"
-              ],
+              "const": "unit",
               "type": "string"
             },
             {
@@ -379,6 +463,16 @@
         "anchor"
       ],
       "type": "object"
+    },
+    "AuthoredStatementItem": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AuthoredStatement"
+        },
+        {
+          "$ref": "#/$defs/AuthoredOutside"
+        }
+      ]
     },
     "AuthoredUnsupported": {
       "additionalProperties": false,
@@ -437,7 +531,7 @@
         "mapping": {
           "bool": "#/$defs/BoolValue",
           "date": "#/$defs/DateValue",
-          "enum": "#/$defs/EnumValue",
+          "enum": "#/$defs/AuthoredEnumValue",
           "formula": "#/$defs/Formula",
           "interval": "#/$defs/IntervalValue",
           "number": "#/$defs/NumberValue",
@@ -458,7 +552,7 @@
           "$ref": "#/$defs/BoolValue"
         },
         {
-          "$ref": "#/$defs/EnumValue"
+          "$ref": "#/$defs/AuthoredEnumValue"
         },
         {
           "$ref": "#/$defs/Formula"
@@ -598,26 +692,14 @@
       ],
       "type": "string"
     },
-    "EnumValue": {
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "const": "enum",
-          "type": "string"
-        },
-        "enum": {
-          "type": "string"
-        },
-        "v": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "t",
-        "enum",
-        "v"
+    "Establishment": {
+      "description": "How a claim was established (D5 §9): a claim item's and `kb.claim.establishment`. Lifecycle:\nstatic.",
+      "enum": [
+        "stated",
+        "derived",
+        "agent_asserted"
       ],
-      "type": "object"
+      "type": "string"
     },
     "EvidenceRole": {
       "description": "The part an evidence span plays for its claim (guideline §10.8). Lifecycle: static.",
@@ -886,9 +968,11 @@
           "$ref": "#/$defs/BindKind"
         },
         "entity": {
+          "minLength": 1,
           "type": "string"
         },
         "claim": {
+          "minLength": 1,
           "type": "string"
         },
         "param": {
@@ -934,7 +1018,7 @@
     "statements": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/AuthoredStatement"
+        "$ref": "#/$defs/AuthoredStatementItem"
       },
       "type": "array"
     },

@@ -102,6 +102,26 @@ payload_schema = Table(
     UniqueConstraint("class", "version"),
     ForeignKeyConstraint(["model_revision_id"], ["meta.model_revision.id"]),
     ForeignKeyConstraint(["parent_id"], ["meta.payload_schema.id"]),
+    CheckConstraint(
+        "(compatibility_class = 'initial') = (parent_id IS NULL)",
+        name="ck_payload_schema_iff_absent_515188ad6c",
+    ),
+    CheckConstraint(
+        in_check(
+            "compatibility_class",
+            (
+                "breaking",
+                "descriptive",
+                "initial",
+                "key-bearing",
+                "mapped",
+                "nested-additive",
+                "relational-additive",
+                "version-scoped-additive",
+            ),
+        ),
+        name="ck_payload_schema_compatibility_class_f8d0092d33",
+    ),
     schema="meta",
     info={"model_class": "PayloadSchema"},
 )
@@ -370,8 +390,25 @@ method = Table(
     Column("name", Text(), nullable=False),
     Column("version", Text(), nullable=False),
     Column("family", Text(), nullable=False),
+    Column("confidence_source", Text()),
     Column("description", Text()),
     UniqueConstraint("name", "version"),
+    CheckConstraint(
+        in_check(
+            "confidence_source",
+            (
+                "agent",
+                "author_markup",
+                "encoders",
+                "local_llm",
+                "local_llm_judge",
+                "patterns",
+                "rules",
+                "verifiers",
+            ),
+        ),
+        name="ck_method_confidence_source_c288290f2a",
+    ),
     CheckConstraint(
         in_check(
             "family",
@@ -652,7 +689,7 @@ segment = Table(
     Column("start_offset", Integer(), nullable=False),
     Column("end_offset", Integer(), nullable=False),
     Column("text", Text(), nullable=False),
-    Column("ts_config", REGCONFIG(), nullable=False, server_default=text("'english'")),
+    Column("ts_config", REGCONFIG(), nullable=False, server_default=text("'english'::regconfig")),
     Column("attrs", JSONB(), nullable=False, server_default=text("'{}'")),
     Column("parse_status", Text(), nullable=False, server_default=text("'ok'")),
     Column("parse_reason", Text()),

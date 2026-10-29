@@ -13,7 +13,7 @@ views:
     applies_to: stat:has_distribution
     source: stat:has_parameter                 # the source predicate
     match: {source: subject, claim: object}    # source claims whose subject is this claim's object
-    project: object.identity.canonical_name    # what each matching source claim contributes
+    project: object.identity.stat:canonical_name   # what each matching source claim contributes
 
 rules:
   - id: stat.param_keys_known
@@ -24,7 +24,7 @@ rules:
       Every param_values key is the canonical name of a parameter the family has in this run, or a
       ParameterRole value. A family's parameters are complete only at finalize.
     check: >-
-      $all([k in claim.family_params or k in $enums['ParameterRole']
+      $all([k in claim.family_params or k in $enums['stat:ParameterRole']
             for k in (claim.qualifiers.param_values ?? {}).keys])
 
   - id: stat.one_distribution_per_statement
@@ -53,7 +53,7 @@ rules:
     description: >-
       The subject of has_parameter is not a random variable. Subsumed by the predicate's domain
       (Parameterized) once the side-table type check runs; kept as the check of the $is_a builtin.
-    check: "not $is_a(claim.subject.type, 'RandomVariable')"
+    check: "not $is_a(claim.subject.type, 'stat:RandomVariable')"
 
 guideline:
   - id: guideline.structural_role_modality
@@ -114,17 +114,20 @@ guideline:
   - id: guideline.parameter_role_differs
     applies_to: stat:parameter_role
     description: A parameter_role claim is stated only when the role differs from the canonical name (guideline §10.4).
-    check: "(claim.value&.v ?? '') == '' or (claim.value&.v ?? '') != (claim.subject.identity&['canonical_name'] ?? '')"
+    check: "(claim.value&.v ?? '') == '' or (claim.value&.v ?? '') != (claim.subject.identity&['stat:canonical_name'] ?? '')"
 
   - id: guideline.formula_excludes_defined_variable
     applies_to: [stat:defined_as, stat:construction_formula]
-    description: A formula that defines a variable or generates a family excludes the variable it defines (guideline §10.7).
-    check: "not ((claim.value&.latex ?? '') =~ r'\\s*[A-Za-z]\\w*(_\\{?\\w+\\}?)?\\s*=')"
+    description: >-
+      A formula that defines a variable or generates a family excludes the variable it defines
+      (guideline §10.7). Reads the token-derived defined_symbol, never a regex over the LaTeX.
+    check: "claim.value&.defined_symbol == null"
 
   - id: guideline.symbol_keys_no_backslash
     applies_to: any
     description: Symbol-map keys are written without backslash (guideline §10.7).
-    check: "$all([not (b.symbol =~ r'\\\\') for b in claim.bindings])"
+    check: >-
+      $all([not ('\\' in b.symbol) for b in claim.bindings])
 
   - id: guideline.binding_priority
     applies_to: any

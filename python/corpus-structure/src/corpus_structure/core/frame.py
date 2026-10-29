@@ -4,16 +4,24 @@ D1 §10.3; foundations §3.5. Both run on I0's resolver (`LocatorIndex`). Neithe
 approximately: an entry whose locator does not select one sentence, or whose sentence's text
 differs from the recorded text, is refused with the resolver's candidates. Every failure carries a
 `FrameFailureReason` code; its message is a projection of the code and the failure's fields.
+
+`resolve_entry` gives one entry's outcome without raising: `resolved` as recorded; `relocated` when
+it did not, but exactly one sentence of the rendition carries the recorded text (the outcome names
+that sentence's locator on this rendition; a consumer that keeps it writes a new frame version,
+never an edit); `unresolved` otherwise, each with its code and failure. `resolve_frame` accepts only
+`resolved` entries and refuses the frame with every other entry's failure.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import assert_never
+from typing import Literal, assert_never
 
 from corpus_structure.core.batch import (
     AuthoredBatch,
     CitationFrame,
+    FrameEntry,
     cited_sentences,
     rewrite_citations,
 )
@@ -109,17 +117,62 @@ def _resolve_entry(
     return segment
 
 
+type FrameStatus = Literal["resolved", "relocated", "unresolved"]
+
+
+@dataclass(frozen=True)
+class FrameOutcome:
+    """One entry's outcome: its status, the code (and the failure with its detail) when it did not
+    resolve as recorded, the sentence segment when resolved or relocated, and the relocated
+    sentence's generated locator on this rendition."""
+
+    sentence: str
+    status: FrameStatus
+    code: FrameFailureReason | None = None
+    segment: Segment | None = None
+    locator: str | None = None
+    failure: FrameFailure | None = None
+
+
+def sentences_by_text(index: LocatorIndex) -> dict[str, list[Segment]]:
+    """The rendition's citable sentences by their text, for relocation (compute it once and pass
+    it to `resolve_entry` when resolving many entries)."""
+    out: dict[str, list[Segment]] = {}
+    for segment, _ in index:
+        if segment.kind in CITABLE_SENTENCE:
+            out.setdefault(index.rendition.text(segment), []).append(segment)
+    return out
+
+
+def resolve_entry(
+    sentence: str,
+    entry: FrameEntry,
+    index: LocatorIndex,
+    by_text: Mapping[str, list[Segment]] | None = None,
+) -> FrameOutcome:
+    """One frame entry's outcome on the rendition (module doc); never raises."""
+    found = _resolve_entry(sentence, entry.locator, entry.text, index)
+    if not isinstance(found, FrameFailure):
+        return FrameOutcome(sentence, "resolved", None, found)
+    same = (sentences_by_text(index) if by_text is None else by_text).get(entry.text, [])
+    if len(same) == 1:
+        relocated = str(index.generate(same[0]))
+        return FrameOutcome(sentence, "relocated", found.code, same[0], relocated, found)
+    return FrameOutcome(sentence, "unresolved", found.code, failure=found)
+
+
 def resolve_frame(frame: CitationFrame, index: LocatorIndex) -> dict[str, Segment]:
     """For every entry, the one sentence segment its locator selects whose text equals the
-    recorded text; otherwise `FrameRefused` listing every failing entry."""
+    recorded text; otherwise `FrameRefused` listing every entry that did not resolve as recorded
+    (a relocatable one included: resolution never matches approximately)."""
     resolved: dict[str, Segment] = {}
     failures: list[FrameFailure] = []
     for sentence, entry in frame.root.items():
-        outcome = _resolve_entry(sentence, entry.locator, entry.text, index)
-        if isinstance(outcome, FrameFailure):
-            failures.append(outcome)
-        else:
-            resolved[sentence] = outcome
+        outcome = resolve_entry(sentence, entry, index, by_text={})
+        if outcome.failure is not None:
+            failures.append(outcome.failure)
+        elif outcome.segment is not None:
+            resolved[sentence] = outcome.segment
     if failures:
         raise FrameRefused(tuple(failures))
     return resolved

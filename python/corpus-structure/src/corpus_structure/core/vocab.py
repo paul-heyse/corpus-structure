@@ -128,6 +128,16 @@ class EvidenceRole(StrEnum):
     DEFINITION = "definition"
 
 
+class Establishment(StrEnum):
+    """How a claim was established (D5 §9): a claim item's and `kb.claim.establishment`. Lifecycle:
+    static.
+    """
+
+    STATED = "stated"
+    DERIVED = "derived"
+    AGENT_ASSERTED = "agent_asserted"
+
+
 class SegmentKind(StrEnum):
     """The kinds of segment of a rendition (D1 §3.2), with their member properties. Lifecycle:
     static.
@@ -217,6 +227,48 @@ class QualifierStore(StrEnum):
     COLUMN = "column"
     JSON = "json"
     EDGE = "edge"
+
+
+class Unkeyed(StrEnum):
+    """The typed state of a candidate not yet keyed (at submission), never null. Lifecycle:
+    static.
+    """
+
+    UNKEYED = "unkeyed"
+
+
+class Awaiting(StrEnum):
+    """The typed state of an ExternalReference consolidation has not resolved (D1 §4.4). Lifecycle:
+    static.
+    """
+
+    AWAITING = "awaiting"
+
+
+class CompatibilityClass(StrEnum):
+    """How a step carries data across revisions (ADR-0022; model and projections §3.6); the class
+    decides the route. `initial` marks a payload schema's first version, which has no parent and no
+    route. Lifecycle: static.
+    """
+
+    INITIAL = "initial"
+    DESCRIPTIVE = "descriptive"
+    NESTED_ADDITIVE = "nested-additive"
+    RELATIONAL_ADDITIVE = "relational-additive"
+    VERSION_SCOPED_ADDITIVE = "version-scoped-additive"
+    MAPPED = "mapped"
+    KEY_BEARING = "key-bearing"
+    BREAKING = "breaking"
+
+
+class ChangeKind(StrEnum):
+    """What happened to an element between two revisions (ElementChange.change). Lifecycle:
+    static.
+    """
+
+    ADDED = "added"
+    REMOVED = "removed"
+    CHANGED = "changed"
 
 
 class VersionState(StrEnum):
@@ -410,14 +462,6 @@ class ClaimStatus(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
-class Establishment(StrEnum):
-    """`kb.claim.establishment`. Lifecycle: static."""
-
-    STATED = "stated"
-    DERIVED = "derived"
-    AGENT_ASSERTED = "agent_asserted"
-
-
 class LinkType(StrEnum):
     """`kb.claim_link.link_type`. Lifecycle: static."""
 
@@ -536,14 +580,15 @@ class ResultTier(StrEnum):
 
 
 class DropReason(StrEnum):
-    """Why keying dropped a candidate or an alternative member (`core/keys.py`, D5 §5.2); C1's
-    PassReport counts by it. Lifecycle: static.
+    """Why keying dropped a candidate or an alternative member (`core/keys.py`, D5 §5.2), or parse
+    (A0) an item it could not place on a rendition; C1's PassReport counts by it. Lifecycle: static.
     """
 
     UNKNOWN_PREDICATE = "unknown_predicate"
     SEGMENT_NOT_ON_RENDITION = "segment_not_on_rendition"
-    OUTSIDE_UNRESOLVED = "outside_unresolved"
     UNKNOWN_REFERENCE = "unknown_reference"
+    WRONG_KIND_REFERENCE = "wrong_kind_reference"
+    UNCITED_REFERENCE = "uncited_reference"
     DROPPED_DEPENDENCY = "dropped_dependency"
     UNKNOWN_CLAIM_REF = "unknown_claim_ref"
     UNKNOWN_IDENTITY_ENTITY = "unknown_identity_entity"
@@ -551,6 +596,8 @@ class DropReason(StrEnum):
     CONDITION_CYCLE = "condition_cycle"
     MALFORMED_QUALIFIER = "malformed_qualifier"
     MALFORMED_VALUE = "malformed_value"
+    UNLOCATED_QUOTE = "unlocated_quote"
+    UNRESOLVED_EXTENT = "unresolved_extent"
 
 
 class FrameFailureReason(StrEnum):
@@ -640,6 +687,7 @@ class MathKind(StrEnum):
     RELATION = "relation"
     MEMBERSHIP = "membership"
     SET = "set"
+    LIST = "list"
 
 
 class MarkupKind(StrEnum):
@@ -784,6 +832,50 @@ class SynthesisEvidence(StrEnum):
     SUMMARY = "summary"
 
 
+class SectionSource(StrEnum):
+    """Where a source profile's section headings come from (D4 M01). Lifecycle: static."""
+
+    BODY = "body"
+    LAYOUT = "layout"
+
+
+class ReferenceRender(StrEnum):
+    """How an empty in-text reference link renders (D1 §3.1). Lifecycle: static."""
+
+    BROWSER = "browser"
+    PLACEHOLDER = "placeholder"
+    EMPTY = "empty"
+
+
+class QuoteRender(StrEnum):
+    """How q content renders (D1 §3.1). Lifecycle: static."""
+
+    QUOTES = "quotes"
+    BARE = "bare"
+
+
+class ListMarkerStyle(StrEnum):
+    """How the items of a matched list are marked (D1 §3.1). Lifecycle: static."""
+
+    PARENTHESIZED = "parenthesized"
+    BROWSER = "browser"
+    NONE = "none"
+
+
+class SummaryRender(StrEnum):
+    """How a details summary renders (D1 §3.1). Lifecycle: static."""
+
+    HEADING = "heading"
+    DROP = "drop"
+
+
+class FigureRender(StrEnum):
+    """How a figure renders (D1 §3.1). Lifecycle: static."""
+
+    CAPTION = "caption"
+    DROP = "drop"
+
+
 # --- Member properties (D2 §3.4) ---
 
 CLAIM_BEARING: Final[frozenset[StatementKind]] = frozenset(
@@ -880,6 +972,14 @@ SEARCH_BLOCK: Final[frozenset[SegmentKind]] = frozenset(
         SegmentKind.CAPTION,
     }
 )
+SENTENCE_SPLIT: Final[frozenset[SegmentKind]] = frozenset(
+    {
+        SegmentKind.PARAGRAPH,
+        SegmentKind.LIST_ITEM,
+        SegmentKind.TABLE_CELL,
+        SegmentKind.CAPTION,
+    }
+)
 SECTION_LABEL: Final[frozenset[SegmentKind]] = frozenset(
     {
         SegmentKind.HEADING,
@@ -964,6 +1064,7 @@ MEMBER_PROPERTIES: Final[Mapping[str, frozenset[StrEnum]]] = {
     "statement_anchor": STATEMENT_ANCHOR,
     "top_level_annotation_unit": TOP_LEVEL_ANNOTATION_UNIT,
     "search_block": SEARCH_BLOCK,
+    "sentence_split": SENTENCE_SPLIT,
     "section_label": SECTION_LABEL,
     "citable_sentence": CITABLE_SENTENCE,
     "encoders_state": ENCODERS_STATE,
@@ -991,6 +1092,7 @@ PROPERTY_OF: Final[Mapping[str, type[StrEnum]]] = {
     "statement_anchor": SegmentKind,
     "top_level_annotation_unit": SegmentKind,
     "search_block": SegmentKind,
+    "sentence_split": SegmentKind,
     "section_label": SegmentKind,
     "citable_sentence": SegmentKind,
     "encoders_state": ConfidenceState,
@@ -1015,6 +1117,7 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     Relation: Lifecycle.STATIC,
     ParseOutcome: Lifecycle.STATIC,
     EvidenceRole: Lifecycle.STATIC,
+    Establishment: Lifecycle.STATIC,
     SegmentKind: Lifecycle.STATIC,
     DelimitingStatus: Lifecycle.STATIC,
     Lifecycle: Lifecycle.STATIC,
@@ -1022,6 +1125,10 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     CaseRule: Lifecycle.STATIC,
     CanonicalForm: Lifecycle.STATIC,
     QualifierStore: Lifecycle.STATIC,
+    Unkeyed: Lifecycle.STATIC,
+    Awaiting: Lifecycle.STATIC,
+    CompatibilityClass: Lifecycle.STATIC,
+    ChangeKind: Lifecycle.STATIC,
     VersionState: Lifecycle.STATIC,
     SchemaClassKind: Lifecycle.STATIC,
     SlotRole: Lifecycle.STATIC,
@@ -1039,7 +1146,6 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     ObservationOutcome: Lifecycle.STATIC,
     AliasKind: Lifecycle.STATIC,
     ClaimStatus: Lifecycle.STATIC,
-    Establishment: Lifecycle.STATIC,
     LinkType: Lifecycle.STATIC,
     MeasurementScope: Lifecycle.STATIC,
     InterventionKind: Lifecycle.STATIC,
@@ -1075,4 +1181,10 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     EmbeddingMetric: Lifecycle.STATIC,
     SynthesisObject: Lifecycle.STATIC,
     SynthesisEvidence: Lifecycle.STATIC,
+    SectionSource: Lifecycle.STATIC,
+    ReferenceRender: Lifecycle.STATIC,
+    QuoteRender: Lifecycle.STATIC,
+    ListMarkerStyle: Lifecycle.STATIC,
+    SummaryRender: Lifecycle.STATIC,
+    FigureRender: Lifecycle.STATIC,
 }

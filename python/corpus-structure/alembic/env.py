@@ -1,7 +1,13 @@
 """Alembic environment (store note §1).
 
-- Schemas are included and filtered to the four D3 schemas; views are excluded from comparison.
-- Server defaults are compared, and CHECK constraints by name (the opt-in plugin).
+- The target is the generated `MetaData` with the overlay (`core.db.metadata`). Schemas are filtered
+  to the four D3 schemas; views (`Table.is_view`) and the overlay's deferred tables (`kb.embedding`,
+  phase 1) are excluded from comparison.
+- Server defaults are compared (the `regconfig` default is cast in the model's projection, so
+  the server-side comparison does not fail with 22P02, probe Q-3), and CHECK constraints by name
+  (the opt-in plugin).
+- Linked to the model (`core/db/migrations.py`): each revision file states its model revision, a
+  revision for an unlogged model revision is refused, and applied steps are recorded.
 - One transaction per migration; `alembic_version` stays in `public`, so a downgrade that drops
   the four schemas keeps it.
 - Tests pass their connection through `config.attributes["connection"]`; otherwise the URL comes
@@ -14,13 +20,18 @@ from typing import Any
 
 from alembic import context
 from sqlalchemy import Connection, MetaData, create_engine, pool
+from sqlalchemy.dialects.postgresql import REGCONFIG, base
 
+from corpus_structure.core import db
+from corpus_structure.core.db import migrations
 from corpus_structure.settings import Settings
 
 SCHEMAS = frozenset({"meta", "kb", "ops", "eval"})
+# reflection knows regconfig, so autogenerate compares its type instead of warning
+names: dict[str, Any] = base.ischema_names
+names.setdefault("regconfig", REGCONFIG)
 
-# P0-F-4 sets this to the core.db metadata.
-target_metadata: MetaData | None = None
+target_metadata: MetaData = db.metadata
 
 
 def include_name(name: str | None, type_: str, parent_names: Any) -> bool:
@@ -32,7 +43,10 @@ def include_name(name: str | None, type_: str, parent_names: Any) -> bool:
 def include_object(
     obj: Any, name: str | None, type_: str, reflected: bool, compare_to: Any
 ) -> bool:
-    return not (type_ == "table" and getattr(obj, "info", {}).get("is_view", False))
+    if type_ != "table":
+        return True
+    info = getattr(obj, "info", {})
+    return not (getattr(obj, "is_view", False) or info.get("is_view") or info.get("deferred"))
 
 
 def run(connection: Connection) -> None:
@@ -45,6 +59,8 @@ def run(connection: Connection) -> None:
         compare_server_default=True,
         autogenerate_plugins=["alembic.autogenerate.*", "alembic.ext.checkconstraint_byname"],
         transaction_per_migration=True,
+        # the model linkage: template_args, the unregistered-revision refusal, on_version_apply
+        **migrations.configure_kwargs(),
     )
     with context.begin_transaction():
         context.run_migrations()

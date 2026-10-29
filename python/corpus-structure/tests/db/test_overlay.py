@@ -26,7 +26,8 @@ def seeded_tables(old: str, new: str) -> types.ModuleType:
 
 
 TS_CONFIG = (
-    '    Column("ts_config", REGCONFIG(), nullable=False, server_default=text("\'english\'")),\n'
+    '    Column("ts_config", REGCONFIG(), nullable=False, '
+    "server_default=text(\"'english'::regconfig\")),\n"
 )
 
 

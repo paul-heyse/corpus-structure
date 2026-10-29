@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.author_markup.json",
   "$defs": {
     "BindKind": {
       "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
@@ -60,27 +61,6 @@
       },
       "required": [
         "ref"
-      ],
-      "type": "object"
-    },
-    "EnumValue": {
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "const": "enum",
-          "type": "string"
-        },
-        "enum": {
-          "type": "string"
-        },
-        "v": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "t",
-        "enum",
-        "v"
       ],
       "type": "object"
     },
@@ -261,6 +241,29 @@
       ],
       "type": "object"
     },
+    "StoredEnumValue": {
+      "additionalProperties": false,
+      "description": "The stored enum value: the enum by its prefixed name (`stat:ParameterRole`).",
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "pattern": "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
+      ],
+      "type": "object"
+    },
     "StoredEvidence": {
       "additionalProperties": false,
       "properties": {
@@ -321,7 +324,7 @@
         "mapping": {
           "bool": "#/$defs/BoolValue",
           "date": "#/$defs/DateValue",
-          "enum": "#/$defs/EnumValue",
+          "enum": "#/$defs/StoredEnumValue",
           "formula": "#/$defs/Formula",
           "interval": "#/$defs/IntervalValue",
           "number": "#/$defs/NumberValue",
@@ -342,7 +345,7 @@
           "$ref": "#/$defs/BoolValue"
         },
         {
-          "$ref": "#/$defs/EnumValue"
+          "$ref": "#/$defs/StoredEnumValue"
         },
         {
           "$ref": "#/$defs/Formula"
@@ -369,9 +372,11 @@
           "$ref": "#/$defs/BindKind"
         },
         "entity": {
+          "minLength": 1,
           "type": "string"
         },
         "claim": {
+          "minLength": 1,
           "type": "string"
         },
         "param": {

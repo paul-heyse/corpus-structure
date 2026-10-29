@@ -33,11 +33,6 @@ from corpus_structure.core._model import validators
 from corpus_structure.core.canonical import CanonicalJsonError, canonical_json, digest, make_key
 from corpus_structure.core.vocab import DelimitingStatus, SegmentKind
 
-# The `attrs` key under which the store writes a segment's parse reason, so author markup may not
-# use it. The model now has the column `kb.segment.parse_reason` (P0-M-2); this workaround is the
-# store writer's to retire.
-RESERVED_ATTR = "parse_reason"
-
 # Macros are expanded by whole control-word name (D1 §6.2), so a name is a control word.
 MACRO_NAME = r"^\\[A-Za-z]+$"
 
@@ -85,8 +80,6 @@ class Segment(_Frozen):
     def _well_formed(self) -> Self:
         stored = _StoredSegment(self.start, self.end, self.parse_status, self.parse_reason)
         validators.kb_segment(stored)  # ordered_eq(start, end); parse_reason absent iff ok
-        if RESERVED_ATTR in self.attrs:
-            raise ValueError(f"attrs key {RESERVED_ATTR!r} is reserved for the store")
         try:  # author markup is content: refuse what the digest would refuse, here
             canonical_json(self.attrs)
         except CanonicalJsonError as error:

@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/batch.stored.json",
   "$defs": {
     "AlternativeItem": {
       "additionalProperties": false,
@@ -143,26 +144,14 @@
       ],
       "type": "string"
     },
-    "EnumValue": {
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "const": "enum",
-          "type": "string"
-        },
-        "enum": {
-          "type": "string"
-        },
-        "v": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "t",
-        "enum",
-        "v"
+    "Establishment": {
+      "description": "How a claim was established (D5 §9): a claim item's and `kb.claim.establishment`. Lifecycle:\nstatic.",
+      "enum": [
+        "stated",
+        "derived",
+        "agent_asserted"
       ],
-      "type": "object"
+      "type": "string"
     },
     "EvidenceRole": {
       "description": "The part an evidence span plays for its claim (guideline §10.8). Lifecycle: static.",
@@ -459,10 +448,27 @@
           "type": "string"
         },
         "statement": {
+          "minLength": 1,
           "type": "string"
         },
         "statement_role": {
           "$ref": "#/$defs/StatementRole"
+        },
+        "establishment": {
+          "$ref": "#/$defs/Establishment",
+          "default": "stated"
+        },
+        "derived_from": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "rule": {
+          "minLength": 1,
+          "type": "string"
         },
         "object": {
           "anyOf": [
@@ -543,6 +549,32 @@
         }
       ]
     },
+    "StoredDescriptor": {
+      "additionalProperties": false,
+      "description": "A stored external reference's citing text: the quote's located span (`coarse` when only its\nsentence was located) and the link target.",
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coarse": {
+          "type": "boolean"
+        },
+        "target": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
     "StoredEntity": {
       "additionalProperties": false,
       "properties": {
@@ -590,6 +622,29 @@
         "type",
         "label",
         "scope"
+      ],
+      "type": "object"
+    },
+    "StoredEnumValue": {
+      "additionalProperties": false,
+      "description": "The stored enum value: the enum by its prefixed name (`stat:ParameterRole`).",
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "pattern": "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
       ],
       "type": "object"
     },
@@ -677,6 +732,28 @@
       "required": [
         "op",
         "args"
+      ],
+      "type": "object"
+    },
+    "StoredOutside": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "anchor": {
+          "const": "outside",
+          "type": "string"
+        },
+        "descriptor": {
+          "$ref": "#/$defs/StoredDescriptor"
+        }
+      },
+      "required": [
+        "local_ref",
+        "anchor",
+        "descriptor"
       ],
       "type": "object"
     },
@@ -802,19 +879,11 @@
           "type": "string"
         },
         "anchor": {
-          "anyOf": [
-            {
-              "const": "outside",
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "minItems": 1,
-              "type": "array"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": [
@@ -823,6 +892,16 @@
         "anchor"
       ],
       "type": "object"
+    },
+    "StoredStatementItem": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StoredStatement"
+        },
+        {
+          "$ref": "#/$defs/StoredOutside"
+        }
+      ]
     },
     "StoredUnsupported": {
       "additionalProperties": false,
@@ -893,7 +972,7 @@
         "mapping": {
           "bool": "#/$defs/BoolValue",
           "date": "#/$defs/DateValue",
-          "enum": "#/$defs/EnumValue",
+          "enum": "#/$defs/StoredEnumValue",
           "formula": "#/$defs/Formula",
           "interval": "#/$defs/IntervalValue",
           "number": "#/$defs/NumberValue",
@@ -914,7 +993,7 @@
           "$ref": "#/$defs/BoolValue"
         },
         {
-          "$ref": "#/$defs/EnumValue"
+          "$ref": "#/$defs/StoredEnumValue"
         },
         {
           "$ref": "#/$defs/Formula"
@@ -941,9 +1020,11 @@
           "$ref": "#/$defs/BindKind"
         },
         "entity": {
+          "minLength": 1,
           "type": "string"
         },
         "claim": {
+          "minLength": 1,
           "type": "string"
         },
         "param": {
@@ -979,6 +1060,10 @@
       "minLength": 1,
       "type": "string"
     },
+    "rendition": {
+      "pattern": "^ren:[0-9a-f]{32}$",
+      "type": "string"
+    },
     "entities": {
       "default": [],
       "items": {
@@ -989,7 +1074,7 @@
     "statements": {
       "default": [],
       "items": {
-        "$ref": "#/$defs/StoredStatement"
+        "$ref": "#/$defs/StoredStatementItem"
       },
       "type": "array"
     },
@@ -1016,7 +1101,8 @@
     }
   },
   "required": [
-    "unit_ref"
+    "unit_ref",
+    "rendition"
   ],
   "type": "object"
 }

@@ -116,7 +116,6 @@ def test_parse_status_is_derived_and_not_in_the_digest() -> None:
         (lambda: seg("paragraph", 0, 4, seg("sentence", 2, 6)), "outside its parent"),
         (lambda: seg("paragraph", 0, 4, parse_reason="x"), "parse_reason is absent exactly when"),
         (lambda: seg("paragraph", 0, 4, parse_status="partial"), "parse_reason is absent exactly"),
-        (lambda: seg("paragraph", 0, 4, attrs={"parse_reason": "x"}), "reserved"),
         (lambda: seg("paragraph", -1, 4), "greater than or equal"),
         (lambda: Segment(kind="para", start=0, end=1), "Input should be"),
         (lambda: seg("paragraph", 0, 1, diagnostics={}), "Extra inputs"),

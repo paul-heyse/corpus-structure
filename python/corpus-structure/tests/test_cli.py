@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
+from typing import Any
 
+import pytest
+from psycopg_pool import PoolTimeout
+
+from corpus_structure.cli import orchestrate
 from corpus_structure.settings import Settings, SettingsReport
 
 GROUPS = (
@@ -26,7 +32,19 @@ def test_help_lists_groups_without_building_settings(cli) -> None:
     assert cli(settings=refuse).exit_code in (0, 2)  # no_args_is_help, never settings
 
 
-def test_status_json_is_the_result_model(cli) -> None:
+@pytest.fixture
+def no_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`ci status` with an unreachable database: its progress is absent, its settings report."""
+
+    @contextmanager
+    def unreachable(settings: Any, timeout: float = 30.0) -> Any:
+        raise PoolTimeout("couldn't get a connection")
+        yield
+
+    monkeypatch.setattr(orchestrate, "ENGINE", unreachable)
+
+
+def test_status_json_is_the_result_model(cli, no_database) -> None:
     calls = []
 
     def factory() -> Settings:
@@ -36,13 +54,15 @@ def test_status_json_is_the_result_model(cli) -> None:
     result = cli("status", "--json", settings=factory, env={"CORPUS_DATABSE__URL": "x"})
     assert result.exit_code == 0, result.output
     assert result.stderr == ""
-    report = SettingsReport.model_validate(json.loads(result.stdout))
+    out = json.loads(result.stdout)
+    assert out["progress"] is None and "PoolTimeout" in out["database_error"]
+    report = SettingsReport.model_validate(out["settings"])
     assert report.resolved["database.url"] == "postgresql:///t"
     assert "CORPUS_DATABSE__URL" in report.unknown_env
     assert calls == [1]
 
 
-def test_status_renders_without_json(cli) -> None:
+def test_status_renders_without_json(cli, no_database) -> None:
     result = cli("status", settings=lambda: Settings(), env={"CORPUS_DATA_DIRR": "x"})
     assert result.exit_code == 0, result.output
     assert "database.template" in result.stdout
@@ -55,10 +75,10 @@ def test_json_is_a_command_option_not_a_root_option(cli) -> None:
 
 
 def test_planned_group_names_its_owner_on_stderr(cli) -> None:
-    result = cli("db", "upgrade", settings=refuse)
+    result = cli("query", settings=refuse)
     assert result.exit_code == 1
     assert result.stdout == ""
-    assert "foundations" in result.stderr
+    assert "consolidation" in result.stderr
 
 
 def test_a_mistyped_field_inside_a_section_is_refused(cli) -> None:

@@ -21,7 +21,9 @@ snake case of the class name. Its primary key is its identifier, or else its uni
 - a schema-version-scoped closed set is `text` referencing its member table by the composite
   foreign key `(schema_version_id, col)`;
 - the identifier ranged over `Id` is `bigint GENERATED ALWAYS AS IDENTITY`;
-- `ifabsent` (`string(…)`, `int(…)`, `true`, `false`) is the server default, and
+- `ifabsent` (`string(…)`, `int(…)`, `true`, `false`) is the server default, cast for a
+  `regconfig` column (`'english'::regconfig`, as PostgreSQL stores it: compared uncast, the literal
+  resolves `oid = oid` and fails with 22P02, probe Q-3), and
   `ci:generated: insert_time` is `DEFAULT now()`;
 - a slot's own `pattern` on a text column is a digest-named `CHECK (col ~ '<pattern>')`, searched
   as the generated validator searches it (`kb.segment.parse_reason`: never empty).
@@ -93,7 +95,7 @@ from corpus_structure.schema.model import (
 )
 
 # Bump on any change to what the compiler or the renderer writes for the same model.
-COMPILER_VERSION = "1"
+COMPILER_VERSION = "2"  # 2: a regconfig default is cast (P0-F-4)
 COMPILER = "corpus_structure.schema.relational"
 
 PG_SCHEMAS = ("meta", "ops", "kb", "eval")
@@ -484,6 +486,8 @@ class _Compiler:
         if m:
             kind, value = m.groups()
             sql = value if kind == "int" else quote(value)
+            if isinstance(column.type, REGCONFIG):  # an oid alias: cast, as the server stores it
+                sql = f"{sql}::regconfig"
         elif str(ia).lower() in ("true", "false"):
             sql = str(ia).lower()
         else:

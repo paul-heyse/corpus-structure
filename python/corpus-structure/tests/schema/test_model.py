@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from corpus_structure.core import vocab
+from corpus_structure.core import schemas, vocab
 from corpus_structure.core._model import names, qualifiers, revision, sql, validators
 from corpus_structure.schema import generate, model
 
@@ -346,7 +346,7 @@ def test_regenerating_reproduces_every_committed_file(loaded: model.Model, tmp_p
         "core/vocab.py", "core/_model/__init__.py", "core/_model/qualifiers.py",
         "core/_model/names.py", "core/_model/sql.py", "core/_model/validators.py",
         "core/_model/revision.py", "core/db/_tables.py",
-    }  # fmt: skip
+    } | {f"core/schemas/{name}.json" for name in schemas.SCHEMAS()}  # fmt: skip
     assert generate.drift(files) == []
     generate.write(files, tmp_path)
     edited = tmp_path / "core/vocab.py"

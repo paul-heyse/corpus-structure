@@ -22,9 +22,9 @@ generated locator and exact canonical text.
 Changes to the batches, each recorded in the file's provenance:
 - `unit_ref` is the unit key, not the spike's `T1`…`U12`;
 - S4's V1: `{"t": "entity", "ref": r}` becomes `{"ref": r}` (T1, U5, U11);
-- S4's V2: U6's `Statement` entity `e_last_result` becomes a `statements[]` item, kind `theorem`,
-  anchor `outside`; its R04 descriptor (citing sentence and quote) sits in `external_references`
-  beside the batch until P0-F-2e gives the authored `outside` item its descriptor field;
+- S4's V2: U6's `Statement` entity `e_last_result` becomes a `statements[]` `outside` item, an
+  `ExternalReference` node (D1 §4.4, D2 §7.3) with no kind and its descriptor (the citing sentence
+  and quote; P0-F-2e), whose sentence the frame lists as it lists every citation;
 - T1 is split into its two annotation units (foundations §3.7).
 """
 
@@ -47,12 +47,6 @@ S0R2 = SPIKES / "results/s0r2"
 S1 = SPIKES / "results/s1"
 UNITS = ("T1", "T2", "T3", "T4", "U5", "U6", "U7", "U8", "U9", "U10", "U11", "U12")
 DIAGNOSTIC = frozenset({"tag", "sid", "sourceline", "roles"})
-EXTERNAL_PENDING = (
-    "R04 / target model §7 T1 descriptor of an authored `outside` statement: the citing sentence "
-    "and quote, and the author's link target when there is one. Held beside the batch because the "
-    "current AuthoredStatement has no descriptor field; P0-F-2e validates it and decides its "
-    "place (migrate this field then)."
-)
 
 # T1's split (foundations §3.7): the lead-in paragraph keeps the assumption and its items; the
 # definition unit `#dfn1` keeps the definition and redeclares Z, which its claims bind.
@@ -142,23 +136,21 @@ def migrate_v1(node: Any, path: str, log: list[str]) -> Any:
     return node
 
 
-def migrate_v2(batch: dict[str, Any], log: list[str]) -> dict[str, dict[str, Any]]:
-    """S4 V2: a `Statement` entity becomes an `outside` statement; returns its descriptors."""
-    external: dict[str, dict[str, Any]] = {}
+def migrate_v2(batch: dict[str, Any], log: list[str], packet: dict[str, str]) -> None:
+    """S4 V2: a `Statement` entity becomes an `outside` item with its descriptor (P0-F-2e)."""
     kept = []
     for entity in batch["entities"]:
         if entity["type"] != "Statement":
             kept.append(entity)
             continue
         ref = entity["local_ref"]
-        batch["statements"].append({"local_ref": ref, "kind": "theorem", "anchor": "outside"})
+        found = descriptor(batch, ref, entity["label"], packet)
+        batch["statements"].append({"local_ref": ref, "anchor": "outside", "descriptor": found})
         log.append(
-            f"V2 entity {ref} (Statement, {entity['label']!r}) -> statements[] anchor outside, "
-            "kind theorem"
+            f"V2 entity {ref} (Statement, {entity['label']!r}) -> statements[] outside item with "
+            f"descriptor {found} (no kind)"
         )
-        external[ref] = {"label": entity["label"]}
     batch["entities"] = kept
-    return external
 
 
 def descriptor(batch: dict[str, Any], ref: str, label: str, packet: dict[str, str]) -> dict:
@@ -218,11 +210,7 @@ def main() -> None:
         raw = json.loads((REPO / source).read_text(encoding="utf-8"))
         log: list[str] = []
         batch = migrate_v1(raw, "", log)
-        labels = migrate_v2(batch, log)
-        packet = packet_sentences(unit)
-        external = {
-            ref: descriptor(batch, ref, value["label"], packet) for ref, value in labels.items()
-        }
+        migrate_v2(batch, log, packet_sentences(unit))
         offsets = {s["id"]: (s["start"], s["end"]) for p in info["parts"] for s in p["sentences"]}
         offsets |= {c["id"]: (c["start"], c["end"]) for c in info["context"]}
         provenance_base = {
@@ -261,8 +249,7 @@ def main() -> None:
             body = subset(batch, keep) if keep is not None else copy.deepcopy(batch)
             body["unit_ref"] = unit_key
             validated = AuthoredBatch.model_validate(body)
-            cited = set(cited_sentences(validated))
-            cited |= {d["sentence"] for d in external.values()}
+            cited = set(cited_sentences(validated))  # descriptor sentences included
             frame = {s: page.frame_entry(*offsets[s]) for s in sorted(cited, key=sentence_order)}
             provenance = copy.deepcopy(provenance_base)
             if decisions_here is not None:
@@ -270,11 +257,6 @@ def main() -> None:
             if unit == "T1":
                 provenance["split"] = T1_SPLIT_NOTE
             record: dict[str, Any] = {"unit_key": unit_key, "batch": body, "frame": frame}
-            if external:
-                record["external_references"] = {
-                    "pending": EXTERNAL_PENDING,
-                    "descriptors": external,
-                }
             record["provenance"] = provenance
             write(name, record)
 

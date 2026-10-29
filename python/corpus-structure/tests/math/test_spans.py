@@ -89,20 +89,38 @@ def test_m09_writes_no_letters_of_an_unknown_arrow() -> None:
 
 def test_m11_values() -> None:
     macros = {"\\R": MacroDef(body="\\mathbb{R}")}
-    content = rendition("\\R \\setminus \\{0\\}", "X_1 + \\sigma^2 e", "x +", "x_i \\in \\R")
+    content = rendition(
+        "\\R \\setminus \\{0\\}",
+        "X_1 + \\sigma^2 e",
+        "x +",
+        "x_i \\in \\R",
+        "f(x) = 2 x, \\quad x \\in [0, 1]",
+        "(0, 1)",
+    )
     values = formula_values(read_spans(content, macros, ("e",)))
-    assert [type(v.value) for v in values] == [SetValue, Formula, Formula, Formula]
+    assert [type(v.value) for v in values] == [
+        SetValue,
+        Formula,
+        Formula,
+        Formula,
+        Formula,
+        Formula,
+    ]
     assert [v.value.parse for v in values] == [
         ParseOutcome.OK,
         ParseOutcome.OK,
         ParseOutcome.FAILED,
         ParseOutcome.OK,
+        ParseOutcome.OK,
+        ParseOutcome.AMBIGUOUS,
     ]
     assert [v.math_kind for v in values] == [
         MathKind.SET,
         MathKind.FORMULA,
         None,
         MathKind.MEMBERSHIP,
+        MathKind.LIST,
+        None,  # interval or pair: no one kind
     ]
     assert values[1].value.latex == "X_1 + \\sigma^2 e"
     assert set(values[1].value.symbols) == {"X_1", "sigma"}  # the constant e is not free

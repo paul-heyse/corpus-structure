@@ -7,9 +7,11 @@ compile error (canonical JSON refuses it). The compiler version joins the compil
 with the versions of the libraries that shape its output, so a library bump is a new identity.
 
 The kinds built here: `schema_tables/tables`, `json_schema/batch.model_facing`, `batch.stored` and
-`batch.decoding`, and `annotator_reference/reference`. The compiled rules are S2's (P0-S-2).
-`CompiledSchema` bundles the lookup, the compiled `KeySchema`, the name map, the batch adapters,
-the reference and the artifacts; it is immutable and built once per process per schema version.
+`batch.decoding`, `annotator_reference/reference`, and `rules/rules` (P0-S-2: every rule's text,
+sites and predicates, both sites' claim-view languages with their vocabularies, the qualifier
+identifiers, tables and views). `CompiledSchema` bundles the lookup, the compiled `KeySchema`, the
+name map, the batch adapters, the reference, the compiled rules and the artifacts; it is immutable
+and built once per process per schema version.
 """
 
 from __future__ import annotations
@@ -31,15 +33,24 @@ from corpus_structure.schema.lookup import (
     compile_key_schema,
     name_map,
 )
-from corpus_structure.schema.pack import CORE_RULES, Pack, load_pack, schema_version
+from corpus_structure.schema.pack import (
+    CORE_RULES,
+    Pack,
+    PackError,
+    load_pack,
+    load_rules,
+    schema_version,
+)
 from corpus_structure.schema.reference import Reference, build_reference
+from corpus_structure.schema.rules import CompiledRules, compile_rules
 from corpus_structure.schema.tables import schema_tables
 
-COMPILERS = {"schema_tables": "1", "json_schema": "1", "annotator_reference": "1"}
+COMPILERS = {"schema_tables": "1", "json_schema": "1", "annotator_reference": "1", "rules": "1"}
 _LIBRARIES = {
     "schema_tables": ("linkml-runtime",),
     "json_schema": ("pydantic", "linkml-runtime"),
     "annotator_reference": ("pydantic", "linkml-runtime"),
+    "rules": ("rule-engine",),
 }
 
 
@@ -74,6 +85,7 @@ class CompiledSchema:
     names: NameMap
     batches: BatchCompiler
     reference: Reference
+    rules: CompiledRules
     artifacts: tuple[CompiledArtifact, ...]
 
     def artifact(self, compiler: str, kind: str) -> CompiledArtifact:
@@ -96,15 +108,30 @@ def compile_schema(
     stored = batches.json_schema("stored", schema_id(model_revision, version, "stored"))
     decoding = decoding_form(model, schema_id(model_revision, version, "decoding"))
     reference = build_reference(packs, lookup, batches)
+    problems: list[str] = []
+    _, core = load_rules(core_rules, problems)
+    if problems:
+        raise PackError(problems)
+    rules = compile_rules(packs, lookup, core)
     artifacts = (
         artifact("schema_tables", "tables", schema_tables(packs, lookup)),
         artifact("json_schema", "batch.model_facing", model),
         artifact("json_schema", "batch.stored", stored),
         artifact("json_schema", "batch.decoding", decoding),
         artifact("annotator_reference", "reference", reference.markdown()),
+        artifact("rules", "rules", rules.body()),
     )
     return CompiledSchema(
-        tuple(packs), version, model_revision, lookup, keys, names, batches, reference, artifacts
+        tuple(packs),
+        version,
+        model_revision,
+        lookup,
+        keys,
+        names,
+        batches,
+        reference,
+        rules,
+        artifacts,
     )
 
 

@@ -157,9 +157,9 @@ def _canonical(view: View, rng: str, slot: Any) -> str:
     ancestors = set(view.class_ancestors(rng))
     if rng == "StoredScope":
         return "scope"
-    by_ancestor = (  # the most specific first: SetExpr is a Formula
+    by_ancestor = (  # the most specific first; Formula and SetExpr are Expressions
         ("Condition", "condition"), ("Entity", "entity_key"), ("MapEntry", "map"),
-        ("Formula", "token_form"), ("TextValue", "text_form"), ("PhraseValue", "text_form"),
+        ("Expression", "token_form"), ("TextValue", "text_form"), ("PhraseValue", "text_form"),
         ("IntervalValue", "interval"), ("NumberValue", "number"), ("EnumValue", "enum"),
         ("DateValue", "verbatim"), ("BoolValue", "verbatim"),
     )  # fmt: skip
@@ -546,7 +546,15 @@ def render(model: Model) -> dict[str, str]:
             relational.compile_metadata(model.system), current.label
         ),
     }
-    return {path: _format(str(PACKAGE / path), text) for path, text in raw.items()}
+    out = {path: _format(str(PACKAGE / path), text) for path, text in raw.items()}
+    # The core shapes' JSON Schemas carry the revision in their `$id` (P0-M-3), so a model change
+    # regenerates them. They are rendered from the shapes as imported, so a change of the shapes'
+    # generated vocabulary shows in them on the next run.
+    from corpus_structure.core import schemas
+
+    for name, adapter in schemas.SCHEMAS().items():
+        out[f"core/schemas/{name}.json"] = schemas.render(name, adapter, current.content_hash)
+    return out
 
 
 def write(files: Mapping[str, str], root: Path = PACKAGE) -> list[str]:

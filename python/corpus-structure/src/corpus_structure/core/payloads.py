@@ -9,7 +9,7 @@ the cross-field invariants come from the model's `system` payload classes (`voca
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Self
 
 from pydantic import MISSING, Field, JsonValue, TypeAdapter, model_validator
 
@@ -21,6 +21,7 @@ from corpus_structure.core.batch import (
     StoredBatch,
     StoredEvidence,
 )
+from corpus_structure.core.canonical import KEY_HEX_DIGITS
 from corpus_structure.core.values import (
     CoreModel,
     Offset,
@@ -34,6 +35,7 @@ from corpus_structure.core.vocab import (
     JudgmentDecision,
     JudgmentTargetKind,
     MarkupKind,
+    MathKind,
     ObservationKind,
     PolicyThen,
     RuleSeverity,
@@ -42,6 +44,7 @@ from corpus_structure.core.vocab import (
 )
 
 Score = Annotated[float, Field(ge=0, le=1)]
+SegmentKey = Annotated[str, Field(pattern=rf"^seg:[0-9a-f]{{{KEY_HEX_DIGITS}}}$")]
 
 
 # --- Operations JSON (D3 §6.3) -----------------------------------------------------------------
@@ -73,13 +76,22 @@ class PolicyAction(CoreModel):
 
 
 class InterventionTarget(CoreModel):
-    """`ops.intervention.target`; a `promotion` targets the run it promotes."""
+    """`ops.intervention.target`; a `promotion` targets the run it promotes. `ref` is the target's
+    key, or its id's decimal text for a target named by id (a run): the kind says which."""
 
     kind: InterventionTargetKind
-    ref: str | int
+    ref: str = Field(min_length=1)
 
 
 TriggerMetrics = dict[str, int | float | bool | str]  # `ops.task.trigger_metrics`, as evaluated
+
+
+class GoldenBatchPayload(CoreModel):
+    """A golden pass's authored batch with one version of its citation frame (`eval.golden_pass`
+    and `eval.citation_frame`, D3 §7): the shape the pass's `payload_schema_id` names for both."""
+
+    batch: AuthoredBatch
+    citation_frame: CitationFrame
 
 
 # --- Payloads (D3 §6.2) ------------------------------------------------------------------------
@@ -118,8 +130,10 @@ class LabelScore(CoreModel):
 class MentionPayload(_Span):
     label: str
     text: str
+    # each attribute group (D2 §5) to the label it chose and its score (the model's GroupScore)
     attributes: dict[str, LabelScore] | MISSING = MISSING  # type: ignore[valid-type]
-    math_ref: MentionRef | MISSING = MISSING  # type: ignore[valid-type]
+    # the segment key of the math span the mention lies in (D4 M06; M09's symbol occurrences)
+    math_ref: SegmentKey | MISSING = MISSING  # type: ignore[valid-type]
     math: dict[str, JsonValue] | MISSING = MISSING  # type: ignore[valid-type]  # M09 decoration
 
 
@@ -162,7 +176,7 @@ class ClassificationPayload(CoreModel):
 class ValuePayload(CoreModel):
     value: StoredValue
     parse_error: str | MISSING = MISSING  # type: ignore[valid-type]
-    math_kind: Literal["formula", "relation", "membership", "set"] | MISSING = MISSING  # type: ignore[valid-type]
+    math_kind: MathKind | MISSING = MISSING  # type: ignore[valid-type]
 
 
 class MentionAt(_Span):
@@ -185,21 +199,21 @@ class NewEntity(CoreModel):
     label: str
 
 
-class NewCandidate(CoreModel):
-    new: NewEntity
-
-
 class LinkPayload(CoreModel):
+    """An entity-link candidate: the mention (M14) or the pair (M15), and the candidate entity's
+    key or the new entity it proposes, exactly one of each."""
+
     mention_ref: MentionRef | MISSING = MISSING  # type: ignore[valid-type]
     pair: tuple[str, str] | MISSING = MISSING  # type: ignore[valid-type]
-    candidate: str | NewCandidate
+    candidate: str | MISSING = Field(MISSING, min_length=1)  # type: ignore[valid-type]
+    new: NewEntity | MISSING = MISSING  # type: ignore[valid-type]
     score: Score
     features: dict[str, JsonValue]
     rank: int | MISSING = MISSING  # type: ignore[valid-type]
 
     @model_validator(mode="after")
     def _one_subject(self) -> Self:
-        validators.link_payload(self)  # mention_ref (M14) or pair (M15)
+        validators.link_payload(self)  # mention_ref or pair; candidate or new
         return self
 
 
@@ -208,27 +222,42 @@ class RejectedItem(CoreModel):
     reason: str
 
 
+SchemaVersion = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # the D2 §2 hash
+
+
 class ClaimProposalPayload(CoreModel):
-    """A stored batch; for authored proposals also the batch as written and its frame."""
+    """A stored batch with its derivation (R06, DA-009): the schema version whose compiled models
+    derived it, always; for authored proposals also the batch as written, its frame and the version
+    of the quote cascade that located it, the three together. A derived claim's `derived_from`
+    and `rule` are on the claim itself (M23)."""
 
     batch: StoredBatch
+    schema_version: SchemaVersion
     authored: AuthoredBatch | MISSING = MISSING  # type: ignore[valid-type]
     citation_frame: CitationFrame | MISSING = MISSING  # type: ignore[valid-type]
+    cascade_version: str | MISSING = Field(MISSING, min_length=1)  # type: ignore[valid-type]
     rationale: str | MISSING = MISSING  # type: ignore[valid-type]
     rejected: tuple[RejectedItem, ...] | MISSING = MISSING  # type: ignore[valid-type]
-    establishment: Literal["derived"] | MISSING = MISSING  # type: ignore[valid-type]
-    derived_from: tuple[str, ...] | MISSING = MISSING  # type: ignore[valid-type]
-    rule: str | MISSING = MISSING  # type: ignore[valid-type]
 
     @model_validator(mode="after")
     def _together(self) -> Self:
-        validators.claim_proposal_payload(self)  # the authored pair; M23's derivation
+        validators.claim_proposal_payload(self)  # the authority and its derivation together
         return self
 
 
 class JudgmentTarget(CoreModel):
+    """What a judgment is about: an observation by its id's decimal text, or a claim or group by
+    its key with that key's scheme (readers compare keys only within one scheme or through a
+    carry-over map; foundations §3.6)."""
+
     kind: JudgmentTargetKind
-    ref: str | int
+    ref: str = Field(min_length=1)
+    key_scheme: int | MISSING = Field(MISSING, ge=1)  # type: ignore[valid-type]
+
+    @model_validator(mode="after")
+    def _scheme_of_a_key(self) -> Self:
+        validators.judgment_target(self)  # a key's scheme, exactly when the target is a key
+        return self
 
 
 class JudgmentPayload(CoreModel):

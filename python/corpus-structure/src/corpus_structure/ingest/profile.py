@@ -3,12 +3,18 @@
 
 A profile is `sources/<name>.yaml`: one source's HTML conventions and its place in the corpus. It
 loads into `SourceProfile`, a frozen Pydantic model whose fields are those of the `SourceProfile`
-class in `model/system.yaml`, field for field (`BlockHint`, `SectionHint`, `CorpusIndex`,
-`DetailsKinds` and `SynthesisRule` likewise); the model's interim mirror guard keeps the two equal
-until a generated form exists (P0-M-1). Unknown keys are refused (`extra="forbid"`), so a profile
-never silently loses a convention: the D4 vocabulary keys the class does not declare yet
-(`encoding`, `section_source`, `layout`, `verbatim`, `img_alt`) are refused at load until the class
-declares them.
+class in `model/system.yaml`, field for field, as are its nested classes (`CorpusIndex`,
+`ExcludeRule`, `BlockHint`, `SectionHint`, `DetailsKinds`, `SummaryKind`, `SynthesisRule`,
+`MathSpec`, `ReferenceSpec`, `RenderSpec`, `ListMarkerRule`); the interim mirror guard keeps the two
+equal until a generated form exists (P0-M-1). Unknown keys are refused (`extra="forbid"`), so a
+profile never silently loses a convention. The D4 vocabulary keys M01 does not implement yet load
+(`encoding` other than `sniff`, `section_source: layout`, `layout`, `verbatim`, `img_alt: true`),
+and are then refused with the code `not_implemented`: `unimplemented(profile)` lists them,
+`compile_profile` refuses such a profile and `check_profile` reports them.
+
+The class's keyed lists are written in YAML as mappings keyed by their identifier, as LinkML
+inlines them (`exclude: {scripts: "script, noscript"}`, `block_hints: {"p.dfn": {…}}`,
+`by_summary: {Answer: solution}`, `list_markers: {"ol.sub": parenthesized}`).
 
 Domain-bearing fields are typed by the generated vocabularies, never left as strings:
 
@@ -17,16 +23,18 @@ Domain-bearing fields are typed by the generated vocabularies, never left as str
   `proof`) is refused at load;
 - `synthesize.predicate` is a prefixed predicate; a `core:` one must be a core predicate;
 - `orphan_text` is a `SegmentKind`, `object` and `evidence` are `SynthesisObject` and
-  `SynthesisEvidence` members.
+  `SynthesisEvidence` members, and the rendering and section-source choices are the generated
+  `ReferenceRender`, `QuoteRender`, `ListMarkerStyle`, `SummaryRender`, `FigureRender` and
+  `SectionSource` members.
 
 Every CSS selector compiles at load with `cssselect2.compile_selector_list`; one that does not
 rejects the profile. `compile_profile` registers the rules once, as role payloads in one
 `cssselect2.Matcher`, the only role engine M01 runs.
 
 `check_profile(profile, schema_version)` lists the profile's version-scoped names (its statement
-kinds, pack-scoped ones included, and its predicates) that the schema version lacks, each with a
-code, its field and the name. It is pure; orchestration refuses a run on any result (P0-O-1;
-DA-010).
+kinds, pack-scoped ones included, and its predicates) that the schema version lacks, and its
+unimplemented keys, each with a code, its field and the name. It is pure; orchestration refuses a
+run on any result (P0-O-1; DA-010).
 """
 
 from __future__ import annotations
@@ -52,8 +60,14 @@ from pydantic import (
 
 from corpus_structure.core._model import names
 from corpus_structure.core.vocab import (
+    FigureRender,
+    ListMarkerStyle,
+    QuoteRender,
+    ReferenceRender,
+    SectionSource,
     SegmentKind,
     StatementKind,
+    SummaryRender,
     SynthesisEvidence,
     SynthesisObject,
 )
@@ -69,13 +83,18 @@ _ENVIRONMENT = re.compile(r"^[A-Za-z]+\*?$")
 CORE_PREDICATES: frozenset[str] = frozenset(names.PREDICATES)
 
 
-class ProfileError(ValueError):
-    """A profile that does not load: unreadable, unknown keys, unknown core names, bad selectors."""
+ErrorCode = Literal["invalid", "not_implemented"]
 
-    def __init__(self, name: str, reason: str) -> None:
-        super().__init__(f"source profile {name!r} is refused: {reason}")
+
+class ProfileError(ValueError):
+    """A refused profile: `invalid` (unreadable, unknown keys, unknown core names, bad selectors)
+    or `not_implemented` (a vocabulary key M01 does not implement yet)."""
+
+    def __init__(self, name: str, reason: str, code: ErrorCode = "invalid") -> None:
+        super().__init__(f"source profile {name!r} is refused ({code}): {reason}")
         self.name = name
         self.reason = reason
+        self.code: ErrorCode = code
 
 
 # --- Core-typed names -------------------------------------------------------------------------
@@ -151,6 +170,13 @@ class CorpusIndex(_Frozen):
     first_pass: str | None = None
 
 
+class ExcludeRule(_Frozen):
+    """A named exclusion rule; excluded text is recorded per rule (D4 M01)."""
+
+    name: str = Field(min_length=1)
+    selector: Selector
+
+
 class BlockHint(_Frozen):
     """A statement-kind hint for blocks of one selector."""
 
@@ -175,13 +201,25 @@ class SynthesisRule(_Frozen):
     evidence: SynthesisEvidence
 
 
+class SummaryKind(_Frozen):
+    """The statement kind of details blocks with one summary text."""
+
+    summary: str = Field(min_length=1)
+    statement_kind: StatementKindName
+
+
 class DetailsKinds(_Frozen):
     """How details blocks become statements, and the claims their containment states."""
 
     default: StatementKindName
     inside_example_or_exercise: StatementKindName | None = None
-    by_summary: dict[str, StatementKindName] = Field(default_factory=dict)
+    by_summary: tuple[SummaryKind, ...] = ()
     synthesize: tuple[SynthesisRule, ...] = ()
+
+    @field_validator("by_summary", mode="before")
+    @classmethod
+    def _kinds_by_summary(cls, value: object) -> object:
+        return _keyed(value, "summary", single="statement_kind")
 
     @field_validator("synthesize", mode="before")
     @classmethod
@@ -189,26 +227,26 @@ class DetailsKinds(_Frozen):
         return _keyed(value, "statement_kind")
 
     @model_validator(mode="after")
-    def _one_rule_per_kind(self) -> Self:
+    def _one_entry_per_key(self) -> Self:
         kinds = [str(rule.statement_kind) for rule in self.synthesize]
         if len(kinds) != len(set(kinds)):
             raise ValueError(f"synthesize names a statement kind twice: {kinds}")
+        summaries = [entry.summary for entry in self.by_summary]
+        if len(summaries) != len(set(summaries)):
+            raise ValueError(f"by_summary names a summary twice: {summaries}")
         return self
 
     def kind_of(self, summary: str | None, in_example_or_exercise: bool) -> StatementKind | str:
         """A details block's statement kind: by its summary text, then by context, then default."""
-        if summary is not None and summary in self.by_summary:
-            return self.by_summary[summary]
+        by_summary = {entry.summary: entry.statement_kind for entry in self.by_summary}
+        if summary is not None and summary in by_summary:
+            return by_summary[summary]
         if in_example_or_exercise and self.inside_example_or_exercise is not None:
             return self.inside_example_or_exercise
         return self.default
 
     def rule_for(self, kind: StatementKind | str) -> SynthesisRule | None:
         return next((r for r in self.synthesize if str(r.statement_kind) == str(kind)), None)
-
-
-# The JSON-ranged slots of the class (`exclude`, `math`, `references`, `render`) are typed here by
-# what D4 M01's profile vocabulary allows; the class leaves them as `Json`.
 
 
 class MathSpec(_Frozen):
@@ -241,22 +279,34 @@ class ReferenceSpec(_Frozen):
     """In-text reference links and their rendering (D1 §3.1; D4 M01 `references`)."""
 
     selector: Selector
-    render: Literal["browser", "placeholder", "empty"] = "browser"
+    render: ReferenceRender = ReferenceRender.BROWSER
 
 
-ListMarkerStyle = Literal["parenthesized", "browser", "none"]
+class ListMarkerRule(_Frozen):
+    """The item markers of the lists one selector matches."""
+
+    selector: Selector
+    style: ListMarkerStyle
 
 
 class RenderSpec(_Frozen):
     """Rendering conventions for script- or style-produced text (D4 M01 `render`)."""
 
-    q: Literal["quotes", "bare"] = "bare"
-    list_markers: dict[Selector, ListMarkerStyle] = Field(default_factory=dict)
-    summary: Literal["heading", "drop"] = "heading"
-    figure: Literal["caption", "drop"] = "caption"
+    q: QuoteRender = QuoteRender.BARE
+    list_markers: tuple[ListMarkerRule, ...] = ()
+    summary: SummaryRender = SummaryRender.HEADING
+    figure: FigureRender = FigureRender.CAPTION
+
+    @field_validator("list_markers", mode="before")
+    @classmethod
+    def _markers_by_selector(cls, value: object) -> object:
+        return _keyed(value, "selector", single="style")
 
 
-DEFAULT_EXCLUDE: dict[str, str] = {"scripts": "script, noscript"}
+DEFAULT_EXCLUDE: tuple[ExcludeRule, ...] = (
+    ExcludeRule(name="scripts", selector="script, noscript"),
+)
+SNIFF = "sniff"
 DEFAULT_SECTIONS: tuple[str, ...] = ("h1", "h2", "h3", "h4", "h5", "h6")
 
 
@@ -269,17 +319,27 @@ class SourceProfile(_Frozen):
     index: CorpusIndex | None = None
     language: str = "english"
     applies_to: str = Field(min_length=1)
-    exclude: dict[str, Selector] = Field(default_factory=lambda: dict(DEFAULT_EXCLUDE))
+    encoding: str = Field(default=SNIFF, min_length=1)
+    exclude: tuple[ExcludeRule, ...] = DEFAULT_EXCLUDE
     title: Selector = "h1"
     sections: tuple[Selector, ...] = DEFAULT_SECTIONS
+    section_source: SectionSource = SectionSource.BODY
     unit: Selector | None = None
+    layout: tuple[Selector, ...] = ()
     block_hints: tuple[BlockHint, ...] = ()
     section_hints: tuple[SectionHint, ...] = ()
     details_kinds: DetailsKinds = DetailsKinds(default=StatementKind.PROOF)
     math: MathSpec = MathSpec()
     references: ReferenceSpec | None = None
     render: RenderSpec = RenderSpec()
+    verbatim: tuple[Selector, ...] = ()
+    img_alt: bool | None = None
     orphan_text: SegmentKind = SegmentKind.PARAGRAPH
+
+    @field_validator("exclude", mode="before")
+    @classmethod
+    def _rules_by_name(cls, value: object) -> object:
+        return _keyed(value, "name", single="selector")
 
     @field_validator("block_hints", mode="before")
     @classmethod
@@ -303,6 +363,8 @@ class SourceProfile(_Frozen):
         if not self.applies_to.startswith(self.root + "/"):
             raise ValueError(f"applies_to {self.applies_to!r} must lie under root {self.root!r}")
         for field, values in (
+            ("exclude", [r.name for r in self.exclude]),
+            ("render.list_markers", [r.selector for r in self.render.list_markers]),
             ("block_hints", [h.selector for h in self.block_hints]),
             ("section_hints", [h.title for h in self.section_hints]),
             ("sections", list(self.sections)),
@@ -320,8 +382,8 @@ class SourceProfile(_Frozen):
 
     def selectors(self) -> Iterator[tuple[str, str]]:
         """Every CSS selector of the profile, with the field that holds it."""
-        for name, selector in self.exclude.items():
-            yield f"exclude.{name}", selector
+        for rule in self.exclude:
+            yield f"exclude.{rule.name}", rule.selector
         yield "title", self.title
         for rank, selector in enumerate(self.sections):
             yield f"sections[{rank}]", selector
@@ -331,10 +393,14 @@ class SourceProfile(_Frozen):
             yield "block_hints", hint.selector
         if self.references is not None:
             yield "references.selector", self.references.selector
-        for selector in self.render.list_markers:
-            yield "render.list_markers", selector
+        for marker in self.render.list_markers:
+            yield "render.list_markers", marker.selector
         if self.math.page_macros is not None:
             yield "math.page_macros", self.math.page_macros
+        for selector in self.layout:
+            yield "layout", selector
+        for selector in self.verbatim:
+            yield "verbatim", selector
 
     def statement_kinds(self) -> Iterator[tuple[str, StatementKind | str]]:
         """Every statement kind the profile names, with its field."""
@@ -346,8 +412,8 @@ class SourceProfile(_Frozen):
         yield "details_kinds.default", details.default
         if details.inside_example_or_exercise is not None:
             yield "details_kinds.inside_example_or_exercise", details.inside_example_or_exercise
-        for summary, kind in details.by_summary.items():
-            yield f"details_kinds.by_summary[{summary}]", kind
+        for entry in details.by_summary:
+            yield f"details_kinds.by_summary[{entry.summary}]", entry.statement_kind
         for rule in details.synthesize:
             yield f"details_kinds.synthesize[{rule.statement_kind}]", rule.statement_kind
 
@@ -402,7 +468,7 @@ class SchemaVocabulary(Protocol):
     def predicates(self) -> Collection[str]: ...
 
 
-IssueCode = Literal["unknown_statement_kind", "unknown_predicate"]
+IssueCode = Literal["unknown_statement_kind", "unknown_predicate", "not_implemented"]
 
 
 class ProfileIssue(NamedTuple):
@@ -411,10 +477,25 @@ class ProfileIssue(NamedTuple):
     name: str
 
 
+def unimplemented(profile: SourceProfile) -> tuple[ProfileIssue, ...]:
+    """The vocabulary keys the profile sets to something M01 does not implement yet (D4 M01)."""
+    issues = []
+    if profile.encoding != SNIFF:
+        issues.append(ProfileIssue("not_implemented", "encoding", profile.encoding))
+    if profile.section_source is not SectionSource.BODY:
+        issues.append(ProfileIssue("not_implemented", "section_source", profile.section_source))
+    issues += [ProfileIssue("not_implemented", "layout", s) for s in profile.layout]
+    issues += [ProfileIssue("not_implemented", "verbatim", s) for s in profile.verbatim]
+    if profile.img_alt:
+        issues.append(ProfileIssue("not_implemented", "img_alt", "true"))
+    return tuple(issues)
+
+
 def check_profile(
     profile: SourceProfile, schema_version: SchemaVocabulary
 ) -> tuple[ProfileIssue, ...]:
-    """The profile's names that the schema version lacks; empty when the run may start."""
+    """The profile's names that the schema version lacks, and its unimplemented keys; empty when
+    the run may start."""
     kinds = set(schema_version.statement_kinds)
     predicates = set(schema_version.predicates)
     issues = [
@@ -427,7 +508,7 @@ def check_profile(
         for field, name in profile.predicates()
         if name not in predicates
     ]
-    return tuple(issues)
+    return (*issues, *unimplemented(profile))
 
 
 # --- The compiled matcher ----------------------------------------------------------------------
@@ -463,11 +544,11 @@ class CompiledProfile:
 def profile_rules(profile: SourceProfile) -> list[tuple[str, Rule]]:
     """(selector, rule) for every role of the profile, in profile order."""
     rules: list[tuple[str, Rule]] = [
-        (selector, Rule("exclude", name)) for name, selector in profile.exclude.items()
+        (rule.selector, Rule("exclude", rule.name)) for rule in profile.exclude
     ]
-    if profile.render.summary == "drop":
+    if profile.render.summary is SummaryRender.DROP:
         rules.append(("details > summary", Rule("exclude", "summaries")))
-    if profile.render.figure == "drop":
+    if profile.render.figure is FigureRender.DROP:
         rules.append(("figure", Rule("exclude", "figures")))
     rules.append((profile.title, Rule("title", "title")))
     rules += [(s, Rule("section", s, rank)) for rank, s in enumerate(profile.sections)]
@@ -480,14 +561,19 @@ def profile_rules(profile: SourceProfile) -> list[tuple[str, Rule]]:
         refs = profile.references
         rules.append((refs.selector, Rule("reference", refs.selector, refs.render)))
     rules += [
-        (s, Rule("list_marker", s, style)) for s, style in profile.render.list_markers.items()
+        (m.selector, Rule("list_marker", m.selector, m.style)) for m in profile.render.list_markers
     ]
     if profile.math.page_macros is not None:
         rules.append((profile.math.page_macros, Rule("macros", "page_macros")))
     return rules
 
 
-def compile_profile(profile: SourceProfile) -> CompiledProfile:
+def compile_profile(profile: SourceProfile, name: str = "<profile>") -> CompiledProfile:
+    """The profile's rules in one Matcher; a profile with unimplemented keys is refused."""
+    missing = unimplemented(profile)
+    if missing:
+        reason = "; ".join(f"{issue.field}: {issue.name!r}" for issue in missing)
+        raise ProfileError(name, f"not implemented by M01: {reason}", code="not_implemented")
     rules = tuple(profile_rules(profile))
     matcher = cssselect2.Matcher()
     for selector, rule in rules:

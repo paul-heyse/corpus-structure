@@ -55,7 +55,7 @@ import signal
 import threading
 from collections import OrderedDict
 from collections.abc import Generator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import FrameType
@@ -412,6 +412,21 @@ def _deadline(seconds: float) -> Generator[None]:
         signal.signal(signal.SIGALRM, previous)
 
 
+def deadline(seconds: float) -> AbstractContextManager[None]:
+    """The grammar's timer for other SymPy work (evaluation's value equivalence): raises
+    `OffMainThread` off a process's main thread, and `Expired` when `seconds` pass."""
+    require_main_thread()
+    return _deadline(seconds)
+
+
+def require_main_thread() -> None:
+    if threading.current_thread() is not threading.main_thread():
+        raise OffMainThread("the math grammar runs only on a process's main thread (its deadline)")
+
+
+Expired = _Expired
+
+
 # ============================================================================ failures
 
 _ENVIRONMENT = frozenset({"\\begin", "\\end"})
@@ -760,8 +775,7 @@ def parse(
     seconds: float = PARSE_SECONDS,
 ) -> MathResult:
     """Read `latex` under the start symbol `kind` with the effective macro table `macros`."""
-    if threading.current_thread() is not threading.main_thread():
-        raise OffMainThread("the math grammar runs only on a process's main thread (its deadline)")
+    require_main_thread()
     if kind not in STARTS:
         raise ValueError(f"kind {kind!r} is not one of {STARTS}")
     table: Mapping[str, MacroDef] = macros or {}

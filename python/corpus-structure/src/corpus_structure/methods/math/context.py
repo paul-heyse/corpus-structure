@@ -20,11 +20,14 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.vocab import SegmentKind
-from corpus_structure.methods.math.scope import Scope
+
+if TYPE_CHECKING:  # scope imports spans and the grammar; the server reads stored scopes (P0CL-14)
+    from corpus_structure.methods.math.scope import Scope
 
 MAX_CONTEXT = 6
 

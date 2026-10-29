@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from corpus_structure.core.batch import AuthoredBatch, CitationFrame, cited_sentences
+from corpus_structure.core.batch import AuthoredBatch, CitationFrame, FrameEntry, cited_sentences
 from corpus_structure.core.evidence import RenditionContent, Segment, SegmentKind
-from corpus_structure.core.frame import FrameRefused, readdress, resolve_frame
+from corpus_structure.core.frame import (
+    FrameRefused,
+    readdress,
+    resolve_entry,
+    resolve_frame,
+    sentences_by_text,
+)
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.vocab import FrameFailureReason as Reason
 
@@ -91,11 +97,42 @@ def test_failures_are_listed_together_with_candidates(index: LocatorIndex) -> No
     assert "s7:" in str(caught.value)
 
 
+def test_one_entry_resolves_relocates_or_stays_unresolved_with_its_code(index: LocatorIndex):
+    """`resolve_entry` gives each entry's outcome without raising (A0 reports per entry)."""
+    by_text = sentences_by_text(index)
+    ok = resolve_entry("s1", FRAME["s1"], index, by_text)
+    assert (ok.status, ok.code, ok.failure) == ("resolved", None, None)
+    assert index.rendition.text(ok.segment) == "Suppose that X is normal."  # type: ignore[arg-type]
+    # the locator names a unit, but exactly one sentence carries the recorded text: relocated
+    moved = resolve_entry("s3", FrameEntry(locator=f"{PAGE}#u2",
+                                           text="Suppose again that Y is normal."), index, by_text)
+    assert (moved.status, moved.code) == ("relocated", Reason.NOT_A_SENTENCE)
+    assert moved.locator == f"{PAGE}@sentence:Suppose again"
+    assert moved.segment is not None and moved.segment.start == len("".join(SENTENCES[0])) + 4
+    # the recorded text is on two sentences: never guessed
+    twice = resolve_entry("s4", FrameEntry(locator=f"{PAGE}@sentence:Then",
+                                           text="Then a + b X is normal."), index, by_text)
+    assert (twice.status, twice.code, twice.segment) == ("unresolved", Reason.LOCATOR_REFUSED, None)
+    assert twice.failure is not None and twice.failure.refusal == "several"
+    absent = resolve_entry("s5", FrameEntry(locator=f"{PAGE}@sentence:Nothing", text="Nothing."),
+                           index)  # fmt: skip
+    assert (absent.status, absent.code) == ("unresolved", Reason.LOCATOR_REFUSED)
+
+
+def test_resolve_frame_refuses_a_relocatable_entry(index: LocatorIndex) -> None:
+    """Resolution never matches approximately: an entry that only relocates is a failure."""
+    frame = CitationFrame.model_validate({"s1": entry("#u2", "Suppose again that Y is normal.")})
+    with pytest.raises(FrameRefused) as caught:
+        resolve_frame(frame, index)
+    assert [f.code for f in caught.value.failures] == [Reason.NOT_A_SENTENCE]
+
+
 def batch() -> AuthoredBatch:
     return AuthoredBatch.model_validate({
         "unit_ref": f"{PAGE}#u1",
         "statements": [{"local_ref": "st1", "kind": "theorem", "anchor": ["s1", "s2"]},
-                       {"local_ref": "st0", "kind": "theorem", "anchor": "outside"}],
+                       {"local_ref": "st0", "anchor": "outside",  # an ExternalReference
+                        "descriptor": {"sentence": "s2", "quote": "is normal"}}],
         "entities": [{"local_ref": "X", "type": "RandomVariable", "label": "X",
                       "scope": "local", "symbol": "X"}],
         "claims": [{
@@ -117,7 +154,7 @@ def test_readdress_maps_every_sentence_id_by_locator_and_text() -> None:
     moved = readdress(batch(), FRAME, served)
     claim = moved.claims[0]
     assert moved.statements[0].anchor == ("s3", "s7")
-    assert moved.statements[1].anchor == "outside"
+    assert moved.statements[1].descriptor.sentence == "s7"  # type: ignore[union-attr]
     assert claim.evidence[0].sentence == "s7"
     assert claim.qualifiers.hedge.sentence == "c4"  # type: ignore[union-attr]
     assert claim.qualifiers.conditions.sentence == "c4"  # type: ignore[union-attr]

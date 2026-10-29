@@ -5,9 +5,19 @@ D1 §5.2, §10.3; D2 §7.3; foundations §3.5.
 These are the schema-free shapes A0, the fixtures and the `claim_proposal` payload use; S1's
 compiled envelope over the same bases is the full validation (predicate names, entity types,
 statement kinds and schema qualifiers typed per predicate). The authored form cites evidence by
-sentence id and quote and anchors statements by sentence ids, `"unit"`, or `"outside"` for a
-statement the unit refers to but that lies outside it (S4 V2); the stored form has
-offsets and segment keys on one rendition, which the record holding it names.
+sentence id and quote and anchors statements by sentence ids or `"unit"`; the stored form has
+offsets and segment keys on one rendition, which it names by its `ren` key (`StoredBatch.rendition`;
+F2e, R04), beside the row-level column of the record that holds it.
+
+A statement the unit refers to but that lies outside it ("the last result", an author `[n]` link;
+S4 V2) is an `outside` item in `statements[]` (`AuthoredOutside`, `StoredOutside`): a typed
+`ExternalReference` node with its descriptor (the citing sentence and quote when authored, the
+quote's span when stored, and the author's link target) and no kind (D1 §4.4, D2 §7.3).
+
+Claims carry their `establishment` (`stated` by default, left out of dumps like `modality`) and,
+exactly when derived, `derived_from` and `rule` (the model's `ClaimItem` invariant). References are
+typed by kind (`values.EntityId`, `StatementId`, `ClaimId`, `SubjectId`); `validate` (S2) checks
+them against a batch's items (RC19).
 
 `CoreQualifiers` keeps `modality` and `polarity` with defaults that dumps leave out (equal meaning,
 equal JSON) and that rule views see filled in; the other core qualifiers are absent by `MISSING`.
@@ -26,30 +36,47 @@ import typing
 from collections.abc import Callable, Iterator
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import MISSING, BaseModel, ConfigDict, Field, JsonValue, RootModel, model_validator
+from pydantic import (
+    MISSING,
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    JsonValue,
+    RootModel,
+    Tag,
+    model_validator,
+)
 
 from corpus_structure.core._model import names, validators
 from corpus_structure.core._model.qualifiers import BY_NAME
+from corpus_structure.core.canonical import KEY_HEX_DIGITS
 from corpus_structure.core.values import (
     CITATION,
+    PREFIXED_NAME,
     SENTENCE_ID,
     AuthoredCondition,
     AuthoredObject,
     AuthoredPhrase,
+    ClaimId,
     CoreModel,
     EntityRef,
     IntervalValue,
     Offset,
+    PrefixedName,
     SentenceId,
+    StatementId,
     StoredCondition,
     StoredObject,
     StoredPhrase,
+    SubjectId,
     refuse_m11_fields,
 )
 from corpus_structure.core.vocab import (
     ClaimModality,
     EntityExtent,
     EntityScope,
+    Establishment,
     EvidenceRole,
     Polarity,
     ScopeExtent,
@@ -57,11 +84,11 @@ from corpus_structure.core.vocab import (
 )
 
 LocalRef = Annotated[str, Field(min_length=1)]
+# A rendition by its `ren` key (D1 §10.1): the typed reference a stored batch and a keyed candidate
+# set carry (R04).
+RENDITION_KEY = rf"^ren:[0-9a-f]{{{KEY_HEX_DIGITS}}}$"
+RenditionKey = Annotated[str, Field(pattern=RENDITION_KEY)]
 
-# The stored form names every schema element (class, predicate, qualifier, identity slot) by its
-# prefixed name; the authored form keeps local names (coordinator ruling, 2026-10-28, from X2).
-PREFIXED_NAME = r"^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$"
-PrefixedName = Annotated[str, Field(pattern=PREFIXED_NAME)]
 CORE_PREFIX = names.PREFIX
 _PREFIXED = re.compile(PREFIXED_NAME)
 
@@ -79,6 +106,10 @@ def _is_default_modality(value: object) -> bool:
 
 def _is_default_polarity(value: object) -> bool:
     return value == DEFAULT_POLARITY
+
+
+def _is_stated(value: object) -> bool:
+    return value == Establishment.STATED
 
 
 # --- Core qualifiers ---------------------------------------------------------------------------
@@ -191,9 +222,8 @@ class _Entity(CoreModel):
     identity: dict[str, str] = Field(default_factory=dict)  # slot -> local ref or literal
 
     @model_validator(mode="after")
-    def _extent_only_local(self) -> Self:
-        if self.scope is EntityScope.GLOBAL and self.extent is not MISSING:
-            raise ValueError("only a local entity has an extent")
+    def _only_local(self) -> Self:
+        validators.entity_item(self)  # extent, scope_segment: only on a local entity
         return self
 
 
@@ -204,35 +234,90 @@ class AuthoredEntity(_Entity):
 class StoredEntity(_Entity):
     type: PrefixedName  # type: ignore[assignment]
     identity: dict[PrefixedName, str] = Field(default_factory=dict)  # type: ignore[assignment]
+    # absent on a local entity whose extent resolves to no segment (reported, never guessed)
     scope_segment: str | MISSING = MISSING  # type: ignore[valid-type]
-
-    @model_validator(mode="after")
-    def _segment_iff_local(self) -> Self:
-        if (self.scope is EntityScope.LOCAL) != (self.scope_segment is not MISSING):
-            raise ValueError("a stored entity has a scope_segment exactly when it is local")
-        return self
 
 
 class AuthoredStatement(CoreModel):
     local_ref: LocalRef
     kind: str
-    # "outside": a statement the unit refers to that lies outside it ("the last result"; S4 V2)
-    anchor: Literal["unit", "outside"] | Annotated[tuple[SentenceId, ...], Field(min_length=1)]
+    anchor: Literal["unit"] | Annotated[tuple[SentenceId, ...], Field(min_length=1)]
 
 
 class StoredStatement(CoreModel):
     local_ref: LocalRef
     kind: str
-    # segment keys, or "outside": the cascade has no segment to anchor such a statement to
-    anchor: Literal["outside"] | Annotated[tuple[str, ...], Field(min_length=1)]
+    anchor: Annotated[tuple[str, ...], Field(min_length=1)]  # segment keys
+
+
+class AuthoredDescriptor(CoreModel):
+    """An authored external reference's citing text: the sentence and the quote that makes the
+    reference, and the author's link target when the text gives one (a D1 §3.4 locator or author
+    link target, as written)."""
+
+    sentence: SentenceId
+    quote: str = Field(min_length=1)
+    target: str | MISSING = Field(MISSING, min_length=1)  # type: ignore[valid-type]
+
+
+class StoredDescriptor(CoreModel):
+    """A stored external reference's citing text: the quote's located span (`coarse` when only its
+    sentence was located) and the link target."""
+
+    start: Offset
+    end: Offset
+    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
+    target: str | MISSING = Field(MISSING, min_length=1)  # type: ignore[valid-type]
+
+    @model_validator(mode="after")
+    def _invariants(self) -> Self:
+        validators.reference_descriptor(self)
+        return self
+
+
+class AuthoredOutside(CoreModel):
+    """A statement outside the unit (S4 V2): an `ExternalReference` node, with no kind."""
+
+    local_ref: LocalRef
+    anchor: Literal["outside"]
+    descriptor: AuthoredDescriptor
+
+
+class StoredOutside(CoreModel):
+    local_ref: LocalRef
+    anchor: Literal["outside"]
+    descriptor: StoredDescriptor
+
+
+def _statement_or_outside(raw: Any) -> str:
+    anchor = raw.get("anchor") if isinstance(raw, dict) else getattr(raw, "anchor", None)
+    return "outside" if anchor == "outside" else "statement"
+
+
+type AuthoredStatementItem = Annotated[
+    Annotated[AuthoredStatement, Tag("statement")] | Annotated[AuthoredOutside, Tag("outside")],
+    Discriminator(_statement_or_outside),
+]
+type StoredStatementItem = Annotated[
+    Annotated[StoredStatement, Tag("statement")] | Annotated[StoredOutside, Tag("outside")],
+    Discriminator(_statement_or_outside),
+]
 
 
 class _Claim(CoreModel):
     local_ref: LocalRef
     predicate: str
-    subject: LocalRef
-    statement: str | MISSING = MISSING  # type: ignore[valid-type]
+    subject: SubjectId
+    statement: StatementId | MISSING = MISSING  # type: ignore[valid-type]
     statement_role: StatementRole | MISSING = MISSING  # type: ignore[valid-type]
+    establishment: Establishment = Field(Establishment.STATED, exclude_if=_is_stated)
+    derived_from: Annotated[tuple[ClaimId, ...], Field(min_length=1)] | MISSING = MISSING  # type: ignore[valid-type]
+    rule: str | MISSING = Field(MISSING, min_length=1)  # type: ignore[valid-type]
+
+    @model_validator(mode="after")
+    def _derivation(self) -> Self:
+        validators.claim_item(self)  # derived_from and rule exactly when derived
+        return self
 
 
 class AuthoredClaim(_Claim):
@@ -249,7 +334,7 @@ class StoredClaim(_Claim):
 
 
 class AlternativeItem(CoreModel):
-    refs: Annotated[tuple[LocalRef, ...], Field(min_length=2)]
+    refs: Annotated[tuple[ClaimId, ...], Field(min_length=2)]
     reason: str
 
 
@@ -273,9 +358,13 @@ class StoredUnsupported(_Span):
 
 # The item unions of each form: what a batch's item lists hold.
 type AuthoredItem = (
-    AuthoredEntity | AuthoredStatement | AuthoredClaim | AlternativeItem | AuthoredUnsupported
+    AuthoredEntity | AuthoredStatement | AuthoredOutside | AuthoredClaim | AlternativeItem
+    | AuthoredUnsupported
 )
-type StoredItem = StoredEntity | StoredStatement | StoredClaim | AlternativeItem | StoredUnsupported
+type StoredItem = (
+    StoredEntity | StoredStatement | StoredOutside | StoredClaim | AlternativeItem
+    | StoredUnsupported
+)
 
 
 # --- Envelopes ---------------------------------------------------------------------------------
@@ -305,15 +394,16 @@ class _Batch(CoreModel):
 
 class AuthoredBatch(_Batch):
     entities: tuple[AuthoredEntity, ...] = ()
-    statements: tuple[AuthoredStatement, ...] = ()
+    statements: tuple[AuthoredStatementItem, ...] = ()
     claims: tuple[AuthoredClaim, ...] = ()
     alternatives: tuple[AlternativeItem, ...] = ()
     unsupported: tuple[AuthoredUnsupported, ...] = ()
 
 
 class StoredBatch(_Batch):
+    rendition: RenditionKey
     entities: tuple[StoredEntity, ...] = ()
-    statements: tuple[StoredStatement, ...] = ()
+    statements: tuple[StoredStatementItem, ...] = ()
     claims: tuple[StoredClaim, ...] = ()
     alternatives: tuple[AlternativeItem, ...] = ()
     unsupported: tuple[StoredUnsupported, ...] = ()

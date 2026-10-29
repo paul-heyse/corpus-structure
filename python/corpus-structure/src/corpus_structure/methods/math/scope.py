@@ -7,8 +7,8 @@ M13 reads the rendition's segments and sentences, M09's mentions and relations a
   (`ingest.sentences.make_doc`), its sentence starts preset from the stored sentence segments, so
   the Doc cannot disagree with the rendition's sentences. No spaCy component runs.
 - **Math tokens.** Each inline math word carries `Token._.math` (registered once per process
-  behind `has_extension`): its span's kind and the occurrences it binds. A span binds only when M11
-  read it `ok` or `ambiguous` with one kind:
+  behind `has_extension`): its span's `math_kind` (M11's) and the occurrences it binds. A span
+  binds only when M11 read it `ok` or `ambiguous` with a `math_kind`:
   - a formula with one free, non-subscript occurrence and no `equals` binds that occurrence;
   - an equation whose left side holds one such occurrence binds it (a definition);
   - a list binds every such occurrence;
@@ -50,11 +50,12 @@ from corpus_structure.core.keys import symbol_form
 from corpus_structure.core.vocab import (
     ANNOTATION_UNIT,
     SECTION_LIKE,
+    MathKind,
     ParseOutcome,
     ScopeExtent,
     SegmentKind,
 )
-from corpus_structure.ingest.sentences import Block, SentenceConfig, make_doc, pipeline
+from corpus_structure.ingest.sentences import Block, SentenceConfig, block_of, make_doc, pipeline
 from corpus_structure.methods.math.spans import MathRelation, SpanValue, SymbolMention
 
 MAX_GAP = 3  # words allowed between a sentence-initial binder and a reopen word
@@ -75,7 +76,7 @@ class Binders(BaseModel):
 class MathToken:
     """`Token._.math`: the span's kind and the mentions it binds."""
 
-    kind: str | None
+    kind: MathKind | None
     bound: tuple[SymbolMention, ...]
     definition: bool
 
@@ -139,27 +140,15 @@ def _matchers(nlp: Language, binders: Binders) -> tuple[Matcher, PhraseMatcher]:
     return matcher, phrases
 
 
-def _block(content: RenditionContent, segment: Segment) -> Block:
-    """The block M03 split: inline and display math and rendered reference markers, relative."""
-
-    def rel(a: int, b: int) -> tuple[int, int]:
-        return a - segment.start, b - segment.start
-
+def segment_block(content: RenditionContent, segment: Segment) -> Block:
+    """The block M03 split, rebuilt from the segment by M03's own helper."""
     markup = segment.attrs.get("markup")
-    markers = [
-        rel(m["start"], m["end"])
-        for m in (markup if isinstance(markup, list) else [])
-        if isinstance(m, dict)
-        and m.get("markup") == "ref"
-        and isinstance(m.get("start"), int)
-        and isinstance(m.get("end"), int)
-        and m["end"] > m["start"]  # type: ignore[operator]
-    ]
-    return Block(
-        content.text(segment),
-        [rel(c.start, c.end) for c in segment.children if c.kind is SegmentKind.MATH_INLINE],
-        [rel(c.start, c.end) for c in segment.children if c.kind is SegmentKind.MATH_DISPLAY],
-        markers,  # type: ignore[arg-type]
+    return block_of(
+        content.canonical_text,
+        segment.start,
+        segment.end,
+        ((c.kind, c.start, c.end) for c in segment.children),
+        [m for m in markup if isinstance(m, dict)] if isinstance(markup, list) else [],
     )
 
 
@@ -197,7 +186,7 @@ def math_tokens(
         free = by_span.get(where, [])
         rels = sorted(rel_by_span.get(where, []), key=lambda r: r.head)
         read = value.value.parse in (ParseOutcome.OK, ParseOutcome.AMBIGUOUS)
-        kind = value.kind if read and value.kind != "ambiguous" else None
+        kind = value.math_kind if read else None
         equals = [r for r in rels if r.label == "equals"]
 
         def within(
@@ -207,21 +196,21 @@ def math_tokens(
 
         bound: list[SymbolMention] = []
         definition = False
-        if kind == "list":
+        if kind is MathKind.LIST:
             bound = list(free)
-        elif kind == "formula" and not equals:
+        elif kind is MathKind.FORMULA and not equals:
             bound = list(free) if len(free) == 1 else []
-        elif kind == "formula":
+        elif kind is MathKind.FORMULA:
             definition = True
             left = within(equals[0].head)
             bound = left if len(left) == 1 else []
-        elif kind == "member":
+        elif kind is MathKind.MEMBERSHIP:
             bound = [
                 m
                 for m in free
                 if any(r.label == "in_set" and r.head[0] <= m.start < r.head[1] for r in rels)
             ]
-        elif kind == "relation" and rels:
+        elif kind is MathKind.RELATION and rels:
             bound = within(rels[0].head)
         out[value.segment.start] = MathToken(kind, tuple(bound), definition and bool(bound))
     return out
@@ -281,7 +270,7 @@ def _sites(
     sections: list[Segment],
     macros: Mapping[str, MacroDef],
 ) -> list[BindingSite]:
-    doc: Doc = make_doc(nlp, _block(content, block))
+    doc: Doc = make_doc(nlp, segment_block(content, block))
     starts = {s.start - block.start for s in block_sentences}
     for token in doc[1:]:
         token.is_sent_start = token.idx in starts

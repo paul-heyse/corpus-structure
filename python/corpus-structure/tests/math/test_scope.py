@@ -25,10 +25,16 @@ from typing import Any
 
 import pytest
 
+from corpus_structure.core import tex
 from corpus_structure.core.keys import symbol_form
 from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.core.vocab import ScopeExtent
+from corpus_structure.core.vocab import MathKind, ScopeExtent, SegmentKind
+from corpus_structure.ingest.html import build_rendition
+from corpus_structure.ingest.profile import compile_profile, load_profile
+from corpus_structure.ingest.sentences import SentenceConfig, split
 from corpus_structure.methods.math.context import standing_context
+from corpus_structure.methods.math.scope import resolve_scopes, segment_block
+from corpus_structure.methods.math.spans import extract, formula_values, read_spans
 
 CORRECTED = {"H3": [(9504, 9648), (11267, 11410)]}
 
@@ -138,3 +144,62 @@ def test_scopes_are_typed_and_inside_their_extent(spike_pages: dict[str, Any]) -
                 assert (site.start, site.end) == (site.scope.start, site.scope.end)
             else:
                 assert site.end == site.scope.end
+
+
+def scopes_of(env: Any, html: str) -> tuple[Any, list[Any], list[Any]]:
+    """M01 with M03, then M11, M09 and M13, on a small Siegrist-shaped page."""
+    source_uri = "siegrist_random/random/test/Page.html"
+    content = build_rendition(
+        html.encode(),
+        compile_profile(load_profile("siegrist")),
+        SentenceConfig(),
+        source_uri=source_uri,
+    ).content
+    macros = tex.effective_macros(content.macros, env.macros)
+    readings = read_spans(content, macros, env.constants)
+    values = formula_values(readings)
+    found = extract(readings)
+    return (
+        content,
+        values,
+        resolve_scopes(
+            content, values, found.mentions, found.relations, macros, env.binders, SentenceConfig()
+        ),
+    )
+
+
+def test_a_list_binds_every_symbol(env: Any) -> None:
+    """M11 reads `a, b` as a list; M13 binds both symbols at the binder sentence, and their later
+    mentions in the unit go to those sites."""
+    html = (
+        "<html><body><h3>Sums</h3><div class='unit'><p>Let \\(a, b\\) be real numbers. "
+        "Then \\(a + b\\) is real and \\(c\\) is free.</p></div></body></html>"
+    )
+    content, values, scopes = scopes_of(env, html)
+    assert [v.math_kind for v in values][:1] == [MathKind.LIST]
+    later = [s for s in scopes if content.canonical_text.index("Then") < s.mention.start]
+    bound = {s.symbol: s.site for s in later}
+    assert bound["c"] is None  # never bound: unresolved
+    for symbol in ("a", "b"):
+        site = bound[symbol]
+        assert site is not None and site.extent is ScopeExtent.STATEMENT
+        assert content.text(site.sentence) == "Let \\(a, b\\) be real numbers."
+        assert site.rules == ("initial",)
+
+
+def test_m13_rebuilds_the_block_m03_split(spike_pages: dict[str, Any]) -> None:
+    """M13's block (`segment_block`, M03's `block_of` over the stored segment) splits into exactly
+    the stored sentences: the two Docs are the same by construction."""
+    checked = 0
+    for page in spike_pages.values():
+        content = page.content
+        blocks, stored = [], []
+        for segment in content.document.walk():
+            sentences = [c for c in segment.children if c.kind is SegmentKind.SENTENCE]
+            if not sentences:
+                continue
+            blocks.append(segment_block(content, segment))
+            stored.append([(c.start - segment.start, c.end - segment.start) for c in sentences])
+        assert split(blocks, SentenceConfig()) == stored
+        checked += len(blocks)
+    assert checked > 300

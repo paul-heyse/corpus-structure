@@ -18,6 +18,19 @@ F2d's canonical form by range), refusing what is no typed value.
 
 A candidate that cannot be keyed is dropped with a `DropReason` code (`Drop`); its message is a
 projection of the code, never the reason itself.
+
+**References resolve by kind** (F2e; R04, DA-006): a `Resolver` has one lookup per kind
+(`entity`, `statement`, `claim`, and `subject` for an entity or a statement), and a reference
+naming a candidate of another kind is dropped as `WRONG_KIND_REFERENCE`, never keyed as the kind it
+names. An `ExternalReference` (D1 §4.4) is keyed `xrf` by its citing statement's key, its quote's
+text form and its link target, and stands where it is cited (an entity, or a claim in a `claim`
+condition or binding); once consolidation has resolved it, the resolved statement's key stands in
+its place (a stated stability limit, D1 §10.3), and an unresolved one is never a dropped claim.
+The candidate set names its rendition, and keying refuses a context of another rendition.
+
+**Key scheme 1 is frozen** (F2e, after `s5.keys-property` froze `core/tex.py`): conformance vector
+v1 (`tests/core/test_conformance.py`) pins each output by hand-written parts. A change to any output
+is M4's `key-bearing` class: a new scheme, a carry-over map (`carry_over`) and a new vector.
 """
 
 from __future__ import annotations
@@ -47,8 +60,11 @@ from corpus_structure.core._model.qualifiers import CORE_QUALIFIERS, QualifierSp
 from corpus_structure.core._model.revision import KEY_SCHEME
 from corpus_structure.core.batch import CORE_PREFIX, PrefixedName, StoredQualifiers, StoredScope
 from corpus_structure.core.candidates import (
+    AWAITING,
+    UNKEYED,
     CandidateClaim,
     CandidateEntity,
+    CandidateReference,
     CandidateStatement,
     KeyedCandidateSet,
 )
@@ -68,6 +84,7 @@ from corpus_structure.core.values import (
     CONDITION_ADAPTERS,
     AuthoredAnd,
     AuthoredCondition,
+    AuthoredEnumValue,
     AuthoredForall,
     AuthoredNot,
     AuthoredOr,
@@ -80,15 +97,16 @@ from corpus_structure.core.values import (
     CoreModel,
     DateValue,
     EntityRef,
-    EnumValue,
     Formula,
     IntervalValue,
     MemberNode,
     NumberValue,
     PredNode,
+    RefKind,
     SetValue,
     StoredAnd,
     StoredCondition,
+    StoredEnumValue,
     StoredForall,
     StoredNot,
     StoredOr,
@@ -120,7 +138,6 @@ Json = Any
 # Core qualifier names as the stored form (and so every key) writes them (the model's, generated).
 MODALITY, POLARITY, ATTRIBUTION = names.MODALITY, names.POLARITY, names.ATTRIBUTION
 CONDITIONS, SCOPE, VALID_TIME = names.CONDITIONS, names.SCOPE, names.VALID_TIME
-Resolve = Callable[[str], str]  # a reference (entity, statement or claim id) to its key
 
 type Value = AuthoredValue | StoredValue
 type Condition = AuthoredCondition | StoredCondition
@@ -219,10 +236,17 @@ class Drop:
                 return f"predicate {ref} is not in the schema"
             case DropReason.SEGMENT_NOT_ON_RENDITION:
                 return f"segment key {self.ref} is not on this rendition"
-            case DropReason.OUTSIDE_UNRESOLVED:
-                return f"statement {ref} lies outside the unit and is unresolved"
             case DropReason.UNKNOWN_REFERENCE:
                 return f"unknown item {ref}"
+            case DropReason.WRONG_KIND_REFERENCE:
+                expected, actual = self.path
+                return f"{ref} names {actual}; its position takes: {expected}"
+            case DropReason.UNCITED_REFERENCE:
+                return f"external reference {ref}'s descriptor lies in no statement of the set"
+            case DropReason.UNLOCATED_QUOTE:  # parse's (A0), never keying's
+                return f"{ref}: a quote that has no span on the rendition"
+            case DropReason.UNRESOLVED_EXTENT:  # parse's (A0), and keying's for a local entity
+                return f"{ref}: an extent that resolves to no segment on the rendition"
             case DropReason.DROPPED_DEPENDENCY:
                 return f"depends on dropped item {ref}"
             case DropReason.UNKNOWN_CLAIM_REF:
@@ -255,20 +279,96 @@ class KeyingError(LookupError):
         return self.drop.code
 
 
+# --- References by kind ------------------------------------------------------------------------
+
+# What each position kind accepts. A statement and an ExternalReference are entities (D1 §4.1,
+# §4.4: `Statement` and `ExternalReference` are Entity classes), so an entity position takes them
+# (`proves` names a statement as its object); an ExternalReference also stands where it is cited as
+# a claim (a `claim` condition, a binding's claim). A claim is never an entity (D1 §5.5: relations
+# between claims are links).
+_ACCEPTS: Mapping[RefKind | Literal["subject"], frozenset[str]] = {
+    RefKind.ENTITY: frozenset({"entity", "reference", "statement"}),
+    RefKind.STATEMENT: frozenset({"statement"}),
+    RefKind.CLAIM: frozenset({"claim", "reference"}),
+    "subject": frozenset({"entity", "reference", "statement"}),
+}
+_EXPECTED: Mapping[RefKind | Literal["subject"], str] = {
+    RefKind.ENTITY: "entity", RefKind.STATEMENT: "statement", RefKind.CLAIM: "claim",
+    "subject": "entity or statement",
+}  # fmt: skip
+_UNKNOWN: Mapping[RefKind | Literal["subject"], DropReason] = {
+    RefKind.CLAIM: DropReason.UNKNOWN_CLAIM_REF,
+}
+
+
+class Resolver:
+    """A reference's key by the kind its position declares (`values.ref_kinds`): `entity`,
+    `statement`, `claim` and `subject` (an entity or a statement). A reference naming a candidate
+    of another kind is `WRONG_KIND_REFERENCE`, one naming no candidate `UNKNOWN_REFERENCE`
+    (`UNKNOWN_CLAIM_REF` for a claim), one naming a dropped candidate `DROPPED_DEPENDENCY`."""
+
+    def __init__(
+        self,
+        kinds: Mapping[str, str],
+        keys: Mapping[str, Mapping[str, str]],
+        dropped: Mapping[str, Drop],
+    ) -> None:
+        self._kinds = kinds  # candidate id -> "entity" | "reference" | "statement" | "claim"
+        self._keys = keys  # kind -> id -> the key it resolves to
+        self._dropped = dropped
+
+    def _lookup(self, ref: str, position: RefKind | Literal["subject"]) -> str:
+        kind = self._kinds.get(ref)
+        if kind is None:
+            raise KeyingError(_UNKNOWN.get(position, DropReason.UNKNOWN_REFERENCE), ref)
+        if kind not in _ACCEPTS[position]:
+            article = "an" if kind[0] in "aeiou" else "a"
+            raise KeyingError(DropReason.WRONG_KIND_REFERENCE, ref,
+                              (_EXPECTED[position], f"{article} {kind}"))  # fmt: skip
+        key = self._keys[kind].get(ref)
+        if key is None:
+            raise KeyingError(DropReason.DROPPED_DEPENDENCY, ref)
+        return key
+
+    def entity(self, ref: str) -> str:
+        return self._lookup(ref, RefKind.ENTITY)
+
+    def statement(self, ref: str) -> str:
+        return self._lookup(ref, RefKind.STATEMENT)
+
+    def claim(self, ref: str) -> str:
+        return self._lookup(ref, RefKind.CLAIM)
+
+    def subject(self, ref: str) -> str:
+        return self._lookup(ref, "subject")
+
+
+class Uniform(Resolver):
+    """A resolver that maps every reference alike, whatever its kind (a caller that has already
+    checked kinds, or a test)."""
+
+    def __init__(self, resolve: Callable[[str], str]) -> None:
+        super().__init__({}, {}, {})
+        self._resolve = resolve
+
+    def _lookup(self, ref: str, position: RefKind | Literal["subject"]) -> str:
+        return self._resolve(ref)
+
+
 # --- Canonical values and conditions -----------------------------------------------------------
 
 
 def canonical_value(
     value: EntityRef | Value,
     macros: Mapping[str, MacroDef],
-    resolve: Resolve,
+    resolve: Resolver,
     case: CaseRule = CaseRule.FOLD,
 ) -> Json:
     """The key form of a value or entity reference (JSON), per D1 §6.2; text and phrases under
     the declared case policy."""
     match value:
         case EntityRef(ref=ref):
-            return {"key": resolve(ref)}
+            return {"key": resolve.entity(ref)}
         case TextValue(v=v):
             return {"t": "text", "v": text_form(v, case)}
         case NumberValue():
@@ -295,8 +395,13 @@ def canonical_value(
             return {"t": "phrase", "text": text_form(text, case)}
         case BoolValue(v=v):
             return {"t": "bool", "v": v}
-        case EnumValue(enum=enum, v=v):
+        case StoredEnumValue(enum=enum, v=v):
             return {"t": "enum", "enum": enum, "v": v}
+        case AuthoredEnumValue():
+            raise TypeError(
+                f"the authored enum value {value.enum}.{value.v} names its enum locally; keys read "
+                "the stored form, which names it prefixed (X2-01)"
+            )
         case DateValue(v=v):
             return {"t": "date", "v": v}
         case _:
@@ -351,7 +456,7 @@ def _sort(items: Iterable[Json]) -> list[Json]:
 def canonical_condition(
     node: Condition,
     macros: Mapping[str, MacroDef],
-    resolve: Resolve,
+    resolve: Resolver,
     symmetric: frozenset[str] = frozenset(),
 ) -> Json | None:
     """The D1 §7 canonical form of a condition tree, bottom-up; `None` is no condition."""
@@ -369,7 +474,7 @@ def _canonical_node(
     n: Condition,
     done: Mapping[int, Json | None],
     value: Callable[[EntityRef | Value], Json],
-    resolve: Resolve,
+    resolve: Resolver,
     symmetric: frozenset[str],
     macros: Mapping[str, MacroDef],
 ) -> Json | None:
@@ -396,7 +501,7 @@ def _canonical_node(
             inner = done[id(arg)]
             return None if inner is None else {"op": "not", "arg": inner}
         case ClaimNode(ref=ref):
-            return {"op": "claim", "ref": resolve(ref)}
+            return {"op": "claim", "ref": resolve.claim(ref)}
         case MemberNode(x=x, set=set_):
             return {"op": "member", "x": value(x), "set": value(set_)}
         case CmpNode(rel=rel, lhs=lhs, rhs=rhs):
@@ -427,14 +532,14 @@ def _canonical_node(
 
 
 def canonical_binding(
-    symbol: str, binding: SymbolBinding, macros: Mapping[str, MacroDef], resolve: Resolve
+    symbol: str, binding: SymbolBinding, macros: Mapping[str, MacroDef], resolve: Resolver
 ) -> Json:
     """The key form of one symbol binding (used only in alternative member keys)."""
     out: Json = {"symbol": symbol_form(symbol, macros), "bind": binding.bind}
     if binding.entity is not MISSING:
-        out["entity"] = resolve(binding.entity)
+        out["entity"] = resolve.entity(binding.entity)
     if binding.claim is not MISSING:
-        out["claim"] = resolve(binding.claim)
+        out["claim"] = resolve.claim(binding.claim)
     if binding.param is not MISSING:
         out["param"] = binding.param
     return out
@@ -450,7 +555,8 @@ def expressions(value: EntityRef | Value | Condition) -> Iterator[Formula | SetV
                 if isinstance(bound, Formula):
                     yield bound
         case (
-            TextValue() | NumberValue() | BoolValue() | EnumValue() | DateValue()
+            TextValue() | NumberValue() | BoolValue() | AuthoredEnumValue() | StoredEnumValue()
+            | DateValue()
             | AuthoredPhrase() | StoredPhrase() | EntityRef()
         ):  # fmt: skip
             return
@@ -488,7 +594,7 @@ _PREFIXED = re.compile(r"^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$")
 _KINDS: Mapping[CanonicalForm, tuple[type, ...]] = {
     CanonicalForm.TOKEN_FORM: (Formula, SetValue),
     CanonicalForm.TEXT_FORM: (TextValue, StoredPhrase),
-    CanonicalForm.ENUM: (EnumValue,),
+    CanonicalForm.ENUM: (StoredEnumValue,),
     CanonicalForm.INTERVAL: (IntervalValue,),
     CanonicalForm.NUMBER: (NumberValue,),
     CanonicalForm.VERBATIM: (DateValue, BoolValue),
@@ -550,7 +656,7 @@ def canonical_qualifier(
     spec: QualifierSpec | ValueSpec,
     schema: KeySchema,
     macros: Mapping[str, MacroDef],
-    resolve: Resolve,
+    resolve: Resolver,
     name: str,
     path: tuple[str, ...] = (),
     locate: Callable[[str], Json] | None = None,
@@ -587,7 +693,7 @@ def canonical_qualifier(
                     raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path) from None
             if not isinstance(value, EntityRef):
                 raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
-            return resolve(value.ref)  # the resolved key, bare
+            return resolve.entity(value.ref)  # the resolved key, bare
         case CanonicalForm.MAP:
             entry = schema.map_values.get(spec.range)
             if not isinstance(value, dict) or entry is None:
@@ -619,7 +725,7 @@ def canonical_qualifier(
 def _canonical_expressions(
     tree: Condition,
     macros: Mapping[str, MacroDef],
-    resolve: Resolve,
+    resolve: Resolver,
     symmetric: frozenset[str],
 ) -> list[Formula | SetValue]:
     """The formulas and sets of a condition tree's canonical form, over the one traversal: an
@@ -662,7 +768,7 @@ def _qualifier_expressions(
     spec: QualifierSpec | ValueSpec,
     schema: KeySchema,
     macros: Mapping[str, MacroDef],
-    resolve: Resolve,
+    resolve: Resolver,
     name: str,
     path: tuple[str, ...],
 ) -> Iterator[Formula | SetValue]:
@@ -820,9 +926,14 @@ class KeyContext:
         return LocatorIndex(self.content, self.page)
 
     @cached_property
+    def rendition_key(self) -> str:
+        """The rendition's `ren` key, which a candidate set keyed here must name."""
+        return rendition_key(self.document_key, content_digest(self.content))
+
+    @cached_property
     def segments(self) -> dict[str, Segment]:
         """Segment key -> segment on this rendition."""
-        ren = rendition_key(self.document_key, content_digest(self.content))
+        ren = self.rendition_key
         return {segment_key(ren, s.kind, s.start, s.end): s for s in self.content.document.walk()}
 
     @cached_property
@@ -863,9 +974,10 @@ class KeyContext:
 
 
 def global_entity_key(
-    entity: CandidateEntity, schema: KeySchema, rules: LabelRules, resolve: Resolve
+    entity: CandidateEntity, schema: KeySchema, rules: LabelRules, resolve: Callable[[str], str]
 ) -> str:
-    """`ent`: type and identity attributes; the normalized label when identity is incomplete."""
+    """`ent`: type and identity attributes; the normalized label when identity is incomplete.
+    `resolve` is the entity lookup of an entity-ranged identity slot."""
     declared = schema.identity_keys.get(entity.type, ())
     entity_slots = set(schema.entity_identity.get(entity.type, ()))
     identity: Json = {}
@@ -885,10 +997,12 @@ def local_entity_key(
     entity: CandidateEntity, ctx: KeyContext, rules: LabelRules, schema: KeySchema
 ) -> str:
     """`ent`: type, the scope segment's locator (structured), and the symbol or normalized label
-    (under the class's label case policy)."""
-    assert entity.scope_segment is not None
+    (under the class's label case policy). A local entity whose extent resolved to no segment has
+    no scope to key by: `UNRESOLVED_EXTENT`."""
+    if entity.scope_segment is MISSING:
+        raise KeyingError(DropReason.UNRESOLVED_EXTENT, entity.id)
     parts: Json = {"type": entity.type, "scope": ctx.locator_key(ctx.segment(entity.scope_segment))}
-    if entity.symbol:
+    if entity.symbol is not MISSING and entity.symbol:
         parts["symbol"] = symbol_form(entity.symbol, ctx.macros)
     else:
         case = schema.label_case.get(entity.type, CaseRule.FOLD)
@@ -905,8 +1019,6 @@ def statement_anchor(statement: CandidateStatement, ctx: KeyContext) -> tuple[Se
     `annotation_units`), else the outermost block below the `section_like` segments; never the
     document unless that is the segment itself. Kinds are read by member property (DA-003).
     """
-    if statement.anchor == "outside":
-        raise KeyingError(DropReason.OUTSIDE_UNRESOLVED, statement.id)
     first = min((ctx.segment(k) for k in statement.anchor), key=lambda s: (s.start, -s.end))
     chain = [first, *ctx.ancestors(first)]
     anchor = next((s for s in chain if s.kind in STATEMENT_ANCHOR), None)
@@ -926,15 +1038,47 @@ def statement_key(statement: CandidateStatement, ctx: KeyContext) -> str:
     return _key("stm", {"anchor": ctx.locator_key(anchor), "ordinal": ordinal}, statement.id)
 
 
+def citing_statement(
+    reference: CandidateReference, statements: Iterable[CandidateStatement], ctx: KeyContext
+) -> CandidateStatement:
+    """The statement that cites an external reference: of the statements one of whose anchor
+    segments contains the descriptor's span, the one with the innermost such segment (ties by id).
+    None: `UNCITED_REFERENCE`."""
+    d = reference.descriptor
+    best: tuple[int, str, CandidateStatement] | None = None
+    for statement in statements:
+        for k in statement.anchor:
+            segment = ctx.segments.get(k)
+            if segment is not None and segment.start <= d.start and d.end <= segment.end:
+                found = (segment.end - segment.start, statement.id, statement)
+                if best is None or found[:2] < best[:2]:
+                    best = found
+    if best is None:
+        raise KeyingError(DropReason.UNCITED_REFERENCE, reference.id)
+    return best[2]
+
+
+def reference_key(reference: CandidateReference, statement: str, ctx: KeyContext) -> str:
+    """`xrf` (D1 §10.1): the citing statement's key, the descriptor's quote in text form (the text
+    of its located span) and the author's link target as written, when it has one. The citing
+    sentence id is local to its batch and never a part."""
+    d = reference.descriptor
+    parts: Json = {"statement": statement,
+                   "quote": text_form(ctx.content.canonical_text[d.start : d.end])}  # fmt: skip
+    if d.target is not MISSING:
+        parts["target"] = d.target
+    return _key("xrf", parts, reference.id)
+
+
 # --- Claim keys --------------------------------------------------------------------------------
 
 
 def _object_part(
-    obj: EntityRef | StoredValue, macros: Mapping[str, MacroDef], resolve: Resolve
+    obj: EntityRef | StoredValue, macros: Mapping[str, MacroDef], resolve: Resolver
 ) -> Json:
     match obj:
         case EntityRef(ref=ref):
-            return {"key": resolve(ref)}
+            return {"key": resolve.entity(ref)}
         case _:
             return {"value": canonical_value(obj, macros, resolve)}
 
@@ -943,7 +1087,7 @@ def claim_parts(
     claim: CandidateClaim,
     schema: KeySchema,
     macros: Mapping[str, MacroDef],
-    resolve: Resolve,
+    resolve: Resolver,
 ) -> Json:
     """The parts of a claim key: subject, predicate, object, statement, and every qualifier whose
     key role for the claim's modality is `identity` (`KeySchema.role`), in its declared range's
@@ -952,12 +1096,12 @@ def claim_parts(
     predicate = schema.predicate(claim.predicate)
     q = claim.qualifiers
     parts: Json = {
-        "subject": resolve(claim.subject),
+        "subject": resolve.subject(claim.subject),
         "predicate": predicate,
         "object": _object_part(claim.object, macros, resolve),
     }
-    if claim.statement is not None:
-        parts["statement"] = resolve(claim.statement)
+    if claim.statement is not MISSING:
+        parts["statement"] = resolve.statement(claim.statement)
     identity: Json = {}
     for spec in schema.specs(predicate):
         if schema.role(spec, q.modality) is not KeyRole.IDENTITY:
@@ -973,7 +1117,7 @@ def claim_parts(
 
 
 def claim_bindings(
-    claim: CandidateClaim, schema: KeySchema, macros: Mapping[str, MacroDef], resolve: Resolve
+    claim: CandidateClaim, schema: KeySchema, macros: Mapping[str, MacroDef], resolve: Resolver
 ) -> Json:
     """Every formula's or set's canonical bindings beside its canonical value, over the object and
     every declared qualifier read by its range (condition trees as their canonical form keeps
@@ -1013,7 +1157,7 @@ def member_parts(
     member: Member,
     base: Json,
     ctx: KeyContext,
-    resolve: Resolve,
+    resolve: Resolver,
     schema: KeySchema,
 ) -> Json:
     """A member's key parts: the claim's parts (`base`, from `claim_parts`) plus its disagreeing
@@ -1062,27 +1206,28 @@ def identity_group_key(member_keys: Iterable[str]) -> str:
 
 @dataclass
 class Keys:
-    """Keys by candidate id, alternatives' member keys, and the dropped items with their codes;
-    `scheme` is the key scheme they are of, recorded beside them (never hashed into them)."""
+    """Keys by candidate id (`references`: the `ExternalReference` nodes' own `xrf` keys),
+    alternatives' member keys, and the dropped items with their codes; `scheme` is the key scheme
+    they are of, recorded beside them (never hashed into them)."""
 
     scheme: int = KEY_SCHEME
     entities: dict[str, str] = field(default_factory=dict)
     statements: dict[str, str] = field(default_factory=dict)
+    references: dict[str, str] = field(default_factory=dict)
     claims: dict[str, str] = field(default_factory=dict)
     members: dict[str, str] = field(default_factory=dict)
     dropped: dict[str, Drop] = field(default_factory=dict)
     dropped_members: dict[str, Drop] = field(default_factory=dict)
-    outside: set[str] = field(default_factory=set)  # unresolved "outside" statements
 
-    def of(self, ref: str) -> str:
-        for table in (self.entities, self.statements, self.claims):
-            if ref in table:
-                return table[ref]
-        if ref in self.outside:
-            raise KeyingError(DropReason.OUTSIDE_UNRESOLVED, ref)
-        if ref in self.dropped:
-            raise KeyingError(DropReason.DROPPED_DEPENDENCY, ref)
-        raise KeyingError(DropReason.UNKNOWN_REFERENCE, ref)
+
+def _kinds(candidates: KeyedCandidateSet) -> dict[str, str]:
+    out: dict[str, str] = {}
+    tables = (("entity", candidates.entities), ("statement", candidates.statements),
+              ("reference", candidates.references), ("claim", candidates.claims))  # fmt: skip
+    for kind, items in tables:
+        for item in items:
+            out[item.id] = kind
+    return out
 
 
 def _entity_keys(
@@ -1091,6 +1236,7 @@ def _entity_keys(
     schema: KeySchema,
     rules: LabelRules,
     keys: Keys,
+    kinds: Mapping[str, str],
 ) -> None:
     by_id = {e.id: e for e in candidates.entities}
     visiting: set[str] = set()
@@ -1100,11 +1246,15 @@ def _entity_keys(
             return keys.entities[entity_id]
         entity = by_id.get(entity_id)
         if entity is None:
+            kind = kinds.get(entity_id)
+            if kind is not None and kind != "entity":
+                found = ("entity", f"a {kind}")
+                raise KeyingError(DropReason.WRONG_KIND_REFERENCE, entity_id, found)
             raise KeyingError(DropReason.UNKNOWN_IDENTITY_ENTITY, entity_id)
         if entity_id in visiting:
             raise KeyingError(DropReason.IDENTITY_CYCLE, entity_id)
         visiting.add(entity_id)
-        if entity.key is not None:
+        if entity.key is not UNKEYED:
             key = entity.key
         elif entity.scope is EntityScope.LOCAL:
             key = local_entity_key(entity, ctx, rules, schema)
@@ -1129,24 +1279,52 @@ def key_claims(
     rules: LabelRules,
     members: Mapping[str, Member] | None = None,
 ) -> Keys:
-    """Key every candidate: entities, statements, then claims in a topological order of their
-    condition `claim` references. A candidate that cannot be keyed (on or behind a reference
-    cycle, naming an unknown or dropped item, an unknown predicate, an unresolved `outside`
-    statement, a malformed schema qualifier) is dropped with its `Drop` (D5 §5.2), never raised.
-    `members` (C1's) adds member keys, reusing each claim's parts; a member that cannot be keyed is
-    in `dropped_members` with its `Drop`."""
+    """Key every candidate: entities, statements, external references (by their citing statement),
+    then claims in a topological order of their condition `claim` references. A candidate that
+    cannot be keyed (on or behind a reference cycle, naming an unknown or dropped item or one of
+    another kind, an unknown predicate, a malformed schema qualifier) is dropped with its `Drop`
+    (D5 §5.2), never raised. An unresolved `ExternalReference` is keyed and stands where it is
+    cited; a resolved one stands as its statement. `members` (C1's) adds member keys, reusing each
+    claim's parts; a member that cannot be keyed is in `dropped_members` with its `Drop`.
+
+    A candidate set of another rendition than `ctx`'s is refused (`ValueError`): an input error,
+    not a keying outcome."""
+    if candidates.rendition != ctx.rendition_key:
+        raise ValueError(
+            f"the candidate set is on {candidates.rendition}, the context on {ctx.rendition_key}"
+        )
     keys = Keys(scheme=schema.key_scheme)
-    _entity_keys(candidates, ctx, schema, rules, keys)
+    kinds = _kinds(candidates)
+    _entity_keys(candidates, ctx, schema, rules, keys, kinds)
     for statement in candidates.statements:
-        if statement.key is not None:
+        if statement.key is not UNKEYED:
             keys.statements[statement.id] = statement.key
-        elif statement.anchor == "outside":
-            keys.outside.add(statement.id)  # consolidation resolves it to the statement it names
-        else:
-            try:
-                keys.statements[statement.id] = statement_key(statement, ctx)
-            except KeyingError as error:
-                keys.dropped[statement.id] = error.drop
+            continue
+        try:
+            keys.statements[statement.id] = statement_key(statement, ctx)
+        except KeyingError as error:
+            keys.dropped[statement.id] = error.drop
+    stands_for: dict[str, str] = {}  # reference id -> the key it stands as where cited
+    keyed = [s for s in candidates.statements if s.id in keys.statements]
+    for reference in candidates.references:
+        try:
+            if reference.key is not UNKEYED:
+                own = reference.key
+            else:
+                citing = citing_statement(reference, keyed, ctx)
+                own = reference_key(reference, keys.statements[citing.id], ctx)
+        except KeyingError as error:
+            keys.dropped[reference.id] = error.drop
+            continue
+        keys.references[reference.id] = own
+        resolved = reference.resolved_to
+        stands_for[reference.id] = own if resolved is AWAITING else str(resolved)
+    resolver = Resolver(
+        kinds,
+        {"entity": keys.entities, "statement": keys.statements, "reference": stands_for,
+         "claim": keys.claims},
+        keys.dropped,
+    )  # fmt: skip
 
     claims = {c.id: c for c in candidates.claims}
     deps: dict[str, list[str]] = {}
@@ -1177,11 +1355,15 @@ def key_claims(
         stack.append(claim_id)
         ok = True
         for ref in deps[claim_id]:
-            if ref not in claims:
-                drop(claim_id, Drop(DropReason.UNKNOWN_CLAIM_REF, ref))
-                ok = False
-            elif not visit(ref):
-                drop(claim_id, Drop(DropReason.DROPPED_DEPENDENCY, ref))
+            if ref in claims:
+                if not visit(ref):
+                    drop(claim_id, Drop(DropReason.DROPPED_DEPENDENCY, ref))
+                    ok = False
+                continue
+            try:  # an external reference, or a reference of another kind or to nothing
+                resolver.claim(ref)
+            except KeyingError as error:
+                drop(claim_id, error.drop)
                 ok = False
         stack.pop()
         if not ok or state.get(claim_id) == "dropped":
@@ -1189,10 +1371,10 @@ def key_claims(
             return False
         claim = claims[claim_id]
         try:
-            if claim.key is not None:
+            if claim.key is not UNKEYED:
                 keys.claims[claim_id] = claim.key
             else:
-                parts[claim_id] = claim_parts(claim, schema, ctx.macros, keys.of)
+                parts[claim_id] = claim_parts(claim, schema, ctx.macros, resolver)
                 keys.claims[claim_id] = _key("clm", parts[claim_id], claim_id)
         except KeyingError as error:
             drop(claim_id, error.drop)
@@ -1215,8 +1397,8 @@ def key_claims(
         claim = claims[claim_id]
         try:
             if claim_id not in parts:  # a claim that arrived keyed
-                parts[claim_id] = claim_parts(claim, schema, ctx.macros, keys.of)
-            member = member_parts(claim, member, parts[claim_id], ctx, keys.of, schema)
+                parts[claim_id] = claim_parts(claim, schema, ctx.macros, resolver)
+            member = member_parts(claim, member, parts[claim_id], ctx, resolver, schema)
             member_key = _key("clm", member, claim_id)
         except KeyingError as error:
             keys.dropped_members[claim_id] = error.drop
@@ -1257,7 +1439,7 @@ def carry_over(
     for candidates, ctx in inputs:
         before, after = old(candidates, ctx), new(candidates, ctx)
         schemes = (before.scheme, after.scheme)
-        for table in ("entities", "statements", "claims", "members"):
+        for table in ("entities", "statements", "references", "claims", "members"):
             mine, theirs = getattr(before, table), getattr(after, table)
             for ident, key in mine.items():
                 if ident in theirs:

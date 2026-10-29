@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.claim_proposal.json",
   "$defs": {
     "AlternativeItem": {
       "additionalProperties": false,
@@ -59,7 +60,7 @@
         "statements": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/AuthoredStatement"
+            "$ref": "#/$defs/AuthoredStatementItem"
           },
           "type": "array"
         },
@@ -105,10 +106,27 @@
           "type": "string"
         },
         "statement": {
+          "minLength": 1,
           "type": "string"
         },
         "statement_role": {
           "$ref": "#/$defs/StatementRole"
+        },
+        "establishment": {
+          "$ref": "#/$defs/Establishment",
+          "default": "stated"
+        },
+        "derived_from": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "rule": {
+          "minLength": 1,
+          "type": "string"
         },
         "object": {
           "anyOf": [
@@ -189,6 +207,29 @@
         }
       ]
     },
+    "AuthoredDescriptor": {
+      "additionalProperties": false,
+      "description": "An authored external reference's citing text: the sentence and the quote that makes the\nreference, and the author's link target when the text gives one (a D1 §3.4 locator or author\nlink target, as written).",
+      "properties": {
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sentence",
+        "quote"
+      ],
+      "type": "object"
+    },
     "AuthoredEntity": {
       "additionalProperties": false,
       "properties": {
@@ -230,6 +271,29 @@
         "type",
         "label",
         "scope"
+      ],
+      "type": "object"
+    },
+    "AuthoredEnumValue": {
+      "additionalProperties": false,
+      "description": "The authored enum value: the enum by its local name (`ParameterRole`).",
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
       ],
       "type": "object"
     },
@@ -314,6 +378,29 @@
       "required": [
         "op",
         "args"
+      ],
+      "type": "object"
+    },
+    "AuthoredOutside": {
+      "additionalProperties": false,
+      "description": "A statement outside the unit (S4 V2): an `ExternalReference` node, with no kind.",
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "anchor": {
+          "const": "outside",
+          "type": "string"
+        },
+        "descriptor": {
+          "$ref": "#/$defs/AuthoredDescriptor"
+        }
+      },
+      "required": [
+        "local_ref",
+        "anchor",
+        "descriptor"
       ],
       "type": "object"
     },
@@ -404,10 +491,7 @@
         "anchor": {
           "anyOf": [
             {
-              "enum": [
-                "unit",
-                "outside"
-              ],
+              "const": "unit",
               "type": "string"
             },
             {
@@ -427,6 +511,16 @@
         "anchor"
       ],
       "type": "object"
+    },
+    "AuthoredStatementItem": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AuthoredStatement"
+        },
+        {
+          "$ref": "#/$defs/AuthoredOutside"
+        }
+      ]
     },
     "AuthoredUnsupported": {
       "additionalProperties": false,
@@ -485,7 +579,7 @@
         "mapping": {
           "bool": "#/$defs/BoolValue",
           "date": "#/$defs/DateValue",
-          "enum": "#/$defs/EnumValue",
+          "enum": "#/$defs/AuthoredEnumValue",
           "formula": "#/$defs/Formula",
           "interval": "#/$defs/IntervalValue",
           "number": "#/$defs/NumberValue",
@@ -506,7 +600,7 @@
           "$ref": "#/$defs/BoolValue"
         },
         {
-          "$ref": "#/$defs/EnumValue"
+          "$ref": "#/$defs/AuthoredEnumValue"
         },
         {
           "$ref": "#/$defs/Formula"
@@ -656,26 +750,14 @@
       ],
       "type": "string"
     },
-    "EnumValue": {
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "const": "enum",
-          "type": "string"
-        },
-        "enum": {
-          "type": "string"
-        },
-        "v": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "t",
-        "enum",
-        "v"
+    "Establishment": {
+      "description": "How a claim was established (D5 §9): a claim item's and `kb.claim.establishment`. Lifecycle:\nstatic.",
+      "enum": [
+        "stated",
+        "derived",
+        "agent_asserted"
       ],
-      "type": "object"
+      "type": "string"
     },
     "EvidenceRole": {
       "description": "The part an evidence span plays for its claim (guideline §10.8). Lifecycle: static.",
@@ -997,6 +1079,10 @@
           "minLength": 1,
           "type": "string"
         },
+        "rendition": {
+          "pattern": "^ren:[0-9a-f]{32}$",
+          "type": "string"
+        },
         "entities": {
           "default": [],
           "items": {
@@ -1007,7 +1093,7 @@
         "statements": {
           "default": [],
           "items": {
-            "$ref": "#/$defs/StoredStatement"
+            "$ref": "#/$defs/StoredStatementItem"
           },
           "type": "array"
         },
@@ -1034,7 +1120,8 @@
         }
       },
       "required": [
-        "unit_ref"
+        "unit_ref",
+        "rendition"
       ],
       "type": "object"
     },
@@ -1054,10 +1141,27 @@
           "type": "string"
         },
         "statement": {
+          "minLength": 1,
           "type": "string"
         },
         "statement_role": {
           "$ref": "#/$defs/StatementRole"
+        },
+        "establishment": {
+          "$ref": "#/$defs/Establishment",
+          "default": "stated"
+        },
+        "derived_from": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "rule": {
+          "minLength": 1,
+          "type": "string"
         },
         "object": {
           "anyOf": [
@@ -1138,6 +1242,32 @@
         }
       ]
     },
+    "StoredDescriptor": {
+      "additionalProperties": false,
+      "description": "A stored external reference's citing text: the quote's located span (`coarse` when only its\nsentence was located) and the link target.",
+      "properties": {
+        "start": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "end": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coarse": {
+          "type": "boolean"
+        },
+        "target": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
     "StoredEntity": {
       "additionalProperties": false,
       "properties": {
@@ -1185,6 +1315,29 @@
         "type",
         "label",
         "scope"
+      ],
+      "type": "object"
+    },
+    "StoredEnumValue": {
+      "additionalProperties": false,
+      "description": "The stored enum value: the enum by its prefixed name (`stat:ParameterRole`).",
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "pattern": "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
       ],
       "type": "object"
     },
@@ -1272,6 +1425,28 @@
       "required": [
         "op",
         "args"
+      ],
+      "type": "object"
+    },
+    "StoredOutside": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "anchor": {
+          "const": "outside",
+          "type": "string"
+        },
+        "descriptor": {
+          "$ref": "#/$defs/StoredDescriptor"
+        }
+      },
+      "required": [
+        "local_ref",
+        "anchor",
+        "descriptor"
       ],
       "type": "object"
     },
@@ -1397,19 +1572,11 @@
           "type": "string"
         },
         "anchor": {
-          "anyOf": [
-            {
-              "const": "outside",
-              "type": "string"
-            },
-            {
-              "items": {
-                "type": "string"
-              },
-              "minItems": 1,
-              "type": "array"
-            }
-          ]
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
         }
       },
       "required": [
@@ -1418,6 +1585,16 @@
         "anchor"
       ],
       "type": "object"
+    },
+    "StoredStatementItem": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/StoredStatement"
+        },
+        {
+          "$ref": "#/$defs/StoredOutside"
+        }
+      ]
     },
     "StoredUnsupported": {
       "additionalProperties": false,
@@ -1488,7 +1665,7 @@
         "mapping": {
           "bool": "#/$defs/BoolValue",
           "date": "#/$defs/DateValue",
-          "enum": "#/$defs/EnumValue",
+          "enum": "#/$defs/StoredEnumValue",
           "formula": "#/$defs/Formula",
           "interval": "#/$defs/IntervalValue",
           "number": "#/$defs/NumberValue",
@@ -1509,7 +1686,7 @@
           "$ref": "#/$defs/BoolValue"
         },
         {
-          "$ref": "#/$defs/EnumValue"
+          "$ref": "#/$defs/StoredEnumValue"
         },
         {
           "$ref": "#/$defs/Formula"
@@ -1536,9 +1713,11 @@
           "$ref": "#/$defs/BindKind"
         },
         "entity": {
+          "minLength": 1,
           "type": "string"
         },
         "claim": {
+          "minLength": 1,
           "type": "string"
         },
         "param": {
@@ -1569,16 +1748,24 @@
     }
   },
   "additionalProperties": false,
-  "description": "A stored batch; for authored proposals also the batch as written and its frame.",
+  "description": "A stored batch with its derivation (R06, DA-009): the schema version whose compiled models\nderived it, always; for authored proposals also the batch as written, its frame and the version\nof the quote cascade that located it, the three together. A derived claim's `derived_from`\nand `rule` are on the claim itself (M23).",
   "properties": {
     "batch": {
       "$ref": "#/$defs/StoredBatch"
+    },
+    "schema_version": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
     },
     "authored": {
       "$ref": "#/$defs/AuthoredBatch"
     },
     "citation_frame": {
       "$ref": "#/$defs/CitationFrame"
+    },
+    "cascade_version": {
+      "minLength": 1,
+      "type": "string"
     },
     "rationale": {
       "type": "string"
@@ -1588,23 +1775,11 @@
         "$ref": "#/$defs/RejectedItem"
       },
       "type": "array"
-    },
-    "establishment": {
-      "const": "derived",
-      "type": "string"
-    },
-    "derived_from": {
-      "items": {
-        "type": "string"
-      },
-      "type": "array"
-    },
-    "rule": {
-      "type": "string"
     }
   },
   "required": [
-    "batch"
+    "batch",
+    "schema_version"
   ],
   "type": "object"
 }

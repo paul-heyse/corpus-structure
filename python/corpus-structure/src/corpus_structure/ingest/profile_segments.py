@@ -11,7 +11,7 @@ segment attributes, not M02 features.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 from corpus_structure.core.evidence import RenditionContent, Segment
@@ -80,16 +80,23 @@ def features(content: RenditionContent) -> list[SegmentFeatures]:
 
 
 def measurements(
-    content: RenditionContent, segment_key: Callable[[Segment], str]
+    content: RenditionContent,
+    segment_key: Callable[[Segment], str],
+    segment_ids: Mapping[str, int] | None = None,
 ) -> list[MeasurementDraft]:
-    """The features as `ops.measurement` drafts, each scoped to its segment's key."""
-    return [
-        MeasurementDraft(
-            metric=metric,
-            scope_type=MeasurementScope.SEGMENT,
-            scope_key=segment_key(f.segment),
-            value=float(value),
-        )
-        for f in features(content)
-        for metric, value in f.values().items()
-    ]
+    """The features as `ops.measurement` drafts, each scoped to its segment's key and, given the
+    stored segments' ids by key, its id."""
+    out = []
+    for f in features(content):
+        key = segment_key(f.segment)
+        for metric, value in f.values().items():
+            out.append(
+                MeasurementDraft(
+                    metric=metric,
+                    scope_type=MeasurementScope.SEGMENT,
+                    scope_id=segment_ids.get(key) if segment_ids is not None else None,
+                    scope_key=key,
+                    value=float(value),
+                )
+            )
+    return out

@@ -12,7 +12,9 @@ claim models are a union discriminated on `predicate` inside the envelope of eac
 
 A `TypeAdapter` per form validates on the JSON path (`validate_json(text, strict=True)`) and exports
 its draft 2020-12 JSON Schema through the core generator, with an `$id` naming the model revision,
-the schema version and the form (the convention is M3's; `schema_id` writes it until P0-M-3). The
+the schema version and the form (M3's convention, `core.schemas.schema_id`). The `statements[]`
+union holds the version's kind-bearing statement and foundations' `outside` item (an
+`ExternalReference` with its descriptor), discriminated on `anchor == "outside"`. The
 decoding form (T6) is a pure transform of the model-facing schema, with D2 §7.3's backend
 assertions; a violated assertion is a compile error.
 """
@@ -23,12 +25,13 @@ import copy
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import MISSING, ConfigDict, Field, TypeAdapter, create_model
+from pydantic import MISSING, ConfigDict, Discriminator, Field, Tag, TypeAdapter, create_model
 
 from corpus_structure.core import batch as B
 from corpus_structure.core import values as V
 from corpus_structure.core.batch import DEFAULT_MODALITY, DEFAULT_POLARITY
 from corpus_structure.core.schemas import json_schema
+from corpus_structure.core.schemas import schema_id as core_schema_id
 from corpus_structure.core.vocab import Polarity
 from corpus_structure.schema.lookup import NameMap, Predicate, Qualifier, SchemaLookup
 from corpus_structure.schema.pack import PackError
@@ -38,7 +41,6 @@ FORMS = ("model", "stored")
 _DICT: Any = dict
 _TUPLE: Any = tuple
 _UNION: Any = Union
-ID_ROOT = "https://corpus-structure.dev/schemas"
 
 
 class _AuthoredQualifiers(B.AuthoredQualifiers):
@@ -60,8 +62,8 @@ class _StoredQualifiers(B.StoredQualifiers):
 
 
 def schema_id(model_revision: str, schema_version: str, form: str) -> str:
-    """The `$id` of a batch schema (M3 owns the convention; this is its phase 0 form)."""
-    return f"{ID_ROOT}/{model_revision[:12]}/{schema_version[:12]}/batch.{form}.json"
+    """The `$id` of a batch schema of one schema version (M3's convention)."""
+    return core_schema_id(f"batch.{form}", model_revision, schema_version)
 
 
 def _literal(values: tuple[str, ...]) -> Any:
@@ -139,7 +141,7 @@ class BatchCompiler:
             name = enum.name if form == "model" else enum.prefixed
             return create_model(
                 f"{enum.name}Value_{form}",
-                __base__=V.EnumValue,
+                __base__=V.AuthoredEnumValue if form == "model" else V.StoredEnumValue,
                 enum=(_literal((name,)), ...),
                 v=(_literal(tuple(m.text for m in enum.members)), ...),
             )
@@ -192,10 +194,15 @@ class BatchCompiler:
         types = tuple(self._name(n, form) for n in self.lookup.batch_entity_types())
         return create_model(f"Entity_{form}", __base__=base, type=(_literal(types), ...))
 
-    def _statement(self, form: str) -> type:
+    def _statement(self, form: str) -> Any:
         base = B.AuthoredStatement if form == "model" else B.StoredStatement
         kinds = _literal(self._members("StatementKind", form))
-        return create_model(f"Statement_{form}", __base__=base, kind=(kinds, ...))
+        statement = create_model(f"Statement_{form}", __base__=base, kind=(kinds, ...))
+        outside = B.AuthoredOutside if form == "model" else B.StoredOutside
+        return Annotated[  # type: ignore[return-value]
+            Annotated[statement, Tag("statement")] | Annotated[outside, Tag("outside")],
+            Discriminator(B._statement_or_outside),
+        ]
 
     def _batch(self, form: str) -> type:
         base = B.AuthoredBatch if form == "model" else B.StoredBatch
@@ -293,20 +300,62 @@ def _resolve(node: Any, root: Mapping[str, Any]) -> Any:
     return node
 
 
-def _tag(branch: Any, root: Mapping[str, Any]) -> tuple[str, tuple[Any, ...]] | None:
-    b = _resolve(branch, root)
-    for prop, s in (b.get("properties") or {}).items():
-        if prop in (b.get("required") or ()):
-            if "const" in s:
-                return prop, (s["const"],)
-            if "enum" in s and prop in ("t", "op", "bind", "predicate"):
-                return prop, tuple(sorted(s["enum"], key=str))
+TAGS = ("t", "op", "bind", "predicate", "anchor")
+_JSON_TYPES = {str: "string", bool: "boolean", int: "integer", float: "number"}
+
+
+def _values(s: Mapping[str, Any]) -> tuple[set[Any], set[str]] | None:
+    """A tag property's admitted values: (consts, JSON types admitting any value), or None."""
+    if "const" in s:
+        return {s["const"]}, set()
+    if "enum" in s:
+        return set(s["enum"]), set()
+    if "anyOf" in s:
+        consts: set[Any] = set()
+        types: set[str] = set()
+        for branch in s["anyOf"]:
+            if "const" in branch or "enum" in branch:
+                inner = _values(branch)
+                assert inner is not None
+                consts |= inner[0]
+            elif isinstance(branch.get("type"), str) and branch["type"] != "string":
+                types.add(branch["type"])
+            else:
+                return None
+        return consts, types
     return None
+
+
+def _tag(branch: Any, root: Mapping[str, Any]) -> tuple[str, set[Any], set[str]] | None:
+    b = _resolve(branch, root)
+    props = b.get("properties") or {}
+    for prop, s in props.items():
+        if prop in (b.get("required") or ()) and "const" in s:
+            return prop, {s["const"]}, set()
+    for prop, s in props.items():
+        if prop in (b.get("required") or ()) and prop in TAGS and (v := _values(s)) is not None:
+            return prop, *v
+    return None
+
+
+def _disjoint(tags: list[tuple[str, set[Any], set[str]]]) -> bool:
+    """Branches disjoint by one property: no const shared, no type shared, no const of a type
+    another branch admits wholly (a string-typed branch admitting any string is not a tag)."""
+    for i, (_, consts, types) in enumerate(tags):
+        for _, other_consts, other_types in tags[i + 1 :]:
+            if consts & other_consts or types & other_types:
+                return False
+            if {_JSON_TYPES.get(type(c)) for c in consts} & other_types:
+                return False
+            if {_JSON_TYPES.get(type(c)) for c in other_consts} & types:
+                return False
+    return True
 
 
 def decoding_problems(schema: Mapping[str, Any]) -> list[str]:
     """D2 §7.3's backend rules: no forbidden keyword, no multi-branch `allOf`, every `oneOf`
-    disjoint by one `const` property, nesting at most 64 levels."""
+    disjoint by one property (a `const` per branch, or, for a tag property such as the statement
+    `anchor`, value sets that cannot overlap), nesting at most 64 levels."""
     problems: list[str] = []
     deepest = 0
 
@@ -324,9 +373,9 @@ def decoding_problems(schema: Mapping[str, Any]) -> list[str]:
                         problems.append(f"{path}/allOf: more than one branch")
                     if k == "oneOf":
                         tags = [_tag(b, schema) for b in v]
-                        props = {t[0] for t in tags if t}
-                        seen = [x for t in tags if t for x in t[1]]
-                        if None in tags or len(props) != 1 or len(seen) != len(set(seen)):
+                        found = [t for t in tags if t is not None]
+                        props = {t[0] for t in found}
+                        if len(found) != len(tags) or len(props) != 1 or not _disjoint(found):
                             problems.append(f"{path}/oneOf: branches not disjoint by one const")
                 walk(v, f"{path}/{k}", depth + 1, k)
         elif isinstance(node, list):

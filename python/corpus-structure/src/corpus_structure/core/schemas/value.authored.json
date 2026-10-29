@@ -1,6 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/value.authored.json",
   "$defs": {
+    "AuthoredEnumValue": {
+      "additionalProperties": false,
+      "description": "The authored enum value: the enum by its local name (`ParameterRole`).",
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
+      ],
+      "type": "object"
+    },
     "AuthoredPhrase": {
       "additionalProperties": false,
       "properties": {
@@ -66,27 +90,6 @@
       },
       "required": [
         "t",
-        "v"
-      ],
-      "type": "object"
-    },
-    "EnumValue": {
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "const": "enum",
-          "type": "string"
-        },
-        "enum": {
-          "type": "string"
-        },
-        "v": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "t",
-        "enum",
         "v"
       ],
       "type": "object"
@@ -254,9 +257,11 @@
           "$ref": "#/$defs/BindKind"
         },
         "entity": {
+          "minLength": 1,
           "type": "string"
         },
         "claim": {
+          "minLength": 1,
           "type": "string"
         },
         "param": {
@@ -290,7 +295,7 @@
     "mapping": {
       "bool": "#/$defs/BoolValue",
       "date": "#/$defs/DateValue",
-      "enum": "#/$defs/EnumValue",
+      "enum": "#/$defs/AuthoredEnumValue",
       "formula": "#/$defs/Formula",
       "interval": "#/$defs/IntervalValue",
       "number": "#/$defs/NumberValue",
@@ -311,7 +316,7 @@
       "$ref": "#/$defs/BoolValue"
     },
     {
-      "$ref": "#/$defs/EnumValue"
+      "$ref": "#/$defs/AuthoredEnumValue"
     },
     {
       "$ref": "#/$defs/Formula"

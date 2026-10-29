@@ -20,7 +20,12 @@ from types import ModuleType
 
 import pytest
 
-from corpus_structure.core.batch import AuthoredBatch, CitationFrame, cited_sentences
+from corpus_structure.core.batch import (
+    AuthoredBatch,
+    AuthoredOutside,
+    CitationFrame,
+    cited_sentences,
+)
 from corpus_structure.core.locators import parse
 
 
@@ -73,14 +78,10 @@ def test_s0_fixture_validates(name: str) -> None:
     fixture = support.load_s0(name)
     page = str(fixture.provenance["rendition"]["page"])
     assert parse(fixture.unit_key).page == page
-    descriptors = fixture.external_references.descriptors if fixture.external_references else {}
-    _check_frame(
-        fixture.frame, page, fixture.batch, frozenset(d.sentence for d in descriptors.values())
-    )
-    outside = {s.local_ref for s in fixture.batch.statements if s.anchor == "outside"}
-    assert set(descriptors) == outside
-    for descriptor in descriptors.values():
-        assert descriptor.quote in fixture.frame[descriptor.sentence].text
+    _check_frame(fixture.frame, page, fixture.batch)  # descriptor sentences are citations
+    for item in fixture.batch.statements:
+        if isinstance(item, AuthoredOutside):  # an ExternalReference: its quote is in its sentence
+            assert item.descriptor.quote in fixture.frame[item.descriptor.sentence].text
 
 
 def _v1_items(unit: str) -> Counter[tuple[str, str]]:

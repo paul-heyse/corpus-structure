@@ -5,7 +5,7 @@ views:
     applies_to: min:runs_at
     source: min:has_parameter
     match: {source: subject, claim: subject}
-    project: object.identity.setting_name
+    project: object.identity.min:setting_name
 rules:
   - id: min.settings_known
     applies_to: min:runs_at

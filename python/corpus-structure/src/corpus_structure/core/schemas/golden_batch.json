@@ -1,0 +1,1096 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/golden_batch.json",
+  "$defs": {
+    "AlternativeItem": {
+      "additionalProperties": false,
+      "properties": {
+        "refs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 2,
+          "type": "array"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "refs",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "AuthoredAnd": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "and",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/AuthoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "AuthoredBatch": {
+      "additionalProperties": false,
+      "properties": {
+        "unit_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "entities": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AuthoredEntity"
+          },
+          "type": "array"
+        },
+        "statements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AuthoredStatementItem"
+          },
+          "type": "array"
+        },
+        "claims": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AuthoredClaim"
+          },
+          "type": "array"
+        },
+        "alternatives": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AlternativeItem"
+          },
+          "type": "array"
+        },
+        "unsupported": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/AuthoredUnsupported"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "unit_ref"
+      ],
+      "type": "object"
+    },
+    "AuthoredClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "predicate": {
+          "type": "string"
+        },
+        "subject": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "statement": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "statement_role": {
+          "$ref": "#/$defs/StatementRole"
+        },
+        "establishment": {
+          "$ref": "#/$defs/Establishment",
+          "default": "stated"
+        },
+        "derived_from": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "rule": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "object": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityRef"
+            },
+            {
+              "$ref": "#/$defs/AuthoredValue"
+            }
+          ]
+        },
+        "qualifiers": {
+          "$ref": "#/$defs/AuthoredQualifiers"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/AuthoredEvidence"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "local_ref",
+        "predicate",
+        "subject",
+        "object",
+        "evidence"
+      ],
+      "type": "object"
+    },
+    "AuthoredCondition": {
+      "discriminator": {
+        "mapping": {
+          "and": "#/$defs/AuthoredAnd",
+          "claim": "#/$defs/ClaimNode",
+          "cmp": "#/$defs/CmpNode",
+          "forall": "#/$defs/AuthoredForall",
+          "member": "#/$defs/MemberNode",
+          "not": "#/$defs/AuthoredNot",
+          "or": "#/$defs/AuthoredOr",
+          "phrase": "#/$defs/AuthoredPhraseNode",
+          "pred": "#/$defs/PredNode",
+          "unsupported": "#/$defs/AuthoredUnsupportedNode"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AuthoredAnd"
+        },
+        {
+          "$ref": "#/$defs/AuthoredOr"
+        },
+        {
+          "$ref": "#/$defs/AuthoredNot"
+        },
+        {
+          "$ref": "#/$defs/AuthoredForall"
+        },
+        {
+          "$ref": "#/$defs/ClaimNode"
+        },
+        {
+          "$ref": "#/$defs/MemberNode"
+        },
+        {
+          "$ref": "#/$defs/CmpNode"
+        },
+        {
+          "$ref": "#/$defs/PredNode"
+        },
+        {
+          "$ref": "#/$defs/AuthoredPhraseNode"
+        },
+        {
+          "$ref": "#/$defs/AuthoredUnsupportedNode"
+        }
+      ]
+    },
+    "AuthoredDescriptor": {
+      "additionalProperties": false,
+      "description": "An authored external reference's citing text: the sentence and the quote that makes the\nreference, and the author's link target when the text gives one (a D1 §3.4 locator or author\nlink target, as written).",
+      "properties": {
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sentence",
+        "quote"
+      ],
+      "type": "object"
+    },
+    "AuthoredEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EntityScope"
+        },
+        "extent": {
+          "$ref": "#/$defs/EntityExtent"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "aliases": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "identity": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "local_ref",
+        "type",
+        "label",
+        "scope"
+      ],
+      "type": "object"
+    },
+    "AuthoredEnumValue": {
+      "additionalProperties": false,
+      "description": "The authored enum value: the enum by its local name (`ParameterRole`).",
+      "properties": {
+        "t": {
+          "const": "enum",
+          "type": "string"
+        },
+        "enum": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "enum",
+        "v"
+      ],
+      "type": "object"
+    },
+    "AuthoredEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/EvidenceRole"
+        }
+      },
+      "required": [
+        "sentence",
+        "quote",
+        "role"
+      ],
+      "type": "object"
+    },
+    "AuthoredForall": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "forall",
+          "type": "string"
+        },
+        "var": {
+          "type": "string"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        },
+        "body": {
+          "$ref": "#/$defs/AuthoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "var",
+        "set",
+        "body"
+      ],
+      "type": "object"
+    },
+    "AuthoredNot": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "not",
+          "type": "string"
+        },
+        "arg": {
+          "$ref": "#/$defs/AuthoredCondition"
+        }
+      },
+      "required": [
+        "op",
+        "arg"
+      ],
+      "type": "object"
+    },
+    "AuthoredOr": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "or",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/AuthoredCondition"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "args"
+      ],
+      "type": "object"
+    },
+    "AuthoredOutside": {
+      "additionalProperties": false,
+      "description": "A statement outside the unit (S4 V2): an `ExternalReference` node, with no kind.",
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "anchor": {
+          "const": "outside",
+          "type": "string"
+        },
+        "descriptor": {
+          "$ref": "#/$defs/AuthoredDescriptor"
+        }
+      },
+      "required": [
+        "local_ref",
+        "anchor",
+        "descriptor"
+      ],
+      "type": "object"
+    },
+    "AuthoredPhrase": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "text"
+      ],
+      "type": "object"
+    },
+    "AuthoredPhraseNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "phrase",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text"
+      ],
+      "type": "object"
+    },
+    "AuthoredQualifiers": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "properties": {
+        "modality": {
+          "default": "asserted",
+          "pattern": "^[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?$",
+          "type": "string"
+        },
+        "polarity": {
+          "$ref": "#/$defs/Polarity",
+          "default": "positive"
+        },
+        "attribution": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "valid_time": {
+          "$ref": "#/$defs/IntervalValue"
+        },
+        "hedge": {
+          "$ref": "#/$defs/AuthoredPhrase"
+        },
+        "conditions": {
+          "$ref": "#/$defs/AuthoredCondition"
+        },
+        "scope": {
+          "$ref": "#/$defs/ScopeExtent"
+        }
+      },
+      "type": "object"
+    },
+    "AuthoredStatement": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "const": "unit",
+              "type": "string"
+            },
+            {
+              "items": {
+                "pattern": "^[sc][0-9]+$",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "required": [
+        "local_ref",
+        "kind",
+        "anchor"
+      ],
+      "type": "object"
+    },
+    "AuthoredStatementItem": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AuthoredStatement"
+        },
+        {
+          "$ref": "#/$defs/AuthoredOutside"
+        }
+      ]
+    },
+    "AuthoredUnsupported": {
+      "additionalProperties": false,
+      "properties": {
+        "local_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "local_ref",
+        "sentence",
+        "quote",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "AuthoredUnsupportedNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "unsupported",
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sentence": {
+          "pattern": "^[sc][0-9]+$",
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "AuthoredValue": {
+      "discriminator": {
+        "mapping": {
+          "bool": "#/$defs/BoolValue",
+          "date": "#/$defs/DateValue",
+          "enum": "#/$defs/AuthoredEnumValue",
+          "formula": "#/$defs/Formula",
+          "interval": "#/$defs/IntervalValue",
+          "number": "#/$defs/NumberValue",
+          "phrase": "#/$defs/AuthoredPhrase",
+          "set": "#/$defs/SetValue",
+          "text": "#/$defs/TextValue"
+        },
+        "propertyName": "t"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TextValue"
+        },
+        {
+          "$ref": "#/$defs/NumberValue"
+        },
+        {
+          "$ref": "#/$defs/BoolValue"
+        },
+        {
+          "$ref": "#/$defs/AuthoredEnumValue"
+        },
+        {
+          "$ref": "#/$defs/Formula"
+        },
+        {
+          "$ref": "#/$defs/SetValue"
+        },
+        {
+          "$ref": "#/$defs/DateValue"
+        },
+        {
+          "$ref": "#/$defs/IntervalValue"
+        },
+        {
+          "$ref": "#/$defs/AuthoredPhrase"
+        }
+      ]
+    },
+    "BindKind": {
+      "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
+      "enum": [
+        "variable",
+        "param_of",
+        "param_expr_of",
+        "family_param",
+        "free",
+        "constant",
+        "unresolved"
+      ],
+      "type": "string"
+    },
+    "BoolValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "bool",
+          "type": "string"
+        },
+        "v": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "CitationFrame": {
+      "additionalProperties": false,
+      "description": "Maps each cited sentence id (`sN`, or `cN` of the standing context) to locator and text.",
+      "patternProperties": {
+        "^[sc][0-9]+$": {
+          "$ref": "#/$defs/FrameEntry"
+        }
+      },
+      "type": "object"
+    },
+    "ClaimNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "claim",
+          "type": "string"
+        },
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "CmpNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "cmp",
+          "type": "string"
+        },
+        "rel": {
+          "$ref": "#/$defs/Relation"
+        },
+        "lhs": {
+          "$ref": "#/$defs/Formula"
+        },
+        "rhs": {
+          "$ref": "#/$defs/Formula"
+        }
+      },
+      "required": [
+        "op",
+        "rel",
+        "lhs",
+        "rhs"
+      ],
+      "type": "object"
+    },
+    "DateValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "date",
+          "type": "string"
+        },
+        "v": {
+          "pattern": "^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "EntityExtent": {
+      "description": "How far a local entity reaches. Lifecycle: static.",
+      "enum": [
+        "statement",
+        "section"
+      ],
+      "type": "string"
+    },
+    "EntityRef": {
+      "additionalProperties": false,
+      "description": "The one entity-reference shape: a local ref in a batch, an entity key once stored.",
+      "properties": {
+        "ref": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "EntityScope": {
+      "description": "Whether an entity is global or local to a scope segment (D1 §4.2). Lifecycle: static.",
+      "enum": [
+        "global",
+        "local"
+      ],
+      "type": "string"
+    },
+    "Establishment": {
+      "description": "How a claim was established (D5 §9): a claim item's and `kb.claim.establishment`. Lifecycle:\nstatic.",
+      "enum": [
+        "stated",
+        "derived",
+        "agent_asserted"
+      ],
+      "type": "string"
+    },
+    "EvidenceRole": {
+      "description": "The part an evidence span plays for its claim (guideline §10.8). Lifecycle: static.",
+      "enum": [
+        "primary",
+        "supporting",
+        "condition",
+        "definition"
+      ],
+      "type": "string"
+    },
+    "Formula": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "formula",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "$ref": "#/$defs/ParseOutcome"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "FrameEntry": {
+      "additionalProperties": false,
+      "description": "One cited sentence: its locator (D1 §3.4) and its canonical text.",
+      "properties": {
+        "locator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "locator",
+        "text"
+      ],
+      "type": "object"
+    },
+    "IntervalValue": {
+      "additionalProperties": false,
+      "description": "An interval; an absent bound is unbounded.",
+      "properties": {
+        "t": {
+          "const": "interval",
+          "type": "string"
+        },
+        "start": {
+          "discriminator": {
+            "mapping": {
+              "date": "#/$defs/DateValue",
+              "formula": "#/$defs/Formula",
+              "number": "#/$defs/NumberValue"
+            },
+            "propertyName": "t"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumberValue"
+            },
+            {
+              "$ref": "#/$defs/DateValue"
+            },
+            {
+              "$ref": "#/$defs/Formula"
+            }
+          ]
+        },
+        "end": {
+          "discriminator": {
+            "mapping": {
+              "date": "#/$defs/DateValue",
+              "formula": "#/$defs/Formula",
+              "number": "#/$defs/NumberValue"
+            },
+            "propertyName": "t"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NumberValue"
+            },
+            {
+              "$ref": "#/$defs/DateValue"
+            },
+            {
+              "$ref": "#/$defs/Formula"
+            }
+          ]
+        },
+        "start_incl": {
+          "type": "boolean"
+        },
+        "end_incl": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "t"
+      ],
+      "type": "object"
+    },
+    "JsonValue": {},
+    "MemberNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "member",
+          "type": "string"
+        },
+        "x": {
+          "$ref": "#/$defs/Formula"
+        },
+        "set": {
+          "$ref": "#/$defs/SetValue"
+        }
+      },
+      "required": [
+        "op",
+        "x",
+        "set"
+      ],
+      "type": "object"
+    },
+    "NumberValue": {
+      "additionalProperties": false,
+      "description": "A number as its D1 §6.2 canonical decimal; `unit` and `basis` as the source states them.",
+      "properties": {
+        "t": {
+          "const": "number",
+          "type": "string"
+        },
+        "v": {
+          "pattern": "^(?:0|-?(?:[1-9][0-9]*(?:\\.[0-9]*[1-9])?|0\\.[0-9]*[1-9]))$",
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "basis": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    },
+    "ParseOutcome": {
+      "description": "The math grammar's parse outcome for a formula or set value (D4 M11). Lifecycle: static.",
+      "enum": [
+        "ok",
+        "partial",
+        "ambiguous",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "Polarity": {
+      "description": "Whether a claim is stated or denied. Lifecycle: static.",
+      "enum": [
+        "positive",
+        "negative"
+      ],
+      "type": "string"
+    },
+    "PredNode": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "pred",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EntityRef"
+              },
+              {
+                "$ref": "#/$defs/Formula"
+              }
+            ]
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "op",
+        "name",
+        "args"
+      ],
+      "type": "object"
+    },
+    "Relation": {
+      "description": "The relation of a cmp condition node (D1 §7). Lifecycle: static.",
+      "enum": [
+        "<",
+        "<=",
+        "=",
+        "!=",
+        ">",
+        ">="
+      ],
+      "type": "string"
+    },
+    "ScopeExtent": {
+      "description": "How far a supposition reaches beyond its statement. Lifecycle: static.",
+      "enum": [
+        "statement",
+        "section",
+        "document"
+      ],
+      "type": "string"
+    },
+    "SetValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "set",
+          "type": "string"
+        },
+        "latex": {
+          "type": "string"
+        },
+        "symbols": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SymbolBinding"
+          },
+          "type": "object"
+        },
+        "sympy": {
+          "type": "string"
+        },
+        "parse": {
+          "$ref": "#/$defs/ParseOutcome"
+        }
+      },
+      "required": [
+        "t",
+        "latex"
+      ],
+      "type": "object"
+    },
+    "StatementRole": {
+      "description": "The part a claim plays in its statement (guideline §10.3). Lifecycle: static.",
+      "enum": [
+        "premise",
+        "conclusion",
+        "definiens",
+        "restriction",
+        "example_value"
+      ],
+      "type": "string"
+    },
+    "SymbolBinding": {
+      "additionalProperties": false,
+      "description": "How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has.",
+      "properties": {
+        "bind": {
+          "$ref": "#/$defs/BindKind"
+        },
+        "entity": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "claim": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "param": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bind"
+      ],
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "text",
+          "type": "string"
+        },
+        "v": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A golden pass's authored batch with one version of its citation frame (`eval.golden_pass`\nand `eval.citation_frame`, D3 §7): the shape the pass's `payload_schema_id` names for both.",
+  "properties": {
+    "batch": {
+      "$ref": "#/$defs/AuthoredBatch"
+    },
+    "citation_frame": {
+      "$ref": "#/$defs/CitationFrame"
+    }
+  },
+  "required": [
+    "batch",
+    "citation_frame"
+  ],
+  "type": "object"
+}

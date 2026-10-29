@@ -20,8 +20,11 @@
    },
    {
     "local_ref": "e_last_result",
-    "kind": "theorem",
-    "anchor": "outside"
+    "anchor": "outside",
+    "descriptor": {
+     "sentence": "s2",
+     "quote": "the last result"
+    }
    }
   ],
   "entities": [
@@ -380,15 +383,6 @@
    "text": "Conversely, any normally distributed variable can be constructed from a standard normal variable."
   }
  },
- "external_references": {
-  "pending": "R04 / target model §7 T1 descriptor of an authored `outside` statement: the citing sentence and quote, and the author's link target when there is one. Held beside the batch because the current AuthoredStatement has no descriptor field; P0-F-2e validates it and decides its place (migrate this field then).",
-  "descriptors": {
-   "e_last_result": {
-    "sentence": "s2",
-    "quote": "the last result"
-   }
-  }
- },
  "provenance": {
   "spike_unit": "U6",
   "source": "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2/reference_model_v1/U6.json",
@@ -417,7 +411,7 @@
    }
   ],
   "migrations": [
-   "V2 entity e_last_result (Statement, 'the last result') -> statements[] anchor outside, kind theorem"
+   "V2 entity e_last_result (Statement, 'the last result') -> statements[] outside item with descriptor {'sentence': 's2', 'quote': 'the last result'} (no kind)"
   ]
  }
 }

@@ -50,14 +50,24 @@ from sqlalchemy.dialects.postgresql import REGCONFIG
 from sqlalchemy.sql.ddl import CreateView
 
 from corpus_structure.core._model.sql import SEARCH_BLOCK
-from corpus_structure.core.db import _tables
+from corpus_structure.core.db import _tables, extensions
 from corpus_structure.core.vocab import Stage, TaskStatus, TaskUnitType
 
 SCHEMAS = ("meta", "ops", "kb", "eval")
-EXTENSION_RECORD = Path(__file__).resolve().parents[6] / "ops" / "postgresql" / "extensions.txt"
-PROVISION = "run just db-provision, then clone the database from cs_template"
+EXTENSION_RECORD = extensions.EXTENSION_RECORD
 # One BM25 partial index per text-search configuration (D3 §5); phase 0 indexes english.
 TEXT_CONFIGS = ("english",)
+# Tables the model declares that a later migration creates (`info["deferred"]` names why): migration
+# 0001, `alembic check` and the catalog comparison leave them out.
+DEFERRED = {
+    "kb.embedding": "the phase 1 migration that adds M04; its halfvec dimension waits on S7 "
+    "(OPEN-D3-2), and so do its HNSW indexes (D3 §5)",
+}
+
+
+def deployed(md: MetaData) -> list[Table]:
+    """The tables (not views) that migration 0001 creates: every table but the deferred ones."""
+    return [t for t in md.sorted_tables if not t.is_view and not t.info.get("deferred")]
 
 
 class OverlayBindingError(LookupError):
@@ -338,38 +348,13 @@ def unsupported_foreign_keys(md: MetaData) -> list[str]:
 
 
 def expected_extensions(path: Path = EXTENSION_RECORD) -> dict[str, str]:
-    """The record of expected extension versions: `<extension> <version>` per line (DA-018)."""
-    expected: dict[str, str] = {}
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        fields = line.split("#", 1)[0].split()
-        if not fields:
-            continue
-        if len(fields) != 2 or fields[0] in expected:
-            raise ValueError(f"{path}:{number}: expected one '<extension> <version>', got {line!r}")
-        expected[fields[0]] = fields[1]
-    return expected
-
-
-def _literal(value: str) -> str:
-    if not re.fullmatch(r"[A-Za-z0-9_.\-]+", value):
-        raise ValueError(f"unexpected extension name or version {value!r}")
-    return f"'{value}'"
+    """The record of expected extension versions (`core/db/extensions.py`)."""
+    return extensions.expected_extensions(path)
 
 
 def extension_assertion(expected: Mapping[str, str] | None = None) -> str:
-    """A `DO` block that fails (`P0001`) unless each expected extension is installed at its
-    recorded version, naming the extension, both versions and `just db-provision`."""
-    expected = expected_extensions() if expected is None else expected
-    checks = []
-    for name, version in sorted(expected.items()):
-        checks.append(
-            f"  SELECT extversion INTO found FROM pg_extension WHERE extname = {_literal(name)};\n"
-            f"  IF found IS DISTINCT FROM {_literal(version)} THEN\n"
-            f"    RAISE EXCEPTION 'extension {name} is %, expected {version}: {PROVISION}',\n"
-            f"      coalesce(found, 'absent');\n"
-            f"  END IF;\n"
-        )
-    return "DO $$\nDECLARE found text;\nBEGIN\n" + "".join(checks) + "END $$"
+    """The extension assertion's `DO` block (`core/db/extensions.py`)."""
+    return extensions.assertion_sql(expected)
 
 
 def _before_create(md: MetaData) -> None:
@@ -389,6 +374,8 @@ def apply(md: MetaData) -> Overlay:
     """Bind the overlay to `md` (once per `MetaData`): indexes, views and the create events."""
     added = tuple(indexes(md))
     made = tuple(views(md))
+    for name, reason in DEFERRED.items():
+        _table(md, name).info["deferred"] = reason
     missing = unsupported_foreign_keys(md)
     if missing:
         raise OverlayBindingError(

@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.judgment.json",
   "$defs": {
     "JudgmentConfidence": {
       "description": "A judge's stated confidence. Lifecycle: static.",
@@ -24,19 +25,18 @@
     },
     "JudgmentTarget": {
       "additionalProperties": false,
+      "description": "What a judgment is about: an observation by its id's decimal text, or a claim or group by\nits key with that key's scheme (readers compare keys only within one scheme or through a\ncarry-over map; foundations §3.6).",
       "properties": {
         "kind": {
           "$ref": "#/$defs/JudgmentTargetKind"
         },
         "ref": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "integer"
-            }
-          ]
+          "minLength": 1,
+          "type": "string"
+        },
+        "key_scheme": {
+          "minimum": 1,
+          "type": "integer"
         }
       },
       "required": [

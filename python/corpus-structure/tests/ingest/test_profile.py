@@ -13,26 +13,35 @@ import pytest
 import yaml
 from lxml.cssselect import CSSSelector
 
-from corpus_structure.core.vocab import SegmentKind, StatementKind, SynthesisObject
+from corpus_structure.core.vocab import (
+    ListMarkerStyle,
+    QuoteRender,
+    ReferenceRender,
+    SectionSource,
+    SegmentKind,
+    StatementKind,
+    SynthesisObject,
+)
 from corpus_structure.ingest import profile as profiles
 from corpus_structure.ingest.html import parse
 from corpus_structure.ingest.profile import (
     BlockHint,
     CorpusIndex,
-    DetailsKinds,
+    ListMarkerRule,
     ProfileError,
     ProfileIssue,
-    SectionHint,
-    SourceProfile,
+    ReferenceSpec,
+    RenderSpec,
+    SummaryKind,
     SynthesisRule,
     check_profile,
     compile_profile,
     load_profile,
     parse_profile,
+    unimplemented,
 )
 
 REPO = Path(__file__).resolve().parents[4]
-SYSTEM = REPO / "python/corpus-structure/src/corpus_structure/model/system.yaml"
 VENDORED = REPO / "fixtures/trace/corpus/siegrist_random/random"
 SPIKE_PAGES = (
     "special/LocationScale.html",
@@ -78,30 +87,24 @@ def test_the_siegrist_profile_loads_typed_by_core_vocabulary() -> None:
     assert p.orphan_text is SegmentKind.PARAGRAPH
     assert p.math.display_environments == ("align", "align*")
     assert p.math.page_macros == "div.latex"
-
-
-def _system_class(data: dict[str, Any], name: str) -> dict[str, dict[str, Any]]:
-    return data["classes"][name]["attributes"]
-
-
-@pytest.mark.parametrize(
-    ("model_class", "shape"),
-    [
-        ("SourceProfile", SourceProfile),
-        ("CorpusIndex", CorpusIndex),
-        ("BlockHint", BlockHint),
-        ("SectionHint", SectionHint),
-        ("DetailsKinds", DetailsKinds),
-        ("SynthesisRule", SynthesisRule),
-    ],
-)
-def test_the_profile_model_has_the_system_classes_fields(model_class: str, shape: type) -> None:
-    """Field for field, with required-ness (the model's interim guard compares more, P0-M-1)."""
-    attributes = _system_class(yaml.safe_load(SYSTEM.read_text(encoding="utf-8")), model_class)
-    assert list(shape.model_fields) == list(attributes)
-    for name, slot in attributes.items():
-        required = bool(slot.get("required") or slot.get("identifier"))
-        assert shape.model_fields[name].is_required() == required, name
+    assert [r.name for r in p.exclude][:2] == ["scripts", "macro_block"]
+    assert p.details_kinds.by_summary == (
+        SummaryKind(summary="Answer", statement_kind=StatementKind.SOLUTION),
+        SummaryKind(summary="Answwer:", statement_kind=StatementKind.SOLUTION),
+        SummaryKind(summary="Notes:", statement_kind=StatementKind.REMARK),
+    )
+    assert p.references == ReferenceSpec(selector="a.ref", render=ReferenceRender.BROWSER)
+    assert p.render == RenderSpec(
+        q=QuoteRender.QUOTES,
+        list_markers=(ListMarkerRule(selector="ol.sub", style=ListMarkerStyle.PARENTHESIZED),),
+    )
+    assert (p.encoding, p.section_source, p.layout, p.verbatim, p.img_alt) == (
+        "sniff",
+        SectionSource.BODY,
+        (),
+        (),
+        None,
+    )
 
 
 def test_an_invalid_selector_rejects_the_whole_profile() -> None:
@@ -132,7 +135,7 @@ def test_an_invalid_selector_rejects_the_whole_profile() -> None:
             "not a prefixed predicate",
         ),
         (lambda d: d.update({"orphan_text": "para"}), "orphan_text"),
-        (lambda d: d.update({"layout": "table.layout"}), "layout: Extra inputs are not permitted"),
+        (lambda d: d.update({"encodings": "utf-8"}), "encodings: Extra inputs are not permitted"),
         (lambda d: d.update({"applies_to": "nist/**/*.html"}), "must lie under root"),
     ],
 )
@@ -183,6 +186,44 @@ def test_check_profile_passes_kinds_the_version_has_and_reports_those_it_lacks()
             "unknown_predicate", "details_kinds.synthesize[stat:lemma].predicate", "stat:supports"
         ),
     )
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "field", "name"),
+    [
+        ("encoding", "windows-1252", "encoding", "windows-1252"),
+        ("section_source", "layout", "section_source", "layout"),
+        ("layout", ["table.layout"], "layout", "table.layout"),
+        ("verbatim", ["pre"], "verbatim", "pre"),
+        ("img_alt", True, "img_alt", "true"),
+    ],
+)
+def test_unimplemented_vocabulary_keys_load_and_are_refused_with_a_code(
+    key: str, value: Any, field: str, name: str
+) -> None:
+    data = siegrist_data()
+    data[key] = value
+    p = parse_profile("edited", data)
+    issue = ProfileIssue("not_implemented", field, name)
+    assert unimplemented(p) == (issue,)
+    assert check_profile(p, CORE_AND_LEMMA) == (issue,)
+    with pytest.raises(ProfileError, match="not implemented by M01") as refused:
+        compile_profile(p, "edited")
+    assert refused.value.code == "not_implemented"
+
+
+def test_the_implemented_values_of_those_keys_compile() -> None:
+    data = siegrist_data()
+    data.update(encoding="sniff", section_source="body", layout=[], verbatim=[], img_alt=False)
+    assert unimplemented(compile_profile(parse_profile("explicit", data)).profile) == ()
+
+
+def test_an_invalid_value_of_those_keys_is_refused_at_load() -> None:
+    data = siegrist_data()
+    data["section_source"] = "rows"
+    with pytest.raises(ProfileError, match="section_source") as refused:
+        parse_profile("edited", data)
+    assert refused.value.code == "invalid"
 
 
 def test_check_profile_reports_a_core_kind_a_version_does_not_carry() -> None:

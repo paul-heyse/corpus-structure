@@ -4,9 +4,8 @@ Foundations §3.7 (P0-F-3); documented in `fixtures/trace/README.md`. The batche
 the core models (`AuthoredBatch`, `CitationFrame`); this module adds only what the fixture files
 hold around them:
 
-- `S0Fixture`: one annotation unit's authored batch, frame and provenance; `ExternalReferences`
-  holds the R04 descriptor of an authored `outside` statement until P0-F-2e gives the item a field
-  for it;
+- `S0Fixture`: one annotation unit's authored batch, frame and provenance (an `outside`
+  statement's descriptor is in the batch since P0-F-2e);
 - `TraceSegments`: the expected segments of one trace annotation unit (I1a's acceptance);
 - `TraceTarget`: a trace unit's target batch and frame, its `must_not` patterns (`MustNot`, an
   `EntityPattern` or a `ClaimPattern`), its D8 §5.3 `questions` (`Question`), the phase-2 claims
@@ -27,7 +26,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from corpus_structure.core.batch import AuthoredBatch, CitationFrame
 from corpus_structure.core.evidence import SegmentKind
-from corpus_structure.core.values import SentenceId
 from corpus_structure.core.vocab import DelimitingStatus
 
 REPO = Path(__file__).resolve().parents[4]
@@ -58,25 +56,10 @@ class _Model(BaseModel):
 # --- fixtures/s0 -------------------------------------------------------------------------------
 
 
-class OutsideDescriptor(_Model):
-    """R04 / target model §7 T1: the citing sentence and quote of an authored `outside` statement,
-    and the author's link target when there is one."""
-
-    sentence: SentenceId
-    quote: str = Field(min_length=1)
-    link_target: str | None = None
-
-
-class ExternalReferences(_Model):
-    pending: str
-    descriptors: dict[str, OutsideDescriptor]
-
-
 class S0Fixture(_Model):
     unit_key: str
     batch: AuthoredBatch
     frame: CitationFrame
-    external_references: ExternalReferences | None = None
     provenance: dict[str, JsonValue]
 
     @model_validator(mode="after")

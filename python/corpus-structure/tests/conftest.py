@@ -46,6 +46,7 @@ from typer.testing import CliRunner, Result
 
 from corpus_structure.cli.app import app
 from corpus_structure.cli.output import CliState
+from corpus_structure.core.db import extensions
 from corpus_structure.settings import Settings
 
 PACKAGE = Path(__file__).resolve().parents[1]
@@ -53,7 +54,7 @@ REPO = PACKAGE.parents[1]
 ALEMBIC_DIR = PACKAGE / "alembic"
 VERSIONS_DIR = ALEMBIC_DIR / "versions"
 CORPUS_DIR = REPO / "docs" / "statistics_corpus"
-EXTENSION_RECORD = REPO / "ops" / "postgresql" / "extensions.txt"
+EXTENSION_RECORD = extensions.EXTENSION_RECORD
 PROVISION = (
     "run `just db-provision` (the dedicated cluster 18/corpus with cs_template, D3 §13), "
     "or point CORPUS_DATABASE__URL at a server that has it"
@@ -130,16 +131,8 @@ def server_url(settings: Settings | None = None) -> str:
 
 
 def expected_extensions(path: Path = EXTENSION_RECORD) -> dict[str, str]:
-    """The record of expected extension versions: `<extension> <version>` per line (DA-018)."""
-    expected: dict[str, str] = {}
-    for number, line in enumerate(path.read_text().splitlines(), 1):
-        fields = line.split("#", 1)[0].split()
-        if not fields:
-            continue
-        if len(fields) != 2 or fields[0] in expected:
-            raise ValueError(f"{path}:{number}: expected one '<extension> <version>', got {line!r}")
-        expected[fields[0]] = fields[1]
-    return expected
+    """The record of expected extension versions (DA-018), read by the product's reader."""
+    return extensions.expected_extensions(path)
 
 
 def versions_hash(extensions: Mapping[str, str]) -> str:

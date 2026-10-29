@@ -40,6 +40,7 @@ from corpus_structure.core.keys import (
     LabelRules,
     Member,
     Rewrite,
+    Uniform,
     ValueSpec,
     canonical_condition,
     canonical_qualifier,
@@ -81,8 +82,7 @@ def pack_spec(name: str, canonical: CanonicalForm, range_: str = "string",
 MACROS = {"\\R": MacroDef(body="\\mathbb{R}")}
 
 
-def resolve(ref: str) -> str:
-    return f"key:{ref}"
+resolve = Uniform(lambda ref: f"key:{ref}")  # every reference alike, whatever its kind
 
 
 def members(alias: Any) -> set[type]:
@@ -104,7 +104,6 @@ _SHARED = [
     ({"t": "number", "v": "1.5", "unit": " m ", "basis": "per  year"},
      {"t": "number", "v": "1.5", "unit": "m", "basis": "per year"}, 0),
     ({"t": "bool", "v": True}, {"t": "bool", "v": True}, 0),
-    ({"t": "enum", "enum": "stat:Kind", "v": "a"}, {"t": "enum", "enum": "stat:Kind", "v": "a"}, 0),
     (FORMULA, {"t": "formula", "latex": "b^2\\mu"}, 1),
     (SET, {"t": "set", "latex": "\\mathbb R"}, 1),
     ({"t": "date", "v": "2026-01-31"}, {"t": "date", "v": "2026-01-31"}, 0),
@@ -113,12 +112,17 @@ _SHARED = [
      {"t": "interval", "start": {"t": "formula", "latex": "a"}, "end": {"t": "number", "v": "2"},
       "end_incl": True}, 1),
 ]  # fmt: skip
+# An authored enum value names its enum locally, so it has no key form: keys read the stored
+# form, which names it prefixed (X2-01).
+NO_KEY_FORM: dict = {}
 VALUES["authored"] = [
     *_SHARED,
+    ({"t": "enum", "enum": "Kind", "v": "a"}, NO_KEY_FORM, 0),
     ({"t": "phrase", "text": "Roughly", "sentence": "s1"}, {"t": "phrase", "text": "roughly"}, 0),
 ]
 VALUES["stored"] = [
     *_SHARED,
+    ({"t": "enum", "enum": "stat:Kind", "v": "a"}, {"t": "enum", "enum": "stat:Kind", "v": "a"}, 0),
     (
         {"t": "phrase", "text": "Roughly", "start": 0, "end": 7},
         {"t": "phrase", "text": "roughly"},
@@ -187,7 +191,11 @@ def test_every_value_member_through_every_value_dispatch(form: str) -> None:
     adapter = VALUE_ADAPTERS[form]
     for raw, canonical, count in VALUES[form]:
         value = adapter.validate_python(raw)
-        assert canonical_value(value, MACROS, resolve) == canonical, raw
+        if canonical is NO_KEY_FORM:
+            with pytest.raises(TypeError, match="names its enum locally"):
+                canonical_value(value, MACROS, resolve)
+        else:
+            assert canonical_value(value, MACROS, resolve) == canonical, raw
         assert len(list(expressions(value))) == count, raw
         if form == "stored":
             spec = ValueSpec(type(value).__name__, BY_TAG[raw["t"]])
@@ -233,7 +241,7 @@ def test_a_seeded_unknown_operator_or_value_kind_is_refused_at_validation(form: 
     with pytest.raises(ValidationError):
         VALUE_ADAPTERS[form].validate_python({"t": "quantity", "v": "1"})
     with pytest.raises(ValidationError):  # nor can a stored claim carry one into keying
-        KeyedCandidateSet.model_validate({"claims": [{
+        KeyedCandidateSet.model_validate({"rendition": "ren:" + "0" * 32, "claims": [{
             "id": "c1", "predicate": "stat:p", "subject": "X", "object": {"ref": "Y"},
             "qualifiers": {"core:conditions": xor},
         }]})  # fmt: skip
@@ -244,7 +252,8 @@ def test_a_seeded_unknown_operator_or_value_kind_is_refused_at_validation(form: 
 AUTHORED_ITEMS: list[tuple[dict, list[str]]] = [  # (raw item, sentences it cites)
     ({"local_ref": "X", "type": "RandomVariable", "label": "X", "scope": "local"}, []),
     ({"local_ref": "st", "kind": "theorem", "anchor": ["s1", "s2"]}, ["s1", "s2"]),
-    ({"local_ref": "st0", "kind": "theorem", "anchor": "outside"}, []),
+    ({"local_ref": "st0", "anchor": "outside",
+      "descriptor": {"sentence": "s7", "quote": "the last result"}}, ["s7"]),
     ({"local_ref": "c", "predicate": "p", "subject": "X",
       "object": {"t": "phrase", "text": "x", "sentence": "s4"},
       "qualifiers": {"hedge": {"t": "phrase", "text": "h", "sentence": "s5"},
@@ -259,6 +268,7 @@ AUTHORED_ITEMS: list[tuple[dict, list[str]]] = [  # (raw item, sentences it cite
 STORED_ITEMS: list[dict] = [
     {"local_ref": "X", "type": "stat:T", "label": "X", "scope": "global"},
     {"local_ref": "st", "kind": "theorem", "anchor": ["seg:1"]},
+    {"local_ref": "st0", "anchor": "outside", "descriptor": {"start": 2, "end": 9}},
     {"local_ref": "c", "predicate": "stat:p", "subject": "X", "object": {"ref": "X"},
      "qualifiers": {"stat:sentence": "s3"},
      "evidence": [{"start": 0, "end": 1, "role": "primary"}]},
@@ -297,7 +307,7 @@ def test_cited_sentences_reads_the_typed_items() -> None:
         "alternatives": [],
         "unsupported": [AUTHORED_ITEMS[5][0]],
     })  # fmt: skip
-    assert cited_sentences(batch) == ["s1", "s2", "s4", "s5", "s6", "s3", "c1"]
+    assert cited_sentences(batch) == ["s1", "s2", "s7", "s4", "s5", "s6", "s3", "c1"]
 
 
 # --- Keying outcomes ---------------------------------------------------------------------------
@@ -348,6 +358,7 @@ def key(ctx: KeyContext, entities: list[dict], statements: list[dict], claims: l
     base = {"predicate": "stat:p", "subject": "N", "object": {"ref": "N"},
             "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
     cands = KeyedCandidateSet.model_validate({
+        "rendition": ctx.rendition_key,
         "entities": [{"id": "N", "type": "stat:T", "label": "normal", "scope": "global"},
                      *entities],
         "statements": statements,
@@ -366,21 +377,30 @@ def test_every_drop_reason_has_a_case_producing_it() -> None:
          "identity": {"stat:of": "a"}},
         {"id": "z", "type": "stat:P", "label": "z", "scope": "global",
          "identity": {"stat:of": "nowhere"}},
+        # a local entity whose extent resolved to no segment: kept, but it has no scope to key by
+        {"id": "w", "type": "stat:P", "label": "w", "scope": "local", "extent": "section"},
     ]  # fmt: skip
     statements = [
         {"id": "st", "kind": "theorem", "anchor": [sentence]},
         {"id": "gone", "kind": "theorem", "anchor": ["seg:" + "0" * 32]},
-        {"id": "last", "kind": "theorem", "anchor": "outside"},
+    ]
+    third = ctx.content.text(next(s for s in ctx.content.document.walk()
+                                  if s.kind is SegmentKind.SENTENCE and s.start > 30))
+    start = ctx.content.canonical_text.index(third)
+    references = [  # one cited inside `st`'s sentence; one in a sentence no statement anchors
+        {"id": "xr", "descriptor": {"start": 8, "end": 9}},
+        {"id": "xr_far", "descriptor": {"start": start, "end": start + 6}},
     ]
     claims = [
         {"id": "c_predicate", "predicate": "stat:q"},
-        {"id": "c_outside", "statement": "last"},
+        {"id": "c_kind", "qualifiers": {"core:conditions": {"op": "claim", "ref": "st"}}},
+        {"id": "c_cited", "statement": "st", "object": {"ref": "xr"}},
         {"id": "c_unknown", "subject": "nobody"},
         {"id": "c_dropped", "statement": "gone"},
         {"id": "c_claim_ref", "qualifiers": {"core:conditions": {"op": "claim", "ref": "c9"}}},
         {"id": "c_cycle", "qualifiers": {"core:conditions": {"op": "claim", "ref": "c_cycle"}}},
         {"id": "c_float", "qualifiers": {"stat:values": {"mean": 1.5}}},
-        {"id": "c_kind", "qualifiers": {"stat:values": {"mean": {"t": "quantity", "v": "1"}}}},
+        {"id": "c_value", "qualifiers": {"stat:values": {"mean": {"t": "quantity", "v": "1"}}}},
         {"id": "c_ok", "statement": "st", "qualifiers": {"stat:values": {"mean": FORMULA}}},
         {"id": "c_surrogate", "object": {"t": "text", "v": "lone \ud800"}},
     ]
@@ -394,9 +414,11 @@ def test_every_drop_reason_has_a_case_producing_it() -> None:
     base = {"predicate": "stat:p", "subject": "N", "object": {"ref": "N"},
             "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
     cands = KeyedCandidateSet.model_validate({
+        "rendition": ctx.rendition_key,
         "entities": [{"id": "N", "type": "stat:T", "label": "normal", "scope": "global"},
                      *entities],
         "statements": statements,
+        "references": references,
         "claims": [{**base, **c} for c in claims],
     })  # fmt: skip
     out = key_claims(cands, ctx, identity, RULES)
@@ -404,19 +426,27 @@ def test_every_drop_reason_has_a_case_producing_it() -> None:
         "a": Drop(DropReason.IDENTITY_CYCLE, "a"),
         "b": Drop(DropReason.IDENTITY_CYCLE, "b"),
         "z": Drop(DropReason.UNKNOWN_IDENTITY_ENTITY, "nowhere"),
+        "w": Drop(DropReason.UNRESOLVED_EXTENT, "w"),
         "gone": Drop(DropReason.SEGMENT_NOT_ON_RENDITION, "seg:" + "0" * 32),
         "c_predicate": Drop(DropReason.UNKNOWN_PREDICATE, "stat:q"),
-        "c_outside": Drop(DropReason.OUTSIDE_UNRESOLVED, "last"),
+        "c_kind": Drop(DropReason.WRONG_KIND_REFERENCE, "st", ("claim", "a statement")),
+        "xr_far": Drop(DropReason.UNCITED_REFERENCE, "xr_far"),
         "c_unknown": Drop(DropReason.UNKNOWN_REFERENCE, "nobody"),
         "c_dropped": Drop(DropReason.DROPPED_DEPENDENCY, "gone"),
         "c_claim_ref": Drop(DropReason.UNKNOWN_CLAIM_REF, "c9"),
         "c_cycle": Drop(DropReason.CONDITION_CYCLE, "c_cycle", ("c_cycle", "c_cycle")),
         "c_float": Drop(DropReason.MALFORMED_QUALIFIER, "stat:values", ("mean",)),
-        "c_kind": Drop(DropReason.MALFORMED_QUALIFIER, "stat:values", ("mean",)),
+        "c_value": Drop(DropReason.MALFORMED_QUALIFIER, "stat:values", ("mean",)),
         "c_surrogate": Drop(DropReason.MALFORMED_VALUE, "c_surrogate", ("$.object.value.v",)),
     }
-    assert set(out.claims) == {"c_ok"}
-    assert {d.code for d in out.dropped.values()} == set(DropReason)
+    assert set(out.claims) == {"c_ok", "c_cited"}  # an unresolved reference is no drop
+    assert set(out.references) == {"xr"}
+    # every code keying can drop with; parse's (A0) `unlocated_quote` is produced by
+    # `tests/llm/test_parse.py`
+    parse_codes = {DropReason.UNLOCATED_QUOTE}
+    assert {d.code for d in out.dropped.values()} == set(DropReason) - parse_codes
+    for code in parse_codes:  # their messages project the code too
+        assert "p.q" in Drop(code, "p.q").message
     for drop in out.dropped.values():  # every code projects to a message naming its subject
         assert drop.ref in drop.message or drop.code is DropReason.CONDITION_CYCLE
 

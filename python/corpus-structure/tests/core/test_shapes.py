@@ -21,17 +21,25 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis_jsonschema import from_schema
 from jsonschema import Draft202012Validator
-from pydantic import ValidationError
+from pydantic import MISSING, ValidationError
 
 from corpus_structure.core import schemas
 from corpus_structure.core.batch import (
     AuthoredBatch,
+    AuthoredOutside,
     AuthoredQualifiers,
     CitationFrame,
     StoredBatch,
+    StoredOutside,
     cited_sentences,
 )
-from corpus_structure.core.payloads import PAYLOADS, ClaimProposalPayload, validate_payload
+from corpus_structure.core.payloads import (
+    PAYLOADS,
+    ClaimProposalPayload,
+    InterventionTarget,
+    JudgmentTarget,
+    validate_payload,
+)
 from corpus_structure.core.values import (
     CONDITION_ADAPTERS,
     VALUE_ADAPTERS,
@@ -99,7 +107,10 @@ def value(form: str) -> st.SearchStrategy[dict]:
         st.builds(lambda v: {"t": "text", "v": v}, TEXT),
         NUMBER,
         st.builds(lambda v: {"t": "bool", "v": v}, st.booleans()),
-        st.builds(lambda e, v: {"t": "enum", "enum": e, "v": v}, TEXT, TEXT),
+        # the enum by local name when authored, by prefixed name when stored (X2-01)
+        st.builds(lambda e, v: {"t": "enum", "enum": e, "v": v},
+                  st.sampled_from(["ParameterRole", "Shape"] if form == "authored"
+                                  else ["stat:ParameterRole", "biz:Shape"]), TEXT),
         expression("formula"),
         expression("set"),
         DATE,
@@ -169,7 +180,7 @@ def test_conditions_round_trip_and_satisfy_the_schema(form: str, data: st.DataOb
 
 NON_RECURSIVE = sorted(
     name for name in schemas.SCHEMAS() if not name.startswith(("condition", "batch"))
-    and name != "payload.claim_proposal"
+    and name not in ("payload.claim_proposal", "golden_batch")
 )  # fmt: skip
 
 
@@ -319,7 +330,7 @@ def test_batch_refusals() -> None:
         AuthoredBatch.model_validate(no_evidence)
     global_extent = copy.deepcopy(raw)
     global_extent["entities"][2]["extent"] = "section"
-    with pytest.raises(ValidationError, match="only a local entity has an extent"):
+    with pytest.raises(ValidationError, match="extent is given only when scope is local"):
         AuthoredBatch.model_validate(global_extent)
 
 
@@ -328,6 +339,7 @@ def stored_t3() -> dict:
     schema name prefixed."""
     return {
         "unit_ref": "special/Normal.html#rel1",
+        "rendition": "ren:" + "1" * 32,
         "entities": [
             {"local_ref": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
              "extent": "statement", "symbol": "X", "scope_segment": "seg:1"},
@@ -350,10 +362,15 @@ def stored_t3() -> dict:
 def test_the_stored_form() -> None:
     batch = StoredBatch.model_validate_json(json.dumps(stored_t3()), strict=True)
     validator("batch.stored").validate(batch.model_dump(mode="json"))
+    # an extent that resolves to no segment is reported and the field left out, never guessed
+    # (agent interface §3.1): the local entity stays, without its scope_segment
     no_segment = stored_t3()
     del no_segment["entities"][0]["scope_segment"]
-    with pytest.raises(ValidationError, match="scope_segment exactly when it is local"):
-        StoredBatch.model_validate(no_segment)
+    assert StoredBatch.model_validate(no_segment).entities[0].scope_segment is MISSING
+    global_segment = stored_t3()
+    global_segment["entities"][1]["scope_segment"] = "seg:1"
+    with pytest.raises(ValidationError, match="scope_segment is given only when scope is local"):
+        StoredBatch.model_validate(global_segment)
     empty = stored_t3()
     empty["claims"][0]["evidence"][0]["end"] = 10
     with pytest.raises(ValidationError, match="empty or reversed"):
@@ -410,19 +427,53 @@ def test_every_observation_kind_has_a_payload_model() -> None:
     assert set(PAYLOADS) == set(ObservationKind)
 
 
-def test_claim_proposal_authored_and_frame_come_together() -> None:
+SCHEMA_VERSION = "5" * 64  # an S1 schema-version hash
+
+
+def test_claim_proposal_carries_its_derivation() -> None:
+    """R06, DA-009: the schema version that derived the stored batch, always; for an authored
+    proposal also the batch as written, its frame and the quote cascade's version, together."""
     frame = {"s1": {"locator": "special/Normal.html@sentence:Suppose", "text": "Suppose X."}}
     authored = entity_refs_canonical(v1("U7"))
-    ok = {"batch": stored_t3(), "authored": authored, "citation_frame": frame}
+    ok = {"batch": stored_t3(), "schema_version": SCHEMA_VERSION, "authored": authored,
+          "citation_frame": frame, "cascade_version": "quote-cascade/1"}  # fmt: skip
     payload = validate_payload("claim_proposal", ok)
     assert isinstance(payload, ClaimProposalPayload)
+    assert (payload.schema_version, payload.cascade_version) == (SCHEMA_VERSION, "quote-cascade/1")
     validator("payload.claim_proposal").validate(payload.model_dump(mode="json"))
-    for missing in ("authored", "citation_frame"):
+    for missing in ("authored", "citation_frame", "cascade_version"):
         partial = {k: v for k, v in ok.items() if k != missing}
         with pytest.raises(ValidationError, match="present together"):
             validate_payload("claim_proposal", partial)
-    with pytest.raises(ValidationError, match="derived_from and rule"):
-        validate_payload("claim_proposal", {"batch": stored_t3(), "establishment": "derived"})
+    derived = {"batch": stored_t3(), "schema_version": SCHEMA_VERSION}  # M23: no cascade ran
+    dumped = validate_payload("claim_proposal", derived).model_dump(mode="json")
+    assert "cascade_version" not in dumped and dumped["schema_version"] == SCHEMA_VERSION
+    for bad in ({"batch": stored_t3()}, {**derived, "schema_version": "1.0"}):
+        with pytest.raises(ValidationError, match="schema_version"):
+            validate_payload("claim_proposal", bad)
+
+
+def test_a_claims_derivation_is_on_the_claim() -> None:
+    """`establishment` defaults to stated and is left out of dumps; `derived_from` and `rule`
+    are present exactly when it is derived (the model's ClaimItem invariant)."""
+    raw = stored_t3()
+    stated = StoredBatch.model_validate(raw)
+    assert stated.claims[0].establishment == "stated"
+    assert "establishment" not in stated.model_dump(mode="json")["claims"][0]
+    raw["claims"][0] |= {"establishment": "derived", "derived_from": ["clm:" + "2" * 32],
+                         "rule": "stat.location_scale"}  # fmt: skip
+    derived = StoredBatch.model_validate_json(json.dumps(raw), strict=True)
+    assert derived.model_dump(mode="json")["claims"][0]["derived_from"] == ["clm:" + "2" * 32]
+    validator("batch.stored").validate(derived.model_dump(mode="json"))
+    for drop in ("derived_from", "rule"):
+        partial = copy.deepcopy(raw)
+        del partial["claims"][0][drop]
+        with pytest.raises(ValidationError, match=f"{drop} is given exactly when establishment"):
+            StoredBatch.model_validate(partial)
+    stated_with_rule = stored_t3()
+    stated_with_rule["claims"][0]["rule"] = "stat.location_scale"
+    with pytest.raises(ValidationError, match="rule is given exactly when establishment"):
+        StoredBatch.model_validate(stated_with_rule)
 
 
 def test_payload_rules_the_schema_cannot_state() -> None:
@@ -431,7 +482,7 @@ def test_payload_rules_the_schema_cannot_state() -> None:
         validate_payload("link", base)
     with pytest.raises(ValidationError, match="exactly one"):
         validate_payload("link", {**base, "mention_ref": {"ordinal": 1}, "pair": ["a", "b"]})
-    judgment = {"target": {"kind": "claim", "ref": "clm:1"}, "decision": "choose",
+    judgment = {"target": {"kind": "claim", "ref": "clm:1", "key_scheme": 1}, "decision": "choose",
                 "rationale": "r", "guideline_version": "1"}  # fmt: skip
     with pytest.raises(ValidationError, match="chosen"):
         validate_payload("judgment", judgment)
@@ -447,6 +498,75 @@ def test_payload_rules_the_schema_cannot_state() -> None:
              "math_kind": "formula"}  # fmt: skip
     dumped = validate_payload("value", value).model_dump(mode="json")
     assert dumped == {**value, "value": {**value["value"], "symbols": {}}}
+
+
+def test_a_mention_names_each_attribute_groups_label_and_score() -> None:
+    """D2 §5's span attribute groups: each group (an enum with `ci:extract: attribute`) to the
+    label it chose and its score, keyed by the group, as the model's `GroupScore` map is."""
+    mention = {"start": 0, "end": 1, "label": "random variable", "text": "X",
+               "attributes": {"ParameterRole": {"label": "scale", "score": 0.8},
+                              "Discreteness": {"label": "continuous", "score": 0.6}}}  # fmt: skip
+    payload = validate_payload("mention", mention)
+    assert payload.model_dump(mode="json") == mention
+    validator("payload.mention").validate(mention)
+    as_list = {**mention, "attributes": [{"label": "scale", "score": 0.8}]}
+    with pytest.raises(ValidationError):  # which group a score answers would be lost
+        validate_payload("mention", as_list)
+
+
+def test_a_math_mention_names_its_math_spans_segment_key() -> None:
+    """D4 M06, M09: a mention inside a math span (an M09 symbol occurrence) carries the math
+    span's segment key as `math_ref`, never a mention reference."""
+    from corpus_structure.core.evidence import segment_key
+
+    math = segment_key("ren:" + "2" * 32, "math_inline", 4, 9)
+    symbol = {"start": 6, "end": 7, "label": "symbol", "text": "X", "math_ref": math,
+              "math": {"name": "X", "base": "X", "constant": False}}  # fmt: skip
+    assert validate_payload("mention", symbol).model_dump(mode="json") == symbol
+    validator("payload.mention").validate(symbol)
+    for bad in ({"task": 7, "ordinal": 2}, "special/Test.html#m1", "ren:" + "2" * 32):
+        with pytest.raises(ValidationError):
+            validate_payload("mention", {**symbol, "math_ref": bad})
+
+
+def test_a_target_ref_is_a_key_or_an_ids_text() -> None:
+    """`ops.intervention.target` and a judgment's target name a key (`clm:…`) or, for a target
+    named by id (a run), the id's decimal text; the kind says which, and an int is refused."""
+    for kind, ref in (("claim", "clm:" + "1" * 32), ("run", "17")):
+        target = {"kind": kind, "ref": ref}
+        assert InterventionTarget.model_validate(target).model_dump(mode="json") == target
+        validator("intervention_target").validate(target)
+    for bad in ({"kind": "run", "ref": 17}, {"kind": "run", "ref": ""}):
+        with pytest.raises(ValidationError):
+            InterventionTarget.model_validate(bad)
+        with pytest.raises(ValidationError):
+            JudgmentTarget.model_validate(bad)
+
+
+def test_a_judgment_target_records_the_scheme_of_the_key_it_names() -> None:
+    """Foundations §3.6: readers compare keys only within one scheme, so a target named by key
+    (a claim, a group) carries its scheme, and one named by id (an observation) has none."""
+    keyed = {"kind": "claim", "ref": "clm:" + "1" * 32, "key_scheme": 1}
+    by_id = {"kind": "observation", "ref": "4711"}
+    for ok in (keyed, by_id):
+        assert JudgmentTarget.model_validate(ok).model_dump(mode="json") == ok
+    for bad in ({**keyed, "key_scheme": MISSING}, {**by_id, "key_scheme": 1},
+                {**keyed, "key_scheme": 0}):  # fmt: skip
+        raw = {k: v for k, v in bad.items() if v is not MISSING}
+        with pytest.raises(ValidationError):
+            JudgmentTarget.model_validate(raw)
+
+
+def test_a_link_names_a_candidate_key_or_a_new_entity() -> None:
+    base = {"mention_ref": {"ordinal": 2}, "score": 0.7, "features": {"cosine": 0.731}}
+    known = {**base, "candidate": "ent:" + "a" * 32}
+    proposed = {**base, "new": {"type": "stat:DistributionFamily", "label": "gamma"}}
+    for ok in (known, proposed):
+        assert validate_payload("link", ok).model_dump(mode="json") == ok
+        validator("payload.link").validate(ok)
+    for bad in (base, {**known, "new": proposed["new"]}):
+        with pytest.raises(ValidationError, match="exactly one of candidate and new"):
+            validate_payload("link", bad)
 
 
 def test_the_citation_frame_keys_are_sentence_ids() -> None:
@@ -476,14 +596,15 @@ def test_schema_files_are_current_and_valid(tmp_path: Path) -> None:
 
 
 def test_the_keyed_candidate_set() -> None:
-    from corpus_structure.core.candidates import KeyedCandidateSet
+    from corpus_structure.core.candidates import UNKEYED, KeyedCandidateSet
 
     raw = {
+        "rendition": "ren:" + "1" * 32,
         "entities": [
             {"id": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
              "scope_segment": "seg:1", "symbol": "X"},
-            {"id": "N", "key": "ent:abc", "type": "stat:DistributionFamily", "label": "normal",
-             "scope": "global"},
+            {"id": "N", "key": "ent:" + "a" * 32, "type": "stat:DistributionFamily",
+             "label": "normal", "scope": "global"},
         ],
         "statements": [{"id": "st1", "kind": "theorem", "anchor": ["seg:2"]}],
         "claims": [{"id": "c1", "predicate": "stat:has_distribution", "subject": "X",
@@ -493,22 +614,32 @@ def test_the_keyed_candidate_set() -> None:
     }  # fmt: skip
     cands = KeyedCandidateSet.model_validate(raw)
     assert KeyedCandidateSet.model_validate_json(cands.model_dump_json()) == cands
-    assert cands.claims[0].establishment == "stated" and cands.entities[0].key is None
+    assert cands.claims[0].establishment == "stated" and cands.entities[0].key is UNKEYED
     twice = {**raw, "statements": [{"id": "X", "kind": "theorem", "anchor": ["seg:2"]}]}
     with pytest.raises(ValidationError, match="used twice"):
         KeyedCandidateSet.model_validate(twice)
-    no_segment = {**raw, "entities": [{**raw["entities"][0], "scope_segment": None}]}
-    with pytest.raises(ValidationError, match="scope_segment exactly when it is local"):
-        KeyedCandidateSet.model_validate(no_segment)
+    no_segment = {**raw, "entities": [{k: v for k, v in raw["entities"][0].items()
+                                       if k != "scope_segment"}]}  # fmt: skip
+    assert KeyedCandidateSet.model_validate(no_segment).entities[0].scope_segment is MISSING
+    global_segment = {**raw, "entities": [raw["entities"][1] | {"scope_segment": "seg:1"}]}
+    with pytest.raises(ValidationError, match="scope_segment is given only when scope is local"):
+        KeyedCandidateSet.model_validate(global_segment)
+    for bad in ({"key": None}, {"key": "ent:abc"}, {"key": "stm:" + "a" * 32}, {"symbol": None}):
+        with pytest.raises(ValidationError):  # typed states and keys of the kind, never null
+            KeyedCandidateSet.model_validate({**raw, "entities": [raw["entities"][1] | bad]})
+    with pytest.raises(ValidationError, match="rendition"):
+        KeyedCandidateSet.model_validate({k: v for k, v in raw.items() if k != "rendition"})
 
 
 def test_a_statement_outside_the_unit() -> None:
-    """S4 V2: a statement the unit refers to but that lies outside it ("the last result")."""
+    """S4 V2, D1 §4.4: a statement the unit refers to but that lies outside it ("the last
+    result") is an `outside` item, an ExternalReference node with its descriptor and no kind."""
     authored = {
         "unit_ref": "special/Normal.html#rel2",
         "statements": [
             {"local_ref": "here", "kind": "corollary", "anchor": "unit"},
-            {"local_ref": "last", "kind": "theorem", "anchor": "outside"},
+            {"local_ref": "last", "anchor": "outside",
+             "descriptor": {"sentence": "s1", "quote": "the last result"}},
         ],
         "claims": [
             {"local_ref": "c1", "predicate": "follows_from", "subject": "here",
@@ -517,24 +648,54 @@ def test_a_statement_outside_the_unit() -> None:
         ],
     }  # fmt: skip
     batch = AuthoredBatch.model_validate_json(json.dumps(authored), strict=True)
-    assert batch.statements[1].anchor == "outside"
+    assert isinstance(batch.statements[1], AuthoredOutside)
     dumped = batch.model_dump(mode="json")
     assert dumped["statements"] == authored["statements"]
     validator("batch.authored").validate(dumped)
     assert cited_sentences(batch) == ["s1"]
     stored = stored_t3()
-    stored["statements"].append({"local_ref": "last", "kind": "theorem", "anchor": "outside"})
+    linked = {"start": 3, "end": 18, "target": "special/Normal.html#thm3"}
+    stored["statements"].append({"local_ref": "last", "anchor": "outside", "descriptor": linked})
     stored_batch = StoredBatch.model_validate_json(json.dumps(stored), strict=True)
+    assert isinstance(stored_batch.statements[1], StoredOutside)
     validator("batch.stored").validate(stored_batch.model_dump(mode="json"))
-    for bad in ("inside", "", ["outside"]):
+    bad_items = [
+        {"local_ref": "x", "kind": "k", "anchor": "inside"},
+        {"local_ref": "x", "kind": "k", "anchor": ""},
+        {"local_ref": "x", "kind": "k", "anchor": ["outside"]},
+        {"local_ref": "x", "kind": "theorem", "anchor": "outside"},  # no descriptor
+        {"local_ref": "x", "anchor": "outside", "kind": "theorem",   # and no kind
+         "descriptor": {"sentence": "s1", "quote": "q"}},
+        {"local_ref": "x", "anchor": "outside", "descriptor": {"sentence": "s1", "quote": ""}},
+        {"local_ref": "x", "anchor": "outside", "descriptor": {"start": 1, "end": 4}},
+    ]
+    for bad in bad_items:
         with pytest.raises(ValidationError):
-            AuthoredBatch.model_validate(
-                {**authored, "statements": [{"local_ref": "x", "kind": "k", "anchor": bad}]}
-            )
-    with pytest.raises(ValidationError):  # "unit" is an authored anchor only
-        StoredBatch.model_validate(
-            {**stored, "statements": [{"local_ref": "x", "kind": "k", "anchor": "unit"}]}
-        )
+            AuthoredBatch.model_validate({**authored, "statements": [bad]})
+    for bad in ({"local_ref": "x", "kind": "k", "anchor": "unit"},  # an authored anchor only
+                {"local_ref": "x", "anchor": "outside", "descriptor": {"start": 4, "end": 4}},
+                {"local_ref": "x", "anchor": "outside",
+                 "descriptor": {"sentence": "s1", "quote": "q"}}):  # fmt: skip
+        with pytest.raises(ValidationError):
+            StoredBatch.model_validate({**stored, "statements": [bad]})
+
+
+@pytest.mark.parametrize(
+    ("form", "enum", "ok"),
+    [
+        ("authored", "ParameterRole", True), ("authored", "stat:ParameterRole", False),
+        ("stored", "stat:ParameterRole", True), ("stored", "ParameterRole", False),
+    ],
+)  # fmt: skip
+def test_an_enum_value_names_its_enum_by_its_forms_name(form: str, enum: str, ok: bool) -> None:
+    """X2-01, R04: authored by local name, stored by prefixed name, each refused in the
+    other form."""
+    raw = {"t": "enum", "enum": enum, "v": "shape"}
+    if ok:
+        assert VALUE_ADAPTERS[form].validate_python(raw).enum == enum
+    else:
+        with pytest.raises(ValidationError, match="should match pattern"):
+            VALUE_ADAPTERS[form].validate_python(raw)
 
 
 def test_a_synthesized_claim_names_its_predicate_prefixed() -> None:

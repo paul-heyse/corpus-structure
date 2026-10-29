@@ -80,6 +80,15 @@ SEARCH_BLOCK: Final[tuple[str, ...]] = (
 )
 SEARCH_BLOCK_IN: Final = in_list(SEARCH_BLOCK)
 
+# SegmentKind members with the property sentence_split.
+SENTENCE_SPLIT: Final[tuple[str, ...]] = (
+    "paragraph",
+    "list_item",
+    "table_cell",
+    "caption",
+)
+SENTENCE_SPLIT_IN: Final = in_list(SENTENCE_SPLIT)
+
 # SegmentKind members with the property section_label.
 SECTION_LABEL: Final[tuple[str, ...]] = ("heading",)
 SECTION_LABEL_IN: Final = in_list(SECTION_LABEL)

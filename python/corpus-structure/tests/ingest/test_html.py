@@ -7,7 +7,13 @@ from typing import Any
 
 import pytest
 
-from corpus_structure.core.evidence import MacroDef, Segment
+from corpus_structure.core.evidence import (
+    MacroDef,
+    Segment,
+    content_digest,
+    rendition_key,
+    segment_key,
+)
 from corpus_structure.core.payloads import AuthorMarkupPayload, SynthesizedClaim
 from corpus_structure.core.values import EntityRef
 from corpus_structure.core.vocab import DelimitingStatus, MarkupKind, SegmentKind, StatementKind
@@ -84,6 +90,27 @@ def test_an_ordered_sub_list_item_starts_with_its_marker(profile: CompiledProfil
     marker = attr(segments(r, K.LIST_ITEM)[0], "markup")
     assert marker == [{"markup": "list_marker", "start": 0, "end": 4}]
     assert segments(r, K.LIST)[0].attrs == {"classes": ["sub"], "start": "3"}
+
+
+def test_with_the_document_key_markup_names_its_segments_by_key(profile: CompiledProfile) -> None:
+    body = (
+        '<div class="unit" id="t1"><p class="math">A <dfn>theorem</dfn>.</p><details>'
+        "<summary>Proof:</summary><p>Clear.</p></details></div>"
+    )
+    doc = "doc:0123456789abcdef0123456789abcdef"
+    r = build_rendition(page(body), profile, SentenceConfig(), source_uri=SOURCE, document_key=doc)
+    ren = rendition_key(doc, content_digest(r.content))
+    keys = {segment_key(ren, s.kind, s.start, s.end): s for s in segments(r)}
+    for d in r.markup:
+        assert value(d.payload, "segment") == segment_key(ren, *d.segment)
+    (details,) = [d.payload for d in r.markup if d.payload.markup is MarkupKind.DETAILS]
+    unit = value(details, "unit")
+    assert unit["locator"] == "test/Page.html#t1"
+    assert keys[unit["segment"]].kind is K.UNIT
+    plain = run(profile, body)  # without the key: the content is the same, no segment keys
+    assert plain.content == r.content
+    assert all("segment" not in value(d.payload, "unit") for d in plain.markup
+               if d.payload.markup is MarkupKind.DETAILS)  # fmt: skip
 
 
 def test_a_details_summary_is_a_heading_and_its_kind_is_declared(profile: CompiledProfile) -> None:
@@ -195,10 +222,10 @@ def test_the_macro_reader_takes_renewcommand_and_its_kin(profile: CompiledProfil
         "\\argmax": MacroDef(body="\\operatorname*{arg\\,max}"),
     }
     notes = r.parse_detail.macro_notes
-    assert notes == [
+    assert notes == (
         "\\P: \\renewcommand without a prior definition on the page",
         "\\R redefined by \\newcommand (TeX error; the first is kept)",
-    ]
+    )
     assert texts(r, K.PARAGRAPH) == ["Text."]  # the macro block is excluded
     assert [e.rule for e in r.parse_detail.exclusions] == ["macro_block"]
 

@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/trigger_metrics.json",
   "additionalProperties": {
     "anyOf": [
       {

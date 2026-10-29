@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/intervention_target.json",
   "$defs": {
     "InterventionTargetKind": {
       "description": "What an intervention acts on (InterventionTarget.kind, D3 §6.3). Lifecycle: static.",
@@ -17,20 +18,14 @@
     }
   },
   "additionalProperties": false,
-  "description": "`ops.intervention.target`; a `promotion` targets the run it promotes.",
+  "description": "`ops.intervention.target`; a `promotion` targets the run it promotes. `ref` is the target's\nkey, or its id's decimal text for a target named by id (a run): the kind says which.",
   "properties": {
     "kind": {
       "$ref": "#/$defs/InterventionTargetKind"
     },
     "ref": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "integer"
-        }
-      ]
+      "minLength": 1,
+      "type": "string"
     }
   },
   "required": [

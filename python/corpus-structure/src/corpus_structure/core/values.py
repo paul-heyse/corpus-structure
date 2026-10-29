@@ -23,11 +23,25 @@ name.
 An entity is referenced in exactly one shape, `EntityRef` `{"ref": …}` (a local ref in a batch,
 a key once stored): as a claim object, a `pred` argument, an entity-ranged qualifier. It is not a
 value. Formula and set positions take value objects only.
+
+**References are typed by kind** (F2e; R04; DA-006). Every reference position declares what it may
+name through its annotation: `EntityId`, `StatementId`, `ClaimId`, or `SubjectId` (an entity or a
+statement), each a local ref in a batch and a key once keyed, and each carrying a `Refers` marker
+(`ref_kinds` reads it). An `ExternalReference` node (D1 §4.4) is an entity, and it may stand where a
+claim is named (a `claim` condition, a binding's claim), since it stands for a statement outside
+the batch. Keying resolves each position by its declared kind and refuses a reference of another
+kind with a code (`keys.Resolver`); `validate` (S2) owns reference checking for batches (RC19).
+
+**Enum values have a form each** (F2e; X2-01): the authored `AuthoredEnumValue` names its enum by
+local name, the stored `StoredEnumValue` by prefixed name, and each refuses the other's.
 """
 
 from __future__ import annotations
 
 import re
+import typing
+from dataclasses import dataclass
+from enum import StrEnum
 from typing import Annotated, Any, Final, Literal, Self
 
 from pydantic import (
@@ -45,6 +59,10 @@ from corpus_structure.core.canonical import CANONICAL_DECIMAL, canonical_decimal
 from corpus_structure.core.vocab import BindKind, ParseOutcome, Relation
 
 SENTENCE_ID = r"^[sc][0-9]+$"
+# The stored form names every schema element (class, predicate, qualifier, identity slot, enum) by
+# its prefixed name; the authored form keeps local names (coordinator ruling, 2026-10-28, from X2).
+PREFIXED_NAME = r"^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$"
+LOCAL_NAME = r"^[A-Za-z_][A-Za-z0-9_]*$"
 ISO_8601 = (
     r"^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\.[0-9]+)?)?"
     r"(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$"
@@ -62,6 +80,53 @@ class _Citation:
 CITATION: Final = _Citation()
 SentenceId = Annotated[str, Field(pattern=SENTENCE_ID), CITATION]
 Offset = Annotated[int, Field(ge=0)]
+PrefixedName = Annotated[str, Field(pattern=PREFIXED_NAME)]
+LocalName = Annotated[str, Field(pattern=LOCAL_NAME)]
+
+
+class RefKind(StrEnum):
+    """What a reference names: an entity (an `ExternalReference` node is one), a statement or a
+    claim."""
+
+    ENTITY = "entity"
+    STATEMENT = "statement"
+    CLAIM = "claim"
+
+
+@dataclass(frozen=True, slots=True)
+class Refers:
+    """The marker on a reference type's annotation: the kinds the position may name."""
+
+    kinds: frozenset[RefKind]
+
+
+def _refers(*kinds: RefKind) -> Refers:
+    return Refers(frozenset(kinds))
+
+
+EntityId = Annotated[str, Field(min_length=1), _refers(RefKind.ENTITY)]
+StatementId = Annotated[str, Field(min_length=1), _refers(RefKind.STATEMENT)]
+ClaimId = Annotated[str, Field(min_length=1), _refers(RefKind.CLAIM)]
+SubjectId = Annotated[str, Field(min_length=1), _refers(RefKind.ENTITY, RefKind.STATEMENT)]
+
+
+def ref_kinds(model: type[BaseModel], name: str) -> frozenset[RefKind]:
+    """The kinds a model field's references may name (its `Refers` marker, through unions and
+    tuples), empty when the field is no reference."""
+    info = model.model_fields[name]
+    found = [m for m in info.metadata if isinstance(m, Refers)]
+    return found[0].kinds if found else _kinds(info.annotation)
+
+
+def _kinds(annotation: object) -> frozenset[RefKind]:
+    if typing.get_origin(annotation) is Annotated:
+        base, *metadata = typing.get_args(annotation)
+        marked = [m for m in metadata if isinstance(m, Refers)]
+        return marked[0].kinds if marked else _kinds(base)
+    out: frozenset[RefKind] = frozenset()
+    for arg in typing.get_args(annotation):
+        out |= _kinds(arg)
+    return out
 
 
 class CoreModel(BaseModel):
@@ -74,15 +139,15 @@ class CoreModel(BaseModel):
 class EntityRef(CoreModel):
     """The one entity-reference shape: a local ref in a batch, an entity key once stored."""
 
-    ref: str = Field(min_length=1)
+    ref: EntityId
 
 
 class SymbolBinding(CoreModel):
     """How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has."""
 
     bind: BindKind
-    entity: str | MISSING = MISSING  # type: ignore[valid-type]
-    claim: str | MISSING = MISSING  # type: ignore[valid-type]
+    entity: EntityId | MISSING = MISSING  # type: ignore[valid-type]
+    claim: ClaimId | MISSING = MISSING  # type: ignore[valid-type]
     param: str | MISSING = MISSING  # type: ignore[valid-type]
 
     @model_validator(mode="after")
@@ -142,9 +207,24 @@ class BoolValue(CoreModel):
 
 
 class EnumValue(CoreModel):
+    """A member of a schema enum; the base of the two forms, which differ in how they name the
+    enum."""
+
     t: Literal["enum"]
     enum: str
     v: str
+
+
+class AuthoredEnumValue(EnumValue):
+    """The authored enum value: the enum by its local name (`ParameterRole`)."""
+
+    enum: LocalName  # type: ignore[assignment]
+
+
+class StoredEnumValue(EnumValue):
+    """The stored enum value: the enum by its prefixed name (`stat:ParameterRole`)."""
+
+    enum: PrefixedName  # type: ignore[assignment]
 
 
 class DateValue(CoreModel):
@@ -166,7 +246,7 @@ class IntervalValue(CoreModel):
 
 
 NEUTRAL_VALUES: tuple[type[CoreModel], ...] = (
-    TextValue, NumberValue, BoolValue, EnumValue, Formula, SetValue, DateValue, IntervalValue,
+    TextValue, NumberValue, BoolValue, Formula, SetValue, DateValue, IntervalValue,
 )  # fmt: skip
 
 
@@ -175,7 +255,7 @@ NEUTRAL_VALUES: tuple[type[CoreModel], ...] = (
 
 class ClaimNode(CoreModel):
     op: Literal["claim"]
-    ref: str = Field(min_length=1)
+    ref: ClaimId
 
 
 class MemberNode(CoreModel):
@@ -304,12 +384,12 @@ class StoredForall(CoreModel):
 
 
 type AuthoredValue = Annotated[
-    TextValue | NumberValue | BoolValue | EnumValue | Formula | SetValue | DateValue
+    TextValue | NumberValue | BoolValue | AuthoredEnumValue | Formula | SetValue | DateValue
     | IntervalValue | AuthoredPhrase,
     Field(discriminator="t"),
 ]  # fmt: skip
 type StoredValue = Annotated[
-    TextValue | NumberValue | BoolValue | EnumValue | Formula | SetValue | DateValue
+    TextValue | NumberValue | BoolValue | StoredEnumValue | Formula | SetValue | DateValue
     | IntervalValue | StoredPhrase,
     Field(discriminator="t"),
 ]  # fmt: skip

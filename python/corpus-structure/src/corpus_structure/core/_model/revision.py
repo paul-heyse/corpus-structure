@@ -12,9 +12,11 @@ from collections.abc import Mapping
 from typing import Final
 
 LABEL: Final = "0.3.0"
-CONTENT_HASH: Final = "de980d4bb261c27da2dabc3218011bdb86c972b8501ae512d378e57e174e825d"
+CONTENT_HASH: Final = "aec8922d939eb67fccf1d7774ecba6977b69c13e76f03c9f6de956efb9919074"
 KEY_SCHEME: Final = 1
 COMPILERS: Final[Mapping[str, str]] = {
     "corpus_structure.schema.generate": "1",
+    "corpus_structure.schema.interchange": "1",
+    "corpus_structure.schema.relational": "2",
     "linkml-runtime": "1.12.1",
 }

@@ -1,0 +1,54 @@
+# The statistics pack's method configuration (D2 §12.1), phase 0 methods only.
+# Phase 1 configurations (llm.*, classify.segments, extract.gliner_*, resolve.concept_link,
+# consolidate.entities) and the M08 patterns and M22 cues join with their methods.
+version: 0.1.0
+
+math:
+  macros:                                              # fallback when a page does not define a macro
+    '\R': '\mathbb{R}'
+    '\N': '\mathbb{N}'
+    '\Z': '\mathbb{Z}'
+    '\Q': '\mathbb{Q}'
+    '\P': '\mathbb{P}'
+    '\E': '\mathbb{E}'
+    '\var': '\text{var}'
+    '\sd': '\text{sd}'
+    '\cov': '\text{cov}'
+    '\cor': '\text{cor}'
+    '\skw': '\text{skew}'
+    '\kur': '\text{kurt}'
+    '\mse': '\text{mse}'
+    '\sgn': '\text{sgn}'
+    '\bs': '\boldsymbol'
+    '\ms': '\mathscr'
+  constants: ['e', '\pi']
+
+binders:                                               # M13 binder lexicon
+  sentence_initial: [suppose, let, assume, fix, define, consider, recall, if]   # "if": record s0.m13-probe-2, ADR-0012
+  clause: [where, for]
+  reopen: [again]                                      # "Suppose again …" re-opens the section's earlier binding
+  section_wide: ["in this section", "throughout this section"]
+
+aliases:                                               # label normalization (D5 §3.3)
+  articles: [the, a, an]
+  head_words:
+    DistributionFamily: [distribution, distributions]
+  rewrites:                                            # applied in order, before head-word removal
+    - {match: '^(\w+)ly distributed$', replace: '\1'}  # "normally distributed" → "normal"
+    - {match: '^(\w+) distributed$', replace: '\1'}    # "gamma distributed" → "gamma"
+
+configs:                                               # named configurations, referenced as <method>/<name>
+  ingest.html:
+    default: {source_profile: siegrist, sentences: segment.sentences/default}   # both resolved into the hash
+  segment.sentences:
+    default: {model: en_core_web_sm, variant: math_as_word, exclude: [ner, lemmatizer]}
+                                                       # b′ (D4 M03): each inline math span and reference marker is one
+                                                       # word of a words-and-spaces Doc, no retokenizer (S1, OPEN-D1-1)
+  agent.opus:                                          # caps in characters: the one cap authority for agent packets (D8 §3);
+                                                       # agent_reuse (full | by_unit) is a run option, not configuration (D6 §4)
+    extract: {mode: extract, examples: reference, hints: none, packet_cap_chars: 18000}
+    adjudicate: {mode: adjudicate, packet_cap_chars: 9000, max_alternatives: 6}
+    expectation: {mode: extract, role: expectation, examples: reference, hints: none, packet_cap_chars: 18000}
+                                                       # golden-expectation runs (D7 §9); `role` keeps its digests apart from live tasks'
+  normalize.formula:
+    default: {backend: lark}

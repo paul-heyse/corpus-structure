@@ -2,9 +2,15 @@
 
 `CoreJsonSchema` is the one generator for core and compiled schemas (S1 reuses it): draft 2020-12
 (`$schema` set), no titles, validation mode, output fixed by the models alone. `SCHEMAS` names
-every file of this directory; `write()` regenerates them (`python -m corpus_structure.core.schemas`)
-and a test fails when a committed file differs. Production validates with Pydantic; these files are
-for documentation and external consumers.
+every file of this directory; `write()` regenerates them (`python -m corpus_structure.core.schemas`,
+and `just model generate`) and a test fails when a committed file differs. Production validates
+with Pydantic; these files are for documentation and external consumers.
+
+**`$id`** (model and projections §3.5; DA-009): every committed schema names the model revision it
+was generated under, `https://corpus-structure.dev/schemas/<model revision>/<name>.json`, where the
+model revision is the first 12 hex digits of its content hash (`_model.revision.CONTENT_HASH`).
+A schema compiled per schema version adds that version's hash as a further segment
+(`…/<model revision>/<schema version>/<name>.json`; S1's batch forms). `schema_id` writes both.
 
 jsonschema's agreement with Pydantic over these files is derivation conformance, not an
 independent oracle: both come from one model, so a shared mistake passes both (coordinator
@@ -21,12 +27,27 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pydantic import TypeAdapter
+from pydantic import JsonValue, TypeAdapter
 from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode, JsonSchemaValue
 from pydantic_core import CoreSchema
 
 DRAFT = "https://json-schema.org/draft/2020-12/schema"
 DIRECTORY = Path(__file__).parent
+ID_ROOT = "https://corpus-structure.dev/schemas"
+
+
+def schema_id(
+    name: str, model_revision: str | None = None, schema_version: str | None = None
+) -> str:
+    """The `$id` of a generated schema (module doc); the revision defaults to the installed one."""
+    if model_revision is None:
+        from corpus_structure.core._model.revision import CONTENT_HASH
+
+        model_revision = CONTENT_HASH
+    segments = [ID_ROOT, model_revision[:12]]
+    if schema_version is not None:
+        segments.append(schema_version[:12])
+    return "/".join([*segments, f"{name}.json"])
 
 
 class CoreJsonSchema(GenerateJsonSchema):
@@ -57,7 +78,8 @@ def json_schema(adapter: TypeAdapter[Any]) -> dict[str, Any]:
 
 
 def _adapters() -> dict[str, TypeAdapter[Any]]:
-    from corpus_structure.core import batch, payloads, values
+    from corpus_structure.core import batch, options, payloads, values
+    from corpus_structure.core.parse_detail import ParseDetail  # a build's diagnostics
 
     out: dict[str, TypeAdapter[Any]] = {
         "value.authored": values.VALUE_ADAPTERS["authored"],
@@ -65,6 +87,7 @@ def _adapters() -> dict[str, TypeAdapter[Any]]:
         "condition.authored": values.CONDITION_ADAPTERS["authored"],
         "condition.stored": values.CONDITION_ADAPTERS["stored"],
         "citation_frame": TypeAdapter(batch.CitationFrame),
+        "golden_batch": TypeAdapter(payloads.GoldenBatchPayload),
         "batch.authored": TypeAdapter(batch.AuthoredBatch),
         "batch.stored": TypeAdapter(batch.StoredBatch),
         "mention_ref": TypeAdapter(payloads.MentionRef),
@@ -72,6 +95,9 @@ def _adapters() -> dict[str, TypeAdapter[Any]]:
         "policy_action": TypeAdapter(payloads.PolicyAction),
         "intervention_target": TypeAdapter(payloads.InterventionTarget),
         "trigger_metrics": payloads.TRIGGER_METRICS,
+        "compiled_artifact": TypeAdapter(JsonValue),  # a compiled artifact's body: any JSON
+        "run_options": TypeAdapter(options.RunOptions),
+        "parse_detail": TypeAdapter(ParseDetail),
     }
     for kind, model in payloads.PAYLOADS.items():
         out[f"payload.{kind.value}"] = TypeAdapter(model)
@@ -81,17 +107,20 @@ def _adapters() -> dict[str, TypeAdapter[Any]]:
 SCHEMAS: Callable[[], dict[str, TypeAdapter[Any]]] = _adapters
 
 
-def render(adapter: TypeAdapter[Any]) -> str:
-    return json.dumps(json_schema(adapter), indent=2, ensure_ascii=False) + "\n"
+def render(name: str, adapter: TypeAdapter[Any], model_revision: str | None = None) -> str:
+    """A committed schema file's text: the schema with its `$id` after `$schema`."""
+    out = json_schema(adapter)
+    out = {"$schema": out.pop("$schema"), "$id": schema_id(name, model_revision), **out}
+    return json.dumps(out, indent=2, ensure_ascii=False) + "\n"
 
 
-def write(directory: Path = DIRECTORY) -> list[Path]:
+def write(directory: Path = DIRECTORY, model_revision: str | None = None) -> list[Path]:
     """Regenerate every schema file; remove files no adapter produces. Returns the files written."""
     written = []
     adapters = SCHEMAS()
     for name, adapter in adapters.items():
         path = directory / f"{name}.json"
-        path.write_text(render(adapter), encoding="utf-8")
+        path.write_text(render(name, adapter, model_revision), encoding="utf-8")
         written.append(path)
     for stale in directory.glob("*.json"):
         if stale.stem not in adapters:

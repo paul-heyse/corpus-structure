@@ -32,19 +32,16 @@ rendition by the production quote cascade (A0).
   "unit_key": "<the unit segment's generated locator (D1 §3.4)>",
   "batch": { "...an AuthoredBatch; unit_ref equals unit_key..." },
   "frame": { "s1": {"locator": "<sentence locator>", "text": "<exact canonical text>"} },
-  "external_references": { "pending": "...", "descriptors": {"<outside statement ref>": {"sentence": "s2", "quote": "..."}} },
   "provenance": { "spike_unit", "source", "packet", "stored_reference", "rendition", "decisions", "migrations", "split"? }
 }
 ```
 
-- **`frame`** maps every sentence id the batch cites (`cited_sentences`), plus any descriptor's
-  sentence, to the sentence's generated locator and its exact canonical text. `cN` ids are the
-  standing context's; only U12 cites one (`c1`).
-- **`external_references`** appears only in `U6.json`. It is the R04 / target model §7 T1
-  descriptor of the authored `outside` statement `e_last_result`: the citing sentence and quote
-  (`s2`, "the last result"; the source has no link there, so no link target). It sits beside the
-  batch because the current `AuthoredStatement` has no descriptor field. **P0-F-2e** validates the
-  descriptor and decides its place; migrate this one field then.
+- **`frame`** maps every sentence id the batch cites (`cited_sentences`, an `outside` item's
+  descriptor sentence included) to the sentence's generated locator and its exact canonical text.
+  `cN` ids are the standing context's; only U12 cites one (`c1`).
+- **The `outside` item** appears only in `U6.json`: `e_last_result`, an `ExternalReference` node
+  (D1 §4.4, D2 §7.3) with no kind and its descriptor, the citing sentence and quote (`s2`, "the
+  last result"; the source has no link there, so no `target`).
 - **`provenance`** names the v1 source batch, its packet, the stored v1 reference used by the
   offset identity check, the S1 rendition (page, source URI, the spike's document and rendition
   keys, the sentence variant), the `decisions_v1.json` entries that touched the unit, the
@@ -72,8 +69,8 @@ data and imports no spike code:
    - `unit_ref` is the unit key, not the spike's `T1`…`U12`;
    - S4's V1: `{"t": "entity", "ref": r}` becomes `{"ref": r}` (T1's `base_variable`; U5's and
      U11's `pred` arguments), as `results/s4/validation_errors.jsonl` lists for set `v1.model`;
-   - S4's V2: U6's `Statement` entity `e_last_result` becomes a `statements[]` item, kind
-     `theorem`, anchor `outside`, keeping its local ref.
+   - S4's V2: U6's `Statement` entity `e_last_result` becomes a `statements[]` `outside` item
+     with its descriptor and no kind (P0-F-2e), keeping its local ref.
 4. **T1 split.** The lead-in file holds `st1`, `Z`, `c_Z_values` and the three unsupported items
    (all on `s1`–`s3`). The `#dfn1` file holds `st2`, the definition's entities and claims, and
    redeclares `Z` (local, extent `section`) because `c_X_def` and `c_constr` bind it. Sentence ids
@@ -92,7 +89,7 @@ frame text equal to the packet's `[sN]` line, and every evidence quote's exact p
   `unit_ref == unit_key`;
 - every locator parses, prints back unchanged and names the file's page;
 - the frame covers exactly the cited sentences, and every quote occurs in its frame text;
-- the `outside` statements and the descriptors match one to one;
+- every `outside` item's descriptor quote occurs in its sentence's frame text;
 - each file keeps the v1 batch's items one for one (V2 counted as a move), and T1's two files
   together keep T1's items plus the redeclared `Z`, which is identical in both;
 - only U12 cites the standing context.

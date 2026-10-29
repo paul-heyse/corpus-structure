@@ -2,10 +2,12 @@
 # meta.model_revision projects. Each entry is a revision of model/core.yaml and
 # model/system.yaml; a revision after the first names its parent and its change record.
 - label: 0.3.0
-  content_hash: de980d4bb261c27da2dabc3218011bdb86c972b8501ae512d378e57e174e825d
+  content_hash: aec8922d939eb67fccf1d7774ecba6977b69c13e76f03c9f6de956efb9919074
   key_scheme: 1
   compilers:
     corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '2'
     linkml-runtime: 1.12.1
   parent: null
   change_record: null

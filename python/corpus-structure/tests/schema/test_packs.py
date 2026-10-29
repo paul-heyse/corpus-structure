@@ -41,6 +41,7 @@ REPO = Path(__file__).resolve().parents[4]
 STATISTICS = REPO / "domains" / "statistics"
 MINIMAL = REPO / "fixtures" / "packs" / "minimal"
 S0R2 = REPO / "docs/design_review/evidence/2026-10-28_design-spikes/results/s0r2"
+REN = "ren:" + "0" * 32  # a rendition reference (D1 §10.1)
 UNITS = ("T1", "T2", "T3", "T4", "U5", "U6", "U7", "U8", "U9", "U10", "U11", "U12")
 
 
@@ -85,7 +86,7 @@ def test_hashes_are_equal_across_processes_hash_seeds_and_load_paths(tmp_path: P
 
     absolute = run(str(STATISTICS), tmp_path, "1")
     relative = run("domains/statistics", REPO, "2")
-    assert absolute == relative and len(absolute.split()) == 6
+    assert absolute == relative and len(absolute.split()) == 7
 
 
 def test_the_version_covers_parsed_content_and_the_model_revision(tmp_path: Path) -> None:
@@ -231,7 +232,9 @@ def test_rules_files_are_checked_for_structure(tmp_path: Path) -> None:
 
 def v1_canonical(raw: dict[str, Any]) -> dict[str, Any]:
     """S4's V1 and V2 rewrites: `{t: entity, ref}` becomes `{ref}`; a `Statement` in `entities[]`
-    becomes an `outside` statement item (record `s4.batch-validation`)."""
+    becomes an `outside` item (record `s4.batch-validation`), whose descriptor is the evidence of
+    the claim citing it (the sentence and quote authored, the located span stored); a stored batch
+    names its rendition from the spike envelope."""
 
     def walk(node: Any) -> Any:
         if isinstance(node, dict):
@@ -243,12 +246,23 @@ def v1_canonical(raw: dict[str, Any]) -> dict[str, Any]:
         return node
 
     out = walk(copy.deepcopy(raw))
-    out.pop("envelope", None)
+    envelope = out.pop("envelope", None)
+    if envelope is not None:
+        out["rendition"] = envelope["rendition_key"]
     keep = []
     for e in out.get("entities", []):
         if e["type"] == "Statement":
+            ref = e["local_ref"]
+            citing = next(
+                c for c in out.get("claims", []) if ref in (c["subject"], c["object"].get("ref"))
+            )
+            evidence = citing["evidence"][0]
+            if "sentence" in evidence:
+                descriptor = {"sentence": evidence["sentence"], "quote": evidence["quote"]}
+            else:
+                descriptor = {"start": evidence["start"], "end": evidence["end"]}
             out.setdefault("statements", []).append(
-                {"local_ref": e["local_ref"], "kind": "theorem", "anchor": "outside"}
+                {"local_ref": ref, "anchor": "outside", "descriptor": descriptor}
             )
         else:
             keep.append(e)
@@ -329,6 +343,18 @@ def test_jsonschema_agrees_with_pydantic_on_the_external_batches(stats: Compiled
             except ValidationError:
                 pydantic_ok = False
             errors = sorted(validator.iter_errors(batch), key=lambda e: list(e.absolute_path))
+            assert pydantic_ok == (not errors), (unit, [e.message[:80] for e in errors[:3]])
+    # the stored form, on the spike's stored v1 batches with prefixed names and refused local ones
+    stored_validator = Draft202012Validator(stats.artifact("json_schema", "batch.stored").body)
+    for unit in UNITS:
+        raw = json.loads((S0R2 / "reference_v1" / f"{unit}.json").read_text(encoding="utf-8"))
+        for batch in (prefixed_names(raw, stats), v1_canonical(raw)):
+            try:
+                stats.batches.validate(json.dumps(batch), "stored")
+                pydantic_ok = True
+            except ValidationError:
+                pydantic_ok = False
+            errors = list(stored_validator.iter_errors(batch))
             assert pydantic_ok == (not errors), (unit, [e.message[:80] for e in errors[:3]])
 
 
@@ -548,6 +574,7 @@ def test_a_pack_modality_extends_claim_modality_with_its_own_properties(
     def key(modality: str, who: str) -> str:
         cands = KeyedCandidateSet.model_validate(
             {
+                "rendition": ctx.rendition_key,
                 "entities": [
                     {"id": n, "type": "min:Gadget", "label": n, "scope": "global"}
                     for n in ("G", who)
@@ -577,6 +604,7 @@ def test_the_minimal_pack_compiles_to_every_artifact(minimal: CompiledSchema) ->
         ("json_schema", "batch.stored"),
         ("json_schema", "batch.decoding"),
         ("annotator_reference", "reference"),
+        ("rules", "rules"),
     }
     tables = minimal.artifact("schema_tables", "tables").body
     assert {"value": "min:instruction", "properties": ["claim_bearing"]} in tables["statement_kind"]
@@ -584,6 +612,7 @@ def test_the_minimal_pack_compiles_to_every_artifact(minimal: CompiledSchema) ->
     assert minimal.key_schema.slot_case == {"min:setting_name": CaseRule.PRESERVE}
     stored = {
         "unit_ref": "E1",
+        "rendition": REN,
         "statements": [{"local_ref": "st1", "kind": "min:instruction", "anchor": ["seg:x"]}],
     }
     minimal.batches.validate(json.dumps(stored), "stored")
@@ -615,7 +644,7 @@ def test_ci_schema_compile_prints_the_artifacts(cli, tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     out = json.loads(result.stdout)
-    assert out["packs"] == ["statistics"] and len(out["artifacts"]) == 5
+    assert out["packs"] == ["statistics"] and len(out["artifacts"]) == 6
     assert (tmp_path / "annotator_reference.reference.md").exists()
     refused = cli("schema", "compile", "--domains", str(tmp_path), "--domain", "nothere")
     assert refused.exit_code == 1 and "no pack schema" in refused.stderr
