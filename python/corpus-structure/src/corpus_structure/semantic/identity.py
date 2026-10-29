@@ -101,3 +101,11 @@ def fact_key(
             )
         ).hexdigest()
     )
+
+
+def alternative_group_key(release_id: str, realization: str, fact_ids: tuple[str, ...]) -> str:
+    """An unordered alternative set collapses duplicate occurrences of one fact."""
+    members = sorted(set(fact_ids))
+    if not release_id or not realization or len(members) < 2 or any(not member for member in members):
+        raise ValueError("alternative group requires a scoped set of at least two distinct facts")
+    return "alternative:" + sha256(canonical_bytes([release_id, realization, members])).hexdigest()

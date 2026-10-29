@@ -167,6 +167,20 @@ class FactInputRow:
 
 
 @dataclass(frozen=True)
+class AlternativeGroupRow:
+    group_id: str
+    reason: str
+    operation_id: str
+    operation_version: str
+
+
+@dataclass(frozen=True)
+class AlternativeMemberRow:
+    group_id: str
+    fact_id: str
+
+
+@dataclass(frozen=True)
 class AssessmentRow:
     assessment_id: str
     operation_id: str
@@ -227,6 +241,8 @@ _ROW_TYPES = {
     "assessment": AssessmentRow,
     "entity_input": EntityInputRow,
     "fact_input": FactInputRow,
+    "alternative_group": AlternativeGroupRow,
+    "alternative_member": AlternativeMemberRow,
 }
 _DIALECT = postgresql.dialect()
 STAGE_TYPES: dict[str, tuple[type, tuple[str, ...]]] = {
@@ -268,6 +284,8 @@ class PublicationBatch:
     occurrence_establishment: tuple[OccurrenceEstablishmentRow, ...] = ()
     evidence_source: tuple[EvidenceSourceRow, ...] = ()
     assessment: tuple[AssessmentRow, ...] = ()
+    alternative_group: tuple[AlternativeGroupRow, ...] = ()
+    alternative_member: tuple[AlternativeMemberRow, ...] = ()
     entity_input: tuple[EntityInputRow, ...] = ()
     fact_input: tuple[FactInputRow, ...] = ()
 
