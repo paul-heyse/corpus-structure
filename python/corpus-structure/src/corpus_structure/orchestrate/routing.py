@@ -40,6 +40,16 @@ def propose(conn: Connection, run_id: int, registry: Any) -> None:
     raw_locators = scope.get('locators') if scope is not None else None
     locators = [str(x) for x in raw_locators] if isinstance(raw_locators, list) else None
     configs = RunConfigs(registry, conn, options.configs)
+    # One read of task outcomes, indexed by physical unit; a segment also consumes
+    # document/rendition methods through its recorded enclosing units.
+    task_states = {}
+    for row in conn.execute(text(
+        "SELECT t.id,m.name,t.unit_type,t.unit_id,coalesce(origin.status,t.status) AS status "
+        "FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id "
+        "JOIN ops.method m ON m.id=c.method_id LEFT JOIN ops.task origin ON origin.id=t.reused_task_id "
+        "WHERE t.run_id=:r ORDER BY t.id"
+    ), {'r':run_id}):
+        task_states[row.name, row.unit_type, row.unit_id] = (row.id, row.status)
     indices = {}
     counters: Counter[str] = Counter()
     scheduled: set[tuple[int | None, str]] = set()
@@ -68,13 +78,25 @@ def propose(conn: Connection, run_id: int, registry: Any) -> None:
             bearing = hint.get('claim_bearing')
             if bearing is None:
                 bearing = kind in enums.property('claim_bearing')
+            def outcome(method_name: str) -> str | None:
+                found = [task_states[k] for k in (
+                    (method_name, 'segment', unit.ref.unit_id),
+                    (method_name, 'rendition', unit.rendition_id),
+                    (method_name, 'document', unit.document_id),
+                ) if k in task_states]
+                if not found:
+                    return None
+                status = max(found)[1]
+                return {'done':'produced', 'empty':'empty', 'failed':'failed'}.get(status)
             thing = {'phase': run.phase, 'iteration': 0,
                 'unit': SimpleNamespace(kind=segment.kind.value, statement_kind=kind, claim_bearing=bool(bearing)),
                 'target': SimpleNamespace(kind=None,size=None,max_confidence=None,margin=None),
                 'budget': SimpleNamespace(agent_packets_left=None,llm_tokens_left=None),
-                'ran':lambda m:False,'outcome':lambda m:None,'judged_by':lambda m:False,
+                'ran':lambda m:outcome(m) is not None,'outcome':outcome,'judged_by':lambda m:False,
                 'decision':lambda m:None,'confidence':lambda m:None}
-            matched = matched_units.setdefault(unit.ref.unit_key, [e.key for e in rules.matches(PolicyChain.PROPOSE, thing)])
+            if unit.ref.unit_key not in matched_units:
+                matched_units[unit.ref.unit_key] = [e.key for e in rules.matches(PolicyChain.PROPOSE, thing)]
+            matched = matched_units[unit.ref.unit_key]
             identity = (rc.method_config_id, unit.ref.unit_key)
             if entry.key not in matched or identity in scheduled:
                 continue
