@@ -1,0 +1,891 @@
+{
+ "versions": {
+  "duckdb": "2.0.0",
+  "pyarrow": "26.0.0"
+ },
+ "threads": 32,
+ "shuffles": 40,
+ "named": {
+  "chain3": {
+   "nodes": 3,
+   "must": 2,
+   "cannot": 1,
+   "refused_by_reference": 1,
+   "reference_partition_blocks": 2,
+   "shuffles": 40,
+   "reference_equals_hand_expectation": true,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 2,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 1,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 3,
+    "sequential_edges": 2
+   },
+   "median_ms": {
+    "py_declared": 0.01,
+    "py_arrival": 0.0,
+    "duck_sequential": 4.13,
+    "duck_components_antijoin": 2.21,
+    "duck_hybrid": 8.9
+   },
+   "arrival_partitions_seen": [
+    [
+     [
+      "A"
+     ],
+     [
+      "B",
+      "C"
+     ]
+    ],
+    [
+     [
+      "A",
+      "B"
+     ],
+     [
+      "C"
+     ]
+    ]
+   ],
+   "why": "A–B first by score; B–C would join A and C",
+   "expected": [
+    [
+     "A",
+     "B"
+    ],
+    [
+     "C"
+    ]
+   ]
+  },
+  "tie_by_pair_key": {
+   "nodes": 3,
+   "must": 2,
+   "cannot": 1,
+   "refused_by_reference": 1,
+   "reference_partition_blocks": 2,
+   "shuffles": 40,
+   "reference_equals_hand_expectation": true,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 2,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 1,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 3,
+    "sequential_edges": 2
+   },
+   "median_ms": {
+    "py_declared": 0.01,
+    "py_arrival": 0.0,
+    "duck_sequential": 4.0,
+    "duck_components_antijoin": 2.19,
+    "duck_hybrid": 8.74
+   },
+   "arrival_partitions_seen": [
+    [
+     [
+      "A"
+     ],
+     [
+      "B",
+      "C"
+     ]
+    ],
+    [
+     [
+      "A",
+      "B"
+     ],
+     [
+      "C"
+     ]
+    ]
+   ],
+   "why": "equal scores: pair key (A,B) < (B,C); pairs given reversed",
+   "expected": [
+    [
+     "A",
+     "B"
+    ],
+    [
+     "C"
+    ]
+   ]
+  },
+  "judgment_first": {
+   "nodes": 3,
+   "must": 2,
+   "cannot": 1,
+   "refused_by_reference": 1,
+   "reference_partition_blocks": 2,
+   "shuffles": 40,
+   "reference_equals_hand_expectation": true,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 2,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 1,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 3,
+    "sequential_edges": 2
+   },
+   "median_ms": {
+    "py_declared": 0.01,
+    "py_arrival": 0.0,
+    "duck_sequential": 4.06,
+    "duck_components_antijoin": 2.13,
+    "duck_hybrid": 8.71
+   },
+   "arrival_partitions_seen": [
+    [
+     [
+      "B"
+     ],
+     [
+      "C",
+      "D"
+     ]
+    ],
+    [
+     [
+      "B",
+      "C"
+     ],
+     [
+      "D"
+     ]
+    ]
+   ],
+   "why": "the merge judgment C–D ranks above the 0.95 pair; B–C then joins B and D",
+   "expected": [
+    [
+     "B"
+    ],
+    [
+     "C",
+     "D"
+    ]
+   ]
+  },
+  "refusal_cascade": {
+   "nodes": 4,
+   "must": 4,
+   "cannot": 1,
+   "refused_by_reference": 2,
+   "reference_partition_blocks": 2,
+   "shuffles": 40,
+   "reference_equals_hand_expectation": true,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 4,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 1,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 4,
+    "sequential_edges": 4
+   },
+   "median_ms": {
+    "py_declared": 0.02,
+    "py_arrival": 0.01,
+    "duck_sequential": 4.53,
+    "duck_components_antijoin": 2.24,
+    "duck_hybrid": 10.51
+   },
+   "arrival_partitions_seen": [
+    [
+     [
+      "A"
+     ],
+     [
+      "B",
+      "C",
+      "D"
+     ]
+    ],
+    [
+     [
+      "A",
+      "B"
+     ],
+     [
+      "C",
+      "D"
+     ]
+    ],
+    [
+     [
+      "A",
+      "B",
+      "D"
+     ],
+     [
+      "C"
+     ]
+    ],
+    [
+     [
+      "A",
+      "D"
+     ],
+     [
+      "B",
+      "C"
+     ]
+    ]
+   ],
+   "why": "B–C refused; C–D accepted; A–D refused because {A,B} and {C,D} hold A–C",
+   "expected": [
+    [
+     "A",
+     "B"
+    ],
+    [
+     "C",
+     "D"
+    ]
+   ]
+  },
+  "two_cannots": {
+   "nodes": 4,
+   "must": 4,
+   "cannot": 2,
+   "refused_by_reference": 2,
+   "reference_partition_blocks": 2,
+   "shuffles": 40,
+   "reference_equals_hand_expectation": true,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 2,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 2,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 4,
+    "sequential_edges": 4
+   },
+   "median_ms": {
+    "py_declared": 0.02,
+    "py_arrival": 0.01,
+    "duck_sequential": 4.64,
+    "duck_components_antijoin": 2.3,
+    "duck_hybrid": 11.49
+   },
+   "arrival_partitions_seen": [
+    [
+     [
+      "A",
+      "B"
+     ],
+     [
+      "C",
+      "D"
+     ]
+    ],
+    [
+     [
+      "A",
+      "D"
+     ],
+     [
+      "B",
+      "C"
+     ]
+    ]
+   ],
+   "why": "B–C refused by A–C, A–D refused by B–D; in arrival order B–C first gives {A,D},{B,C}",
+   "expected": [
+    [
+     "A",
+     "B"
+    ],
+    [
+     "C",
+     "D"
+    ]
+   ]
+  },
+  "duplicate_pair": {
+   "nodes": 3,
+   "must": 3,
+   "cannot": 1,
+   "refused_by_reference": 1,
+   "reference_partition_blocks": 2,
+   "shuffles": 40,
+   "reference_equals_hand_expectation": true,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 2,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 1,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 3,
+    "sequential_edges": 2
+   },
+   "median_ms": {
+    "py_declared": 0.01,
+    "py_arrival": 0.0,
+    "duck_sequential": 4.15,
+    "duck_components_antijoin": 2.14,
+    "duck_hybrid": 8.86
+   },
+   "arrival_partitions_seen": [
+    [
+     [
+      "A"
+     ],
+     [
+      "B",
+      "C"
+     ]
+    ],
+    [
+     [
+      "A",
+      "B"
+     ],
+     [
+      "C"
+     ]
+    ]
+   ],
+   "why": "A–B scored and judged counts once, as a judgment, so it precedes B–C at 0.99",
+   "expected": [
+    [
+     "A",
+     "B"
+    ],
+    [
+     "C"
+    ]
+   ]
+  },
+  "isolated_and_long_chain": {
+   "nodes": 6,
+   "must": 4,
+   "cannot": 2,
+   "refused_by_reference": 1,
+   "reference_partition_blocks": 3,
+   "shuffles": 40,
+   "reference_equals_hand_expectation": true,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 4,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 1,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 5,
+    "sequential_edges": 4
+   },
+   "median_ms": {
+    "py_declared": 0.02,
+    "py_arrival": 0.01,
+    "duck_sequential": 4.55,
+    "duck_components_antijoin": 2.27,
+    "duck_hybrid": 9.53
+   },
+   "arrival_partitions_seen": [
+    [
+     [
+      "E1"
+     ],
+     [
+      "E2",
+      "E3",
+      "E4",
+      "E5"
+     ],
+     [
+      "X"
+     ]
+    ],
+    [
+     [
+      "E1",
+      "E2"
+     ],
+     [
+      "E3",
+      "E4",
+      "E5"
+     ],
+     [
+      "X"
+     ]
+    ],
+    [
+     [
+      "E1",
+      "E2",
+      "E3"
+     ],
+     [
+      "E4",
+      "E5"
+     ],
+     [
+      "X"
+     ]
+    ],
+    [
+     [
+      "E1",
+      "E2",
+      "E3",
+      "E4"
+     ],
+     [
+      "E5"
+     ],
+     [
+      "X"
+     ]
+    ]
+   ],
+   "why": "ties broken by pair key along the chain: E4–E5 is last and joins E1 and E5; X is cannot-linked only",
+   "expected": [
+    [
+     "E1",
+     "E2",
+     "E3",
+     "E4"
+    ],
+    [
+     "E5"
+    ],
+    [
+     "X"
+    ]
+   ]
+  }
+ },
+ "random": {
+  "random_s1_n300_m600_c80": {
+   "nodes": 300,
+   "must": 600,
+   "cannot": 80,
+   "refused_by_reference": 176,
+   "reference_partition_blocks": 15,
+   "shuffles": 40,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 40,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 80,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 296,
+    "sequential_edges": 600
+   },
+   "median_ms": {
+    "py_declared": 0.64,
+    "py_arrival": 0.35,
+    "duck_sequential": 65.8,
+    "duck_components_antijoin": 3.45,
+    "duck_hybrid": 72.4
+   }
+  },
+  "random_s2_n300_m600_c80": {
+   "nodes": 300,
+   "must": 600,
+   "cannot": 80,
+   "refused_by_reference": 179,
+   "reference_partition_blocks": 11,
+   "shuffles": 40,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 40,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 80,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 298,
+    "sequential_edges": 600
+   },
+   "median_ms": {
+    "py_declared": 0.64,
+    "py_arrival": 0.35,
+    "duck_sequential": 66.43,
+    "duck_components_antijoin": 3.56,
+    "duck_hybrid": 73.67
+   }
+  },
+  "random_s3_n300_m600_c80": {
+   "nodes": 300,
+   "must": 600,
+   "cannot": 80,
+   "refused_by_reference": 174,
+   "reference_partition_blocks": 14,
+   "shuffles": 40,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 40,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 80,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 297,
+    "sequential_edges": 600
+   },
+   "median_ms": {
+    "py_declared": 0.64,
+    "py_arrival": 0.35,
+    "duck_sequential": 68.53,
+    "duck_components_antijoin": 3.74,
+    "duck_hybrid": 75.11
+   }
+  },
+  "random_s4_n300_m600_c80": {
+   "nodes": 300,
+   "must": 600,
+   "cannot": 80,
+   "refused_by_reference": 165,
+   "reference_partition_blocks": 10,
+   "shuffles": 40,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 40,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 80,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 297,
+    "sequential_edges": 600
+   },
+   "median_ms": {
+    "py_declared": 0.64,
+    "py_arrival": 0.34,
+    "duck_sequential": 67.15,
+    "duck_components_antijoin": 3.53,
+    "duck_hybrid": 73.3
+   }
+  },
+  "random_s5_n300_m600_c80": {
+   "nodes": 300,
+   "must": 600,
+   "cannot": 80,
+   "refused_by_reference": 184,
+   "reference_partition_blocks": 9,
+   "shuffles": 40,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 40,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "40/40",
+    "duck_components_antijoin": "0/40",
+    "duck_hybrid": "40/40"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 80,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 298,
+    "sequential_edges": 600
+   },
+   "median_ms": {
+    "py_declared": 0.66,
+    "py_arrival": 0.36,
+    "duck_sequential": 66.4,
+    "duck_components_antijoin": 3.52,
+    "duck_hybrid": 72.54
+   }
+  },
+  "random_s11_n3000_m6000_c600": {
+   "nodes": 3000,
+   "must": 6000,
+   "cannot": 600,
+   "refused_by_reference": 1749,
+   "reference_partition_blocks": 55,
+   "shuffles": 5,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 5,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "5/5",
+    "duck_components_antijoin": "0/5",
+    "duck_hybrid": "5/5"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "5/5",
+    "duck_components_antijoin": "0/5",
+    "duck_hybrid": "5/5"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 600,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 2962,
+    "sequential_edges": 5996
+   },
+   "median_ms": {
+    "py_declared": 8.3,
+    "py_arrival": 5.01,
+    "duck_sequential": 7329.15,
+    "duck_components_antijoin": 14.28,
+    "duck_hybrid": 6006.9
+   }
+  },
+  "clustered_s21_n3000_m4318_c48": {
+   "nodes": 3000,
+   "must": 4318,
+   "cannot": 48,
+   "refused_by_reference": 109,
+   "reference_partition_blocks": 683,
+   "shuffles": 10,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 10,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "10/10",
+    "duck_components_antijoin": "0/10",
+    "duck_hybrid": "10/10"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "10/10",
+    "duck_components_antijoin": "0/10",
+    "duck_hybrid": "10/10"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 40,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 322,
+    "sequential_edges": 503
+   },
+   "median_ms": {
+    "py_declared": 8.21,
+    "py_arrival": 3.95,
+    "duck_sequential": 12975.63,
+    "duck_components_antijoin": 13.79,
+    "duck_hybrid": 135.18
+   }
+  },
+  "clustered_s22_n5000_m7136_c75": {
+   "nodes": 5000,
+   "must": 7136,
+   "cannot": 75,
+   "refused_by_reference": 152,
+   "reference_partition_blocks": 1165,
+   "shuffles": 10,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 10,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "10/10",
+    "duck_components_antijoin": "0/10",
+    "duck_hybrid": "10/10"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "10/10",
+    "duck_components_antijoin": "0/10",
+    "duck_hybrid": "10/10"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 53,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 425,
+    "sequential_edges": 670
+   },
+   "median_ms": {
+    "py_declared": 14.48,
+    "py_arrival": 7.36,
+    "duck_sequential": 19888.03,
+    "duck_components_antijoin": 19.7,
+    "duck_hybrid": 172.44
+   }
+  },
+  "clustered_s23_n25000_m36734_c304": {
+   "nodes": 25000,
+   "must": 36734,
+   "cannot": 304,
+   "refused_by_reference": 695,
+   "reference_partition_blocks": 5462,
+   "shuffles": 3,
+   "distinct_partitions_over_shuffles": {
+    "py_declared": 1,
+    "py_arrival": 3,
+    "duck_sequential": 1,
+    "duck_components_antijoin": 1,
+    "duck_hybrid": 1
+   },
+   "equal_to_reference": {
+    "duck_sequential": "3/3",
+    "duck_components_antijoin": "0/3",
+    "duck_hybrid": "3/3"
+   },
+   "refused_set_equal_to_reference": {
+    "duck_sequential": "3/3",
+    "duck_components_antijoin": "0/3",
+    "duck_hybrid": "3/3"
+   },
+   "antijoin_cannot_pairs_left_inside_a_component": 251,
+   "hybrid_sequential_share": {
+    "sequential_nodes": 1952,
+    "sequential_edges": 3109
+   },
+   "median_ms": {
+    "py_declared": 79.26,
+    "py_arrival": 40.51,
+    "duck_sequential": 255001.75,
+    "duck_components_antijoin": 73.41,
+    "duck_hybrid": 10448.65
+   }
+  }
+ },
+ "single_thread_sequential_equal": true
+}

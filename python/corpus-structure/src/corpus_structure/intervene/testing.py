@@ -8,7 +8,7 @@ module, not test code: the deterministic acceptance test (P0-C-3) and evaluation
 `submit_batches` its synchronous wrapper (`anyio.run`).
 
 **Mapping ids.** The batch's sentence ids are mapped onto the served packet with its sentence map:
-each frame entry matches the served entry with the same locator, else the one with the same text;
+each frame entry matches the served entry with the same locator and text;
 none, or several, stops the harness with `HarnessError` naming the unit and the id, because the
 fixture does not fit the packet. Ids are then rewritten at every citation position
 (`core.batch.rewrite_citations`). The stored proposal records the served frame, not the fixture's.
@@ -40,12 +40,14 @@ def map_ids(
     """The fixture's sentence id -> the served id (module doc)."""
     out = {}
     for sid, entry in frame.items():
-        by_locator = [s for s in served if s["locator"] == entry["locator"]]
-        found = by_locator or [s for s in served if s["text"] == entry["text"]]
+        found = [
+            s for s in served
+            if s["locator"] == entry["locator"] and s["text"] == entry["text"]
+        ]
         if len(found) != 1:
             why = "no served sentence" if not found else f"{len(found)} served sentences"
             raise HarnessError(
-                f"{unit_key}: {sid} ({entry['locator']}) matches {why} by locator or text"
+                f"{unit_key}: {sid} ({entry['locator']}) matches {why} by locator and text"
             )
         out[sid] = found[0]["id"]
     return out
