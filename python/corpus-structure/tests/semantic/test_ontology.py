@@ -469,3 +469,15 @@ def test_projected_validation_uses_nested_qualified_path():
 <urn:shape> a sh:NodeShape; sh:targetClass cs:Record;
  sh:property [sh:path cs:count; sh:datatype xsd:integer] .''', format="turtle")
     assert not validate_projected_graph(projection, shapes).conforms
+
+
+def test_projected_null_remains_distinct_from_absence_and_literal_text():
+    from corpus_structure.semantic.ontology import QualifiedGraphProjection
+    row = {"id": "urn:occ:1", "subject": "urn:s", "predicate": "urn:p", "object": None,
+           "qualification": {"null": None, "text": "None"}}
+    graph = QualifiedGraphProjection("r", "z", 0, "graph-validation", (row,), {}, {}).graph()
+    qualification = graph.value(URIRef("urn:occ:1"), CS.qualificationNode)
+    null = graph.value(qualification, CS.null)
+    assert (null, RDF.type, CS.Null) in graph
+    assert graph.value(qualification, CS.text) == Literal("None")
+    assert graph.value(qualification, CS.absent) is None

@@ -449,6 +449,11 @@ class QualifiedGraphProjection:
         def structure(owner: URIRef, path: tuple[str, ...], value: Any) -> URIRef | Literal:
             if isinstance(value, URIRef | Literal):
                 return value
+            if value is None:
+                node = URIRef("urn:cs:projection-null:" + hashlib.sha256(
+                    json.dumps([binding, str(owner), path], sort_keys=True).encode()).hexdigest())
+                graph.add((node, RDF.type, CS.Null))
+                return node
             if not isinstance(value, Mapping | tuple | list):
                 return Literal(value)
             # Paths retain duplicate member positions, independently of RDF set semantics.
@@ -457,6 +462,8 @@ class QualifiedGraphProjection:
             if isinstance(value, Mapping):
                 graph.add((node, RDF.type, CS.Record))
                 for key, child in value.items():
+                    if type(key) is not str:
+                        raise OntologyError("qualified record keys must be strings")
                     graph.add((node, CS[str(key)], structure(owner, (*path, str(key)), child)))
             else:
                 graph.add((node, RDF.type, CS.Collection))

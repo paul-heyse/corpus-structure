@@ -702,3 +702,29 @@ def test_cleanup_attempts_all_and_retains_failures(monkeypatch):
     assert len(scope.cleanup_failures) == 1
     assert not __import__('pathlib').Path(scope._scratch.name).exists()
     scope.close()
+
+
+def test_constructor_retains_invalid_input_and_cleanup_failure(monkeypatch):
+    from corpus_structure.semantic import analytics
+    packet = empty_packet(prepared_inputs()[2])
+    original_cleanup = analytics.TemporaryDirectory.cleanup
+    def broken_cleanup(self):
+        original_cleanup(self)
+        raise OSError("scratch cleanup failed")
+    monkeypatch.setattr(analytics.TemporaryDirectory, "cleanup", broken_cleanup)
+    # The constructor's empty captured spine is independently invalid.
+    with pytest.raises(ExceptionGroup) as failure:
+        AnalysisScope(replace(packet, relations={}))
+    assert isinstance(failure.value.exceptions[0], ValueError)
+    assert "complete normalized spine" in str(failure.value.exceptions[0])
+    assert "scratch cleanup failed" in str(failure.value.exceptions[1].exceptions[0])
+
+
+def test_reader_adopts_native_relation_reader_and_releases_it():
+    import duckdb
+    with duckdb.connect(":memory:") as connection:
+        relation = connection.sql("SELECT 7 AS value")
+        with AnalysisScope(empty_packet(prepared_inputs()[2])) as scope:
+            with scope.reader(relation) as reader:
+                assert reader.read_all().to_pylist() == [{"value": 7}]
+            assert scope._readers == []

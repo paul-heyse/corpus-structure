@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from dataclasses import asdict
@@ -937,6 +938,27 @@ def _prepare_release_uncached(
         RegistryRow("identity", d.name, canonical_bytes({"groups": d.identity_groups}))
         for d in definitions
     )
+    for dependency in dependencies.artifacts:
+        if dependency.name == "operation/metric-definitions.yaml":
+            try:
+                declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
+                if not isinstance(declared, dict) or set(declared) != {"metrics"} or not isinstance(declared["metrics"], list):
+                    raise ValueError("metric declarations require a metrics sequence")
+                adapter = dict(adapters).get("SourceMetricDefinition")
+                if adapter is None:
+                    raise ValueError("SourceMetricDefinition is not declared")
+                metric_ids = set()
+                metric_rows = []
+                for item in declared["metrics"]:
+                    body = adapter.validate_json(json.dumps(item), strict=True).model_dump(mode="json")
+                    if not body["id"] or body["id"] in metric_ids:
+                        raise ValueError("metric IDs must be nonempty and unique")
+                    metric_ids.add(body["id"])
+                    metric_rows.append(RegistryRow("metric_definition", body["id"], canonical_bytes(body)))
+                rows += tuple(sorted(metric_rows, key=lambda row: row.name))
+                artifacts.append(PreparedArtifact(dependency.name, dependency.content))
+            except Exception as exc:
+                _fail("metric_definitions", dependency.name, str(exc))
     # Rule declarations are normalized once, from the same resolved LinkML authority.
     # A runtime cannot silently reinterpret installed schemas or change rule versions.
     rule_products: dict[str, RegistryRow] = {}

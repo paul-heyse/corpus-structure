@@ -6,7 +6,7 @@ compute; only explicitly owned result readers extend a local scope's lifetime.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
@@ -457,6 +457,17 @@ def capture_packet(
         return load_packet(session, uri, driver_path=driver_path)
 
 
+
+def _cleanup_after_failure(error: BaseException, cleanup: Callable[[], None]) -> None:
+    try:
+        cleanup()
+    except BaseException as failure:
+        if not isinstance(error, Exception):
+            error.add_note(f"analysis cleanup also failed: {failure!r}")
+            raise error
+        raise BaseExceptionGroup("analysis and cleanup failed", [error, failure]) from None
+
+
 class AnalysisScope:
     """One local relation graph and deterministic ownership of its Arrow inputs/readers."""
 
@@ -488,8 +499,8 @@ class AnalysisScope:
         try:
             self._connection = duckdb.connect(":memory:", config=config)
             self.connection = BorrowedHandle(self, self._connection)
-        except BaseException:
-            self._scratch.cleanup()
+        except BaseException as error:
+            _cleanup_after_failure(error, self._scratch.cleanup)
             raise
         try:
             if isinstance(packet, CapturedPacket) and set(packet.relations) != set(SPINE):
@@ -518,23 +529,18 @@ class AnalysisScope:
                         raise ValueError(f"wrong row scope in {name}.{column}")
                 self.connection.register(name, rows)
                 self._registered.append(name)
-        except BaseException:
-            self.close()
+        except BaseException as error:
+            _cleanup_after_failure(error, self.close)
             raise
 
     def __enter__(self) -> AnalysisScope:
         return self
 
     def __exit__(self, kind: object, error: BaseException | None, traceback: object) -> None:
-        try:
+        if error is None:
             self.close()
-        except BaseException as cleanup:
-            if error is not None:
-                if not isinstance(error, Exception):
-                    error.add_note(f"analysis cleanup also failed: {cleanup!r}")
-                    raise error
-                raise BaseExceptionGroup("analysis and cleanup failed", [error, cleanup]) from None
-            raise
+        else:
+            _cleanup_after_failure(error, self.close)
 
     def _ensure_open(self) -> None:
         if self._closed:
@@ -767,7 +773,7 @@ class AnalysisScope:
         """Reader cancellation/exception closes its native result before input teardown."""
         if self._closed:
             raise RuntimeError("analysis scope is closed")
-        reader = relation.to_arrow_reader(batch_size)
+        reader = self._borrow(relation.to_arrow_reader(batch_size))
         try:
             yield reader
         finally:

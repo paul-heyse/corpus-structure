@@ -24,6 +24,7 @@ from sqlalchemy import Connection, Engine, Select, and_, exists, select
 from sqlalchemy.sql.elements import ColumnElement
 
 from .identity import canonical_bytes
+from .outcomes import ScientificOutcome
 from .metadata import table
 from .releases import load_release
 from .types import ClassDefinition, PreparedRelease, PropertyDefinition
@@ -160,6 +161,8 @@ class Coverage(_Envelope):
     scope: str
     outcome: Literal["complete", "partial", "unanalysed", "failed"]
     reason: str | None
+    source_outcome: Literal["complete", "partial", "unknown", "unsupported", "failed"] | None
+    required_capability: str | None
 
 
 class QueryResult(_Envelope):
@@ -237,12 +240,16 @@ class Assessment(_Envelope):
     assessment_id: str
     operation_id: str
     operation_version: str
-    outcome: str
+    outcome: ScientificOutcome
     fact_id: str | None
     occurrence_id: str | None
     confidence: Decimal | None
     reason: str | None
     uncertainty: str | None
+    counterpart_fact_id: str | None
+    counterpart_occurrence_id: str | None
+    context_value_id: str | None
+    comparison_tier: str | None
 
 
 class Explanation(_Envelope):
@@ -643,6 +650,40 @@ class ReadSession:
             Coverage(**{key: row[key] for key in Coverage.model_fields})
             for row in self.connection.execute(stmt.order_by(relation.c.coverage_id)).mappings()
         )
+
+    def measurements(self, metric: str | None = None) -> tuple[BaseModel, ...]:
+        """Read source measurements from this result's exact final cut and producer bindings."""
+        from .metrics import metric_definitions
+        definitions = metric_definitions(self.prepared)
+        run, cut, member, task, result = (table("ops.run"), table("ops.input_cut"),
+                                        table("ops.cut_task"), table("ops.task"), table("ops.task_result"))
+        stmt = (select(result.c.body, task.c.id.label("task_id"), task.c.run_id)
+                .select_from(run.join(cut, cut.c.run_id == run.c.id)
+                             .join(member, member.c.cut_id == cut.c.id)
+                             .join(task, task.c.id == member.c.origin_task_id)
+                             .join(result, result.c.task_id == task.c.id))
+                .where(run.c.release_id == self.binding.release_id,
+                       run.c.result_realization_id == self.binding.realization_id,
+                       cut.c.final.is_(True)).distinct().order_by(task.c.id))
+        records = []
+        for row in self.connection.execute(stmt).mappings():
+            body = row["body"]
+            for measurement in body.get("measurements", ()):
+                if metric is not None and measurement["metric"] != metric:
+                    continue
+                definition = definitions.get(measurement["metric"])
+                if definition is None:
+                    raise ValueError("measurement names an unresolved metric")
+                subject = {"kind": measurement["scope_type"]}
+                for name in ("scope_id", "scope_key"):
+                    if name in measurement:
+                        subject[name] = measurement[name]
+                producer = {name: body[name] for name in ("release_id", "invocation_key", "method", "operation_version", "configuration_hash", "input_hash", "unit_key")}
+                producer.update(run_id=row["run_id"], task_id=row["task_id"])
+                records.append(self.prepared.validate_python("SourceBoundMeasurement", {
+                    "metric": definition, "subject": subject, "producer": producer,
+                    "value": measurement["value"], "detail": measurement["detail"]}))
+        return tuple(records)
 
     def _occurrence_contexts(
         self, occurrence_ids: tuple[str, ...]
