@@ -187,6 +187,13 @@ uses its frozen claim form until scheduled consumer migration.
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
+**Accepted operation target (2026-10-29).** Bound operations retain source occurrences, typed
+assessments and immutable effective-input cuts. Finite positive inference preserves exact
+qualification and requires source-grounded proof authorization at protected publication.
+Automated grading/adjudication does not require human input. Migration status belongs to SP-06/SP-07.
+
+> Decision: ADR-0027
+
 **Proposed** (accepted, not yet built). Every method, the agent included, writes append-only
 observations; consolidation alone writes entities, claims and links, rebuilt per pass and
 materialized per run, immutable once the run finishes; promotion picks the run queries read
@@ -257,6 +264,12 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted operation target (2026-10-29).** Producers and domain operations consume one pinned
+release and resolved dependencies. Semantic scope, normalized rule declarations and operation
+boundaries are derived products; runtime settings cannot rebind an existing operation.
+
+> Decision: ADR-0027
 
 **Accepted analytical target (2026-10-29).** Release-derived projections bind source selections,
 Arrow types and output adapters. Analytical profiles explicitly govern decimal rounding (default

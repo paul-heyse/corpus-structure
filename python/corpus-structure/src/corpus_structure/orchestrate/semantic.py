@@ -21,7 +21,7 @@ class BoundRunReport(BaseModel):
 
 def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:OperationBinding,
                        registry:Any,graph:Any,method_settings:Any,phase:int=0,
-                       configurations:Mapping[str,str]|None=None)->BoundRunReport:
+                       configurations:Mapping[str,str]|None=None,guideline:str="",fresh:Any=())->BoundRunReport:
     """Run the current source graph; hand its immutable cut to consolidation/proposal owners.
 
     This result establishes source preparation only. It does not report grading, inference,
@@ -31,6 +31,7 @@ def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:Operatio
     from corpus_structure.semantic.identity import canonical_bytes
     from hashlib import sha256
     if binding.release_id!=prepared.release_id:raise OperationConflict('run release differs from prepared interpretation')
+    registry=registry.bind_release(prepared)
     configurations=dict(configurations or {})
     configs={}
     for _,steps in graph.stages:
@@ -38,12 +39,46 @@ def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:Operatio
             method,_,default=step.config.partition('/')
             name=configurations.get(method,default or 'default')
             configs[method]=registry.resolve(method,name)
+    fresh=tuple(sorted(set(fresh)))
+    unknown=set(fresh)-{method.name for method in registry.methods()}
+    if unknown:raise OperationConflict('fresh names unregistered methods: '+', '.join(sorted(unknown)))
+    agent_configs={}
+    from corpus_structure.core.method import config_references,PackSection,ArtifactRef
+    for method_name,config_name in registry.named():
+        if method_name!='agent.opus':continue
+        config=registry.overlay(method_name,config_name)
+        raw=config.model_dump(mode='json')
+        markers=config_references(type(config))
+        for path,marker in markers.items():
+            if isinstance(marker,PackSection):
+                if len(path)!=1:raise OperationConflict('nested agent operation sections are unsupported')
+                raw[path[0]]=registry.file.sections[marker.name]
+        values=type(config).model_validate(raw).model_dump(mode='json')
+        for path,marker in markers.items():
+            if isinstance(marker,ArtifactRef):values.pop(path[0],None)
+        agent_configs[config_name]=values
     with engine.begin() as conn:
         d=table('kb.document')
         docs=conn.execute(select(d).where(d.c.project_id==project_id).order_by(d.c.key)).mappings().all()
         if not docs:raise OperationConflict('bound project has no registered source documents')
-        options={'corpus':{'documents':[d['key'] for d in docs]},'configs':{m:c.config_hash for m,c in configs.items()}}
-        rid=create_run(conn,project_id=project_id,binding=binding,kind='full',options=options,code_commit=code_commit(),phase=phase)
+        import json
+        from importlib.metadata import version
+        library_names=set()
+        if 'ingest.html' in configs:library_names.update(('regex','spacy','en-core-web-sm','html5lib','lxml','cssselect2'))
+        if set(configs)&{'extract.math','normalize.formula'}:library_names.add('lark')
+        if 'resolve.symbol_scope' in configs:library_names.update(('spacy','en-core-web-sm'))
+        if graph.policy_propose:library_names.update(('rapidfuzz','regex','rule-engine'))
+        dependency_manifest={
+            'parent':json.loads(binding.dependencies),
+            'libraries':{name:version(name) for name in sorted(library_names)},
+            'source_documents':[{'key':d['key'],'uri':d['source_uri'],'content_hash':d['content_hash'],'metadata':d['meta']} for d in docs],
+            'operations':{name:{'version':registry.method(name).version,'family':str(registry.method(name).family),'tier':str(registry.method(name).tier),'confidence_source':str(registry.method(name).confidence_source) if registry.method(name).confidence_source is not None else None,'configuration_hash':config.config_hash,'parameters':dict(config.params)} for name,config in configs.items()},
+            'guideline':guideline,
+            'agent_configurations':agent_configs,
+        }
+        binding=OperationBinding(binding.release_id,binding.input_realization_id,binding.input_revision,canonical_bytes(dependency_manifest))
+        options={'corpus':{'documents':[d['key'] for d in docs]},'configs':{m:c.config_hash for m,c in configs.items()},'agent_configs':agent_configs,'fresh':list(fresh)}
+        rid=create_run(conn,project_id=project_id,binding=binding,kind='full',options=options,code_commit=code_commit(),phase=phase,guideline=guideline)
         conn.execute(update(table('ops.run')).where(table('ops.run').c.id==rid).values(status='running'))
     holder=f'semantic-source:{rid}'
     try:
@@ -57,7 +92,12 @@ def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:Operatio
                         unit=_unit(conn,view,ref)
                         digest=method.input_digest(unit,config.config)
                         ih=sha256(canonical_bytes([prepared.release_id,binding.input_realization_id,binding.input_revision,binding.dependency_digest,method.name,method.version,config.config_hash,digest.bytes.hex()])).hexdigest()
-                        create_task(conn,run_id=rid,config_id=cid,stage=str(stage),unit_type=str(ref.unit_type),unit_id=ref.unit_id,unit_key=ref.unit_key,input_hash=ih,packet_hash=digest.packet_hash)
+                        task_id=create_task(conn,run_id=rid,config_id=cid,stage=str(stage),unit_type=str(ref.unit_type),unit_id=ref.unit_id,unit_key=ref.unit_key,input_hash=ih,packet_hash=digest.packet_hash,fresh=name in fresh)
+                        if ref.unit_type==TaskUnitType.DOCUMENT and ref.unit_id is not None:
+                            task_table=table('ops.task')
+                            if conn.execute(select(task_table.c.status).where(task_table.c.id==task_id)).scalar_one()=='reused':
+                                from corpus_structure.semantic.operations import read_original
+                                read_original(conn,ref.unit_id)
                 while True:
                     with engine.begin() as conn:claimed=claim_tasks(conn,run_id=rid,config_id=cid,holder=holder,limit=method.resources.batch_size)
                     if not claimed:break
@@ -72,8 +112,14 @@ def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:Operatio
                         if result.error is not None:raise OperationConflict(result.error)
         with engine.begin() as conn:cut=seal_cut(conn,rid,'source-ready')
         return BoundRunReport(run_id=rid,status='source_ready',release_id=prepared.release_id,realization_id=binding.input_realization_id,cut_id=cut)
-    except BaseException:
-        with engine.begin() as conn:conn.execute(update(table('ops.run')).where(table('ops.run').c.id==rid).values(status='failed'))
+    except BaseException as exc:
+        from asyncio import CancelledError
+        from corpus_structure.semantic.operations import end_source_run
+        failure=None if isinstance(exc,(KeyboardInterrupt,CancelledError)) else {'message':str(exc),'exception':type(exc).__name__}
+        try:
+            with engine.begin() as conn:end_source_run(conn,rid,failure=failure)
+        except BaseException as cleanup_error:
+            exc.add_note(f"source run cleanup failed: {cleanup_error}")
         raise
 
 
@@ -129,16 +175,24 @@ def queue_agent(conn:Any,*,run_id:int,prepared:Any,configuration:Mapping[str,Any
                 units:Any,configuration_name:str='extract')->list[int]:
     """Queue policy-selected source units under the same packet definition used by MCP."""
     from hashlib import sha256
-    from corpus_structure.methods.llm.agent_opus import AgentOpus
+    from corpus_structure.semantic.operations import OperationDescriptor
+    from corpus_structure.semantic.proposals import SEMANTIC_AGENT_VERSION
     if not configuration.get('model'):raise ValueError('agent configuration declares its model')
-    method=AgentOpus()
+    method=OperationDescriptor("agent.opus",SEMANTIC_AGENT_VERSION,"agent","agent","agent")
     config_hash='configuration:'+sha256(canonical_bytes([method.name,method.version,dict(configuration)])).hexdigest()
     config_id=record_method(conn,method,configuration_name,configuration,config_hash)
-    binding=run_view(conn,run_id,prepared).binding
+    view=run_view(conn,run_id,prepared)
+    binding=view.binding
+    snapshot=view.options.get('agent_configs',{})
+    if not isinstance(snapshot,dict) or configuration_name not in snapshot or canonical_bytes(snapshot[configuration_name])!=canonical_bytes(dict(configuration)):
+        raise OperationConflict('agent configuration differs from immutable run snapshot')
+    fresh_names=view.options.get('fresh',[])
+    if not isinstance(fresh_names,list) or any(not isinstance(name,str) for name in fresh_names):
+        raise OperationConflict('run fresh selector is not a string list')
     tasks=[]
     for ref in units:
         packet=_packet_for_unit(conn,run_id,prepared,ref,configuration)
         digest=sha256(canonical_bytes([binding.release_id,binding.input_realization_id,binding.input_revision,
             binding.dependency_digest,method.version,config_hash,packet.hash])).hexdigest()
-        tasks.append(create_task(conn,run_id=run_id,config_id=config_id,stage='propose',unit_type=str(ref.unit_type),unit_id=ref.unit_id,unit_key=ref.unit_key,input_hash=digest,packet_hash=packet.hash,agent=True))
+        tasks.append(create_task(conn,run_id=run_id,config_id=config_id,stage='propose',unit_type=str(ref.unit_type),unit_id=ref.unit_id,unit_key=ref.unit_key,input_hash=digest,packet_hash=packet.hash,agent=True,fresh='agent.opus' in fresh_names))
     return tasks

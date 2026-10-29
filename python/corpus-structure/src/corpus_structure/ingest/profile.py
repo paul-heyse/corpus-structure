@@ -106,10 +106,18 @@ class ProfileError(ValueError):
 # --- Loading -----------------------------------------------------------------------------------
 
 
-def parse_profile(name: str, data: Any) -> SourceProfile:
+def parse_profile(name: str, data: Any, *, prepared: Any = None) -> SourceProfile:
     """Validate parsed YAML as a profile; any failure is a `ProfileError` naming the profile."""
     try:
-        return SourceProfile.model_validate(data)
+        context=release_vocabulary(prepared) if prepared is not None else None
+        profile=SourceProfile.model_validate(data,context=context)
+        if context is not None:
+            kinds=set(context['statement_kinds'])
+            problems=[field for field,kind in profile.statement_kinds() if str(kind) not in kinds]
+            problems += [field for field,predicate in profile.predicates() if predicate not in context['predicates']]
+            problems += [issue.field for issue in unimplemented(profile)]
+            if problems:raise ProfileError(name,'unsupported or undeclared bound fields: '+', '.join(problems))
+        return profile
     except ValidationError as error:
         problems = "; ".join(
             f"{'.'.join(str(part) for part in e['loc']) or '<profile>'}: {e['msg']}"
@@ -118,7 +126,7 @@ def parse_profile(name: str, data: Any) -> SourceProfile:
         raise ProfileError(name, problems) from None
 
 
-def load_profile(name: str, directory: Path = SOURCES_DIR) -> SourceProfile:
+def load_profile(name: str, directory: Path = SOURCES_DIR, *, prepared: Any = None) -> SourceProfile:
     """`sources/<name>.yaml`, validated against the source-profile class."""
     if not _PROFILE_NAME.match(name):
         raise ProfileError(name, "a profile name is lower-case letters, digits, '-' and '_'")
@@ -127,7 +135,7 @@ def load_profile(name: str, directory: Path = SOURCES_DIR) -> SourceProfile:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as error:
         raise ProfileError(name, f"{path} cannot be read: {error}") from None
-    return parse_profile(name, data)
+    return parse_profile(name, data,prepared=prepared)
 
 
 # --- The schema-version check -----------------------------------------------------------------
@@ -256,3 +264,17 @@ def compile_profile(profile: SourceProfile, name: str = "<profile>") -> Compiled
         for compiled in cssselect2.compile_selector_list(selector):
             matcher.add_selector(compiled, rule)
     return CompiledProfile(profile, rules, matcher)
+
+
+def release_vocabulary(prepared: Any) -> dict[str, frozenset[str]]:
+    """One release owns profile name membership; installed enum classes are representations."""
+    import json
+    try:kinds=prepared.enum_members('StatementKind')
+    except StopIteration:kinds=frozenset()
+    iris={p.iri for definition in prepared.definitions for p in definition.properties}
+    predicates=set(iris)
+    for row in prepared.registry_rows:
+        if row.kind=='prefix':
+            prefix=json.loads(row.body)['uri']
+            predicates.update(row.name+':'+iri[len(prefix):] for iri in iris if iri.startswith(prefix))
+    return {'statement_kinds':kinds,'predicates':frozenset(predicates)}

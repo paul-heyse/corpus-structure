@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any
@@ -30,6 +30,7 @@ class SourceItem:
     item: str
     establishment: str
     evidence: tuple[EvidenceRow, ...]
+    qualification_class: str = "Qualification"
 
 
 def assemble(
@@ -63,9 +64,22 @@ def assemble(
             return {k: plain(v) for k, v in value.items()}
         return value
 
+    def representation(value: Any) -> Any:
+        if isinstance(value, Decimal):
+            return ["decimal-report", str(value)]
+        if isinstance(value, datetime):
+            return ["datetime-report", value.isoformat()]
+        if isinstance(value, date):
+            return ["date-report", value.isoformat()]
+        if isinstance(value, dict):
+            return ["mapping", [[key, representation(item)] for key, item in sorted(value.items())]]
+        if isinstance(value, (tuple, list)):
+            return ["sequence", [representation(item) for item in value]]
+        return _meaning(value)
+
     def lower(value: Any, range_name: str | None = None, inlined: bool = False) -> str:
         raw = plain(value)
-        identity = [range_name, _meaning(raw)]
+        identity = [range_name, representation(raw)]
         key = 'value:' + sha256(canonical_bytes(identity)).hexdigest()
         if key in values:
             return key
@@ -82,8 +96,10 @@ def assemble(
                 if name not in value.model_fields_set:
                     continue
                 prop = props[name]
-                if prop.multivalued:
-                    child = 'value:' + sha256(canonical_bytes([prop.range, prop.inlined, _meaning(plain(item))])).hexdigest()
+                if prop.collection_key:
+                    child = lower(item, prop.range, True)
+                elif prop.multivalued:
+                    child = 'value:' + sha256(canonical_bytes([prop.range, prop.inlined, representation(plain(item))])).hexdigest()
                     values[child] = ValueRow(child, 'sequence')
                     for index, member in enumerate(item):
                         roles[child, 'item', index] = RoleRow(child, 'item', index, lower(member, prop.range, prop.inlined))
@@ -99,11 +115,15 @@ def assemble(
         elif isinstance(raw, float):
             row = ValueRow(key, 'float', text_value=raw.hex())
         elif isinstance(raw, datetime):
-            row = ValueRow(key, 'datetime', text_value=raw.isoformat())
+            row = ValueRow(key, 'datetime', text_value=raw.astimezone(UTC).isoformat())
         elif isinstance(raw, date):
             row = ValueRow(key, 'date', text_value=raw.isoformat())
         elif isinstance(raw, str):
             row = ValueRow(key, 'string', text_value=raw)
+        elif isinstance(raw, dict):
+            row = ValueRow(key, 'mapping')
+            for name, member in value.items():
+                roles[key, name, 0] = RoleRow(key, name, 0, lower(member, range_name, inlined))
         elif isinstance(raw, list):
             row = ValueRow(key, 'sequence')
             for position, item in enumerate(value):
@@ -121,17 +141,23 @@ def assemble(
         definition = definitions[item.class_name]
         prop = next(p for p in definition.properties if p.name == item.property_name)
         obj = prepared.property_adapter(item.class_name, item.property_name, item=prop.multivalued).validate_python(item.object, strict=True)
-        qualification = prepared.validate_python('Qualification', item.qualification)
+        prepared.qualification_definition(item.qualification_class)
+        qualification = prepared.validate_python(item.qualification_class, item.qualification)
         object_id = lower(obj, prop.range, prop.inlined)
-        qualification_id = lower(qualification, 'Qualification', True)
-        fact_id = prepared.fact_identity(realization_id, item.subject, prop.iri, plain(obj), plain(qualification))
+        qualification_id = lower(qualification, item.qualification_class, True)
+        fact_id = prepared.fact_identity(realization_id, item.subject, prop.iri, plain(obj), plain(qualification), qualification_class=item.qualification_class)
         occurrence_id = occurrence_key(prepared.release_id, realization_id, item.source, item.item)
         occurrence = OccurrenceRow(occurrence_id, fact_id, item.source, item.item, object_id, qualification_id)
         if occurrence_id in occurrences and occurrences[occurrence_id] != occurrence:
             raise ValueError('source item identity cannot bind different content')
         entities[item.subject] = EntityRow(item.subject)
-        memberships[item.subject, definition.iri] = MembershipRow(item.subject, definition.iri, item.establishment)
-        facts[fact_id] = FactRow(fact_id, item.subject, prop.iri, object_id, qualification_id)
+        previous = memberships.get((item.subject, definition.iri))
+        membership_basis = 'stated' if item.establishment == 'stated' or (previous is not None and previous.establishment == 'stated') else 'agent_asserted'
+        memberships[item.subject, definition.iri] = MembershipRow(item.subject, definition.iri, membership_basis)
+        fact = FactRow(fact_id, item.subject, prop.iri, object_id, qualification_id)
+        if fact_id in facts:
+            fact = min((facts[fact_id], fact), key=lambda row: (row.object_value_id, row.qualification_value_id or ''))
+        facts[fact_id] = fact
         occurrences[occurrence_id] = occurrence
         establishment = OccurrenceEstablishmentRow(occurrence_id, item.establishment)
         if occurrence_id in establishments and establishments[occurrence_id] != establishment:

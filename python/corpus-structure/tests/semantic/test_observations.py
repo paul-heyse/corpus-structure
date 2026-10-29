@@ -56,7 +56,7 @@ def result():
 
 def bind(release, **changes):
     kwargs = dict(source="source:original-content", method="extract", operation_version="2",
-                  configuration_hash="config:1", input_hash="input:1", result=result())
+                  configuration_hash="config:1", input_hash="input:1", invocation_key="invocation:test", result=result())
     return bind_result(release, **(kwargs | changes)).model_dump(mode="python")
 
 

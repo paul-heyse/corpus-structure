@@ -56,10 +56,19 @@ classes:
   attributes:
    name: {range: string}
    exact: {range: decimal}
+ Parameter:
+  attributes:
+   key: {identifier: true}
+   amount: {range: decimal, required: true}
+   owner: {range: Person, required: true}
+ ScopedQualification:
+  is_a: Qualification
+  attributes:
+   parameters: {range: Parameter, multivalued: true, inlined: true}
 """,
                 ),
             ),
-        )
+        ), qualification_class="ScopedQualification"
     )
     prepared = prepare_release(bundle)
     with semantic_db_engine.begin() as conn:
@@ -87,7 +96,9 @@ classes:
             project_id="mcp",
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
-            options={},
+            options={'agent_configs':{'extract':{
+                'model':'declared-automated-agent','mode':'extract','max_units':1,'packet_cap_chars':18000,
+            }}},
             code_commit="native-mcp",
             guideline="Extract only what the source states.",
         )
@@ -202,6 +213,19 @@ classes:
                 object={"kind": "number", "number": exact},
             )
             batch["claims"].append(numerical)
+            batch["claims"][0]["qualification"]["parameters"] = {
+                "scale": {"key": "scale", "amount": exact, "owner": "p"}
+            }
+            rounded_map = deepcopy(batch)
+            rounded_map["claims"][0]["qualification"]["parameters"]["scale"]["amount"] = float(exact)
+            map_refused = (await client.call_tool("propose_claims", {"task_id": agent_task, "batch": rounded_map})).structured_content
+            assert map_refused is not None and map_refused["status"] == "held"
+            assert "binary floats" in map_refused["rejected"][0]["message"]
+            unknown_reference = deepcopy(batch)
+            unknown_reference["claims"][0]["qualification"]["parameters"]["scale"]["owner"] = "missing"
+            reference_refused = (await client.call_tool("propose_claims", {"task_id": agent_task, "batch": unknown_reference})).structured_content
+            assert reference_refused is not None and reference_refused["status"] == "held"
+            assert "nested entity reference" in reference_refused["rejected"][0]["message"]
             rounded = deepcopy(batch)
             rounded["claims"][1]["object"]["number"] = float(exact)
             refused = (
@@ -245,3 +269,5 @@ classes:
             "kind": "number",
             "number": "1.23456789012345678901234567890123456789",
         }
+
+        assert row["payload"]["claims"][0]["qualification"]["parameters"]["scale"]["amount"] == "1.23456789012345678901234567890123456789"

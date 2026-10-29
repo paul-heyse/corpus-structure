@@ -45,7 +45,7 @@ def _transport_sql(writer: str) -> tuple[str, str, str, str]:
         )
         expressions = [
             f'"{c}"::text'
-            if name == "typed_value" and c in {"integer_value", "numeric_value"}
+            if types[columns.index(c)] == "numeric"
             else f'"{c}"'
             for c in columns
         ]

@@ -26,6 +26,9 @@ types:
   date:
     base: date
     uri: xsd:date
+  float:
+    base: float
+    uri: xsd:double
 classes:
   Value:
     abstract: true
@@ -57,6 +60,8 @@ classes:
         required: true
       unit:
         required: true
+      basis:
+        description: The reference basis stated by the source, when present.
   EntityValue:
     is_a: Value
     attributes:
@@ -101,6 +106,18 @@ classes:
     attributes:
       id:
         identifier: true
+      label:
+        description: Source display name; selection does not replace source naming
+          occurrences.
+        annotations:
+          cs:role: display
+          cs:constraint_scope: accepted_value
+      aliases:
+        multivalued: true
+        description: Source naming alternatives, independent of semantic identity
+          rules.
+        annotations:
+          cs:role: display
   SemanticScope:
     attributes:
       extent:
@@ -112,16 +129,27 @@ classes:
     attributes:
       modality:
         required: true
+        range: ClaimModality
       polarity:
         range: boolean
         required: true
-      attribution: {}
+      hedge:
+        range: TextValue
+        inlined: true
+        description: Source hedging language; retained as meaning-bearing context.
+      attribution:
+        range: Entity
+        description: The entity to which the source attributes the assertion.
       scope:
         range: SemanticScope
         inlined: true
       condition:
         range: Condition
         inlined: true
+      valid_time:
+        range: IntervalValue
+        inlined: true
+        description: Source-stated validity, including partial or symbolic bounds.
       valid_from:
         range: datetime
       valid_until:
@@ -167,6 +195,11 @@ classes:
         range: Qualification
         inlined: true
         required: true
+  ExpressionValue:
+    is_a: MathematicalExpression
+    attributes:
+      kind:
+        equals_string: expression
   IntervalValue:
     is_a: Value
     attributes:
@@ -264,11 +297,10 @@ classes:
     attributes:
       kind:
         equals_string: unresolved
-  ExpressionValue:
+  MathematicalExpression:
     is_a: Value
+    abstract: true
     attributes:
-      kind:
-        equals_string: expression
       language:
         required: true
       expression:
@@ -281,6 +313,36 @@ classes:
         inlined: true
       normal_form: {}
       parse_outcome: {}
+      macro_context:
+        range: ExpressionMacro
+        multivalued: true
+        inlined: true
+        description: Source-bound definitions needed to interpret this expression;
+          supplied by source projection.
+  IntervalValue:
+    is_a: Value
+    description: An absent bound is unbounded; absent inclusivity remains unknown.
+    attributes:
+      kind:
+        equals_string: interval
+      start:
+        range: Value
+        inlined: true
+      end:
+        range: Value
+        inlined: true
+      start_incl:
+        range: boolean
+      end_incl:
+        range: boolean
+  PartialDateValue:
+    is_a: Value
+    description: An ISO date at the precision stated by the source, kept verbatim.
+    attributes:
+      kind:
+        equals_string: partial_date
+      lexical:
+        required: true
   MissingValue:
     is_a: Value
     attributes:
@@ -341,6 +403,60 @@ classes:
         inlined: true
         multivalued: true
         required: true
+  MembershipCondition:
+    is_a: Condition
+    description: The expression denotes a member of the declared set expression.
+    attributes:
+      kind:
+        equals_string: member
+      x:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+      set:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+  ComparisonCondition:
+    is_a: Condition
+    description: Two expressions compare by the explicit relation; no predicate-name heuristic.
+    attributes:
+      kind:
+        equals_string: compare
+      relation:
+        range: ComparisonRelation
+        required: true
+      lhs:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+      rhs:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+  ForallCondition:
+    is_a: Condition
+    attributes:
+      kind:
+        equals_string: forall
+      variable:
+        required: true
+      set:
+        range: MathematicalExpression
+        inlined: true
+        required: true
+      body:
+        range: Condition
+        inlined: true
+        required: true
+  ClaimCondition:
+    is_a: Condition
+    description: A source-local claim reference, resolved under the sealed source binding.
+    attributes:
+      kind:
+        equals_string: claim
+      ref:
+        required: true
   AllCondition:
     is_a: Condition
     attributes:
@@ -399,7 +515,6 @@ classes:
     attributes:
       statement_kind:
         range: StatementKind
-        required: true
       locator:
         required: true
       proves:
@@ -408,7 +523,59 @@ classes:
         slot_uri: core:proves
         annotations:
           cs:constraint_scope: accepted_value
+          cs:role: predicate
+        in_subset:
+        - structural
+        description: The source presents this block as a proof or solution of the
+          referenced statement. Mathematical verification is assessed separately.
+  FloatValue:
+    is_a: Value
+    attributes:
+      kind:
+        equals_string: float
+      number:
+        range: float
+        required: true
+  ExpressionMacro:
+    abstract: true
+    attributes:
+      kind:
+        required: true
+      name:
+        identifier: true
+      body:
+        required: true
+  PlainExpressionMacro:
+    is_a: ExpressionMacro
+    attributes:
+      kind:
+        equals_string: plain
+      nargs:
+        range: integer
+        required: true
+        minimum_value: 0
+        maximum_value: 9
+  OptionalExpressionMacro:
+    is_a: ExpressionMacro
+    attributes:
+      kind:
+        equals_string: optional
+      nargs:
+        range: integer
+        required: true
+        minimum_value: 1
+        maximum_value: 9
+      default:
+        required: true
 enums:
+  ComparisonRelation:
+    permissible_values:
+      '<': {}
+      '<=': {}
+      '=': {}
+      '!=': {}
+      '>': {}
+      '>=': {}
   ExpressionForm:
     permissible_values:
       formula: {}
@@ -493,3 +660,56 @@ enums:
         description: Narrative text between units that states claims.
         in_subset:
         - claim_bearing
+  ClaimModality:
+    description: How the source holds a claim (D1 §5.2; guideline §10.6).
+    permissible_values:
+      asserted:
+        description: Concluded or stated as true; structural claims.
+        in_subset:
+        - conflict_bearing
+      supposed:
+        description: 'A supposition: suppose, assume, if, or let about something taken
+          as given.'
+        in_subset:
+        - premise_forming
+      defined:
+        description: What a definition stipulates, including a formula introducing
+          a variable.
+        in_subset:
+        - conflict_bearing
+      conventional:
+        description: A convention.
+      exemplified:
+        description: Setup values in examples and exercises.
+      posed:
+        description: Reserved until an asks_for predicate exists (OPEN-D2-15).
+        in_subset:
+        - reserved
+      cited:
+        description: Attributed to another source.
+        in_subset:
+        - attribution_identifying
+  StatementRole:
+    description: The part a claim plays in its statement (guideline §10.3).
+    permissible_values:
+      premise:
+        description: A supposition the statement makes.
+      conclusion:
+        description: What a theorem, corollary or remark concludes.
+      definiens:
+        description: What a definition stipulates, or a formula introducing a variable.
+      restriction:
+        description: Reserved; restrictions are condition nodes in guideline v1.
+      example_value:
+        description: A setup value of an example or exercise.
+  EvidenceRole:
+    description: The part an evidence span plays for its claim (guideline §10.8).
+    permissible_values:
+      primary:
+        description: The minimal span that states the claim.
+      supporting:
+        description: An introducer that determines the modality.
+      condition:
+        description: The span of a condition.
+      definition:
+        description: The span of a definition the claim relies on.

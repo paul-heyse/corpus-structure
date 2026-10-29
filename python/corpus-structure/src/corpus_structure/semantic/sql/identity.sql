@@ -63,7 +63,7 @@ BEGIN
  ELSE data.value_meaning(r,z,vr.child_value_id,path||v) END) ORDER BY vr.role COLLATE "C"),'[]'::jsonb)
  INTO result FROM data.value_role vr
  JOIN data.typed_value cv ON (cv.release_id,cv.realization_id,cv.value_id)=(vr.release_id,vr.realization_id,vr.child_value_id)
- LEFT JOIN sem.property_applicability pa ON pa.release_id=r AND pa.class_id=(SELECT class_id FROM sem.class_definition WHERE release_id=r AND name='Qualification') AND pa.constraints->>'name'=vr.role
+ LEFT JOIN sem.property_applicability pa ON pa.release_id=r AND pa.class_id=COALESCE(x.datatype,(SELECT class_id FROM sem.class_definition WHERE release_id=r AND name='Qualification')) AND pa.constraints->>'name'=vr.role
  WHERE vr.release_id=r AND vr.realization_id=z AND vr.parent_value_id=v
  AND (NOT qual OR COALESCE(pa.constraints->>'key_role','meaning') <> 'provenance');
  RETURN jsonb_build_array('mapping',result);

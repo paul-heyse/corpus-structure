@@ -114,6 +114,33 @@ class MembershipSupportRow:
 
 
 @dataclass(frozen=True)
+class OccurrenceEstablishmentRow:
+    occurrence_id: str
+    establishment: str
+
+
+@dataclass(frozen=True)
+class EvidenceSourceRow:
+    evidence_id: str
+    observation_id: int
+    rendition_id: int
+    span_id: int | None = None
+
+
+@dataclass(frozen=True)
+class AssessmentRow:
+    assessment_id: str
+    operation_id: str
+    operation_version: str
+    outcome: str
+    fact_id: str | None = None
+    occurrence_id: str | None = None
+    confidence: Decimal | None = None
+    reason: str | None = None
+    uncertainty: str | None = None
+
+
+@dataclass(frozen=True)
 class DerivationRow:
     derivation_id: str
     conclusion_fact_id: str
@@ -153,6 +180,9 @@ _ROW_TYPES = {
     "derivation": DerivationRow,
     "derivation_premise": DerivationPremiseRow,
     "coverage": CoverageRow,
+    "occurrence_establishment": OccurrenceEstablishmentRow,
+    "evidence_source": EvidenceSourceRow,
+    "assessment": AssessmentRow,
 }
 _DIALECT = postgresql.dialect()
 STAGE_TYPES: dict[str, tuple[type, tuple[str, ...]]] = {
@@ -188,6 +218,9 @@ class PublicationBatch:
     derivation: tuple[DerivationRow, ...] = ()
     derivation_premise: tuple[DerivationPremiseRow, ...] = ()
     coverage: tuple[CoverageRow, ...] = ()
+    occurrence_establishment: tuple[OccurrenceEstablishmentRow, ...] = ()
+    evidence_source: tuple[EvidenceSourceRow, ...] = ()
+    assessment: tuple[AssessmentRow, ...] = ()
 
     def __post_init__(self) -> None:
         if any(
@@ -215,15 +248,14 @@ class PublicationBatch:
         for name in STAGE_TYPES:
             rows = [list(astuple(row)) for row in getattr(self, name)]
             # Native receipt encoding uses exact textual numeric representations.
-            if name == "typed_value":
-                for row in rows:
-                    for index in (3, 4):
-                        if row[index] is not None:
-                            row[index] = (
-                                format(row[index], "f")
-                                if isinstance(row[index], Decimal)
-                                else str(row[index])
-                            )
+            for row in rows:
+                for index, typ in enumerate(STAGE_TYPES[name][1]):
+                    if typ == "numeric" and row[index] is not None:
+                        value = row[index]
+                        if isinstance(value, Decimal):
+                            row[index] = format(value.copy_abs() if value.is_zero() else value, "f")
+                        else:
+                            row[index] = str(value)
             body[name] = sorted(rows, key=canonical_bytes)
         return canonical_bytes([self.release_id, self.realization_id, body])
 
@@ -309,17 +341,64 @@ def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[
     return result
 
 
+def _admit_inference(prepared: PreparedRelease) -> None:
+    """Admit only the finite binary profile implemented by protected inference validation."""
+    classes = {d.name: d for d in prepared.definitions}
+    applications = {}
+    for definition in prepared.definitions:
+        for prop in definition.properties:
+            applications.setdefault(prop.iri, []).append((definition, prop))
+    rules = [json.loads(row.body) for row in prepared.registry_rows if row.kind == "inference_rule"]
+    signatures = set()
+
+    def subtype(child, parent):
+        return child.iri == parent.iri or parent.name in child.ancestors
+
+    for rule in rules:
+        kind, predicate = rule["kind"], rule["predicate"]
+        if kind not in {"inverse", "symmetric", "transitive", "subproperty"}:
+            raise ValueError("unsupported inference rule kind")
+        target = rule.get("target") or predicate
+        if predicate not in applications or target not in applications:
+            raise ValueError("inference rule references undeclared property")
+        signatures.add((kind, predicate, target))
+        for domain, prop in applications[predicate]:
+            if prop.inlined or prop.range not in classes:
+                raise ValueError("inference requires binary entity relations")
+            range_class = classes[prop.range]
+            # Inversion changes the domain; subproperty lifting retains it.
+            target_domain = domain if kind == "subproperty" else range_class
+            matching = [p for p in target_domain.properties if p.iri == target]
+            if not matching:
+                raise ValueError("inference target is not applicable to transformed subject")
+            for result in matching:
+                if result.inlined or result.range not in classes:
+                    raise ValueError("inference target requires binary entity range")
+                expected_object = range_class if kind in {"subproperty", "transitive"} else domain
+                if not subtype(expected_object, classes[result.range]):
+                    raise ValueError("inference transformed object violates target range")
+    for definition in prepared.definitions:
+        for prop in definition.properties:
+            for flag in ("symmetric", "transitive"):
+                if getattr(prop, flag) and (flag, prop.iri, prop.iri) not in signatures:
+                    raise ValueError("required graph characteristic has no compiled rule")
+            if prop.inverse:
+                targets = {p.iri for d in prepared.definitions for p in d.properties
+                           if prop.inverse in {p.name, p.iri}}
+                if len(targets) != 1 or ("inverse", prop.iri, next(iter(targets))) not in signatures:
+                    raise ValueError("required inverse has no compiled target rule")
+
+
 def admit_release(prepared: PreparedRelease) -> None:
     """Refuse required semantics outside the currently implemented native lowering."""
     native_constraints(prepared)
+    _admit_inference(prepared)
     for definition in prepared.definitions:
         for prop in definition.properties:
             if prop.constraint_scope not in {"shape", "accepted_value"}:
                 raise ValueError(f"unsupported native constraint scope {prop.constraint_scope}")
             if prop.pattern or prop.patterns:
                 raise ValueError("Python regular expressions have no admitted native equivalence")
-            if prop.inverse or prop.symmetric or prop.transitive:
-                raise ValueError("required graph integrity has no admitted native lowering")
     if any(
         d.outcome in {"unsupported", "unresolved"}
         or (

@@ -25,8 +25,6 @@ from corpus_structure.semantic.identity import fact_key, occurrence_key
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import (
     CoverageRow,
-    DerivationPremiseRow,
-    DerivationRow,
     EntityRow,
     EvidenceRow,
     FactRow,
@@ -228,15 +226,6 @@ def candidate(prepared):
                 "unresolved-endpoint", PREFIX + "DeclaredEndpoint", "evidence-two"
             ),
         ),
-        derivation=(
-            DerivationRow("derived-relation", relation, "points-to-rule", "1"),
-            DerivationRow("second-support", relation, "other-rule", "2"),
-        ),
-        derivation_premise=(
-            DerivationPremiseRow("derived-relation", 0, signal),
-            DerivationPremiseRow("second-support", 0, reading_fact),
-            DerivationPremiseRow("second-support", 1, signal),
-        ),
         coverage=(
             CoverageRow("unknown-note", PREFIX + "absent_note", "*", "unanalysed", "not extracted"),
             CoverageRow("complete-signal", p, "*", "complete"),
@@ -309,11 +298,9 @@ def test_archived_new_declarations_native_occurrence_fact_explain(
         assert [(r.subject.entity_id, r.object) for r in state.rows] == [
             ("unresolved-endpoint", "unresolved")
         ]
-        derived = session.explain(batch.fact[1].fact_id)
-        assert {(d.rule, d.premise_fact_ids) for d in derived.derivations} == {
-            ("points-to-rule", (batch.fact[0].fact_id,)),
-            ("other-rule", (batch.fact[3].fact_id, batch.fact[0].fact_id)),
-        }
+        # Source assertions do not invent derivations from unrelated scalar premises.
+        # Admitted proof/explanation integration is exercised by test_inference.py.
+        assert session.explain(batch.fact[1].fact_id).derivations == ()
         empty = session.query(spec(session, "absent_note", "fact"))
         assert empty.rows == () and empty.knowledge == "unknown"
         assert empty.coverage[0].outcome == "unanalysed"

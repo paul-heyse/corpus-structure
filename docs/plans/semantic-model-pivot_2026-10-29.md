@@ -1,6 +1,6 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06–SP-10 remain planned. **Created:** 2026-10-29.
+**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 are in progress; SP-08–SP-10 remain planned. **Created:** 2026-10-29.
 **Claim strength:** ADR-0024/ADR-0025/ADR-0026 accept the target. Implemented/Tested claims are bounded to SP-00–SP-05; consumer cutover and assembled qualification remain open.
 
 ## 1. Scope, authority and baseline
@@ -70,7 +70,7 @@ SP-00–SP-05 are implemented within their declared profiles. SP-02/SP-03 supply
 metadata, exact archived releases, generation-checked activation and protected native publication.
 Their [package owner](semantic-model-pivot/postgresql-and-publication.md) states capability/refusal
 boundaries. SP-04 supplies native semantic reads/explanations; SP-05 supplies the columnar
-foundation and existing set kernels. SP-06–SP-10 remain planned. No assembled-series qualification is claimed. Stable IDs
+foundation and existing set kernels. SP-06/SP-07 are in progress; SP-08–SP-10 remain planned. No assembled-series qualification is claimed. Stable IDs
 link to the supporting documents.
 
 | Package | Required working input | Delivered capability |

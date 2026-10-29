@@ -27,6 +27,7 @@ def test_positive_rules_use_expanded_property_iris_and_stable_versions():
     assert {(r['kind'], r['predicate'], r.get('target')) for r in rules} == {
         ('transitive', 'https://example.org/ancestor', None),
         ('inverse', 'https://example.org/parent', 'https://example.org/child'),
+        ('inverse', 'https://example.org/child', 'https://example.org/parent'),
         ('subproperty', 'https://example.org/parent', 'https://example.org/ancestor'),
     }
     assert all(r['rule_id'] == 'rule:' + r['rule_version'] for r in rules)

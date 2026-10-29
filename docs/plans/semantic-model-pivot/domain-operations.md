@@ -1,6 +1,37 @@
 # Domain operations and producer integration
 
-**Status:** Planned · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Consumes O04/O05 and the [semantic binding](semantic-model-and-releases.md), [publisher](postgresql-and-publication.md) and [Arrow kernels](interchange-and-analytics.md).
+**Status:** In progress · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Consumes O04/O05 and the [semantic binding](semantic-model-and-releases.md), [publisher](postgresql-and-publication.md) and [Arrow kernels](interchange-and-analytics.md).
+
+## Current execution contract (2026-10-29)
+
+**In progress; not package completion.** Execution began at `1ce2c19` under
+[ADR-0027](../../adr/0027-bound-domain-operations.md). Runs pin interpretation, source/configuration
+and operation dependencies. Source preparation, recorded agent work and final domain publication
+are distinct capabilities; a `source_ready` response does not establish finished consolidation.
+Existing selected defaults remain until SP-09. Explicit semantic modes use the current project/run
+CLI and MCP extraction tool names. Existing phase-0 scope and finding ownership are unchanged.
+
+Grading and adjudication remain automated without human input. This scope neither regrades prior
+results nor reclassifies actual automated-agent evidence. Native protocol fixtures establish their
+mechanics; no new model-quality result is claimed by their execution.
+
+The operator selected positive accepted source-supported asserted/defined assertions as initial
+inference seeds. Grounded derivations can support further conclusions; suppositions and negative
+assertions are retained without becoming seeds. Meaning-bearing context is exact initially.
+Protected publication must validate admitted direct proofs and authorization grounded in source
+evidence, not merely their foreign keys.
+
+The current implementation retains HTML5 recovery, CSS role matching, ambiguity-aware Lark,
+spaCy math-as-word sentence processing and regex scanning. Selected changes are lazy spaCy Docs,
+RapidFuzz token sequences and pseudo-element selector refusal. Tokenizers, additional document
+backends and LinkML-Datalog remain deferred. Source reports and canonical instances stay separate.
+Keyed LinkML collections remain maps rather than acquiring ordered-list meaning. Scope and source
+macro environments remain explicit, and scientific assessments do not become proposition identity.
+
+Complete scope still requires connected current producers, source task/cut protection, declared
+identity and domain rules, protected source-to-output publication and focused native acceptance.
+The coordinator owns package state; receipts and exact remaining obligations will be reconciled
+against the assembled implementation rather than inferred from individual worker completion.
 
 ## Contracts and current footprint
 
@@ -21,7 +52,7 @@ Move method registries, run creation, task assignment, work-packet preparation, 
 
 Remove dependencies on installed-only payload upcasters and old key scheme dispatch from migrated paths. Keep pure parsing/normalization functions and already correct bulk evidence writes. Ordinary domain validation uses the binding, not a second list of permitted predicates. Do not finish unrelated omitted methods/policy features simply because their plans remain open.
 
-**Completion:** every current producer/observation writer and orchestration reader uses the new binding and storage; no producer bypasses source/evidence policy. Native source → observation → publication journey plus focused independent cases for invalid vocabulary, unavailable required ontology, stale attempt, wrong release, interrupted task and identical source under a changed meaning-bearing policy. Verify stale reuse is rejected even when document bytes are unchanged. A mock agent is local envelope evidence, never actual provider qualification.
+**Completion:** every current producer/observation writer and orchestration reader uses the new binding and storage; no producer bypasses source/evidence policy. Native source → observation → publication journey plus focused independent cases for invalid vocabulary, unavailable required ontology, stale attempt, wrong release, interrupted task and identical source under a changed meaning-bearing policy. Verify stale reuse is rejected even when document bytes are unchanged. Agent extraction, grading and adjudication are automated without human input. This migration does not regrade prior results or relabel actual automated-agent evidence.
 
 ### Typed process configuration with Pydantic Settings
 
