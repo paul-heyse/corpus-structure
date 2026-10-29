@@ -14,6 +14,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic import arrow_publication as arrow
 from corpus_structure.semantic.arrow_publication import (
     ArrowPublicationBatch,
+    SnapshotDerivedPublication,
     ArrowPublicationError,
     StaleAnalysisError,
     publish_arrow,
@@ -97,6 +98,15 @@ def batch(identity="b", *, entity="e"):
     )
 
 
+
+def derived_rows(batch, *, expected_data_revision):
+    from corpus_structure.semantic.query import SnapshotBinding
+    return SnapshotDerivedPublication.from_rows(
+        batch, source=SnapshotBinding(batch.release_id, batch.realization_id,
+                                      expected_data_revision, "test-capture"),
+        operation_id="test-analysis", projection_id="test-projection")
+
+
 def test_exact_frozen_schema_and_content():
     candidate = ArrowPublicationBatch.from_rows(batch())
     assert candidate.content == batch().content
@@ -158,7 +168,7 @@ def test_optional_numeric_projection_never_rounds_lexical():
 
 def test_native_arrow_copy_receipt_and_fence(semantic_db_engine, semantic_writer_engine):
     seed(semantic_db_engine)
-    candidate = ArrowPublicationBatch.from_rows(batch(), expected_data_revision=0)
+    candidate = derived_rows(batch(), expected_data_revision=0)
     receipt = publish_arrow(semantic_writer_engine, candidate)
     assert receipt.data_revision == 1
     # The old source revision is still valid for exact receipt recovery.
@@ -166,7 +176,7 @@ def test_native_arrow_copy_receipt_and_fence(semantic_db_engine, semantic_writer
     with semantic_db_engine.connect() as conn:
         assert bytes(conn.scalar(text("SELECT content FROM data.batch"))) == candidate.content
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
-    stale = ArrowPublicationBatch.from_rows(
+    stale = derived_rows(
         batch("stale", entity="other"), expected_data_revision=0
     )
     with pytest.raises(StaleAnalysisError, match="recompute"):
@@ -253,7 +263,7 @@ def test_arrow_ambiguous_commit_resolves_receipt(
     assert (
         publish_arrow(
             semantic_writer_engine,
-            ArrowPublicationBatch.from_rows(batch(), expected_data_revision=0),
+            derived_rows(batch(), expected_data_revision=0),
         ).data_revision
         == 1
     )
@@ -392,7 +402,7 @@ def test_analysis_serialization_requires_recomputation(
 
     monkeypatch.setattr(arrow, "stage_arrow", staged)
     candidates = [
-        ArrowPublicationBatch.from_rows(batch(x, entity=x), expected_data_revision=0)
+        derived_rows(batch(x, entity=x), expected_data_revision=0)
         for x in ("a", "b")
     ]
 
@@ -408,3 +418,19 @@ def test_analysis_serialization_requires_recomputation(
     with semantic_db_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
         assert conn.scalar(text("SELECT data_revision FROM data.realization")) == 1
+
+
+def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
+    from corpus_structure.semantic.arrow_publication import AppendPublication
+    from corpus_structure.semantic.query import SnapshotBinding
+
+    source = SnapshotBinding(R, Z, 0, "capture")
+    derived = SnapshotDerivedPublication.from_rows(batch(), source=source,
+                operation_id="analysis", projection_id="captured")
+    assert not isinstance(derived, AppendPublication)
+    assert derived.source == source
+    with pytest.raises(ArrowPublicationError, match="operation, projection"):
+        SnapshotDerivedPublication.from_rows(batch(), source=source,
+                    operation_id="", projection_id="captured")
+    with pytest.raises(TypeError):
+        AppendPublication.from_rows(batch(), expected_data_revision=0)
