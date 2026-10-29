@@ -21,11 +21,14 @@ from corpus_structure.semantic.proposals import proposal_inputs,locate_proposal,
 from corpus_structure.semantic.releases import persist_release
 
 
-def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False,formulas=(),known=False,local_known=False,nary=False,broken=False,claim_chain=False,cycle=False,condition=None,two_reports=False,authored_alternative=False):
+def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False,formulas=(),known=False,local_known=False,nary=False,broken=False,claim_chain=False,cycle=False,condition=None,two_reports=False,authored_alternative=False,integer_alias=False):
     core=Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml'
     schema={'id':'https://example.org/domain','name':'domain','imports':['semantic_core'],
         'prefixes':{'ex':'https://example.org/'},'default_prefix':'ex',
         'classes':{'Person':{'is_a':'Entity','attributes':{'name':{'range':'string'}}}}}
+    if integer_alias:
+        schema['types']={'SmallCount':{'typeof':'integer'}}
+        schema['classes']['Person']['attributes']['name']={'range':'SmallCount','minimum_value':0}
     if two_reports:schema['classes']['Person']['annotations']={'cs:scope':'global','cs:case':'preserve'}
     if known:
         schema['classes']['Person']['unique_keys']={'by_name':{'unique_key_slots':['name']}}
@@ -103,6 +106,7 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
         base=raw['claims'][0]
         raw['claims']=[{**base,'id':'a','qualification':{**base['qualification'],'condition':{'kind':'claim','ref':'b'}}},
             {**base,'id':'b','qualification':{**base['qualification'],'condition':{'kind':'claim','ref':'a'}}}]
+    if integer_alias:raw['claims'][0]['object']={'kind':'number','number':4}
     if two_reports:raw['claims'][0]['object']['bindings']=[{'symbol':'x','kind':'free'}]
     if authored_alternative:raw['alternatives']=[{'id':'choice','members':[c['id'] for c in raw['claims']],'faithful':True,'reason':'source explicitly contrasts these possibilities'}]
     if condition is not None:
@@ -353,3 +357,12 @@ def test_authored_alternatives_retain_source_reason_without_duplicate_fact_group
             assert source=={'observation_key':rows[0].source,'local_id':'choice','faithful':True,'reason':'source explicitly contrasts these possibilities'}
             assert not session.query(QuerySpec(cls,prop,'accepted')).rows
         else:assert len(session.query(QuerySpec(cls,prop,'accepted')).rows)==1
+
+
+def test_primitive_alias_rule_view_keeps_source_value_kind(semantic_db_engine,semantic_writer_engine,tmp_path):
+    rules=b'rules:\n- id: count.literal\n  applies_to: ex:name\n  severity: error\n  at: [finalize]\n  check: "claim.value&.t == \'number\' and claim.value&.v == \'4\'"\n'
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',integer_alias=True,rules=rules)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with semantic_writer_engine.connect() as conn:
+        statuses=conn.execute(select(table('data.assessment').c.outcome).where(table('data.assessment').c.operation_id=='consolidate.status')).scalars().all()
+        assert statuses==['accepted']

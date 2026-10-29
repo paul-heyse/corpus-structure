@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, replace
+from datetime import date, datetime
 from hashlib import sha256
 from types import MappingProxyType, SimpleNamespace
 from typing import Any, Mapping, Protocol
@@ -653,7 +654,7 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
             alternatives=tuple(a['id'] for a in payload.get('alternatives',()) if claim['id'] in a['members'])
             statement=statements.get(claim.get('statement'))
             definition=by_name[item.class_name]
-            rule_object=_property_value(prepared,definition,prop,bind_expression_context(claim['object'],macros),{**mapping,**statement_ids},occurrence_refs)
+            rule_object=_reference(prepared,'Value',bind_expression_context(claim['object'],macros),{**mapping,**statement_ids},occurrence_refs)
             rule_qualification=_reference(prepared,qualification_class,bind_expression_context(_plain(claim['qualification']),macros),{**mapping,**statement_ids},occurrence_refs)
             claims.append(ClaimCandidate(fid,occurrence_key(prepared.release_id,output,source,item.item),source,
                 claim['id'],item.subject,item.class_name,claim['predicate'],item.object,item.qualification,
@@ -1207,7 +1208,8 @@ class ReleasedRulesPolicy:
                 raw=c.rule_object if c.rule_object is not None else c.object
                 kind=str(raw.get('kind')) if isinstance(raw,dict) else 'text'
                 latex=raw.get('expression') if isinstance(raw,dict) else None
-                scalar=str(raw.get('text',raw.get('number',''))) if isinstance(raw,dict) else str(raw)
+                primitive=next((raw[name] for name in ('text','number','boolean','date','instant','lexical') if name in raw),None) if isinstance(raw,dict) else raw
+                scalar=primitive.isoformat() if isinstance(primitive,(date,datetime)) else str(primitive) if primitive is not None else None
                 reading=None
                 if isinstance(raw,dict) and latex is not None and raw.get('language')!='latex':reading_note='scientific expression language has no declared reading operation'
                 if isinstance(raw,dict) and latex is not None and raw.get('language')=='latex':
