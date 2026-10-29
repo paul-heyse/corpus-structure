@@ -101,10 +101,8 @@ def test_the_trace_targets_and_the_s0_batches_key_alike(
 
     def known_difference(k: Knowledge, key: str) -> bool:  # fixtures/trace/README.md
         claim = k.claims[key].claim
-        if claim.predicate == "core:unschematized":
-            return True  # T1: the s0 lead-in states unsupported items; the target none
-        subject = k.entities[claim.subject]
-        return trace_unit == "T3" and subject.label == "a + b X"  # T3's Y: symbol in v1 only
+        # T1: the s0 lead-in states unsupported items; the target none.
+        return claim.predicate == "core:unschematized"
 
     missing = {
         k for k in set(expected.claims) - set(got.claims) if not known_difference(expected, k)
@@ -233,6 +231,20 @@ def test_a_reference_run_alias_match_keeps_its_key(world: SimpleNamespace) -> No
     e2, a2 = _reference("ent:" + "e" * 32, "stat:DistributionFamily", "normal", "normal", 2)
     k, tally = run(world, [world.proposal(101, "T2")], ([e1, e2], [a1, a2]))
     assert family in k.entities and tally.counts[PassOutcome.LINK_AMBIGUOUS] == 1
+
+
+def test_a_reference_alias_cannot_override_declared_identity(world: SimpleNamespace) -> None:
+    plain, _ = run(world, [world.proposal(101, "T2")])
+    parameter = next(e for e in plain.entities.values() if e.type == "stat:FamilyParameter")
+    old = "ent:" + "f" * 32
+    # A reference-run entity with this same label but another declared identity.
+    entity, alias = _reference(
+        old, parameter.type, parameter.label, next(iter(parameter.aliases))[1], 1
+    )
+    entity["attrs"] = '{"family": "another-family", "symbol": "another-identifier"}'
+    got, _ = run(world, [world.proposal(101, "T2")], ([entity], [alias]))
+    assert parameter.key in got.entities
+    assert old not in got.entities
 
 
 def test_an_external_reference_resolves_by_link_target_and_rekeys(world: SimpleNamespace) -> None:

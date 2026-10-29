@@ -105,6 +105,7 @@ def write(
                 e.scope,
                 e.scope_segment_id,
                 {},
+                e.descriptor.model_dump(mode="json") if e.descriptor is not None else None,
                 e.kind,
                 eid.get(e.resolved_to) if e.resolved_to else None,
             )
@@ -122,6 +123,7 @@ def write(
             "scope",
             "scope_segment_id",
             "attrs",
+            "reference_descriptor",
             "kind",
             "resolved_to_id",
         ),

@@ -34,7 +34,7 @@ REPO = Path(__file__).resolve().parents[4]
 ROOT = "siegrist_random/random"
 PAGE = "special/Normal.html"
 CUT = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
-BEFORE, AFTER = ("T2", "T3"), ("U5",)
+BEFORE, AFTER = ("T2", "T3", "U6"), ("U5",)
 
 
 def config() -> ConsolidateConfig:
@@ -254,3 +254,22 @@ def test_the_passes_write_the_run_as_of_its_cut(pool_run: SimpleNamespace) -> No
 def test_the_final_pass_needs_the_seal(pool_run: SimpleNamespace) -> None:
     with pool_run.engine.begin() as conn, pytest.raises(ValueError, match="seal"):
         run_pass(conn, pool_run.run, "finalize", pool_run.m19)
+
+
+def test_external_reference_descriptor_survives_materialization(pool_run: SimpleNamespace) -> None:
+    from corpus_structure.core.batch import StoredDescriptor
+
+    ns = pool_run
+    seal(ns)
+    with ns.engine.begin() as conn:
+        run_pass(conn, ns.run, "finalize", ns.m19)
+    with ns.engine.connect() as conn:
+        row = sql(conn, "SELECT e.reference_descriptor, e.label, s.rendition_id "
+                  "FROM kb.entity e JOIN kb.segment s ON s.id = e.scope_segment_id "
+                  "WHERE e.run_id = :r AND e.type = 'core:ExternalReference'", r=ns.run).one()
+        descriptor = StoredDescriptor.model_validate(row[0])
+        content = repo.read_rendition(conn, row[2])
+        assert content.canonical_text[descriptor.start:descriptor.end] == row[1]
+        assert sql(conn, "SELECT count(*) FROM kb.entity WHERE run_id = :r "
+                   "AND type <> 'core:ExternalReference' AND reference_descriptor IS NOT NULL",
+                   r=ns.run).scalar_one() == 0

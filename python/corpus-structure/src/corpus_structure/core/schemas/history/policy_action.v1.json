@@ -1,0 +1,50 @@
+{
+  "entry": {
+    "class_": "sys:PolicyAction",
+    "kind": "policy_action",
+    "version": 1,
+    "parent_version": null,
+    "compatibility_class": "initial",
+    "json_schema_id": "https://corpus-structure.dev/schemas/a59196c4a894/policy_action.json",
+    "arrow_schema": "/////8gBAAAQAAAAAAAKAA4ABgAFAAgACgAAAAABBAAQAAAAAAAKAAwAAAAEAAgACgAAAPAAAAAEAAAAAwAAAHgAAAA4AAAABAAAAJz///8cAAAABAAAAA0AAABwb2xpY3lfYWN0aW9uAAAACgAAAGNzLnBheWxvYWQAAMz///8gAAAABAAAABAAAABzeXM6UG9saWN5QWN0aW9uAAAAAAgAAABjcy5jbGFzcwAAAAAIAAwABAAIAAgAAABQAAAABAAAAEAAAABhNTkxOTZjNGE4OTRkYmZhZjQwMDU2N2E2ZDllOWFjOWVkOTkxNTgwNzQ1ZWE0OGJmZGExYzExYmUxMjc0ZDAzAAAAABEAAABjcy5tb2RlbF9yZXZpc2lvbgAAAAMAAAB8AAAAMAAAAAQAAACg////AAAABRAAAAAYAAAABAAAAAAAAAAEAAAAdGhlbgAAAACQ////yP///wAAAAIQAAAAIAAAAAQAAAAAAAAABQAAAGxpbWl0AAAACAAMAAgABwAIAAAAAAAAAUAAAAAQABQACAAAAAcADAAAABAAEAAAAAAAAAUQAAAAHAAAAAQAAAAAAAAABgAAAG1ldGhvZAAABAAEAAQAAAA=",
+    "sql_visible_paths": [],
+    "upcaster": null,
+    "reason": "initial version",
+    "authorized_by": "model_revision:0.3.0"
+  },
+  "json_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://corpus-structure.dev/schemas/a59196c4a894/policy_action.json",
+    "$defs": {
+      "PolicyThen": {
+        "description": "What a policy rule's chain does after its action (D3 \u00a76.3). Lifecycle: static.",
+        "enum": [
+          "stop",
+          "continue"
+        ],
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "`ops.policy_rule.action`: a named configuration `<method>/<name>`, a limit, then.",
+    "properties": {
+      "method": {
+        "pattern": "^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$",
+        "type": "string"
+      },
+      "limit": {
+        "minimum": 1,
+        "type": "integer"
+      },
+      "then": {
+        "$ref": "#/$defs/PolicyThen"
+      }
+    },
+    "required": [
+      "method",
+      "limit",
+      "then"
+    ],
+    "type": "object"
+  }
+}

@@ -9,7 +9,8 @@ the reason and authorizing circumstance. S1b's `ensure` writes the rows, resolvi
 **Versions** come from the revision log: a class is at version 1 at the log's root (`initial`), and
 each later step whose change record changes the class (`nested-additive` or `mapped`) adds a version
 with that change's class, upcaster, reason and authorization. Only the current version's content is
-computed: an older version's row was written under its own revision, with that revision's bytes.
+computed; `payload_schema_versions` also loads immutable prior artifacts for fresh databases,
+so every version is registered with the bytes and model revision that originally defined it.
 
 A payload class's JSON Schema is the committed core schema of its kind: `payload.<kind>` for an
 observation kind, else the kind's own name (`cost` for `task_cost`). A class without one has no
@@ -155,6 +156,39 @@ def payload_schema_entries(
     return out
 
 
+def payload_schema_versions(model: Model) -> list[PayloadSchemaEntry]:
+    """Current entries and immutable prior artifacts needed by a fresh registry.
+
+    Historical bytes are captured before changing their owning model declaration; they are never
+    reconstructed from the current shape. Requiring every parent prevents fabricated ancestry.
+    """
+    import base64
+    import json
+
+    current = payload_schema_entries(model)
+    out = []
+    for entry in current:
+        for version in range(1, entry.version):
+            path = schemas.DIRECTORY / "history" / f"{entry.kind}.v{version}.json"
+            body = json.loads(path.read_text(encoding="utf-8"))
+            data = body["entry"]
+            if data["class_"] != entry.class_ or data["version"] != version:
+                raise RegistrationError(f"{path}: historical payload identity differs")
+            if body["json_schema"]["$id"] != data["json_schema_id"]:
+                raise RegistrationError(f"{path}: historical JSON Schema identity differs")
+            out.append(PayloadSchemaEntry(
+                class_=data["class_"], kind=data["kind"], version=data["version"],
+                parent_version=data["parent_version"],
+                compatibility_class=CompatibilityClass(data["compatibility_class"]),
+                json_schema_id=data["json_schema_id"],
+                arrow_schema=base64.b64decode(data["arrow_schema"]),
+                sql_visible_paths=tuple(data["sql_visible_paths"]), upcaster=data["upcaster"],
+                reason=data["reason"], authorized_by=data["authorized_by"],
+            ))
+        out.append(entry)
+    return out
+
+
 def without_schema(model: Model) -> list[str]:
     """Payload kinds with no committed JSON Schema, which the registry cannot register yet."""
     committed = set(schemas.SCHEMAS())
@@ -244,23 +278,21 @@ def _ensure_model_revision(conn: Any, model: Model) -> tuple[int, str]:
             "revision log: run just model generate"
         )
     table = _tables()["meta.model_revision"]
-    parent_id = None
-    if entry.get("parent"):
-        parent_id = conn.execute(
-            select(table.c.id).where(table.c.content_hash == entry["parent"])
-        ).scalar()
-    conn.execute(
-        insert(table)
-        .values(
-            label=entry["label"],
-            content_hash=entry["content_hash"],
-            compilers=entry["compilers"],
-            key_scheme=entry["key_scheme"],
-            parent_id=parent_id,
-            change_record=entry.get("change_record"),
+    for entry in log:
+        parent_id = None
+        if entry.get("parent"):
+            parent_id = conn.execute(
+                select(table.c.id).where(table.c.content_hash == entry["parent"])
+            ).scalar_one()
+        conn.execute(
+            insert(table).values(
+                label=entry["label"], content_hash=entry["content_hash"],
+                compilers=entry["compilers"], key_scheme=entry["key_scheme"],
+                parent_id=parent_id, change_record=entry.get("change_record"),
+            ).on_conflict_do_nothing(index_elements=["content_hash"])
         )
-        .on_conflict_do_nothing(index_elements=["content_hash"])
-    )
+        if entry["content_hash"] == current.content_hash:
+            break
     found = conn.execute(select(table.c.id).where(table.c.content_hash == current.content_hash))
     return int(found.scalar_one()), current.content_hash
 
@@ -271,7 +303,16 @@ def _ensure_payload_schemas(conn: Any, model: Model, revision_id: int) -> dict[s
 
     table = _tables()["meta.payload_schema"]
     out = {}
-    for entry in payload_schema_entries(model):
+    for entry in payload_schema_versions(model):
+        revision_hash = next(
+            r["content_hash"] for r in read_log()
+            if f"/{r['content_hash'][:12]}/" in entry.json_schema_id
+        )
+        owner_revision = conn.execute(
+            select(_tables()["meta.model_revision"].c.id).where(
+                _tables()["meta.model_revision"].c.content_hash == revision_hash
+            )
+        ).scalar_one()
         parent_id = None
         if entry.parent_version is not None:
             parent_id = conn.execute(
@@ -281,7 +322,7 @@ def _ensure_payload_schemas(conn: Any, model: Model, revision_id: int) -> dict[s
             ).scalar()
         conn.execute(
             insert(table)
-            .values(model_revision_id=revision_id, parent_id=parent_id, **entry.row())
+            .values(model_revision_id=owner_revision, parent_id=parent_id, **entry.row())
             .on_conflict_do_nothing(index_elements=["class", "version"])
         )
         out[entry.kind] = int(

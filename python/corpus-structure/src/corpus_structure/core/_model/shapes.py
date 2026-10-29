@@ -991,7 +991,7 @@ class PolicyAction(CoreModel):
     """`ops.policy_rule.action`: a named configuration `<method>/<name>`, a limit, then."""
 
     method: Annotated[str, Field(pattern="^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$")]
-    limit: Annotated[int, Field(ge=1)]
+    limit: Annotated[int, Field(ge=1)] | MISSING = MISSING  # type: ignore[valid-type]
     then: PolicyThen
 
     @model_validator(mode="after")

@@ -708,6 +708,7 @@ CREATE TABLE kb.entity (
   scope_segment_id  bigint REFERENCES kb.segment,
   attrs             jsonb NOT NULL DEFAULT '{}', -- non-identity attributes; identity attributes are kb.entity_identity rows (below)
   kind              text,                        -- statements only: the StatementKind value (D1 §4.1, §4.3); a field like label, not identity
+  reference_descriptor jsonb,                   -- ExternalReference stored descriptor; model-declared, migration 0002
   resolved_to_id    bigint,                      -- ExternalReference only: the statement it resolved to (same run)
   confidence        real,
   UNIQUE (run_id, key),
