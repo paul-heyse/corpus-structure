@@ -38,3 +38,9 @@ with their material next decision or revisit condition; do not create another mu
 Retain a review while it has a current consumer. Carry surviving obligations and enduring knowledge
 to their owners before retirement; Git preserves earlier accounts. Creating this collection
 performs no review and changes no implementation plan.
+
+## Published reviews
+
+- [Semantic-model pivot — library-focused improvement review](semantic-model-pivot_2026-10-29.md):
+  proposed coordinated amendments, current CBO-001–025 judgments and CA-01–CA-11 coverage,
+  including improvements to completed capabilities.

@@ -3,6 +3,11 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
+- **Library-focused plan-improvement review published as Proposed**, source baseline `7cd34b4`.
+  [Review](docs/plan_improvement_reviews/semantic-model-pivot_2026-10-29.md) gives I01–I11,
+  all CBO-001–025 judgments and CA-01–CA-11 coverage, including completed-scope improvements.
+  Plans, accepted decisions and production code are unchanged by that review.
+
 - **Whole semantic-model-pivot completion audit performed at `ad4593f`: delivery remains partial.**
   [Coordinator §13](docs/plans/semantic-model-pivot_2026-10-29.md#13-completion-audit-2026-10-29)
   owns all 16 package judgments, findings CA-01–CA-11, deviations and next work. All eight
@@ -24,6 +29,13 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 - Unrelated concurrent design-principle-audit evidence is preserved and is not adopted here.
 
 ## Verification
+
+- **Review execution:** read-only source/installed-library and Context7/primary-documentation
+  investigation; new probes/product/native/provider/type checks not_run.
+- **Review maintenance passed:** `just turn-end`; incidental three-file product formatting restored.
+- **Review global publication failed:** `just docs-check` built 272 pages but found 25 broken anchors
+  in five concurrent diagnostic-audit inputs; no errors were reported in the new review pages.
+  Those separately owned inputs remain unchanged by this review; no new product qualification.
 
 - **2026-10-29 source audit:** three fresh independent reviewers plus root inspected accepted
   scope, actual implementations/consumers, selected baseline, tests and dated receipts.
