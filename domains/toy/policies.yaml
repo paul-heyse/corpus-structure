@@ -2,5 +2,5 @@ version: 0.1.0
 chains:
   propose:
     - key: toy.propose.clauses
-      when: "phase == 0 and unit.claim_bearing"
+      when: "phase == 0 and (unit.claim_bearing == null or unit.claim_bearing)"
       do: {method: agent.opus/extract, then: stop}
