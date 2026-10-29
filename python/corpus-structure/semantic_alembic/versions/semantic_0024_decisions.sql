@@ -40,3 +40,5 @@ REVOKE ALL ON FUNCTION ops.validate_measurement_definition() FROM PUBLIC;
 CREATE TRIGGER validate_measurement_definition BEFORE INSERT OR UPDATE ON ops.measurement FOR EACH ROW EXECUTE FUNCTION ops.validate_measurement_definition();
 
 ALTER FUNCTION ops.validate_measurement_definition() OWNER TO corpus_sem_publisher;
+
+GRANT SELECT ON data.occurrence_context,data.occurrence_evidence_role,data.membership_support TO corpus_sem_reader;

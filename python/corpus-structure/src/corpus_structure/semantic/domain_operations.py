@@ -199,7 +199,7 @@ def _completed_result(engine, cut_id, output, policy):
         if policy is not None and (
             policy.release_id != cut["release_id"] or policy.version != VERSION
         ):
-            raise DomainOperationRefused("finished result policy differs from its recorded binding")
+            raise DomainOperationRefused("finished result policy version differs from its recorded binding")
         observations = cut_observations(conn, cut_id)
         batch_id = _source_batch_id(cut["release_id"], output, observations)
         batches = table("data.batch")
