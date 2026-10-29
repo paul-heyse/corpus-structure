@@ -15,13 +15,13 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.publication import publish_on_connection
 from corpus_structure.semantic.query import QuerySpec, read_session
 
-from . import test_domain_operations as source_fixture
+from .test_domain_operations import fixture, locate_proposal
 
 
 def _source(admin, writer, path, monkeypatch):
     # Author distinct per-occurrence context in the actual immutable source report. The
     # native writer and proposal adapter are unchanged and both validate these inputs.
-    locate = source_fixture.locate_proposal
+    locate = locate_proposal
 
     def author(prepared, raw, frame):
         raw["claims"][0]["evidence"].append(
@@ -34,8 +34,8 @@ def _source(admin, writer, path, monkeypatch):
         ]
         return locate(prepared, raw, frame)
 
-    monkeypatch.setattr(source_fixture, "locate_proposal", author)
-    return source_fixture.fixture(admin, writer, path, duplicate=True)
+    monkeypatch.setattr(fixture.__module__ + ".locate_proposal", author)
+    return fixture(admin, writer, path, duplicate=True)
 
 
 def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
