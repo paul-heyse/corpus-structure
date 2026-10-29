@@ -251,3 +251,23 @@ def test_entity_source_reader_visibility(semantic_db_engine, semantic_reader_eng
         )
     with semantic_reader_engine.connect() as conn:
         assert conn.execute(select(table("data.entity_source"))).all() == []
+
+
+def test_operational_entity_source_read_does_not_grant_direct_write(semantic_writer_engine):
+    from sqlalchemy import insert
+
+    with semantic_writer_engine.connect() as conn:
+        assert conn.execute(select(table("data.entity_source"))).all() == []
+    with (
+        pytest.raises(DBAPIError, match="permission denied for table entity_source"),
+        semantic_writer_engine.begin() as conn,
+    ):
+        conn.execute(
+            insert(table("data.entity_source")).values(
+                release_id="outside",
+                realization_id="outside",
+                entity_id="outside",
+                observation_id=0,
+                local_id="outside",
+            )
+        )
