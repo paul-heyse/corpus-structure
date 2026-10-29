@@ -632,7 +632,7 @@ def _known_input(conn, prepared, job, observations):
         row_type = STAGE_TYPES[name][0]
         copied[name] = tuple(row_type(**{f.name: row[f.name] for f in fields(row_type)}) for row in rows)
     observations_table = table("kb.observation")
-    copied["_identity_exclusion_sources"] = dict(conn.execute(select(
+    copied["_identity_exclusion_sources"] = tuple(conn.execute(select(
         observations_table.c.id, observations_table.c.observation_key).where(
         observations_table.c.id.in_({row["observation_id"] for row in exclusion_rows}))).all())
     for name, rows in [("membership", memberships), ("membership_support", supports)]:
@@ -1632,7 +1632,7 @@ def _project_cut(
                     key=lambda row: canonical_bytes(__import__("dataclasses").astuple(row)),
                 )
             )
-    source_keys = copied.pop("_identity_exclusion_sources", {})
+    source_keys = dict(copied.pop("_identity_exclusion_sources", ()))
     inherited_ids = {}
     inherited_exclusions = []
     for row in copied.pop("identity_exclusion", ()):

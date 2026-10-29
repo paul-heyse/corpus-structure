@@ -9,7 +9,7 @@ from corpus_structure.semantic.metadata import table
 from .test_agent_resubmission import lease_and_read, source_task
 
 
-def exclusion_result(admin, writer, tmp_path):
+def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1):
     prepared, run, task, locator = source_task(admin, writer, tmp_path / "exclusions.html", composed=True)
     session = SemanticAgentSession(writer, run)
     async def submit():
@@ -20,9 +20,15 @@ def exclusion_result(admin, writer, tmp_path):
                 "entities": [{"id": ref, "class_iri": "https://example.org/Person", "label": "Alice"} for ref in ("p", "q")],
                 "identity_exclusions": [{"id": "different", "left": {"kind": "local", "target": "p"},
                     "right": {"kind": "local", "target": "q"}, "reason": "separate source identities",
-                    "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}]}]}})
+                    "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}, *([{ "sentence": unit["sentences"][0]["id"], "quote": "Alice", "role": "supporting"}] if citations == 2 else [])]}]}})
+            assert response.structured_content is not None
             assert response.structured_content["submission_disposition"] == "completed_accepted"
     anyio.run(submit)
+    if not finalize:
+        from corpus_structure.semantic.operations import seal_cut
+        with writer.begin() as conn:
+            cut = seal_cut(conn, run, "evaluation", final=True)
+        return prepared, run, cut, None
     result = finalize_bound_run(writer, run, "excluded-result")
     with writer.connect() as conn:
         cut = conn.scalar(select(table("ops.input_cut").c.id).where(table("ops.input_cut").c.run_id == run).order_by(table("ops.input_cut").c.id.desc()).limit(1))

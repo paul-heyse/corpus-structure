@@ -1,6 +1,7 @@
 """Independent partitions and source identities for operational cannot-links."""
 from functools import cache
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -15,7 +16,7 @@ from corpus_structure.semantic.types import PreparationProfile, ResolvedDependen
 @cache
 def release(keyed=False):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    person = {"is_a": "Entity", "annotations": {"cs:scope": "global"},
+    person: dict[str, Any] = {"is_a": "Entity", "annotations": {"cs:scope": "global"},
               "attributes": {"serial": {"range": "string"}}}
     if keyed:
         person["unique_keys"] = {"serial": {"unique_key_slots": ["serial"]}}
