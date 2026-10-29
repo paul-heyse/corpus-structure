@@ -22,8 +22,8 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 | Command | Outcome and scope |
 |---|---|
 | `just ready`, `uv run python scripts/check_pins.py` | `passed`: tools and exact dependency policy |
-| `uv run pytest python/corpus-structure/tests/semantic` | `passed`: 50 final-source tests |
-| `uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/core python/corpus-structure/tests/schema` | `passed`: 777 tests before final two semantic controls; final 50 semantic tests cover those corrections |
+| `uv run pytest python/corpus-structure/tests/semantic` | `passed`: 51 final-source tests |
+| `uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/core python/corpus-structure/tests/schema` | `passed`: 777 tests before final two semantic controls; final 51 semantic tests cover those corrections |
 | `uv run ruff check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic` | `passed` |
 | `uv run pyrefly check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic` | `passed`, 0 errors |
 | `just docs-check` | `passed`: 212 pages after H1/stale-link repairs; earlier failed records retained |

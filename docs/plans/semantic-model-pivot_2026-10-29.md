@@ -9,7 +9,7 @@ Implement the whole target in the [functional review](../functional_reviews/sema
 
 This is a dedicated new series. Existing plan scopes/statuses are unchanged. Their findings retain their current owners, especially [phase 0 §11](phase-0_2026-10-28.md#11-findings-disposition). This series owns only its pivot packages and new pivot issues; it does not copy old findings, certify their closure, or silently absorb unfinished phase 0 features. Replacement of current consumers and capabilities necessary to demonstrate the new target are in scope. Unrelated provider additions and product features are not.
 
-Execution began from `cea3f73`; final scoped implementation source is `8ce94f5` (2026-10-29).
+Execution began from `cea3f73`; final scoped implementation source is `7474f7a` (2026-10-29).
 The selected legacy core/system model and generated physical metadata remain byte-identical to
 that starting selection. Supplied documents and prior dirty work were already committed at
 execution start. Pending sibling worktrees from the paused task were not integrated. Refresh
@@ -141,9 +141,9 @@ stated scopes. `just turn-end` passed; incidental pre-pivot formatting was resto
 `just test-all` and `just hygiene` were not run: assembled-series qualification remains SP-10.
 
 
-Final receipts (2026-10-29, implementation source `8ce94f5`): combined semantic/core/schema run
+Final receipts (2026-10-29, implementation source `7474f7a`): combined semantic/core/schema run
 passed 777 tests before the final two inheritance refusal controls; final semantic suite passed
-50 tests including those controls. The unchanged core/schema controls remain applicable, with the final semantic rerun establishing the changed scope. Ruff passed; Pyrefly reported 0 errors;
+51 tests including those controls and native Valuesets import. The unchanged core/schema controls remain applicable, with the final semantic rerun establishing the changed scope. Ruff passed; Pyrefly reported 0 errors;
 docs-check published 212 canonical pages. Upstream OAK/SSSOM deprecation warnings remain.
 Owned implementation worktrees were removed after patch-equivalence and clean-state checks;
 paused-task worktrees were preserved. No SP-02 persistence/activation or SP-10 qualification is claimed.
