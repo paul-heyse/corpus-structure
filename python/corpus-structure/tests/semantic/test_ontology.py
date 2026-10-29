@@ -315,3 +315,30 @@ def member(schema: SchemaView, name: str, value: str) -> PermissibleValue:
     result = values[value]
     assert isinstance(result, PermissibleValue)
     return result
+
+
+@pytest.mark.parametrize("operator", ["include", "minus"])
+def test_nested_expression_concepts_are_validated_even_when_excluded(tmp_path, operator):
+    path = local_ontology(tmp_path)
+    schema = view(enums={"A": {operator: [{"include": [{"concepts": ["TEST:missing"]}]}]}})
+    with pytest.raises(OntologyError, match="not found"):
+        resolve_vocabularies(schema, {"test": path})
+
+
+def test_nested_unbound_meaning_is_recorded_unchecked(tmp_path):
+    path = local_ontology(tmp_path)
+    schema = view(enums={"A": {"include": [{"concepts": ["OTHER:1"]}]}})
+    result = resolve_vocabularies(schema, {"test": path})[0]
+    assert "meaning:OTHER:1:unchecked" in result.checks
+
+
+def test_inherited_nested_concept_validation_keeps_parent_semantics(tmp_path):
+    path = local_ontology(tmp_path)
+    schema = view(
+        enums={
+            "A": {"include": [{"concepts": ["TEST:missing"]}]},
+            "B": {"inherits": ["A"]},
+        }
+    )
+    with pytest.raises(OntologyError, match="not found"):
+        resolve_vocabularies(schema, {"test": path})

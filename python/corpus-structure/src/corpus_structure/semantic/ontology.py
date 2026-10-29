@@ -353,12 +353,38 @@ def _meaning_checks(
             if previous != source:
                 raise OntologyError(f"ambiguous ontology source for prefix {prefix!r}")
     checks = []
-    permissible = definition.permissible_values or {}
-    if not isinstance(permissible, Mapping):
-        raise OntologyError("permissible values must be normalized mappings")
-    candidates = list(permissible.items())
-    for concept in definition.concepts or ():
-        candidates.append((str(concept), PermissibleValue(text=str(concept), meaning=str(concept))))
+
+    def expression_meanings(
+        expr: Any, stack: tuple[str, ...], ancestors: frozenset[int] = frozenset()
+    ) -> Iterable[tuple[str, PermissibleValue]]:
+        identity = id(expr)
+        if identity in ancestors:
+            raise OntologyError("recursive enum expression")
+        ancestors = ancestors | {identity}
+        permissible = getattr(expr, "permissible_values", None) or {}
+        if not isinstance(permissible, Mapping):
+            raise OntologyError("permissible values must be normalized mappings")
+        for name, value in permissible.items():
+            if not isinstance(value, PermissibleValue):
+                raise OntologyError("permissible values must be normalized metamodel values")
+            yield str(name), value
+        for concept in getattr(expr, "concepts", None) or ():
+            yield str(concept), PermissibleValue(text=str(concept), meaning=str(concept))
+        for parent_name in getattr(expr, "inherits", None) or ():
+            parent_name = str(parent_name)
+            if parent_name in stack:
+                raise OntologyError(f"enum inheritance cycle: {' -> '.join((*stack, parent_name))}")
+            parent = view.get_enum(parent_name)
+            if parent is None:
+                raise OntologyError(f"unknown inherited enum {parent_name!r}")
+            yield from expression_meanings(parent, (*stack, parent_name), ancestors)
+        # Excluded concepts still declare ontology terms and must be resolved;
+        # subtraction must not hide invalid or unchecked semantic dependencies.
+        for operator in ("include", "minus"):
+            for child in getattr(expr, operator, None) or ():
+                yield from expression_meanings(child, stack, ancestors)
+
+    candidates = expression_meanings(definition, (enum_name,))
     for name, pv in candidates:
         if not isinstance(pv, PermissibleValue):
             raise OntologyError("permissible values must be normalized metamodel values")
@@ -384,7 +410,7 @@ def _meaning_checks(
         if messages:
             raise OntologyError("; ".join(messages))
         checks.append(f"meaning:{pv.meaning}:checked")
-    return tuple(checks)
+    return tuple(sorted(set(checks)))
 
 
 def validate_bindings(
