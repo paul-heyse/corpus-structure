@@ -47,7 +47,7 @@ from .types import PreparedRelease
 if TYPE_CHECKING:
     from .query import ReadSession, SnapshotBinding
 
-COMPILER_VERSION = "analytical-1"
+COMPILER_VERSION = "analytical-2"
 SPINE = (
     "entity",
     "entity_source",
@@ -66,6 +66,9 @@ SPINE = (
     "derivation",
     "derivation_premise",
     "coverage",
+    "occurrence_establishment",
+    "assessment",
+    "evidence_source",
 )
 
 
