@@ -225,6 +225,26 @@ class InputFactSupport(_Envelope):
     run_id: int
 
 
+class AlternativeGroup(_Envelope):
+    group_id: str
+    member_fact_ids: tuple[str, ...]
+    reason: str
+    operation_id: str
+    operation_version: str
+
+
+class Assessment(_Envelope):
+    assessment_id: str
+    operation_id: str
+    operation_version: str
+    outcome: str
+    fact_id: str | None
+    occurrence_id: str | None
+    confidence: Decimal | None
+    reason: str | None
+    uncertainty: str | None
+
+
 class Explanation(_Envelope):
     binding: SnapshotBinding
     fact_id: str
@@ -233,6 +253,8 @@ class Explanation(_Envelope):
     derivations: tuple[Derivation, ...]
     input_supports: tuple[InputFactSupport, ...] = ()
     source_observations: tuple[SourceObservationReport, ...] = ()
+    alternatives: tuple[AlternativeGroup, ...] = ()
+    assessments: tuple[Assessment, ...] = ()
     coverage: tuple[Coverage, ...]
 
 
@@ -873,7 +895,58 @@ class ReadSession:
                 )
             ).mappings()
         )
+        group, member = table("data.alternative_group"), table("data.alternative_member")
+        groups = (
+            self.connection.execute(
+                select(group)
+                .join(
+                    member, and_(_same_scope(group, member), group.c.group_id == member.c.group_id)
+                )
+                .where(_scope(self.binding, group), member.c.fact_id == fact_id)
+                .order_by(group.c.group_id)
+            )
+            .mappings()
+            .all()
+        )
+        members: dict[str, list[str]] = defaultdict(list)
+        for row in self.connection.execute(
+            select(member)
+            .where(
+                _scope(self.binding, member), member.c.group_id.in_([g["group_id"] for g in groups])
+            )
+            .order_by(member.c.group_id, member.c.fact_id)
+        ).mappings():
+            members[row["group_id"]].append(row["fact_id"])
+        assessment = table("data.assessment")
+        assessments = tuple(
+            Assessment(**{name: row[name] for name in Assessment.model_fields})
+            for row in self.connection.execute(
+                select(assessment)
+                .where(
+                    _scope(self.binding, assessment),
+                    (assessment.c.fact_id == fact_id)
+                    | assessment.c.occurrence_id.in_(
+                        select(o.c.occurrence_id).where(
+                            _scope(self.binding, o), o.c.fact_id == fact_id
+                        )
+                    ),
+                )
+                .order_by(assessment.c.assessment_id)
+            ).mappings()
+        )
         return Explanation(
+            alternatives=tuple(
+                AlternativeGroup(
+                    **{
+                        key: row[key]
+                        for key in AlternativeGroup.model_fields
+                        if key != "member_fact_ids"
+                    },
+                    member_fact_ids=tuple(members[row["group_id"]]),
+                )
+                for row in groups
+            ),
+            assessments=assessments,
             input_supports=input_supports,
             binding=self.binding,
             fact_id=fact_id,
