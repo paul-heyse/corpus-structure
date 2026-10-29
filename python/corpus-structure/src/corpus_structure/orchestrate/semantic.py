@@ -44,8 +44,15 @@ def run_source_methods(engine:Any,*,project_id:str,prepared:Any,binding:Operatio
         docs=conn.execute(select(d).where(d.c.project_id==project_id).order_by(d.c.key)).mappings().all()
         if not docs:raise OperationConflict('bound project has no registered source documents')
         import json
+        from importlib.metadata import version
+        library_names=set()
+        if 'ingest.html' in configs:library_names.update(('regex','spacy','en-core-web-sm','html5lib','lxml','cssselect2'))
+        if set(configs)&{'extract.math','normalize.formula'}:library_names.add('lark')
+        if 'resolve.symbol_scope' in configs:library_names.update(('spacy','en-core-web-sm'))
+        if graph.policy_propose:library_names.update(('rapidfuzz','regex','rule-engine'))
         dependency_manifest={
             'parent':json.loads(binding.dependencies),
+            'libraries':{name:version(name) for name in sorted(library_names)},
             'source_documents':[{'key':d['key'],'uri':d['source_uri'],'content_hash':d['content_hash'],'metadata':d['meta']} for d in docs],
             'operations':{name:{'version':registry.method(name).version,'configuration_hash':config.config_hash,'parameters':dict(config.params)} for name,config in configs.items()},
             'guideline':guideline,

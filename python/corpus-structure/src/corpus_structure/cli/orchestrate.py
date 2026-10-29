@@ -58,6 +58,7 @@ PHASE0: Callable[[], dict[str, Any]] = _phase0
 @contextmanager
 def _refusals() -> Iterator[None]:
     from corpus_structure.orchestrate import commands, project, registry, runs
+    from corpus_structure.semantic.operations import OperationConflict
 
     try:
         yield
@@ -66,6 +67,7 @@ def _refusals() -> Iterator[None]:
         project.ProjectError,
         registry.RegistryError,
         runs.RunError,
+        OperationConflict,
     ) as error:
         stderr_console().print(f"refused: {error}")
         raise typer.Exit(code=1) from None
@@ -89,6 +91,8 @@ def project_init(
     name: Annotated[
         str | None, typer.Option(help="The project name (default: the domain).")
     ] = None,
+    semantic_release: Annotated[str | None, typer.Option(help="An already admitted semantic release.")] = None,
+    realization: Annotated[str | None, typer.Option(help="Explicit empty semantic realization identity.")] = None,
     json: JsonOpt = False,
 ) -> None:
     """Create or update the project: its documents and the pack's versions."""
@@ -97,15 +101,22 @@ def project_init(
     settings = state(ctx).settings()
     seams = PHASE0()
     with _refusals(), ENGINE(settings) as engine, engine.begin() as conn:
-        registry = seams["registry_for"](seams["domains"] / domain)
-        report = project.init_project(
-            conn,
-            domain=domain,
-            corpus=corpus,
-            registry=registry,
-            name=name,
-            domains=seams["domains"],
-        )
+        if semantic_release is not None or realization is not None:
+            if semantic_release is None or realization is None:
+                raise typer.BadParameter('semantic initialization requires --semantic-release and --realization')
+            report=project.init_bound_project(conn,domain=domain,corpus=corpus,release_id=semantic_release,
+                realization_id=realization,name=name,domains=seams['domains'],
+                registry=seams['registry_for'](seams['domains']/domain))
+        else:
+            registry = seams["registry_for"](seams["domains"] / domain)
+            report = project.init_project(
+                conn,
+                domain=domain,
+                corpus=corpus,
+                registry=registry,
+                name=name,
+                domains=seams["domains"],
+            )
     emit(report, json=json, render=lambda r: _table("project", r))
 
 

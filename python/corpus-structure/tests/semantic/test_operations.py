@@ -8,7 +8,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationBinding, OperationConflict, create_run,record_method,create_task,claim_tasks,complete_task,seal_cut,cut_observations
 
 
-def setup(engine, *, observations=False):
+def setup(engine, *, observations=False,archive=False):
     bundle=SourceBundle('m',(SourceArtifact('m',b'''id: https://example/m
 name: m
 prefixes: {ex: 'https://example/'}
@@ -31,7 +31,12 @@ classes:
         bundle=observation_inputs(bundle)
     p=prepare_release(bundle)
     with engine.begin() as c:
-        c.execute(insert(table('sem.release')).values(release_id=p.release_id,content_digest='test',profile='test',prepared_bytes=b'{}',manifest_bytes=b'{}'))
+        if archive:
+            from corpus_structure.semantic.releases import persist_release
+            from corpus_structure.semantic.types import ResolvedDependencies, PreparationProfile
+            persist_release(c,bundle,ResolvedDependencies(),PreparationProfile(),p)
+        else:
+            c.execute(insert(table('sem.release')).values(release_id=p.release_id,content_digest='test',profile='test',prepared_bytes=b'{}',manifest_bytes=b'{}'))
         c.execute(insert(table('data.project')).values(project_id='p'))
         c.execute(insert(table('data.realization')).values(realization_id='z',release_id=p.release_id,project_id='p'))
     return p
@@ -126,7 +131,8 @@ def test_recognizer_terminal_source_boundary_and_coverage(semantic_db_engine,sem
         assert len({r['observation_key'] for r in rows})==2
 
 
-def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine,semantic_writer_engine,tmp_path):
+@pytest.mark.parametrize('body',["A paragraph with two sentences. Another sentence.",r"Let \(x\) be a variable."])
+def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine,semantic_writer_engine,tmp_path,body):
     from pathlib import Path
     from corpus_structure.core.method import MethodSettings
     from corpus_structure.core.vocab import Stage
@@ -137,7 +143,7 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
     from corpus_structure.orchestrate.semantic import run_source_methods
     from corpus_structure.semantic.operations import register_document
     p=setup(semantic_db_engine,observations=True);e=semantic_writer_engine
-    raw=tmp_path/'input.html';raw.write_text('<html><body><h1>Source</h1><p>A paragraph with two sentences. Another sentence.</p></body></html>')
+    raw=tmp_path/'input.html';raw.write_text('<html><body><h1>Source</h1><p>'+body+'</p></body></html>')
     sources=tmp_path/'sources';sources.mkdir()
     (sources/'test.yaml').write_text("version: '1'\nroot: toy\napplies_to: 'toy/*.html'\nlanguage: english\ntitle: h1\nsections: [h1]\n")
     registry=MethodRegistry((*METHODS,*MATH_METHODS),MethodsFile(sections={'math':{'macros':{},'constants':[]},'binders':{'sentence_initial':['let'],'clause':[],'reopen':[],'section_wide':[]}},configs={'ingest.html':{'default':{'source_profile':'test'}},'segment.sentences':{'default':{}},'profile.segments':{'default':{}}}),sources=sources)
@@ -147,9 +153,12 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
     report=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path))
     assert report.status=='source_ready' and report.cut_id is not None
     with e.connect() as c:
-        assert c.execute(select(table('kb.rendition').c.canonical_text)).scalar_one()=='Source\n\nA paragraph with two sentences. Another sentence.'
+        assert c.execute(select(table('kb.rendition').c.canonical_text)).scalar_one()=='Source\n\n'+body
         assert c.execute(select(table('ops.measurement').c.metric)).first()
         assert len(c.execute(select(table('ops.cut_task'))).all())==5
+        if '\\(' in body:
+            kinds=set(c.execute(select(table('kb.observation').c.kind)).scalars())
+            assert {'mention','value'} <= kinds
 
 
 def test_reuse_requires_complete_bound_meaning(semantic_db_engine,semantic_writer_engine):
@@ -172,3 +181,33 @@ def test_reuse_requires_complete_bound_meaning(semantic_db_engine,semantic_write
         t=table('ops.task')
         assert c.execute(select(t.c.status,t.c.reused_task_id).where(t.c.id==same)).one()==('reused',task)
         assert c.execute(select(t.c.status,t.c.reused_task_id).where(t.c.id==different)).one()==('pending',None)
+
+
+def test_cli_initializes_indexed_source_project_without_active_pointer_changes(semantic_db_engine,semantic_writer_engine,tmp_path,monkeypatch):
+    from contextlib import contextmanager
+    from typer.testing import CliRunner
+    from corpus_structure.cli import orchestrate as cli
+    from corpus_structure.cli.app import app
+    from corpus_structure.ingest.methods import METHODS
+    from corpus_structure.orchestrate.registry import MethodRegistry,MethodsFile
+    p=setup(semantic_db_engine,observations=True,archive=True);e=semantic_writer_engine
+    corpus=tmp_path/'corpus';(corpus/'toy').mkdir(parents=True)
+    (corpus/'toy'/'input.html').write_text('<p>Source</p>')
+    (corpus/'index.tsv').write_text('path\tfirst_pass\ninput.html\tyes\n')
+    sources=tmp_path/'sources';sources.mkdir()
+    (sources/'test.yaml').write_text("version: '1'\nroot: toy\nindex: {file: index.tsv, page: path}\napplies_to: 'toy/*.html'\n")
+    registry=MethodRegistry(METHODS,MethodsFile(configs={'ingest.html':{'default':{'source_profile':'test'}},'segment.sentences':{'default':{}},'profile.segments':{'default':{}}}),sources=sources)
+    @contextmanager
+    def engine(_):yield e
+    monkeypatch.setattr(cli,'ENGINE',engine)
+    monkeypatch.setattr(cli,'PHASE0',lambda:{'registry_for':lambda _:registry,'domains':tmp_path})
+    result=CliRunner().invoke(app,['project','init','--domain','test','--corpus',str(corpus),'--name','new-project','--semantic-release',p.release_id,'--realization','new-source','--json'])
+    assert result.exit_code==0,(result.output,result.exception)
+    import json
+    report=json.loads(result.stdout)
+    assert report['documents']==1 and report['project']=='new-project'
+    with e.connect() as c:
+        project=c.execute(select(table('data.project')).where(table('data.project').c.project_id=='new-project')).mappings().one()
+        assert project['active_release_id'] is None and project['generation']==0
+        source=c.execute(select(table('kb.document')).where(table('kb.document').c.project_id=='new-project')).mappings().one()
+        assert source['source_uri']=='toy/input.html' and source['meta']['page']=='input.html'
