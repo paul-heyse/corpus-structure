@@ -104,3 +104,16 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(semantic_db_en
             conn.execute(text('SELECT data.begin_evaluation(:cut,:out)'), {'cut': cut, 'out': 'hostile'})
             publish_on_connection(conn, batch)
             conn.execute(text('SELECT data.finish_evaluation(:cut,:out,:batch)'), {'cut': cut, 'out': 'hostile', 'batch': batch.batch_id})
+
+
+
+def test_finished_replay_does_not_reinterpret_an_advanced_input(semantic_db_engine, semantic_writer_engine, tmp_path):
+    from corpus_structure.semantic.domain_operations import DomainOperationRefused
+    from corpus_structure.semantic.publication import PublicationBatch, publish_batch
+
+    prepared, run, cut = fixture(semantic_db_engine, semantic_writer_engine, tmp_path / 'source.html', known=True)
+    result = consolidate_cut(semantic_writer_engine, cut, 'evaluated')
+    publish_batch(semantic_writer_engine, PublicationBatch(prepared.release_id, 'source', 'advance-after-finish'))
+    assert consolidate_cut(semantic_writer_engine, cut, 'evaluated') == result
+    with pytest.raises(DomainOperationRefused, match='finished run is bound to another'):
+        consolidate_cut(semantic_writer_engine, cut, 'different-output')

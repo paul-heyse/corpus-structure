@@ -126,6 +126,44 @@ class DomainResult:
     derivation_receipts: tuple[PublicationReceipt,...] = ()
 
 
+def _source_batch_id(release_id, output, observations):
+    return 'cut:' + sha256(canonical_bytes([release_id, output,
+        [(row['observation_key'], row['payload']) for row in observations], VERSION])).hexdigest()
+
+
+def _completed_result(engine, cut_id, output, policy):
+    """Read an immutable completed result without reinterpreting a changed live input."""
+    with engine.connect().execution_options(isolation_level='REPEATABLE READ') as conn, conn.begin():
+        conn.exec_driver_sql('SET TRANSACTION READ ONLY')
+        cuts, runs = table('ops.input_cut'), table('ops.run')
+        cut = conn.execute(select(cuts).where(cuts.c.id == cut_id)).mappings().one()
+        job = conn.execute(select(runs).where(runs.c.id == cut['run_id'])).mappings().one()
+        if job['status'] != 'finished':
+            return None
+        if not cut['final'] or not job['sealed'] or job['result_realization_id'] != output:
+            raise DomainOperationRefused('finished run is bound to another final cut or output')
+        if policy is not None and (policy.release_id != cut['release_id'] or policy.version != VERSION):
+            raise DomainOperationRefused('finished result policy differs from its recorded binding')
+        observations = cut_observations(conn, cut_id)
+        batch_id = _source_batch_id(cut['release_id'], output, observations)
+        batches = table('data.batch')
+        receipts = conn.execute(select(batches).where(batches.c.release_id == cut['release_id'],
+            batches.c.realization_id == output).order_by(batches.c.data_revision)).mappings().all()
+        source = next((row for row in receipts if row['batch_id'] == batch_id), None)
+        if source is None:
+            raise OperationConflict('finished result has no matching immutable source receipt')
+        revision = conn.execute(select(table('data.realization').c.data_revision).where(
+            table('data.realization').c.realization_id == output,
+            table('data.realization').c.release_id == cut['release_id'])).scalar_one()
+        count = conn.execute(select(func.count()).select_from(table('data.occurrence')).where(
+            table('data.occurrence').c.realization_id == output,
+            table('data.occurrence').c.release_id == cut['release_id'])).scalar_one()
+        receipt = PublicationReceipt(source['batch_id'], source['data_revision'], source['content_digest'])
+        proofs = tuple(PublicationReceipt(row['batch_id'], row['data_revision'], row['content_digest'])
+                       for row in receipts if row['batch_id'] != batch_id)
+        return DomainResult(job['id'], cut_id, output, receipt, len(observations), count, revision, proofs)
+
+
 def _plain(value):
     from pydantic import BaseModel
     if isinstance(value,BaseModel):return {k:_plain(v) for k,v in value if k in value.model_fields_set}
@@ -611,8 +649,7 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
                 claim.get('statement_role'),alternatives,len(item.evidence),descriptor['content'].get('macros',{}),qualification_class,tuple(sorted(ref for ref in {item.subject,*_entity_references(prepared,qualification_class,item.qualification),*(_entity_references(prepared,prop.range,item.object) if prop.inlined else {item.object} if prop.range in by_name else set())} if ref in metadata and metadata[ref].get('reference') and not metadata[ref].get('known'))),rule_object,rule_qualification))
         for unsupported in payload.get('unsupported',()):
             coverage_row('unsupported',source+'/'+unsupported['id'],'partial',unsupported['reason'])
-    batch_id='cut:'+sha256(canonical_bytes([prepared.release_id,output,
-        [(o['observation_key'],o['payload']) for o in observations],VERSION])).hexdigest()
+    batch_id = _source_batch_id(prepared.release_id, output, observations)
     batch=assemble(prepared,output,batch_id,tuple(items))
     from .publication import EntityInputRow,FactInputRow,EntityRow
     used={e.entity_id for e in batch.entity}&known.keys()
@@ -661,6 +698,9 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
 
 def consolidate_cut(engine:Engine,cut_id:int,output_realization_id:str,*,policy:DomainPolicy|None=None,
                     attempts:int=3)->DomainResult:
+    completed = _completed_result(engine, cut_id, output_realization_id, policy)
+    if completed is not None:
+        return completed
     inputs=_cut_input(engine,cut_id,output_realization_id)
     admitted=ReleasedRulesPolicy(inputs.prepared)
     if policy is None:policy=admitted
