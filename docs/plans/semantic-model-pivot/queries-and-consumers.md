@@ -2,6 +2,17 @@
 
 **Status:** Planned · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O05 and consumes SP-01 meanings, SP-03 publication and SP-05/SP-07 outputs as needed.
 
+## Current execution contract (2026-10-29)
+
+SP-04 execution starts at `903a2ff`. [ADR-0026](../../adr/0026-columnar-semantic-operations.md)
+records the shared snapshot and projection boundary. Immutable release-bound handles select
+occurrence, canonical fact or accepted-value projections through Core; execution and output
+adapters stay paired. Read sessions own read-only REPEATABLE READ. Continuation tokens pin the
+release, realization revision, query, parameters, ordering and arithmetic profile; a changed
+revision refuses instead of claiming historical replay. Active-pointer changes do not rebind
+continuations. Coverage absence remains unknown and unresolved declared reference entities survive
+left joins. Full CLI/MCP/current-consumer migration stays SP-08.
+
 ## Target query interface
 
 A query selects a semantic release, data snapshot, occurrence/fact/accepted-value or inferred projection, typed class/property handles, parameters and result demand. Handles resolve against prepared model definitions to shared SQLAlchemy Table/Column objects and composable expressions; they are not unvalidated SQL identifiers. `select`, joins, `exists`, subqueries, aggregates, windows and recursive CTEs retain database optimizer visibility. Domain-specific algorithms may remain ordinary functions using those primitives. No generic query language or custom optimizer is required.

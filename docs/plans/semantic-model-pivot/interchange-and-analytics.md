@@ -2,6 +2,32 @@
 
 **Status:** Planned · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O06; supplies SP-07 consolidation and SP-08 exports/evaluation. Depends on [semantic contracts](semantic-model-and-releases.md) and [PostgreSQL/Core](postgresql-and-publication.md).
 
+## Current execution contract (2026-10-29)
+
+SP-05 starts at `903a2ff`, under [ADR-0026](../../adr/0026-columnar-semantic-operations.md).
+The operator selected foundation plus existing set kernels, not full SP-07/SP-08 migration.
+DuckDB remains the one local relational engine; DataFusion was considered and deferred. A
+normalized Arrow spine preserves value/role, occurrence/fact and evidence/support identity;
+bounded nested views are operation projections, not another catalog.
+
+The explicit analytical default is DECIMAL(38,12), HALF_EVEN. Original lexical values and keys
+remain unchanged; rounded values are identified as analytical products. An explicit release-bound
+profile governs this transformation. Resource settings are operational only. Overflow refuses;
+floating-point statistics cannot be relabelled as exact decimal results.
+
+ADBC imports the SQLAlchemy read snapshot before data reads. The bulk bridge uses plain
+PostgreSQL literal compilation (not psycopg percent escaping), fixed built-in types and owned
+readers. Materialize replayable inputs before ending the source transactions, then compose
+DuckDB relations in one operation scope. The pinned driver is the default. The operator's dbc
+manifest at `~/.config/adbc/drivers/postgresql.toml` selects a separately installed 1.13.0 driver;
+an explicit driver path is qualified independently and must not silently fall back.
+
+pgpq 0.12 encodes fixed Arrow staging schemas to psycopg binary COPY on the existing enforcing
+transaction. It never creates DDL or writes admitted tables directly. Exact SP-03 receipts and
+whole-batch replay remain authoritative; a final canonical serialization pass is retained.
+Operations requiring current state fence the source revision inside protected publication.
+Stale analytical inputs require recomputation outside the write transaction.
+
 ## Foundation and target
 
 Current `schema/interchange.py` compiles table/payload schemas; `pool/contract.py` lifts stored batches; `load.py` reads a coherent REPEATABLE READ transaction then materializes; `duckdb_engine.py` scopes registration lifetime; `write.py` performs COPY through the repository. Reuse those coherent boundaries, not their assumption that installed schemas and legacy upcasting define every payload.

@@ -215,6 +215,12 @@ unresolved; golden passes go through the same tools by Sonnet subagents
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Accepted analytical target (2026-10-29).** Read operations share a PostgreSQL snapshot across
+Core control reads and ADBC columnar reads. A DuckDB operation scope owns derived analytical
+execution; publication remains protected PostgreSQL admission, including stale-analysis fencing.
+
+> Decision: ADR-0026
+
 **Implemented semantic persistence boundary (2026-10-29; package verification is scoped).**
 The trusted physical LinkML module derives shared Core metadata. A separate frozen Alembic
 history deploys the new schema and protected publication routines/grants on fresh databases.
@@ -251,6 +257,13 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted analytical target (2026-10-29).** Release-derived projections bind source selections,
+Arrow types and output adapters. Analytical profiles explicitly govern decimal rounding (default
+38 digits, 12 fractional places, HALF_EVEN); original values and canonical identities remain intact.
+Runtime resource settings do not change semantic policy.
+
+> Decision: ADR-0026
 
 **Implemented release persistence boundary (2026-10-29; package verification is scoped).**
 Exact source/dependency bytes, explicit ontology-source selection and generated products are
