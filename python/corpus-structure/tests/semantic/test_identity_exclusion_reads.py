@@ -7,9 +7,11 @@ import pytest
 from pydantic import ValidationError
 from rdflib import URIRef
 from rdflib.namespace import OWL, RDF
+from sqlalchemy import select
 
 from corpus_structure.semantic.analytics import AnalysisScope, CandidateInput, compile_projection
 from corpus_structure.semantic.ontology import CS, validate_projected_graph
+from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import read_session
 
 
@@ -50,6 +52,15 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
         }
         assert not list(graph.triples((None, OWL.differentFrom, None)))
         assert validate_projected_graph(projection).conforms
+        fact = table("data.fact")
+        fact_id = session.connection.scalar(select(fact.c.fact_id).where(
+            fact.c.release_id == session.binding.release_id,
+            fact.c.realization_id == session.binding.realization_id,
+            fact.c.subject_id == exclusion.left.entity.entity_id,
+        ).limit(1))
+        assert fact_id is not None
+        explanation = session.explain(fact_id)
+        assert explanation.identity_exclusions == rows
 
         compiled = compile_projection(prepared, session.binding, kind="candidate")
         relations = {}
