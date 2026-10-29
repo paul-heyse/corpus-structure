@@ -96,6 +96,13 @@ def test_required_scoped_relationships(
 def test_all_data_children_are_pinned_to_the_realization_release() -> None:
     for name, item in metadata.tables.items():
         if item.schema == "data" and item.name not in {"project", "realization"}:
+            if item.name == "publication_intent":
+                # A receipt extension inherits target scope through its qualified batch FK.
+                assert (
+                    ("release_id", "realization_id", "batch_id"),
+                    ("data.batch.release_id", "data.batch.realization_id", "data.batch.batch_id"),
+                ) in _foreign_keys(name)
+                name = "data.batch"
             assert (
                 ("realization_id", "release_id"),
                 ("data.realization.realization_id", "data.realization.release_id"),
