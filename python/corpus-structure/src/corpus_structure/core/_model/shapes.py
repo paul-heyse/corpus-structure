@@ -22,10 +22,12 @@ from pydantic import (
     ConfigDict,
     Discriminator,
     Field,
+    GetCoreSchemaHandler,
     JsonValue,
     Tag,
     model_validator,
 )
+from pydantic_core import CoreSchema
 
 from corpus_structure.core import shape_support
 from corpus_structure.core._model import validators
@@ -47,6 +49,7 @@ from corpus_structure.core._model.types import (
     SentenceId,
     StatementKey,
 )
+from corpus_structure.core.json_extras import json_extras_schema
 from corpus_structure.core.shape_support import CitationFrame
 from corpus_structure.core.vocab import (
     AgentMode,
@@ -106,8 +109,8 @@ class NumberValue(CoreModel):
         ),
         AfterValidator(shape_support.canonical_number),
     ]
-    unit: str | MISSING = MISSING  # type: ignore[valid-type]
-    basis: str | MISSING = MISSING  # type: ignore[valid-type]
+    unit: str | MISSING = MISSING
+    basis: str | MISSING = MISSING
 
 
 class BoolValue(CoreModel):
@@ -132,12 +135,12 @@ class SymbolBinding(CoreModel):
 
     bind: BindKind
     entity: Annotated[str, Field(min_length=1), Refers(frozenset({RefKind.ENTITY}))] | MISSING = (
-        MISSING  # type: ignore[valid-type]
+        MISSING
     )
     claim: Annotated[str, Field(min_length=1), Refers(frozenset({RefKind.CLAIM}))] | MISSING = (
-        MISSING  # type: ignore[valid-type]
+        MISSING
     )
-    param: str | MISSING = MISSING  # type: ignore[valid-type]
+    param: str | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -158,20 +161,20 @@ class Expression(CoreModel):
     t: Literal["formula", "set"]
     latex: str
     symbols: dict[str, SymbolBinding] = Field(default_factory=dict)
-    sympy: str | MISSING = MISSING  # type: ignore[valid-type]
-    parse: ParseOutcome | MISSING = MISSING  # type: ignore[valid-type]
+    sympy: str | MISSING = MISSING
+    parse: ParseOutcome | MISSING = MISSING
 
 
 class Formula(Expression):
     """A formula as written, with its symbol bindings (D1 §6.1)."""
 
-    t: Literal["formula"]  # type: ignore[assignment]
+    t: Literal["formula"]
 
 
 class SetValue(Expression):
     """A set written in LaTeX, such as \\R, (0, \\infty) or \\R \\setminus \\{0\\}."""
 
-    t: Literal["set"]  # type: ignore[assignment]
+    t: Literal["set"]
 
 
 class DateValue(CoreModel):
@@ -196,11 +199,11 @@ class IntervalValue(CoreModel):
 
     t: Literal["interval"]
     start: Annotated[NumberValue | DateValue | Formula, Field(discriminator="t")] | MISSING = (
-        MISSING  # type: ignore[valid-type]
+        MISSING
     )
-    end: Annotated[NumberValue | DateValue | Formula, Field(discriminator="t")] | MISSING = MISSING  # type: ignore[valid-type]
-    start_incl: bool | MISSING = MISSING  # type: ignore[valid-type]
-    end_incl: bool | MISSING = MISSING  # type: ignore[valid-type]
+    end: Annotated[NumberValue | DateValue | Formula, Field(discriminator="t")] | MISSING = MISSING
+    start_incl: bool | MISSING = MISSING
+    end_incl: bool | MISSING = MISSING
 
 
 class AuthoredPhrase(CoreModel):
@@ -210,7 +213,7 @@ class AuthoredPhrase(CoreModel):
 
     t: Literal["phrase"]
     text: str
-    sentence: SentenceId | MISSING = MISSING  # type: ignore[valid-type]
+    sentence: SentenceId | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -251,7 +254,7 @@ class StoredPhrase(CoreModel):
     text: str
     start: Offset
     end: Offset
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
+    coarse: bool | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -349,7 +352,7 @@ class AuthoredPhraseNode(CoreModel):
 
     op: Literal["phrase"]
     text: str
-    sentence: SentenceId | MISSING = MISSING  # type: ignore[valid-type]
+    sentence: SentenceId | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -357,10 +360,12 @@ class AuthoredPhraseNode(CoreModel):
         return self
 
 
-class AuthoredUnsupportedNode(AuthoredPhraseNode):
+class AuthoredUnsupportedNode(CoreModel):
     """A condition the schema cannot express, kept as text with the reason."""
 
-    op: Literal["unsupported"]  # type: ignore[assignment]
+    op: Literal["unsupported"]
+    text: str
+    sentence: SentenceId | MISSING = MISSING
     reason: str
 
     @model_validator(mode="after")
@@ -421,7 +426,7 @@ class StoredPhraseNode(CoreModel):
     text: str
     start: Offset
     end: Offset
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
+    coarse: bool | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -429,10 +434,14 @@ class StoredPhraseNode(CoreModel):
         return self
 
 
-class StoredUnsupportedNode(StoredPhraseNode):
+class StoredUnsupportedNode(CoreModel):
     """A condition the schema cannot express, kept as text with the reason."""
 
-    op: Literal["unsupported"]  # type: ignore[assignment]
+    op: Literal["unsupported"]
+    text: str
+    start: Offset
+    end: Offset
+    coarse: bool | MISSING = MISSING
     reason: str
 
     @model_validator(mode="after")
@@ -463,8 +472,8 @@ class AuthoredEntity(CoreModel):
     type: str
     label: str
     scope: EntityScope
-    extent: EntityExtent | MISSING = MISSING  # type: ignore[valid-type]
-    symbol: str | MISSING = MISSING  # type: ignore[valid-type]
+    extent: EntityExtent | MISSING = MISSING
+    symbol: str | MISSING = MISSING
     aliases: tuple[str, ...] = ()
     identity: dict[str, str] = Field(default_factory=dict)
 
@@ -493,7 +502,7 @@ class AuthoredDescriptor(CoreModel):
 
     sentence: SentenceId
     quote: NonEmpty
-    target: NonEmpty | MISSING = MISSING  # type: ignore[valid-type]
+    target: NonEmpty | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -519,17 +528,20 @@ class AuthoredQualifiers(CoreModel):
     """
 
     model_config = ConfigDict(frozen=True, extra="allow")
-    # schema qualifiers, raw JSON until S1 types them (typed extras)
-    __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
+        return json_extras_schema(source, handler)
+
     modality: MemberName = Field(
         ClaimModality.ASSERTED, exclude_if=lambda v: v == ClaimModality.ASSERTED
     )
     polarity: Polarity = Field(Polarity.POSITIVE, exclude_if=lambda v: v == Polarity.POSITIVE)
-    hedge: AuthoredPhrase | MISSING = MISSING  # type: ignore[valid-type]
-    attribution: EntityRef | MISSING = MISSING  # type: ignore[valid-type]
-    conditions: AuthoredCondition | MISSING = MISSING  # type: ignore[valid-type]
-    scope: ScopeExtent | MISSING = MISSING  # type: ignore[valid-type]
-    valid_time: IntervalValue | MISSING = MISSING  # type: ignore[valid-type]
+    hedge: AuthoredPhrase | MISSING = MISSING
+    attribution: EntityRef | MISSING = MISSING
+    conditions: AuthoredCondition | MISSING = MISSING
+    scope: ScopeExtent | MISSING = MISSING
+    valid_time: IntervalValue | MISSING = MISSING
 
 
 class AuthoredEvidence(CoreModel):
@@ -560,8 +572,8 @@ class AuthoredClaim(CoreModel):
     ]
     statement: (
         Annotated[str, Field(min_length=1), Refers(frozenset({RefKind.STATEMENT}))] | MISSING
-    ) = MISSING  # type: ignore[valid-type]
-    statement_role: StatementRole | MISSING = MISSING  # type: ignore[valid-type]
+    ) = MISSING
+    statement_role: StatementRole | MISSING = MISSING
     establishment: Establishment = Field(
         Establishment.STATED, exclude_if=lambda v: v == Establishment.STATED
     )
@@ -571,8 +583,8 @@ class AuthoredClaim(CoreModel):
             Field(min_length=1),
         ]
         | MISSING
-    ) = MISSING  # type: ignore[valid-type]
-    rule: NonEmpty | MISSING = MISSING  # type: ignore[valid-type]
+    ) = MISSING
+    rule: NonEmpty | MISSING = MISSING
     object: AuthoredObject
     qualifiers: AuthoredQualifiers = Field(default_factory=AuthoredQualifiers)
     evidence: Annotated[tuple[AuthoredEvidence, ...], Field(min_length=1)]
@@ -636,11 +648,11 @@ class StoredEntity(CoreModel):
     type: PrefixedName
     label: str
     scope: EntityScope
-    extent: EntityExtent | MISSING = MISSING  # type: ignore[valid-type]
-    symbol: str | MISSING = MISSING  # type: ignore[valid-type]
+    extent: EntityExtent | MISSING = MISSING
+    symbol: str | MISSING = MISSING
     aliases: tuple[str, ...] = ()
     identity: dict[PrefixedName, str] = Field(default_factory=dict)
-    scope_segment: str | MISSING = MISSING  # type: ignore[valid-type]
+    scope_segment: str | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -667,8 +679,8 @@ class StoredDescriptor(CoreModel):
 
     start: Offset
     end: Offset
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
-    target: NonEmpty | MISSING = MISSING  # type: ignore[valid-type]
+    coarse: bool | MISSING = MISSING
+    target: NonEmpty | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -707,8 +719,11 @@ class StoredQualifiers(CoreModel):
         validate_by_name=False,
         serialize_by_alias=True,
     )
-    # schema qualifiers, raw JSON until S1 types them (typed extras)
-    __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -> CoreSchema:
+        return json_extras_schema(source, handler)
+
     modality: MemberName = Field(
         ClaimModality.ASSERTED,
         exclude_if=lambda v: v == ClaimModality.ASSERTED,
@@ -717,11 +732,11 @@ class StoredQualifiers(CoreModel):
     polarity: Polarity = Field(
         Polarity.POSITIVE, exclude_if=lambda v: v == Polarity.POSITIVE, alias="core:polarity"
     )
-    hedge: StoredPhrase | MISSING = Field(MISSING, alias="core:hedge")  # type: ignore[valid-type]
-    attribution: EntityRef | MISSING = Field(MISSING, alias="core:attribution")  # type: ignore[valid-type]
-    conditions: StoredCondition | MISSING = Field(MISSING, alias="core:conditions")  # type: ignore[valid-type]
-    scope: StoredScope | MISSING = Field(MISSING, alias="core:scope")  # type: ignore[valid-type]
-    valid_time: IntervalValue | MISSING = Field(MISSING, alias="core:valid_time")  # type: ignore[valid-type]
+    hedge: StoredPhrase | MISSING = Field(MISSING, alias="core:hedge")
+    attribution: EntityRef | MISSING = Field(MISSING, alias="core:attribution")
+    conditions: StoredCondition | MISSING = Field(MISSING, alias="core:conditions")
+    scope: StoredScope | MISSING = Field(MISSING, alias="core:scope")
+    valid_time: IntervalValue | MISSING = Field(MISSING, alias="core:valid_time")
 
     @model_validator(mode="after")
     def _hooks(self) -> Self:
@@ -737,7 +752,7 @@ class StoredEvidence(CoreModel):
     start: Offset
     end: Offset
     role: EvidenceRole
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
+    coarse: bool | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -758,8 +773,8 @@ class StoredClaim(CoreModel):
     ]
     statement: (
         Annotated[str, Field(min_length=1), Refers(frozenset({RefKind.STATEMENT}))] | MISSING
-    ) = MISSING  # type: ignore[valid-type]
-    statement_role: StatementRole | MISSING = MISSING  # type: ignore[valid-type]
+    ) = MISSING
+    statement_role: StatementRole | MISSING = MISSING
     establishment: Establishment = Field(
         Establishment.STATED, exclude_if=lambda v: v == Establishment.STATED
     )
@@ -769,8 +784,8 @@ class StoredClaim(CoreModel):
             Field(min_length=1),
         ]
         | MISSING
-    ) = MISSING  # type: ignore[valid-type]
-    rule: NonEmpty | MISSING = MISSING  # type: ignore[valid-type]
+    ) = MISSING
+    rule: NonEmpty | MISSING = MISSING
     object: StoredObject
     qualifiers: StoredQualifiers = Field(default_factory=StoredQualifiers)
     evidence: Annotated[tuple[StoredEvidence, ...], Field(min_length=1)]
@@ -788,7 +803,7 @@ class StoredUnsupported(CoreModel):
     end: Offset
     local_ref: NonEmpty
     reason: str
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
+    coarse: bool | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -827,9 +842,9 @@ class CandidateEntity(CoreModel):
     type: PrefixedName
     label: str
     scope: EntityScope
-    extent: EntityExtent | MISSING = MISSING  # type: ignore[valid-type]
-    scope_segment: str | MISSING = MISSING  # type: ignore[valid-type]
-    symbol: str | MISSING = MISSING  # type: ignore[valid-type]
+    extent: EntityExtent | MISSING = MISSING
+    scope_segment: str | MISSING = MISSING
+    symbol: str | MISSING = MISSING
     aliases: tuple[str, ...] = ()
     identity: dict[PrefixedName, str] = Field(default_factory=dict)
 
@@ -873,8 +888,8 @@ class CandidateClaim(CoreModel):
     qualifiers: StoredQualifiers = Field(default_factory=StoredQualifiers)
     statement: (
         Annotated[str, Field(min_length=1), Refers(frozenset({RefKind.STATEMENT}))] | MISSING
-    ) = MISSING  # type: ignore[valid-type]
-    statement_role: StatementRole | MISSING = MISSING  # type: ignore[valid-type]
+    ) = MISSING
+    statement_role: StatementRole | MISSING = MISSING
     establishment: Establishment = Field(
         Establishment.STATED, exclude_if=lambda v: v == Establishment.STATED
     )
@@ -884,8 +899,8 @@ class CandidateClaim(CoreModel):
             Field(min_length=1),
         ]
         | MISSING
-    ) = MISSING  # type: ignore[valid-type]
-    rule: NonEmpty | MISSING = MISSING  # type: ignore[valid-type]
+    ) = MISSING
+    rule: NonEmpty | MISSING = MISSING
     evidence: tuple[StoredEvidence, ...] = ()
 
     @model_validator(mode="after")
@@ -913,7 +928,7 @@ class CandidateUnsupported(CoreModel):
     start: Offset
     end: Offset
     reason: str
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
+    coarse: bool | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -944,7 +959,7 @@ class KeyedCandidateSet(CoreModel):
 class MentionRef(CoreModel):
     """A mention by its task and ordinal; the task is absent inside the same task."""
 
-    task: int | MISSING = MISSING  # type: ignore[valid-type]
+    task: int | MISSING = MISSING
     ordinal: Offset
 
 
@@ -957,7 +972,7 @@ class RunOptions(CoreModel):
     agent_reuse: AgentReuse = AgentReuse.FULL
     gpu_mode: GpuMode = GpuMode.AUTO
     corpus: Json
-    scope: Json | MISSING = MISSING  # type: ignore[valid-type]
+    scope: Json | MISSING = MISSING
     fresh: tuple[str, ...] = ()
     configs: dict[str, str]
     method_configs: dict[str, str]
@@ -969,29 +984,29 @@ class InterventionRefs(CoreModel):
     direction names nothing, its text being the body.
     """
 
-    observations: tuple[Offset, ...] | MISSING = MISSING  # type: ignore[valid-type]
-    golden_pass: Offset | MISSING = MISSING  # type: ignore[valid-type]
-    schema_version: Offset | MISSING = MISSING  # type: ignore[valid-type]
-    guideline_version: Offset | MISSING = MISSING  # type: ignore[valid-type]
-    policy_version: Offset | MISSING = MISSING  # type: ignore[valid-type]
-    experiment: Offset | MISSING = MISSING  # type: ignore[valid-type]
+    observations: tuple[Offset, ...] | MISSING = MISSING
+    golden_pass: Offset | MISSING = MISSING
+    schema_version: Offset | MISSING = MISSING
+    guideline_version: Offset | MISSING = MISSING
+    policy_version: Offset | MISSING = MISSING
+    experiment: Offset | MISSING = MISSING
 
 
 class Cost(CoreModel):
     """`ops.task.cost`."""
 
     wall_ms: Offset
-    gpu_ms: Offset | MISSING = MISSING  # type: ignore[valid-type]
-    tokens_in: Offset | MISSING = MISSING  # type: ignore[valid-type]
-    tokens_out: Offset | MISSING = MISSING  # type: ignore[valid-type]
-    model: str | MISSING = MISSING  # type: ignore[valid-type]
+    gpu_ms: Offset | MISSING = MISSING
+    tokens_in: Offset | MISSING = MISSING
+    tokens_out: Offset | MISSING = MISSING
+    model: str | MISSING = MISSING
 
 
 class PolicyAction(CoreModel):
     """`ops.policy_rule.action`: a named configuration `<method>/<name>`, a limit, then."""
 
     method: Annotated[str, Field(pattern="^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$")]
-    limit: Annotated[int, Field(ge=1)] | MISSING = MISSING  # type: ignore[valid-type]
+    limit: Annotated[int, Field(ge=1)] | MISSING = MISSING
     then: PolicyThen
 
     @model_validator(mode="after")
@@ -1031,8 +1046,8 @@ class AuthorMarkupPayload(CoreModel):
 
     markup: MarkupKind
     value: Json
-    target: str | MISSING = MISSING  # type: ignore[valid-type]
-    synthesize: SynthesizedClaim | MISSING = MISSING  # type: ignore[valid-type]
+    target: str | MISSING = MISSING
+    synthesize: SynthesizedClaim | MISSING = MISSING
 
 
 class SpanPayload(CoreModel):
@@ -1059,9 +1074,9 @@ class MentionPayload(SpanPayload):
 
     label: str
     text: str
-    attributes: dict[str, LabelScore] | MISSING = MISSING  # type: ignore[valid-type]
-    math_ref: SegmentKey | MISSING = MISSING  # type: ignore[valid-type]
-    math: dict[str, JsonValue] | MISSING = MISSING  # type: ignore[valid-type]
+    attributes: dict[str, LabelScore] | MISSING = MISSING
+    math_ref: SegmentKey | MISSING = MISSING
+    math: dict[str, JsonValue] | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -1086,8 +1101,8 @@ class RelationPayload(CoreModel):
     label: str
     head: LabelledSpan
     tail: LabelledSpan
-    joint: bool | MISSING = MISSING  # type: ignore[valid-type]
-    feasible: bool | MISSING = MISSING  # type: ignore[valid-type]
+    joint: bool | MISSING = MISSING
+    feasible: bool | MISSING = MISSING
 
 
 class RecordField(SpanPayload):
@@ -1107,7 +1122,7 @@ class RecordPayload(CoreModel):
 
     structure: str
     fields: dict[str, tuple[RecordField, ...]]
-    anchor: Json | MISSING = MISSING  # type: ignore[valid-type]
+    anchor: Json | MISSING = MISSING
 
 
 class AttributePayload(CoreModel):
@@ -1123,16 +1138,16 @@ class ClassificationPayload(CoreModel):
 
     task: str
     labels: tuple[LabelScore, ...]
-    feasible: bool | MISSING = MISSING  # type: ignore[valid-type]
-    violations: Json | MISSING = MISSING  # type: ignore[valid-type]
+    feasible: bool | MISSING = MISSING
+    violations: Json | MISSING = MISSING
 
 
 class ValuePayload(CoreModel):
     """A parsed value (M11)."""
 
     value: StoredValue
-    parse_error: str | MISSING = MISSING  # type: ignore[valid-type]
-    math_kind: MathKind | MISSING = MISSING  # type: ignore[valid-type]
+    parse_error: str | MISSING = MISSING
+    math_kind: MathKind | MISSING = MISSING
 
 
 class MentionAt(SpanPayload):
@@ -1153,8 +1168,8 @@ class ScopePayload(SpanPayload):
     binding_site: MentionAt
     scope_segment: NonEmpty
     extent: ScopeExtent
-    binding: BindKind | MISSING = MISSING  # type: ignore[valid-type]
-    reopens: MentionAt | MISSING = MISSING  # type: ignore[valid-type]
+    binding: BindKind | MISSING = MISSING
+    reopens: MentionAt | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -1174,13 +1189,13 @@ class LinkPayload(CoreModel):
     or the new entity it proposes, exactly one of each.
     """
 
-    mention_ref: MentionRef | MISSING = MISSING  # type: ignore[valid-type]
-    pair: tuple[str, str] | MISSING = MISSING  # type: ignore[valid-type]
-    candidate: NonEmpty | MISSING = MISSING  # type: ignore[valid-type]
-    new: NewEntity | MISSING = MISSING  # type: ignore[valid-type]
+    mention_ref: MentionRef | MISSING = MISSING
+    pair: tuple[str, str] | MISSING = MISSING
+    candidate: NonEmpty | MISSING = MISSING
+    new: NewEntity | MISSING = MISSING
     score: Score
     features: dict[str, JsonValue]
-    rank: int | MISSING = MISSING  # type: ignore[valid-type]
+    rank: int | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -1204,11 +1219,11 @@ class ClaimProposalPayload(CoreModel):
 
     batch: StoredBatch
     schema_version: Annotated[str, Field(pattern="^[0-9a-f]{64}$")]
-    authored: AuthoredBatch | MISSING = MISSING  # type: ignore[valid-type]
-    citation_frame: CitationFrame | MISSING = MISSING  # type: ignore[valid-type]
-    cascade_version: NonEmpty | MISSING = MISSING  # type: ignore[valid-type]
-    rationale: str | MISSING = MISSING  # type: ignore[valid-type]
-    rejected: tuple[RejectedItem, ...] | MISSING = MISSING  # type: ignore[valid-type]
+    authored: AuthoredBatch | MISSING = MISSING
+    citation_frame: CitationFrame | MISSING = MISSING
+    cascade_version: NonEmpty | MISSING = MISSING
+    rationale: str | MISSING = MISSING
+    rejected: tuple[RejectedItem, ...] | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -1224,7 +1239,7 @@ class JudgmentTarget(CoreModel):
 
     kind: JudgmentTargetKind
     ref: NonEmpty
-    key_scheme: Annotated[int, Field(ge=1)] | MISSING = MISSING  # type: ignore[valid-type]
+    key_scheme: Annotated[int, Field(ge=1)] | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -1239,9 +1254,9 @@ class JudgmentPayload(CoreModel):
     decision: JudgmentDecision
     rationale: str
     guideline_version: str
-    chosen: tuple[str, ...] | MISSING = MISSING  # type: ignore[valid-type]
-    faithful: bool | MISSING = MISSING  # type: ignore[valid-type]
-    confidence: JudgmentConfidence | MISSING = MISSING  # type: ignore[valid-type]
+    chosen: tuple[str, ...] | MISSING = MISSING
+    faithful: bool | MISSING = MISSING
+    confidence: JudgmentConfidence | MISSING = MISSING
 
     @model_validator(mode="after")
     def _invariants(self) -> Self:
@@ -1263,8 +1278,8 @@ class VerificationPayload(CoreModel):
     claim_key: str
     verifier: str
     verdict: VerificationVerdict
-    detail: VerificationDetail | dict[str, JsonValue] | MISSING = MISSING  # type: ignore[valid-type]
-    counterexample: Json | MISSING = MISSING  # type: ignore[valid-type]
+    detail: VerificationDetail | dict[str, JsonValue] | MISSING = MISSING
+    counterexample: Json | MISSING = MISSING
 
 
 class ParserError(CoreModel):
@@ -1305,7 +1320,7 @@ class OrphanRun(CoreModel):
 
     container: SegmentKind
     text: str
-    sourceline: int | MISSING = MISSING  # type: ignore[valid-type]
+    sourceline: int | MISSING = MISSING
 
 
 class UnicodeChange(CoreModel):
@@ -1320,7 +1335,7 @@ class ParseDetail(shape_support.ParseDetailMethods, CoreModel):
     on `kb.rendition_build`, never on segments, so they are outside the rendition's content digest.
     """
 
-    encoding: str | MISSING = MISSING  # type: ignore[valid-type]
+    encoding: str | MISSING = MISSING
     parser_errors: tuple[ParserError, ...] = ()
     data_loss_warnings: int
     role_conflicts: tuple[RoleConflict, ...] = ()

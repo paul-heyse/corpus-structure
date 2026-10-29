@@ -161,7 +161,7 @@ def _syntax(sql: str, metadata: MetaData) -> tuple[tuple[str, ...], tuple[str, .
     # pglast handles CTE lexical scopes, including nested shadowing, rather than a regex scanner.
     references = referenced_relations(tree)
     known = {
-        str(RawStream()(ast.RangeVar(schemaname=t.schema, relname=t.name, inh=True))): name
+        RawStream()(ast.RangeVar(schemaname=t.schema, relname=t.name, inh=True)): name
         for name, t in metadata.tables.items()
     }
     unknown = references - known.keys()

@@ -6,7 +6,7 @@ compute; only explicitly owned result readers extend a local scope's lifetime.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
@@ -415,7 +415,7 @@ def load_packet(
     compiled = compile_projection(session.prepared, session.binding)
     snapshot = session.connection.execute(select(text("pg_export_snapshot()"))).scalar_one()
     # Exported ids are server-generated; SQLAlchemy renders their SQL literal safely.
-    snapshot_sql = str(
+    snapshot_sql = (
         postgresql.dialect(paramstyle="named")
         .statement_compiler(postgresql.dialect(paramstyle="named"), None)
         .render_literal_value(snapshot, String())
@@ -797,7 +797,7 @@ class AnalysisScope:
     @contextmanager
     def reader(
         self, relation: duckdb.DuckDBPyRelation, *, batch_size: int = 65536
-    ) -> Iterator[pa.RecordBatchReader]:
+    ) -> Generator[pa.RecordBatchReader, None, None]:
         """Reader cancellation/exception closes its native result before input teardown."""
         if self._closed:
             raise RuntimeError("analysis scope is closed")

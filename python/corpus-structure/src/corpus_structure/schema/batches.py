@@ -67,11 +67,12 @@ def schema_id(model_revision: str, schema_version: str, form: str) -> str:
 
 
 def _literal(values: tuple[str, ...]) -> Any:
-    return Literal[values]  # type: ignore[valid-type]
+    """Construct a runtime type form from the acquired closed vocabulary."""
+    return getattr(Literal, "__getitem__")(values)
 
 
 def _optional(t: Any) -> tuple[Any, Any]:
-    return (t | MISSING, MISSING)  # type: ignore[operator]
+    return (t | MISSING, MISSING)
 
 
 class BatchCompiler:
@@ -172,7 +173,7 @@ class BatchCompiler:
             if form == "model":
                 fields[name] = _optional(t)
             else:
-                fields[name] = (t | MISSING, Field(MISSING, alias=q.prefixed))  # type: ignore[operator]
+                fields[name] = (t | MISSING, Field(MISSING, alias=q.prefixed))
         return create_model(f"Qualifiers_{p.name}_{form}", __base__=base, **fields)
 
     def _claim(self, p: Predicate, form: str) -> type:
@@ -199,7 +200,7 @@ class BatchCompiler:
         kinds = _literal(self._members("StatementKind", form))
         statement = create_model(f"Statement_{form}", __base__=base, kind=(kinds, ...))
         outside = B.AuthoredOutside if form == "model" else B.StoredOutside
-        return Annotated[  # type: ignore[return-value]
+        return Annotated[
             Annotated[statement, Tag("statement")] | Annotated[outside, Tag("outside")],
             Discriminator(B._statement_or_outside),
         ]

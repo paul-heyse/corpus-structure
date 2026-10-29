@@ -117,7 +117,7 @@ def _scalar(model: Model, rng: str) -> pa.DataType:
     if sql_type is not None:
         if sql_type not in SQL_TYPES:
             raise ModelError([f"type {rng}: ci:sql_type {sql_type!r} has no Arrow type"])
-        return SQL_TYPES[str(sql_type)]
+        return SQL_TYPES[sql_type]
     for name in (rng, *view.type_ancestors(rng)):
         uri = view.get_type(name).uri
         if uri in URI_TYPES:

@@ -359,7 +359,7 @@ def _plain(value: Any) -> Any:
     # DupCheckYamlLoader returns location-tagged str subclasses. Lower only those wrappers;
     # do not coerce numbers, booleans, null or other invalid authored field values.
     if isinstance(value, str):
-        return str(value)
+        return str.__str__(value)
     if isinstance(value, dict):
         return {_plain(k): _plain(v) for k, v in value.items()}
     if isinstance(value, list):

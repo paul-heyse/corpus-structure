@@ -553,7 +553,7 @@ class QualifiedGraphProjection:
                 for key, child in value.items():
                     if type(key) is not str:
                         raise OntologyError("qualified record keys must be strings")
-                    graph.add((node, CS[str(key)], structure(owner, (*path, str(key)), child)))
+                    graph.add((node, CS[key], structure(owner, (*path, key), child)))
             else:
                 graph.add((node, RDF.type, CS.Collection))
                 for position, child in enumerate(value):
@@ -594,7 +594,7 @@ class QualifiedGraphProjection:
             for key, value in row.items():
                 if key in {"id", "subject", "predicate", "object"} and identity in assertions:
                     continue
-                graph.add((node, CS[str(key) + "Node"], structure(node, (str(key),), value)))
+                graph.add((node, CS[key + "Node"], structure(node, (key,), value)))
             for target in sorted(references.get(identity, ())):
                 graph.add((node, CS.requiredNode, URIRef(target)))
         return graph
@@ -641,7 +641,7 @@ def validate_enum_meanings(view: SchemaView, ontology_path: Path) -> tuple[str, 
     )
     context = ValidationContext(schema, target_class=root)
     plugin.pre_process(context)
-    return tuple(str(result.message) for result in plugin.process({}, context))
+    return tuple(result.message for result in plugin.process({}, context))
 
 
 def resolve_vocabularies_from_bytes(
@@ -757,7 +757,7 @@ def validate_bindings(
     )
     context = ValidationContext(_schema(view), target_class=target_class)
     plugin.pre_process(context)
-    return tuple(str(result.message) for result in plugin.process(dict(instance), context))
+    return tuple(result.message for result in plugin.process(dict(instance), context))
 
 
 def qualified_validation_graph(projection: QualifiedGraphProjection) -> Graph:

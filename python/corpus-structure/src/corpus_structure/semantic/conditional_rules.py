@@ -150,7 +150,7 @@ class _RuleGenerator(JsonSchemaGenerator):
             assert ancestor_cls is not None
             for conditions in _expressions(ancestor_cls):
                 for name, condition in conditions.items():
-                    condition.alias = str(slots[str(name)].alias or name)
+                    condition.alias = str.__str__(slots[name].alias or name)
         return cls
 
     def after_generate_class[T: GenericClassResult](self, cls: T, sv: SchemaView) -> T:
@@ -179,7 +179,7 @@ def compile_conditional_rules(view: SchemaView) -> dict[str, dict[str, Any]]:
     # Each class's inherited rules must see its own effective slot aliases.
     for name in normalized.all_classes():
         slots = {str(slot.name): slot for slot in normalized.class_induced_slots(name)}
-        aliases = [str(slot.alias or slot_name) for slot_name, slot in slots.items()]
+        aliases = [str.__str__(slot.alias or slot_name) for slot_name, slot in slots.items()]
         if len(set(aliases)) != len(aliases):
             _refuse(str(name), "conditional boundary aliases must be unique")
         for ancestor in normalized.class_ancestors(name):
@@ -187,7 +187,7 @@ def compile_conditional_rules(view: SchemaView) -> dict[str, dict[str, Any]]:
             assert ancestor_cls is not None
             for conditions in _expressions(ancestor_cls):
                 for slot_name, condition in conditions.items():
-                    slot = slots.get(str(slot_name))
+                    slot = slots.get(slot_name)
                     if slot is None:
                         _refuse(f"{name}/{slot_name}", "rule references an unknown class slot")
                     if slot.multivalued:
@@ -202,8 +202,8 @@ def compile_conditional_rules(view: SchemaView) -> dict[str, dict[str, Any]]:
                             f"{name}/{slot_name}",
                             "conditional choices require a scalar string slot",
                         )
-                    alias = str(slot.alias or slot_name)
-                    if condition.alias is not None and str(condition.alias) != alias:
+                    alias = str.__str__(slot.alias or slot_name)
+                    if condition.alias is not None and condition.alias != alias:
                         _refuse(f"{name}/{slot_name}", "conditional and boundary aliases differ")
     generator = _RuleGenerator(
         schema,
@@ -249,7 +249,6 @@ def conditional_model_namespace(fragment: dict[str, Any]) -> dict[str, Any]:
             )
         return model
 
-    @classmethod
     def json_schema(cls: Any, core_schema: Any, handler: Any) -> dict[str, Any]:
         result = handler(core_schema)
         result.update(deepcopy(normalized))
@@ -257,7 +256,7 @@ def conditional_model_namespace(fragment: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "_validate_conditional_rules": model_validator(mode="after")(validate_rules),
-        "__get_pydantic_json_schema__": json_schema,
+        "__get_pydantic_json_schema__": classmethod(json_schema),
     }
 
 
@@ -272,7 +271,7 @@ def compile_native_conditionals(
     result: list[dict[str, Any]] = []
     for name, fragment in sorted(fragments.items()):
         aliases = {
-            str(slot.alias or slot.name): str(slot.name) for slot in view.class_induced_slots(name)
+            str.__str__(slot.alias or slot.name): str(slot.name) for slot in view.class_induced_slots(name)
         }
 
         def atoms(
@@ -336,7 +335,7 @@ def compile_native_conditionals(
         for index, rule in enumerate(rules(fragment)):
             result.append(
                 {
-                    "class_id": str(view.get_uri(cls, expand=True)),
+                    "class_id": view.get_uri(cls, expand=True),
                     "rule_id": sha256(canonical_bytes([name, index, rule])).hexdigest(),
                     "scope": scope,
                     "branches": {

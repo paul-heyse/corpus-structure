@@ -6,6 +6,7 @@ reference/evaluation files are never acquired as extraction inputs.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -33,7 +34,7 @@ def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDepend
     if len(packs) > 1:
         acquired = [prepare_pack(pack) for pack in packs]
         sources: dict[str, SourceArtifact] = {}
-        artifacts: dict[str, SourceArtifact] = {}
+        composed_artifacts: dict[str, SourceArtifact] = {}
         qualifiers = []
         for pack, (bundle, deps, _, _) in zip(packs, acquired, strict=True):
             for source in bundle.sources:
@@ -50,8 +51,8 @@ def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDepend
                 if artifact.name.startswith(("execution/", "operation/analytical")):
                     continue
                 artifact = SourceArtifact(f"pack/{pack.name}/{artifact.name}", artifact.content)
-                artifacts[artifact.name] = artifact
-        root = {
+                composed_artifacts[artifact.name] = artifact
+        root: dict[str, Any] = {
             "id": "https://corpus-structure.dev/semantic/composed-pack", "name": "composed_pack",
             "prefixes": {"cs": "https://corpus-structure.dev/semantic/"}, "default_prefix": "cs",
             "imports": list(sources),
@@ -61,7 +62,7 @@ def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDepend
             qualification = "ComposedQualification"
             root["classes"] = {qualification: {"is_a": "Qualification", "mixins": qualifiers}}
         bundle = SourceBundle("composed_pack", (*sources.values(), SourceArtifact("composed_pack", yaml.safe_dump(root).encode())))
-        deps = ResolvedDependencies(tuple(artifacts.values()))
+        deps = ResolvedDependencies(tuple(composed_artifacts.values()))
         bundle = proposal_inputs(bundle, deps, qualification_class=qualification)
         bundle, deps = prepare_source_inputs(bundle, deps)
         bundle, deps = analytical_inputs(bundle, deps)
@@ -98,6 +99,9 @@ def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDepend
                 for _, profile in registry.profiles(method, config)}
     artifacts += tuple(SourceArtifact(f"source-profile/{name}.yaml", (SOURCES_DIR / f"{name}.yaml").read_bytes())
                        for name in sorted(profiles))
+    split_policy = pack / "eval/split.yaml"
+    if split_policy.is_file():
+        artifacts += (SourceArtifact("operation/evaluation-split.yaml", split_policy.read_bytes()),)
     deps = ResolvedDependencies((*deps.artifacts, *artifacts), deps.vocabularies, deps.ontology_sources)
     qualifiers = [key for key, definition in document.get("classes", {}).items()
                   if definition.get("is_a") == "Qualification"]
