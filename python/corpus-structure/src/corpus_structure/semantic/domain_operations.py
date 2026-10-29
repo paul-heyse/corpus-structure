@@ -1126,7 +1126,6 @@ def _project_cut(
                 role = payload["synthesize"]["evidence"][ordinal].get("role")
                 if role is not None:
                     evidence_roles[eid] = role
-                evidence_roles[eid] = citation["role"]
                 source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
             for locator in projected.unresolved:
                 coverage_row("author_markup", locator, "partial", "unresolved source reference")
