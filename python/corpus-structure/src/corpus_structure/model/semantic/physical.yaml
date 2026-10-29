@@ -1184,7 +1184,7 @@ classes:
         - version
     annotations:
       ph:foreign_keys: '[]'
-      ph:checks: '[]'
+      ph:checks: '["configuration_schema_digest IS NULL OR configuration_schema_digest ~ ''^[0-9a-f]{64}$''"]' 
   method_config:
     in_subset:
     - ops

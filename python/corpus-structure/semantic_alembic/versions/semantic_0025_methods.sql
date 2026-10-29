@@ -1,5 +1,6 @@
 ALTER TABLE ops.method ADD COLUMN unit_type text;
 ALTER TABLE ops.method ADD COLUMN configuration_schema_digest text;
+ALTER TABLE ops.method ADD CONSTRAINT method_configuration_digest CHECK(configuration_schema_digest IS NULL OR configuration_schema_digest ~ '^[0-9a-f]{64}$');
 GRANT INSERT(unit_type,configuration_schema_digest) ON ops.method TO corpus_sem_writer;
 CREATE FUNCTION ops.guard_task_method_contract() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$

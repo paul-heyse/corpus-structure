@@ -78,6 +78,7 @@ CREATE FUNCTION data.validate_conditions(r text,z text) RETURNS void
 LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE violation record;
 BEGIN
+ IF NOT EXISTS(SELECT 1 FROM sem.conditional_rule WHERE release_id=r) THEN RETURN; END IF;
  WITH RECURSIVE accepted(v) AS (
   SELECT roots.v FROM data.fact f JOIN data.selection s USING(release_id,realization_id,fact_id)
   CROSS JOIN LATERAL(VALUES(f.object_value_id),(f.qualification_value_id)) roots(v)
@@ -418,3 +419,26 @@ END $fn$;
 REVOKE ALL ON FUNCTION ops.require_atomic_evaluation() FROM PUBLIC;
 CREATE CONSTRAINT TRIGGER run_evaluation_atomic AFTER INSERT OR UPDATE OF result_realization_id ON ops.run
  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ops.require_atomic_evaluation();
+
+-- Keep the first held result even if terminal diagnostics contain a colliding key.
+SET LOCAL ROLE corpus_sem_publisher;
+CREATE OR REPLACE FUNCTION ops.end_source_run(p_run bigint,p_failure jsonb DEFAULT NULL) RETURNS bigint
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE r ops.run; affected bigint;
+BEGIN
+ SELECT * INTO STRICT r FROM ops.run WHERE id=p_run FOR UPDATE;
+ IF r.status IN ('finished','failed','cancelled') THEN RETURN 0; END IF;
+ IF p_failure IS NOT NULL AND jsonb_typeof(p_failure)<>'object' THEN
+  RAISE EXCEPTION 'failure diagnostics require an object' USING ERRCODE='23514'; END IF;
+ UPDATE ops.task SET status='cancelled',lease_until=NULL,finished_at=clock_timestamp(),
+  error=CASE WHEN p_failure IS NULL THEN error
+   WHEN coalesce(error ? 'semantic_proposal_first_result',false) THEN
+    (coalesce(error,'{}'::jsonb)||p_failure)||jsonb_build_object('semantic_proposal_first_result',error->'semantic_proposal_first_result')
+   ELSE coalesce(error,'{}'::jsonb)||p_failure END
+ WHERE run_id=r.id AND status IN ('pending','running','awaiting_agent');
+ GET DIAGNOSTICS affected=ROW_COUNT;
+ UPDATE ops.run SET status=CASE WHEN p_failure IS NULL THEN 'cancelled' ELSE 'failed' END WHERE id=r.id;
+ RETURN affected;
+END $fn$;
+REVOKE ALL ON FUNCTION ops.end_source_run(bigint,jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.end_source_run(bigint,jsonb) TO corpus_sem_writer;
