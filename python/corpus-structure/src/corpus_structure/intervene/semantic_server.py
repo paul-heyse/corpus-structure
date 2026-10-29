@@ -12,12 +12,12 @@ from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
-from pydantic import BaseModel, ConfigDict, JsonValue, ValidationError
+from pydantic import TypeAdapter, BaseModel, ConfigDict, JsonValue, ValidationError
 from sqlalchemy import Engine, func, select, text, update
 
 from corpus_structure.intervene import service, submission
-from corpus_structure.intervene.semantic import ProposalSession
-from corpus_structure.semantic.proposals import ProposalRefused
+from corpus_structure.intervene.semantic import ProposalSession,RefusedProposal
+from corpus_structure.semantic.proposals import ProposalRefused,ProposalIssue
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import Settings
 
@@ -166,6 +166,7 @@ class SemanticAgentSession:
                             unit_key=packet.frame.unit_ref,
                             parts=len(pages),
                             chars=sum(map(len, pages)),
+                            previous_issues=TypeAdapter(tuple[ProposalIssue,...]).validate_python(((task["error"] or {}).get("semantic_proposal_first_result",{}).get("result",{}).get("issues",()))),
                         )
                     )
                 if out:
@@ -203,6 +204,10 @@ def build_semantic_server(
             "instruction page (including schema) with read_instructions and every unit part with "
             "read_unit. Concatenate numbered unit text fragments and parse their JSON after every "
             "part is read, then submit the rich authored batch with propose_claims. "
+            "A first uncertain or content-refused submission is held for automated correction; "
+            "the second is retained as a terminal source report with its uncertainty or refusal. "
+            "Packet, schema-hash and unread-part errors do not consume that content retry. "
+            "On a reclaimed lease, previous_issues contains the stored feedback to correct. "
             "Source issues require "
             "automated correction; no human grading is required."
         ),
@@ -303,27 +308,19 @@ def build_semantic_server(
                 packet_hash=active.packet.hash,
                 schema_hash=schema_hash or active.packet.schema_hash,
             )
-            if not checked.clean:
-                return submission.SubmissionResult(
-                    task_id=task_id,
-                    status="held",
-                    task_open=True,
-                    rejected=[
-                        submission.ItemIssue(
-                            path=issue.path, category="parse", code=issue.code, message=issue.detail
-                        )
-                        for issue in checked.issues
-                    ],
-                )
             with session.engine.begin() as conn:
-                observations = active.commit(conn, checked)
+                result = active.commit(conn, checked)
+            if result.status=='held':
+                return submission.SubmissionResult(task_id=task_id,status='held',task_open=True,
+                    rejected=[submission.ItemIssue(path=issue.path,category='parse',code=issue.code,message=issue.detail) for issue in checked.issues])
             session.sessions.pop(task_id, None)
-            data = checked.stored.model_dump()
+            data = {} if isinstance(checked,RefusedProposal) else checked.stored.model_dump()
             return submission.SubmissionResult(
                 task_id=task_id,
                 status="done",
                 task_open=False,
-                observation_id=observations[0],
+                observation_id=result.observation_ids[0],
+                rejected=[submission.ItemIssue(path=issue.path,category="parse",code=issue.code,message=issue.detail) for issue in checked.issues],
                 accepted={
                     name: len(data.get(name, ()))
                     for name in ("entities", "statements", "claims", "alternatives", "unsupported")

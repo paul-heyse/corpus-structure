@@ -171,7 +171,9 @@ classes:
     session = SemanticAgentSession(engine, run)
     server = build_semantic_server(session)
 
+    refused_tasks=[]
     async def journey():
+        nonlocal agent_task
         async with Client(server) as client:
             queued = (await client.call_tool("queue_next", {"run": run})).structured_content
             assert queued is not None
@@ -249,6 +251,8 @@ classes:
             ).structured_content
             assert map_refused is not None and map_refused["status"] == "held"
             assert "binary floats" in map_refused["rejected"][0]["message"]
+            with engine.connect() as conn:
+                assert conn.execute(select(table("ops.task").c.error).where(table("ops.task").c.id==agent_task)).scalar_one() is not None, map_refused
             unknown_reference = deepcopy(batch)
             unknown_reference["claims"][0]["qualification"]["parameters"]["scale"]["owner"] = (
                 "missing"
@@ -258,8 +262,21 @@ classes:
                     "propose_claims", {"task_id": agent_task, "batch": unknown_reference}
                 )
             ).structured_content
-            assert reference_refused is not None and reference_refused["status"] == "held"
+            assert reference_refused is not None
+            if reference_refused["status"] != "done":raise AssertionError(json.dumps(reference_refused))
+            assert not reference_refused["task_open"] and not any(reference_refused["accepted"].values())
             assert "nested entity reference" in reference_refused["rejected"][0]["message"]
+            refused_tasks.append(agent_task)
+            # The original refused report is terminal. A fresh logical producer invocation
+            # exercises the remaining decimal refusal and subsequent corrected rich report.
+            with engine.begin() as conn:
+                old=conn.execute(select(table('ops.task')).where(table('ops.task').c.id==agent_task)).mappings().one()
+                agent_task=create_task(conn,run_id=run,config_id=old['method_config_id'],stage='propose',unit_type=old['unit_type'],unit_id=old['unit_id'],unit_key=old['unit_key'],input_hash=old['input_hash'],packet_hash=old['packet_hash'],agent=True,fresh=True)
+            fresh_lease=(await client.call_tool('queue_next',{'run':run})).structured_content['tasks'][0]
+            fresh_manifest=(await client.call_tool('read_instructions',{'task_id':agent_task})).structured_content
+            for part in fresh_manifest['parts']:
+                for page in range(1,part['pages']+1):await client.call_tool('read_instructions',{'task_id':agent_task,'part':part['name'],'page':page})
+            for part in range(1,fresh_lease['parts']+1):await client.call_tool('read_unit',{'task_id':agent_task,'part':part})
             rounded = deepcopy(batch)
             rounded["claims"][1]["object"]["number"] = float(exact)
             refused = (
@@ -286,6 +303,13 @@ classes:
     anyio.run(journey)
     with engine.connect() as conn:
         observations = table("kb.observation")
+        refused=conn.execute(select(observations).where(observations.c.task_id==refused_tasks[0])).mappings().one()
+        assert refused['payload_definition']=='SourceObservation' and refused['kind']=='semantic_proposal_refused'
+        envelope=conn.execute(select(table('ops.task_result').c.body).where(table('ops.task_result').c.task_id==refused_tasks[0])).scalar_one()
+        assert envelope['coverage'][0]['outcome']=='failed' and envelope['first_result']['result']['issues']
+        from corpus_structure.semantic.observations import source_python
+        first_authored=source_python(envelope['first_result']['result']['authored'])
+        assert first_authored['claims'][0]['qualification']['parameters']['scale']['amount'].hex()==float('1.23456789012345678901234567890123456789').hex()
         row = (
             conn.execute(select(observations).where(observations.c.task_id == agent_task))
             .mappings()

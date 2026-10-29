@@ -37,6 +37,8 @@ def proposal_inputs(
     qualification_class: str = "Qualification",
 ) -> SourceBundle:
     """Archive model-facing boundaries with the exact candidate vocabulary."""
+    from .observations import observation_inputs
+    bundle=observation_inputs(bundle)
     if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
         raise ValueError("reserved agent module name already supplied")
     candidate = prepare_release(bundle, dependencies)
