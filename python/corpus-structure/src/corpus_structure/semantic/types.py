@@ -8,7 +8,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
-SEMANTIC_COMPILER_VERSION = "2"  # abstract-class lowering is part of release identity
+SEMANTIC_COMPILER_VERSION = "3"  # normalized positive-rule products are release-bound
 
 
 @dataclass(frozen=True)
