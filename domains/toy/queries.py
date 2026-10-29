@@ -1,35 +1,23 @@
-"""Ownership applicability, implemented entirely by the toy pack (C4)."""
-
+"""Source-stated temporal ownership with explicit unknown validity."""
 from __future__ import annotations
-
-from collections.abc import Iterator
 from datetime import date as Date
 from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, JsonValue
-from sqlalchemy import select
-
-from corpus_structure.core.db import metadata
-from corpus_structure.serve.protocol import Positioned, QueryContext, Scope
-
-
+from sqlalchemy import exists,select
+from corpus_structure.serve.protocol import Positioned, Scope
+from corpus_structure.serve.results import ClaimAnswer
+from corpus_structure.serve.read import T
 class OwnershipParams(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    asset: str
-    date: Date
-    include_candidates: bool = False
-    include_suppositions: bool = False
-
-
+    model_config=ConfigDict(extra="forbid")
+    asset:str
+    date:Date
+    include_candidates:bool=False
+    include_suppositions:bool=False
 class OwnershipRow(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    key: str
-    claim: dict[str, JsonValue]
-    interval: dict[str, JsonValue] | None
-    applicability: Literal["established", "not_applicable", "unknown"]
-    evidence: list[dict[str, JsonValue]]
-
-
+    model_config=ConfigDict(extra="forbid")
+    claim:ClaimAnswer
+    interval:dict[str,JsonValue]|None
+    applicability:Literal["established","not_applicable","unknown"]
 def applicability(interval: dict[str, JsonValue] | None, at: Date) -> str:
     """Partial or symbolic dates remain unknown; omitted interval bounds are unbounded."""
     if interval is None:
@@ -38,9 +26,9 @@ def applicability(interval: dict[str, JsonValue] | None, at: Date) -> str:
         value = interval.get(name)
         if value is None:
             continue
-        if not isinstance(value, dict) or value.get("t") != "date":
+        if not isinstance(value, dict) or value.get("kind") != "partial_date":
             return "unknown"
-        raw = value.get("v")
+        raw = value.get("lexical")
         if not isinstance(raw, str) or len(raw) != 10:
             return "unknown"
         try:
@@ -49,47 +37,24 @@ def applicability(interval: dict[str, JsonValue] | None, at: Date) -> str:
             return "unknown"
         if (name == "start" and at < bound) or (name == "end" and at > bound):
             return "not_applicable"
-        if at == bound and interval.get(inclusive) is False:
-            return "not_applicable"
+        if at == bound:
+            if interval.get(inclusive) is None: return "unknown"
+            if interval.get(inclusive) is False: return "not_applicable"
     return "established"
 
 
+
 class OwnershipAt:
-    name, version = "ownership_at", "1"
-    params, result = OwnershipParams, OwnershipRow
-
-    def scope(self, ctx: QueryContext, p: OwnershipParams) -> Scope:
-        return Scope.run()
-
-    def rows(
-        self, ctx: QueryContext, p: OwnershipParams, after: JsonValue = None
-    ) -> Iterator[Positioned]:
-        e, c = metadata.tables["kb.entity"], metadata.tables["kb.claim"]
-        matches = (
-            ctx.entities(key=p.asset) if p.asset.startswith("ent:") else ctx.entities(label=p.asset)
-        )
-        assets = select(e.c.id).where(
-            e.c.run_id == ctx.run_id,
-            e.c.type == "toy:Asset",
-            e.c.key.in_([x["key"] for x in matches]),
-        )
-        stmt = ctx.reader.claim_statement(
-            predicate="toy:owns",
-            include_candidates=p.include_candidates,
-            include_suppositions=p.include_suppositions,
-        ).where(c.c.object_entity_id.in_(assets))
-        for claim in ctx.reader.claims(statement=stmt, after=after):
-            interval = claim["qualifiers"].get("core:valid_time")
-            row = OwnershipRow.model_validate(
-                {
-                    "key": claim["key"],
-                    "claim": claim,
-                    "interval": interval,
-                    "applicability": applicability(interval, p.date),
-                    "evidence": claim["evidence"],
-                }
-            )
-            yield Positioned(row, claim["key"])
-
-
-QUERIES = (OwnershipAt(),)
+    name,version="ownership_at","semantic-1"
+    params,result=OwnershipParams,OwnershipRow
+    def scope(self,ctx,p): return Scope.run()
+    def rows(self,ctx,p,after=None):
+        f,v=T["fact"],T["typed_value"]
+        assets=ctx.reader.resolve(p.asset,"Asset")
+        stmt=ctx.reader.fact_statement(predicate="toy:owns",include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(exists(select(1).where(ctx.reader.scope(v),v.c.value_id == f.c.object_value_id,v.c.entity_id.in_(assets))))
+        for claim in ctx.reader.claims(statement=stmt,after=after):
+            qualification=claim.fact.qualification
+            interval=getattr(qualification,"valid_time",None)
+            interval=None if interval is None else interval.model_dump(mode="json",exclude_unset=True)
+            yield Positioned(OwnershipRow(claim=claim,interval=interval,applicability=applicability(interval,p.date)),claim.fact.occurrence_id or claim.fact.fact_id)
+QUERIES=(OwnershipAt(),)
