@@ -215,6 +215,17 @@ unresolved; golden passes go through the same tools by Sonnet subagents
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Implemented semantic persistence boundary (2026-10-29; package verification is scoped).**
+The trusted physical LinkML module derives shared Core metadata. A separate frozen Alembic
+history deploys the new schema and protected publication routines/grants on fresh databases.
+The application authenticates as a restricted writer; publisher-owned staging, native checks
+and a caller-owned SERIALIZABLE transaction establish atomic admission. Exact receipts retain
+batch identity across retry and commit uncertainty. The regenerable-data asynchronous-commit
+policy does not promise crash-durable acknowledgements. [D3](D3-database.md) owns the route and
+the [pivot package](../plans/semantic-model-pivot/postgresql-and-publication.md) owns acceptance.
+
+> Decision: ADR-0025
+
 **Tested** for the store in spike S6 (2026-10-28: DDL, trace rows, queries, BM25, halfvec and the
 queue on smoke data); the split of authority, the generated relational projection and the
 in-process engine are **Proposed** (accepted 2026-10-28; migration 0001, the pool and the engine not
@@ -240,6 +251,15 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Implemented release persistence boundary (2026-10-29; package verification is scoped).**
+Exact source/dependency bytes, explicit ontology-source selection and generated products are
+archived immutably. Offline reload compares the recorded compiler stack and products. Activation
+compares parent plus generation, performs required native/authored-SQL admission, and leaves
+existing realization bindings intact. Unsupported required native semantics refuse activation;
+new admitted class/property definitions change registry rows without physical DDL.
+
+> Decision: ADR-0025
 
 **Proposed · accepted target, 2026-10-29.** Local LinkML and pinned external ontology dependencies
 prepare an immutable binding of types, scoped constraints, identities and operations. Dynamic

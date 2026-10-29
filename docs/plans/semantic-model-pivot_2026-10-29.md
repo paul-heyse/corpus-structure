@@ -167,5 +167,30 @@ Package acceptance includes native archive/activation, ownership/privilege and s
 identity/selection/recursive report fidelity, concurrency/retry/ambiguous and interrupted commit,
 actual pinned-ontology activation/publication, authored SQL catalog binding, exact ADBC boundaries
 and single-pool return/reset. Intermediate failures and their corrections remain in the package's
-acceptance account. Final command outcomes are recorded after final maintenance; no SP-10 or
-consumer-cutover claim follows from this package acceptance.
+acceptance account. Final functional source is `0f70052`; the following results cover that source
+after maintenance (2026-10-29). The later §B4/§B5 authority links and this receipt are documentation
+changes only; no SP-10 or consumer-cutover claim follows from this package acceptance.
+
+| Command | Outcome and scope |
+|---|---|
+| `uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/core python/corpus-structure/tests/schema --tb=short` | `passed`: 858 tests, including native restricted-role/frozen-migration controls and existing core/schema regressions |
+| `uv run ruff check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic python/corpus-structure/semantic_alembic python/corpus-structure/src/corpus_structure/schema/relational.py` | `passed` |
+| `uv run pyrefly check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic python/corpus-structure/semantic_alembic python/corpus-structure/src/corpus_structure/schema/relational.py` | `passed`: 0 errors; 14 upstream warnings remain |
+| `just docs-check`, `just adr-lint`, `uv run python scripts/check_pins.py`, `just ready` | `passed`: 213 pages, decision links, exact pins and tools; initial docs failure for missing ADR-0025 §B links was corrected |
+| `just turn-end` | `passed`; incidental formatting in 38 unchanged pre-pivot files restored byte-for-byte |
+| `just test-all`, `just hygiene` | `not_run`: assembled-series qualification and unmigrated consumers remain SP-10; bounded package checks do not establish whole-repository health |
+
+Fresh operational bootstrap also **passed**, using `uv run python` to invoke the same
+`upgrade` → `persist_release` → `activate_release` → `load_release` API path. Database
+`cs_semantic_20261029_0f70052` on 5434 retains `semantic_0003`; project `semantic-pivot` has generation
+1 and realization `semantic-foundation` is active at data revision 0, with no facts. The archived
+core binding is `release:f070811a1127ce5860a3bdda89c571bd1ea87ff67a582ee7e66991fddffec736`.
+Actual writer/reader authentication passed. The bootstrap leaves the old database and default
+runtime URL unchanged. OAK/SSSOM deprecation and LinkML repeated-attribute diagnostics remain;
+they did not prevent exact archive reconstruction or native activation. No source acquisition,
+historical data copy or domain publication was performed.
+
+All three implementation worktrees were removed after clean-tree and patch-equivalence checks;
+their branches remain. No owned `cs_sem_test_*` databases remain. The paused phase-0 worktrees
+are preserved. Next work begins at SP-04 using the new explicit database/binding, not an old
+phase-0 completion header.

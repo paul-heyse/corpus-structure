@@ -3,40 +3,43 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Increment and slice
 
-- **SP-00/SP-01 implemented:** [pivot coordinator](docs/plans/semantic-model-pivot_2026-10-29.md)
-  owns current state; [semantic scope](docs/plans/semantic-model-pivot/semantic-model-and-releases.md)
-  owns contracts. Explicit preparation produces immutable definitions, adapters, identities,
-  logical registry/query products and JSON Schema/OWL/SHACL artifacts without DB activation.
-- **ADR-0024 accepted:** replaces ADR-0013/0019/0020–0023's target clauses, carrying source fidelity,
-  qualification, instance authority and staged-runtime guarantees forward. ADR-0014 policy remains.
-- **Native ontology stack:** LinkML/runtime 1.12.1, RDFLib 7.6.0, PySHACL 0.40.1, OAK 0.7.4,
-  Valuesets 0.4.2, Term Validator 0.4.5. Python remains 3.14.10; support range is 3.14.
-  Only existing setuptools moved (84.2.1 → 81.0.0 for OAK); application pins were preserved.
-- Selected legacy model, generated database metadata and runtime remain unchanged. No database
-  deployment, release activation, migrated consumers or assembled pivot qualification is claimed.
-- Existing plan scope/finding ownership remains unchanged; only one stale old-plan hyperlink was
-  repaired. [Phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition) still owns its findings.
+- **SP-00–SP-03 implemented within declared profiles.** The [pivot coordinator](docs/plans/semantic-model-pivot_2026-10-29.md)
+  owns current state; the [PostgreSQL package](docs/plans/semantic-model-pivot/postgresql-and-publication.md)
+  owns persistence, activation, protected COPY publication and explicit refusal limits.
+- **ADR-0024/0025 accepted:** one immutable semantic release, one model-derived MetaData,
+  separate frozen Alembic target, restricted authenticated roles and publisher-owned staging.
+  Occurrences retain full report objects/qualifications while equal facts share meaning.
+- Exact archives reload offline; parent+generation CAS preserves bound realizations. Publication
+  verifies native identities/content, shape/accepted-value constraints, scopes and immutable value
+  graphs. Selection replacement retains reports. One owner retries whole SERIALIZABLE transactions.
+- Compiler profile is `2`; ontology sources are explicitly selected from exact dependencies.
+  Pglast 8.7 moved to product dependencies without a version change. Existing pins remain.
+- The selected legacy core/system model, generated metadata and default runtime remain unchanged.
+  Old plan/finding ownership remains [phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition).
 
-## Last verified (2026-10-29; bounded foundation scope)
+## Last verified (2026-10-29; functional source `0f70052`)
 
 | Command | Outcome and scope |
 |---|---|
-| `just ready`, `uv run python scripts/check_pins.py` | `passed`: tools and exact dependency policy |
-| `uv run pytest python/corpus-structure/tests/semantic` | `passed`: 51 final-source tests |
-| `uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/core python/corpus-structure/tests/schema` | `passed`: 777 tests before final two semantic controls; final 51 semantic tests cover those corrections |
-| `uv run ruff check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic` | `passed` |
-| `uv run pyrefly check python/corpus-structure/src/corpus_structure/semantic python/corpus-structure/tests/semantic` | `passed`, 0 errors |
-| `just docs-check` | `passed`: 212 pages after H1/stale-link repairs; earlier failed records retained |
-| `just turn-end` | `passed`; incidental legacy formatting/fixes restored byte-for-byte |
+| `uv run pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/core python/corpus-structure/tests/schema --tb=short` | `passed`: 858 tests, native package controls plus core/schema regressions |
+| Scoped `uv run ruff check` and `uv run pyrefly check` (exact paths in coordinator) | `passed`: 0 typing errors; 14 warnings |
+| `just docs-check`, `just adr-lint`, `uv run python scripts/check_pins.py`, `just ready` | `passed`: 213 pages, decision links, pins and tools |
+| `just turn-end` | `passed`; incidental pre-pivot formatting restored byte-for-byte |
 | `just test-all`, `just hygiene` | `not_run`: SP-10 owns assembled-series qualification |
 
-## Limits and next
+## Operational handoff and next
 
-- Prepared capabilities are requirements for later lowering, not database-enforced guarantees.
-  Unsupported semantics and scope-weakening overrides refuse; unavailable/unchecked ontology
-  metadata stays explicit. No historical readers, dual writes or compatibility upcasters added.
-- Next is SP-02: persist/activate immutable releases and realize the stable schema via SQLAlchemy
-  MetaData/Alembic. SP-03 implements protected transactional publication. Later packages migrate
-  consumers, regenerate data and retire the selected legacy path.
-- Continue from the new coordinator, not old phase 0 completion headers. Existing worktrees from
-  the paused task are preserved; this scope does not integrate their unfinished work.
+- Fresh database **`cs_semantic_20261029_0f70052`**, dedicated `18/corpus:5434`, is bootstrapped
+  through `semantic_0003`. Exact semantic core archive/activation/offline reload and actual
+  `corpus_sem_writer`/`corpus_sem_reader` authentication passed. Project `semantic-pivot` generation
+  1 binds active realization `semantic-foundation`, revision 0, no facts. Full release ID is in the
+  coordinator. Use explicit database URLs; the default remains the old database until cutover.
+- Profile refusals include occurrence/context grouping, regex, required graph integrity and float
+  numeric bounds. Unsupported opaque/language storage and unused physical aliases refuse writes;
+  core interval/expression/missing variants use typed records. No crash-durable ack is promised.
+- Initial failures and fixes are retained in the package acceptance account. Upstream OAK/SSSOM
+  deprecation and LinkML repeated-attribute diagnostics remain. No owned native-test DBs remain.
+- Implementation worktrees were integrated and removed; paused phase-0 worktrees are untouched.
+- Next is **SP-04**: declaration → qualified publication → semantic query/explain. SP-05 can
+  develop lossless Arrow/DuckDB binding/loader work independently. Consumer cutover, regeneration
+  and whole-series qualification remain open; the paused phase-0 run was not restarted.
