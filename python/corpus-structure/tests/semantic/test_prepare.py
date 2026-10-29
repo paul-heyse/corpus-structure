@@ -373,3 +373,35 @@ def test_subclass_cannot_weaken_inherited_shape_constraint(required):
     with pytest.raises(PreparationError) as caught:
         prepare_release(bundle(extend))
     assert caught.value.diagnostics[0].code == "constraint_scope_override"
+
+
+def test_native_valuesets_definition_is_an_explicit_import():
+    from importlib.resources import files
+
+    content = files("valuesets").joinpath("schema/statistics/prediction_outcomes.yaml").read_bytes()
+    root = b"""id: https://example.org/evaluation
+name: evaluation
+prefixes: {ex: 'https://example.org/'}
+default_prefix: ex
+imports: [prediction_outcomes]
+classes:
+  Prediction:
+    attributes:
+      outcome: {range: OutcomeTypeEnum, required: true}
+"""
+    prepared = prepare_release(
+        SourceBundle(
+            "evaluation",
+            (
+                SourceArtifact("evaluation", root),
+                SourceArtifact("prediction_outcomes", content),
+            ),
+        )
+    )
+    vocabulary = next(v for v in prepared.vocabularies if v.enum == "OutcomeTypeEnum")
+    assert {m.value for m in vocabulary.members} == {"TP", "FP", "TN", "FN"}
+    assert prepared.validate_json("Prediction", '{"outcome":"TP"}').model_dump() == {
+        "outcome": "TP"
+    }
+    with pytest.raises(ValidationError):
+        prepared.validate_json("Prediction", '{"outcome":"unknown"}')

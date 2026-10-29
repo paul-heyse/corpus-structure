@@ -104,6 +104,9 @@ _METADATA = {
     "related_mappings",
     "mappings",
     "conforms_to",
+    "status",
+    "contributors",
+    "instantiates",
 }
 _ALLOWED = {
     "classes": _METADATA
