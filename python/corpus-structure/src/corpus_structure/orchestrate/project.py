@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import Connection, select
+from sqlalchemy import Connection, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from corpus_structure.core.canonical import digest
@@ -180,47 +180,41 @@ def _register_documents(
     profile_name: str,
     found: _Documents,
 ) -> None:
-    index = profile.index
-    if index is None:
-        raise ProjectError(f"source profile {profile_name!r} names no corpus index")
-    path = (corpus / index.file).resolve()
-    if not path.exists():
-        raise ProjectError(f"source profile {profile_name!r}: corpus index {path} is missing")
-    with path.open(encoding="utf-8", newline="") as handle:
-        rows = list(csv.DictReader(handle, delimiter="\t"))
-    for number, row in enumerate(rows, 2):
-        page = (row.get(index.page) or "").strip()
-        if not page:
-            raise ProjectError(f"{path.name}:{number}: no {index.page!r} value")
-        source_uri = f"{profile.root.rstrip('/')}/{page}"
+    for source in source_documents(corpus,profile,profile_name):
+        page=source['page']
         if page in found.pages:
-            raise ProjectError(
-                f"page {page!r} is registered twice ({found.pages[page]} and {path.name}:{number})"
-            )
-        found.pages[page] = f"{path.name}:{number}"
-        original = corpus / source_uri
-        if not original.exists():
-            raise ProjectError(f"{path.name}:{number}: {original} is missing")
-        content_hash = hashlib.sha256(original.read_bytes()).hexdigest()
-        meta = {k: v for k, v in row.items() if k != index.page and k is not None}
-        meta["page"] = page  # the locators' page (D1 §3.4): the source URI less the profile root
-        _, new = repo.get_or_create(
-            conn,
-            T["kb.document"],
-            {
-                "project_id": project_id,
-                "key": document_key(project_name, source_uri, content_hash),
-                "source_uri": source_uri,
-                "content_hash": content_hash,
-                "original_path": str(original.resolve()),
-                "mime": "text/html",
-                "title": row.get("title") or None,
-                "meta": meta,
-            },
-            ["project_id", "source_uri", "content_hash"],
-        )
-        found.total += 1
-        found.added += int(new)
+            raise ProjectError(f"page {page!r} is registered twice ({found.pages[page]} and {source['location']})")
+        found.pages[page]=source['location']
+        _,new=repo.get_or_create(conn,T['kb.document'],{
+            'project_id':project_id,'key':document_key(project_name,source['source_uri'],source['content_hash']),
+            'source_uri':source['source_uri'],'content_hash':source['content_hash'],
+            'original_path':source['original_path'],'mime':'text/html','title':source['title'],
+            'meta':source['meta'],
+        },['project_id','source_uri','content_hash'])
+        found.total+=1
+        found.added+=int(new)
+
+
+def source_documents(corpus:Path,profile:Any,profile_name:str):
+    """The shared indexed original-byte custody route for both physical storage targets."""
+    index=profile.index
+    if index is None:raise ProjectError(f'source profile {profile_name!r} names no corpus index')
+    path=(corpus/index.file).resolve()
+    if not path.exists():raise ProjectError(f'source profile {profile_name!r}: corpus index {path} is missing')
+    with path.open(encoding='utf-8',newline='') as handle:
+        for number,row in enumerate(csv.DictReader(handle,delimiter='\t'),2):
+            page=(row.get(index.page) or '').strip()
+            if not page:raise ProjectError(f'{path.name}:{number}: no {index.page!r} value')
+            uri=f"{profile.root.rstrip('/')}/{page}"
+            original=(corpus/uri).resolve()
+            if not original.is_relative_to(corpus.resolve()):raise ProjectError(f'{path.name}:{number}: source path leaves corpus')
+            if not original.exists():raise ProjectError(f'{path.name}:{number}: {original} is missing')
+            raw=original.read_bytes()
+            metadata={k:v for k,v in row.items() if k!=index.page and k is not None}
+            metadata['page']=page
+            yield {'page':page,'location':f'{path.name}:{number}','source_uri':uri,
+                'content_hash':hashlib.sha256(raw).hexdigest(),'original_path':str(original),
+                'original':raw,'title':row.get('title') or None,'meta':metadata}
 
 
 def init_project(
@@ -271,3 +265,47 @@ def init_project(
         policy_version_id=versions.policy_version_id,
         versions_added=list(versions.created),
     )
+
+
+class SourceProjectReport(BaseModel):
+    project:str
+    release_id:str
+    realization_id:str
+    documents:int
+
+
+def init_bound_project(conn:Connection,*,domain:str,corpus:Path,release_id:str,
+                       realization_id:str,name:str|None=None,domains:Path|None=None,registry:MethodRegistry|None=None)->SourceProjectReport:
+    """Register real indexed source documents against an explicitly admitted interpretation."""
+    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.releases import load_release
+    from corpus_structure.semantic.operations import register_document
+    from corpus_structure.orchestrate.phase0 import registry as registry_for
+    from corpus_structure.ingest.profile import load_profile, SOURCES_DIR
+    try:prepared=load_release(conn,release_id)
+    except KeyError as exc:raise ProjectError('semantic release is not admitted') from exc
+    pack=(domains or DOMAINS)/domain
+    registry=(registry or registry_for(pack)).bind_release(prepared)
+    project_id=name or domain
+    from sqlalchemy.exc import DBAPIError
+    try:
+        conn.execute(text('SELECT data.initialize_source_project(:p,:r,:z)'),{'p':project_id,'r':release_id,'z':realization_id}).scalar_one()
+    except DBAPIError as exc:
+        if getattr(exc.orig,'sqlstate',None) in {'P0001','P0004'}:
+            raise ProjectError(str(exc.orig).split('\n')[0]) from exc
+        raise
+    seen=set();profiles=set();count=0
+    for method,config in registry.named():
+        if registry.method(method).family.value!='ingest':continue
+        for _,profile_name in registry.profiles(method,config):
+            if profile_name in profiles:continue
+            profiles.add(profile_name)
+            profile=load_profile(profile_name,registry.sources or SOURCES_DIR,prepared=prepared)
+            for source in source_documents(corpus,profile,profile_name):
+                if source['page'] in seen:raise ProjectError(f"page {source['page']!r} is registered twice")
+                seen.add(source['page'])
+                register_document(conn,project_id=project_id,source_uri=source['source_uri'],
+                    original_path=source['original_path'],original=source['original'],title=source['title'],metadata=source['meta'])
+                count+=1
+    if not profiles:raise ProjectError('method pack declares no source profiles')
+    return SourceProjectReport(project=project_id,release_id=release_id,realization_id=realization_id,documents=count)
