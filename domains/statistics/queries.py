@@ -77,8 +77,10 @@ class ParameterMapping(Query):
     name,params='parameter_mapping',MappingParams
     def rows(self,ctx:QueryContext,p:MappingParams,after:JsonValue=None):
         c=T['kb.claim']
-        subjects=ids(ctx,p.construction)+ids(ctx,p.family)
-        stmt=profile(ctx,p,subjects).where(c.c.predicate.in_(['stat:member_of_construction','stat:has_parameter','stat:identical_parameter','stat:derived_parameter','stat:parameter_role','stat:parameter_domain']))
+        construction=ids(ctx,p.construction)
+        family=ids(ctx,p.family)
+        subjects=construction+family
+        stmt=profile(ctx,p,subjects).where(c.c.predicate.in_(['stat:member_of_construction','stat:has_parameter','stat:identical_parameter','stat:derived_parameter','stat:parameter_role','stat:parameter_domain']),or_(c.c.predicate!='stat:member_of_construction',(c.c.subject_id.in_(family)) & (c.c.object_entity_id.in_(construction))))
         for row in ctx.reader.claims(statement=stmt,after=after):
             yield Positioned(Row.model_validate(row),row['key'])
 class Transformations(Query):
