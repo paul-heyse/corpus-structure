@@ -361,7 +361,7 @@ def cancel_run(conn: Connection, run_id: int) -> int:
             "open": [s.value for s in OPEN_TASKS],
         },
     )
-    return int(tasks.rowcount)
+    return tasks.rowcount
 
 
 class Liveness:
