@@ -400,6 +400,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             MeasurementDraft(metric="count", scope_type=MeasurementScope.RUN, value=2),
             MeasurementDraft(metric="count", scope_type=MeasurementScope.RUN, value=3.5,
                 detail={"flag": False, "text": "δ", "items": [1, None, 0.5]}),
+            MeasurementDraft(metric="count", scope_type=MeasurementScope.RUN, value=None),
         ),
     )
     with e.begin() as c:
@@ -446,8 +447,8 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             .receipt == ids.receipt
         )
         measured_rows = c.execute(select(table("ops.measurement")).order_by(table("ops.measurement").c.source_position)).mappings().all()
-        assert [row["source_position"] for row in measured_rows] == [0, 1, 2]
-        assert [row["value"] for row in measured_rows] == [2, 2, 3.5]
+        assert [row["source_position"] for row in measured_rows] == [0, 1, 2, 3]
+        assert [row["value"] for row in measured_rows] == [2, 2, 3.5, None]
         assert measured_rows[2]["detail"] == {"flag": False, "text": "δ", "items": [1, None, 0.5]}
         for changes in ({}, {"source_position": 0}, {"metric": "undeclared"}, {"run_id": run + 10000}, {"detail": []}):
             with pytest.raises(DBAPIError), c.begin_nested():
@@ -488,9 +489,9 @@ def test_recognizer_terminal_source_boundary_and_coverage(
                   {"cut": cut, "output": "measurement-output", "batch": batch.batch_id})
     with read_session(semantic_reader_engine, "measurement-output") as session:
         measurements = [m.model_dump(mode="python") for m in session.measurements("count")]
-    assert len(measurements) == 3
-    assert [m["source_position"] for m in measurements] == [0, 1, 2]
-    assert [source_python(m["value"]) for m in measurements] == [2, 2, 3.5]
+    assert len(measurements) == 4
+    assert [m["source_position"] for m in measurements] == [0, 1, 2, 3]
+    assert [source_python(m["value"]) for m in measurements] == [2, 2, 3.5, None]
     assert source_python(measurements[2]["detail"]) == {"flag": False, "text": "δ", "items": [1, None, 0.5]}
     measurement = measurements[0]
     assert measurement["metric"]["id"] == "count"
@@ -501,14 +502,14 @@ def test_recognizer_terminal_source_boundary_and_coverage(
     assert measurement["producer"]["operation_version"] == "1"
     assert source_python(measurement["value"]) == 2
     for statement in (
-        "INSERT INTO ops.measurement(run_id,task_id,metric,scope_type,value,detail,source_position) VALUES(:run,:task,'count','run',2,'{}'::jsonb,3)",
+        "INSERT INTO ops.measurement(run_id,task_id,metric,scope_type,value,detail,source_position) VALUES(:run,:task,'count','run',2,'{}'::jsonb,4)",
         "UPDATE ops.measurement SET value=999 WHERE task_id=:task",
         "DELETE FROM ops.measurement WHERE task_id=:task",
     ):
         with pytest.raises(DBAPIError), e.begin() as c:
             c.execute(text(statement), {"run": run, "task": task})
     with read_session(semantic_reader_engine, "measurement-output") as session:
-        assert [m.source_position for m in session.measurements("count")] == [0, 1, 2]
+        assert [m.source_position for m in session.measurements("count")] == [0, 1, 2, 3]
     import json
     malformed_values = (
         {"kind": "float", "hexadecimal": "NaN"},

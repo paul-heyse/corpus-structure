@@ -123,21 +123,26 @@ CREATE TRIGGER guard_measurement_custody BEFORE INSERT OR UPDATE OR DELETE ON op
 
 CREATE FUNCTION ops.materialize_source_measurements() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
-DECLARE producer_run bigint; bound_release text; source record; item jsonb; decoded jsonb; detail jsonb; amount numeric;
+DECLARE producer_run bigint; bound_release text;
 BEGIN
  SELECT t.run_id,r.release_id INTO STRICT producer_run,bound_release FROM ops.task t JOIN ops.run r ON r.id=t.run_id WHERE t.id=NEW.task_id;
  IF bound_release IS NULL OR NOT NEW.body?'measurements' THEN RETURN NEW; END IF;
  IF jsonb_typeof(NEW.body)<>'object' OR jsonb_typeof(NEW.body->'measurements')<>'array' OR (NEW.body->>'outcome'='failed' AND jsonb_array_length(NEW.body->'measurements')>0) THEN RAISE EXCEPTION 'invalid source measurement batch' USING ERRCODE='23514'; END IF;
- FOR source IN SELECT value,ordinality FROM jsonb_array_elements(NEW.body->'measurements') WITH ORDINALITY LOOP
-  item:=source.value;
-  IF jsonb_typeof(item)<>'object' OR item-ARRAY['metric','scope_type','scope_id','scope_key','value','detail']<>'{}'::jsonb OR jsonb_typeof(item->'metric') IS DISTINCT FROM 'string' OR jsonb_typeof(item->'scope_type') IS DISTINCT FROM 'string' OR (item?'scope_key' AND jsonb_typeof(item->'scope_key')<>'string') OR (item?'scope_id' AND (jsonb_typeof(item->'scope_id')<>'number' OR (item->>'scope_id')!~'^[0-9]+$')) OR (item->'value'->>'kind') IS NULL OR (item->'value'->>'kind') NOT IN ('integer','float','null') OR (item->'detail'->>'kind') IS DISTINCT FROM 'object' THEN
-   RAISE EXCEPTION 'invalid typed source measurement' USING ERRCODE='23514'; END IF;
-  decoded:=ops.decode_source_value(item->'value');
-  detail:=ops.decode_source_value(item->'detail');
-  amount:=CASE WHEN decoded='null'::jsonb THEN NULL ELSE (decoded#>>'{}')::numeric END;
-  INSERT INTO ops.measurement(run_id,task_id,metric,scope_type,scope_id,scope_key,value,detail,source_position)
-  VALUES(producer_run,NEW.task_id,item->>'metric',item->>'scope_type',(item->>'scope_id')::bigint,item->>'scope_key',amount,detail,source.ordinality-1);
- END LOOP;
+ IF EXISTS(SELECT FROM jsonb_array_elements(NEW.body->'measurements') a
+  WHERE jsonb_typeof(a.value)<>'object' OR a.value-ARRAY['metric','scope_type','scope_id','scope_key','value','detail']<>'{}'::jsonb
+   OR jsonb_typeof(a.value->'metric') IS DISTINCT FROM 'string'
+   OR jsonb_typeof(a.value->'scope_type') IS DISTINCT FROM 'string'
+   OR (a.value?'scope_key' AND jsonb_typeof(a.value->'scope_key')<>'string')
+   OR (a.value?'scope_id' AND (jsonb_typeof(a.value->'scope_id')<>'number' OR (a.value->>'scope_id')!~'^[0-9]+$'))
+   OR (a.value->'value'->>'kind') IS NULL OR (a.value->'value'->>'kind') NOT IN ('integer','float','null')
+   OR (a.value->'detail'->>'kind') IS DISTINCT FROM 'object') THEN
+  RAISE EXCEPTION 'invalid typed source measurement' USING ERRCODE='23514'; END IF;
+ INSERT INTO ops.measurement(run_id,task_id,metric,scope_type,scope_id,scope_key,value,detail,source_position)
+ SELECT producer_run,NEW.task_id,a.value->>'metric',a.value->>'scope_type',
+        (a.value->>'scope_id')::bigint,a.value->>'scope_key',
+        (ops.decode_source_value(a.value->'value')#>>'{}')::numeric,
+        ops.decode_source_value(a.value->'detail'),a.ordinality-1
+ FROM jsonb_array_elements(NEW.body->'measurements') WITH ORDINALITY a;
  RETURN NEW;
 END $fn$;
 ALTER FUNCTION ops.materialize_source_measurements() OWNER TO corpus_sem_publisher;
