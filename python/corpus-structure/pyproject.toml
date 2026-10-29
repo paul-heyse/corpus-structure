@@ -15,6 +15,7 @@ dependencies = [
     "linkml-runtime==1.12.1",
     "linkml-term-validator==0.4.5",
     "oaklib==0.7.4",
+    "pglast==8.7",
     "pyshacl==0.40.1",
     "rdflib==7.6.0",
     "valuesets==0.4.2",

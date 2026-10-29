@@ -128,6 +128,10 @@ doctor-check:
 db-provision:
     @bash scripts/pg_provision.sh
 
+# Restricted semantic publisher/reader principals and local peer mappings; no data deployment.
+db-semantic-roles:
+    @bash scripts/pg_semantic_roles.sh
+
 # Start the cluster
 db-up:
     @sudo pg_ctlcluster 18 corpus start
