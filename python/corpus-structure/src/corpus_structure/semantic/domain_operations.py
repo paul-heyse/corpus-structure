@@ -23,7 +23,7 @@ from .consolidation import SourceItem, FactItem, FactValueLowerer, assemble
 from .identity import canonical_bytes, occurrence_key
 from .metadata import table
 from .operations import OperationConflict, cut_observations
-from .publication import AssessmentRow, CoverageRow, EvidenceRow, EvidenceSourceRow, PublicationBatch, PublicationReceipt, SelectionRow, _publish, publish_on_connection
+from .publication import AlternativeGroupRow, AlternativeMemberRow, AssessmentRow, CoverageRow, EvidenceRow, EvidenceSourceRow, PublicationBatch, PublicationReceipt, SelectionRow, _publish, publish_on_connection
 from .query import SnapshotBinding
 from .references import read_reference_classes
 from .releases import load_release
@@ -106,6 +106,8 @@ class CutInput:
 class PolicyDecision:
     selected: frozenset[str]
     assessments: tuple[AssessmentRow,...]
+    alternative_group: tuple[AlternativeGroupRow,...] = ()
+    alternative_member: tuple[AlternativeMemberRow,...] = ()
 
 
 class DomainPolicy(Protocol):
@@ -172,6 +174,16 @@ def _plain(value):
     return value
 
 
+def _native(value):
+    """Keep generated Python collection shapes while reconstructing typed records."""
+    from pydantic import BaseModel
+    if isinstance(value,BaseModel):return {k:_native(v) for k,v in value if k in value.model_fields_set}
+    if isinstance(value,tuple):return tuple(_native(v) for v in value)
+    if isinstance(value,list):return [_native(v) for v in value]
+    if isinstance(value,dict):return {k:_native(v) for k,v in value.items()}
+    return value
+
+
 def _reference(prepared,range_name,value,entities,claims=None):
     """Rewrite only references declared by the admitted class/property descriptors."""
     from pydantic import BaseModel
@@ -195,7 +207,7 @@ def _reference(prepared,range_name,value,entities,claims=None):
                     if key in rewritten and rewritten[key]!=entry:raise DomainOperationRefused('reference resolution collides distinct keyed members')
                     rewritten[key]=entry
                 result[prop.name]=rewritten
-            elif prop.multivalued:result[prop.name]=[lower(item) for item in member]
+            elif prop.multivalued:result[prop.name]=tuple(lower(item) for item in member)
             else:result[prop.name]=lower(member)
         return result
     return visit(prepared.validate_python(range_name,value))
@@ -249,7 +261,7 @@ def _source_fact_id(prepared,output,item):
 def _property_value(prepared,definition,prop,value,mapping,claims=None):
     from .publication import native_constraints
     from .proposals import _property_value as scalar_projection
-    value=_plain(value)
+    value=_native(value)
     by_name={d.name:d for d in prepared.definitions}
     if prop.range in by_name:
         if not prop.inlined:
@@ -721,7 +733,7 @@ def consolidate_cut(engine:Engine,cut_id:int,output_realization_id:str,*,policy:
         decision=policy.evaluate(inputs,scope,fused)
     facts={f.fact_id for f in inputs.batch.fact}
     if not decision.selected.issubset(facts):raise DomainOperationRefused('policy selected facts outside its input universe')
-    batch=replace(inputs.batch,selection=tuple(SelectionRow(f) for f in sorted(decision.selected)),assessment=decision.assessments)
+    batch=replace(inputs.batch,selection=tuple(SelectionRow(f) for f in sorted(decision.selected)),assessment=decision.assessments,alternative_group=decision.alternative_group,alternative_member=decision.alternative_member)
     source_links=inputs.source_links
     def publish(conn,batch):
         conn.execute(text('SELECT data.begin_evaluation(:cut,:output)'),{'cut':cut_id,'output':output_realization_id})
@@ -975,8 +987,12 @@ class ReleasedRulesPolicy:
         source=raw.get('applies_to','any')
         if isinstance(source,str):source=[source]
         groups=self.metadata.get((candidate.class_name,candidate.predicate),{}).get('groups',())
-        return any(value=='any' or (value.startswith('subset:') and value[7:] in groups)
-                   or self.prepared.expand_name(value)==candidate.predicate for value in source)
+        for token in source:
+            if token=='any':return True
+            if token.startswith('subset:'):
+                if token[7:] in groups:return True
+            elif self.prepared.expand_name(token)==candidate.predicate:return True
+        return False
 
     def scientific_decisions(self,inputs,scope):
         """Declared source disagreements and existing scientific value comparisons.
@@ -1077,6 +1093,38 @@ class ReleasedRulesPolicy:
                 if len(component)>1:equivalent_components.append(tuple(c.fact_id for c in sorted(component,key=lambda c:(canonical_bytes(_meaning(c.object)),c.fact_id))))
         return generated,unresolved,equivalent_components,assessments
 
+    def alternative_products(self,inputs,generated):
+        """Canonical proposition groups; source-local labels stay provenance, not identity."""
+        from .identity import alternative_group_key
+        by_source={(c.observation_key,c.local_id):c for c in inputs.candidates}
+        by_occurrence={c.occurrence_id:c for c in inputs.candidates}
+        products:dict[str,dict[str,Any]]={};incomplete=set()
+        def add(facts,cause,kind):
+            facts=tuple(sorted(set(facts)))
+            if len(facts)<2:return
+            key=alternative_group_key(inputs.prepared.release_id,inputs.output_realization_id,facts)
+            product=products.setdefault(key,{'members':facts,'sources':{},'generated':{}})
+            product[kind][canonical_bytes(cause)]=cause
+        for report in inputs.reports:
+            if report['payload_definition']!='AgentStoredBatch':continue
+            source=report['observation_key']
+            for group in report['payload'].get('alternatives',()):
+                materialized=[by_source[source,ref] for ref in group['members'] if (source,ref) in by_source]
+                if len(materialized)!=len(group['members']):incomplete.update(c.occurrence_id for c in materialized)
+                add((c.fact_id for c in materialized),{'observation_key':source,'local_id':group['id'],'faithful':group['faithful'],'reason':group['reason']},'sources')
+        members={}
+        for occurrence,keys in generated.items():
+            for key in keys:members.setdefault(key,set()).add(by_occurrence[occurrence].fact_id)
+        for key,facts in members.items():
+            add(facts,{'kind':'qualifier_binding_disagreement' if key.startswith('disagreement:') else 'scientific_value_difference','key':key},'generated')
+        rows=[];links=[];view_members=[]
+        for key,product in sorted(products.items()):
+            reason=canonical_bytes({kind:[value for _,value in sorted(product[kind].items())] for kind in ('sources','generated')}).decode()
+            rows.append(AlternativeGroupRow(key,reason,'consolidate.alternatives',VERSION))
+            links.extend(AlternativeMemberRow(key,fact) for fact in product['members'])
+            view_members.extend({'group':key,'claim':c.occurrence_id} for c in inputs.candidates if c.fact_id in product['members'])
+        return tuple(rows),tuple(links),view_members,incomplete
+
     def evaluate(self,inputs:CutInput,scope:AnalysisScope,fused:pa.Table)->PolicyDecision:
         from corpus_structure.validate.views import EntityView,ValueView,StatementView,BindingView,NodeView,QualifiersView,_BARE,MAX_SYMBOL
         from corpus_structure.methods.math import grammar
@@ -1085,6 +1133,8 @@ class ReleasedRulesPolicy:
         errors=set();ambiguous=set();assessments=[];views={};readings={}
         generated,unresolved,equivalent_components,scientific=self.scientific_decisions(inputs,scope)
         assessments.extend(scientific)
+        alternative_groups,alternative_members,group_views,incomplete_alternatives=self.alternative_products(inputs,generated)
+        unresolved.update(incomplete_alternatives)
         candidates=inputs.candidates
         candidate_facts={c.fact_id for c in candidates}
         by_occurrence={c.occurrence_id:c.fact_id for c in candidates}
@@ -1139,8 +1189,7 @@ class ReleasedRulesPolicy:
                 for e in entities.values()],schema=VIEW_ENTITIES),
             pa.Table.from_pylist([{'entity':e.id,'slot':slot,'value':value} for e in entities.values()
                 for slot,value in e.identity.items()],schema=VIEW_IDENTITY),
-            pa.Table.from_pylist([{'group':c.observation_key+'/'+group,'claim':c.occurrence_id}
-                for c in candidates for group in (*c.alternatives,*sorted(generated[c.occurrence_id]))],schema=VIEW_ALTERNATIVES),
+            pa.Table.from_pylist(group_views,schema=VIEW_ALTERNATIVES),
         )
         facts={(row['claim'],row['view']):tuple(row['facts']) for row in scope.views(
             scope.connection.from_arrow(tables[0]),scope.connection.from_arrow(tables[1]),
@@ -1201,6 +1250,7 @@ class ReleasedRulesPolicy:
             for name in self.source.get('views',{}):
                 setattr(view,name,facts.get((c.occurrence_id,name),()))
             findings=[]
+            if c.occurrence_id in incomplete_alternatives:unknown='source alternative has an unmaterialized member'
             if c.unresolved_references:
                 unknown='unresolved declared source endpoint: '+','.join(c.unresolved_references)
             if reading_note:findings.append(('operation.not_checkable','warning',reading_note))
@@ -1218,8 +1268,8 @@ class ReleasedRulesPolicy:
                 assessments.append(AssessmentRow(aid,rule,VERSION,'refuted' if severity=='error' else 'warning',
                     occurrence_id=c.occurrence_id,reason=message,uncertainty=unknown or reading_note))
                 if severity=='error':errors.add(c.occurrence_id)
-            status=('rejected' if c.occurrence_id in errors else 'candidate' if unknown or c.occurrence_id in unresolved else
-                    'ambiguous' if c.occurrence_id in ambiguous else 'accepted')
+            status=('rejected' if c.occurrence_id in errors else 'ambiguous' if c.occurrence_id in ambiguous else
+                    'candidate' if unknown or c.occurrence_id in unresolved else 'accepted')
             aid='assessment:'+sha256(canonical_bytes([VERSION,c.occurrence_id,status])).hexdigest()
             assessments.append(AssessmentRow(aid,'consolidate.status',VERSION,status,
                                             occurrence_id=c.occurrence_id,uncertainty=unknown))
@@ -1240,4 +1290,4 @@ class ReleasedRulesPolicy:
         for component in equivalent_components:
             accepted=[fact for fact in component if fact in selected]
             if accepted:selected.difference_update(accepted[1:])
-        return PolicyDecision(frozenset(selected),tuple(sorted(assessments,key=lambda a:a.assessment_id)))
+        return PolicyDecision(frozenset(selected),tuple(sorted(assessments,key=lambda a:a.assessment_id)),alternative_groups,alternative_members)
