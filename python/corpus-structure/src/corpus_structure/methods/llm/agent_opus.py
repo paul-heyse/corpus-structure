@@ -35,7 +35,7 @@ from corpus_structure.core.method import (
     MethodContext,
     PackSection,
     Resources,
-    RunView,
+    SourceRunContext,
     UnitRef,
     UnitResult,
     UnitView,
@@ -113,7 +113,7 @@ class AgentOpus:
 
     # -- select --------------------------------------------------------------------------------
 
-    def select(self, run: RunView, cfg: AgentOpusConfig) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: AgentOpusConfig) -> Iterable[UnitRef]:
         out = []
         for r in run.reader.renditions():
             content = run.reader.content(r.rendition_id)
@@ -155,7 +155,7 @@ class AgentOpus:
                 self._packets[key] = found
         return found
 
-    def parts(self, run: RunView, cfg: AgentOpusConfig) -> dict[str, parts_.Part]:
+    def parts(self, run: SourceRunContext, cfg: AgentOpusConfig) -> dict[str, parts_.Part]:
         key = (run.run_id, cfg.reference, cfg.json_schema)
         with self._lock:
             found = self._parts.get(key)

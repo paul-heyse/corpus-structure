@@ -53,15 +53,21 @@ def source_task(admin,engine,path):
 
 
 async def lease_and_read(client,run,task,*,expect_previous=False):
-    leased=(await client.call_tool('queue_next',{'run':run})).structured_content['tasks'][0]
+    queue=(await client.call_tool('queue_next',{'run':run})).structured_content
+    assert queue is not None
+    leased=queue['tasks'][0]
     assert leased['task_id']==task
     assert bool(leased.get('previous_issues'))==expect_previous
     if expect_previous:assert all(set(issue)=={'path','code','detail'} for issue in leased['previous_issues'])
     manifest=(await client.call_tool('read_instructions',{'task_id':task})).structured_content
+    assert manifest is not None
     for part in manifest['parts']:
         for page in range(1,part['pages']+1):await client.call_tool('read_instructions',{'task_id':task,'part':part['name'],'page':page})
     pieces=[]
-    for part in range(1,leased['parts']+1):pieces.append((await client.call_tool('read_unit',{'task_id':task,'part':part})).structured_content['text'])
+    for part in range(1,leased['parts']+1):
+        page=(await client.call_tool('read_unit',{'task_id':task,'part':part})).structured_content
+        assert page is not None
+        pieces.append(page['text'])
     return json.loads(''.join(pieces))
 
 
@@ -78,9 +84,11 @@ def test_uncertain_first_hold_survives_session_restart_and_terminal_second_repor
                 raw['claims'][0]['predicate']='https://example.org/not-declared'
                 raw['claims'][0]['evidence'][0]['quote']='Alice is here.'
             protocol=(await client.call_tool('propose_claims',{'task_id':task,'batch':raw,'schema_hash':'wrong'})).structured_content
+            assert protocol is not None
             assert protocol['status']=='held'
             with engine.connect() as conn:assert conn.execute(select(table('ops.task').c.error).where(table('ops.task').c.id==task)).scalar_one() is None
             held=(await client.call_tool('propose_claims',{'task_id':task,'batch':raw})).structured_content
+            assert held is not None
             assert held['status']=='held' and held['rejected'] and held['task_open']
             with engine.connect() as conn:
                 row=conn.execute(select(table('ops.task')).where(table('ops.task').c.id==task)).mappings().one()
@@ -96,8 +104,10 @@ def test_uncertain_first_hold_survives_session_restart_and_terminal_second_repor
             with pytest.raises(OperationConflict):
                 with engine.begin() as conn:hold_agent_result(conn,task_id=task,attempt=first_attempt,holder=first.holder,packet_hash=packet,clean=False,result={})
             terminal=(await client.call_tool('propose_claims',{'task_id':task,'batch':raw})).structured_content
+            assert terminal is not None
             assert terminal['status']=='done' and not terminal['task_open'] and terminal['rejected']
             repeated=(await client.call_tool('propose_claims',{'task_id':task,'batch':raw})).structured_content
+            assert repeated is not None
             assert repeated['status']=='not_open'
     anyio.run(journey)
     with engine.connect() as conn:

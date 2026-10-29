@@ -108,7 +108,7 @@ def test_source_rendition_fidelity_and_original_change(semantic_db_engine,semant
 def test_recognizer_terminal_source_boundary_and_coverage(semantic_db_engine,semantic_writer_engine):
     from pydantic import BaseModel
     from corpus_structure.core.method import UnitRef,UnitResult,ObservationDraft,CoverageDraft,MeasurementDraft
-    from corpus_structure.core.vocab import TaskUnitType,ObservationOutcome,ObservationKind
+    from corpus_structure.core.vocab import TaskUnitType,ObservationOutcome,ObservationKind,MeasurementScope
     from corpus_structure.semantic.operations import complete_unit_result
     from corpus_structure.semantic.observations import source_python
     class Payload(BaseModel):
@@ -121,7 +121,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(semantic_db_engine,sem
         task=create_task(c,run_id=run,config_id=cfg,stage='ingest',unit_type='run',unit_key='unit:1',input_hash='same')
         claimed=claim_tasks(c,run_id=run,config_id=cfg,holder='worker')[0]
     draft=ObservationDraft(kind=ObservationKind.AUTHOR_MARKUP,payload=Payload(text='exact'),payload_class=Payload,payload_version='1')
-    result=UnitResult(ref=UnitRef(TaskUnitType.RUN,unit_key='unit:1'),outcome=ObservationOutcome.PRODUCED,observations=(draft,draft),coverage=(CoverageDraft(family='parse',scope='unit:1',outcome='partial',reason='unsupported tail'),),measurements=(MeasurementDraft(metric='count',scope_type='run',value=2),))
+    result=UnitResult(ref=UnitRef(TaskUnitType.RUN,unit_key='unit:1'),outcome=ObservationOutcome.PRODUCED,observations=(draft,draft),coverage=(CoverageDraft(family='parse',scope='unit:1',outcome='partial',reason='unsupported tail'),),measurements=(MeasurementDraft(metric='count',scope_type=MeasurementScope.RUN,value=2),))
     with e.begin() as c:
         ids=complete_unit_result(c,task_id=task,attempt=claimed['attempt'],holder='worker',prepared=p,result=result,method=method,configuration_hash='config',source='file:source')
         assert len(ids)==2
@@ -133,7 +133,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(semantic_db_engine,sem
         assert complete_unit_result(c,task_id=task,attempt=claimed['attempt'],holder='worker',prepared=p,result=result,method=method,configuration_hash='config',source='file:source')==ids
         assert len(c.execute(select(table('ops.measurement'))).all())==1
     from dataclasses import replace
-    changed=replace(result,measurements=(MeasurementDraft(metric='count',scope_type='run',value=3),))
+    changed=replace(result,measurements=(MeasurementDraft(metric='count',scope_type=MeasurementScope.RUN,value=3),))
     with pytest.raises(OperationConflict):
         with e.begin() as c:complete_unit_result(c,task_id=task,attempt=claimed['attempt'],holder='worker',prepared=p,result=changed,method=method,configuration_hash='config',source='file:source')
 
@@ -169,6 +169,7 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
             assert 'scope' in kinds
             assert c.execute(select(table('kb.observation_input').c.role)).first()
     replay=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path))
+    assert replay.cut_id is not None
     with e.connect() as c:
         statuses=c.execute(select(table('ops.task').c.status).where(table('ops.task').c.run_id==replay.run_id)).scalars().all()
         assert statuses==['reused']*5
@@ -183,6 +184,7 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
         assert len(c.execute(select(table('kb.rendition'))).all())==1
         assert len(c.execute(select(table('ops.measurement')).where(table('ops.measurement').c.run_id==fresh_run.run_id)).all())>0
     fresh_all=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path),fresh=('ingest.html','profile.segments','extract.math','normalize.formula','resolve.symbol_scope'))
+    assert fresh_all.cut_id is not None
     with e.connect() as c:
         assert 'reused' not in c.execute(select(table('ops.task').c.status).where(table('ops.task').c.run_id==fresh_all.run_id)).scalars().all()
         assert {r['observation_key'] for r in cut_observations(c,report.cut_id)}.isdisjoint(r['observation_key'] for r in cut_observations(c,fresh_all.cut_id))

@@ -68,19 +68,24 @@ def test_native_known_reference_packet_mcp_and_finalizer(semantic_db_engine,sema
     server=build_semantic_server(SemanticAgentSession(e,run))
     async def journey():
         async with Client(server) as client:
-            leased=(await client.call_tool('queue_next',{'run':run})).structured_content['tasks'][0]
+            queue=(await client.call_tool('queue_next',{'run':run})).structured_content
+            assert queue is not None
+            leased=queue['tasks'][0]
             manifest=(await client.call_tool('read_instructions',{'task_id':agent})).structured_content
+            assert manifest is not None
             for part in manifest['parts']:
                 for page in range(1,part['pages']+1):await client.call_tool('read_instructions',{'task_id':agent,'part':part['name'],'page':page})
             bodies=[]
             for page in range(1,leased['parts']+1):
                 result=await client.call_tool('read_unit',{'task_id':agent,'part':page})
+                assert result.structured_content is not None
                 bodies.append(result.structured_content['text'])
                 assert 'sentences' not in result.structured_content
             authored=json.loads(''.join(bodies));assert authored['known_entities'][0]['entity_id']=='known-alice'
             sid=next(sentence['id'] for sentence in authored['sentences'] if sentence['text']==text)
             raw={'unit_ref':locator,'entities':[],'claims':[{'id':'name','subject':'known-alice','predicate':'https://example.org/name','object':{'kind':'text','text':'Alice'},'qualification':{'modality':'asserted','polarity':True},'establishment':'stated','evidence':[{'sentence':sid,'quote':text,'role':'primary'}]}]}
             result=(await client.call_tool('propose_claims',{'task_id':agent,'batch':raw})).structured_content
+            assert result is not None
             assert result['status']=='done',result
     anyio.run(journey)
     from corpus_structure.cli import orchestrate as cli
