@@ -20,10 +20,10 @@ def test_production_complete_driver_records_scope_and_pending_fates(committing_d
 chains:
   propose:
     - key: first
-      when: unit.claim_bearing
+      when: unit.claim_bearing and ran('ingest.html')
       do: {method: agent.opus/extract, then: continue}
     - key: repeat
-      when: unit.claim_bearing
+      when: unit.claim_bearing and ran('ingest.html')
       do: {method: agent.opus/extract, then: stop}
 """)
     registry = phase0.registry(pack)
