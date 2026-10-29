@@ -337,17 +337,64 @@ def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[
     return result
 
 
+def _admit_inference(prepared: PreparedRelease) -> None:
+    """Admit only the finite binary profile implemented by protected inference validation."""
+    classes = {d.name: d for d in prepared.definitions}
+    applications = {}
+    for definition in prepared.definitions:
+        for prop in definition.properties:
+            applications.setdefault(prop.iri, []).append((definition, prop))
+    rules = [json.loads(row.body) for row in prepared.registry_rows if row.kind == "inference_rule"]
+    signatures = set()
+
+    def subtype(child, parent):
+        return child.iri == parent.iri or parent.name in child.ancestors
+
+    for rule in rules:
+        kind, predicate = rule["kind"], rule["predicate"]
+        if kind not in {"inverse", "symmetric", "transitive", "subproperty"}:
+            raise ValueError("unsupported inference rule kind")
+        target = rule.get("target") or predicate
+        if predicate not in applications or target not in applications:
+            raise ValueError("inference rule references undeclared property")
+        signatures.add((kind, predicate, target))
+        for domain, prop in applications[predicate]:
+            if prop.inlined or prop.range not in classes:
+                raise ValueError("inference requires binary entity relations")
+            range_class = classes[prop.range]
+            # Inversion changes the domain; subproperty lifting retains it.
+            target_domain = domain if kind == "subproperty" else range_class
+            matching = [p for p in target_domain.properties if p.iri == target]
+            if not matching:
+                raise ValueError("inference target is not applicable to transformed subject")
+            for result in matching:
+                if result.inlined or result.range not in classes:
+                    raise ValueError("inference target requires binary entity range")
+                expected_object = range_class if kind in {"subproperty", "transitive"} else domain
+                if not subtype(expected_object, classes[result.range]):
+                    raise ValueError("inference transformed object violates target range")
+    for definition in prepared.definitions:
+        for prop in definition.properties:
+            for flag in ("symmetric", "transitive"):
+                if getattr(prop, flag) and (flag, prop.iri, prop.iri) not in signatures:
+                    raise ValueError("required graph characteristic has no compiled rule")
+            if prop.inverse:
+                targets = {p.iri for d in prepared.definitions for p in d.properties
+                           if prop.inverse in {p.name, p.iri}}
+                if len(targets) != 1 or ("inverse", prop.iri, next(iter(targets))) not in signatures:
+                    raise ValueError("required inverse has no compiled target rule")
+
+
 def admit_release(prepared: PreparedRelease) -> None:
     """Refuse required semantics outside the currently implemented native lowering."""
     native_constraints(prepared)
+    _admit_inference(prepared)
     for definition in prepared.definitions:
         for prop in definition.properties:
             if prop.constraint_scope not in {"shape", "accepted_value"}:
                 raise ValueError(f"unsupported native constraint scope {prop.constraint_scope}")
             if prop.pattern or prop.patterns:
                 raise ValueError("Python regular expressions have no admitted native equivalence")
-            if prop.inverse or prop.symmetric or prop.transitive:
-                raise ValueError("required graph integrity has no admitted native lowering")
     if any(
         d.outcome in {"unsupported", "unresolved"}
         or (
