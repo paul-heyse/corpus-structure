@@ -470,3 +470,25 @@ def test_class_scope_and_case_are_admitted_operation_policy_not_property_key_rol
     assert json.loads(row.body)['cs:case']=='casefold'
     with pytest.raises(PreparationError,match='unsupported entity scope'):
         prepare_release(bundle(lambda d:d['classes']['Thing'].update(annotations={'cs:scope':'guessed'})))
+
+
+
+def test_duplicate_schema_definitions_refuse_before_interpretation():
+    source = bundle().sources[0]
+    duplicate = source.content + b"classes: {Other: {attributes: {name: {}}}}\n"
+    with pytest.raises(PreparationError) as failure:
+        prepare_release(SourceBundle('example', (SourceArtifact('example', duplicate),)))
+    assert failure.value.diagnostics[0].code == 'schema'
+    assert 'Duplicate key' in failure.value.diagnostics[0].message
+
+
+
+@pytest.mark.parametrize('range_name, role', [('integer', 'fact'), ('string', 'guess')])
+def test_invalid_reference_role_declarations_refuse(range_name, role):
+    source = bundle(lambda schema: schema['classes']['Thing']['attributes'].update(
+        premise={'range': range_name, 'annotations': {'cs:reference_role': role}},
+    ))
+    with pytest.raises(PreparationError) as failure:
+        prepare_release(source)
+    assert failure.value.diagnostics[0].code == 'reference_role'
+    assert failure.value.diagnostics[0].outcome == 'unsupported'

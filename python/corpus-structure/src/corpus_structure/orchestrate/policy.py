@@ -139,11 +139,12 @@ def unit_language(
     statement_kinds: Collection[str],
     methods: Collection[str],
     metrics: Collection[str] = (),
+    *, nullable_claim_bearing: bool = False,
 ) -> Language:
     """The unit context's language for one schema version (module doc): `statement_kinds` are the
     version's `StatementKind` members as stored, `methods` the registered method names."""
     method_names = _vocab("registered methods", methods)
-    unit = {"kind": "string", "statement_kind": "string?", "claim_bearing": "boolean"}
+    unit = {"kind": "string", "statement_kind": "string?", "claim_bearing": "boolean?" if nullable_claim_bearing else "boolean"}
     unit |= {m: "number?" for m in sorted(metrics)}
     return Language(
         objects={

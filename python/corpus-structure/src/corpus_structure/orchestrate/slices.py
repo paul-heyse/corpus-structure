@@ -39,7 +39,8 @@ def expand(selectors: Mapping[str, Any], name: str, documents: Sequence[Mapping[
             elif key == 'index':
                 out.update(str(d['meta']['page']) for d in documents
                            if str(d['meta'].get(value, '')).lower() not in ('', '0', 'false', 'no'))
-            elif key == 'golden_set' and golden is not None:
+            elif key == 'golden_set':
+                if golden is None:raise SliceError('golden_set selectors require SP-08 semantic evaluation sets')
                 out.update(golden(value))
             else:
                 raise SliceError(f"slice {name}: unsupported selector {entry!r}")
@@ -59,8 +60,14 @@ def record(conn: Connection, project_id: int, pack: Path, *, slice: str | None,
     def gold(label: str) -> Any:
         from corpus_structure.evaluate.sets import golden_units
         return golden_units(conn, project_id, label).keys
+    return records(docs, selectors, slice=slice, scope=scope, corpus=corpus, golden=gold)
+
+
+def records(docs: Sequence[Mapping[str, Any]], selectors: Mapping[str, Any], *,
+            slice: str | None, scope: str | None, corpus: str | None, golden: Any = None):
+    """Resolve one immutable source selection; semantic runs omit the legacy golden provider."""
     def chosen(name: str | None) -> tuple[str, ...]:
-        return expand(selectors, name, docs, gold) if name else tuple(sorted(str(d['meta']['page']) for d in docs))
+        return expand(selectors, name, docs, golden) if name else tuple(sorted(str(d['meta']['page']) for d in docs))
     if slice is not None and scope is not None:
         raise SliceError('choose slice or scope, not both')
     scope_name = slice or scope

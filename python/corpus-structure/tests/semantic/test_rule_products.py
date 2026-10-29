@@ -40,10 +40,10 @@ def test_positive_rules_use_expanded_property_iris_and_stable_versions():
 def test_scope_is_typed_and_meaning_bearing_but_not_physical_segment_id():
     source = Path(__file__).parents[2] / 'src/corpus_structure/model/semantic/core.yaml'
     release = prepare_release(SourceBundle('semantic_core', (SourceArtifact('semantic_core', source.read_bytes()),)))
-    qualification = {'modality': 'asserted', 'polarity': True,
+    qualification: dict[str, object] = {'modality': 'asserted', 'polarity': True,
                      'scope': {'extent': 'section', 'locator': 'Normal.html#section1'}}
     release.validate_python('Qualification', qualification)
-    changed = {**qualification, 'scope': {'extent': 'section', 'locator': 'Normal.html#section2'}}
+    changed: dict[str, object] = {**qualification, 'scope': {'extent': 'section', 'locator': 'Normal.html#section2'}}
     assert release.fact_identity('realization', 'entity', 'predicate', 'value', qualification) != release.fact_identity('realization', 'entity', 'predicate', 'value', changed)
     with pytest.raises(ValidationError):
         release.validate_python('Qualification', {**qualification, 'scope': {'extent': 'global', 'locator': 'x'}})
@@ -59,11 +59,27 @@ def test_expression_binding_variants_preserve_entities_claim_roles_and_unresolve
                        {'kind':'param_of','symbol':'y','claim':'source:claim','parameter':'scale'},
                        {'kind':'unresolved','symbol':'z'})}
     result = release.validate_python('Value',raw)
-    assert result.bindings[0].entity == 'local:x'
-    assert result.bindings[1].claim == 'source:claim'
-    assert result.bindings[1].parameter == 'scale'
-    assert result.bindings[2].kind == 'unresolved'
+    values = result.model_dump(exclude_unset=True)
+    assert values['bindings'][0]['entity'] == 'local:x'
+    assert values['bindings'][1]['claim'] == 'source:claim'
+    assert values['bindings'][1]['parameter'] == 'scale'
+    assert values['bindings'][2]['kind'] == 'unresolved'
     with pytest.raises(ValidationError):
         release.validate_python('Value',{**raw,'bindings':({'kind':'variable','symbol':'x'},)})
     with pytest.raises(ValidationError):
         release.validate_python('Value',{**raw,'bindings':({'kind':'constant','symbol':'x','entity':'not-permitted'},)})
+
+
+
+def test_fact_reference_roles_are_declared_and_normalized():
+    from corpus_structure.semantic.publication import native_constraints
+    source = Path(__file__).parents[2] / 'src/corpus_structure/model/semantic/core.yaml'
+    release = prepare_release(SourceBundle('semantic_core', (SourceArtifact('semantic_core', source.read_bytes()),)))
+    definitions = {definition.name: definition for definition in release.definitions}
+    for class_name, field in [('ClaimCondition', 'ref'), ('ParameterOfBinding', 'claim'), ('ParameterExpressionOfBinding', 'claim')]:
+        definition = definitions[class_name]
+        prop = next(prop for prop in definition.properties if prop.name == field)
+        assert prop.reference_role == 'fact'
+        assert native_constraints(release)[definition.iri, prop.iri]['reference_role'] == 'fact'
+    ordinary = next(prop for prop in definitions['TextValue'].properties if prop.name == 'text')
+    assert ordinary.reference_role is None
