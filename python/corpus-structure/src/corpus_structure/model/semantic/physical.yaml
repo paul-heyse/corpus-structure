@@ -634,6 +634,12 @@ classes:
       batch_id:
         range: string
         required: true
+      report_object_value_id:
+        range: string
+        required: true
+      report_qualification_value_id:
+        range: string
+        required: false
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -649,7 +655,9 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"},
-        {"columns": ["realization_id", "release_id", "batch_id"], "target": "data.batch.realization_id,release_id,batch_id"}]'
+        {"columns": ["realization_id", "release_id", "batch_id"], "target": "data.batch.realization_id,release_id,batch_id"},
+        {"columns": ["realization_id", "release_id", "report_object_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
+        {"columns": ["realization_id", "release_id", "report_qualification_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
       ph:indexes: '[["realization_id", "release_id", "source", "item"]]'
   support:
     in_subset:
