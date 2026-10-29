@@ -176,6 +176,7 @@ REVOKE ALL ON FUNCTION data.finish_evaluation(bigint,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION data.finish_evaluation(bigint,text,text) TO corpus_sem_writer;
 
 SET LOCAL ROLE __MIGRATION_OWNER__;
+REVOKE UPDATE(result_digest) ON ops.task FROM corpus_sem_writer;
 CREATE FUNCTION ops.execution_task_state(t ops.task) RETURNS text
 LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
  SELECT t.status || CASE WHEN coalesce(t.error ? 'semantic_proposal_first_result',false) THEN '_held' ELSE '' END
@@ -214,6 +215,12 @@ BEGIN
  IF NEW.attempt=OLD.attempt AND NEW.lease_until IS DISTINCT FROM OLD.lease_until
   AND NEW.status='running' AND current_user<>'corpus_sem_publisher' THEN
   RAISE EXCEPTION 'lease renewal requires protected current ownership' USING ERRCODE='23514'; END IF;
+ IF NEW.status IN ('done','empty','failed','cancelled') AND current_user<>'corpus_sem_publisher' THEN
+  RAISE EXCEPTION 'terminal task effects require protected publication' USING ERRCODE='23514'; END IF;
+ IF NEW.status IN ('done','empty','failed') AND NEW.result_digest IS NULL THEN
+  RAISE EXCEPTION 'completed task requires an immutable result receipt' USING ERRCODE='23514'; END IF;
+ IF NEW.status='failed' AND (NEW.error IS NULL OR jsonb_typeof(NEW.error)<>'object') THEN
+  RAISE EXCEPTION 'failed task requires typed failure diagnostics' USING ERRCODE='23514'; END IF;
  IF OLD.error ? 'semantic_proposal_first_result' AND OLD.error->'semantic_proposal_first_result'
   IS DISTINCT FROM NEW.error->'semantic_proposal_first_result' THEN
   RAISE EXCEPTION 'held first result is immutable' USING ERRCODE='23514';
@@ -240,6 +247,12 @@ BEGIN
  result:=NEW.status || CASE WHEN NEW.status IN ('failed','cancelled') THEN CASE WHEN NEW.sealed THEN '_sealed' ELSE '_open' END ELSE '' END;
  IF prior<>result AND NOT ops.execution_edge('run',prior,result) THEN
   RAISE EXCEPTION 'undeclared run transition % -> %',prior,result USING ERRCODE='23514'; END IF;
+ IF NEW.status IN ('finished','failed','cancelled') THEN
+  IF current_user<>'corpus_sem_publisher' THEN
+   RAISE EXCEPTION 'terminal run effects require protected publication' USING ERRCODE='23514'; END IF;
+  IF EXISTS(SELECT 1 FROM ops.task WHERE run_id=NEW.id AND status IN ('pending','awaiting_agent','running')) THEN
+   RAISE EXCEPTION 'terminal run requires all source tasks to be terminal' USING ERRCODE='23514'; END IF;
+ END IF;
  IF NEW.sealed<>(NEW.status IN ('consolidating','finished') OR (NEW.status IN ('failed','cancelled') AND OLD.sealed)) THEN
   RAISE EXCEPTION 'invalid run sealing combination' USING ERRCODE='23514'; END IF;
  RETURN NEW;

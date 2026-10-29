@@ -175,3 +175,30 @@ def test_held_progress_survives_cancel_and_fail(
         assert task_state.status=="cancelled"
         assert task_state.error["semantic_proposal_first_result"]["result"]=={"issues":["uncertain"]}
         assert conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id==run))==("cancelled" if failure is None else "failed")
+
+
+def test_writer_cannot_bypass_terminal_effect_owner(semantic_db_engine,semantic_writer_engine):
+    from types import SimpleNamespace
+    from corpus_structure.semantic.operations import (OperationBinding,create_run,create_task,
+        record_method,claim_tasks,end_source_run)
+    from .test_operations import setup
+
+    prepared=setup(semantic_db_engine)
+    with semantic_writer_engine.begin() as conn:
+        run=create_run(conn,project_id="p",binding=OperationBinding(prepared.release_id,"z",0,b"{}"),kind="full",options={},code_commit="test")
+        config=record_method(conn,SimpleNamespace(name="read",version="1",family="ingest",tier="deterministic",confidence_source=None,unit_type="run",Config=NativeTestConfig),"default",{},"read")
+        task=create_task(conn,run_id=run,config_id=config,stage="ingest",unit_type="run",input_hash="one")
+    with semantic_db_engine.begin() as conn:
+        conn.execute(table("sem.release").update().where(table("sem.release").c.release_id==prepared.release_id).values(profile="semantic-2"))
+    with semantic_writer_engine.begin() as conn:
+        claim_tasks(conn,run_id=run,config_id=config,holder="worker")
+    for status in ("failed","cancelled"):
+        with pytest.raises(DBAPIError,match="protected publication"),semantic_writer_engine.begin() as conn:
+            conn.execute(table("ops.task").update().where(table("ops.task").c.id==task).values(status=status,lease_until=None))
+        with pytest.raises(DBAPIError,match="protected publication"),semantic_writer_engine.begin() as conn:
+            conn.execute(table("ops.run").update().where(table("ops.run").c.id==run).values(status=status))
+    with pytest.raises(DBAPIError,match="permission denied"),semantic_writer_engine.begin() as conn:
+        conn.execute(table("ops.task").update().where(table("ops.task").c.id==task).values(result_digest="forged"))
+    with semantic_writer_engine.begin() as conn:
+        assert end_source_run(conn,run)==1
+        assert conn.scalar(select(table("ops.task").c.status).where(table("ops.task").c.id==task))=="cancelled"
