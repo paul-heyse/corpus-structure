@@ -190,9 +190,9 @@ def _prediction(conn,completed,unit):
       JOIN data.occurrence x ON x.source=o.observation_key AND x.release_id=o.release_id
       WHERE x.realization_id=:z AND x.release_id=:r AND o.rendition_id=:rendition
       AND o.payload_definition='AgentStoredBatch' AND o.payload->>'unit_ref'=:unit ORDER BY o.id'''),{'z':completed['output_realization_id'],'r':completed['release_id'],'rendition':unit['rendition_id'],'unit':unit['unit_key']}).mappings().all()
-    rows=conn.execute(select(table('data.occurrence')).where(table('data.occurrence').c.realization_id==completed['output_realization_id'],table('data.occurrence').c.release_id==completed['release_id'])).mappings().all()
+    rows=conn.execute(select(table('data.occurrence')).where(table('data.occurrence').c.realization_id==completed['output_realization_id'],table('data.occurrence').c.release_id==completed['release_id'],table('data.occurrence').c.source.in_([o['observation_key'] for o in observations]))).mappings().all()
     admitted={(r['source'],r['item']):r['fact_id'] for r in rows}
-    declarations=conn.execute(select(table('data.entity_source')).where(table('data.entity_source').c.realization_id==completed['output_realization_id'],table('data.entity_source').c.release_id==completed['release_id'])).mappings().all()
+    declarations=conn.execute(select(table('data.entity_source')).where(table('data.entity_source').c.realization_id==completed['output_realization_id'],table('data.entity_source').c.release_id==completed['release_id'],table('data.entity_source').c.observation_id.in_([o['id'] for o in observations]))).mappings().all()
     mappings={(r['observation_id'],r['local_id']):r['entity_id'] for r in declarations}
     batch={'unit_ref':unit['unit_key'],'entities':[],'statements':[],'claims':[],'alternatives':[]};known={};seen=set()
     for observation in observations:
@@ -237,14 +237,16 @@ def reference_evaluate(conn:Connection,*,project_id:str,run_id:int,set_id:int)->
     units=conn.execute(select(table('eval.reference_unit')).where(table('eval.reference_unit').c.set_id==set_id).order_by(table('eval.reference_unit').c.id)).mappings().all()
     if not units or len(snapshot)!=len(units):raise ReferenceError('every reference unit requires an adjudicated pass C')
     snaps={s['unit_id']:s for s in snapshot};reports=[]
+    targets={(u['rendition_id'],u['unit_key']) for u in _source_units(conn,run_id)}
     for unit in units:
         snap=snaps[unit['id']];reference=ensure_items(conn,snap['pass_id'],frame_id=snap['frame_id'])
         rendition=conn.scalar(select(table('kb.rendition').c.content_digest).where(table('kb.rendition').c.id==reference.rendition_id))
         if rendition!=reference.rendition_digest:raise ReferenceError('reference citation frame is stale')
-        if reference.rendition_id!=unit['rendition_id']:raise ReferenceError('relocated reference requires an explicitly bound target source unit')
-        reports.append(align_semantic(SemanticSide(unit['unit_key'],reference.batch,frozenset(unit['context'])),_prediction(conn,completed,unit),prepared).as_dict())
+        if (reference.rendition_id,unit['unit_key']) not in targets:raise ReferenceError('reference citation frame is not present in the completed target source cut')
+        bound_unit={**unit,'rendition_id':reference.rendition_id}
+        reports.append(align_semantic(SemanticSide(unit['unit_key'],reference.batch,frozenset(unit['context'])),_prediction(conn,completed,bound_unit),prepared).as_dict())
     tiers={k:TierCounts(sum(u['tiers'][k]['reference'] for u in reports),sum(u['tiers'][k]['prediction'] for u in reports),sum(u['tiers'][k]['matched'] for u in reports)).as_dict() for k in ('core','full','evidence')}
     coverage=[dict(row) for row in conn.execute(select(table('data.coverage')).where(table('data.coverage').c.realization_id==completed['output_realization_id'],table('data.coverage').c.release_id==completed['release_id'])).mappings()]
-    result={'release_id':completed['release_id'],'output_realization_id':completed['output_realization_id'],'grain':'distinct_fact_per_source_unit','tiers':tiers,'units':reports,'coverage':coverage,'reference_units_scored':len(reports)}
+    result={'release_id':completed['release_id'],'output_realization_id':completed['output_realization_id'],'family':'agent_claims','grain':'distinct_fact_per_source_unit','tiers':tiers,'units':reports,'coverage':coverage,'reference_units_scored':len(reports)}
     identity=_call(conn,'SELECT eval.record_reference_evaluation(:p,:run,:s,CAST(:snapshot AS jsonb),CAST(:result AS jsonb))',p=project_id,run=run_id,s=set_id,snapshot=_json(snapshot),result=_json(result)).scalar_one()
     return ReferenceReport(id=identity,project_id=project_id,run_id=run_id,set_id=set_id,reference_snapshot=snapshot,result=result)

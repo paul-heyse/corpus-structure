@@ -4,17 +4,17 @@ import json
 import anyio
 import pytest
 from fastmcp import Client
-from sqlalchemy import create_engine,select,text
+from sqlalchemy import create_engine,select,text,insert
 from sqlalchemy.pool import NullPool
 from sqlalchemy.exc import DBAPIError
 from corpus_structure.intervene.semantic_server import SemanticAgentSession,build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.proposals import ProposalFrame,ProposalSentence
-from corpus_structure.evaluate.semantic import create_reference_set,record_pass,reference_evaluate,split_documents,agreement,ensure_items,relocate_frame
+from corpus_structure.evaluate.semantic import ReferenceError,create_reference_set,record_pass,reference_evaluate,split_documents,agreement,ensure_items,relocate_frame
 from .test_agent_resubmission import source_task,lease_and_read
 
-def test_independent_reference_grade_retains_exact_pass_and_qualification(semantic_db_engine,semantic_writer_engine,tmp_path):
+def test_independent_reference_grade_retains_exact_pass_and_qualification(semantic_db_engine,semantic_writer_engine,tmp_path,cli):
     prepared,run,task,locator=source_task(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',composed=True)
     source_session=SemanticAgentSession(semantic_writer_engine,run)
     async def source():
@@ -63,4 +63,35 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(semant
                     conn.execute(text("SELECT eval.record_reference_evaluation(:p,:r,:s,CAST(:snap AS jsonb),'{}'::jsonb)"),{'p':'resubmit','r':run,'s':made['set_id'],'snap':json.dumps(report.reference_snapshot)})
         with semantic_writer_engine.connect() as conn:
             with pytest.raises(DBAPIError):conn.execute(select(table('eval.reference_pass')))
+        # Source-frame movement is versioned; a different target cut cannot silently reuse it.
+        with semantic_db_engine.begin() as conn:
+            original=conn.execute(select(table('kb.rendition'))).mappings().one()
+            relocated=conn.scalar(insert(table('kb.rendition')).values(document_id=original['document_id'],key='reference-relocated',content_digest='relocated-digest',canonical_text='Intro. Alice is here.',content=original['content'],parse_status='ok').returning(table('kb.rendition').c.id))
+        with evaluator.begin() as conn:
+            before=ensure_items(conn,new_c)
+            moved=relocate_frame(conn,new_c,rendition_id=relocated)
+            after=ensure_items(conn,new_c)
+            assert after.frame_id==moved and after.authored==before.authored
+            assert before.frame[0]['start']==0 and after.frame[0]['start']==7
+            assert conn.scalar(select(table('eval.reference_frame').c.parent_id).where(table('eval.reference_frame').c.id==moved))==before.frame_id
+            with pytest.raises(ReferenceError,match='target source cut'):
+                reference_evaluate(conn,project_id='resubmit',run_id=run,set_id=made['set_id'])
+        # Actual Typer dispatch uses the evaluator credential purpose and persistent native APIs.
+        from dataclasses import asdict
+        from corpus_structure.settings import Settings
+        settings=lambda:Settings(database={'url':semantic_writer_engine.url.set(drivername='postgresql').render_as_string(hide_password=False),'maintenance_url':semantic_db_engine.url.set(drivername='postgresql').render_as_string(hide_password=False),'evaluator_url':evaluator.url.set(drivername='postgresql').render_as_string(hide_password=False)})
+        split_result=cli('golden','split','--project','resubmit','--json',settings=settings)
+        assert split_result.exit_code==0,split_result.stderr
+        created=cli('golden','create','--project','resubmit','--from-run',str(run),'--label','cli-reference','--split','dev','--json',settings=settings)
+        assert created.exit_code==0,created.stderr
+        made_cli=json.loads(created.stdout)
+        authored_file=tmp_path/'reference.json';authored_file.write_bytes(json.dumps(authored).encode())
+        frame_file=tmp_path/'frame.json';frame_file.write_text(json.dumps(asdict(frame)))
+        submitted=cli('golden','submit','--project','resubmit','--unit',str(next(iter(made_cli['units'].values()))),'--pass','C','--actor','automated-independent-reference','--authored',str(authored_file),'--frame',str(frame_file),'--json',settings=settings)
+        assert submitted.exit_code==0,submitted.stderr
+        status=cli('golden','status','--project','resubmit','--label','cli-reference','--json',settings=settings)
+        assert status.exit_code==0 and json.loads(status.stdout)[0]['status']=={'adjudicated':1},status.stderr
+        graded=cli('eval','run','--project','resubmit','--run',str(run),'--set-id',str(made_cli['set_id']),'--json',settings=settings)
+        assert graded.exit_code==0,graded.stderr
+        assert json.loads(graded.stdout)['result']['tiers']['full']['matched']==1
     finally:evaluator.dispose()

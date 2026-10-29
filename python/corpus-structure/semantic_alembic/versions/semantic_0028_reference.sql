@@ -167,7 +167,7 @@ BEGIN
  SELECT * INTO STRICT previous FROM eval.reference_frame WHERE id=p_parent AND pass_id=p_pass;
  IF previous.version<>(SELECT max(version) FROM eval.reference_frame WHERE pass_id=p_pass) THEN RAISE EXCEPTION 'reference frame parent is stale' USING ERRCODE='40001'; END IF;
  SELECT * INTO STRICT rendition FROM kb.rendition WHERE id=p_rendition;
- IF NOT EXISTS(SELECT FROM kb.rendition r WHERE r.id=previous.rendition_id AND r.document_id=rendition.document_id) OR jsonb_typeof(p_frame)<>'array' OR jsonb_array_length(p_frame)<>jsonb_array_length(previous.frame) THEN RAISE EXCEPTION 'reference frame relocation source differs' USING ERRCODE='23514'; END IF;
+ IF NOT EXISTS(SELECT FROM kb.rendition r JOIN kb.document old ON old.id=r.document_id JOIN kb.document target ON target.id=rendition.document_id WHERE r.id=previous.rendition_id AND old.project_id=target.project_id AND old.source_uri=target.source_uri) OR jsonb_typeof(p_frame)<>'array' OR jsonb_array_length(p_frame)<>jsonb_array_length(previous.frame) THEN RAISE EXCEPTION 'reference frame relocation source differs' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(p_frame) WITH ORDINALITY e(value,n) JOIN jsonb_array_elements(previous.frame) WITH ORDINALITY old(value,n) USING(n) WHERE e.value->>'quote' IS DISTINCT FROM old.value->>'quote' OR (e.value->>'start')::bigint<0 OR (e.value->>'end')::bigint<(e.value->>'start')::bigint OR substring(rendition.canonical_text FROM (e.value->>'start')::integer+1 FOR (e.value->>'end')::integer-(e.value->>'start')::integer) IS DISTINCT FROM e.value->>'quote') THEN RAISE EXCEPTION 'reference frame relocation changes cited text' USING ERRCODE='23514'; END IF;
  INSERT INTO eval.reference_frame(pass_id,version,rendition_id,rendition_digest,frame,parent_id) VALUES(p_pass,previous.version+1,p_rendition,rendition.content_digest,p_frame,p_parent) RETURNING id INTO result;
  RETURN result;
@@ -191,6 +191,7 @@ BEGIN
  PERFORM 1 FROM eval.reference_unit WHERE set_id=p_set FOR UPDATE;
  SELECT release_id INTO STRICT source_release FROM eval.reference_set WHERE id=p_set AND project_id=p_project;
  SELECT c.release_id INTO STRICT target_release FROM ops.completed_result c JOIN ops.run r ON r.id=c.run_id WHERE c.run_id=p_run AND r.project_id=p_project;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p_snapshot) snap JOIN eval.reference_unit u ON u.id=(snap->>'unit_id')::bigint WHERE NOT EXISTS(SELECT FROM ops.completed_result c JOIN ops.cut_task ct ON ct.cut_id=c.cut_id JOIN kb.observation o ON o.task_id=ct.origin_task_id WHERE c.run_id=p_run AND o.rendition_id=(snap->>'rendition_id')::bigint AND o.payload->>'unit_ref'=u.unit_key AND o.payload_definition='AgentStoredBatch')) THEN RAISE EXCEPTION 'reference frame absent from completed target source cut' USING ERRCODE='23514'; END IF;
  IF source_release<>target_release OR p_snapshot IS DISTINCT FROM eval.reference_snapshot(p_set) OR jsonb_array_length(p_snapshot)=0 OR jsonb_array_length(p_snapshot)<>(SELECT count(*) FROM eval.reference_unit WHERE set_id=p_set) OR jsonb_typeof(p_result)<>'object' THEN RAISE EXCEPTION 'reference evaluation snapshot is incomplete or stale' USING ERRCODE='40001'; END IF;
  INSERT INTO eval.reference_evaluation(project_id,run_id,set_id,reference_snapshot,result,content_digest) VALUES(p_project,p_run,p_set,p_snapshot,p_result,encode(sha256(convert_to(data.canonical_json(jsonb_build_object('snapshot',p_snapshot,'result',p_result)),'UTF8')),'hex')) RETURNING id INTO result;
  RETURN result;
@@ -215,6 +216,7 @@ END $guard$;
 CREATE FUNCTION data.select_project_result(p_project text,p_run bigint,p_generation bigint) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
 DECLARE result bigint;
 BEGIN
+ IF p_run IS NULL THEN RAISE EXCEPTION 'a completed result selection requires a run' USING ERRCODE='23514'; END IF;
  UPDATE data.project SET selected_result_run_id=p_run,generation=generation+1 WHERE project_id=p_project AND generation=p_generation RETURNING generation INTO result;
  IF result IS NULL THEN RAISE EXCEPTION 'project selection generation changed' USING ERRCODE='40001'; END IF;
  RETURN result;
