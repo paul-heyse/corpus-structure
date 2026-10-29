@@ -673,7 +673,7 @@ class ReadSession:
                              .join(method, method.c.id == config.c.method_id))
                 .where(run.c.release_id == self.binding.release_id,
                        run.c.result_realization_id == self.binding.realization_id,
-                       cut.c.final.is_(True)).distinct().order_by(task.c.id, measurement.c.id))
+                       cut.c.final.is_(True)).distinct().order_by(task.c.id, measurement.c.source_position))
         if metric is not None:
             stmt = stmt.where(measurement.c.metric == metric)
         records = []
