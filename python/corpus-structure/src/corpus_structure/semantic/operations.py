@@ -387,3 +387,12 @@ def end_source_run(conn:Connection,run_id:int,*,failure:Mapping[str,str]|None=No
     import json
     return conn.execute(text('SELECT ops.end_source_run(:run,CAST(:failure AS jsonb))'),
         {'run':run_id,'failure':json.dumps(failure) if failure is not None else None}).scalar_one()
+
+
+def lock_input_snapshot(conn:Connection,run_id:int)->None:
+    """Fence packet input reads until this queue/serve transaction ends; no agent wait lock."""
+    try:conn.execute(text('SELECT ops.lock_input_snapshot(:run)'),{'run':run_id})
+    except Exception as exc:
+        if getattr(getattr(exc,'orig',None),'sqlstate',None)=='P0004':
+            raise OperationConflict('packet input snapshot changed') from exc
+        raise
