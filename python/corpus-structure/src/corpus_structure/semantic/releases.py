@@ -93,6 +93,7 @@ def _validate_manifest(bundle: SourceBundle, dependencies: ResolvedDependencies,
         "libraries": {name: version(name) for name in _LIBRARIES},
         "sources": sorted((s.name, s.digest) for s in bundle.sources),
         "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
+        "ontology_sources": sorted(dependencies.ontology_sources),
         "vocabularies": [asdict(v) for v in prepared.vocabularies],
     })
     if prepared.manifest != expected or prepared.release_id != "release:" + _digest(expected):
@@ -107,6 +108,9 @@ def _validate_manifest(bundle: SourceBundle, dependencies: ResolvedDependencies,
 
 
 def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]]]:
+    from .publication import native_constraints
+
+    constraints = native_constraints(prepared)
     rid = prepared.release_id
     rows: dict[str, list[dict[str, Any]]] = {name: [] for name in (
         "class_definition", "property_definition", "class_hierarchy", "property_applicability",
@@ -116,7 +120,8 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
     class_ids = {cls.name: cls.iri for cls in prepared.definitions}
     for cls in prepared.definitions:
         rows["class_definition"].append({"release_id": rid, "class_id": cls.iri,
-                                         "name": cls.name, "iri": cls.iri})
+                                         "name": cls.name, "iri": cls.iri,
+                                         "abstract": cls.abstract})
         rows["class_hierarchy"].extend({"release_id": rid, "class_id": cls.iri,
                                          "ancestor_id": class_ids[a]} for a in cls.ancestors)
         for prop in cls.properties:
@@ -126,11 +131,12 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
                 "range_name": prop.range, "required": prop.required,
                 "multivalued": prop.multivalued, "minimum_cardinality": prop.minimum_cardinality,
                 "maximum_cardinality": prop.maximum_cardinality,
-                "constraint_scope": prop.constraint_scope, "constraints": asdict(prop),
+                "constraint_scope": prop.constraint_scope,
+                "constraints": constraints[cls.iri, prop.iri],
             })
         for group_id, group in enumerate(cls.identity_groups):
             rows["identity_slot"].extend({"release_id": rid, "class_id": cls.iri,
-                "group_id": group_id, "position": position,
+                "group_id": str(group_id), "position": position,
                 "property_id": next(p.iri for p in cls.properties if p.name == name)}
                 for position, name in enumerate(group))
     rows["property_definition"] = [{"release_id": rid, "property_id": iri,
@@ -155,7 +161,7 @@ def _compare_rows(conn: Connection, name: str, release_id: str,
     table = _table("sem." + name)
     # Compare the entire relation for this release, including unexpected rows.
     columns = list(expected[0]) if expected else [c.name for c in table.columns]
-    actual = [dict(row) for row in conn.execute(
+    actual = [{column: row[column] for column in columns} for row in conn.execute(
         select(*(table.c[c] for c in columns)).where(table.c.release_id == release_id)
     ).mappings()]
     if sorted(map(_row_bytes, actual)) != sorted(map(_row_bytes, expected)):
@@ -190,6 +196,10 @@ def persist_release(conn: Connection, bundle: SourceBundle, dependencies: Resolv
     artifacts = [{"release_id": prepared.release_id, "artifact_name": item.kind,
                   "media_type": "application/octet-stream", "content": item.content,
                   "content_digest": item.digest} for item in prepared.artifacts]
+    ontology_sources = canonical_bytes(list(dependencies.ontology_sources))
+    inputs.append({"release_id": prepared.release_id, "input_kind": "ontology_sources",
+                   "input_name": "ontology_sources", "content": ontology_sources,
+                   "content_digest": _digest(ontology_sources)})
     projections = _projection_rows(prepared)
     table = _table("sem.release")
     with conn.begin_nested():
@@ -240,9 +250,10 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
             dependency_digest=v["dependency_digest"], unchecked=tuple(v["unchecked"]))
             for v in json.loads(source["vocabulary", "vocabulary"]))
         dependencies = ResolvedDependencies(tuple(SourceArtifact(name, source["dependency", name])
-                                                  for name in archive["dependencies"]), snapshots)
+                                                  for name in archive["dependencies"]), snapshots,
+            tuple(json.loads(source["ontology_sources", "ontology_sources"])))
         profile = PreparationProfile(**json.loads(source["profile", "profile"]))
-        if len(source) != len(bundle.sources) + len(dependencies.artifacts) + 2:
+        if len(source) != len(bundle.sources) + len(dependencies.artifacts) + 3:
             raise ReleaseConflict("unexpected archived inputs")
         # Detect version changes before attempting to interpret with another compiler.
         manifest = json.loads(bytes(row["manifest_bytes"]))

@@ -8,6 +8,7 @@ from dataclasses import replace
 from threading import Barrier
 from uuid import uuid4
 
+import psycopg
 import pytest
 from sqlalchemy import Engine, insert, select, text, update
 
@@ -111,8 +112,8 @@ def test_archive_is_exact_offline_and_idempotent(semantic_db_engine: Engine, mon
         identity = table("sem.identity_slot")
         assert set(conn.execute(select(identity.c.class_id, identity.c.property_id,
                                        identity.c.group_id, identity.c.position)).all()) == {
-            ("https://example.org/Child", "https://example.org/id", 0, 0),
-            ("https://example.org/Parent", "https://example.org/id", 0, 0),
+            ("https://example.org/Child", "https://example.org/id", "0", 0),
+            ("https://example.org/Parent", "https://example.org/id", "0", 0),
         }
 
 
@@ -176,11 +177,11 @@ def test_release_extension_changes_rows_without_ddl(semantic_db_engine: Engine):
     with semantic_db_engine.begin() as conn:
         *_, first = stage(conn)
         before = conn.execute(snapshot_sql).all()
-        head = conn.execute(text("SELECT version_num FROM alembic_version")).all()
+        head = conn.execute(text("SELECT version_num FROM semantic_alembic_version")).all()
         *_, second = stage(conn, source_bundle(b"  Additional:\n    is_a: Parent\n"))
         assert first.release_id != second.release_id
         assert conn.execute(snapshot_sql).all() == before
-        assert conn.execute(text("SELECT version_num FROM alembic_version")).all() == head
+        assert conn.execute(text("SELECT version_num FROM semantic_alembic_version")).all() == head
         classes = table("sem.class_definition")
         assert set(conn.execute(select(classes.c.class_id).where(
             classes.c.release_id == second.release_id)).scalars()) == {
@@ -278,4 +279,73 @@ def test_authenticated_writer_cannot_modify_definitions(
         with pytest.raises(DBAPIError) as error, semantic_writer_engine.begin() as conn:
             conn.execute(update(target).where(target.c.release_id == prepared.release_id).values(
                 release_id=prepared.release_id))
+        assert isinstance(error.value.orig, psycopg.Error)
         assert error.value.orig.sqlstate == "42501"
+
+
+def test_same_local_property_name_retains_distinct_iris(semantic_db_engine: Engine):
+    with semantic_db_engine.begin() as conn:
+        *_, prepared = stage(conn, source_bundle(b"""  Other:
+    attributes:
+      label:
+        range: string
+        slot_uri: https://another.example/label
+"""))
+        properties = table("sem.property_definition")
+        assert set(conn.execute(select(properties.c.property_id).where(
+            properties.c.release_id == prepared.release_id,
+            properties.c.name == "label",
+        )).scalars()) == {"https://example.org/label", "https://another.example/label"}
+        assert releases.load_release(conn, prepared.release_id) == prepared
+
+
+def test_archive_retains_explicit_ontology_dependency_selection(semantic_db_engine: Engine):
+    bundle = source_bundle()
+    dependencies = ResolvedDependencies(
+        artifacts=(SourceArtifact("opaque", b"\xff\x00"),
+                   SourceArtifact("ontology", b"format-version: 1.2\r\n")),
+        ontology_sources=("ontology",),
+    )
+    prepared = prepare_release(bundle, dependencies)
+    with semantic_db_engine.begin() as conn:
+        releases.persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
+        inputs = table("sem.input")
+        assert conn.execute(select(inputs.c.content).where(
+            inputs.c.release_id == prepared.release_id,
+            inputs.c.input_kind == "ontology_sources",
+            inputs.c.input_name == "ontology_sources",
+        )).scalar_one() == b'["ontology"]'
+        assert releases.load_release(conn, prepared.release_id) == prepared
+
+
+def test_sql_admission_and_pointer_share_activation_savepoint(
+    semantic_db_engine: Engine, semantic_reader_engine: Engine,
+):
+    from corpus_structure.semantic.authored_sql import SQLAdmissionError
+
+    with semantic_db_engine.begin() as conn:
+        *_, first = stage(conn)
+        bundle = source_bundle()
+        dependencies = ResolvedDependencies((SourceArtifact(
+            "authored-sql/entities.sql", b"SELECT entity_id FROM data.entity"
+        ),))
+        prepared = prepare_release(bundle, dependencies)
+        releases.persist_release(conn, bundle, dependencies, PreparationProfile(), prepared)
+        pid = project(conn, first.release_id)
+        with pytest.raises(SQLAdmissionError, match="restricted reader"):
+            releases.activate_release(conn, pid, prepared.release_id,
+                expected_parent=first.release_id, expected_generation=0)
+        with (
+            semantic_reader_engine.connect() as reader,
+            pytest.raises(releases.ActivationConflict),
+        ):
+            releases.activate_release(conn, pid, prepared.release_id,
+                expected_parent=None, expected_generation=0, sql_reader=reader)
+        admission = table("sem.sql_admission")
+        assert conn.execute(select(admission.c.release_id)).all() == []
+        assert releases.activation_token(conn, pid) == releases.ActivationToken(first.release_id, 0)
+        with semantic_reader_engine.connect() as reader:
+            token = releases.activate_release(conn, pid, prepared.release_id,
+                expected_parent=first.release_id, expected_generation=0, sql_reader=reader)
+        assert token == releases.ActivationToken(prepared.release_id, 1)
+        assert conn.execute(select(admission.c.release_id)).scalars().all() == [prepared.release_id]
