@@ -271,8 +271,8 @@ def upgrade() -> None:
     info={'model_class': 'typed_value'}
     )
     op.create_index(op.f('ix_typed_value_realization_id_release_id_entity_id'), 'typed_value', ['realization_id', 'release_id', 'entity_id'], unique=False, schema='data')
-    op.create_index(op.f('ix_typed_value_realization_id_release_id_kind_numeric_value'), 'typed_value', ['realization_id', 'release_id', 'kind', 'numeric_value'], unique=False, schema='data')
-    op.create_index(op.f('ix_typed_value_realization_id_release_id_kind_text_value'), 'typed_value', ['realization_id', 'release_id', 'kind', 'text_value'], unique=False, schema='data')
+    op.create_index(op.f('ix_typed_value_realization_id_release_id_kind_numeric_value'), 'typed_value', ['realization_id', 'release_id', 'kind', 'numeric_value'], unique=False, schema='data', postgresql_where=sa.text('octet_length(numeric_value::text) <= 1024'))
+    op.create_index(op.f('ix_typed_value_realization_id_release_id_kind_text_value'), 'typed_value', ['realization_id', 'release_id', 'kind', 'text_value'], unique=False, schema='data', postgresql_where=sa.text('octet_length(text_value) <= 1024'))
     op.create_table('fact',
     sa.Column('realization_id', sa.Text(), nullable=False),
     sa.Column('release_id', sa.Text(), nullable=False),

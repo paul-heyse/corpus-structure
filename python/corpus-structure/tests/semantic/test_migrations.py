@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from decimal import Decimal
 from sqlalchemy import Engine, inspect, insert, text
 from sqlalchemy.exc import IntegrityError
 
@@ -43,6 +44,9 @@ def test_native_cross_realization_and_variant_constraints(semantic_db_engine: En
             conn.execute(insert(table('data.typed_value')).values(realization_id='ra',release_id='a',value_id='v',kind='entity',entity_id='e',text_value='hidden scalar'))
         conn.execute(insert(table('data.typed_value')).values(realization_id='ra',release_id='a',value_id='huge',kind='decimal',decimal_lexical='1e200000'))
         assert conn.scalar(text("SELECT decimal_lexical FROM data.typed_value WHERE value_id = 'huge'")) == '1e200000'
+        large = '1234567890' * 1000
+        conn.execute(insert(table('data.typed_value')).values(realization_id='ra',release_id='a',value_id='large-number',kind='decimal',decimal_lexical=large,numeric_value=Decimal(large)))
+        conn.execute(insert(table('data.typed_value')).values(realization_id='ra',release_id='a',value_id='large-text',kind='string',text_value=large))
         with pytest.raises(IntegrityError), conn.begin_nested():
             conn.execute(insert(table('data.typed_value')).values(realization_id='ra',release_id='a',value_id='fractional-integer',kind='integer',text_value='1',integer_value='1.5'))
 

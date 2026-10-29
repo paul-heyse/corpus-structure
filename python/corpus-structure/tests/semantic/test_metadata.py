@@ -85,3 +85,10 @@ def test_exact_decimal_projection_preserves_lexical_semantics() -> None:
     for lexical in ('NaN', 'Infinity', '1_000', ' 1', ''):
         with pytest.raises(ValueError):
             decimal_projection(lexical)
+
+
+def test_large_scalars_do_not_require_btree_index_entries() -> None:
+    indexes = {tuple(c.name for c in i.columns): i for i in table('data.typed_value').indexes}
+    for column, cast in [('text_value', ''), ('numeric_value', '::text')]:
+        index = indexes[('realization_id', 'release_id', 'kind', column)]
+        assert str(index.dialect_options['postgresql']['where']) == f'octet_length({column}{cast}) <= 1024'

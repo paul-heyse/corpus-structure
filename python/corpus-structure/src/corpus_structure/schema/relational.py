@@ -643,8 +643,12 @@ def _compile_physical(view: View) -> MetaData:
             table.append_constraint(ForeignKeyConstraint(local, target, info={"shared": tuple(local[:-1])}))
         for sql in json.loads(ann.get("ph:checks", "[]")):
             table.append_constraint(CheckConstraint(sql, name=check_name(table.name, "physical", sql)))
-        for columns in json.loads(ann.get("ph:indexes", "[]")):
-            Index(None, *(table.c[c] for c in columns))
+        for declaration in json.loads(ann.get("ph:indexes", "[]")):
+            if isinstance(declaration, dict):
+                Index(None, *(table.c[c] for c in declaration["columns"]),
+                      postgresql_where=text(declaration["where"]))
+            else:
+                Index(None, *(table.c[c] for c in declaration))
     return md
 
 

@@ -418,3 +418,15 @@ def test_registry_retains_abstract_and_native_entity_reference():
     assert target.range == 'Entity'
     assert target.inlined is False
     assert release.validate_json('EntityValue', '{"kind":"entity","target":"e"}').model_dump() == {'kind': 'entity', 'target': 'e'}
+
+
+def test_manifest_owns_supported_compiler_version():
+    from corpus_structure.semantic.types import SEMANTIC_COMPILER_VERSION, PreparationProfile
+
+    release = prepare_release(bundle())
+    assert json.loads(release.manifest)['profile']['compiler_version'] == SEMANTIC_COMPILER_VERSION
+    for unsupported in ('1', 'future', ''):
+        with pytest.raises(PreparationError) as err:
+            prepare_release(bundle(), profile=PreparationProfile(compiler_version=unsupported))
+        assert err.value.diagnostics[0].code == 'profile'
+        assert err.value.diagnostics[0].outcome == 'unsupported'

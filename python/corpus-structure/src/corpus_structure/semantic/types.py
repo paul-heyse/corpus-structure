@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, TypeAdapter
 
+SEMANTIC_COMPILER_VERSION = "2"  # abstract-class lowering is part of release identity
+
 
 @dataclass(frozen=True)
 class SourceArtifact:
@@ -51,7 +53,7 @@ class ResolvedDependencies:
 @dataclass(frozen=True)
 class PreparationProfile:
     version: str = "semantic-1"
-    compiler_version: str = "1"
+    compiler_version: str = SEMANTIC_COMPILER_VERSION
     constraint_scope: Literal["shape", "occurrence", "accepted_value", "context"] = "shape"
 
 

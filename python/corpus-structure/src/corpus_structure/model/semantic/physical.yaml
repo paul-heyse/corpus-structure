@@ -532,8 +532,9 @@ classes:
         "integer_value IS NULL OR kind = ''integer''", "CASE WHEN integer_value IS NULL THEN true ELSE
         integer_value = trunc(integer_value) AND integer_value = text_value::numeric END", "kind <> ''integer''
         OR text_value ~ ''^[+-]?[0-9]+$''"]'
-      ph:indexes: '[["realization_id", "release_id", "kind", "text_value"], ["realization_id", "release_id",
-        "kind", "numeric_value"], ["realization_id", "release_id", "entity_id"]]'
+      ph:indexes: '[{"columns": ["realization_id", "release_id", "kind", "text_value"], "where": "octet_length(text_value)
+        <= 1024"}, {"columns": ["realization_id", "release_id", "kind", "numeric_value"], "where": "octet_length(numeric_value::text)
+        <= 1024"}, ["realization_id", "release_id", "entity_id"]]'
   value_role:
     in_subset:
     - data

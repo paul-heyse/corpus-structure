@@ -29,6 +29,7 @@ from pydantic import (
 
 from .identity import canonical_bytes
 from .types import (
+    SEMANTIC_COMPILER_VERSION,
     ClassDefinition,
     Diagnostic,
     PreparationError,
@@ -335,7 +336,7 @@ def prepare_release(
     profile: PreparationProfile = _DEFAULT_PROFILE,
 ) -> PreparedRelease:
     """Prepare a complete interpretation. This does not persist, activate or enforce SQL rules."""
-    if profile.version != "semantic-1" or profile.compiler_version != "1":
+    if profile.version != "semantic-1" or profile.compiler_version != SEMANTIC_COMPILER_VERSION:
         _fail("profile", "profile", "unsupported profile", "unsupported")
     view = _view(bundle)
     supplied = {s.enum: s for s in dependencies.vocabularies}
