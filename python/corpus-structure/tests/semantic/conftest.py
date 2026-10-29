@@ -25,11 +25,11 @@ def semantic_db_engine() -> Iterator[Engine]:
     from corpus_structure.semantic.migrations import upgrade
 
     settings = Settings()
-    from sqlalchemy.engine import make_url
+    from corpus_structure.semantic.runtime import connection_settings
 
-    admin = create_engine(make_url(settings.database.maintenance_url).set(
-        drivername="postgresql+psycopg"
-    ), poolclass=NullPool)
+    admin = create_engine(
+        connection_settings(settings, "maintenance").database.sqlalchemy_url, poolclass=NullPool
+    )
     url = admin.url
     server = create_engine(url.set(database="postgres"), poolclass=NullPool)
     name = f"cs_sem_test_{os.getpid()}_{uuid4().hex[:12]}"
