@@ -365,3 +365,16 @@ def test_native_kernel_bindings_require_complete_exact_signatures(inputs):
         with pytest.raises(PreparationError) as error:
             compile_execution_model(changed(inputs,data))
         assert error.value.diagnostics[0].code==code
+
+
+def test_named_graph_operations_are_resolved_and_qualified(products):
+    projections = {p.id: p for p in products.projections}
+    graph = projections["graph_validation"]
+    assert graph.implementation == "graph_project"
+    assert graph.lifetime == "snapshot"
+    assert "bare_triple_entailment" in graph.omissions
+    operations = {o.id: o for o in products.operations}
+    assert operations["graph_validate"].inputs == ("QualifiedGraphProjection", "QualifiedGraphShapes")
+    assert operations["graph_validate"].outcomes == ("conformant", "nonconformant", "invalid")
+    assert approved_implementations()["graph_project"].__name__ == "qualified_validation_graph"
+    assert approved_implementations()["graph_validate"].__name__ == "validate_projected_graph"

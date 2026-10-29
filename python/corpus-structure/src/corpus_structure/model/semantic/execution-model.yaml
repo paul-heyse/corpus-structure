@@ -1924,6 +1924,109 @@ concepts:
     multivalued: false
   relationships:
   - captured_projection
+- id: QualifiedGraphNode
+  family: analytics
+  scope: snapshot
+  meaning: Explicit qualified node inside the required validation closure
+  identity: Release realization snapshot and node identity
+  attributes:
+  - name: node_id
+    range: text
+    required: true
+    multivalued: false
+  - name: references
+    range: QualifiedGraphReference
+    required: true
+    multivalued: true
+  relationships:
+  - graph_reference_target
+- id: QualifiedGraphReference
+  family: analytics
+  scope: snapshot
+  meaning: QualifiedGraphReference for qualified graph validation only
+  identity: Release, realization, snapshot and explicit node identity
+  attributes:
+  - name: target_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - graph_reference_target
+- id: QualifiedGraphProjection
+  family: analytics
+  scope: snapshot
+  meaning: QualifiedGraphProjection for qualified graph validation only
+  identity: Release, realization, snapshot and explicit node identity
+  attributes:
+  - name: release_id
+    range: text
+    required: true
+    multivalued: false
+  - name: realization_id
+    range: text
+    required: true
+    multivalued: false
+  - name: data_revision
+    range: integer
+    required: true
+    multivalued: false
+  - name: projection_id
+    range: text
+    required: true
+    multivalued: false
+  - name: references
+    range: QualifiedGraphReference
+    required: true
+    multivalued: true
+  - name: related_nodes
+    range: QualifiedGraphNode
+    required: true
+    multivalued: true
+  - name: assertions
+    range: QualifiedGraphNode
+    required: true
+    multivalued: true
+  relationships:
+  - graph_reference_target
+  - graph_projection_result
+- id: QualifiedGraph
+  family: analytics
+  scope: snapshot
+  meaning: QualifiedGraph for qualified graph validation only
+  identity: Release, realization, snapshot and explicit node identity
+  attributes:
+  - name: projection_id
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - graph_projection_result
+- id: QualifiedGraphShapes
+  family: analytics
+  scope: snapshot
+  meaning: QualifiedGraphShapes for qualified graph validation only
+  identity: Release, realization, snapshot and explicit node identity
+  attributes:
+  - name: content
+    range: bytes
+    required: true
+    multivalued: false
+  relationships: []
+- id: GraphValidation
+  family: analytics
+  scope: snapshot
+  meaning: GraphValidation for qualified graph validation only
+  identity: Release, realization, snapshot and explicit node identity
+  attributes:
+  - name: conforms
+    range: boolean
+    required: true
+    multivalued: false
+  - name: report
+    range: bytes
+    required: true
+    multivalued: false
+  relationships: []
 relationships:
 - id: bundle_contains
   kind: ownership
@@ -3524,6 +3627,71 @@ relationships:
   reference_scope: execution
   invariants:
   - exact_replay
+- id: graph_reference_target
+  kind: reference
+  direction: directed
+  endpoints:
+  - role: projection
+    concept: QualifiedGraphProjection
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: reference
+    concept: QualifiedGraphReference
+    minimum: 0
+    ordered: false
+    unresolved: false
+  - role: target
+    concept: QualifiedGraphNode
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Required referenced-node closure within one bound snapshot
+  identity_kind: ordered_roles
+  identity_roles:
+  - projection
+  - reference
+  identity_context:
+  - release
+  - realization
+  - snapshot
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - projection_fidelity
+- id: graph_projection_result
+  kind: reference
+  direction: directed
+  endpoints:
+  - role: projection
+    concept: QualifiedGraphProjection
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: graph
+    concept: QualifiedGraph
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: Required referenced-node closure within one bound snapshot
+  identity_kind: ordered_roles
+  identity_roles:
+  - projection
+  - graph
+  identity_context:
+  - release
+  - realization
+  - snapshot
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - projection_fidelity
 invariants:
 - id: qualified_reference
   meaning: Persisted scoped references retain release and realization; no global local-key joins
@@ -4939,6 +5107,54 @@ operations:
   - task_release_claim
   - task_release_claim_held
   projections: []
+- id: graph_project
+  inputs:
+  - QualifiedGraphProjection
+  results:
+  - QualifiedGraph
+  applicability:
+  - projection_fidelity
+  universe: Complete typed referenced-node closure of one release/realization/snapshot
+  effects: []
+  outcomes:
+  - projected
+  - invalid
+  outcome_domain: graph_validation
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact typed literals; no numerical widening or bare-triple entailment
+  implementation: graph_project
+  transitions: []
+  projections:
+  - graph_validation
+- id: graph_validate
+  inputs:
+  - QualifiedGraphProjection
+  - QualifiedGraphShapes
+  results:
+  - GraphValidation
+  applicability:
+  - projection_fidelity
+  universe: Complete typed referenced-node closure of one release/realization/snapshot
+  effects: []
+  outcomes:
+  - conformant
+  - nonconformant
+  - invalid
+  outcome_domain: graph_validation
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact typed literals; no numerical widening or bare-triple entailment
+  implementation: graph_validate
+  transitions: []
+  projections:
+  - graph_validation
 implementations:
 - id: prepare
   owner: semantic.prepare
@@ -5433,6 +5649,37 @@ implementations:
   - release_current_attempt_preserving_held_progress
   required_capabilities:
   - execution.lifecycle.v1
+- id: graph_project
+  owner: semantic.ontology
+  symbol: qualified_validation_graph
+  version: '1'
+  placement: graph
+  input_concepts:
+  - QualifiedGraphProjection
+  result_concepts:
+  - QualifiedGraph
+  features:
+  - qualified_nodes
+  - typed_reference_closure
+  - reified_shacl_paths
+  effects: []
+  required_capabilities: []
+- id: graph_validate
+  owner: semantic.ontology
+  symbol: validate_projected_graph
+  version: '1'
+  placement: graph
+  input_concepts:
+  - QualifiedGraphProjection
+  - QualifiedGraphShapes
+  result_concepts:
+  - GraphValidation
+  features:
+  - qualified_nodes
+  - typed_reference_closure
+  - reified_shacl_paths
+  effects: []
+  required_capabilities: []
 projections:
 - id: occurrence
   sources:
@@ -5612,6 +5859,28 @@ projections:
   completeness: Declared knowledge universe independent of output-page filtering
   lifetime: transaction
   implementation: publish_arrow
+- id: graph_validation
+  sources:
+  - QualifiedGraphProjection
+  - QualifiedGraphReference
+  relationships:
+  - graph_reference_target
+  - graph_projection_result
+  universe: Required typed reference closure independent of output filtering
+  preserves:
+  - release_realization_identity
+  - qualification
+  - source_multiplicity
+  - null_vs_absent
+  - ordered_member_positions
+  omissions:
+  - bare_triple_entailment
+  - concurrent_transition_authority
+  precision: Exact source/canonical literals; no wider arithmetic claim
+  collections: Explicit sequence/bag members retain identity and positions
+  completeness: All typed references must resolve inside bound closure
+  lifetime: snapshot
+  implementation: graph_project
 lifecycles:
 - id: run
   subject: Run
@@ -6950,6 +7219,13 @@ outcome_domains:
 - id: domain_policy
   authority: release
   values: []
+- id: graph_validation
+  authority: code
+  values:
+  - projected
+  - conformant
+  - nonconformant
+  - invalid
 outcome_translations:
 - source_domain: source_coverage
   source: complete
