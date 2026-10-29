@@ -702,6 +702,45 @@ def prepare_release(
         RegistryRow("identity", d.name, canonical_bytes({"groups": d.identity_groups}))
         for d in definitions
     )
+    # Rule declarations are normalized once, from the same resolved LinkML authority.
+    # A runtime cannot silently reinterpret installed schemas or change rule versions.
+    rule_products: dict[str, RegistryRow] = {}
+    hierarchy: set[tuple[str, str]] = set()
+    for definition in definitions:
+        for prop in definition.properties:
+            declared = view.get_slot(prop.name)
+            if declared is not None:
+                for ancestor in view.slot_ancestors(prop.name, reflexive=False):
+                    parent = view.get_slot(ancestor)
+                    if parent is not None:
+                        hierarchy.add((prop.iri, str(view.get_uri(parent, expand=True))))
+            candidates = []
+            if prop.inverse:
+                inverse = view.get_slot(prop.inverse)
+                if inverse is None:
+                    _fail("inverse_property", prop.name, "inverse names an undeclared slot")
+                candidates.append(("inverse", str(view.get_uri(inverse, expand=True))))
+            if prop.symmetric:
+                candidates.append(("symmetric", None))
+            if prop.transitive:
+                candidates.append(("transitive", None))
+            candidates.extend(("subproperty", target) for child, target in hierarchy if child == prop.iri)
+            for kind, target in candidates:
+                body = {"kind": kind, "predicate": prop.iri}
+                if target is not None:
+                    body["target"] = target
+                digest = sha256(canonical_bytes(body)).hexdigest()
+                rule_id = "rule:" + digest
+                rule_products[rule_id] = RegistryRow(
+                    "inference_rule", rule_id,
+                    canonical_bytes({**body, "rule_id": rule_id, "rule_version": digest}),
+                )
+    rows += tuple(
+        RegistryRow("property_hierarchy", child + " -> " + parent,
+                    canonical_bytes({"property": child, "ancestor": parent}))
+        for child, parent in sorted(hierarchy)
+    )
+    rows += tuple(rule_products[key] for key in sorted(rule_products))
     rows += tuple(RegistryRow("enum", v.enum, canonical_bytes(asdict(v))) for v in vocabularies)
     return PreparedRelease(
         release_id,
