@@ -312,3 +312,13 @@ def test_required_collection_is_nonempty_in_boundary_and_definition():
     prop = next(p for p in release.definitions[0].properties if p.name == "label")
     assert prop.minimum_cardinality == 1
     release.validate_json("Thing", '{"id":"A","label":["value"]}')
+
+
+def test_abstract_boundary_uses_concrete_union():
+    root = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    release = prepare_release(SourceBundle("core", (SourceArtifact("core", root.read_bytes()),)))
+    assert release.validate_json("Value", '{"kind":"number","number":"2.5"}').model_dump()[
+        "number"
+    ] == Decimal("2.5")
+    with pytest.raises(ValidationError):
+        release.validate_json("Value", '{"kind":"garbage"}')

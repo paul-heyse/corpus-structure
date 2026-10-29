@@ -396,7 +396,7 @@ def prepare_release(
         )
     enum_types = {s.enum: _LITERAL[tuple(m.value for m in s.members)] for s in vocabularies}
     definitions: list[ClassDefinition] = []
-    classes = view.all_classes()
+    classes = {str(name): cls for name, cls in view.all_classes().items()}
     models: dict[str, Any] = {}
     for name in sorted(classes):
         cls = classes[name]
@@ -533,9 +533,12 @@ def prepare_release(
                 groups,
             )
         )
-        models[name] = create_model(
-            name, __config__=ConfigDict(frozen=True, extra="forbid", strict=True), **fields
-        )
+        try:
+            models[name] = create_model(
+                name, __config__=ConfigDict(frozen=True, extra="forbid", strict=True), **fields
+            )
+        except Exception as exc:
+            _fail("boundary", name, str(exc))
     try:
         for model in models.values():
             model.model_rebuild(_types_namespace=models)
@@ -567,7 +570,23 @@ def prepare_release(
     artifacts = [
         PreparedArtifact("definitions.json", canonical_bytes([asdict(d) for d in definitions]))
     ]
-    adapters = tuple((name, TypeAdapter(model)) for name, model in sorted(models.items()))
+
+    def boundary(name: str, model: Any) -> Any:
+        if classes[name].abstract:
+            concrete = [
+                models[n]
+                for n in view.class_descendants(name, reflexive=False)
+                if not classes[n].abstract
+            ]
+            if not concrete:
+                _fail("abstract_range", name, "abstract boundary has no concrete members")
+            try:
+                return TypeAdapter(_ANNOTATED[reduce(or_, concrete), Field(discriminator="kind")])
+            except Exception as exc:
+                _fail("abstract_discriminator", name, str(exc), "unsupported")
+        return TypeAdapter(model)
+
+    adapters = tuple((name, boundary(name, model)) for name, model in sorted(models.items()))
     for name, adapter in adapters:
         artifacts.append(
             PreparedArtifact(f"json_schema/{name}", canonical_bytes(adapter.json_schema()))
