@@ -29,7 +29,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from pydantic import JsonValue
-from sqlalchemy import Connection, text
+from sqlalchemy import Connection, text, select
+from corpus_structure.core.db import metadata
 
 from corpus_structure.core.canonical import canonical_json, digest
 from corpus_structure.core.vocab import TaskStatus
@@ -101,14 +102,24 @@ def coverage(conn: Connection, run_id: int, scope: Scope) -> Coverage:
         else:
             reason = f.reason.value if f.reason is not None else f.fate
             skipped[reason] = skipped.get(reason, 0) + 1
+    e, seg, rr = (metadata.tables[n] for n in ('kb.entity', 'kb.segment', 'kb.run_rendition'))
+    stmt = select(e.c.id).where(e.c.run_id == run_id, e.c.type == 'core:ExternalReference', e.c.resolved_to_id.is_(None))
+    if scope.kind == 'documents':
+        stmt = stmt.join(seg, seg.c.id == e.c.scope_segment_id).join(rr, (rr.c.rendition_id == seg.c.rendition_id) & (rr.c.run_id == run_id)).where(rr.c.document_id.in_(scope.documents))
+    elif scope.kind == 'units':
+        # Fate keys correspond to unit anchors; offsets locate references within those units.
+        task = metadata.tables['ops.task']
+        stmt = stmt.join(seg, seg.c.id == e.c.scope_segment_id).where(seg.c.id.in_(select(task.c.unit_id).where(task.c.run_id == run_id, task.c.unit_key.in_(scope.unit_keys))))
+    unresolved_references = len(list(conn.execute(stmt).scalars()))
     return Coverage(
+        unresolved_references=unresolved_references,
         scope=scope.kind,
         eligible=len(found),
         extracted=extracted,
         skipped=dict(sorted(skipped.items())),
         failed=failed,
         unresolved=unresolved,
-        partial=bool(skipped or failed or unresolved),
+        partial=bool(skipped or failed or unresolved or unresolved_references),
     )
 
 
@@ -119,7 +130,7 @@ def params_digest(params: Mapping[str, Any]) -> str:
     return digest(dict(params))
 
 
-def encode_token(run_id: int, query: DomainQuery, params: Mapping[str, Any], position: int) -> str:
+def encode_token(run_id: int, query: DomainQuery, params: Mapping[str, Any], position: JsonValue) -> str:
     body = {
         "run": run_id,
         "query": query.name,
@@ -161,7 +172,7 @@ def serve_query(
     query = registry[name]
     p = query.params.model_validate(dict(params or {}))
     dumped: dict[str, JsonValue] = p.model_dump(mode="json")
-    position = 0
+    position: JsonValue = None
     if page_token is not None:
         body = decode_token(page_token)
         if body["query"] != query.name:
@@ -177,7 +188,7 @@ def serve_query(
             run_id = check_finished(conn, int(body["run"]))
         except QueryRefused as error:
             raise StaleToken(f"stale token: {error}") from None
-        position = int(body["position"])
+        position = body["position"]
     else:
         if run == PROMOTED and project_id is None:
             raise QueryRefused("a promoted run needs its project")
@@ -187,30 +198,39 @@ def serve_query(
             else check_finished(conn, int(run))
         )
     ctx = QueryContext(run_id, conn)
+    for bound in (max_rows, max_chars):
+        if bound is not None and bound <= 0:
+            raise QueryRefused("page bounds must be positive")
     rows: list[dict[str, JsonValue]] = []
-    chars = 0
-    more = False
-    for i, row in enumerate(query.rows(ctx, p)):
-        if i < position:
-            continue
-        item = row.model_dump(mode="json")
-        size = len(json.dumps(item, ensure_ascii=False))
-        full = (max_rows is not None and len(rows) >= max_rows) or (
-            max_chars is not None and rows and chars + size > max_chars
-        )
-        if full:
-            more = True
-            break
-        rows.append(item)
-        chars += size
-    token = encode_token(run_id, query, dumped, position + len(rows)) if more else None
-    return QueryResult(
-        run_id=run_id,
-        query=query.name,
-        version=query.version,
-        params=dumped,
-        coverage=coverage(conn, run_id, query.scope(ctx, p)),
-        rows=rows,
-        next_page_token=token,
-        truncated=more,
-    )
+    scope = query.scope(ctx, p)
+    cov = coverage(conn, run_id, scope)
+    # Query-owned cursor: no replay or hydration of a previous page's prefix.
+    def response(more: bool, cursor: JsonValue) -> QueryResult:
+        return QueryResult(run_id=run_id, query=query.name, version=query.version,
+            params=dumped, coverage=cov, rows=rows,
+            next_page_token=encode_token(run_id, query, dumped, cursor) if more else None,
+            truncated=more)
+    cursor = position
+    iterator = query.rows(ctx, p, after=position)
+    try:
+        for found in iterator:
+            if max_rows is not None and len(rows) >= max_rows:
+                return response(True, cursor)
+            item = found.row.model_dump(mode="json")
+            rows.append(item)
+            # Reserve the continuation envelope too, even for a last row.
+            candidate = response(True, found.position)
+            if max_chars is not None and len(candidate.model_dump_json()) > max_chars:
+                rows.pop()
+                if not rows:
+                    raise QueryRefused("size limit: a complete row and response envelope do not fit; raise max_chars")
+                return response(True, cursor)
+            cursor = found.position
+    finally:
+        close = getattr(iterator, "close", None)
+        if close is not None:
+            close()
+    result = response(False, cursor)
+    if max_chars is not None and len(result.model_dump_json()) > max_chars:
+        raise QueryRefused("size limit: response envelope does not fit; raise max_chars")
+    return result
