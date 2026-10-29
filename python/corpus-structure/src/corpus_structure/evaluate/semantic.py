@@ -67,12 +67,33 @@ def _completed(conn,run_id,project_id=None):
 
 def _source_units(conn,run_id):
     """Units actually represented in the completed cut, including reused origin tasks."""
-    return conn.execute(text('''SELECT DISTINCT o.rendition_id,o.payload->>'unit_ref' AS unit_key,d.source_uri
+    return conn.execute(text('''SELECT DISTINCT o.rendition_id,o.payload->>'unit_ref' AS unit_key,d.source_uri,d.id AS document_id,segment.segment_key,segment.kind AS segment_kind,segment.attrs AS segment_attrs
       FROM ops.completed_result c JOIN ops.cut_task ct ON ct.cut_id=c.cut_id
       JOIN kb.observation o ON o.task_id=ct.origin_task_id
       JOIN kb.rendition r ON r.id=o.rendition_id JOIN kb.document d ON d.id=r.document_id
+      LEFT JOIN kb.segment segment ON segment.id=o.segment_id AND segment.rendition_id=o.rendition_id
       WHERE c.run_id=:run AND o.payload_definition='AgentStoredBatch'
         AND o.payload->>'unit_ref' IS NOT NULL ORDER BY unit_key,o.rendition_id'''),{'run':run_id}).mappings().all()
+
+def _reference_pool(conn:Connection,completed,units):
+    """One Core read of metric rows selected by this exact completed source cut."""
+    from .sampling import PoolUnit
+    measurements,cut=table('ops.measurement'),table('ops.cut_task')
+    rows=conn.execute(select(measurements.c.scope_key,measurements.c.value).join(cut,cut.c.origin_task_id==measurements.c.task_id).where(cut.c.cut_id==completed['cut_id'],measurements.c.metric=='segment.math_share',measurements.c.scope_type=='segment',measurements.c.scope_key.in_([u['segment_key'] for u in units if u['segment_key'] is not None]))).all()
+    shares={}
+    for key,value in rows:
+        if value is None:continue
+        if key in shares and shares[key]!=value:raise ReferenceError('completed source cut has conflicting math-share measurements')
+        shares[key]=value
+    result=[]
+    for unit in units:
+        attrs=unit['segment_attrs'] or {};hint=attrs.get('hint') or {}
+        if not isinstance(hint,Mapping):hint={}
+        kind=hint.get('statement_kind') or unit['segment_kind'] or 'narrative'
+        value=shares.get(unit['segment_key'])
+        if value is not None and not 0<=value<=1:raise ReferenceError('source math-share metric is outside its declared fraction range')
+        result.append(PoolUnit(unit['unit_key'],str(kind),float(value) if value is not None else None,document_id=unit['document_id'],rendition_id=unit['rendition_id']))
+    return result
 
 def evaluation_config(conn:Connection,release_id:str):
     """Only the exact archived policy is authoritative; installed pack files are never read."""
@@ -117,7 +138,7 @@ def _forced_slice_units(conn,release_id,pool,names):
     return tuple(sorted(forced))
 
 def create_reference_set(conn:Connection,*,project_id:str,source_run_id:int,label:str,split:str='dev',size:int|None=None,seed:int|None=None,guideline:str|None=None,forced:Sequence[str]=())->dict[str,Any]:
-    from .sampling import PoolUnit,sample
+    from .sampling import sample
     result=_completed(conn,source_run_id,project_id)
     release=load_release(conn,result['release_id'])
     config=evaluation_config(conn,release.release_id)
@@ -129,7 +150,7 @@ def create_reference_set(conn:Connection,*,project_id:str,source_run_id:int,labe
     forced=tuple(sorted(set(forced)|set(_forced_slice_units(conn,release.release_id,pool,config.golden.forced_slices if split=='dev' else ()))))
     requested_size=config.golden.sizes[split] if size is None else size
     if requested_size<=0:raise ReferenceError('reference sample size must be positive')
-    sampled=sample([PoolUnit(u['unit_key'],'source',0,rendition_id=u['rendition_id']) for u in pool],requested_size,config.split.seed if seed is None else seed,forced)
+    sampled=sample(_reference_pool(conn,result,pool),requested_size,config.split.seed if seed is None else seed,forced)
     if guideline is None:
         guideline=conn.scalar(select(table('ops.run').c.guideline).where(table('ops.run').c.id==source_run_id)) or 'independent-reference-v1'
     identity=_call(conn,'SELECT eval.create_reference_set(:p,:r,:run,:label,:split,:g,CAST(:sampling AS jsonb))',p=project_id,r=release.release_id,run=source_run_id,label=label,split=split,g=guideline,sampling=_json(sampled.sampling)).scalar_one()

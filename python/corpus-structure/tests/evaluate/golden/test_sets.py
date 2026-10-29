@@ -72,3 +72,13 @@ def test_permuting_the_pool_leaves_the_sample_unchanged(order: list[int], seed: 
     assert again == drawn
 
 
+
+
+def test_unknown_source_math_share_has_its_own_stratum_not_a_numeric_zero():
+    drawn=sample([PoolUnit('unknown','definition',None),PoolUnit('zero','definition',0.),PoolUnit('high','definition',1.)],3,7)
+    assert drawn.sampling['cut_points']==[0.,1.]
+    assert drawn.sampling['allocation']['definition/unknown']['pool']==1
+    assert drawn.sampling['allocation']['definition/t0']['pool']==1
+    all_unknown=sample([PoolUnit('one','paragraph',None)],1,0)
+    assert all_unknown.sampling['cut_points'] is None
+    assert set(all_unknown.sampling['allocation'])=={'paragraph/unknown'}

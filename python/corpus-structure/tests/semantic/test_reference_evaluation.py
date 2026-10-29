@@ -36,6 +36,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(semant
         with evaluator.begin() as conn:
             split_documents(conn,'resubmit')
             made=create_reference_set(conn,project_id='resubmit',source_run_id=run,label='independent',split='dev',size=1)
+            assert set(made['sampling']['allocation'])=={'paragraph/unknown'}
             uid=next(iter(made['units'].values()))
             raw=('  '+json.dumps(authored)+'\n').encode()
             a=record_pass(conn,unit_id=uid,pass_kind='A',actor='automated-reference-A',authored=raw,frame=frame)
