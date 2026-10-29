@@ -140,6 +140,13 @@ def equivalent(a,b,entity_map,claim_map=None,*,conditions=None,model:AlignmentMo
                         if 'claim' in item:item['claim']=claim_map.get(item['claim'],'unresolved:'+item['claim'])
                     result.append(item)
                 return sorted(result,key=canonical_bytes)
+            if model:
+                left_bindings=a.get('bindings',());right_bindings=b.get('bindings',())
+                if isinstance(left_bindings,dict):left_bindings=left_bindings.values()
+                if isinstance(right_bindings,dict):right_bindings=right_bindings.values()
+                left_bindings=sorted(left_bindings,key=lambda item:item['symbol']);right_bindings=sorted(right_bindings,key=lambda item:item['symbol'])
+                if len(left_bindings)!=len(right_bindings) or any(not equivalent(x,y,entity_map,claim_map,model=model,range_name='ExpressionBinding').equal for x,y in zip(left_bindings,right_bindings,strict=True)):
+                    return ValueDecision(False,'undecided','expression bindings differ or remain unresolved')
             if binding_meaning(a,True)!=binding_meaning(b,False):return ValueDecision(False,'undecided','expression bindings differ or remain unresolved')
             if canonical_bytes(a)==canonical_bytes(b):return ValueDecision(True,'canonical')
             from corpus_structure.methods.math import grammar

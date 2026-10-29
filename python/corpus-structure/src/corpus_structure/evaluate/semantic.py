@@ -256,7 +256,7 @@ def _prediction(conn,completed,unit,prepared):
     declarations=conn.execute(select(table('data.entity_source')).where(table('data.entity_source').c.realization_id==completed['output_realization_id'],table('data.entity_source').c.release_id==completed['release_id'],table('data.entity_source').c.observation_id.in_([o['id'] for o in observations]))).mappings().all()
     mappings={(r['observation_id'],r['local_id']):r['entity_id'] for r in declarations}
     batch:dict[str,Any]={'unit_ref':unit['unit_key'],'entities':[],'statements':[],'claims':[],'alternatives':[]}
-    known:dict[str,str]={};seen=set()
+    known:dict[str,str]={};seen=set();claim_aliases={}
     for observation in observations:
         source=observation['payload'];prefix=str(observation['id'])+'/'
         # Source-local identifiers are scoped before combining independent extraction reports.
@@ -274,6 +274,7 @@ def _prediction(conn,completed,unit,prepared):
             if c.get('statement'):c['statement']=ids.get(c['statement'],c['statement'])
             if fact in seen:
                 old=next(v for v in batch['claims'] if v['_fact_id']==fact)
+                claim_aliases[c['id']]=old['id']
                 old['evidence'].extend(e for e in c.get('evidence',()) if e not in old['evidence'])
                 continue
             seen.add(fact);c['_fact_id']=fact;batch['claims'].append(c)
@@ -288,6 +289,8 @@ def _prediction(conn,completed,unit,prepared):
     for group,claims in native_groups.items():
         if len(set(claims))>1:batch['alternatives'].append({'id':group,'members':sorted(set(claims))})
     for c in batch['claims']:c.pop('_fact_id',None)
+    batch=rewrite_references(prepared.definitions,'AgentStoredBatch',batch,{},claim_aliases)
+    for group in batch['alternatives']:group['members']=list(dict.fromkeys(claim_aliases.get(member,member) for member in group['members']))
     known.update((identity,identity) for identity in _external_ids(prepared,batch))
     return SemanticSide(unit['unit_key'],batch,known_ids=known)
 
