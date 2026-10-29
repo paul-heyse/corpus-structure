@@ -198,8 +198,8 @@ API is experimental.
 | Package | Scope | Prerequisites | Done when (closure evidence) | Closes (§11) |
 |---|---|---|---|---|
 | P0-P-Q5 | Probe Q-5; pins adbc-driver-postgresql 1.13 and pyarrow 26 in the scratch environment | none | Record finalized; loader and writer routes chosen | Q-5 |
-| P0-P-Q7 | Probe Q-7 | P0-D-2 (RC15 text) | A shuffled-order fixture gives equal partitions in both | Q-7, F03 |
-| P0-P-Q8 | Probe Q-8 (operator, 2026-10-28) | none (S4 pack files; probe environment plus a throwaway linkml-datalog environment and Soufflé) | Record finalized; the inference-layer decision and its declarations stated | Q-8 |
+| P0-P-Q7 | Probe Q-7: deferred to P2's merge test (operator, 2026-10-28) | P0-D-2 (RC15 text) | A shuffled-order fixture gives equal partitions in both, as part of P2 | Q-7, F03 |
+| P0-P-Q8 | Probe Q-8: withdrawn; the question moves to S1's pack vocabulary (operator, 2026-10-28) | — | — | Q-8 |
 | P0-P-1 | Pool contract; loader as of `cut_at`; T3 hydration; Python reference implementation; Arrow fixtures; determinism rules | P0-M-3, P0-M-4, P0-F-4, P0-P-Q5 | Fixture-local tests with no server; equal outputs across repeated loads | DA-009 (registry ids in pool metadata) |
 | P0-P-2 | DuckDB engine with the product pin and hold row; second implementation of the phase 0 set steps and the `views:` facts; set-equality harness | P0-P-1 | Both implementations give set-equal outputs and equal keys on the same fixtures | R09 (mechanism substitution) |
 | P0-P-3 | Bulk writer from generated schemas; `ci export` with `KV_METADATA` and VARIANT shredding; `referencing.Registry`; pgpq per Q-5 | P0-P-1, P0-P-2, P0-M-4, P0-C-1 | Export round trip keeps the schema and the registry ids; writer round trip lossless per class (T5) | DA-009, R10 |
