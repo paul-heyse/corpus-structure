@@ -97,6 +97,13 @@ _METADATA = {
     "see_also",
     "aliases",
     "from_schema",
+    "exact_mappings",
+    "close_mappings",
+    "broad_mappings",
+    "narrow_mappings",
+    "related_mappings",
+    "mappings",
+    "conforms_to",
 }
 _ALLOWED = {
     "classes": _METADATA
@@ -135,7 +142,7 @@ _ALLOWED = {
         "transitive",
         "annotations",
     },
-    "types": _METADATA | {"typeof", "base", "uri", "pattern", "annotations"},
+    "types": _METADATA | {"typeof", "base", "uri", "repr", "pattern", "annotations"},
     "enums": _METADATA
     | {
         "permissible_values",
@@ -166,6 +173,13 @@ def _inspect(value: Any, location: str) -> None:
             if key in _UNSUPPORTED and item:
                 _fail("unsupported_construct", child, f"{key} is outside semantic-1", "unsupported")
             if key == "annotations":
+                if item and parent not in {"slots", "attributes", "slot_usage"}:
+                    _fail(
+                        "unsupported_annotation_placement",
+                        child,
+                        "semantic annotations are supported only on properties",
+                        "unsupported",
+                    )
                 for annotation in item or {}:
                     if annotation not in _SAFE_ANNOTATIONS:
                         _fail("unsupported_annotation", child, str(annotation), "unsupported")
@@ -243,7 +257,8 @@ def _view(bundle: SourceBundle) -> SchemaView:
             if str(imp) not in schemas:
                 _fail("missing_import", source, f"import {imp} is not supplied", "unresolved")
     view = SchemaView(schemas[bundle.root])
-    mapping = {SchemaDefinitionName(k): v for k, v in schemas.items()}
+    # Import keys can be CURIEs/URLs although SchemaView annotates them as NCNames.
+    mapping = {cast(SchemaDefinitionName, k): v for k, v in schemas.items()}
     mapping[SchemaDefinitionName(str(schemas[bundle.root].name))] = schemas[bundle.root]
     view.schema_map = mapping
     view.imports_closure()
@@ -593,7 +608,9 @@ def prepare_release(
         )
     from .ontology import build_graph_artifacts
 
-    for kind, content in sorted(build_graph_artifacts(view).items()):
+    for kind, content in sorted(
+        build_graph_artifacts(view, default_constraint_scope=profile.constraint_scope).items()
+    ):
         artifacts.append(PreparedArtifact(kind, content))
     rows = tuple(RegistryRow("class", d.name, canonical_bytes(asdict(d))) for d in definitions)
     rows += tuple(

@@ -322,3 +322,40 @@ def test_abstract_boundary_uses_concrete_union():
     ] == Decimal("2.5")
     with pytest.raises(ValidationError):
         release.validate_json("Value", '{"kind":"garbage"}')
+
+
+def test_actual_builtin_linkml_types_are_explicit_manifest_dependencies():
+    from importlib.resources import files
+
+    native = files("linkml_runtime").joinpath("linkml_model/model/schema/types.yaml").read_bytes()
+    root = yaml.safe_dump(
+        {
+            "id": "https://example.org/root",
+            "name": "root",
+            "prefixes": {"ex": "https://example.org/"},
+            "default_prefix": "ex",
+            "imports": ["linkml:types"],
+            "classes": {"Thing": {"attributes": {"name": {"range": "string", "required": True}}}},
+        }
+    ).encode()
+    release = prepare_release(
+        SourceBundle("root", (SourceArtifact("root", root), SourceArtifact("linkml:types", native)))
+    )
+    assert release.validate_json("Thing", '{"name":"native"}').model_dump() == {"name": "native"}
+    definition = release.definitions[0]
+    assert definition.iri == "https://example.org/Thing"
+    assert definition.properties[0].range == "string"
+    type_row = next(r for r in release.registry_rows if r.kind == "type" and r.name == "string")
+    assert json.loads(type_row.body)["uri"] == "xsd:string"
+    assert json.loads(type_row.body)["exact_mappings"] == ["schema:Text"]
+    assert ["linkml:types", SourceArtifact("linkml:types", native).digest] in json.loads(
+        release.manifest
+    )["sources"]
+
+
+def test_known_annotation_on_unsupported_host_refuses():
+    with pytest.raises(PreparationError) as error:
+        prepare_release(
+            bundle(lambda d: d["classes"]["Thing"].update(annotations={"cs:case": "casefold"}))
+        )
+    assert error.value.diagnostics[0].code == "unsupported_annotation_placement"
