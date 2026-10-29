@@ -161,6 +161,8 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
             "identity_slot",
             "vocabulary_member",
             "registry_row",
+            "conditional_rule",
+            "conditional_atom",
         )
     }
     properties: dict[str, str] = {}
@@ -225,6 +227,21 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
         {"release_id": rid, "kind": row.kind, "name": row.name, "body": row.body}
         for row in prepared.registry_rows
     ]
+    for artifact in prepared.artifacts:
+        if artifact.kind != "conditional_rules_native.json":
+            continue
+        for rule in json.loads(artifact.content):
+            rows["conditional_rule"].append(
+                {"release_id": rid, "rule_id": rule["rule_id"],
+                 "class_id": rule["class_id"], "scope": rule["scope"]}
+            )
+            for branch, atoms in rule["branches"].items():
+                rows["conditional_atom"].extend(
+                    {"release_id": rid, "rule_id": rule["rule_id"], "branch": branch,
+                     "position": position, "property_name": atom["property"],
+                     "presence": atom["presence"], "choices": atom["choices"]}
+                    for position, atom in enumerate(atoms)
+                )
     return rows
 
 
