@@ -3,45 +3,43 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Increment and slice
 
-- **Current direction:** the operator paused production implementation and requested a complete
-  semantic PostgreSQL/LinkML/ontology pivot, with clean regeneration and no historical compatibility.
-- **Review completed (Proposed):** [functional-extension review](docs/functional_reviews/semantic-postgresql-model_2026-10-29.md)
-  and [target-model companion](docs/functional_reviews/semantic-postgresql-model_2026-10-29_target-model.md).
-  They recommend immutable semantic releases, a stable qualified-assertion/typed-value core,
-  explicit ontology dependencies, transactional admission and model-governed consumers.
-  These are recommendations; no production pivot or ADR supersession has been implemented.
-- **Inspected production baseline:** `7855c4a`, with existing dirty consolidation/packet/trace work.
-  Source includes query work beyond the previous checkpoint. Pending worktree commits were not
-  integrated. No assembled qualification of that implementation is claimed here.
-- **Active plans retained:** [design-phase](docs/plans/design-phase_2026-10-28.md),
-  [spike series](docs/plans/design-spikes-s0-s1_2026-10-28.md),
-  [phase 0](docs/plans/phase-0_2026-10-28.md); [roadmap](docs/plans/roadmap-phases-1-5_2026-10-28.md).
-- **Decisions still in force:** ADR-0010–0015, 0018–0023; review RC01–RC04 propose changes through
-  subsequent plan/decision routes. Existing plans and evidence are preserved.
+- **New pivot plan series created:** [coordinator](docs/plans/semantic-model-pivot_2026-10-29.md)
+  plus six supporting plans. O01–O06 are scheduled; RC01–RC04 were explicitly accepted for
+  planning on 2026-10-29. Production execution has not started; ADR changes are scheduled.
+- Target: immutable LinkML/ontology releases, a stable qualified-assertion/typed-value PostgreSQL
+  core, protected publication, model-governed consumers and lossless Arrow/DuckDB execution.
+  SQLAlchemy Core/MetaData is central; pglast, Alembic and Pydantic/Settings have explicit roles.
+- **Source inputs:** [review](docs/functional_reviews/semantic-postgresql-model_2026-10-29.md)
+  and [target](docs/functional_reviews/semantic-postgresql-model_2026-10-29_target-model.md), `5ba9a5c`.
+  Current code already uses psycopg-pool with SQLAlchemy NullPool; the plan preserves it.
+- **Production baseline:** `7855c4a` plus preserved dirty consolidation/packet/trace changes.
+  Pending worktree changes were not integrated. No production changes or dependencies were made.
+- **Existing plan scopes remain unchanged:** [design-phase](docs/plans/design-phase_2026-10-28.md),
+  [spikes](docs/plans/design-spikes-s0-s1_2026-10-28.md),
+  [phase 0](docs/plans/phase-0_2026-10-28.md) and [roadmap](docs/plans/roadmap-phases-1-5_2026-10-28.md).
+  Accepted ADRs remain in force until the scheduled decision work changes them.
 
-## Last verified (2026-10-29; review documentation only)
+## Last verified (2026-10-29; plan documents only)
 
 | Command | Outcome and scope |
 |---|---|
-| `just docs-check` | `failed`: supplied `docs/semantic_postgresql_model.md` lacks title/H1; ADR lint and agent lint passed before publication stopped |
-| `uv run --no-project --offline --no-python-downloads python` (scoped H1/local-link check) | `passed`: all 3 changed documents and 16 local links/fragments |
-| `just turn-end` | `passed` (exit status); emitted existing lint diagnostics; incidental Python formatting/fixes reverted to preserve paused source |
-| `just test-all`, `just hygiene` | `not_run`: no product implementation in this review; paused production remains unqualified by this turn |
+| `uv run --no-project --offline --no-python-downloads python /tmp/check-semantic-pivot-plans.py` | `passed`: 7 plans, 51 local links/fragments, 11 unique package anchors and titles |
+| `just docs-check` | `failed`: supplied `docs/semantic_postgresql_model.md` lacks title/H1; ADR and agent lint passed before publication stopped |
+| `just turn-end` | `passed` exit status; existing lint diagnostics remain; incidental source formatting/fixes reverted to preserve paused work |
+| `just test-all`, `just hygiene` | `not_run`: plan creation only; no production qualification claimed |
 
 ## Known failures, blocks and decisions
 
 - The [phase 0 coordinator §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition)
-  remains the single owner of scheduled alignment findings; this review closes none.
-- The previous checkpoint's build/qualification inventory is stale relative to landed and dirty
-  source. Reconcile it against the chosen pivot before resuming implementation; do not infer
-  completion from old plan headers or historical focused test receipts.
-- Exact library-stack compatibility, supported generator/inference coverage, qualified RDF
-  mappings and transactional publication behavior remain implementation acceptance obligations,
-  bounded in the review. No dependency was installed or changed.
+  remains the existing finding-disposition owner; no old finding was closed or transferred.
+- The pivot series owns its new packages only. Old execution inventories remain subject to
+  reconciliation; this turn does not resume or complete their unfinished feature scope.
+- Exact library compatibility and executable ontology/constraint coverage are SP-00/SP-01
+  obligations; race-safe publication and qualified mappings require native package evidence.
 
 ## Next
 
-- Select the integrated review recommendations for plan creation, including its RC01–RC04
-  decision impacts. Amend architectural owners through ADRs and reconcile phase 0 scope explicitly.
-- Plan the clean regeneration implementation and native acceptance from the target's journeys.
-  Keep production work paused until that scope and authority change are resolved.
+- When production execution is authorized, start SP-00 at the new coordinator: architectural
+  decisions, supported-profile contracts and exact library compatibility disposition.
+- Follow the early SP-01 → SP-02 → SP-03 → SP-04 declaration/write/query journey before broad
+  consumer migration. Clean regeneration, retirement and full qualification follow working scope.
