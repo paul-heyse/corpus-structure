@@ -660,7 +660,7 @@ class ReadSession:
                                     "ops.task_result", "ops.measurement", "ops.method_config", "ops.method"))
         stmt = (select(result.c.body, task.c.id.label("task_id"), task.c.run_id,
                        task.c.invocation_key, task.c.input_hash, task.c.unit_key,
-                       measurement.c.id.label("measurement_id"), measurement.c.metric,
+                       measurement.c.id.label("measurement_id"), measurement.c.source_position, measurement.c.metric,
                        measurement.c.scope_type, measurement.c.scope_id, measurement.c.scope_key,
                        method.c.name.label("method"), method.c.version.label("operation_version"),
                        config.c.config_hash.label("configuration_hash"))
@@ -678,11 +678,13 @@ class ReadSession:
             stmt = stmt.where(measurement.c.metric == metric)
         records = []
         for row in self.connection.execute(stmt).mappings():
-            candidates = [item for item in row["body"].get("measurements", ())
-                          if all(item.get(key) == row[key] for key in ("metric", "scope_type", "scope_id", "scope_key"))]
-            if len(candidates) != 1:
-                raise ValueError("measurement source binding is missing or ambiguous")
-            source = candidates[0]
+            position = row["source_position"]
+            source_items = row["body"].get("measurements", ())
+            if type(position) is not int or not 0 <= position < len(source_items):
+                raise ValueError("measurement lacks an exact source position")
+            source = source_items[position]
+            if any(source.get(key) != row[key] for key in ("metric", "scope_type", "scope_id", "scope_key")):
+                raise ValueError("measurement differs from its protected source position")
             definition = definitions.get(row["metric"])
             if definition is None:
                 raise ValueError("measurement names an unresolved metric")
@@ -696,7 +698,7 @@ class ReadSession:
                                                      "configuration_hash", "input_hash", "unit_key", "run_id", "task_id")}
             producer["release_id"] = self.binding.release_id
             records.append(self.prepared.validate_json("SourceBoundMeasurement", json.dumps({
-                "metric": definition, "subject": subject, "producer": producer,
+                "source_position": position, "metric": definition, "subject": subject, "producer": producer,
                 "value": source["value"], "detail": source["detail"]})))
         return tuple(records)
 

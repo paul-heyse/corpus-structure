@@ -111,6 +111,7 @@ classes:
       unit_key: {required: true}
   SourceBoundMeasurement:
     attributes:
+      source_position: {range: integer, minimum_value: 0, required: true}
       metric: {range: SourceMetricDefinition, required: true, inlined: true}
       subject: {range: SourceMeasurementSubject, required: true, inlined: true}
       producer: {range: SourceMeasurementProducer, required: true, inlined: true}
