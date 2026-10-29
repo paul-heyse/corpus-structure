@@ -21,11 +21,12 @@ from corpus_structure.semantic.proposals import proposal_inputs,locate_proposal,
 from corpus_structure.semantic.releases import persist_release
 
 
-def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False,formulas=(),known=False,local_known=False,nary=False,broken=False,claim_chain=False,cycle=False):
+def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False,formulas=(),known=False,local_known=False,nary=False,broken=False,claim_chain=False,cycle=False,condition=None,two_reports=False,authored_alternative=False):
     core=Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml'
     schema={'id':'https://example.org/domain','name':'domain','imports':['semantic_core'],
         'prefixes':{'ex':'https://example.org/'},'default_prefix':'ex',
         'classes':{'Person':{'is_a':'Entity','attributes':{'name':{'range':'string'}}}}}
+    if two_reports:schema['classes']['Person']['annotations']={'cs:scope':'global','cs:case':'preserve'}
     if known:
         schema['classes']['Person']['unique_keys']={'by_name':{'unique_key_slots':['name']}}
     if graph:
@@ -65,7 +66,7 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
                           'extract',{},'config')
         task=create_task(conn,run_id=run,config_id=cid,stage='propose',unit_type='document',unit_id=document,
                          unit_key='page#one',input_hash='input')
-        claim=claim_tasks(conn,run_id=run,config_id=cid,holder='worker')[0]
+        lease=claim_tasks(conn,run_id=run,config_id=cid,holder='worker')[0]
         content=RenditionContent(canonical_text='Alice is here.',document=Segment(kind=SegmentKind.DOCUMENT,start=0,end=14))
         rid=store_rendition(conn,run_id=run,document_id=document,content=content,task_id=task,config_id=cid,parse_detail={})
     raw={'unit_ref':'page#one','entities':[{'id':'person','class_iri':'https://example.org/Person','label':'Alice'}],
@@ -102,11 +103,24 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
         base=raw['claims'][0]
         raw['claims']=[{**base,'id':'a','qualification':{**base['qualification'],'condition':{'kind':'claim','ref':'b'}}},
             {**base,'id':'b','qualification':{**base['qualification'],'condition':{'kind':'claim','ref':'a'}}}]
+    if two_reports:raw['claims'][0]['object']['bindings']=[{'symbol':'x','kind':'free'}]
+    if authored_alternative:raw['alternatives']=[{'id':'choice','members':[c['id'] for c in raw['claims']],'faithful':True,'reason':'source explicitly contrasts these possibilities'}]
+    if condition is not None:
+        for claim in raw['claims']:claim['qualification']={**claim['qualification'],'condition':condition}
     located=locate_proposal(prepared,raw,ProposalFrame('page#one','Alice is here.',(ProposalSentence('s1','page#sentence',0,14),)),**({'known_classes':{'known:alice':('https://example.org/Person',)}} if known else {}))
     with writer.begin() as conn:
-        complete_task(conn,task_id=task,attempt=claim['attempt'],holder='worker',prepared=prepared,
+        complete_task(conn,task_id=task,attempt=lease['attempt'],holder='worker',prepared=prepared,
             observations=[{'payload_definition':'AgentStoredBatch','item_key':'proposal','kind':'claim_proposal',
                            'payload':located.stored.model_dump(mode='python'),'rendition_id':rid}])
+        if two_reports:
+            import copy
+            second=copy.deepcopy(raw)
+            second['claims'][0]['object']['bindings']=[{'symbol':'x','kind':'constant'}]
+            second_located=locate_proposal(prepared,second,ProposalFrame('page#one','Alice is here.',(ProposalSentence('s1','page#sentence',0,14),)))
+            second_config=record_method(conn,SimpleNamespace(name='agent.opus',version='1',family='agent',tier='agent',confidence_source='agent'),'extract',{'variant':'second'},'config-second')
+            second_task=create_task(conn,run_id=run,config_id=second_config,stage='propose',unit_type='document',unit_id=document,unit_key='page#one',input_hash='input-second')
+            second_lease=claim_tasks(conn,run_id=run,config_id=second_config,holder='worker')[0]
+            complete_task(conn,task_id=second_task,attempt=second_lease['attempt'],holder='worker',prepared=prepared,observations=[{'payload_definition':'AgentStoredBatch','item_key':'proposal','kind':'claim_proposal','payload':second_located.stored.model_dump(mode='python'),'rendition_id':rid}])
         cut=seal_cut(conn,run,'final',final=True)
     return prepared,run,cut
 
@@ -289,3 +303,53 @@ def test_cyclic_claim_reference_stays_explicit_unresolved_report(semantic_db_eng
     with semantic_writer_engine.connect() as conn:
         assert not conn.execute(select(table('data.fact'))).first()
         assert 'cyclic source claim reference' in conn.execute(select(table('data.coverage').c.reason)).scalars().all()
+
+
+@pytest.mark.parametrize('operator',['compare','not'])
+def test_scientific_restriction_profile_never_drops_uninterpreted_domain(semantic_db_engine,semantic_writer_engine,tmp_path,operator):
+    comparison={'kind':'compare','relation':'>','lhs':{'kind':'formula','language':'latex','expression':'x'},'rhs':{'kind':'formula','language':'latex','expression':'0'}}
+    condition=comparison if operator=='compare' else {'kind':'not','term':comparison}
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',formulas=(r'\sqrt{x^2}','x'),condition=condition)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with semantic_writer_engine.connect() as conn:
+        rows=conn.execute(select(table('data.assessment').c.outcome,table('data.assessment').c.uncertainty).where(table('data.assessment').c.operation_id=='scientific.value_equivalence')).all()
+        assert len(rows)==2
+        assert {row.outcome for row in rows}==({'equivalent'} if operator=='compare' else {'undecided'})
+        if operator=='not':assert all(row.uncertainty for row in rows)
+
+
+def test_independent_source_binding_disagreement_persists_one_compact_group(semantic_db_engine,semantic_writer_engine,semantic_reader_engine,tmp_path):
+    from corpus_structure.semantic.query import read_session,QuerySpec
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',formulas=('x',),two_reports=True)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with read_session(semantic_reader_engine,'evaluated') as session:
+        cls=session.class_handle('Person');prop=session.property_handle(cls,'name')
+        result=session.query(QuerySpec(cls,prop))
+        assert len(result.rows)==2 and len({row.source for row in result.rows})==2
+        explanation=session.explain(result.rows[0].fact_id)
+        assert len(explanation.alternatives)==1
+        group=explanation.alternatives[0]
+        assert set(group.member_fact_ids)=={row.fact_id for row in result.rows}
+        assert __import__('json').loads(group.reason)['generated'][0]['kind']=='qualifier_binding_disagreement'
+        assert {row.outcome for row in explanation.assessments if row.operation_id=='consolidate.status'}=={'ambiguous'}
+        assert not session.query(QuerySpec(cls,prop,'accepted')).rows
+    with semantic_reader_engine.connect() as conn:
+        assert len(conn.execute(select(table('data.alternative_member'))).all())==2
+
+
+@pytest.mark.parametrize('duplicate',[False,True])
+def test_authored_alternatives_retain_source_reason_without_duplicate_fact_groups(semantic_db_engine,semantic_writer_engine,semantic_reader_engine,tmp_path,duplicate):
+    from corpus_structure.semantic.query import read_session,QuerySpec
+    formulas=('x','x') if duplicate else ('x+1','x+2')
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',formulas=formulas,authored_alternative=True)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with read_session(semantic_reader_engine,'evaluated') as session:
+        cls=session.class_handle('Person');prop=session.property_handle(cls,'name')
+        rows=session.query(QuerySpec(cls,prop)).rows
+        explanation=session.explain(rows[0].fact_id)
+        assert len(explanation.alternatives)==(0 if duplicate else 1)
+        if not duplicate:
+            source=__import__('json').loads(explanation.alternatives[0].reason)['sources'][0]
+            assert source=={'observation_key':rows[0].source,'local_id':'choice','faithful':True,'reason':'source explicitly contrasts these possibilities'}
+            assert not session.query(QuerySpec(cls,prop,'accepted')).rows
+        else:assert len(session.query(QuerySpec(cls,prop,'accepted')).rows)==1
