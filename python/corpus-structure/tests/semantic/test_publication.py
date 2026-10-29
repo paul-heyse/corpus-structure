@@ -798,3 +798,103 @@ def test_raw_decimal_and_integer_lexicals_keep_exact_receipt_but_share_meaning(
             {"r": R, "z": Z},
         )
         assert conn.scalar(text("SELECT data.decimal_canonical('-0.000e200000')")) == "0"
+
+
+def test_report_entity_reference_cannot_masquerade_as_equal_string(
+    semantic_db_engine, semantic_writer_engine
+):
+    seed(semantic_db_engine)
+    with semantic_db_engine.begin() as conn:
+        conn.execute(
+            table("sem.property_applicability")
+            .update()
+            .values(range_name="Thing", constraints={"name": "label", "inlined": False})
+        )
+    candidate = batch("entity")
+    fact = fact_key(R, Z, "e", P, "e", {})
+    candidate = replace(
+        candidate,
+        typed_value=(
+            ValueRow("reference", "entity", entity_id="e"),
+            ValueRow("report-reference", "entity", entity_id="e"),
+            ValueRow("equal-string", "string", text_value="e"),
+        ),
+        fact=(FactRow(fact, "e", P, "reference"),),
+        occurrence=tuple(
+            replace(o, fact_id=fact, report_object_value_id="report-reference")
+            for o in candidate.occurrence
+        ),
+        support=tuple(replace(s, fact_id=fact) for s in candidate.support),
+        selection=(SelectionRow(fact),),
+    )
+    assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
+    forged_occurrence = OccurrenceRow(
+        occurrence_key(R, Z, "source", "forged-reference"),
+        fact,
+        "source",
+        "forged-reference",
+        "equal-string",
+    )
+    with pytest.raises(DBAPIError, match="declared range"):
+        publish_batch(
+            semantic_writer_engine,
+            PublicationBatch(R, Z, "forged-reference", occurrence=(forged_occurrence,)),
+        )
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM data.batch")) == 1
+        assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
+
+
+def test_report_record_class_must_match_even_when_field_meaning_is_equal(
+    semantic_db_engine, semantic_writer_engine
+):
+    seed(semantic_db_engine)
+    expected_class = "https://example/ExpectedRecord"
+    other_class = "https://example/OtherRecord"
+    with semantic_db_engine.begin() as conn:
+        conn.execute(
+            insert(table("sem.class_definition")),
+            [
+                dict(
+                    release_id=R, class_id=expected_class, name="ExpectedRecord", iri=expected_class
+                ),
+                dict(release_id=R, class_id=other_class, name="OtherRecord", iri=other_class),
+            ],
+        )
+        conn.execute(
+            table("sem.property_applicability")
+            .update()
+            .values(range_name="ExpectedRecord", constraints={"name": "label", "inlined": True})
+        )
+    candidate = batch("record")
+    fact = fact_key(R, Z, "e", P, {}, {})
+    candidate = replace(
+        candidate,
+        typed_value=(
+            ValueRow("expected-record", "record", datatype=expected_class),
+            ValueRow("report-record", "record", datatype=expected_class),
+            ValueRow("other-record", "record", datatype=other_class),
+        ),
+        fact=(FactRow(fact, "e", P, "expected-record"),),
+        occurrence=tuple(
+            replace(o, fact_id=fact, report_object_value_id="report-record")
+            for o in candidate.occurrence
+        ),
+        support=tuple(replace(s, fact_id=fact) for s in candidate.support),
+        selection=(SelectionRow(fact),),
+    )
+    assert publish_batch(semantic_writer_engine, candidate).data_revision == 1
+    forged_occurrence = OccurrenceRow(
+        occurrence_key(R, Z, "source", "forged-class"),
+        fact,
+        "source",
+        "forged-class",
+        "other-record",
+    )
+    with pytest.raises(DBAPIError, match="declared range"):
+        publish_batch(
+            semantic_writer_engine,
+            PublicationBatch(R, Z, "forged-class", occurrence=(forged_occurrence,)),
+        )
+    with semantic_db_engine.connect() as conn:
+        assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
