@@ -23,6 +23,7 @@ def test_identity_exclusion_snapshot_reader_and_columnar_closure(
     prepared, _run, cut, result = exclusion_result(
         semantic_db_engine, semantic_writer_engine, tmp_path
     )
+    assert result is not None
     with read_session(semantic_reader_engine, result.realization_id) as session:
         rows = session.identity_exclusions()
         assert len(rows) == 1
