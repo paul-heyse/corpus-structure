@@ -63,3 +63,50 @@ def test_recorded_local_handles_are_resolved_at_sealed_cut_without_mutation(
                              .where(observations.c.task_id.in_(select(table("ops.task").c.id).where(table("ops.task").c.run_id == run)))
                              .order_by(observations.c.id)).all()
     assert after == before
+
+
+def test_backfill_reconstructs_original_packet_hash_without_rewriting_source(
+    semantic_db_engine, semantic_writer_engine, tmp_path, monkeypatch
+):
+    import anyio
+    from fastmcp import Client
+    from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
+    from corpus_structure.semantic import source_frames
+    from corpus_structure.semantic.operations import seal_cut
+    from .test_agent_resubmission import source_task, lease_and_read
+
+    # Model a task completed by the earlier server, before source-frame capture existed.
+    # The real packet builder, native task/hash custody and submission transaction remain active.
+    with monkeypatch.context() as earlier:
+        earlier.setattr(source_frames, "capture_source_frame", lambda conn, task_id, packet: None)
+        _, run, task, locator = source_task(semantic_db_engine, semantic_writer_engine, tmp_path / "source.html")
+        session = SemanticAgentSession(semantic_writer_engine, run)
+
+        async def complete():
+            async with Client(build_semantic_server(session)) as client:
+                unit = await lease_and_read(client, run, task)
+                result = (await client.call_tool("propose_claims", {"task_id": task, "batch": {
+                    "unit_ref": locator,
+                    "entities": [{"id": "person", "class_iri": "https://example.org/Person"}],
+                    "claims": [{"id": "name", "subject": "person", "predicate": "https://example.org/name",
+                                "object": {"kind": "text", "text": "Alice"},
+                                "qualification": {"modality": "asserted", "polarity": True},
+                                "establishment": "stated",
+                                "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}]}],
+                }})).structured_content
+                assert result is not None and result["status"] == "done"
+
+        anyio.run(complete)
+    with semantic_writer_engine.begin() as conn:
+        seal_cut(conn, run, "evaluation", final=True)
+        before = conn.execute(select(table("kb.observation").c.observation_key, table("kb.observation").c.payload)
+                              .where(table("kb.observation").c.task_id == task)).one()
+        packet_hash = conn.execute(select(table("ops.task").c.packet_hash).where(table("ops.task").c.id == task)).scalar_one()
+    assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 1
+    assert source_frames.backfill_source_frames(semantic_writer_engine, run) == 0
+    with semantic_writer_engine.connect() as conn:
+        captured = conn.execute(select(table("ops.source_frame")).where(table("ops.source_frame").c.task_id == task)).mappings().one()
+        assert captured["packet_hash"] == packet_hash and captured["unit_ref"] == locator
+        after = conn.execute(select(table("kb.observation").c.observation_key, table("kb.observation").c.payload)
+                             .where(table("kb.observation").c.task_id == task)).one()
+        assert after == before
