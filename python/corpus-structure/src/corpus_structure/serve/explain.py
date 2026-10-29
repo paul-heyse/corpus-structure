@@ -80,15 +80,13 @@ def explain(conn: Any, run_id: int, kind: Literal["claim", "unit"], key: str) ->
         fate = fates(conn, run_id, unit_keys=[key])
         rows = conn.execute(
             text(
-
-                    'SELECT t.id,t.stage,m.name AS '
-                    'method,pr.rule_key,t.trigger_metrics,t.status,t.reason,t.cost,t.finish'
-                    'ed_at,r.cut_at FROM ops.task t JOIN ops.run r ON r.id=t.run_id JOIN '
-                    'ops.method_config mc ON mc.id=t.method_config_id JOIN ops.method m ON '
-                    'm.id=mc.method_id LEFT JOIN ops.policy_rule pr ON '
-                    'pr.id=t.trigger_rule_id WHERE t.run_id=:r AND t.unit_key=:k ORDER BY '
-                    't.id'
-
+                "SELECT t.id,t.stage,m.name AS "
+                "method,pr.rule_key,t.trigger_metrics,t.status,t.reason,t.cost,t.finish"
+                "ed_at,r.cut_at FROM ops.task t JOIN ops.run r ON r.id=t.run_id JOIN "
+                "ops.method_config mc ON mc.id=t.method_config_id JOIN ops.method m ON "
+                "m.id=mc.method_id LEFT JOIN ops.policy_rule pr ON "
+                "pr.id=t.trigger_rule_id WHERE t.run_id=:r AND t.unit_key=:k ORDER BY "
+                "t.id"
             ),
             {"r": run_id, "k": key},
         ).mappings()

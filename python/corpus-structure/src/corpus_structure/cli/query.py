@@ -37,10 +37,8 @@ def context(conn: Any, project: str | None, run: str) -> tuple[int, int, Any]:
     if run != "promoted":
         row = conn.execute(
             text(
-
-                    'SELECT p.id,p.domain FROM ops.run r JOIN meta.project p ON '
-                    'p.id=r.project_id WHERE r.id=:r'
-
+                "SELECT p.id,p.domain FROM ops.run r JOIN meta.project p ON "
+                "p.id=r.project_id WHERE r.id=:r"
             ),
             {"r": int(run)},
         ).one_or_none()

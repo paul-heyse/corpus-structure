@@ -96,12 +96,16 @@ def start_run(conn: Connection, run_id: int) -> int:
     """Start a source run through guarded DML; an exact running replay is harmless."""
     run = table("ops.run")
     started = conn.execute(
-        update(run).where(run.c.id == run_id, run.c.status == "created", run.c.sealed.is_(False))
-        .values(status="running").returning(run.c.id)
+        update(run)
+        .where(run.c.id == run_id, run.c.status == "created", run.c.sealed.is_(False))
+        .values(status="running")
+        .returning(run.c.id)
     ).scalar_one_or_none()
     if started is not None:
         return started
-    current = conn.execute(select(run.c.status, run.c.sealed).where(run.c.id == run_id)).one_or_none()
+    current = conn.execute(
+        select(run.c.status, run.c.sealed).where(run.c.id == run_id)
+    ).one_or_none()
     if current is not None and current.status == "running" and not current.sealed:
         return run_id
     raise OperationConflict("run no longer accepts source execution")
@@ -138,7 +142,11 @@ def record_method(
         name=method.name,
         version=method.version,
         unit_type=str(method.unit_type) if hasattr(method, "unit_type") else None,
-        configuration_schema_digest=sha256(canonical_bytes(method.Config.model_json_schema())).hexdigest() if hasattr(method, "Config") else None,
+        configuration_schema_digest=sha256(
+            canonical_bytes(method.Config.model_json_schema())
+        ).hexdigest()
+        if hasattr(method, "Config")
+        else None,
         family=str(method.family),
         tier=str(method.tier),
         confidence_source=str(method.confidence_source)
@@ -310,15 +318,28 @@ def claim_tasks(
     ).mappings()
     from corpus_structure.core.vocab import TaskUnitType
 
-    return tuple(ClaimedTask(
-        task_id=row["id"], run_id=row["run_id"], release_id=row["release_id"],
-        method_config_id=row["method_config_id"], unit_type=TaskUnitType(row["unit_type"]),
-        unit_id=row["unit_id"], unit_key=row["unit_key"], packet_hash=row["packet_hash"],
-        attempt=row["attempt"], holder=row["claimed_by"], deadline=row["lease_until"],
-        invocation_key=row["invocation_key"],
-        held_progress=HeldProgress.model_validate(row["error"]["semantic_proposal_first_result"])
-        if row["error"] and "semantic_proposal_first_result" in row["error"] else None,
-    ) for row in rows)
+    return tuple(
+        ClaimedTask(
+            task_id=row["id"],
+            run_id=row["run_id"],
+            release_id=row["release_id"],
+            method_config_id=row["method_config_id"],
+            unit_type=TaskUnitType(row["unit_type"]),
+            unit_id=row["unit_id"],
+            unit_key=row["unit_key"],
+            packet_hash=row["packet_hash"],
+            attempt=row["attempt"],
+            holder=row["claimed_by"],
+            deadline=row["lease_until"],
+            invocation_key=row["invocation_key"],
+            held_progress=HeldProgress.model_validate(
+                row["error"]["semantic_proposal_first_result"]
+            )
+            if row["error"] and "semantic_proposal_first_result" in row["error"]
+            else None,
+        )
+        for row in rows
+    )
 
 
 def observation_key(
@@ -958,8 +979,12 @@ def hold_agent_result(
                 "result": json.dumps(dict(result)),
             },
         ).scalar_one()
-        return HoldDecision(task_id=task_id,attempt=attempt,packet_hash=packet_hash,
-                            disposition="held" if held else "proceed")
+        return HoldDecision(
+            task_id=task_id,
+            attempt=attempt,
+            packet_hash=packet_hash,
+            disposition="held" if held else "proceed",
+        )
     except Exception as exc:
         if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("agent submission attempt lost or run sealed") from exc
@@ -976,23 +1001,29 @@ class ReleasedClaim:
 def renew_claim(conn: Connection, *, task_id: int, attempt: int, holder: str) -> None:
     """Renew only the current attempt through the protected native ownership guard."""
     try:
-        conn.execute(text("SELECT ops.renew_claim(:task,:attempt,:holder)"),
-                     dict(task=task_id,attempt=attempt,holder=holder)).scalar_one()
+        conn.execute(
+            text("SELECT ops.renew_claim(:task,:attempt,:holder)"),
+            dict(task=task_id, attempt=attempt, holder=holder),
+        ).scalar_one()
     except Exception as exc:
-        if getattr(getattr(exc,"orig",None),"sqlstate",None)=="P0004":
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("task ownership changed before renewal") from exc
         raise
 
 
-def release_claim(conn: Connection, *, task_id: int, attempt: int, holder: str, reason: str) -> ReleasedClaim:
+def release_claim(
+    conn: Connection, *, task_id: int, attempt: int, holder: str, reason: str
+) -> ReleasedClaim:
     """Release the current agent attempt while retaining durable held submission progress."""
     if not reason:
         raise ValueError("claim release requires a reason")
     try:
-        conn.execute(text("SELECT ops.release_claim(:task,:attempt,:holder,:reason)"),
-                     dict(task=task_id,attempt=attempt,holder=holder,reason=reason)).scalar_one()
+        conn.execute(
+            text("SELECT ops.release_claim(:task,:attempt,:holder,:reason)"),
+            dict(task=task_id, attempt=attempt, holder=holder, reason=reason),
+        ).scalar_one()
     except Exception as exc:
-        if getattr(getattr(exc,"orig",None),"sqlstate",None)=="P0004":
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "P0004":
             raise OperationConflict("task ownership changed before release") from exc
         raise
-    return ReleasedClaim(task_id,attempt,reason)
+    return ReleasedClaim(task_id, attempt, reason)

@@ -57,15 +57,18 @@ def test_native_hold_fences_cancellation_and_refuses_forged_error_seed(
         )
         claim = claim_tasks(conn, run_id=run, config_id=cfg, holder="agent:first", agent=True)[0]
     with engine.begin() as conn:
-        assert hold_agent_result(
-            conn,
-            task_id=task,
-            attempt=claim.attempt,
-            holder="agent:first",
-            packet_hash="packet",
-            clean=False,
-            result={"issues": ["uncertain"]},
-        ).disposition == "held"
+        assert (
+            hold_agent_result(
+                conn,
+                task_id=task,
+                attempt=claim.attempt,
+                holder="agent:first",
+                packet_hash="packet",
+                clean=False,
+                result={"issues": ["uncertain"]},
+            ).disposition
+            == "held"
+        )
         with pytest.raises(DBAPIError) as blocked, engine.begin() as cancellation:
             cancellation.execute(text("SET LOCAL lock_timeout='100ms'"))
             end_source_run(cancellation, run)

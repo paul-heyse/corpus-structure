@@ -239,6 +239,15 @@ the [pivot package](../plans/semantic-model-pivot/postgresql-and-publication.md)
 
 > Decision: ADR-0025
 
+**Implemented; scoped Tested (2026-10-29).** The transitioned composed-model boundary now
+uses finite trusted lifecycle/conditional guards and protected terminal effects. Completed output
+is a relationship, enforced atomically with run completion; measurement rows derive from immutable
+source results with source-position identity. Frozen revisions semantic_0023–0026 enforce exact
+execution/native/physical compatibility, restricted privileges and authored-SQL admission before
+construction/activation. The operational database remains on semantic_0005. The
+[completeness coordinator §10](../plans/semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
+owns receipts and the later SP-08–SP-10 boundary; this is not whole-series qualification.
+
 **Tested** for the store in spike S6 (2026-10-28: DDL, trace rows, queries, BM25, halfvec and the
 queue on smoke data); the split of authority, the generated relational projection and the
 in-process engine are **Proposed** (accepted 2026-10-28; migration 0001, the pool and the engine not
@@ -270,6 +279,16 @@ release and resolved dependencies. Semantic scope, normalized rule declarations 
 boundaries are derived products; runtime settings cannot rebind an existing operation.
 
 > Decision: ADR-0027
+
+**Implemented; scoped Tested (2026-10-29).** Trusted LinkML execution contracts and immutable
+domain releases remain distinct authorities in one compatible operation binding. Compiler 8
+archives finite conditional rules, native guard bindings, typed outcomes and named projections;
+unsupported required semantics refuse. Existing frozen dataclasses use cattrs only for strict
+representation conversion, with LinkML/Pydantic retaining semantic/boundary ownership. Current
+source, decision/inference, graph, query and analytical consumers use those contracts. An analysis
+scope can own many borrowed and detached results simultaneously; borrowing depends on a live
+open owner, while detached values survive closure. Concrete supported profiles and library
+choices are retained in the [realization plan](../plans/semantic-model-pivot/domain-model-realization.md#7-implemented-mechanisms-2026-10-29).
 
 **Accepted analytical target (2026-10-29).** Release-derived projections bind source selections,
 Arrow types and output adapters. Analytical profiles explicitly govern decimal rounding (default

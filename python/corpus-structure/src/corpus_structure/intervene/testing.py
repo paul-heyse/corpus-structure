@@ -41,8 +41,7 @@ def map_ids(
     out = {}
     for sid, entry in frame.items():
         found = [
-            s for s in served
-            if s["locator"] == entry["locator"] and s["text"] == entry["text"]
+            s for s in served if s["locator"] == entry["locator"] and s["text"] == entry["text"]
         ]
         if len(found) != 1:
             why = "no served sentence" if not found else f"{len(found)} served sentences"

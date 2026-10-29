@@ -439,11 +439,25 @@ def test_profile_default_scope_is_applied_to_graph_projection():
 def test_qualified_projection_exposes_structured_paths_and_required_closure():
     from corpus_structure.semantic.ontology import QualifiedGraphProjection
 
-    occurrence = {"id": "urn:occ:1", "subject": "urn:entity:1", "predicate": "urn:p",
-                  "object": "value", "condition": {"roles": ["same", "same"]}}
-    projection = QualifiedGraphProjection("r", "z", 3, "qualified-validation", (occurrence,),
-        {"urn:entity:1": {"kind": "entity"}, "urn:proof:1": {"kind": "direct", "premises": [URIRef("urn:occ:1")]}},
-        {"urn:occ:1": ("urn:proof:1",)})
+    occurrence = {
+        "id": "urn:occ:1",
+        "subject": "urn:entity:1",
+        "predicate": "urn:p",
+        "object": "value",
+        "condition": {"roles": ["same", "same"]},
+    }
+    projection = QualifiedGraphProjection(
+        "r",
+        "z",
+        3,
+        "qualified-validation",
+        (occurrence,),
+        {
+            "urn:entity:1": {"kind": "entity"},
+            "urn:proof:1": {"kind": "direct", "premises": [URIRef("urn:occ:1")]},
+        },
+        {"urn:occ:1": ("urn:proof:1",)},
+    )
     graph = projection.graph()
     assert (URIRef("urn:occ:1"), CS.requiredNode, URIRef("urn:proof:1")) in graph
     condition = graph.value(URIRef("urn:occ:1"), CS.conditionNode)
@@ -453,29 +467,51 @@ def test_qualified_projection_exposes_structured_paths_and_required_closure():
     assert {int(str(graph.value(member, CS.position))) for member in members} == {0, 1}
     assert {str(graph.value(member, CS.value)) for member in members} == {"same"}
     from dataclasses import replace
+
     with pytest.raises(OntologyError, match="missing required related node"):
         replace(projection, related_nodes={}).graph()
 
 
 def test_projected_validation_uses_nested_qualified_path():
-    from corpus_structure.semantic.ontology import QualifiedGraphProjection, validate_projected_graph
+    from corpus_structure.semantic.ontology import (
+        QualifiedGraphProjection,
+        validate_projected_graph,
+    )
 
-    row = {"id": "urn:occ:1", "subject": "urn:s", "predicate": "urn:p", "object": "v",
-           "condition": {"count": "invalid"}}
-    projection = QualifiedGraphProjection("r", "z", 0, "graph-validation", (row,), {"urn:s": {"kind": "entity"}}, {})
-    shapes = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+    row = {
+        "id": "urn:occ:1",
+        "subject": "urn:s",
+        "predicate": "urn:p",
+        "object": "v",
+        "condition": {"count": "invalid"},
+    }
+    projection = QualifiedGraphProjection(
+        "r", "z", 0, "graph-validation", (row,), {"urn:s": {"kind": "entity"}}, {}
+    )
+    shapes = Graph().parse(
+        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix cs: <https://corpus-structure.dev/semantic/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 <urn:shape> a sh:NodeShape; sh:targetClass cs:Record;
- sh:property [sh:path cs:count; sh:datatype xsd:integer] .''', format="turtle")
+ sh:property [sh:path cs:count; sh:datatype xsd:integer] .""",
+        format="turtle",
+    )
     assert not validate_projected_graph(projection, shapes).conforms
 
 
 def test_projected_null_remains_distinct_from_absence_and_literal_text():
     from corpus_structure.semantic.ontology import QualifiedGraphProjection
-    row = {"id": "urn:occ:1", "subject": "urn:s", "predicate": "urn:p", "object": None,
-           "qualification": {"null": None, "text": "None"}}
-    graph = QualifiedGraphProjection("r", "z", 0, "graph-validation", (row,), {"urn:s": {"kind": "entity"}}, {}).graph()
+
+    row = {
+        "id": "urn:occ:1",
+        "subject": "urn:s",
+        "predicate": "urn:p",
+        "object": None,
+        "qualification": {"null": None, "text": "None"},
+    }
+    graph = QualifiedGraphProjection(
+        "r", "z", 0, "graph-validation", (row,), {"urn:s": {"kind": "entity"}}, {}
+    ).graph()
     qualification = graph.value(URIRef("urn:occ:1"), CS.qualificationNode)
     null = graph.value(qualification, CS.null)
     assert (null, RDF.type, CS.Null) in graph
@@ -484,16 +520,30 @@ def test_projected_null_remains_distinct_from_absence_and_literal_text():
 
 
 def test_typed_graph_references_derive_transitive_closure_without_reference_map():
-    from corpus_structure.semantic.ontology import QualifiedGraphProjection, QualifiedGraphReference
     from dataclasses import replace
 
-    row = {"id": "urn:occ", "subject": QualifiedGraphReference("urn:entity"),
-           "predicate": "urn:p", "object": "value",
-           "qualification": {"proof": QualifiedGraphReference("urn:proof")}}
-    projection = QualifiedGraphProjection("r", "z", 0, "graph-validation", (row,),
-        {"urn:entity": {"kind": "entity"},
-         "urn:proof": {"premise": QualifiedGraphReference("urn:evidence")},
-         "urn:evidence": {"kind": "evidence"}}, {})
+    from corpus_structure.semantic.ontology import QualifiedGraphProjection, QualifiedGraphReference
+
+    row = {
+        "id": "urn:occ",
+        "subject": QualifiedGraphReference("urn:entity"),
+        "predicate": "urn:p",
+        "object": "value",
+        "qualification": {"proof": QualifiedGraphReference("urn:proof")},
+    }
+    projection = QualifiedGraphProjection(
+        "r",
+        "z",
+        0,
+        "graph-validation",
+        (row,),
+        {
+            "urn:entity": {"kind": "entity"},
+            "urn:proof": {"premise": QualifiedGraphReference("urn:evidence")},
+            "urn:evidence": {"kind": "evidence"},
+        },
+        {},
+    )
     graph = projection.graph()
     assert (URIRef("urn:proof"), CS.requiredNode, URIRef("urn:evidence")) in graph
     nodes = dict(projection.related_nodes)
@@ -504,6 +554,7 @@ def test_typed_graph_references_derive_transitive_closure_without_reference_map(
 
 def test_reified_collection_shapes_reject_duplicate_member_positions():
     from corpus_structure.semantic.ontology import qualified_projection_shapes, validate_graph
+
     graph = Graph()
     parent, a, b = map(URIRef, ("urn:collection", "urn:a", "urn:b"))
     graph.add((parent, RDF.type, CS.Collection))
@@ -517,8 +568,16 @@ def test_reified_collection_shapes_reject_duplicate_member_positions():
 
 def test_qualified_projection_refuses_node_binding_relabeling():
     from corpus_structure.semantic.ontology import QualifiedGraphProjection
+
     row = {"id": "urn:occ", "subject": "urn:s", "predicate": "urn:p", "object": "value"}
-    projection = QualifiedGraphProjection("r", "z", 2, "graph-validation", (row,),
-        {"urn:s": {"kind": "entity", "realization_id": "other"}}, {})
+    projection = QualifiedGraphProjection(
+        "r",
+        "z",
+        2,
+        "graph-validation",
+        (row,),
+        {"urn:s": {"kind": "entity", "realization_id": "other"}},
+        {},
+    )
     with pytest.raises(OntologyError, match="wrong graph node scope"):
         projection.graph()

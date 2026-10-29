@@ -58,12 +58,19 @@ def observation_inputs(bundle: SourceBundle) -> SourceBundle:
     )
 
 
-def prepare_source_inputs(bundle: SourceBundle, dependencies=None, *, metric_content: bytes | None = None):
+def prepare_source_inputs(
+    bundle: SourceBundle, dependencies=None, *, metric_content: bytes | None = None
+):
     """Explicitly acquire source-report schema and metric definitions before pure preparation."""
     from .metrics import observation_dependencies
     from .types import ResolvedDependencies
-    return (observation_inputs(bundle), observation_dependencies(
-        ResolvedDependencies() if dependencies is None else dependencies, metric_content))
+
+    return (
+        observation_inputs(bundle),
+        observation_dependencies(
+            ResolvedDependencies() if dependencies is None else dependencies, metric_content
+        ),
+    )
 
 
 def source_value(value: Any) -> dict[str, Any]:
@@ -218,7 +225,11 @@ def bind_result(
                     "scope": item.scope,
                     "outcome": item.outcome,
                     **({"reason": item.reason} if item.reason is not None else {}),
-                    **({"required_capability": item.required_capability} if item.required_capability is not None else {}),
+                    **(
+                        {"required_capability": item.required_capability}
+                        if item.required_capability is not None
+                        else {}
+                    ),
                 }
                 for item in result.coverage
             ),

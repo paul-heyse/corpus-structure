@@ -1,4 +1,5 @@
 """Ownership applicability, implemented entirely by the toy pack (C4)."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -60,24 +61,34 @@ class OwnershipAt:
     def scope(self, ctx: QueryContext, p: OwnershipParams) -> Scope:
         return Scope.run()
 
-    def rows(self, ctx: QueryContext, p: OwnershipParams,
-             after: JsonValue = None) -> Iterator[Positioned]:
+    def rows(
+        self, ctx: QueryContext, p: OwnershipParams, after: JsonValue = None
+    ) -> Iterator[Positioned]:
         e, c = metadata.tables["kb.entity"], metadata.tables["kb.claim"]
-        matches = (ctx.entities(key=p.asset) if p.asset.startswith("ent:")
-                   else ctx.entities(label=p.asset))
-        assets = select(e.c.id).where(e.c.run_id == ctx.run_id,
-                                     e.c.type == "toy:Asset",
-                                     e.c.key.in_([x["key"] for x in matches]))
+        matches = (
+            ctx.entities(key=p.asset) if p.asset.startswith("ent:") else ctx.entities(label=p.asset)
+        )
+        assets = select(e.c.id).where(
+            e.c.run_id == ctx.run_id,
+            e.c.type == "toy:Asset",
+            e.c.key.in_([x["key"] for x in matches]),
+        )
         stmt = ctx.reader.claim_statement(
-            predicate="toy:owns", include_candidates=p.include_candidates,
+            predicate="toy:owns",
+            include_candidates=p.include_candidates,
             include_suppositions=p.include_suppositions,
         ).where(c.c.object_entity_id.in_(assets))
         for claim in ctx.reader.claims(statement=stmt, after=after):
             interval = claim["qualifiers"].get("core:valid_time")
-            row = OwnershipRow.model_validate({
-                "key": claim["key"], "claim": claim, "interval": interval,
-                "applicability": applicability(interval, p.date), "evidence": claim["evidence"],
-            })
+            row = OwnershipRow.model_validate(
+                {
+                    "key": claim["key"],
+                    "claim": claim,
+                    "interval": interval,
+                    "applicability": applicability(interval, p.date),
+                    "evidence": claim["evidence"],
+                }
+            )
             yield Positioned(row, claim["key"])
 
 

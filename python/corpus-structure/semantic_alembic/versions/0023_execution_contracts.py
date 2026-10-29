@@ -12,9 +12,14 @@ depends_on = None
 
 def upgrade() -> None:
     conn = op.get_bind()
-    previous = conn.dialect.identifier_preparer.quote(conn.exec_driver_sql("SELECT current_user").scalar_one())
+    previous = conn.dialect.identifier_preparer.quote(
+        conn.exec_driver_sql("SELECT current_user").scalar_one()
+    )
     conn.exec_driver_sql(
-        Path(__file__).with_name("semantic_0023_execution.sql").read_text().replace("__MIGRATION_OWNER__", previous),
+        Path(__file__)
+        .with_name("semantic_0023_execution.sql")
+        .read_text()
+        .replace("__MIGRATION_OWNER__", previous),
         execution_options={"no_parameters": True},
     )
     conn.exec_driver_sql("SET LOCAL ROLE " + previous)

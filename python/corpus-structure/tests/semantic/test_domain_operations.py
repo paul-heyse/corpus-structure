@@ -568,7 +568,12 @@ def test_atomic_cut_inference_has_distinct_exact_receipts(
     with semantic_writer_engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT f.subject_id,f.property_id,v.entity_id FROM data.fact f JOIN data.typed_value v ON (v.release_id,v.realization_id,v.value_id)=(f.release_id,f.realization_id,f.object_value_id) WHERE f.realization_id='evaluated' AND f.property_id IN ('https://example.org/parent','https://example.org/child')"
+                "SELECT f.subject_id,f.property_id,v.entity_id FROM data.fact f JOIN "
+                "data.typed_value v ON "
+                "(v.release_id,v.realization_id,v.value_id)="
+                "(f.release_id,f.realization_id,f.object_value_id) "
+                "WHERE f.realization_id='evaluated' AND f.property_id IN "
+                "('https://example.org/parent','https://example.org/child')"
             )
         ).all()
         parent = next(row for row in rows if row.property_id.endswith("/parent"))
@@ -587,21 +592,19 @@ def test_native_finish_refuses_source_occurrence_without_cut_evidence(
     )
     inputs = _cut_input(semantic_writer_engine, cut, "hostile")
     batch = replace(inputs.batch, evidence_source=())
-    with pytest.raises(DBAPIError, match="source occurrence has no located evidence"):
-        with (
-            semantic_writer_engine.connect().execution_options(
-                isolation_level="SERIALIZABLE"
-            ) as conn,
-            conn.begin(),
-        ):
-            conn.execute(
-                text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
-            )
-            publish_on_connection(conn, batch)
-            conn.execute(
-                text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
-                {"cut": cut, "out": "hostile", "batch": batch.batch_id},
-            )
+    with (
+        pytest.raises(DBAPIError, match="source occurrence has no located evidence"),
+        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin(),
+    ):
+        conn.execute(
+            text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
+        )
+        publish_on_connection(conn, batch)
+        conn.execute(
+            text("SELECT data.finish_evaluation(:cut,:out,:batch)"),
+            {"cut": cut, "out": "hostile", "batch": batch.batch_id},
+        )
     with semantic_writer_engine.connect() as conn:
         assert not conn.execute(
             select(table("data.realization")).where(
@@ -617,16 +620,21 @@ def test_native_finish_refuses_source_occurrence_without_cut_evidence(
 
 
 def test_stage_disposal_refuses_writer_owned_imitation(semantic_writer_engine):
-    with pytest.raises(DBAPIError, match="untrusted staging relation sp_entity"):
-        with semantic_writer_engine.begin() as conn:
-            conn.exec_driver_sql("CREATE TEMP TABLE sp_entity(entity_id text)")
-            conn.exec_driver_sql("SELECT data.end_stage()")
+    with (
+        pytest.raises(DBAPIError, match="untrusted staging relation sp_entity"),
+        semantic_writer_engine.begin() as conn,
+    ):
+        conn.exec_driver_sql("CREATE TEMP TABLE sp_entity(entity_id text)")
+        conn.exec_driver_sql("SELECT data.end_stage()")
 
 
 def test_same_fact_reports_keep_statement_specific_rule_decisions(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
-    rules = b"rules:\n- id: test.statement\n  applies_to: ex:name\n  at: [finalize]\n  severity: error\n  check: \"claim.statement_kind == 'theorem'\"\n"
+    rules = (
+        b"rules:\n- id: test.statement\n  applies_to: ex:name\n  at: [finalize]\n  "
+        b"severity: error\n  check: \"claim.statement_kind == 'theorem'\"\n"
+    )
     _prepared, _run, cut = fixture(
         semantic_db_engine,
         semantic_writer_engine,
@@ -716,7 +724,7 @@ def test_known_input_reference_and_declared_key_converge_with_lineage(
         known=True,
         local_known=local_known,
     )
-    result = consolidate_cut(semantic_writer_engine, cut, "evaluated")
+    consolidate_cut(semantic_writer_engine, cut, "evaluated")
     with semantic_writer_engine.connect() as conn:
         lineage = conn.execute(select(table("data.entity_input"))).mappings().one()
         assert lineage["entity_id"] == "known:alice" and lineage["input_entity_id"] == "known:alice"
@@ -954,7 +962,10 @@ def test_authored_alternatives_retain_source_reason_without_duplicate_fact_group
 def test_primitive_alias_rule_view_keeps_source_value_kind(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
-    rules = b"rules:\n- id: count.literal\n  applies_to: ex:name\n  severity: error\n  at: [finalize]\n  check: \"claim.value&.t == 'number' and claim.value&.v == '4'\"\n"
+    rules = (
+        b"rules:\n- id: count.literal\n  applies_to: ex:name\n  severity: error\n  at: "
+        b"[finalize]\n  check: \"claim.value&.t == 'number' and claim.value&.v == '4'\"\n"
+    )
     _prepared, _run, cut = fixture(
         semantic_db_engine,
         semantic_writer_engine,

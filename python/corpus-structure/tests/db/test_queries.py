@@ -82,10 +82,8 @@ def test_explain_selects_exact_claim_from_sealed_m19(ready):
         ).key
         schema = conn.execute(
             text(
-
-                    "SELECT id FROM meta.payload_schema WHERE kind='verification' ORDER BY "
-                    'id DESC LIMIT 1'
-
+                "SELECT id FROM meta.payload_schema WHERE kind='verification' ORDER BY "
+                "id DESC LIMIT 1"
             )
         ).scalar_one()
         for task, claim, marker in [
@@ -109,11 +107,9 @@ def test_explain_selects_exact_claim_from_sealed_m19(ready):
             }
             conn.execute(
                 text(
-
-                        'INSERT INTO '
-                        'kb.observation(task_id,ordinal,kind,payload,payload_schema_id,outcome)'
-                        " VALUES(:t,:n,'verification',CAST(:p AS jsonb),:s,'produced')"
-
+                    "INSERT INTO "
+                    "kb.observation(task_id,ordinal,kind,payload,payload_schema_id,outcome)"
+                    " VALUES(:t,:n,'verification',CAST(:p AS jsonb),:s,'produced')"
                 ),
                 {"t": task, "n": ordinal, "p": json.dumps(payload), "s": schema},
             )

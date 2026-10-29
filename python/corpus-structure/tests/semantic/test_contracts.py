@@ -174,7 +174,8 @@ def test_cut_result_and_analytical_lifetime_dimensions(products):
     products.validate_edge("analysis_close_captured", scope, closed)
     assert products.lifecycle("analysis").state(closed).terminal
     assert {d.id for d in products.lifecycle("analysis").dimensions} == {
-        "input_kind", "scope_lifetime"
+        "input_kind",
+        "scope_lifetime",
     }
     # A scope does not assign one exclusive lifetime to its many independent results.
     with pytest.raises(PreparationError):
@@ -326,12 +327,14 @@ def test_exact_explicit_bytes_identity_and_immutable_products(inputs, products, 
 
 def test_product_conversion_preserves_declared_collections_and_optional_endpoints():
     from corpus_structure.semantic.contracts import (
+        _PRODUCT_CONVERTER,
         EndpointRole,
         StateDimension,
-        _PRODUCT_CONVERTER,
     )
 
-    dimension = _PRODUCT_CONVERTER.structure({"id": "owner", "values": ["absent", "current"]}, StateDimension)
+    dimension = _PRODUCT_CONVERTER.structure(
+        {"id": "owner", "values": ["absent", "current"]}, StateDimension
+    )
     assert dimension == StateDimension("owner", ("absent", "current"))
     endpoint = _PRODUCT_CONVERTER.structure(
         {"role": "subject", "concept": "Fact", "minimum": 1, "ordered": False, "unresolved": False},
@@ -339,30 +342,42 @@ def test_product_conversion_preserves_declared_collections_and_optional_endpoint
     )
     assert endpoint.maximum is None
     assert endpoint.unresolved_concept is None
-    assert _PRODUCT_CONVERTER.unstructure(dimension) == {"id": "owner", "values": ["absent", "current"]}
+    assert _PRODUCT_CONVERTER.unstructure(dimension) == {
+        "id": "owner",
+        "values": ["absent", "current"],
+    }
 
 
 @pytest.mark.parametrize("value", ["1", True, 1.0])
 def test_product_conversion_never_coerces_integer_fields(value):
-    from corpus_structure.semantic.contracts import EndpointRole, _PRODUCT_CONVERTER
+    from corpus_structure.semantic.contracts import _PRODUCT_CONVERTER, EndpointRole
 
     with pytest.raises(ExceptionGroup):
         _PRODUCT_CONVERTER.structure(
-            {"role": "subject", "concept": "Fact", "minimum": value, "ordered": False, "unresolved": False},
+            {
+                "role": "subject",
+                "concept": "Fact",
+                "minimum": value,
+                "ordered": False,
+                "unresolved": False,
+            },
             EndpointRole,
         )
 
 
 def test_native_kernel_bindings_require_complete_exact_signatures(inputs):
-    for mutation,code in [("missing","native_guard_coverage"),("signature","unapproved_native_guard")]:
-        data=body(inputs)
-        if mutation=="missing":
+    for mutation, code in [
+        ("missing", "native_guard_coverage"),
+        ("signature", "unapproved_native_guard"),
+    ]:
+        data = body(inputs)
+        if mutation == "missing":
             data["native_guards"].pop()
         else:
-            data["native_guards"][0]["symbol"]="ops.execution_edge(text,text)"
+            data["native_guards"][0]["symbol"] = "ops.execution_edge(text,text)"
         with pytest.raises(PreparationError) as error:
-            compile_execution_model(changed(inputs,data))
-        assert error.value.diagnostics[0].code==code
+            compile_execution_model(changed(inputs, data))
+        assert error.value.diagnostics[0].code == code
 
 
 def test_named_graph_operations_are_resolved_and_qualified(products):
@@ -372,7 +387,10 @@ def test_named_graph_operations_are_resolved_and_qualified(products):
     assert graph.lifetime == "snapshot"
     assert "bare_triple_entailment" in graph.omissions
     operations = {o.id: o for o in products.operations}
-    assert operations["graph_validate"].inputs == ("QualifiedGraphProjection", "QualifiedGraphShapes")
+    assert operations["graph_validate"].inputs == (
+        "QualifiedGraphProjection",
+        "QualifiedGraphShapes",
+    )
     assert operations["graph_validate"].outcomes == ("conformant", "nonconformant", "invalid")
     assert approved_implementations()["graph_project"].__name__ == "qualified_validation_graph"
     assert approved_implementations()["graph_validate"].__name__ == "validate_projected_graph"

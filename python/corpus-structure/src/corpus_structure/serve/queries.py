@@ -57,8 +57,6 @@ class FindParams(BaseModel):
     text: str
 
 
-
-
 Row = ClaimAnswer
 
 

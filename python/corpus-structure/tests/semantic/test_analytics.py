@@ -666,7 +666,11 @@ def test_borrowed_handles_refuse_after_close_while_materialized_results_detach()
     delayed_fetch = relation.fetchall
     scope.close()
     assert detached.to_pylist() == [{"value": 2}]
-    for operation in (delayed_fetch, lambda: reader.read_all(), lambda: scope.connection.sql("SELECT 2")):
+    for operation in (
+        delayed_fetch,
+        lambda: reader.read_all(),
+        lambda: scope.connection.sql("SELECT 2"),
+    ):
         with pytest.raises(RuntimeError, match="scope is closed"):
             operation()
 
@@ -675,8 +679,15 @@ def test_candidate_input_has_explicit_universe_without_fabricated_capture():
     from corpus_structure.semantic.analytics import CandidateInput
 
     packet = empty_packet(prepared_inputs()[2])
-    candidate = CandidateInput(packet.binding, packet.projection_id, packet.profile_digest,
-                               "cut-1", "asserted-positive-candidates", {}, scale=packet.scale)
+    candidate = CandidateInput(
+        packet.binding,
+        packet.projection_id,
+        packet.profile_digest,
+        "cut-1",
+        "asserted-positive-candidates",
+        {},
+        scale=packet.scale,
+    )
     with AnalysisScope(candidate) as scope:
         assert scope.connection.sql("SELECT 3").fetchall() == [(3,)]
     with pytest.raises(ValueError, match="cut and decision universe"):
@@ -690,6 +701,7 @@ def test_cleanup_attempts_all_and_retains_failures(monkeypatch):
     class Reader:
         def __init__(self, fail):
             self.fail = fail
+
         def close(self):
             events.append(self.fail)
             if self.fail:
@@ -700,17 +712,20 @@ def test_cleanup_attempts_all_and_retains_failures(monkeypatch):
         scope.close()
     assert events == [True, False]
     assert len(scope.cleanup_failures) == 1
-    assert not __import__('pathlib').Path(scope._scratch.name).exists()
+    assert not __import__("pathlib").Path(scope._scratch.name).exists()
     scope.close()
 
 
 def test_constructor_retains_invalid_input_and_cleanup_failure(monkeypatch):
     from corpus_structure.semantic import analytics
+
     packet = empty_packet(prepared_inputs()[2])
     original_cleanup = analytics.TemporaryDirectory.cleanup
+
     def broken_cleanup(self):
         original_cleanup(self)
         raise OSError("scratch cleanup failed")
+
     monkeypatch.setattr(analytics.TemporaryDirectory, "cleanup", broken_cleanup)
     # The constructor's empty captured spine is independently invalid.
     with pytest.raises(ExceptionGroup) as failure:
@@ -724,6 +739,7 @@ def test_constructor_retains_invalid_input_and_cleanup_failure(monkeypatch):
 
 def test_reader_adopts_native_relation_reader_and_releases_it():
     import duckdb
+
     with duckdb.connect(":memory:") as connection:
         relation = connection.sql("SELECT 7 AS value")
         with AnalysisScope(empty_packet(prepared_inputs()[2])) as scope:

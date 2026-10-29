@@ -314,7 +314,11 @@ def test_report_decimal_representations_survive_fact_fusion(
         found = (
             conn.execute(
                 text(
-                    "SELECT v.decimal_lexical FROM data.occurrence o JOIN data.typed_value v ON (v.release_id,v.realization_id,v.value_id)=(o.release_id,o.realization_id,o.report_object_value_id) WHERE v.kind='decimal' ORDER BY o.item"
+                    "SELECT v.decimal_lexical FROM data.occurrence o JOIN data.typed_value v "
+                    "ON "
+                    "(v.release_id,v.realization_id,v.value_id)="
+                    "(o.release_id,o.realization_id,o.report_object_value_id) "
+                    "WHERE v.kind='decimal' ORDER BY o.item"
                 )
             )
             .scalars()

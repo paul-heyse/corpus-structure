@@ -1,17 +1,40 @@
 """Owned translations between distinct source and semantic outcome domains."""
-from dataclasses import dataclass
-from typing import Literal, cast, get_args
-from collections.abc import Mapping
-from types import MappingProxyType
+
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Literal, cast, get_args
 
 SourceCoverageOutcome = Literal["complete", "partial", "unknown", "unsupported", "failed"]
 SemanticCoverageOutcome = Literal["complete", "partial", "unanalysed", "failed"]
-ScientificOutcome = Literal["accepted", "rejected", "candidate", "ambiguous", "equivalent", "different", "undecided", "unsupported", "warning", "refuted"]
+ScientificOutcome = Literal[
+    "accepted",
+    "rejected",
+    "candidate",
+    "ambiguous",
+    "equivalent",
+    "different",
+    "undecided",
+    "unsupported",
+    "warning",
+    "refuted",
+]
 TaskProtocolOutcome = Literal["done", "empty", "failed", "reused", "skipped", "cancelled"]
-TransactionOutcome = Literal["applied", "replay", "conflict", "stale_binding", "run_closed", "recompute_required", "infrastructure_failure"]
+TransactionOutcome = Literal[
+    "applied",
+    "replay",
+    "conflict",
+    "stale_binding",
+    "run_closed",
+    "recompute_required",
+    "infrastructure_failure",
+]
 QueryKnowledgeOutcome = Literal["observed", "absent", "unknown"]
-SubmissionDisposition = Literal["held", "completed_accepted", "completed_refused", "refused_context"]
+SubmissionDisposition = Literal[
+    "held", "completed_accepted", "completed_refused", "refused_context"
+]
+
 
 @dataclass(frozen=True)
 class CoverageConversion:
@@ -20,20 +43,33 @@ class CoverageConversion:
     reason: str | None
     required_capability: str | None
 
+
 CODE_OUTCOME_DOMAINS = {
-    "protocol": get_args(TaskProtocolOutcome), "submission": get_args(SubmissionDisposition),
-    "source_coverage": get_args(SourceCoverageOutcome), "semantic_coverage": get_args(SemanticCoverageOutcome),
-    "scientific": get_args(ScientificOutcome), "transaction": get_args(TransactionOutcome),
+    "protocol": get_args(TaskProtocolOutcome),
+    "submission": get_args(SubmissionDisposition),
+    "source_coverage": get_args(SourceCoverageOutcome),
+    "semantic_coverage": get_args(SemanticCoverageOutcome),
+    "scientific": get_args(ScientificOutcome),
+    "transaction": get_args(TransactionOutcome),
     "query_knowledge": get_args(QueryKnowledgeOutcome),
 }
-_BASE_TRANSLATIONS = MappingProxyType({"complete": "complete", "partial": "partial", "failed": "failed", "unknown": "unanalysed", "unsupported": "unanalysed"})
+_BASE_TRANSLATIONS = MappingProxyType(
+    {
+        "complete": "complete",
+        "partial": "partial",
+        "failed": "failed",
+        "unknown": "unanalysed",
+        "unsupported": "unanalysed",
+    }
+)
+
 
 @dataclass(frozen=True)
 class PreparedCoverageLowerer:
     translations: Mapping[str, str]
 
     @classmethod
-    def from_release(cls, prepared) -> "PreparedCoverageLowerer":
+    def from_release(cls, prepared) -> PreparedCoverageLowerer:
         if prepared.execution_model_id is None:
             return cls(_BASE_TRANSLATIONS)
         rows = [r for r in prepared.registry_rows if r.kind == "execution_model"]
@@ -44,7 +80,10 @@ class PreparedCoverageLowerer:
             raise ValueError("coverage execution identity differs")
         translations = {}
         for rule in product["outcome_translations"]:
-            if (rule["source_domain"], rule["target_domain"]) != ("source_coverage", "semantic_coverage"):
+            if (rule["source_domain"], rule["target_domain"]) != (
+                "source_coverage",
+                "semantic_coverage",
+            ):
                 continue
             if rule["source"] in translations:
                 raise ValueError("duplicate coverage translation")
@@ -55,16 +94,24 @@ class PreparedCoverageLowerer:
             raise ValueError("coverage translation does not cover the source domain")
         return cls(MappingProxyType(translations))
 
-    def lower(self, outcome: str, reason: str | None = None,
-              required_capability: str | None = None) -> CoverageConversion:
+    def lower(
+        self, outcome: str, reason: str | None = None, required_capability: str | None = None
+    ) -> CoverageConversion:
         if outcome not in self.translations:
             raise ValueError(f"unknown source coverage outcome: {outcome!r}")
-        return CoverageConversion(cast(SemanticCoverageOutcome, self.translations[outcome]),
-                                  cast(SourceCoverageOutcome, outcome), reason, required_capability)
+        return CoverageConversion(
+            cast(SemanticCoverageOutcome, self.translations[outcome]),
+            cast(SourceCoverageOutcome, outcome),
+            reason,
+            required_capability,
+        )
+
 
 _BASE_LOWERER = PreparedCoverageLowerer(_BASE_TRANSLATIONS)
 
-def lower_source_coverage(outcome: str, reason: str | None = None,
-                          required_capability: str | None = None) -> CoverageConversion:
+
+def lower_source_coverage(
+    outcome: str, reason: str | None = None, required_capability: str | None = None
+) -> CoverageConversion:
     """Baseline translation for non-composed releases; composed operations bind their product."""
     return _BASE_LOWERER.lower(outcome, reason, required_capability)

@@ -67,6 +67,7 @@ def source_task(admin, engine, path, *, composed=False):
     profile = PreparationProfile(version="semantic-2" if composed else "semantic-1")
     if composed:
         from corpus_structure.semantic.composed import composed_dependencies
+
         deps = composed_dependencies(deps)
     prepared = prepare_release(bundle, deps, profile)
     with admin.begin() as conn:
@@ -74,7 +75,10 @@ def source_task(admin, engine, path, *, composed=False):
         conn.execute(insert(table("data.project")).values(project_id="resubmit"))
         if composed:
             from corpus_structure.semantic.releases import activate_release
-            activate_release(conn,"resubmit",prepared.release_id,expected_parent=None,expected_generation=0)
+
+            activate_release(
+                conn, "resubmit", prepared.release_id, expected_parent=None, expected_generation=0
+            )
         conn.execute(
             insert(table("data.realization")).values(
                 project_id="resubmit", realization_id="input", release_id=prepared.release_id
@@ -304,7 +308,9 @@ def test_uncertain_first_hold_survives_session_restart_and_terminal_second_repor
             ).structured_content
             assert repeated is not None
             assert repeated["status"] == "not_open"
-            assert terminal["submission_disposition"] == ("completed_refused" if refused else "completed_accepted")
+            assert terminal["submission_disposition"] == (
+                "completed_refused" if refused else "completed_accepted"
+            )
 
     anyio.run(journey)
     with engine.connect() as conn:

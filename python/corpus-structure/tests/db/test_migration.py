@@ -169,6 +169,7 @@ def test_a_revision_for_an_unregistered_model_revision_is_refused(
         with pytest.raises(migrations.UnregisteredModelRevision, match=r"not in revisions\.yaml"):
             command.revision(config, "seeded", autogenerate=True, rev_id="0002")
     assert sorted(p.name for p in (location / "versions").glob("*.py")) == [
-        "0001_initial_schema.py", "0002_preserve_reference_descriptors.py",
-        "0003_preserve_statement_order_and_reference_roles.py"
+        "0001_initial_schema.py",
+        "0002_preserve_reference_descriptors.py",
+        "0003_preserve_statement_order_and_reference_roles.py",
     ]

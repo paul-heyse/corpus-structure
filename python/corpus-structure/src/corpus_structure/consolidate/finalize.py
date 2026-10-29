@@ -253,9 +253,15 @@ def edges(knowledge: Knowledge) -> tuple[list[ClaimEdge], list[EntityEdge]]:
                     )
                 )
             elif node.get("op") == "claim" and node.get("ref") in knowledge.entities:
-                entities.append(EntityEdge(
-                    key, EntityRefRole.CONDITION_PREMISE.value, None, _pointer(path), node["ref"]
-                ))
+                entities.append(
+                    EntityEdge(
+                        key,
+                        EntityRefRole.CONDITION_PREMISE.value,
+                        None,
+                        _pointer(path),
+                        node["ref"],
+                    )
+                )
             if node.get("op") == "pred":
                 for i, arg in enumerate(node.get("args", [])):
                     if isinstance(arg, dict) and arg.get("ref") in knowledge.entities:
@@ -278,9 +284,11 @@ def edges(knowledge: Knowledge) -> tuple[list[ClaimEdge], list[EntityEdge]]:
                     ClaimEdge(key, ClaimRefKind.BINDING_PARAM.value, _pointer(path), node["claim"])
                 )
             elif bind in _BINDING_CLAIM and node.get("claim") in knowledge.entities:
-                entities.append(EntityEdge(
-                    key, EntityRefRole.BINDING_PARAM.value, None, _pointer(path), node["claim"]
-                ))
+                entities.append(
+                    EntityEdge(
+                        key, EntityRefRole.BINDING_PARAM.value, None, _pointer(path), node["claim"]
+                    )
+                )
     return claims, entities
 
 

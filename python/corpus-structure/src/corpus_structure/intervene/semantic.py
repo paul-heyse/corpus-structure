@@ -13,6 +13,7 @@ from typing import Any, Literal
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import Connection
 
+from corpus_structure.semantic.operation_results import CompletionResult, OperationResult
 from corpus_structure.semantic.proposals import (
     LocatedProposal,
     ProposalIssue,
@@ -21,7 +22,6 @@ from corpus_structure.semantic.proposals import (
     locate_proposal,
 )
 from corpus_structure.semantic.types import PreparedRelease
-from corpus_structure.semantic.operation_results import OperationResult, CompletionResult
 
 
 class ProposalProtocolRefused(ProposalRefused):
@@ -237,6 +237,8 @@ class ProposalSession:
             observations=(observation,),
         )
         return CompletedProposalCommit(
-            disposition="completed_refused" if isinstance(checked, RefusedProposal) else "completed_accepted",
+            disposition="completed_refused"
+            if isinstance(checked, RefusedProposal)
+            else "completed_accepted",
             completion=observations,
         )

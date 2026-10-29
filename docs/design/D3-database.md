@@ -42,12 +42,31 @@ revision and keeps only the explanatory prose. Column comments that would repeat
 
 ## Composed-model admission fence
 
-**Implemented source, 2026-10-29; native verification belongs to SP-C02.** Migration
-semantic_0022 prevents direct realization creation/rebinding under semantic-2 while required
-execution lifecycle enforcement is unavailable. This complements Python activation admission;
-archiving a candidate does not permit bypass through direct realization insertion and native
-publication. SP-C03 replaces this refusal with actual trusted enforcement before admission
-closure. Existing semantic-1 publication and immutable migration history remain intact.
+**Implemented; scoped Tested, 2026-10-29.** semantic_0022 originally refused semantic-2
+construction until enforcing lifecycle/conditional implementations existed. Frozen revisions
+semantic_0023–0026 now supply those implementations and replace blanket refusal with exact
+compatible admission. Neither direct realization initialization nor later publication can bypass
+that native check. Existing realization bindings remain immutable, even when empty; activation
+retains parent/generation CAS.
+
+Native readiness checks exact trusted release/execution/physical identities, function bodies and
+ABI/ownership/configuration, trigger definitions/firing state, positive restricted EXECUTE/SELECT
+privileges and denied privileged writes. Existing authored-SQL artifacts must match raw source,
+release and current physical binding; fatal diagnostic policy matches Python. SQL admission runs
+inside activation's savepoint before native admission/CAS. A private frozen descriptor supports
+set-based catalog comparison without a new registry or privileged caller flag.
+
+Completed-result relationships enforce private evaluation/publication/run atomicity. Task result
+insertion materializes metrics with INSERT SELECT and source positions, preserving duplicate
+measurements and exact typed values. Semantic writers cannot mutate or append them after the
+protected result. Native method contracts bind unit and configuration schema; unresolved legacy
+metadata is not backfilled into a semantic-2 claim. Exact append/derived publication receipts
+retain replay identity and mandatory derived-source fencing.
+
+Semantic-1 and immutable migration history remain intact. Only owned fresh test databases
+exercised these migrations; the operational database is still semantic_0005. The
+[coordinator §10](../plans/semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
+owns native/consumer receipts and support limits; SP-08–SP-10 retain later adoption and deployment.
 
 ## 1. Choices
 

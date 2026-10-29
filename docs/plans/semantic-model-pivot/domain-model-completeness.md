@@ -1,6 +1,6 @@
 # Complete domain model and executable contracts
 
-**Status:** SP-C01 implemented; SP-C02 contract products and admission refusal implemented, admission closure pending required enforcement · **Created:** 2026-10-29 · **Proposed implementation target.**
+**Status:** SP-C01/SP-C02 implemented; supported admission closure scoped Tested, 2026-10-29 · **Created:** 2026-10-29.
 [Coordinator](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
 owns current package state, queue and opportunity disposition. This document owns SP-C01/SP-C02
 and the shared definitions consumed by [realization](domain-model-realization.md).
@@ -241,20 +241,25 @@ The catalog contains 101 concepts, 43 relationships, 37 operations, 7 lifecycle 
 24 invariants and 8 projections, including measurements and distinct outcome translations.
 These counts describe this catalog, not an automatic proof of semantic completeness.
 
-Compiler 7 retains semantic-1 and adds explicit semantic-2 inputs through composed_dependencies.
-Execution inputs/products are archived independently of the domain extraction namespace. The
-conditional profile uses native LinkML rule fragments and the same strict Pydantic boundaries;
-unsupported branches refuse. jsonschema 4.26.0 is now a direct product pin; no transitive versions
-changed. Exact archives, generation CAS and baseline publication remain intact.
+Compiler 8 retains semantic-1 and explicit semantic-2 inputs through composed_dependencies.
+Execution inputs/products are archived independently of the domain extraction namespace. Native
+LinkML conditional fragments compile to a finite presence/absence/choice IR enforced by strict
+Pydantic boundaries and protected native publication; unsupported required branches refuse.
+jsonschema 4.26.0 and cattrs 26.2.1 are direct product pins, with no transitive versions moved.
+cattrs normalizes existing frozen contract dataclasses; it does not replace LinkML/Pydantic
+semantic validation. Exact archives, generation CAS and baseline publication remain intact.
 
-SP-C02 activation checks trusted execution identity and required capabilities. New native
-migration semantic_0022 blocks semantic-2 realization construction, including the authenticated
-source-project initializer. Composed archive persistence also checks that this fence is enabled;
-a server without it cannot store a new composed archive and expose it to an old write path.
-This is admission refusal, not the future SP-C03 transition enforcement implementation.
+SP-C03–SP-C05 now supply the required lifecycle, conditional, domain and projection implementations.
+Frozen revisions semantic_0023–0026 extend, rather than alter, earlier migration history.
+Admission requires exact trusted execution/model/native/physical compatibility and real restricted
+principal privileges. Existing authored-SQL artifacts and fatal diagnostic policy are checked
+natively as well as at activation. There is no permission flag for missing enforcement.
+Composed source/MCP completion through final cut, accepted query/explanation and private-result
+atomicity passed against the final admitted binding. Supported native binary inference admission
+includes inverse, symmetric, transitive and subtype lifting; scalar/wrong-scope profiles refuse.
 
-SP-C02 admission closure remains blocked by required execution.lifecycle.v1 and, for conditional
-rules, conditional_rules_native enforcement. Contract consumers can use compiled definitions;
-no permission flag or graph-generation success authorizes an unenforced release. Current runtime
-transition adoption, scientific outcomes and analytical projections remain SP-C03–SP-C05.
-Operational bootstrap/default selection was not changed. Scoped receipts are in coordinator §10.
+The [realization checkpoint](domain-model-realization.md#7-implemented-mechanisms-2026-10-29)
+retains concrete runtime/library choices. Coordinator §10 owns receipts and opportunity closure.
+Earlier compiler-7 receipts retain their original boundary; they are not relabeled as compiler-8
+results. Operational bootstrap/default selection remains unchanged. SP-08–SP-10 retain later
+adoption, regeneration/cutover and assembled qualification.

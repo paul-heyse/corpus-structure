@@ -72,8 +72,8 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             )
         )
     source = (
-        'The density is 1 for x > 0 and 2 for x < 0. BranchFamily is a special '
-        'case of FirstParent and SecondParent.'
+        "The density is 1 for x > 0 and 2 for x < 0. BranchFamily is a special "
+        "case of FirstParent and SecondParent."
     )
     path = tmp_path / "Statistics.html"
     path.write_text(source)
@@ -134,8 +134,10 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
             parse_detail={},
         )
     namespace = "https://corpus-structure.dev/domains/statistics/"
+
     def formula(expression):
         return {"kind": "formula", "language": "latex", "expression": expression}
+
     claims = []
     for index, (expression, relation) in enumerate([("1", ">"), ("2", "<")]):
         claims.append(

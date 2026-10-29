@@ -58,17 +58,15 @@ def test_native_source_locator_is_checked_against_stored_citation(
             ).scalar_one()
             links.append(EvidenceSourceRow(eid, oid, rid, sid))
     batch = replace(inputs.batch, evidence=evidence, evidence_source=tuple(links))
-    with pytest.raises(DBAPIError, match="evidence span is not a located citation"):
-        with (
-            semantic_writer_engine.connect().execution_options(
-                isolation_level="SERIALIZABLE"
-            ) as conn,
-            conn.begin(),
-        ):
-            conn.execute(
-                text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
-            )
-            publish_on_connection(conn, batch)
+    with (
+        pytest.raises(DBAPIError, match="evidence span is not a located citation"),
+        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
+        conn.begin(),
+    ):
+        conn.execute(
+            text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "hostile"}
+        )
+        publish_on_connection(conn, batch)
 
 
 def test_unknown_occurrence_source_cannot_bypass_normalized_context(
@@ -130,10 +128,9 @@ def test_unknown_occurrence_source_cannot_bypass_normalized_context(
     )
     with (
         pytest.raises(
-        DBAPIError, match="evaluated occurrence source differs from its bound observation"
-    ), semantic_writer_engine.connect().execution_options(
-            isolation_level="SERIALIZABLE"
-        ) as conn,
+            DBAPIError, match="evaluated occurrence source differs from its bound observation"
+        ),
+        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(
@@ -216,11 +213,10 @@ def test_finished_result_cannot_contain_an_unbacked_selected_fact(
     )
     with (
         pytest.raises(
-        DBAPIError,
-        match="evaluated fact has no source support, admitted proof or bound input lineage",
-    ), semantic_writer_engine.connect().execution_options(
-            isolation_level="SERIALIZABLE"
-        ) as conn,
+            DBAPIError,
+            match="evaluated fact has no source support, admitted proof or bound input lineage",
+        ),
+        semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
         conn.begin(),
     ):
         conn.execute(

@@ -469,8 +469,15 @@ def queue_agent(
         raise ValueError("agent configuration declares its model")
     from corpus_structure.methods.llm.agent_opus import AgentOpusConfig
 
-    method = OperationDescriptor("agent.opus", SEMANTIC_AGENT_VERSION, "agent", "agent",
-                                 TaskUnitType.SEGMENT, AgentOpusConfig, "agent")
+    method = OperationDescriptor(
+        "agent.opus",
+        SEMANTIC_AGENT_VERSION,
+        "agent",
+        "agent",
+        TaskUnitType.SEGMENT,
+        AgentOpusConfig,
+        "agent",
+    )
     config_hash = (
         "configuration:"
         + sha256(canonical_bytes([method.name, method.version, dict(configuration)])).hexdigest()

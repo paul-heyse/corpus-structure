@@ -276,10 +276,8 @@ def serve_query(
                 rows.pop()
                 if not rows:
                     raise QueryRefused(
-
-                            'size limit: a complete row and response envelope do not fit; raise '
-                            'max_chars'
-
+                        "size limit: a complete row and response envelope do not fit; raise "
+                        "max_chars"
                     )
                 return response(True, cursor)
             cursor = found.position

@@ -53,10 +53,8 @@ chains:
         pending = (
             conn.execute(
                 text(
-
-                        "SELECT unit_key FROM ops.task WHERE run_id=:r AND stage='propose' AND "
-                        "status='awaiting_agent' ORDER BY unit_key"
-
+                    "SELECT unit_key FROM ops.task WHERE run_id=:r AND stage='propose' AND "
+                    "status='awaiting_agent' ORDER BY unit_key"
                 ),
                 {"r": first.run_id},
             )
@@ -67,10 +65,8 @@ chains:
         assert (
             conn.execute(
                 text(
-
-                        "SELECT count(*) FROM ops.task WHERE run_id=:r AND stage='propose' AND "
-                        "reason='scope'"
-
+                    "SELECT count(*) FROM ops.task WHERE run_id=:r AND stage='propose' AND "
+                    "reason='scope'"
                 ),
                 {"r": first.run_id},
             ).scalar_one()

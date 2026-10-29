@@ -15,7 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
-from typing import Any, Literal as TypingLiteral
+from typing import Any
+from typing import Literal as TypingLiteral
 
 from linkml.generators.owlgen import OwlSchemaGenerator
 from linkml.generators.shaclgen import ShaclGenerator
@@ -400,7 +401,6 @@ def qualified_assertion_graph(assertions: Iterable[Mapping[str, Any]]) -> Graph:
     return graph
 
 
-
 @dataclass(frozen=True)
 class QualifiedGraphReference:
     """An instance reference whose target must be present in validation closure."""
@@ -431,6 +431,7 @@ class QualifiedGraphProjection:
             if isinstance(value, tuple | list):
                 return tuple(freeze(child) for child in value)
             return value
+
         object.__setattr__(self, "assertions", freeze(self.assertions))
         object.__setattr__(self, "related_nodes", freeze(self.related_nodes))
         object.__setattr__(self, "references", freeze(self.references))
@@ -450,27 +451,40 @@ class QualifiedGraphProjection:
         if self.references.keys() - available.keys():
             raise OntologyError("reference source is outside projected node universe")
         for row in available.values():
-            for key, expected in (("release_id", self.release_id),
-                                  ("realization_id", self.realization_id),
-                                  ("data_revision", self.data_revision)):
+            for key, expected in (
+                ("release_id", self.release_id),
+                ("realization_id", self.realization_id),
+                ("data_revision", self.data_revision),
+            ):
                 if key in row and row[key] != expected:
                     raise OntologyError(f"wrong graph node scope: {key}")
+
         def instance_references(value: Any) -> set[str]:
             if isinstance(value, QualifiedGraphReference):
                 return {value.target_id}
             if isinstance(value, URIRef):
                 return {str(value)}
             if isinstance(value, Mapping):
-                return set().union(*(instance_references(child) for key, child in value.items()
-                                     if key not in {"predicate", "rdf_type", "class_iri"}))
+                return set().union(
+                    *(
+                        instance_references(child)
+                        for key, child in value.items()
+                        if key not in {"predicate", "rdf_type", "class_iri"}
+                    )
+                )
             if isinstance(value, tuple | list):
                 return set().union(*(instance_references(child) for child in value))
             return set()
-        references = {identity: set(self.references.get(identity, ())) | instance_references(row)
-                      for identity, row in available.items()}
+
+        references = {
+            identity: set(self.references.get(identity, ())) | instance_references(row)
+            for identity, row in available.items()
+        }
         for identity, assertion in assertions.items():
             subject = assertion["subject"]
-            references[identity].add(subject.target_id if isinstance(subject, QualifiedGraphReference) else str(subject))
+            references[identity].add(
+                subject.target_id if isinstance(subject, QualifiedGraphReference) else str(subject)
+            )
         required = set(assertions)
         pending = list(required)
         while pending:
@@ -482,8 +496,12 @@ class QualifiedGraphProjection:
                     required.add(target)
                     pending.append(target)
         graph = Graph()
-        binding = {"release": self.release_id, "realization": self.realization_id,
-                   "data_revision": self.data_revision, "projection": self.projection_id}
+        binding = {
+            "release": self.release_id,
+            "realization": self.realization_id,
+            "data_revision": self.data_revision,
+            "projection": self.projection_id,
+        }
 
         def structure(owner: URIRef, path: tuple[str, ...], value: Any) -> URIRef | Literal:
             if isinstance(value, QualifiedGraphReference):
@@ -491,15 +509,23 @@ class QualifiedGraphProjection:
             if isinstance(value, URIRef | Literal):
                 return value
             if value is None:
-                node = URIRef("urn:cs:projection-null:" + hashlib.sha256(
-                    json.dumps([binding, str(owner), path], sort_keys=True).encode()).hexdigest())
+                node = URIRef(
+                    "urn:cs:projection-null:"
+                    + hashlib.sha256(
+                        json.dumps([binding, str(owner), path], sort_keys=True).encode()
+                    ).hexdigest()
+                )
                 graph.add((node, RDF.type, CS.Null))
                 return node
             if not isinstance(value, Mapping | tuple | list):
                 return Literal(value)
             # Paths retain duplicate member positions, independently of RDF set semantics.
-            node = URIRef("urn:cs:projection-value:" + hashlib.sha256(
-                json.dumps([binding, str(owner), path], sort_keys=True).encode()).hexdigest())
+            node = URIRef(
+                "urn:cs:projection-value:"
+                + hashlib.sha256(
+                    json.dumps([binding, str(owner), path], sort_keys=True).encode()
+                ).hexdigest()
+            )
             if isinstance(value, Mapping):
                 graph.add((node, RDF.type, CS.Record))
                 for key, child in value.items():
@@ -520,7 +546,17 @@ class QualifiedGraphProjection:
             node = URIRef(str(assertion["id"]))
             graph.add((node, RDF.type, RDF.Statement))
             subject = assertion["subject"]
-            graph.add((node, RDF.subject, URIRef(subject.target_id if isinstance(subject, QualifiedGraphReference) else str(subject))))
+            graph.add(
+                (
+                    node,
+                    RDF.subject,
+                    URIRef(
+                        subject.target_id
+                        if isinstance(subject, QualifiedGraphReference)
+                        else str(subject)
+                    ),
+                )
+            )
             graph.add((node, RDF.predicate, URIRef(str(assertion["predicate"]))))
             graph.add((node, RDF.object, structure(node, ("object",), assertion["object"])))
         for identity in sorted(required):
@@ -535,6 +571,7 @@ class QualifiedGraphProjection:
             for target in sorted(references.get(identity, ())):
                 graph.add((node, CS.requiredNode, URIRef(target)))
         return graph
+
 
 def validate_graph(data: Graph, shapes: Graph, ontology: Graph | None = None) -> GraphValidation:
     """Conformance only: no implicit entailment, imports, mutation or SHACL rules."""
@@ -703,7 +740,8 @@ def qualified_validation_graph(projection: QualifiedGraphProjection) -> Graph:
 
 def qualified_projection_shapes() -> Graph:
     """Core shapes target reified statements, structural records and positional members."""
-    return Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+    return Graph().parse(
+        data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix cs: <https://corpus-structure.dev/semantic/> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -712,17 +750,24 @@ cs:StatementShape a sh:NodeShape; sh:targetClass rdf:Statement;
  sh:property [sh:path rdf:predicate; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
  sh:property [sh:path rdf:object; sh:minCount 1; sh:maxCount 1] .
 cs:MemberShape a sh:NodeShape; sh:targetClass cs:CollectionMember;
- sh:property [sh:path cs:position; sh:datatype xsd:integer; sh:minInclusive 0; sh:minCount 1; sh:maxCount 1];
+ sh:property [sh:path cs:position; sh:datatype xsd:integer;
+              sh:minInclusive 0; sh:minCount 1; sh:maxCount 1];
  sh:property [sh:path cs:value; sh:minCount 1; sh:maxCount 1] .
 cs:CollectionShape a sh:NodeShape; sh:targetClass cs:Collection;
  sh:property [sh:path cs:member; sh:class cs:CollectionMember];
  sh:sparql [sh:message "Collection member positions must be unique";
- sh:select "SELECT $this WHERE { $this <https://corpus-structure.dev/semantic/member> ?a, ?b . FILTER(?a != ?b) ?a <https://corpus-structure.dev/semantic/position> ?p . ?b <https://corpus-structure.dev/semantic/position> ?p . }"] .
+ sh:select """SELECT $this WHERE {
+   $this <https://corpus-structure.dev/semantic/member> ?a, ?b . FILTER(?a != ?b)
+   ?a <https://corpus-structure.dev/semantic/position> ?p .
+   ?b <https://corpus-structure.dev/semantic/position> ?p . }"""] .
 cs:ScopedNodeShape a sh:NodeShape; sh:targetSubjectsOf cs:projection;
  sh:property [sh:path cs:release; sh:minCount 1; sh:maxCount 1];
  sh:property [sh:path cs:realization; sh:minCount 1; sh:maxCount 1];
- sh:property [sh:path cs:data_revision; sh:datatype xsd:integer; sh:minInclusive 0; sh:minCount 1; sh:maxCount 1] .
-''', format="turtle")
+ sh:property [sh:path cs:data_revision; sh:datatype xsd:integer;
+              sh:minInclusive 0; sh:minCount 1; sh:maxCount 1] .
+''',
+        format="turtle",
+    )
 
 
 def validate_projected_graph(

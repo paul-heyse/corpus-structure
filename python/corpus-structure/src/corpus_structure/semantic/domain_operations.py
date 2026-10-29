@@ -38,7 +38,6 @@ from .publication import (
     PublicationReceipt,
     SelectionRow,
     _publish,
-    publish_on_connection,
 )
 from .query import SnapshotBinding
 from .releases import load_release
@@ -199,7 +198,9 @@ def _completed_result(engine, cut_id, output, policy):
         if policy is not None and (
             policy.release_id != cut["release_id"] or policy.version != VERSION
         ):
-            raise DomainOperationRefused("finished result policy version differs from its recorded binding")
+            raise DomainOperationRefused(
+                "finished result policy version differs from its recorded binding"
+            )
         observations = cut_observations(conn, cut_id)
         batch_id = _source_batch_id(cut["release_id"], output, observations)
         batches = table("data.batch")
@@ -936,12 +937,20 @@ def _project_cut(
         for body in (json.loads(row.body),)
     }
 
-    def coverage_row(family, scope, outcome, reason=None, source_outcome=None, required_capability=None):
+    def coverage_row(
+        family, scope, outcome, reason=None, source_outcome=None, required_capability=None
+    ):
         key = (
             "coverage:"
-            + sha256(canonical_bytes([cut["id"], family, scope, outcome, reason, source_outcome, required_capability])).hexdigest()
+            + sha256(
+                canonical_bytes(
+                    [cut["id"], family, scope, outcome, reason, source_outcome, required_capability]
+                )
+            ).hexdigest()
         )
-        coverage.append(CoverageRow(key, family, scope, outcome, reason, source_outcome, required_capability))
+        coverage.append(
+            CoverageRow(key, family, scope, outcome, reason, source_outcome, required_capability)
+        )
 
     for task in tasks:
         if task["status"] not in {"done", "empty", "reused"}:
@@ -952,12 +961,21 @@ def _project_cut(
                 str(task["status"]),
             )
     from .outcomes import PreparedCoverageLowerer
+
     coverage_lowerer = PreparedCoverageLowerer.from_release(prepared)
     for envelope in envelopes:
         for c in envelope["body"].get("coverage", ()):
-            converted = coverage_lowerer.lower(c["outcome"], c.get("reason"), c.get("required_capability"))
-            coverage_row(c["family"], c["scope"], converted.outcome, converted.reason,
-                         converted.source_outcome, converted.required_capability)
+            converted = coverage_lowerer.lower(
+                c["outcome"], c.get("reason"), c.get("required_capability")
+            )
+            coverage_row(
+                c["family"],
+                c["scope"],
+                converted.outcome,
+                converted.reason,
+                converted.source_outcome,
+                converted.required_capability,
+            )
     for observation in observations:
         reports.append(dict(observation))
         if (
@@ -1153,7 +1171,10 @@ def _project_cut(
                     refs.add(claim["object"]["text"])
             return refs
 
-        dependencies = {ref: dependencies_of(claim, qclass, mapping) for ref, (i, claim) in source_claims.items()}
+        dependencies = {
+            ref: dependencies_of(claim, qclass, mapping)
+            for ref, (i, claim) in source_claims.items()
+        }
         from graphlib import CycleError, TopologicalSorter
 
         topology = TopologicalSorter(
@@ -1554,7 +1575,12 @@ def _project_cut(
         batch,
         MappingProxyType(metadata),
         MappingProxyType(source_links),
-        SnapshotBinding(job["release_id"], job["input_realization_id"], job["input_revision"], "cut:" + str(cut["id"])),
+        SnapshotBinding(
+            job["release_id"],
+            job["input_realization_id"],
+            job["input_revision"],
+            "cut:" + str(cut["id"]),
+        ),
     )
 
 
@@ -1639,8 +1665,16 @@ def consolidate_cut(
             == "finished"
         )
         from .arrow_publication import SnapshotDerivedPublication, publish_arrow_on_connection
-        receipt = publish_arrow_on_connection(conn, SnapshotDerivedPublication.from_rows(
-            batch, source=inputs.source_binding, operation_id="consolidate_cut", projection_id=compiled.projection_id))
+
+        receipt = publish_arrow_on_connection(
+            conn,
+            SnapshotDerivedPublication.from_rows(
+                batch,
+                source=inputs.source_binding,
+                operation_id="consolidate_cut",
+                projection_id=compiled.projection_id,
+            ),
+        )
         if done:
             return receipt
         # A source receipt, proof receipts and the run result are one atomic transaction. The
@@ -1655,8 +1689,15 @@ def consolidate_cut(
             ),
         )
         if inferred.batch.fact or inferred.batch.derivation:
-            publish_arrow_on_connection(conn, SnapshotDerivedPublication.from_rows(
-                inferred.batch, source=inferred.binding, operation_id="publish_inference", projection_id="accepted"))
+            publish_arrow_on_connection(
+                conn,
+                SnapshotDerivedPublication.from_rows(
+                    inferred.batch,
+                    source=inferred.binding,
+                    operation_id="publish_inference",
+                    projection_id="accepted",
+                ),
+            )
         conn.execute(
             text("SELECT data.finish_evaluation(:cut,:output,:batch)"),
             {"cut": cut_id, "output": output_realization_id, "batch": batch.batch_id},
@@ -2246,7 +2287,9 @@ class ReleasedRulesPolicy:
                 for c in members:
                     generated[c.occurrence_id].add("disagreement:" + key)
 
-        context_by_occurrence = {o.occurrence_id: o.report_qualification_value_id for o in inputs.batch.occurrence}
+        context_by_occurrence = {
+            o.occurrence_id: o.report_qualification_value_id for o in inputs.batch.occurrence
+        }
 
         def assessment(a, b, outcome, reason, tier):
             for c, other in ((a, b), (b, a)):

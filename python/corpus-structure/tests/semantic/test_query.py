@@ -443,7 +443,9 @@ def test_release_loaded_once_and_recursive_values_batched(
         request = spec(session, "readings", "accepted")
         result = session.query(request)
         assert len(result.values) > len(statements)
-        assert len(statements) == 6  # selection, closure, roles, memberships, source declarations, coverage
+        assert (
+            len(statements) == 6
+        )  # selection, closure, roles, memberships, source declarations, coverage
         assert sum("WITH RECURSIVE" in statement for statement in statements) == 1
         session.query(spec(session))
         assert loads == [prepared.release_id]

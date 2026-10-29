@@ -158,7 +158,9 @@ class SemanticAgentSession:
                             parts=len(pages),
                             chars=sum(map(len, pages)),
                             previous_issues=TypeAdapter(tuple[ProposalIssue, ...]).validate_python(
-                                task.held_progress.result.get("issues", ()) if task.held_progress else ()
+                                task.held_progress.result.get("issues", ())
+                                if task.held_progress
+                                else ()
                             ),
                         )
                     )
@@ -337,7 +339,11 @@ def build_semantic_server(
             )
         except (OperationConflict, ProposalTaskNotOpen) as error:
             return submission.SubmissionResult(
-                task_id=task_id, status="not_open", submission_disposition="refused_context", task_open=False, reason=str(error)
+                task_id=task_id,
+                status="not_open",
+                submission_disposition="refused_context",
+                task_open=False,
+                reason=str(error),
             )
         except (ProposalRefused, ValidationError) as error:
             return submission.SubmissionResult(
@@ -359,8 +365,13 @@ def build_semantic_server(
             from corpus_structure.semantic.operations import release_claim
 
             with current(ctx).engine.begin() as conn:
-                release_claim(conn, task_id=task_id, attempt=active.attempt,
-                              holder=active.holder, reason=reason)
+                release_claim(
+                    conn,
+                    task_id=task_id,
+                    attempt=active.attempt,
+                    holder=active.holder,
+                    reason=reason,
+                )
             current(ctx).sessions.pop(task_id, None)
             return service.Released(task_id=task_id, released=True, reason=reason)
         except (ProposalRefused, OperationConflict) as error:

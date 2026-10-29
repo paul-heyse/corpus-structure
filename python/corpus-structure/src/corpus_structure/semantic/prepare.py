@@ -841,7 +841,12 @@ def _prepare_release_uncached(
         artifacts.extend(
             (
                 PreparedArtifact("conditional_rules.json", canonical_bytes(rule_fragments)),
-                PreparedArtifact("conditional_rules_native.json", canonical_bytes(compile_native_conditionals(view, rule_fragments, profile.constraint_scope))),
+                PreparedArtifact(
+                    "conditional_rules_native.json",
+                    canonical_bytes(
+                        compile_native_conditionals(view, rule_fragments, profile.constraint_scope)
+                    ),
+                ),
                 PreparedArtifact(
                     "conditional_rule_options.json", canonical_bytes(CONDITIONAL_RULE_OPTIONS)
                 ),
@@ -942,7 +947,11 @@ def _prepare_release_uncached(
         if dependency.name == "operation/metric-definitions.yaml":
             try:
                 declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
-                if not isinstance(declared, dict) or set(declared) != {"metrics"} or not isinstance(declared["metrics"], list):
+                if (
+                    not isinstance(declared, dict)
+                    or set(declared) != {"metrics"}
+                    or not isinstance(declared["metrics"], list)
+                ):
                     raise ValueError("metric declarations require a metrics sequence")
                 adapter = dict(adapters).get("SourceMetricDefinition")
                 if adapter is None:
@@ -950,11 +959,15 @@ def _prepare_release_uncached(
                 metric_ids = set()
                 metric_rows = []
                 for item in declared["metrics"]:
-                    body = adapter.validate_json(json.dumps(item), strict=True).model_dump(mode="json")
+                    body = adapter.validate_json(json.dumps(item), strict=True).model_dump(
+                        mode="json"
+                    )
                     if not body["id"] or body["id"] in metric_ids:
                         raise ValueError("metric IDs must be nonempty and unique")
                     metric_ids.add(body["id"])
-                    metric_rows.append(RegistryRow("metric_definition", body["id"], canonical_bytes(body)))
+                    metric_rows.append(
+                        RegistryRow("metric_definition", body["id"], canonical_bytes(body))
+                    )
                 rows += tuple(sorted(metric_rows, key=lambda row: row.name))
                 artifacts.append(PreparedArtifact(dependency.name, dependency.content))
             except Exception as exc:

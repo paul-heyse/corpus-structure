@@ -75,10 +75,8 @@ def record(
         dict(r)
         for r in conn.execute(
             text(
-
-                    'SELECT id, key, content_hash, meta FROM kb.document WHERE '
-                    'project_id=:p ORDER BY key'
-
+                "SELECT id, key, content_hash, meta FROM kb.document WHERE "
+                "project_id=:p ORDER BY key"
             ),
             {"p": project_id},
         ).mappings()

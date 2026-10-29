@@ -1,6 +1,6 @@
 # Complete domain-model realization in transitioned operations
 
-**Status:** Planned · **Created:** 2026-10-29 · **Proposed implementation target.**
+**Status:** Implemented for transitioned supported scope; scoped Tested, 2026-10-29 · **Created:** 2026-10-29.
 [Coordinator](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
 owns current state, queue and opportunity disposition. This document owns SP-C03–SP-C05 and
 consumes [SP-C01/SP-C02 contracts](domain-model-completeness.md).
@@ -10,7 +10,7 @@ consumes [SP-C01/SP-C02 contracts](domain-model-completeness.md).
 Realize the [completeness review O01–O07](../../functional_reviews/semantic-domain-model-completeness_2026-10-29.md)
 and [target](../../functional_reviews/semantic-domain-model-completeness_2026-10-29_target-model.md)
 on the transitioned SP-00–SP-07 implementation. Preserve its existing mechanisms and passing
-receipts; new work is planned separately. Remaining legacy migration stays SP-08; regeneration
+receipts; the implementation checkpoint below records the added scope. Remaining legacy migration stays SP-08; regeneration
 and default cutover stay SP-09; assembled acceptance stays SP-10.
 
 SP-C01 supplies agreed definitions; SP-C02's contract-products milestone supplies working
@@ -171,7 +171,9 @@ Preserve exact source/canonical numeric representations and the accepted DECIMAL
 HALF_EVEN analytical profile with explicit rounding/overflow outcomes. Wider Arrow types or RDF
 literal transport do not establish a wider coherent arithmetic contract.
 
-AnalysisScope owns the DuckDB connection, registrations, readers and scratch. Borrowed handles
+AnalysisScope owns the DuckDB connection, child connections, registrations, readers and scratch.
+Its lifecycle combines input kind and open/closed scope. Multiple borrowed and detached results
+can coexist; result lifetime is per result, not an exclusive state of the scope. Borrowed handles
 refuse after close; materialized results can detach. Idempotent close attempts every owned
 teardown, retains individual failures and repropagates cancellation after settlement. Resource
 limits, response completeness and declared analysis universe remain separate.
@@ -192,7 +194,8 @@ These investigations are design work inside their owning packages, not installat
 | Mechanism | Package and decision question | Default, exit and dependency |
 |---|---|---|
 | Shared guard lowering | SP-C03: how do finite definitions and owned Core/native predicates cover all supported writers? | Existing Core/protected functions remain. Settle the predicate owner and failure semantics before deploying a transition; no parallel interpreter. |
-| Native conditional-rule coverage | SP-C02: which required conditions have faithful boundary/native/graph enforcement? | Installed sources and actual adapters first; bounded probe only for consequential uncertainty. Resolve required behavior before claiming its package complete. |
+| Native conditional-rule coverage | SP-C02/SP-C03: compiled finite presence/absence/choice branches | Implemented from native LinkML JSON Schema fragments, including inherited aliases and whole-rule scopes. Unsupported required grammar refuses; strict local errors retain keyword and instance/schema paths. |
+| cattrs / attrs / msgspec | Shared contract representation | Selected cattrs 26.2.1 for strict structure/unstructure of existing frozen dataclasses, with primitive hooks and extra-key refusal. LinkML/Pydantic remain semantic/ingress owners. attrs and msgspec add no required capability here; deferred until a concrete consumer needs them. |
 | Direct PySHACL/PyOxigraph Store | SP-C05: do selected graph constraints preserve result semantics, graph context and numeric requirements? | RDFLib remains the supported baseline. Adopt direct Store only after relevant conformance; no assumed speedup or new persistent authority. |
 | linkml-map | SP-C05: is there an actual current mapping consumer whose complete shape semantics its supported transformer preserves? | Candidate only. If justified, select an exact version and strict TransformationSpecification/ObjectTransformer route, explicit join/unit/collection behavior and independent target validation. Otherwise retain owned projection functions. SQLCompiler is not assumed to implement the full mapping language. |
 | Oxrdflib | Deferred: a required consumer specifically needs RDFLib's Oxigraph-backed store interface and direct native PySHACL input is insufficient | Revisit with that consumer. Qualify fallback/transaction behavior then; no completeness dependency now. |
@@ -224,5 +227,48 @@ capability boundaries. Existing passing type/test receipts remain valid; lint-on
 not trigger repeated type checking or tests. Final series qualification and native scenario
 ownership are in [regeneration and acceptance](regeneration-and-acceptance.md).
 
-No product checks, new dependency installations, migration deployment, default cutover or
-regrading were performed when authoring this plan.
+## 7. Implemented mechanisms (2026-10-29)
+
+**Implemented; scoped Tested.** Compiler 8 / execution compiler 2 archive the finite conditional
+IR, native guard bindings and named projection products. The exact supported execution binding
+is `execution:ba807ea0f3d649f0e59a29033a03209d3e19ab2c5769882cd97b73a82103fc78`.
+No arbitrary native symbols or authored executable imports are admitted. Static outcome domains
+are checked against the trusted catalog. cattrs is a direct exact pin; the lock adds no new
+transitive versions. Its canonical unstructuring preserves the existing wire representation.
+
+- **SP-C03:** frozen revisions `semantic_0023`–`0026` deploy finite lifecycle and conditional
+  guards, protected renew/release and terminal effects, method unit/configuration contracts,
+  completed-result relationships and compatible native admission. CLI/MCP/orchestration use
+  frozen strict result DTOs. Held evidence survives cancellation/reclaim. A deferred native
+  constraint prevents committing private evaluated output without its completed result.
+- **SP-C04:** release-compiled coverage lowering preserves source code/reason/capability;
+  assessment subject/counterpart/context and comparison tier are typed. Explicit packaged metric
+  definitions bind producing methods and source schemas. Protected result insertion materializes
+  measurements in one set-based native operation; source position preserves duplicate bag members.
+  Direct late insertion/mutation refuses. Readers expose exact source values and producing binding.
+  Consolidation and inference use candidate inputs and explicit derived-publication intent.
+- **SP-C05:** captured/candidate projections carry distinct provenance. Derived publication
+  requires the exact source binding/revision plus operation/projection and retains replay before
+  stale-source checks. Qualified graph closure includes referenced nodes, reified nested values,
+  collection positions and nulls; selected shapes augment the core contract. RDFLib remains the
+  supported PySHACL input, inference/imports/mutation disabled. No current mapping consumer
+  justified linkml-map or a direct-store backend change. Borrowed DuckDB/Arrow handles enforce
+  scope lifetime; detached values survive. Cleanup attempts every owned resource, including
+  child cursors, and preserves cancellation after settlement.
+
+`semantic_0026` replaces the blanket `0022` refusal only for a faithfully enforced binding.
+Admission checks exact function/trigger definitions, owners/configuration, positive restricted
+EXECUTE/SELECT privileges and denied privileged writes, the current physical model and existing
+SQL-admission artifacts. Archived SQL admission runs inside activation's existing savepoint before
+native admission/CAS. Fatal archived diagnostic policy matches Python. These checks are set-based;
+no additional registry, event service, alignment gate or proof ledger was introduced.
+
+Semantic-1 remains supported. Existing methods without unit/schema metadata remain explicitly
+unresolved and cannot run under semantic-2; no metadata was fabricated or backfilled. The finite
+conditional and qualified binary-inference profiles remain deliberate support boundaries, not
+claims of arbitrary LinkML or ontology execution. Source algorithms and mathematical policies
+retain their existing meaning. Grading/adjudication remain automated; no prior result was regraded.
+
+The coordinator §10 owns exact passing, failed and superseding receipts. Native checks used owned
+fresh databases. The operational database remains at `semantic_0005`; no default deployment,
+cutover or enclosing SP-10 qualification occurred.

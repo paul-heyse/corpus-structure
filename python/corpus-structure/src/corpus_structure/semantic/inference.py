@@ -262,8 +262,10 @@ def publish_inference(
     from .arrow_publication import SnapshotDerivedPublication, publish_arrow_on_connection
 
     publication = SnapshotDerivedPublication.from_rows(
-        result.batch, source=result.binding,
-        operation_id="publish_inference", projection_id="accepted",
+        result.batch,
+        source=result.binding,
+        operation_id="publish_inference",
+        projection_id="accepted",
     )
 
     def publish(conn: Connection, batch: PublicationBatch) -> PublicationReceipt:

@@ -20,9 +20,9 @@ from pgpq.schema import Jsonb
 from psycopg import sql
 from sqlalchemy import Connection, Engine, text
 
-from .query import SnapshotBinding
 from .identity import canonical_bytes
 from .publication import STAGE_TYPES, PublicationBatch, PublicationReceipt, _publish
+from .query import SnapshotBinding
 
 
 class ArrowPublicationError(ValueError):
@@ -177,9 +177,7 @@ class AppendPublication:
         return self._content
 
     @classmethod
-    def from_rows(
-        cls, batch: PublicationBatch
-    ) -> AppendPublication:
+    def from_rows(cls, batch: PublicationBatch) -> AppendPublication:
         """Adapt legitimate row producers at freeze, retaining exact optional projections.
 
         Decimal128 overflow clears only the optional numeric projection, never lexical text.
@@ -245,7 +243,6 @@ class AppendPublication:
         )
 
 
-
 @dataclass(frozen=True, init=False)
 class SnapshotDerivedPublication:
     transport: AppendPublication
@@ -254,15 +251,34 @@ class SnapshotDerivedPublication:
     projection_id: str
 
     def __init__(
-        self, release_id: str, realization_id: str, batch_id: str,
-        relations: Mapping[str, pa.Table | tuple[pa.RecordBatch, ...]], *,
-        source: SnapshotBinding, operation_id: str, projection_id: str,
+        self,
+        release_id: str,
+        realization_id: str,
+        batch_id: str,
+        relations: Mapping[str, pa.Table | tuple[pa.RecordBatch, ...]],
+        *,
+        source: SnapshotBinding,
+        operation_id: str,
+        projection_id: str,
     ) -> None:
         if type(source.data_revision) is not int or source.data_revision < 0:
             raise ArrowPublicationError("derived source revision must be a nonnegative integer")
-        if any(type(v) is not str or not v for v in (operation_id, projection_id, source.capture_id, source.release_id, source.realization_id)):
-            raise ArrowPublicationError("derived publication requires operation, projection and snapshot identity")
-        object.__setattr__(self, "transport", AppendPublication(release_id, realization_id, batch_id, relations))
+        if any(
+            type(v) is not str or not v
+            for v in (
+                operation_id,
+                projection_id,
+                source.capture_id,
+                source.release_id,
+                source.realization_id,
+            )
+        ):
+            raise ArrowPublicationError(
+                "derived publication requires operation, projection and snapshot identity"
+            )
+        object.__setattr__(
+            self, "transport", AppendPublication(release_id, realization_id, batch_id, relations)
+        )
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "operation_id", operation_id)
         object.__setattr__(self, "projection_id", projection_id)
@@ -289,18 +305,32 @@ class SnapshotDerivedPublication:
 
     @classmethod
     def from_rows(
-        cls, batch: PublicationBatch, *, source: SnapshotBinding,
-        operation_id: str, projection_id: str,
+        cls,
+        batch: PublicationBatch,
+        *,
+        source: SnapshotBinding,
+        operation_id: str,
+        projection_id: str,
     ) -> SnapshotDerivedPublication:
         append = AppendPublication.from_rows(batch)
-        return cls(append.release_id, append.realization_id, append.batch_id, append.relations,
-                   source=source, operation_id=operation_id, projection_id=projection_id)
+        return cls(
+            append.release_id,
+            append.realization_id,
+            append.batch_id,
+            append.relations,
+            source=source,
+            operation_id=operation_id,
+            projection_id=projection_id,
+        )
 
 
 # Existing name denotes append transport only; omission can no longer select derived intent.
 ArrowPublicationBatch = AppendPublication
 
-def stage_arrow(connection: Connection, batch: AppendPublication | SnapshotDerivedPublication) -> None:
+
+def stage_arrow(
+    connection: Connection, batch: AppendPublication | SnapshotDerivedPublication
+) -> None:
     connection.execute(text("SELECT data.begin_stage()"))
     driver = connection.connection.driver_connection
     if not isinstance(driver, psycopg.Connection):
@@ -332,10 +362,18 @@ def publish_arrow_on_connection(
         "c": batch.content,
     }
     if isinstance(batch, SnapshotDerivedPublication):
-        function = "data.publish_derived_batch(:r,:z,:b,:c,:sr,:sz,:revision,:capture,:operation,:projection)"
-        params.update(sr=batch.source.release_id, sz=batch.source.realization_id,
-                      revision=batch.source.data_revision, capture=batch.source.capture_id,
-                      operation=batch.operation_id, projection=batch.projection_id)
+        function = (
+            "data.publish_derived_batch("
+            ":r,:z,:b,:c,:sr,:sz,:revision,:capture,:operation,:projection)"
+        )
+        params.update(
+            sr=batch.source.release_id,
+            sz=batch.source.realization_id,
+            revision=batch.source.data_revision,
+            capture=batch.source.capture_id,
+            operation=batch.operation_id,
+            projection=batch.projection_id,
+        )
     try:
         revision = connection.execute(text("SELECT " + function), params).scalar_one()
     except Exception as exc:

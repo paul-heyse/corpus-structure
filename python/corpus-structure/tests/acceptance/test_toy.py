@@ -1,4 +1,5 @@
 """C4: the same production journey on an independently declared second domain."""
+
 from __future__ import annotations
 
 import json
@@ -33,30 +34,46 @@ else:
 def test_toy_pack_journey(committing_db: Any, tmp_path: Path) -> None:
     pack = REPO / "domains/toy"
     with committing_db.begin() as conn:
-        project.init_project(conn, domain="toy", corpus=REPO / "fixtures/toy/corpus",
-                             registry=phase0.registry(pack), name="toy")
+        project.init_project(
+            conn,
+            domain="toy",
+            corpus=REPO / "fixtures/toy/corpus",
+            registry=phase0.registry(pack),
+            name="toy",
+        )
     url = committing_db.url.set(drivername="postgresql").render_as_string(hide_password=False)
-    options = dict(url=url, project_name="toy", slice="toy",
-                   method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path))
+    options = dict(
+        url=url,
+        project_name="toy",
+        slice="toy",
+        method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+    )
     # Start with exactly one organization in the reference run. A same-name alias must
     # not replace the later organizations' distinct registry identities.
     baseline_options = {**options, "slice": "one_owner"}
     baseline = run_to_completion(committing_db, **baseline_options)
     ownership = json.loads((REPO / "fixtures/toy/ownership.json").read_text())
-    baseline_submission = submit_batches(build_server(Session(committing_db)), baseline.run_id,
-        {ownership["unit_key"]: (ownership["batch"], ownership["frame"])})
+    baseline_submission = submit_batches(
+        build_server(Session(committing_db)),
+        baseline.run_id,
+        {ownership["unit_key"]: (ownership["batch"], ownership["frame"])},
+    )
     assert all(result.status == "done" for result in baseline_submission.values())
     reference = run_to_completion(committing_db, **baseline_options)
     assert reference.status == "finished"
     # A test fixture promotion selects the reference for the next run; no operator
     # promotion workflow or scoring qualification is claimed by this test.
     with committing_db.begin() as conn:
-        conn.execute(text("UPDATE meta.project SET promoted_run_id=:r WHERE name='toy'"),
-                     {"r": reference.run_id})
+        conn.execute(
+            text("UPDATE meta.project SET promoted_run_id=:r WHERE name='toy'"),
+            {"r": reference.run_id},
+        )
     first = run_to_completion(committing_db, **options)
     assert first.status == "finished"
-    fixtures = [json.loads((REPO / "fixtures/toy" / f"{name}.json").read_text())
-                for name in ("ownership", "registers")]
+    fixtures = [
+        json.loads((REPO / "fixtures/toy" / f"{name}.json").read_text())
+        for name in ("ownership", "registers")
+    ]
     batches = {f["unit_key"]: (f["batch"], f["frame"]) for f in fixtures}
     with committing_db.connect() as conn:
         initial = coverage(conn, first.run_id, Scope.of_units(tuple(batches)))
@@ -72,18 +89,31 @@ def test_toy_pack_journey(committing_db: Any, tmp_path: Path) -> None:
     assert second.status == "finished"
     queries = build_registry(GENERIC, pack)
     with committing_db.connect() as conn:
-        kinds = set(conn.execute(text("SELECT kind FROM kb.entity WHERE run_id=:r "
-                                      "AND kind IS NOT NULL"), {"r": second.run_id}).scalars())
+        kinds = set(
+            conn.execute(
+                text("SELECT kind FROM kb.entity WHERE run_id=:r AND kind IS NOT NULL"),
+                {"r": second.run_id},
+            ).scalars()
+        )
         assert {"toy:clause", "toy:notice"} <= kinds
-        organizations = conn.execute(text(
-            "SELECT e.key, i.value_text FROM kb.entity e "
-            "JOIN kb.entity_identity i ON i.entity_id=e.id "
-            "WHERE e.run_id=:r AND e.type='toy:Organization' AND i.slot='toy:registry_id'"
-        ), {"r": second.run_id}).all()
+        organizations = conn.execute(
+            text(
+                "SELECT e.key, i.value_text FROM kb.entity e "
+                "JOIN kb.entity_identity i ON i.entity_id=e.id "
+                "WHERE e.run_id=:r AND e.type='toy:Organization' AND i.slot='toy:registry_id'"
+            ),
+            {"r": second.run_id},
+        ).all()
         assert {row[1] for row in organizations} == {"ORG-101", "ORG-202", "org-101"}
         assert len({row[0] for row in organizations}) == 3
-        all_claims = serve_query(conn, queries, "claims", {"predicate": "toy:owns",
-            "include_candidates": True}, run=second.run_id, max_chars=1_000_000)
+        all_claims = serve_query(
+            conn,
+            queries,
+            "claims",
+            {"predicate": "toy:owns", "include_candidates": True},
+            run=second.run_id,
+            max_chars=1_000_000,
+        )
         claims = [ClaimAnswer.model_validate(row) for row in all_claims.rows]
         assert len(claims) == 9, [(row.modality, row.status, row.qualifiers) for row in claims]
         reports = [row for row in claims if row.modality == "toy:reported"]
@@ -97,21 +127,35 @@ def test_toy_pack_journey(committing_db: Any, tmp_path: Path) -> None:
         filing = [row for row in claims if "toy:filing_ref" in row.qualifiers]
         assert len(filing) == 1
         assert all(row.evidence for row in claims)
-        result = serve_query(conn, queries, "ownership_at", {"asset": "P-17", "date": "2020-07-01"},
-                             run=second.run_id, max_chars=1_000_000)
+        result = serve_query(
+            conn,
+            queries,
+            "ownership_at",
+            {"asset": "P-17", "date": "2020-07-01"},
+            run=second.run_id,
+            max_chars=1_000_000,
+        )
         ownership = [OwnershipRow.model_validate(row) for row in result.rows]
         intervals = [row for row in ownership if row.interval is not None]
         assert {row.applicability for row in intervals} == {"established", "not_applicable"}
         assert any(row.applicability == "unknown" for row in ownership)
         assert result.coverage.extracted == 2 and not result.coverage.partial
         # The notice has a stored kind but never receives an extraction task.
-        task_keys = conn.execute(text("SELECT unit_key FROM ops.task WHERE run_id=:r "
-                                      "AND stage='propose'"), {"r": second.run_id}).scalars().all()
+        task_keys = (
+            conn.execute(
+                text("SELECT unit_key FROM ops.task WHERE run_id=:r AND stage='propose'"),
+                {"r": second.run_id},
+            )
+            .scalars()
+            .all()
+        )
         assert not any("notice" in key for key in task_keys)
 
 
 def test_toy_profile_unknown_kind_refuses_run_start(
-    committing_db: Any, tmp_path: Path, monkeypatch: Any,
+    committing_db: Any,
+    tmp_path: Path,
+    monkeypatch: Any,
 ) -> None:
     import pytest
 
@@ -120,20 +164,34 @@ def test_toy_profile_unknown_kind_refuses_run_start(
 
     pack = REPO / "domains/toy"
     with committing_db.begin() as conn:
-        project.init_project(conn, domain="toy", corpus=REPO / "fixtures/toy/corpus",
-                             registry=phase0.registry(pack), name="toy-invalid-kind")
+        project.init_project(
+            conn,
+            domain="toy",
+            corpus=REPO / "fixtures/toy/corpus",
+            registry=phase0.registry(pack),
+            name="toy-invalid-kind",
+        )
     original = profile.load_profile
 
     def invalid(name: Any, *args: Any, **kwargs: Any) -> Any:
         loaded = original(name, *args, **kwargs)
-        return loaded.model_copy(update={"block_hints": (
-            loaded.block_hints[0].model_copy(update={"statement_kind": "toy:missing"}),
-        )})
+        return loaded.model_copy(
+            update={
+                "block_hints": (
+                    loaded.block_hints[0].model_copy(update={"statement_kind": "toy:missing"}),
+                )
+            }
+        )
 
     monkeypatch.setattr(profile, "load_profile", invalid)
     url = committing_db.url.set(drivername="postgresql").render_as_string(hide_password=False)
     with pytest.raises(runs.ProfileRefused, match="toy:missing"):
-        run_to_completion(committing_db, url=url, project_name="toy-invalid-kind", slice="toy",
-                          method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path))
+        run_to_completion(
+            committing_db,
+            url=url,
+            project_name="toy-invalid-kind",
+            slice="toy",
+            method_settings=MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+        )
     with committing_db.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM ops.run")).scalar_one() == 0

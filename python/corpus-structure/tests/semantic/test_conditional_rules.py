@@ -322,8 +322,10 @@ def test_native_rule_atoms_preserve_alias_presence_and_branch_scope():
     assert len(rows) == 1
     assert rows[0]["scope"] == "accepted_value"
     assert rows[0]["branches"] == {
-        "if": [{"property": "status", "presence": "present", "choices": None},
-               {"property": "status", "presence": "optional", "choices": ["ready"]}],
+        "if": [
+            {"property": "status", "presence": "present", "choices": None},
+            {"property": "status", "presence": "optional", "choices": ["ready"]},
+        ],
         "then": [{"property": "label", "presence": "present", "choices": None}],
         "else": [{"property": "reason", "presence": "present", "choices": None}],
     }

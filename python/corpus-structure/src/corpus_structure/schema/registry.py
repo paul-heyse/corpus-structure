@@ -168,13 +168,17 @@ def _archived_payload(entry: PayloadSchemaEntry, version: int) -> PayloadSchemaE
     if body["json_schema"]["$id"] != data["json_schema_id"]:
         raise RegistrationError(f"{path}: historical JSON Schema identity differs")
     return PayloadSchemaEntry(
-        class_=data["class_"], kind=data["kind"], version=data["version"],
+        class_=data["class_"],
+        kind=data["kind"],
+        version=data["version"],
         parent_version=data["parent_version"],
         compatibility_class=CompatibilityClass(data["compatibility_class"]),
         json_schema_id=data["json_schema_id"],
         arrow_schema=base64.b64decode(data["arrow_schema"]),
-        sql_visible_paths=tuple(data["sql_visible_paths"]), upcaster=data["upcaster"],
-        reason=data["reason"], authorized_by=data["authorized_by"],
+        sql_visible_paths=tuple(data["sql_visible_paths"]),
+        upcaster=data["upcaster"],
+        reason=data["reason"],
+        authorized_by=data["authorized_by"],
     )
 
 
@@ -285,11 +289,16 @@ def _ensure_model_revision(conn: Any, model: Model) -> tuple[int, str]:
                 select(table.c.id).where(table.c.content_hash == entry["parent"])
             ).scalar_one()
         conn.execute(
-            insert(table).values(
-                label=entry["label"], content_hash=entry["content_hash"],
-                compilers=entry["compilers"], key_scheme=entry["key_scheme"],
-                parent_id=parent_id, change_record=entry.get("change_record"),
-            ).on_conflict_do_nothing(index_elements=["content_hash"])
+            insert(table)
+            .values(
+                label=entry["label"],
+                content_hash=entry["content_hash"],
+                compilers=entry["compilers"],
+                key_scheme=entry["key_scheme"],
+                parent_id=parent_id,
+                change_record=entry.get("change_record"),
+            )
+            .on_conflict_do_nothing(index_elements=["content_hash"])
         )
         if entry["content_hash"] == current.content_hash:
             break
@@ -305,7 +314,8 @@ def _ensure_payload_schemas(conn: Any, model: Model, revision_id: int) -> dict[s
     out = {}
     for entry in payload_schema_versions(model):
         revision_hash = next(
-            r["content_hash"] for r in read_log()
+            r["content_hash"]
+            for r in read_log()
             if f"/{r['content_hash'][:12]}/" in entry.json_schema_id
         )
         owner_revision = conn.execute(
@@ -325,9 +335,15 @@ def _ensure_payload_schemas(conn: Any, model: Model, revision_id: int) -> dict[s
             .values(model_revision_id=owner_revision, parent_id=parent_id, **entry.row())
             .on_conflict_do_nothing(index_elements=["class", "version"])
         )
-        stored = conn.execute(
-            select(table).where(table.c["class"] == entry.class_, table.c.version == entry.version)
-        ).mappings().one()
+        stored = (
+            conn.execute(
+                select(table).where(
+                    table.c["class"] == entry.class_, table.c.version == entry.version
+                )
+            )
+            .mappings()
+            .one()
+        )
         expected = {"model_revision_id": owner_revision, "parent_id": parent_id, **entry.row()}
         differing = [name for name, value in expected.items() if stored[name] != value]
         if differing:

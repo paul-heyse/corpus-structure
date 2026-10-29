@@ -237,7 +237,9 @@ def test_native_writer_cannot_bypass_execution_admission(
     with semantic_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project_id = _project(conn)
-        conn.execute(text("ALTER FUNCTION ops.execution_edge(text,text,text) OWNER TO corpus_sem_publisher"))
+        conn.execute(
+            text("ALTER FUNCTION ops.execution_edge(text,text,text) OWNER TO corpus_sem_publisher")
+        )
     realization_id = str(uuid4())
     engine = semantic_db_engine if route == "owner_insert" else semantic_writer_engine
     with (
@@ -293,28 +295,38 @@ def test_composed_archive_requires_enabled_native_fence(semantic_db_engine):
         conn.execute(text("ALTER TABLE data.realization ENABLE TRIGGER guard_execution_admission"))
 
 
-
 def test_composed_activation_requires_actual_verified_deployment(semantic_db_engine):
     from corpus_structure.semantic.publication import admit_release
+
     with semantic_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
         with pytest.raises(ExecutionAdmissionError, match="requires verified native deployment"):
             admit_release(prepared)
-        admitted = releases.activate_release(conn, project, prepared.release_id,
-                    expected_parent=None, expected_generation=0)
+        admitted = releases.activate_release(
+            conn, project, prepared.release_id, expected_parent=None, expected_generation=0
+        )
         assert admitted == releases.ActivationToken(prepared.release_id, 1)
-        conn.execute(insert(table("data.realization")).values(
-            realization_id=str(uuid4()), release_id=prepared.release_id, project_id=project))
+        conn.execute(
+            insert(table("data.realization")).values(
+                realization_id=str(uuid4()), release_id=prepared.release_id, project_id=project
+            )
+        )
 
 
-
-def test_composed_legacy_analysis_abi_refuses_without_intent(semantic_db_engine, semantic_writer_engine):
+def test_composed_legacy_analysis_abi_refuses_without_intent(
+    semantic_db_engine, semantic_writer_engine
+):
     with semantic_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="explicit derived intent"):
-        conn.execute(text("SELECT data.publish_analysis_batch(:r,'z','b',:content,0)"),
-                     {"r": prepared.release_id, "content": b"[]"})
+    with (
+        semantic_writer_engine.begin() as conn,
+        pytest.raises(DBAPIError, match="explicit derived intent"),
+    ):
+        conn.execute(
+            text("SELECT data.publish_analysis_batch(:r,'z','b',:content,0)"),
+            {"r": prepared.release_id, "content": b"[]"},
+        )
 
 
 @pytest.mark.parametrize("tamper", ["body", "attachment", "column_grant"])
@@ -323,15 +335,27 @@ def test_composed_activation_refuses_actual_kernel_and_privilege_drift(semantic_
         *_, prepared = _stage(conn)
         project = _project(conn)
         if tamper == "body":
-            conn.execute(text("CREATE OR REPLACE FUNCTION ops.execution_edge(lifecycle text,prior text,result text) RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp AS 'SELECT true'"))
+            conn.execute(
+                text(
+                    "CREATE OR REPLACE FUNCTION ops.execution_edge(lifecycle text,prior "
+                    "text,result text) RETURNS boolean LANGUAGE sql IMMUTABLE SET "
+                    "search_path=pg_catalog,pg_temp AS 'SELECT true'"
+                )
+            )
         elif tamper == "attachment":
             conn.execute(text("DROP TRIGGER zz_execution_task ON ops.task"))
-            conn.execute(text("CREATE TRIGGER zz_execution_task BEFORE INSERT OR UPDATE ON ops.run FOR EACH ROW EXECUTE FUNCTION ops.guard_execution_task()"))
+            conn.execute(
+                text(
+                    "CREATE TRIGGER zz_execution_task BEFORE INSERT OR UPDATE ON ops.run FOR "
+                    "EACH ROW EXECUTE FUNCTION ops.guard_execution_task()"
+                )
+            )
         else:
             conn.execute(text("GRANT INSERT(entity_id) ON data.entity TO corpus_sem_writer"))
         with pytest.raises(ExecutionAdmissionError, match="native execution deployment"):
-            releases.activate_release(conn, project, prepared.release_id,
-                expected_parent=None, expected_generation=0)
+            releases.activate_release(
+                conn, project, prepared.release_id, expected_parent=None, expected_generation=0
+            )
         assert releases.activation_token(conn, project) == releases.ActivationToken(None, 0)
 
 
@@ -346,27 +370,42 @@ def test_native_constructor_refuses_unimplemented_required_scope(
         prepared = prepare_release(bundle, dependencies, profile)
         releases.persist_release(conn, bundle, dependencies, profile, prepared)
         project = _project(conn)
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="unsupported required native constraint"):
-        conn.execute(text("SELECT data.initialize_source_project(:p,:r,:z)"),
-                     {"p": project, "r": prepared.release_id, "z": str(uuid4())})
+    with (
+        semantic_writer_engine.begin() as conn,
+        pytest.raises(DBAPIError, match="unsupported required native constraint"),
+    ):
+        conn.execute(
+            text("SELECT data.initialize_source_project(:p,:r,:z)"),
+            {"p": project, "r": prepared.release_id, "z": str(uuid4())},
+        )
 
 
 def test_native_project_generation_cannot_reset_or_skip(semantic_db_engine):
     with semantic_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
-        releases.activate_release(conn, project, prepared.release_id,
-                                  expected_parent=None, expected_generation=0)
+        releases.activate_release(
+            conn, project, prepared.release_id, expected_parent=None, expected_generation=0
+        )
         for generation in (0, 3):
             with pytest.raises(DBAPIError, match="generation must advance"), conn.begin_nested():
-                conn.execute(text("UPDATE data.project SET generation=:g WHERE project_id=:p"),
-                             {"g": generation, "p": project})
-        conn.execute(text("UPDATE data.project SET generation=generation WHERE project_id=:p"),
-                     {"p": project})
-        assert releases.activation_token(conn, project) == releases.ActivationToken(prepared.release_id, 1)
+                conn.execute(
+                    text("UPDATE data.project SET generation=:g WHERE project_id=:p"),
+                    {"g": generation, "p": project},
+                )
+        conn.execute(
+            text("UPDATE data.project SET generation=generation WHERE project_id=:p"),
+            {"p": project},
+        )
+        assert releases.activation_token(conn, project) == releases.ActivationToken(
+            prepared.release_id, 1
+        )
         with pytest.raises(DBAPIError, match="generation must start"), conn.begin_nested():
-            conn.execute(insert(table("data.project")).values(project_id=str(uuid4()),
-                         active_release_id=prepared.release_id, generation=5))
+            conn.execute(
+                insert(table("data.project")).values(
+                    project_id=str(uuid4()), active_release_id=prepared.release_id, generation=5
+                )
+            )
 
 
 @pytest.mark.parametrize("flag", ["transitive", "symmetric"])
@@ -374,6 +413,7 @@ def test_native_constructor_refuses_scalar_inference_relation(
     semantic_db_engine, semantic_writer_engine, flag
 ):
     import yaml
+
     from corpus_structure.semantic.publication import _admit_inference
 
     domain = yaml.safe_load(_bundle().sources[0].content)
@@ -388,26 +428,40 @@ def test_native_constructor_refuses_scalar_inference_relation(
     with semantic_db_engine.begin() as conn:
         releases.persist_release(conn, bundle, dependencies, profile, prepared)
         project = _project(conn)
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="native binary inference profile") as failure:
-        conn.execute(text("SELECT data.initialize_source_project(:p,:r,:z)"),
-                     {"p": project, "r": prepared.release_id, "z": str(uuid4())})
-    assert failure.value.orig.sqlstate == "23514"
+    with (
+        semantic_writer_engine.begin() as conn,
+        pytest.raises(DBAPIError, match="native binary inference profile") as failure,
+    ):
+        conn.execute(
+            text("SELECT data.initialize_source_project(:p,:r,:z)"),
+            {"p": project, "r": prepared.release_id, "z": str(uuid4())},
+        )
+    assert getattr(failure.value.orig, "sqlstate", None) == "23514"
 
 
 @pytest.mark.parametrize("capability", ["execute", "select"])
-def test_native_readiness_requires_positive_application_capabilities(semantic_db_engine, capability):
+def test_native_readiness_requires_positive_application_capabilities(
+    semantic_db_engine, capability
+):
     with semantic_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
         owner = conn.dialect.identifier_preparer.quote(conn.scalar(text("SELECT current_user")))
         conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         if capability == "execute":
-            conn.execute(text("REVOKE EXECUTE ON FUNCTION ops.create_run(text,text,text,bigint,bytea,text,bigint,jsonb,text,text) FROM corpus_sem_writer"))
+            conn.execute(
+                text(
+                    "REVOKE EXECUTE ON FUNCTION "
+                    "ops.create_run(text,text,text,bigint,bytea,text,bigint,jsonb,text,text) "
+                    "FROM corpus_sem_writer"
+                )
+            )
         else:
             conn.execute(text("REVOKE SELECT ON data.occurrence_context FROM corpus_sem_writer"))
         with pytest.raises(ExecutionAdmissionError, match="native execution deployment"):
-            releases.activate_release(conn, project, prepared.release_id,
-                                      expected_parent=None, expected_generation=0)
+            releases.activate_release(
+                conn, project, prepared.release_id, expected_parent=None, expected_generation=0
+            )
         conn.execute(text("SET LOCAL ROLE " + owner))
         assert releases.activation_token(conn, project) == releases.ActivationToken(None, 0)
 
@@ -417,18 +471,25 @@ def test_native_empty_realization_cannot_rebind_interpretation(semantic_db_engin
         *_, prepared = _stage(conn)
         project = _project(conn)
         realization = str(uuid4())
-        conn.execute(insert(table("data.realization")).values(
-            realization_id=realization, project_id=project, release_id=prepared.release_id))
+        conn.execute(
+            insert(table("data.realization")).values(
+                realization_id=realization, project_id=project, release_id=prepared.release_id
+            )
+        )
         other_project = _project(conn)
         with pytest.raises(DBAPIError, match="binding is immutable"), conn.begin_nested():
-            conn.execute(update(table("data.realization")).where(
-                table("data.realization").c.realization_id==realization).values(project_id=other_project))
+            conn.execute(
+                update(table("data.realization"))
+                .where(table("data.realization").c.realization_id == realization)
+                .values(project_id=other_project)
+            )
 
 
 def test_native_constructor_admits_binary_rules_with_subtyped_range(
     semantic_db_engine, semantic_writer_engine
 ):
     import yaml
+
     from corpus_structure.semantic.publication import _admit_inference
 
     domain = yaml.safe_load(_bundle().sources[0].content)
@@ -450,15 +511,22 @@ def test_native_constructor_admits_binary_rules_with_subtyped_range(
         project = _project(conn)
     realization = str(uuid4())
     with semantic_writer_engine.begin() as conn:
-        assert conn.scalar(text("SELECT data.initialize_source_project(:p,:r,:z)"),
-                           {"p": project, "r": prepared.release_id, "z": realization}) == realization
+        assert (
+            conn.scalar(
+                text("SELECT data.initialize_source_project(:p,:r,:z)"),
+                {"p": project, "r": prepared.release_id, "z": realization},
+            )
+            == realization
+        )
 
 
 def _stage_authored_sql(conn):
     bundle = _bundle()
-    dependencies = composed_dependencies(ResolvedDependencies((
-        SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity"),
-    )))
+    dependencies = composed_dependencies(
+        ResolvedDependencies(
+            (SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity"),)
+        )
+    )
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     releases.persist_release(conn, bundle, dependencies, profile, prepared)
@@ -473,11 +541,19 @@ def test_native_constructor_requires_existing_authored_sql_admission(
         project = _project(conn)
     with semantic_writer_engine.begin() as conn:
         with pytest.raises(DBAPIError, match="required authored SQL"), conn.begin_nested():
-            conn.execute(text("SELECT data.initialize_source_project(:p,:r,:z)"),
-                         {"p": project, "r": prepared.release_id, "z": str(uuid4())})
+            conn.execute(
+                text("SELECT data.initialize_source_project(:p,:r,:z)"),
+                {"p": project, "r": prepared.release_id, "z": str(uuid4())},
+            )
         assert releases.activation_token(conn, project) == releases.ActivationToken(None, 0)
-        assert conn.scalar(select(table("data.realization").c.realization_id).where(
-            table("data.realization").c.project_id == project)) is None
+        assert (
+            conn.scalar(
+                select(table("data.realization").c.realization_id).where(
+                    table("data.realization").c.project_id == project
+                )
+            )
+            is None
+        )
 
 
 def test_composed_activation_establishes_exact_restricted_sql_admission(
@@ -489,26 +565,47 @@ def test_composed_activation_establishes_exact_restricted_sql_admission(
         prepared = _stage_authored_sql(conn)
         project = _project(conn)
         with semantic_reader_engine.connect() as reader:
-            token = releases.activate_release(conn, project, prepared.release_id,
-                expected_parent=None, expected_generation=0, sql_reader=reader)
+            token = releases.activate_release(
+                conn,
+                project,
+                prepared.release_id,
+                expected_parent=None,
+                expected_generation=0,
+                sql_reader=reader,
+            )
         assert token == releases.ActivationToken(prepared.release_id, 1)
-        artifact = conn.execute(select(table("sem.sql_admission")).where(
-            table("sem.sql_admission").c.release_id == prepared.release_id)).mappings().one()
+        artifact = (
+            conn.execute(
+                select(table("sem.sql_admission")).where(
+                    table("sem.sql_admission").c.release_id == prepared.release_id
+                )
+            )
+            .mappings()
+            .one()
+        )
         assert sha256(bytes(artifact["content"])).hexdigest() == artifact["content_digest"]
         assert artifact["physical_id"] == PHYSICAL_MODEL_ID
         assert json.loads(bytes(artifact["content"]))["sql"] == "SELECT entity_id FROM data.entity"
     with semantic_writer_engine.begin() as conn:
         realization = str(uuid4())
-        assert conn.scalar(text("SELECT data.initialize_source_project(:p,:r,:z)"),
-            {"p": project, "r": prepared.release_id, "z": realization}) == realization
+        assert (
+            conn.scalar(
+                text("SELECT data.initialize_source_project(:p,:r,:z)"),
+                {"p": project, "r": prepared.release_id, "z": realization},
+            )
+            == realization
+        )
 
 
-@pytest.mark.parametrize("field,value", [
-    ("sql", "SELECT 'different'::text"),
-    ("release_id", "release:another"),
-    ("physical_id", "physical:another"),
-    ("content_digest", "0" * 64),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("sql", "SELECT 'different'::text"),
+        ("release_id", "release:another"),
+        ("physical_id", "physical:another"),
+        ("content_digest", "0" * 64),
+    ],
+)
 def test_native_constructor_requires_exact_sql_artifact_binding(
     semantic_db_engine, semantic_reader_engine, semantic_writer_engine, field, value
 ):
@@ -518,7 +615,7 @@ def test_native_constructor_requires_exact_sql_artifact_binding(
         prepared = _stage_authored_sql(conn)
         project = _project(conn)
         with semantic_reader_engine.connect() as reader:
-            artifact, = admit_archived_sql(conn, prepared.release_id, reader_conn=reader)
+            (artifact,) = admit_archived_sql(conn, prepared.release_id, reader_conn=reader)
         body = json.loads(artifact.content)
         if field == "content_digest":
             values = {"content_digest": value}
@@ -527,19 +624,29 @@ def test_native_constructor_requires_exact_sql_artifact_binding(
             content = canonical_bytes(body)
             values = {"content": content, "content_digest": sha256(content).hexdigest()}
         admission = table("sem.sql_admission")
-        conn.execute(update(admission).where(admission.c.release_id == prepared.release_id).values(**values))
-    with semantic_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="required authored SQL"):
-        conn.execute(text("SELECT data.initialize_source_project(:p,:r,:z)"),
-                     {"p": project, "r": prepared.release_id, "z": str(uuid4())})
+        conn.execute(
+            update(admission).where(admission.c.release_id == prepared.release_id).values(**values)
+        )
+    with (
+        semantic_writer_engine.begin() as conn,
+        pytest.raises(DBAPIError, match="required authored SQL"),
+    ):
+        conn.execute(
+            text("SELECT data.initialize_source_project(:p,:r,:z)"),
+            {"p": project, "r": prepared.release_id, "z": str(uuid4())},
+        )
 
 
-@pytest.mark.parametrize("outcome,code,message,refused", [
-    ("unsupported", "unsupported", "unsupported required semantics", True),
-    ("unresolved", "unresolved", "unresolved required semantics", True),
-    ("unchecked", "unchecked_term", "different unchecked term", True),
-    ("unchecked", "other_code", "not4curation:unchecked", True),
-    ("unchecked", "unchecked_term", "not4curation:unchecked", False),
-])
+@pytest.mark.parametrize(
+    "outcome,code,message,refused",
+    [
+        ("unsupported", "unsupported", "unsupported required semantics", True),
+        ("unresolved", "unresolved", "unresolved required semantics", True),
+        ("unchecked", "unchecked_term", "different unchecked term", True),
+        ("unchecked", "other_code", "not4curation:unchecked", True),
+        ("unchecked", "unchecked_term", "not4curation:unchecked", False),
+    ],
+)
 def test_native_constructor_obeys_archived_diagnostic_policy(
     semantic_db_engine, semantic_writer_engine, outcome, code, message, refused
 ):
@@ -547,14 +654,26 @@ def test_native_constructor_obeys_archived_diagnostic_policy(
     with semantic_db_engine.begin() as conn:
         *_, prepared = _stage(conn)
         project = _project(conn)
-        archive = json.loads(conn.scalar(select(table("sem.release").c.prepared_bytes).where(
-            table("sem.release").c.release_id == prepared.release_id)))
-        archive["products"]["diagnostics"] = [{
-            "outcome": outcome, "code": code, "message": message, "location": "test",
-        }]
-        conn.execute(update(table("sem.release")).where(
-            table("sem.release").c.release_id == prepared.release_id).values(
-                prepared_bytes=canonical_bytes(archive)))
+        archive = json.loads(
+            conn.scalar(
+                select(table("sem.release").c.prepared_bytes).where(
+                    table("sem.release").c.release_id == prepared.release_id
+                )
+            )
+        )
+        archive["products"]["diagnostics"] = [
+            {
+                "outcome": outcome,
+                "code": code,
+                "message": message,
+                "location": "test",
+            }
+        ]
+        conn.execute(
+            update(table("sem.release"))
+            .where(table("sem.release").c.release_id == prepared.release_id)
+            .values(prepared_bytes=canonical_bytes(archive))
+        )
     with semantic_writer_engine.begin() as conn:
         statement = text("SELECT data.initialize_source_project(:p,:r,:z)")
         parameters = {"p": project, "r": prepared.release_id, "z": str(uuid4())}

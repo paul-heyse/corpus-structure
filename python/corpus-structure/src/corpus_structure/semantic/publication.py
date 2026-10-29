@@ -21,8 +21,8 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import DBAPIError
 
 from .identity import canonical_bytes
-from .outcomes import ScientificOutcome, SemanticCoverageOutcome
 from .metadata import table
+from .outcomes import ScientificOutcome, SemanticCoverageOutcome
 from .types import PreparedRelease
 
 

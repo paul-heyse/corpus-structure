@@ -14,8 +14,8 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic import arrow_publication as arrow
 from corpus_structure.semantic.arrow_publication import (
     ArrowPublicationBatch,
-    SnapshotDerivedPublication,
     ArrowPublicationError,
+    SnapshotDerivedPublication,
     StaleAnalysisError,
     publish_arrow,
     stage_schema,
@@ -98,13 +98,17 @@ def batch(identity="b", *, entity="e"):
     )
 
 
-
 def derived_rows(batch, *, expected_data_revision):
     from corpus_structure.semantic.query import SnapshotBinding
+
     return SnapshotDerivedPublication.from_rows(
-        batch, source=SnapshotBinding(batch.release_id, batch.realization_id,
-                                      expected_data_revision, "test-capture"),
-        operation_id="test-analysis", projection_id="test-projection")
+        batch,
+        source=SnapshotBinding(
+            batch.release_id, batch.realization_id, expected_data_revision, "test-capture"
+        ),
+        operation_id="test-analysis",
+        projection_id="test-projection",
+    )
 
 
 def test_exact_frozen_schema_and_content():
@@ -176,9 +180,7 @@ def test_native_arrow_copy_receipt_and_fence(semantic_db_engine, semantic_writer
     with semantic_db_engine.connect() as conn:
         assert bytes(conn.scalar(text("SELECT content FROM data.batch"))) == candidate.content
         assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
-    stale = derived_rows(
-        batch("stale", entity="other"), expected_data_revision=0
-    )
+    stale = derived_rows(batch("stale", entity="other"), expected_data_revision=0)
     with pytest.raises(StaleAnalysisError, match="recompute"):
         publish_arrow(semantic_writer_engine, stale)
     with semantic_writer_engine.connect() as conn:
@@ -401,10 +403,7 @@ def test_analysis_serialization_requires_recomputation(
             barrier.wait(timeout=10)
 
     monkeypatch.setattr(arrow, "stage_arrow", staged)
-    candidates = [
-        derived_rows(batch(x, entity=x), expected_data_revision=0)
-        for x in ("a", "b")
-    ]
+    candidates = [derived_rows(batch(x, entity=x), expected_data_revision=0) for x in ("a", "b")]
 
     def attempt(candidate):
         try:
@@ -425,13 +424,16 @@ def test_derived_publication_requires_explicit_intent_and_keeps_it_disjoint():
     from corpus_structure.semantic.query import SnapshotBinding
 
     source = SnapshotBinding(R, Z, 0, "capture")
-    derived = SnapshotDerivedPublication.from_rows(batch(), source=source,
-                operation_id="analysis", projection_id="captured")
+    derived = SnapshotDerivedPublication.from_rows(
+        batch(), source=source, operation_id="analysis", projection_id="captured"
+    )
     assert not isinstance(derived, AppendPublication)
     assert derived.source == source
     with pytest.raises(ArrowPublicationError, match="operation, projection"):
-        SnapshotDerivedPublication.from_rows(batch(), source=source,
-                    operation_id="", projection_id="captured")
+        SnapshotDerivedPublication.from_rows(
+            batch(), source=source, operation_id="", projection_id="captured"
+        )
     with pytest.raises(TypeError):
         from typing import Any, cast
+
         cast(Any, AppendPublication.from_rows)(batch(), expected_data_revision=0)

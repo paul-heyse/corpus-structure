@@ -233,20 +233,34 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
             continue
         for rule in json.loads(artifact.content):
             rows["conditional_rule"].append(
-                {"release_id": rid, "rule_id": rule["rule_id"],
-                 "class_id": rule["class_id"], "scope": rule["scope"]}
+                {
+                    "release_id": rid,
+                    "rule_id": rule["rule_id"],
+                    "class_id": rule["class_id"],
+                    "scope": rule["scope"],
+                }
             )
             for branch, atoms in rule["branches"].items():
                 rows["conditional_atom"].extend(
-                    {"release_id": rid, "rule_id": rule["rule_id"], "branch": branch,
-                     "position": position, "property_name": atom["property"],
-                     "presence": atom["presence"], "choices": atom["choices"]}
+                    {
+                        "release_id": rid,
+                        "rule_id": rule["rule_id"],
+                        "branch": branch,
+                        "position": position,
+                        "property_name": atom["property"],
+                        "presence": atom["presence"],
+                        "choices": atom["choices"],
+                    }
                     for position, atom in enumerate(atoms)
                 )
     rows["metric_definition"] = [
-        {"release_id": rid, "metric_id": row.name,
-         **{key: value for key, value in json.loads(row.body).items() if key != "id"}}
-        for row in prepared.registry_rows if row.kind == "metric_definition"
+        {
+            "release_id": rid,
+            "metric_id": row.name,
+            **{key: value for key, value in json.loads(row.body).items() if key != "id"},
+        }
+        for row in prepared.registry_rows
+        if row.kind == "metric_definition"
     ]
     return rows
 

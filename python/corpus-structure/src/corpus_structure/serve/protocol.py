@@ -49,6 +49,7 @@ class QueryContext:
     @cached_property
     def reader(self) -> Any:
         from corpus_structure.serve.read import Reader
+
         return Reader(self)
 
     @property

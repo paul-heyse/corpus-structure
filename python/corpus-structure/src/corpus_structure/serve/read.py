@@ -54,11 +54,9 @@ class Reader:
 
             root = self.conn.execute(
                 text(
-
-                        "SELECT c.params -> 'source_profile' ->> 'root' FROM "
-                        'kb.rendition_build b JOIN ops.method_config c ON '
-                        'c.id=b.method_config_id WHERE b.rendition_id=:r LIMIT 1'
-
+                    "SELECT c.params -> 'source_profile' ->> 'root' FROM "
+                    "kb.rendition_build b JOIN ops.method_config c ON "
+                    "c.id=b.method_config_id WHERE b.rendition_id=:r LIMIT 1"
                 ),
                 {"r": rendition},
             ).scalar()

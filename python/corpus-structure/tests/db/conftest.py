@@ -356,10 +356,8 @@ def finalized_pool_run(pool_run):
     with pool_run.engine.begin() as conn:
         conn.execute(
             text(
-
-                    'UPDATE ops.run SET '
-                    "cut_at=:cut,cut_m19_task_id=:m,status='consolidating' WHERE id=:r"
-
+                "UPDATE ops.run SET "
+                "cut_at=:cut,cut_m19_task_id=:m,status='consolidating' WHERE id=:r"
             ),
             {
                 "cut": datetime(2026, 10, 28, 12, 0, tzinfo=UTC),

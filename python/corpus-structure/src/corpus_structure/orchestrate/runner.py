@@ -161,6 +161,7 @@ class Runner:
                     self.step(run_id, stage, step)
             if graph.policy_propose:
                 from corpus_structure.orchestrate.routing import propose
+
                 with self.engine.begin() as conn:
                     propose(conn, run_id, self.registry)
         except (RunFailed, ValueError) as error:

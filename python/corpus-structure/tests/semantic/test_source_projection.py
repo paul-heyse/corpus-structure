@@ -17,8 +17,8 @@ def test_only_explicit_author_synthesis_becomes_a_located_statement_relation():
     result = build_rendition(
         (
             b'<html><body><div class="unit" id="theorem"><p class="math">A '
-            b'theorem.</p><details><summary>Proof</summary><p>The '
-            b'proof.</p></details></div></body></html>'
+            b"theorem.</p><details><summary>Proof</summary><p>The "
+            b"proof.</p></details></div></body></html>"
         ),
         compile_profile(load_profile("siegrist")),
         SentenceConfig(),

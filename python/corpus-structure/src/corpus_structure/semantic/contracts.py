@@ -17,9 +17,9 @@ from importlib.resources import files
 from typing import Any, Never
 
 import yaml
-from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from cattrs import Converter
 from cattrs.v import transform_error
+from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from pydantic import ValidationError
 
 from .identity import canonical_bytes
@@ -585,7 +585,9 @@ def _validate(products: ExecutionModelProducts) -> None:
 
     for name, annotation in CODE_OUTCOME_DOMAINS.items():
         if name not in domains or set(domains[name].values) != set(annotation):
-            _fail("outcome_implementation", name, "code outcome domain differs from trusted catalog")
+            _fail(
+                "outcome_implementation", name, "code outcome domain differs from trusted catalog"
+            )
     translations = set()
     for translation in products.outcome_translations:
         _refs(
@@ -666,5 +668,9 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     }
     model_id = "execution:" + sha256(canonical_bytes(identity)).hexdigest()
     products = _normalize(data, model_id)
-    normalized = {key: value for key, value in _PRODUCT_CONVERTER.unstructure(products).items() if key != "content"}
+    normalized = {
+        key: value
+        for key, value in _PRODUCT_CONVERTER.unstructure(products).items()
+        if key != "content"
+    }
     return replace(products, content=canonical_bytes({"inputs": identity, **normalized}))

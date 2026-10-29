@@ -238,10 +238,14 @@ def conditional_model_namespace(fragment: dict[str, Any]) -> dict[str, Any]:
         error = next(validator.iter_errors(values), None)
         if error is not None:
             raise PydanticCustomError(
-                "conditional_rule", "conditional rule failed: {message}",
-                {"message": error.message, "keyword": error.validator,
-                 "instance_path": list(error.absolute_path),
-                 "schema_path": list(error.absolute_schema_path)},
+                "conditional_rule",
+                "conditional rule failed: {message}",
+                {
+                    "message": error.message,
+                    "keyword": error.validator,
+                    "instance_path": list(error.absolute_path),
+                    "schema_path": list(error.absolute_schema_path),
+                },
             )
         return model
 
@@ -268,13 +272,20 @@ def compile_native_conditionals(
     result: list[dict[str, Any]] = []
     for name, fragment in sorted(fragments.items()):
         aliases = {
-            str(slot.alias or slot.name): str(slot.name)
-            for slot in view.class_induced_slots(name)
+            str(slot.alias or slot.name): str(slot.name) for slot in view.class_induced_slots(name)
         }
 
-        def atoms(expression: dict[str, Any]) -> list[dict[str, Any]]:
+        def atoms(
+            expression: dict[str, Any],
+            *,
+            name: str = name,
+            aliases: dict[str, str] = aliases,
+        ) -> list[dict[str, Any]]:
             if not isinstance(expression, dict) or set(expression) - {
-                "required", "properties", "not", "allOf"
+                "required",
+                "properties",
+                "not",
+                "allOf",
             }:
                 _refuse(name, "unsupported generated conditional expression")
             rows: list[dict[str, Any]] = []
@@ -300,14 +311,18 @@ def compile_native_conditionals(
                 atom(alias, "optional", choices)
             if "not" in expression:
                 negated = expression["not"]
-                if not isinstance(negated, dict) or set(negated) != {"required"} or len(negated["required"]) != 1:
+                if (
+                    not isinstance(negated, dict)
+                    or set(negated) != {"required"}
+                    or len(negated["required"]) != 1
+                ):
                     _refuse(name, "unsupported generated negation")
                 atom(negated["required"][0], "absent")
             for child in expression.get("allOf", []):
                 rows.extend(atoms(child))
             return rows
 
-        def rules(node):
+        def rules(node, *, name: str = name):
             if set(node) == {"allOf"}:
                 for child in node["allOf"]:
                     yield from rules(child)
@@ -319,10 +334,14 @@ def compile_native_conditionals(
         cls = view.get_class(name)
         assert cls is not None
         for index, rule in enumerate(rules(fragment)):
-            result.append({
-                "class_id": str(view.get_uri(cls, expand=True)),
-                "rule_id": sha256(canonical_bytes([name, index, rule])).hexdigest(),
-                "scope": scope,
-                "branches": {branch: atoms(rule.get(branch, {})) for branch in ("if", "then", "else")},
-            })
+            result.append(
+                {
+                    "class_id": str(view.get_uri(cls, expand=True)),
+                    "rule_id": sha256(canonical_bytes([name, index, rule])).hexdigest(),
+                    "scope": scope,
+                    "branches": {
+                        branch: atoms(rule.get(branch, {})) for branch in ("if", "then", "else")
+                    },
+                }
+            )
     return result

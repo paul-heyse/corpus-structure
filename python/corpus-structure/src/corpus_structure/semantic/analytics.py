@@ -116,7 +116,6 @@ class CapturedPacket:
         object.__setattr__(self, "relations", MappingProxyType(dict(self.relations)))
 
 
-
 # Existing capture callers retain their import while the two provenance types stay disjoint.
 AnalyticalPacket = CapturedPacket
 
@@ -154,6 +153,7 @@ class BorrowedHandle:
 
         def invoke(*args: Any, **kwargs: Any) -> Any:
             self._owner._ensure_open()
+
             def unwrap(value: Any) -> Any:
                 if isinstance(value, BorrowedHandle):
                     value._owner._ensure_open()
@@ -161,8 +161,12 @@ class BorrowedHandle:
                         raise ValueError("analytical handle belongs to another scope")
                     return value._native
                 return value
-            result = attribute(*(unwrap(v) for v in args), **{k: unwrap(v) for k,v in kwargs.items()})
+
+            result = attribute(
+                *(unwrap(v) for v in args), **{k: unwrap(v) for k, v in kwargs.items()}
+            )
             return self._owner._borrow(result)
+
         return invoke
 
 
@@ -231,8 +235,15 @@ def compile_projection(
     contract: Any = kind
     if prepared.execution_model_id is not None:
         import json
-        model = next((row for row in prepared.registry_rows
-                      if row.kind == "execution_model" and row.name == prepared.execution_model_id), None)
+
+        model = next(
+            (
+                row
+                for row in prepared.registry_rows
+                if row.kind == "execution_model" and row.name == prepared.execution_model_id
+            ),
+            None,
+        )
         if model is None:
             raise ValueError("missing archived execution projection authority")
         body = json.loads(model.body)
@@ -457,14 +468,13 @@ def capture_packet(
         return load_packet(session, uri, driver_path=driver_path)
 
 
-
 def _cleanup_after_failure(error: BaseException, cleanup: Callable[[], None]) -> None:
     try:
         cleanup()
     except BaseException as failure:
         if not isinstance(error, Exception):
             error.add_note(f"analysis cleanup also failed: {failure!r}")
-            raise error
+            raise error from None
         if not isinstance(failure, Exception):
             failure.add_note(f"analysis also failed: {error!r}")
             raise failure from error
@@ -556,7 +566,9 @@ class AnalysisScope:
                 self._readers.append(value)
             return BorrowedReader(self, value)
         if isinstance(value, duckdb.DuckDBPyConnection):
-            if value is not self._connection and all(connection is not value for connection in self._connections):
+            if value is not self._connection and all(
+                connection is not value for connection in self._connections
+            ):
                 self._connections.append(value)
             return BorrowedHandle(self, value)
         if isinstance(value, duckdb.DuckDBPyRelation):
@@ -569,8 +581,13 @@ class AnalysisScope:
         self._closed = True
         failures: list[BaseException] = []
         actions = [reader.close for reader in self._readers]
-        actions += [lambda name=name: self._connection.unregister(name) for name in self._registered]
-        actions += [lambda name=name: self._connection.sql(f'DROP VIEW IF EXISTS "{name}"') for name in self._views]
+        actions += [
+            lambda name=name: self._connection.unregister(name) for name in self._registered
+        ]
+        actions += [
+            lambda name=name: self._connection.sql(f'DROP VIEW IF EXISTS "{name}"')
+            for name in self._views
+        ]
         actions += [connection.close for connection in self._connections]
         actions += [self._connection.close, self._scratch.cleanup]
         for action in actions:

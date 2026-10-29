@@ -1,5 +1,7 @@
 """Freeze method applicability in the native task constructor."""
+
 from pathlib import Path
+
 from alembic import op
 
 revision = "semantic_0025"

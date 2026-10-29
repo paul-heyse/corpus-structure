@@ -16,14 +16,24 @@ if TYPE_CHECKING:
 
 # Code support is distinct from deployment: composed admission additionally checks
 # the exact native implementation on the caller's connection. This set is code-owned.
-_NATIVE_CAPABILITIES = frozenset({"semantic_registry", "scoped_publication", "typed_values", "execution.lifecycle.v1", "conditional_rules_native"})
+_NATIVE_CAPABILITIES = frozenset(
+    {
+        "semantic_registry",
+        "scoped_publication",
+        "typed_values",
+        "execution.lifecycle.v1",
+        "conditional_rules_native",
+    }
+)
 
 
 class ExecutionAdmissionError(ValueError):
     """The archived binding lacks a compatible trusted enforcing implementation."""
 
 
-def admit_execution_release(prepared: PreparedRelease, *, connection: Connection | None = None) -> None:
+def admit_execution_release(
+    prepared: PreparedRelease, *, connection: Connection | None = None
+) -> None:
     """Check current code compatibility and refuse unavailable required semantics.
 
     Pure compiled products may be reused by the compiler. Database state and permissions
@@ -45,7 +55,10 @@ def admit_execution_release(prepared: PreparedRelease, *, connection: Connection
                 "release omits required execution capabilities: "
                 + ", ".join(sorted(missing_requirements))
             )
-    if prepared.execution_model_id is None and set(prepared.required_capabilities) & {"execution.lifecycle.v1", "conditional_rules_native"}:
+    if prepared.execution_model_id is None and set(prepared.required_capabilities) & {
+        "execution.lifecycle.v1",
+        "conditional_rules_native",
+    }:
         raise ExecutionAdmissionError("native execution capabilities require a composed model")
     unavailable = set(prepared.required_capabilities) - _NATIVE_CAPABILITIES
     if unavailable:
@@ -61,11 +74,14 @@ def admit_execution_release(prepared: PreparedRelease, *, connection: Connection
 
 def _verify_deployment_functions(connection: Connection) -> None:
     from sqlalchemy import text
+
     for signature, digest, security, language in (
         ("data.execution_contract_descriptor()", _DESCRIPTOR_SHA256, False, "sql"),
         ("data.require_execution_release(text)", _REQUIRE_SHA256, True, "plpgsql"),
     ):
-        available = connection.execute(text("""
+        available = (
+            connection.execute(
+                text("""
           SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')=:digest
              AND p.prosecdef=:security AND l.lanname=:language
              AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']
@@ -75,45 +91,81 @@ def _verify_deployment_functions(connection: Connection) -> None:
              encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') AS actual_hash,
              p.proconfig AS configuration, pg_get_userbyid(p.proowner) AS owner,
              p.prosecdef AS security, l.lanname AS language,
-             EXISTS(SELECT FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS public_execute,
+             EXISTS(SELECT FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
+                    WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS public_execute,
              :digest AS expected_hash
           FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
           WHERE p.oid=to_regprocedure(:signature)
-        """),dict(signature=signature,digest=digest,security=security,language=language)).mappings().one_or_none()
+        """),
+                dict(signature=signature, digest=digest, security=security, language=language),
+            )
+            .mappings()
+            .one_or_none()
+        )
         if available is None or available["compatible"] is not True:
-            raise ExecutionAdmissionError("native execution deployment differs: " + signature + " " + repr(dict(available) if available is not None else None))
+            raise ExecutionAdmissionError(
+                "native execution deployment differs: "
+                + signature
+                + " "
+                + repr(dict(available) if available is not None else None)
+            )
 
 
 def require_native_execution(connection: Connection, prepared: PreparedRelease) -> None:
     from sqlalchemy import text
+
     _verify_deployment_functions(connection)
     try:
-        connection.execute(text("SELECT data.require_execution_release(:release)"),
-                           {"release": prepared.release_id})
+        connection.execute(
+            text("SELECT data.require_execution_release(:release)"),
+            {"release": prepared.release_id},
+        )
     except Exception as exc:
-        raise ExecutionAdmissionError("native execution deployment or archived binding is incompatible") from exc
+        raise ExecutionAdmissionError(
+            "native execution deployment or archived binding is incompatible"
+        ) from exc
 
 
 def require_archive_fence(connection: Connection) -> None:
     """Archive under either the exact refusal fence or the enforcing deployment."""
     from sqlalchemy import text
-    row = connection.execute(text("""
+
+    row = (
+        connection.execute(
+            text("""
       SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') AS digest,
              pg_get_userbyid(p.proowner) AS owner,
              p.prosecdef,p.proconfig,
-             ARRAY(SELECT a.attname::text FROM unnest(t.tgattr::smallint[]) WITH ORDINALITY attrs(num,position)
-                   JOIN pg_attribute a ON a.attrelid=t.tgrelid AND a.attnum=attrs.num ORDER BY attrs.position) AS update_columns,
-             (SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='sem') AS schema_owner
+             ARRAY(SELECT a.attname::text FROM unnest(t.tgattr::smallint[])
+                   WITH ORDINALITY attrs(num,position)
+                   JOIN pg_attribute a ON a.attrelid=t.tgrelid AND a.attnum=attrs.num
+                   ORDER BY attrs.position) AS update_columns,
+             (SELECT pg_get_userbyid(nspowner) FROM pg_namespace
+              WHERE nspname='sem') AS schema_owner
       FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid
       WHERE t.tgrelid='data.realization'::regclass AND t.tgname='guard_execution_admission'
         AND NOT t.tgisinternal AND t.tgenabled IN ('O','A') AND t.tgqual IS NULL AND t.tgnargs=0
         AND t.tgtype=23 AND p.oid=to_regprocedure('data.guard_execution_admission()')
-    """)).mappings().one_or_none()
-    if row is None or row["proconfig"] != ['search_path=pg_catalog, pg_temp']:
+    """)
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None or row["proconfig"] != ["search_path=pg_catalog, pg_temp"]:
         raise ExecutionAdmissionError("native execution archive fence is not deployed")
-    if row["digest"] == _REFUSAL_SHA256 and row["prosecdef"] is False and row["owner"] == row["schema_owner"] and row["update_columns"] == ["release_id"]:
+    if (
+        row["digest"] == _REFUSAL_SHA256
+        and row["prosecdef"] is False
+        and row["owner"] == row["schema_owner"]
+        and row["update_columns"] == ["release_id"]
+    ):
         return
-    if row["digest"] == _GUARD_SHA256 and row["owner"] == 'corpus_sem_publisher' and row["prosecdef"] is True and row["update_columns"] == []:
+    if (
+        row["digest"] == _GUARD_SHA256
+        and row["owner"] == "corpus_sem_publisher"
+        and row["prosecdef"] is True
+        and row["update_columns"] == []
+    ):
         _verify_deployment_functions(connection)
         return
     raise ExecutionAdmissionError("native execution archive fence differs from trusted enforcement")

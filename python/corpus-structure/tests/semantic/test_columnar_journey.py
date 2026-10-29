@@ -131,7 +131,9 @@ classes:
         z,
         "analysis",
         {"selection": selections},
-        source=packet.binding, operation_id="columnar_analysis", projection_id=packet.projection_id,
+        source=packet.binding,
+        operation_id="columnar_analysis",
+        projection_id=packet.projection_id,
     )
     receipt = publish_arrow(semantic_writer_engine, batch)
     assert receipt.data_revision == 2
@@ -144,8 +146,13 @@ classes:
         publish_arrow(
             semantic_writer_engine,
             SnapshotDerivedPublication(
-                rid, z, "stale", {"selection": selections}, source=packet.binding,
-                operation_id="columnar_analysis", projection_id=packet.projection_id
+                rid,
+                z,
+                "stale",
+                {"selection": selections},
+                source=packet.binding,
+                operation_id="columnar_analysis",
+                projection_id=packet.projection_id,
             ),
         )
     with semantic_db_engine.connect() as conn:

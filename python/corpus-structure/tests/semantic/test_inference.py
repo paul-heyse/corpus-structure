@@ -197,7 +197,8 @@ def projected(writer):
             conn.execute(
                 text(
                     "SELECT f.subject_id,f.property_id,v.entity_id FROM data.fact f JOIN "
-                    "data.typed_value v USING(release_id,realization_id) WHERE f.object_value_id=v.value_id"
+                    "data.typed_value v USING(release_id,realization_id) WHERE "
+                    "f.object_value_id=v.value_id"
                 )
             )
         )

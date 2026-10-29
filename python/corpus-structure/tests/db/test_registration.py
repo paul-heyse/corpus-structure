@@ -298,10 +298,13 @@ def test_fresh_registry_preserves_payload_parent_artifacts(db: Connection) -> No
     import pyarrow as pa
 
     registry.ensure(db, project(db), [MINIMAL], "human:test")
-    rows = sql(db, "SELECT p.id, p.version, p.parent_id, p.arrow_schema, r.label "
-               "FROM meta.payload_schema p JOIN meta.model_revision r "
-               "ON r.id = p.model_revision_id "
-               "WHERE p.kind = 'policy_action' ORDER BY p.version").all()
+    rows = sql(
+        db,
+        "SELECT p.id, p.version, p.parent_id, p.arrow_schema, r.label "
+        "FROM meta.payload_schema p JOIN meta.model_revision r "
+        "ON r.id = p.model_revision_id "
+        "WHERE p.kind = 'policy_action' ORDER BY p.version",
+    ).all()
     assert len(rows) == 2
     old, new = rows
     assert (old[1], old[2], old[4]) == (1, None, "0.3.0")
@@ -312,8 +315,11 @@ def test_fresh_registry_preserves_payload_parent_artifacts(db: Connection) -> No
 
 def test_unchanged_payloads_keep_original_defining_revision(db: Connection) -> None:
     registry.ensure(db, project(db), [MINIMAL], "human:test")
-    versions = sql(db, "SELECT p.version, p.json_schema_id, r.label FROM meta.payload_schema p "
-                   "JOIN meta.model_revision r ON r.id = p.model_revision_id").all()
+    versions = sql(
+        db,
+        "SELECT p.version, p.json_schema_id, r.label FROM meta.payload_schema p "
+        "JOIN meta.model_revision r ON r.id = p.model_revision_id",
+    ).all()
     initial = [row for row in versions if row[0] == 1]
     assert len(initial) == 22
     assert all(row[2] == "0.3.0" and "/a59196c4a894/" in row[1] for row in initial)
@@ -325,8 +331,12 @@ def test_unchanged_payloads_keep_original_defining_revision(db: Connection) -> N
 def test_conflicting_registered_payload_bytes_are_refused(db: Connection) -> None:
     pid = project(db)
     registry.ensure(db, pid, [MINIMAL], "human:test")
-    sql(db, "UPDATE meta.payload_schema SET arrow_schema = :bad WHERE class = 'sys:PolicyAction' "
-            "AND version = 1", bad=b"corrupt")
+    sql(
+        db,
+        "UPDATE meta.payload_schema SET arrow_schema = :bad WHERE class = 'sys:PolicyAction' "
+        "AND version = 1",
+        bad=b"corrupt",
+    )
     with pytest.raises(
         registry.RegistrationError, match="registered payload differs in arrow_schema"
     ):
