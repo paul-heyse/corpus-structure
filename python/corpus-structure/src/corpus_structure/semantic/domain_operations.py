@@ -256,7 +256,7 @@ def _entity_mappings(prepared,observations,output):
 def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,output):
     definitions={d.iri:d for d in prepared.definitions}
     by_name={d.name:d for d in prepared.definitions}
-    reports=[];items=[];claims=[];metadata={};coverage=[];source_links={};contents={}
+    reports=[];items=[];claims=[];metadata={};coverage=[];source_links={};evidence_roles={};contents={}
     entity_mappings,extra_attributes,parsed=_entity_mappings(prepared,observations,output)
     def coverage_row(family,scope,outcome,reason=None):
         key='coverage:'+sha256(canonical_bytes([cut['id'],family,scope,outcome,reason])).hexdigest()
@@ -289,12 +289,13 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
                 contents[descriptor['rendition_id']]=RenditionContent.model_validate(descriptor['content'])
             projected=project_markup(prepared,output,observation_key=observation['observation_key'],
                 payload=payload,content=contents[descriptor['rendition_id']],
-                page=descriptor['page'],rendition_key=descriptor['rendition_key'],segment_key=segment_key,
+                page=descriptor['page'],source_uri=descriptor['source_uri'],rendition_key=descriptor['rendition_key'],segment_key=segment_key,
                 provider=descriptor['provider'],operation_version=descriptor['version'])
-            # The locator page is not necessarily the original source URI.
-            projected_items=tuple(replace(item,evidence=tuple(replace(e,source_uri=descriptor['source_uri']) for e in item.evidence)) for item in projected.items)
-            items.extend(projected_items)
-            for eid,start,end in projected.evidence_ranges:
+            coordinates={eid:(start,end) for eid,start,end in projected.evidence_ranges}
+            items.extend(replace(item,evidence=tuple(replace(e,locator='rendition:'+descriptor['rendition_key']+':span:'+str(coordinates[e.evidence_id][0])+':'+str(coordinates[e.evidence_id][1])) for e in item.evidence)) for item in projected.items)
+            for ordinal,(eid,start,end) in enumerate(projected.evidence_ranges):
+                role=payload['synthesize']['evidence'][ordinal].get('role')
+                if role is not None:evidence_roles[eid]=role
                 source_links[eid]=(observation['id'],descriptor['rendition_id'],start,end)
             for locator in projected.unresolved:coverage_row('author_markup',locator,'partial','unresolved source reference')
             continue
@@ -345,6 +346,7 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
                 locator=canonical_bytes({'locator':e['locator'],'start':start,'end':end,'role':e['role']}).decode()
                 located.append(EvidenceRow(key,descriptor['source_uri'],locator,descriptor['provider'],descriptor['version']))
                 source_links[key]=(observation['id'],descriptor['rendition_id'],start,end)
+                evidence_roles[key]=e['role']
             if not located or not any(e.get('outcome')=='located' and e['role']=='primary' for e in claim['evidence']):
                 coverage_row('claim',source+'/'+claim['id'],'partial','no located primary evidence')
                 continue
@@ -404,6 +406,10 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
     batch=assemble(prepared,output,batch_id,tuple(items))
     batch=replace(batch,coverage=tuple(sorted(coverage,key=lambda c:c.coverage_id)))
     # Source links are resolved to native spans only in the final short publication transaction.
+    from .publication import OccurrenceContextRow,OccurrenceEvidenceRoleRow
+    batch=replace(batch,occurrence_context=tuple(OccurrenceContextRow(c.occurrence_id,c.statement,c.statement_role) for c in claims),
+        occurrence_evidence_role=tuple(OccurrenceEvidenceRoleRow(link.occurrence_id,link.evidence_id,evidence_roles[link.evidence_id])
+            for link in batch.occurrence_evidence if link.evidence_id in evidence_roles))
     return CutInput(cut['id'],job['id'],job['project_id'],prepared,output,tuple(reports),tuple(claims),batch,MappingProxyType(metadata),MappingProxyType(source_links))
 
 

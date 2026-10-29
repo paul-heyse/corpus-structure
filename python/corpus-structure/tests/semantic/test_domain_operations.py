@@ -39,12 +39,13 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
         conn.execute(insert(table('data.realization')).values(realization_id='source',project_id='p',release_id=prepared.release_id))
     original=b'<p>Alice is here.</p>';path.write_bytes(original)
     with writer.begin() as conn:
-        run=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'source',0,b'{}'),
-                       kind='full',options={},code_commit='test')
-        cid=record_method(conn,SimpleNamespace(name='agent.opus',version='1',family='agent',tier='agent',confidence_source='agent'),
-                          'extract',{},'config')
         document=register_document(conn,project_id='p',source_uri='page.html',original_path=str(path),original=original,
                                    metadata={'page':'page.html'})
+        document_key=conn.execute(select(table('kb.document').c.key).where(table('kb.document').c.id==document)).scalar_one()
+        run=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'source',0,b'{}'),
+                       kind='full',options={'corpus':{'documents':[document_key]}},code_commit='test')
+        cid=record_method(conn,SimpleNamespace(name='agent.opus',version='1',family='agent',tier='agent',confidence_source='agent'),
+                          'extract',{},'config')
         task=create_task(conn,run_id=run,config_id=cid,stage='propose',unit_type='document',unit_id=document,
                          unit_key='page#one',input_hash='input')
         claim=claim_tasks(conn,run_id=run,config_id=cid,holder='worker')[0]
