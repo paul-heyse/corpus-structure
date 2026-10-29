@@ -43,7 +43,7 @@ from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
 
 
-def source_task(admin, engine, path, *, composed=False, identity_keyed=False):
+def source_task(admin, engine, path, *, composed=False, identity_keyed=False, global_names=False):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
         "id": "https://example.org/resubmit",
@@ -53,6 +53,8 @@ def source_task(admin, engine, path, *, composed=False, identity_keyed=False):
         "default_prefix": "ex",
         "classes": {"Person": {"is_a": "Entity", "attributes": {"name": {"range": "string"}}}},
     }
+    if global_names:
+        schema["classes"]["Person"]["annotations"] = {"cs:scope": "global"}
     if identity_keyed:
         schema["classes"]["Person"]["unique_keys"] = {"name": {"unique_key_slots": ["name"]}}
     deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []")
