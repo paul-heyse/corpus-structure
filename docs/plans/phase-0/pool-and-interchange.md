@@ -191,6 +191,7 @@ API is experimental.
 |---|---|---|---|
 | **P0-P-Q5** (Q-5) | ADBC `fetch_record_batch` → DuckDB relation → Arrow → psycopg `Copy.set_types` or pgpq: do absent versus null, JSONB, numeric and `timestamptz` survive? What memory does one join hold? | P1's loader route; P3's writer (pgpq or not) | `p0q.pool-roundtrip` |
 | **P0-P-Q7** (Q-7) | Declared must-link order against `USING KEY` components with a cannot-link anti-join, over shuffled inputs | F03's closure; the phase 2 merge implementation | `p0q.merge-order` |
+| **P0-P-Q8** (Q-8, operator 2026-10-28) | A declarative inference layer: linkml-datalog (the capability reference: schema-driven inference of `symmetric`, `transitive` and inverse relationships, reified-association edges, embedded rules, validation over derived facts) patched to import on linkml-runtime 1.12.1 and run on Soufflé over the S4 statistics pack, against recursive DuckDB 2.0 SQL compiled from the same declarations and the pack's `derive:` rules over model-typed pool relations. Do they derive the same facts; do typed values, conditions and absent fields survive each route; what does each need declared? | The inference layer's engine (DuckDB recursion, Soufflé, or neither), where it lives (consolidation and the pool; phase 1 derived claims), and the declarations M1's `system.yaml` and S1's pack vocabulary carry | `p0q.inference-layer` |
 
 ## 5. Packages
 
@@ -198,6 +199,7 @@ API is experimental.
 |---|---|---|---|---|
 | P0-P-Q5 | Probe Q-5; pins adbc-driver-postgresql 1.13 and pyarrow 26 in the scratch environment | none | Record finalized; loader and writer routes chosen | Q-5 |
 | P0-P-Q7 | Probe Q-7 | P0-D-2 (RC15 text) | A shuffled-order fixture gives equal partitions in both | Q-7, F03 |
+| P0-P-Q8 | Probe Q-8 (operator, 2026-10-28) | none (S4 pack files; probe environment plus a throwaway linkml-datalog environment and Soufflé) | Record finalized; the inference-layer decision and its declarations stated | Q-8 |
 | P0-P-1 | Pool contract; loader as of `cut_at`; T3 hydration; Python reference implementation; Arrow fixtures; determinism rules | P0-M-3, P0-M-4, P0-F-4, P0-P-Q5 | Fixture-local tests with no server; equal outputs across repeated loads | DA-009 (registry ids in pool metadata) |
 | P0-P-2 | DuckDB engine with the product pin and hold row; second implementation of the phase 0 set steps and the `views:` facts; set-equality harness | P0-P-1 | Both implementations give set-equal outputs and equal keys on the same fixtures | R09 (mechanism substitution) |
 | P0-P-3 | Bulk writer from generated schemas; `ci export` with `KV_METADATA` and VARIANT shredding; `referencing.Registry`; pgpq per Q-5 | P0-P-1, P0-P-2, P0-M-4, P0-C-1 | Export round trip keeps the schema and the registry ids; writer round trip lossless per class (T5) | DA-009, R10 |
