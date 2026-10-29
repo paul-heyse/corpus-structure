@@ -184,6 +184,26 @@ def split_documents(conn:Connection,project_id:str,config=None,seed:int|None=Non
     totals=Counter(previous.values());totals.update(row.split.value for row in new)
     return {'project_id':project_id,'seed':config.seed if seed is None else seed,'added':dict(Counter(r.split.value for r in new)),'total':dict(totals)}
 
+def _external_ids(batch):
+    declared={item['id'] for family in ('entities','statements') for item in batch.get(family,())}
+    refs={c['subject'] for c in batch.get('claims',())}
+    def visit(value):
+        if isinstance(value,dict):
+            if value.get('kind')=='entity':refs.add(value['target'])
+            if value.get('kind') in {'variable','family_param'}:refs.add(value['entity'])
+            for child in value.values():visit(child)
+        elif isinstance(value,(list,tuple)):
+            for child in value:visit(child)
+    for claim in batch.get('claims',()):
+        if claim.get('qualification',{}).get('attribution'):refs.add(claim['qualification']['attribution'])
+        visit(claim)
+    return refs-declared
+
+def _reference_side(conn,unit,stored):
+    # record_pass admitted these external endpoints against the reference source result.
+    known={identity:identity for identity in _external_ids(stored.batch)}
+    return SemanticSide(unit['unit_key'],stored.batch,frozenset(unit['context']),known_ids=known)
+
 def _prediction(conn,completed,unit):
     """Admitted completed source occurrences, not raw task reports or selected-pointer guesses."""
     observations=conn.execute(text('''SELECT DISTINCT o.id,o.payload,o.observation_key FROM kb.observation o
@@ -194,30 +214,34 @@ def _prediction(conn,completed,unit):
     admitted={(r['source'],r['item']):r['fact_id'] for r in rows}
     declarations=conn.execute(select(table('data.entity_source')).where(table('data.entity_source').c.realization_id==completed['output_realization_id'],table('data.entity_source').c.release_id==completed['release_id'],table('data.entity_source').c.observation_id.in_([o['id'] for o in observations]))).mappings().all()
     mappings={(r['observation_id'],r['local_id']):r['entity_id'] for r in declarations}
-    batch={'unit_ref':unit['unit_key'],'entities':[],'statements':[],'claims':[],'alternatives':[]};known={};seen=set()
+    batch:dict[str,Any]={'unit_ref':unit['unit_key'],'entities':[],'statements':[],'claims':[],'alternatives':[]}
+    known:dict[str,str]={};seen=set()
     for observation in observations:
         source=observation['payload'];prefix=str(observation['id'])+'/'
         # Source-local identifiers are scoped before combining independent extraction reports.
         ids={item['id']:mappings.get((observation['id'],item['id']),prefix+item['id']) for family in ('entities','statements','claims','unsupported') for item in source.get(family,())}
-        def rewrite(value):
-            if isinstance(value,dict):return {k:(ids.get(v,v) if k in {'target','subject','statement','attribution','entity','ref','claim'} and isinstance(v,str) else rewrite(v)) for k,v in value.items()}
+        def rewrite(value:object)->object:
+            if isinstance(value,dict):return rewrite_record(value)
             if isinstance(value,list):return [rewrite(v) for v in value]
             return value
+        def rewrite_record(record:Mapping[str,Any])->dict[str,Any]:
+            return {k:(ids.get(v,v) if k in {'target','subject','statement','attribution','entity','ref','claim'} and isinstance(v,str) else rewrite(v)) for k,v in record.items()}
         for family in ('entities','statements'):
             for item in source.get(family,()):
-                value=rewrite(item);value['id']=ids[item['id']]
+                value=rewrite_record(item);value['id']=ids[item['id']]
                 if not any(v['id']==value['id'] for v in batch[family]):batch[family].append(value)
                 if (observation['id'],item['id']) in mappings:known[value['id']]=mappings[observation['id'],item['id']]
         for index,claim in enumerate(source.get('claims',())):
             fact=admitted.get((observation['observation_key'],'claims/'+str(index)))
             if fact is None:continue
-            c=rewrite(copy.deepcopy(claim));c['id']=ids[claim['id']]
+            c=rewrite_record(copy.deepcopy(claim));c['id']=ids[claim['id']]
             if fact in seen:
                 old=next(v for v in batch['claims'] if v['_fact_id']==fact)
                 old['evidence'].extend(e for e in c.get('evidence',()) if e not in old['evidence'])
                 continue
             seen.add(fact);c['_fact_id']=fact;batch['claims'].append(c)
     for c in batch['claims']:c.pop('_fact_id',None)
+    known.update((identity,identity) for identity in _external_ids(batch))
     return SemanticSide(unit['unit_key'],batch,known_ids=known)
 
 def agreement(conn:Connection,unit_id:int)->dict[str,Any]:
@@ -226,7 +250,7 @@ def agreement(conn:Connection,unit_id:int)->dict[str,Any]:
     a,b=ensure_items(conn,passes['A'][-1]),ensure_items(conn,passes['B'][-1]);unit=_unit(conn,unit_id)
     if a.rendition_id!=b.rendition_id or a.rendition_digest!=b.rendition_digest:raise ReferenceError('agreement requires the same source rendition')
     prepared=load_release(conn,unit['release_id']);ctx=frozenset(unit['context'])
-    return {'unit_id':unit_id,'pass_a':a.id,'pass_b':b.id,'a_to_b':align_semantic(SemanticSide(unit['unit_key'],a.batch,ctx),SemanticSide(unit['unit_key'],b.batch,ctx),prepared).as_dict(),'b_to_a':align_semantic(SemanticSide(unit['unit_key'],b.batch,ctx),SemanticSide(unit['unit_key'],a.batch,ctx),prepared).as_dict()}
+    return {'unit_id':unit_id,'pass_a':a.id,'pass_b':b.id,'a_to_b':align_semantic(_reference_side(conn,unit,a),_reference_side(conn,unit,b),prepared).as_dict(),'b_to_a':align_semantic(_reference_side(conn,unit,b),_reference_side(conn,unit,a),prepared).as_dict()}
 
 def reference_evaluate(conn:Connection,*,project_id:str,run_id:int,set_id:int)->ReferenceReport:
     completed=_completed(conn,run_id,project_id)
@@ -244,7 +268,7 @@ def reference_evaluate(conn:Connection,*,project_id:str,run_id:int,set_id:int)->
         if rendition!=reference.rendition_digest:raise ReferenceError('reference citation frame is stale')
         if (reference.rendition_id,unit['unit_key']) not in targets:raise ReferenceError('reference citation frame is not present in the completed target source cut')
         bound_unit={**unit,'rendition_id':reference.rendition_id}
-        reports.append(align_semantic(SemanticSide(unit['unit_key'],reference.batch,frozenset(unit['context'])),_prediction(conn,completed,bound_unit),prepared).as_dict())
+        reports.append(align_semantic(_reference_side(conn,unit,reference),_prediction(conn,completed,bound_unit),prepared).as_dict())
     tiers={k:TierCounts(sum(u['tiers'][k]['reference'] for u in reports),sum(u['tiers'][k]['prediction'] for u in reports),sum(u['tiers'][k]['matched'] for u in reports)).as_dict() for k in ('core','full','evidence')}
     coverage=[dict(row) for row in conn.execute(select(table('data.coverage')).where(table('data.coverage').c.realization_id==completed['output_realization_id'],table('data.coverage').c.release_id==completed['release_id'])).mappings()]
     result={'release_id':completed['release_id'],'output_realization_id':completed['output_realization_id'],'family':'agent_claims','grain':'distinct_fact_per_source_unit','tiers':tiers,'units':reports,'coverage':coverage,'reference_units_scored':len(reports)}

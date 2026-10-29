@@ -9,13 +9,22 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from hashlib import sha256
 from collections.abc import Mapping
-from typing import Any
+from typing import Any,Protocol
 import unicodedata
 import numpy as np
 import sympy
 from scipy.optimize import linear_sum_assignment
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.types import PreparedRelease
+from corpus_structure.semantic.types import ClassDefinition,PreparedArtifact,RegistryRow
+
+class AlignmentModel(Protocol):
+    """The immutable release projections consumed by the pure alignment algorithm."""
+    @property
+    def definitions(self)->tuple[ClassDefinition,...]: ...
+    @property
+    def registry_rows(self)->tuple[RegistryRow,...]: ...
+    @property
+    def artifacts(self)->tuple[PreparedArtifact,...]: ...
 
 @dataclass(frozen=True)
 class SemanticSide:
@@ -134,10 +143,11 @@ def equivalent(a,b,entity_map,claim_map=None,*,conditions=None):
             try:
                 with grammar.deadline(5):
                     if isinstance(x,sympy.Equality) and isinstance(y,sympy.Equality):
-                        dx,dy=x.lhs-x.rhs,y.lhs-y.rhs
-                        same=sympy.simplify(dx-dy)==0 or sympy.simplify(dx+dy)==0
+                        if not all(isinstance(v,sympy.Expr) for v in (x.lhs,x.rhs,y.lhs,y.rhs)):return ValueDecision(False,'undecided','equation operands are not arithmetic expressions')
+                        dx,dy=sympy.Add(x.lhs,sympy.Mul(-1,x.rhs)),sympy.Add(y.lhs,sympy.Mul(-1,y.rhs))
+                        same=sympy.simplify(sympy.Add(dx,sympy.Mul(-1,dy)))==0 or sympy.simplify(sympy.Add(dx,dy))==0
                     elif isinstance(x,sympy.Set) and isinstance(y,sympy.Set):same=x.symmetric_difference(y)==sympy.S.EmptySet
-                    elif isinstance(x,sympy.Expr) and isinstance(y,sympy.Expr):same=sympy.simplify(x-y)==0
+                    elif isinstance(x,sympy.Expr) and isinstance(y,sympy.Expr):same=sympy.simplify(sympy.Add(x,sympy.Mul(-1,y)))==0
                     else:same=x==y
                 if same:return ValueDecision(True,'symbolic')
                 # Reuse deterministic probes only as disproof. Conditions are never discarded.
@@ -146,7 +156,15 @@ def equivalent(a,b,entity_map,claim_map=None,*,conditions=None):
                     rng=np.random.default_rng(int(sha256(canonical_bytes(sorted((dict(a),dict(b)),key=canonical_bytes))).hexdigest()[:16],16))
                     for _ in range(12):
                         values=dict(zip(symbols,(float(v) for v in rng.uniform(.25,3,len(symbols))),strict=True))
-                        xa,ya=complex(x.evalf(subs=values)),complex(y.evalf(subs=values))
+                        def numerical(expr:sympy.Expr)->complex:
+                            value=expr.evalf(subs=values)
+                            if not isinstance(value,sympy.Expr) or value.free_symbols:raise ValueError('numerical value remains symbolic')
+                            parts=value.as_real_imag()
+                            if parts is None:raise ValueError('numerical value has no real/imaginary decomposition')
+                            real,imag=parts
+                            if not isinstance(real,sympy.Number) or not isinstance(imag,sympy.Number):raise ValueError('numerical value is not a complex scalar')
+                            return complex(float(real),float(imag))
+                        xa,ya=numerical(x),numerical(y)
                         if np.isfinite(xa) and np.isfinite(ya) and abs(xa-ya)>1e-9*max(1,abs(xa),abs(ya)):
                             return ValueDecision(False,'numeric','deterministic counterexample')
                 return ValueDecision(False,'undecided','no symbolic equivalence proof')
@@ -200,6 +218,9 @@ def _entity_pairs(ref,pred,prepared,out):
             values.extend(v.get('text') for v in raw.get('members',()) if isinstance(v,dict))
             if raw.get('kind')=='text':values.append(raw.get('text'))
         return tuple(filter(None,values))
+    def identity_groups(entity):
+        declaration=definitions.get(entity['class_iri'])
+        return tuple(g for g in declaration.identity_groups if g!=('id',)) if declaration else ()
     def dependent_groups(entity):
         declaration=definitions.get(entity['class_iri'])
         if not declaration:return ()
@@ -222,6 +243,10 @@ def _entity_pairs(ref,pred,prepared,out):
             scope_a,scope_b=a.get('scope'),b.get('scope')
             if (scope_a or scope_b) and scope_a!=scope_b:continue
             if dependent_groups(a) or dependent_groups(b):continue
+            declaration=definitions.get(a['class_iri'])
+            symbol_iri=next((p.iri for p in declaration.properties if p.name=='symbol'),None) if declaration else None
+            if scope_a and symbol_iri and symbol_iri in attributes(a) and symbol_iri in attributes(b) and equivalent(attributes(a)[symbol_iri],attributes(b)[symbol_iri],{}).equal:
+                weights[i,j]=.9;bases[i,j]='local_symbol';continue
             labels_a,labels_b=names(a),names(b)
             definition=definitions.get(a['class_iri']);case=CaseRule.PRESERVE if definition and any(p.name=='label' and p.case_policy=='preserve' for p in definition.properties) else CaseRule.FOLD
             for la in filter(None,labels_a):
@@ -238,13 +263,17 @@ def _entity_pairs(ref,pred,prepared,out):
     for i,j in _assignment(np.where(weights>=.5,weights,0)):
         out.entity_pairs.append((ra[i]['id'],pa[j]['id'],bases[i,j]))
     mapping={a:b for a,b,_ in out.entity_pairs}
+    for a,identity in ref.known_ids.items():
+        candidates=[b for b,other in pred.known_ids.items() if identity==other]
+        if len(candidates)==1 and a not in mapping:
+            mapping[a]=candidates[0];out.entity_pairs.append((a,candidates[0],'known_identity'))
     # Foreign-key identity classes are resolved after the keys' entity endpoints align.
     for _ in range(len(ra)):
         candidates=[]
         used=set(mapping.values())
         for a in ra:
             if a['id'] in mapping:continue
-            groups=dependent_groups(a)
+            groups=identity_groups(a)
             if not groups:continue
             props={p.name:p for p in definitions[a['class_iri']].properties}
             aa=attributes(a)
@@ -252,7 +281,10 @@ def _entity_pairs(ref,pred,prepared,out):
             for b in pa:
                 if b['id'] in used or not compatible(a['class_iri'],b['class_iri']):continue
                 bb=attributes(b)
-                if any(all(props[n].iri in aa and props[n].iri in bb and equivalent(aa[props[n].iri],bb[props[n].iri],mapping).equal for n in group) for group in groups):matches.append(b['id'])
+                def key_value(value,prop):
+                    if prop.case_policy=='casefold' and isinstance(value,dict) and value.get('kind')=='text':return {**value,'text':value['text'].casefold()}
+                    return value
+                if any(all(props[n].iri in aa and props[n].iri in bb and equivalent(key_value(aa[props[n].iri],props[n]),key_value(bb[props[n].iri],props[n]),mapping).equal for n in group) for group in groups):matches.append(b['id'])
             if len(matches)==1:candidates.append((a['id'],matches[0]))
             elif len(matches)>1:out.undecided.append({'entity':a['id'],'reason':'ambiguous identity-dependent assignment'})
         unique=[pair for pair in candidates if sum(other[1]==pair[1] for other in candidates)==1]
@@ -260,15 +292,20 @@ def _entity_pairs(ref,pred,prepared,out):
         for a,b in unique:mapping[a]=b;out.entity_pairs.append((a,b,'declared_identity_keys'))
     return mapping
 
-def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:PreparedRelease)->SemanticAlignment:
+def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:AlignmentModel)->SemanticAlignment:
     if ref.unit!=pred.unit:raise ValueError('alignment sides refer to different source units')
     out=SemanticAlignment(ref.unit);emap=_entity_pairs(ref,pred,prepared,out)
+    qualification_name=next((p.range for d in prepared.definitions if d.name=='AgentClaim' for p in d.properties if p.name=='qualification'),'Qualification')
+    qualification=next((d for d in prepared.definitions if d.name==qualification_name),None)
+    qprops={p.name:p for p in qualification.properties} if qualification else {}
+    def qualified_meaning(value):
+        return {name:(item.casefold() if name in qprops and qprops[name].case_policy=='casefold' and isinstance(item,str) else item) for name,item in value.items() if name not in qprops or qprops[name].key_role!='provenance'}
     # Repeated supports or repeated identical fact declarations never increase fact counts.
     def unique(side):
         seen=set();result=[]
         for c in side.batch.get('claims',()):
             if c['id'] in side.context:continue
-            key=canonical_bytes({k:v for k,v in c.items() if k not in {'id','evidence','establishment'}})
+            key=canonical_bytes({**{k:v for k,v in c.items() if k not in {'id','evidence','establishment','qualification'}},'qualification':qualified_meaning(c.get('qualification',{}))})
             if key not in seen:seen.add(key);result.append(c)
         return result
     rr,pp=unique(ref),unique(pred)
@@ -293,10 +330,11 @@ def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:PreparedRelease)-
                 value=equivalent(r['object'],p['object'],emap,claim_map,conditions=r.get('qualification',{}).get('condition'))
                 if value.outcome=='undecided':undecided.append({'reference':r['id'],'prediction':p['id'],'reason':value.reason or 'value comparison undecided'})
                 if not value.equal:continue
-                qual=equivalent(r.get('qualification',{}),p.get('qualification',{}),emap,claim_map)
-                same_statement=(not r.get('statement') and not p.get('statement')) or emap.get(r.get('statement'))==p.get('statement')
+                qual=equivalent(qualified_meaning(r.get('qualification',{})),qualified_meaning(p.get('qualification',{})),emap,claim_map)
+                same_statement=(not r.get('statement') and not p.get('statement')) or bool(r.get('statement') and p.get('statement') and emap.get(r['statement'])==p['statement'])
                 full=qual.equal and same_statement and r.get('statement_role')==p.get('statement_role')
-                evidence=full and any(_overlap(a,b)>0 for a in _spans(r) for b in _spans(p))
+                same_sentence=bool({e['locator'] for e in r.get('evidence',()) if e.get('outcome')=='located' and e.get('locator')} & {e['locator'] for e in p.get('evidence',()) if e.get('outcome')=='located' and e.get('locator')})
+                evidence=full and (same_sentence or any(_overlap(a,b)>0 for a in _spans(r) for b in _spans(p)))
                 overlap=max((_overlap(a,b)/max(1,max(a[1],b[1])-min(a[0],b[0])) for a in _spans(r) for b in _spans(p)),default=0)
                 weights[i,j]=size**3+size**2*full+size*evidence+overlap
                 tiers[i,j]=(full,evidence)
