@@ -1,16 +1,19 @@
 ---
-id: ADR-0028
+id: ADR-0029
 title: Evidence-backed exclusions constrain semantic identity resolution
 status: accepted
 date: 2026-10-29
-supersedes: []
+supersedes: [ADR-0028]
 superseded-by: null
-design: [§B5, D5]
+design: [§B5]
 evidence: Proposed
 revisit: A required identity operation needs scored must-links, split judgments or mutable identity history.
 ---
 
 ## Context
+
+This record preserves ADR-0028’s decision and corrects its unresolved architectural reference.
+No semantic clause or implementation guarantee changes; the original is recoverable in Git.
 
 SP-07 names cannot-links, while the implemented resolver applies exact declared keys and global
 label policy. The operator explicitly selected modeled exclusions during execution planning.

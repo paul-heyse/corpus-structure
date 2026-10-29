@@ -463,8 +463,10 @@ class QualifiedGraphProjection:
             if left == right:
                 raise OntologyError("identity exclusion endpoints collapse")
             evidence = row.get("evidence")
-            if not isinstance(evidence, tuple | list) or not evidence or any(
-                not isinstance(item, QualifiedGraphReference) for item in evidence
+            if (
+                not isinstance(evidence, tuple | list)
+                or not evidence
+                or any(not isinstance(item, QualifiedGraphReference) for item in evidence)
             ):
                 raise OntologyError("identity exclusion needs typed evidence closure")
         available = {**self.related_nodes, **assertions, **exclusions}
@@ -778,7 +780,9 @@ cs:IdentityExclusionShape a sh:NodeShape; sh:targetClass cs:IdentityExclusion;
  sh:property [sh:path cs:left; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
  sh:property [sh:path cs:right; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
  sh:sparql [sh:message "Identity exclusion endpoints must differ";
- sh:select "SELECT $this WHERE { $this <https://corpus-structure.dev/semantic/left> ?e; <https://corpus-structure.dev/semantic/right> ?e . }"] .
+ sh:select """SELECT $this WHERE {
+   $this <https://corpus-structure.dev/semantic/left> ?e;
+   <https://corpus-structure.dev/semantic/right> ?e . }"""] .
 cs:MemberShape a sh:NodeShape; sh:targetClass cs:CollectionMember;
  sh:property [sh:path cs:position; sh:datatype xsd:integer;
               sh:minInclusive 0; sh:minCount 1; sh:maxCount 1];

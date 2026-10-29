@@ -1,6 +1,6 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 implementation is closed out at operator request with scoped tests; package qualification remains open. SP-C01–SP-C05 and supported admission closure are implemented and scoped-tested in §10; SP-08–SP-10 remain planned with updated dependencies. **Created:** 2026-10-29 · **Revised:** 2026-10-29.
+**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 are implemented and scoped-tested for their supported profile, including exclusions (§11). SP-C01–SP-C05 and supported admission closure are implemented and scoped-tested in §10; SP-08–SP-10 remain planned with updated dependencies. **Created:** 2026-10-29 · **Revised:** 2026-10-29.
 **Claim strength:** ADR-0024–ADR-0027 govern the accepted baseline. The completeness extension is implemented and scoped Tested for transitioned supported operations. Implemented/Tested claims are bounded to the declared package profiles and receipts; consumer cutover and assembled qualification remain open.
 
 ## 1. Scope, authority and baseline
@@ -109,7 +109,7 @@ SP-00–SP-05 are implemented within their declared profiles. SP-02/SP-03 supply
 metadata, exact archived releases, generation-checked activation and protected native publication.
 Their [package owner](semantic-model-pivot/postgresql-and-publication.md) states capability/refusal
 boundaries. SP-04 supplies native semantic reads/explanations; SP-05 supplies the columnar
-foundation and existing set kernels. SP-06/SP-07 implementation is closed out at operator request with scoped tests; package qualification remains open. SP-08–SP-10 remain planned. No assembled-series qualification is claimed. Stable IDs
+foundation and existing set kernels. SP-06/SP-07 are implemented and scoped-tested for their supported profile, including exclusions (§11). SP-08–SP-10 remain planned. No assembled-series qualification is claimed. Stable IDs
 link to the supporting documents.
 
 | Package | Required working input | Capability (current state above and in §10) |
@@ -296,7 +296,7 @@ remain. Those paused phase-0 worktrees were subsequently integrated and removed 
 The current stop boundary and remaining SP-06/SP-07 qualification are in §9. Existing phase-0
 findings retain their owner.
 
-## 9. SP-06/SP-07 closeout checkpoint (2026-10-29)
+## 9. Prior SP-06/SP-07 closeout checkpoint (2026-10-29)
 
 **Implemented; scoped Tested, not package completion. Work stopped at the operator's request.**
 The [domain-operations owner](semantic-model-pivot/domain-operations.md#current-execution-contract-2026-10-29)
@@ -482,3 +482,46 @@ a formatter attempt failed on a temporary literal-wrap syntax error, corrected b
 passing maintenance. No product typing/tests were repeated after lint-only maintenance; the
 passing receipts above remain valid. All useful worker changes were integrated or superseded
 on main and independently confirmed by their owners before removing the two clean worktrees.
+
+
+## 11. SP-06/SP-07 remaining-scope completion (2026-10-29)
+
+**Implemented; scoped Tested.** The operator authorized explicit evidence-backed identity exclusions,
+not scored fuzzy matching or human grading. ADR-0029 and the
+[domain-operations completion audit](semantic-model-pivot/domain-operations.md#completion-audit-2026-10-29)
+carry the contract and assessment. SP-06 producer/settings and SP-07 occurrence/scientific/inference
+obligations are implemented in the supported transitioned profile. New exclusions use LinkML-owned
+source and execution definitions, source/evidence custody, deterministic identity partitioning,
+protected bulk publication and actual snapshot/explanation/graph/Arrow consumers.
+
+Compiler 9, semantic-domain-2, analytical-4 and frozen semantic_0027 are integrated. The trusted
+execution model is execution:c6920439423e0c2826e701c095608408455c4a04559d2bad47fccc2657e54131.
+Existing bindings are not silently upcast; baseline profiles cannot invoke the new capability.
+No dependency versions moved. Existing native citation/locator and staging protections are retained.
+Metadata scope tests follow the actual transitive FK chains instead of requiring redundant FKs.
+
+| Command and scope | Actual outcome |
+|---|---|
+| `uv run --no-sync pytest python/corpus-structure/tests/semantic/test_contracts.py --tb=short` | Initial 2 failed/29 passed after catalog additions; corrected capability expectation and preserved existing relation order; affected component passed 31 cases. |
+| `uv run --no-sync pytest python/corpus-structure/tests/semantic python/corpus-structure/tests/test_settings.py --tb=short` | Initial consolidated selection **failed**, 4 failed/484 passed. Failures: staging disposal with absent new tables, existing locator forgery regression, invalid inherited-input fixture, and overly specific direct-FK expectation. These failures receive no passing credit. |
+| `uv run --no-sync pytest python/corpus-structure/tests/semantic/test_metadata.py python/corpus-structure/tests/semantic/test_identity_exclusions.py python/corpus-structure/tests/semantic/test_identity_exclusion_reads.py --tb=short` | **passed**, 16 cases after source-build/global-reference fixture correction and transitive-FK expectations. A preceding collection attempt during a cherry-pick conflict failed; conflicts were resolved before the passing run. |
+| `uv run --no-sync pytest python/corpus-structure/tests/semantic/test_domain_operations.py::test_stage_disposal_refuses_writer_owned_imitation python/corpus-structure/tests/semantic/test_evaluation_boundaries.py::test_native_source_locator_is_checked_against_stored_citation python/corpus-structure/tests/semantic/test_identity_exclusions_native.py python/corpus-structure/tests/semantic/test_proposals.py python/corpus-structure/tests/semantic/test_identity_exclusions.py python/corpus-structure/tests/semantic/test_identity_exclusion_reads.py --tb=short` | **passed**, final 31 affected cases. Covers both native regressions, exact citation bags, omission/collapse/forgery and direct-write refusal, literal source identifiers, actual source/MCP, mandatory contradiction, inherited constraints, reader/explanation/RDF/Arrow/DuckDB and profile advertisement. |
+| `uv run --no-sync pyrefly check --summary=none` | **passed**, zero whole-project errors before maintenance/lint. Earlier structural inference, optional-fixture and stray-variable errors were repaired. |
+
+The original 488-case selection is covered by its passing unaffected cases and repaired affected
+selections; no single final full-suite rerun is claimed and overlapping counts are not added.
+Worker component receipts include 17 pure source/resolution controls and 51 graph/analytics controls.
+Native intermediate owner/custody/grounding and fixture failures were corrected and rerun. Independent
+crossing reviews identified locator correspondence and wildcard source-ID issues; both were repaired.
+No further material gap remained in the inspected original SP-06/SP-07 and exclusion scope.
+
+Only owned fresh native test databases were migrated. Operational cs_semantic_20261029_0f70052 on
+18/corpus:5434 remains semantic_0005. No deployment/default cutover, prior-result regrade or phase-0
+restart occurred. SP-08–SP-10 and completeness O07 follow-through remain open. Enclosing
+`just test-all` / `just hygiene` are **not_run** here; SP-10 owns that assembled qualification.
+Final `just turn-end`, read-only Ruff and `just docs-check` passed (229 canonical pages, zero
+publication/link errors). Initial Ruff found 12 style/line issues; repaired without functional/type
+repetition. An unresolved architectural reference in ADR-0028 was corrected by superseding it with
+ADR-0029 under immutable-record policy; the semantic decision is unchanged. The retired record
+remains recoverable in Git. All useful worker contributions are integrated; owned worktrees were
+clean before removal. No push occurred. Lint-only effects do not invalidate passing receipts.

@@ -603,16 +603,23 @@ def test_identity_exclusions_are_qualified_constraints_with_complete_closure():
     }
     second = {**first, "id": "urn:exclusion:second"}
     projection = QualifiedGraphProjection(
-        "release", "realization", 2, "qualified-identity-exclusions", (),
+        "release",
+        "realization",
+        2,
+        "qualified-identity-exclusions",
+        (),
         {
             "urn:entity:a": {"kind": "entity"},
             "urn:entity:b": {"kind": "entity"},
             "urn:evidence:first": {"kind": "evidence"},
-        }, {}, (first, second),
+        },
+        {},
+        (first, second),
     )
     graph = projection.graph()
     assert set(graph.subjects(RDF.type, CS.IdentityExclusion)) == {
-        URIRef("urn:exclusion:first"), URIRef("urn:exclusion:second")
+        URIRef("urn:exclusion:first"),
+        URIRef("urn:exclusion:second"),
     }
     assert not list(graph.triples((None, OWL.differentFrom, None)))
     assert (URIRef("urn:exclusion:first"), CS.left, URIRef("urn:entity:a")) in graph

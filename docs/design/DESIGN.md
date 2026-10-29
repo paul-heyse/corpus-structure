@@ -278,7 +278,7 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 existing key/label resolution and protected publication. Exclusions retain their scoped source and
 input lineage; mandatory-key conflicts refuse atomically. D5 owns the detailed contract.
 
-> Decision: ADR-0028
+> Decision: ADR-0029
 
 **Accepted operation target (2026-10-29).** Producers and domain operations consume one pinned
 release and resolved dependencies. Semantic scope, normalized rule declarations and operation

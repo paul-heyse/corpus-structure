@@ -103,6 +103,26 @@ def test_all_data_children_are_pinned_to_the_realization_release() -> None:
                     ("data.batch.release_id", "data.batch.realization_id", "data.batch.batch_id"),
                 ) in _foreign_keys(name)
                 name = "data.batch"
+            if item.name == "identity_exclusion_evidence":
+                assert (
+                    ("realization_id", "release_id", "exclusion_id"),
+                    (
+                        "data.identity_exclusion.realization_id",
+                        "data.identity_exclusion.release_id",
+                        "data.identity_exclusion.exclusion_id",
+                    ),
+                ) in _foreign_keys(name)
+                name = "data.identity_exclusion"
+            if name == "data.identity_exclusion":
+                assert (
+                    ("realization_id", "release_id", "left_entity_id"),
+                    (
+                        "data.entity.realization_id",
+                        "data.entity.release_id",
+                        "data.entity.entity_id",
+                    ),
+                ) in _foreign_keys(name)
+                name = "data.entity"
             assert (
                 ("realization_id", "release_id"),
                 ("data.realization.realization_id", "data.realization.release_id"),

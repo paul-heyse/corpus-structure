@@ -1,4 +1,5 @@
 """Independent partitions and source identities for operational cannot-links."""
+
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -16,32 +17,82 @@ from corpus_structure.semantic.types import PreparationProfile, ResolvedDependen
 @cache
 def release(keyed=False):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    person: dict[str, Any] = {"is_a": "Entity", "annotations": {"cs:scope": "global"},
-              "attributes": {"serial": {"range": "string"}}}
+    person: dict[str, Any] = {
+        "is_a": "Entity",
+        "annotations": {"cs:scope": "global"},
+        "attributes": {"serial": {"range": "string"}},
+    }
     if keyed:
         person["unique_keys"] = {"serial": {"unique_key_slots": ["serial"]}}
-    domain = {"id": "https://example.org/identity", "name": "identity", "imports": ["core"],
-              "prefixes": {"ex": "https://example.org/"}, "default_prefix": "ex",
-              "classes": {"Person": person}}
-    bundle = SourceBundle("domain", (SourceArtifact("core", core.read_bytes()),
-        SourceArtifact("domain", yaml.safe_dump(domain).encode())))
-    return prepare_release(proposal_inputs(bundle), composed_dependencies(ResolvedDependencies()),
-                           PreparationProfile(version="semantic-2"))
+    domain = {
+        "id": "https://example.org/identity",
+        "name": "identity",
+        "imports": ["core"],
+        "prefixes": {"ex": "https://example.org/"},
+        "default_prefix": "ex",
+        "classes": {"Person": person},
+    }
+    bundle = SourceBundle(
+        "domain",
+        (
+            SourceArtifact("core", core.read_bytes()),
+            SourceArtifact("domain", yaml.safe_dump(domain).encode()),
+        ),
+    )
+    return prepare_release(
+        proposal_inputs(bundle),
+        composed_dependencies(ResolvedDependencies()),
+        PreparationProfile(version="semantic-2"),
+    )
 
 
 def source(*, keyed=False, located=True):
-    entities = [{"id": name, "class_iri": "https://example.org/Person", "label": "Alice",
-                 "attributes": [{"predicate": "https://example.org/serial",
-                                 "value": {"kind": "text", "text": "same"}}] if keyed else []}
-                for name in ("a", "b", "c")]
-    evidence = {"sentence": "s", "quote": "Two distinct people", "role": "primary",
-                "placement": "exact", "outcome": "located" if located else "unlocated",
-                "matches": 1, "picked": False, "locator": "doc#s", "start": 0, "end": 19}
-    return {"id": 9, "observation_key": "observation:stable", "payload_definition": "AgentStoredBatch",
-            "payload": {"unit_ref": "u", "entities": entities,
-                        "identity_exclusions": [{"id": "split", "left": {"kind": "local", "target": "a"},
-                            "right": {"kind": "local", "target": "c"}, "reason": "distinct",
-                            "evidence": [evidence]}]}}
+    entities = [
+        {
+            "id": name,
+            "class_iri": "https://example.org/Person",
+            "label": "Alice",
+            "attributes": [
+                {
+                    "predicate": "https://example.org/serial",
+                    "value": {"kind": "text", "text": "same"},
+                }
+            ]
+            if keyed
+            else [],
+        }
+        for name in ("a", "b", "c")
+    ]
+    evidence = {
+        "sentence": "s",
+        "quote": "Two distinct people",
+        "role": "primary",
+        "placement": "exact",
+        "outcome": "located" if located else "unlocated",
+        "matches": 1,
+        "picked": False,
+        "locator": "doc#s",
+        "start": 0,
+        "end": 19,
+    }
+    return {
+        "id": 9,
+        "observation_key": "observation:stable",
+        "payload_definition": "AgentStoredBatch",
+        "payload": {
+            "unit_ref": "u",
+            "entities": entities,
+            "identity_exclusions": [
+                {
+                    "id": "split",
+                    "left": {"kind": "local", "target": "a"},
+                    "right": {"kind": "local", "target": "c"},
+                    "reason": "distinct",
+                    "evidence": [evidence],
+                }
+            ],
+        },
+    }
 
 
 def test_cannot_link_prevents_indirect_label_merge_and_preserves_unconstrained_ids():
@@ -70,21 +121,37 @@ def test_uncertain_exclusion_does_not_authorize_identity_constraint():
 
 def test_known_entity_cannot_link_vetoes_label_match():
     observed = source()
-    observed["payload"]["identity_exclusions"][0]["right"] = {"kind": "known", "target": "known:alice"}
-    known = {"known:alice": {"class_iris": ("https://example.org/Person",), "label": "Alice", "fields": {}}}
+    observed["payload"]["identity_exclusions"][0]["right"] = {
+        "kind": "known",
+        "target": "known:alice",
+    }
+    known = {
+        "known:alice": {
+            "class_iris": ("https://example.org/Person",),
+            "label": "Alice",
+            "fields": {},
+        }
+    }
     mappings, _, _ = _entity_mappings(release(), [observed], "out", known, {9: ({}, ())})
     assert mappings[9]["a"] != "known:alice"
 
 
 def test_partition_is_independent_of_observation_arrival_and_database_ids():
     import copy
+
     first = source()
     second = copy.deepcopy(first)
     second["id"], second["observation_key"] = 15, "observation:other"
-    left, _, _ = _entity_mappings(release(), [first, second], "out", {}, {9: ({}, ()), 15: ({}, ())})
-    right, _, _ = _entity_mappings(release(), [second, first], "out", {}, {9: ({}, ()), 15: ({}, ())})
+    left, _, _ = _entity_mappings(
+        release(), [first, second], "out", {}, {9: ({}, ()), 15: ({}, ())}
+    )
+    right, _, _ = _entity_mappings(
+        release(), [second, first], "out", {}, {9: ({}, ()), 15: ({}, ())}
+    )
     assert left == right
     first["id"], second["id"] = 77, 44
-    reassigned, _, _ = _entity_mappings(release(), [first, second], "out", {}, {77: ({}, ()), 44: ({}, ())})
+    reassigned, _, _ = _entity_mappings(
+        release(), [first, second], "out", {}, {77: ({}, ()), 44: ({}, ())}
+    )
     assert reassigned[77] == left[9]
     assert reassigned[44] == left[15]

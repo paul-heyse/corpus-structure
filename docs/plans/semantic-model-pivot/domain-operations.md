@@ -1,8 +1,8 @@
 # Domain operations and producer integration
 
-**Status:** Implementation closed out at operator request; scoped Tested profile, package qualification open · **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Consumes O04/O05 and the [semantic binding](semantic-model-and-releases.md), [publisher](postgresql-and-publication.md) and [Arrow kernels](interchange-and-analytics.md).
+**Status:** SP-06/SP-07 implemented and scoped Tested for the supported profile, including identity exclusions (2026-10-29) · **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Consumes O04/O05 and the [semantic binding](semantic-model-and-releases.md), [publisher](postgresql-and-publication.md) and [Arrow kernels](interchange-and-analytics.md).
 
-## Completeness extension (planned)
+## Completeness extension and remaining execution
 
 The implemented SP-06/SP-07 profile and passing checks below remain intact. The new model work is
 [SP-C01/SP-C02](domain-model-completeness.md); [SP-C03/SP-C04](domain-model-realization.md) own its
@@ -30,7 +30,7 @@ Grading/adjudication stay automated; no prior result is regraded.
 
 ## Current execution contract (2026-10-29)
 
-**Stopped at operator request; not package completion.** Execution began at `1ce2c19` under
+**Original closeout checkpoint; subsequent execution is recorded below.** Execution began at `1ce2c19` under
 [ADR-0027](../../adr/0027-bound-domain-operations.md). Runs pin interpretation, source/configuration
 and operation dependencies. Source preparation, recorded agent work and final domain publication
 are distinct capabilities; a `source_ready` response does not establish finished consolidation.
@@ -97,11 +97,38 @@ maintenance; lint cleanup is separate and does not require another type/test run
 were corrected and rerun; they do not count as passing receipts. No human grading was introduced,
 and no prior automated model-quality result was regraded.
 
-**Remaining:** reconcile the complete SP-06/SP-07 obligation union against the final assembled
-source before claiming package completion; focused receipts do not establish that union. SP-08
-consumer migration, SP-09 clean regeneration/default cutover and SP-10 assembled qualification
-remain open. No operational deployment or legacy default selection changed. Work is stopped at
-the operator's requested boundary; a comprehensive follow-up must start from this checkpoint.
+**Authorized execution (2026-10-29; delivered below):** the operator authorized the remaining SP-06/SP-07
+scope and explicitly selected evidence-backed cannot-links. Implement that capability against
+the current composed model, reconcile the full package obligations with existing evidence, and
+perform a bounded completion assessment. SP-08 remaining consumer migration, SP-09 regeneration
+and default cutover, and SP-10 assembled qualification remain separate. The earlier passing
+receipts retain their original compiler/source boundary; lint does not invalidate them.
+
+### Selected identity-exclusion contract
+
+**Implemented; scoped Tested (2026-10-29).** ADR-0029 owns the decision.
+LinkML authors optional source `identity_exclusions`, each with a source identifier, local/known
+endpoints, reason and citations. Stored declarations use the existing evidence locator.
+Located primary evidence establishes eligibility; uncertainty remains a report/coverage outcome.
+Known endpoints must belong to the packet's pinned input snapshot. Self/unknown references refuse.
+Semantic-1 cannot invoke this capability; supported packets reflect their admitted profile.
+
+Exact declared-key equivalence remains mandatory. Contradictory eligible exclusions cause a
+structured identity-conflict refusal before evaluated output commits. Label-only candidates are
+partitioned deterministically without merging excluded endpoints, including indirectly. No fuzzy
+matching, scored merge engine, mutable identity history or human adjudication is introduced.
+Existing no-exclusion identities retain their meaning. Source declarations stay separate from
+canonical entities through existing entity_source/entity_input relationships.
+
+The physical model gains scoped exclusion/evidence relations and protected bulk transport.
+Native checks enforce source declaration, endpoint assignment, evidence custody and effective-cut
+completeness, including required participating input exclusions. Current snapshot readers,
+explanation and qualified graph/Arrow projections expose the constraint with its provenance.
+No unqualified ontology differentFrom assertion is inferred. Frozen migration semantic_0027 and
+compiler 9 deliberately change the binding; old products are not reinterpreted.
+
+The coordinator remains the sole current disposition owner. Verification will distinguish
+implemented capability, independently checked package obligations and enclosing qualification.
 
 ## Contracts and current footprint
 
@@ -152,3 +179,31 @@ Terminate recursive closure by semantic conclusion identity, not source occurren
 Use the [SQLAlchemy plan](postgresql-and-publication.md) for relational composition and snapshots. Pull narrow eligible relations before Python hydration; use DuckDB where set work benefits from local columnar execution, without duplicating policy. Global operations retain the required universe; output selection is not input scope. Qualitative skew/access-path assessment belongs with the affected query, not a mandatory benchmark.
 
 Sources: [review O04](../../functional_reviews/semantic-postgresql-model_2026-10-29.md#O04), [target inference](../../functional_reviews/semantic-postgresql-model_2026-10-29_target-model.md#5-validation-and-inference-semantics), [SQLAlchemy selectable constructs](https://docs.sqlalchemy.org/en/21/core/selectable.html). LinkML-Datalog remains deferred under the coordinator's trigger.
+
+## Completion audit (2026-10-29)
+
+**Implemented and scoped Tested for SP-06/SP-07's supported profile.** Inspection covers the
+original source/producer/settings, scientific/consolidation and qualified-inference obligations,
+the SP-C consumer adoption, and the explicitly selected exclusions. Current source is compiler 9,
+semantic-domain-2, analytical-4 and frozen migration semantic_0027. Existing source reports,
+entity_source/entity_input and protected publisher remain the owners of provenance and effects.
+
+Identity exclusions now reach actual automated MCP source submission, grounded endpoint property
+occurrences, native publication, immutable results, snapshot readers, explanation, qualified RDF
+and Arrow/DuckDB. Mandatory-key contradictions refuse atomically while preserving source/cut.
+Inherited constraints follow participating bound-input endpoints. Source identifiers with pattern
+characters remain literal. Pair comparison is unordered; original left/right declaration orientation
+is retained for exact source comparison. Unlocated reports do not acquire authority.
+
+Independent cross-component reviews examined domain/native implementation separately from their
+authors and found no remaining material gap after custody/path corrections. A fresh additional
+reviewer could not launch because of the runtime's agent-thread limit; the existing reader/domain
+workers supplied crossing reviews. Root reconciled the original obligation union and integration.
+This assessment does not claim whole-series or external model-quality qualification. Confidence
+fitting and scored merge/split systems were not implemented features requiring migration here.
+
+The coordinator §11 owns exact commands, failed receipts, passing affected reruns and next work.
+No product test/type repetition follows lint-only maintenance. SP-08 remaining consumers, SP-09
+regeneration/default cutover and SP-10 assembled qualification remain open; these are not missing
+SP-06/SP-07 implementation. The operational database remains semantic_0005. No prior result was
+regraded; extraction, grading and adjudication remain automated without human input.

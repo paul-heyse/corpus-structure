@@ -60,7 +60,7 @@ Source assignments, input lineage and protected native publication retain exact 
 These operational constraints do not assert unqualified ontology differentFrom facts or enable
 scored fuzzy matching. Current readers expose their endpoints and supporting citations.
 
-> Decision: ADR-0028
+> Decision: ADR-0029
 
 ## 1. Shape
 

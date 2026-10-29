@@ -23,6 +23,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0025](0025-semantic-publication.md) | Semantic publication uses protected staging and release-bound native enforcement | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0026](0026-columnar-semantic-operations.md) | Semantic projections share snapshots and compose analytical operations in DuckDB | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0027](0027-bound-domain-operations.md) | Domain operations bind immutable releases and preserve qualified support | 2026-10-29 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0029](0029-identity-exclusions-scoped-reference.md) | Evidence-backed exclusions constrain semantic identity resolution | 2026-10-29 | [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0028 |
 
 ## Superseded, still in the tree
 

@@ -165,7 +165,14 @@ def _property_value(value: Mapping[str, Any], range_name: str) -> Any:
 def _check_references(
     prepared: PreparedRelease, raw: Mapping[str, Any], known: Mapping[str, tuple[str, ...]]
 ) -> None:
-    sections = ("entities", "statements", "claims", "alternatives", "unsupported", "identity_exclusions")
+    sections = (
+        "entities",
+        "statements",
+        "claims",
+        "alternatives",
+        "unsupported",
+        "identity_exclusions",
+    )
     identifiers = [item["id"] for section in sections for item in raw.get(section, ())]
     if any(not identifier for identifier in identifiers) or len(identifiers) != len(
         set(identifiers)

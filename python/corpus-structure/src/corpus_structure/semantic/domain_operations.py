@@ -63,13 +63,15 @@ class IdentityResolutionConflict(DomainOperationRefused):
         self.right = right
         self.entity_id = entity_id
         super().__init__(
-            f"identity_conflict: exclusion {exclusion_id} contradicts mandatory identity {entity_id}"
+            f"identity_conflict: exclusion {exclusion_id} contradicts "
+            f"mandatory identity {entity_id}"
         )
 
 
 def _eligible_exclusion(exclusion):
-    return any(e.get("outcome") == "located" and e["role"] == "primary"
-               for e in exclusion["evidence"])
+    return any(
+        e.get("outcome") == "located" and e["role"] == "primary" for e in exclusion["evidence"]
+    )
 
 
 def _policy_yaml(content):
@@ -617,24 +619,48 @@ def _known_input(conn, prepared, job, observations):
     )
     evidence_ids = {row["evidence_id"] for row in supports}
     excluded = table("data.identity_exclusion")
-    exclusion_rows = conn.execute(select(excluded).where(
-        excluded.c.release_id == job["release_id"],
-        excluded.c.realization_id == job["input_realization_id"],
-        excluded.c.left_entity_id.in_(ids), excluded.c.right_entity_id.in_(ids))).mappings().all()
+    exclusion_rows = (
+        conn.execute(
+            select(excluded).where(
+                excluded.c.release_id == job["release_id"],
+                excluded.c.realization_id == job["input_realization_id"],
+                excluded.c.left_entity_id.in_(ids),
+                excluded.c.right_entity_id.in_(ids),
+            )
+        )
+        .mappings()
+        .all()
+    )
     exclusion_ids = {row["exclusion_id"] for row in exclusion_rows}
     links = table("data.identity_exclusion_evidence")
-    exclusion_links = conn.execute(select(links).where(
-        links.c.release_id == job["release_id"],
-        links.c.realization_id == job["input_realization_id"],
-        links.c.exclusion_id.in_(exclusion_ids))).mappings().all()
+    exclusion_links = (
+        conn.execute(
+            select(links).where(
+                links.c.release_id == job["release_id"],
+                links.c.realization_id == job["input_realization_id"],
+                links.c.exclusion_id.in_(exclusion_ids),
+            )
+        )
+        .mappings()
+        .all()
+    )
     evidence_ids.update(row["evidence_id"] for row in exclusion_links)
-    for name, rows in (("identity_exclusion", exclusion_rows), ("identity_exclusion_evidence", exclusion_links)):
+    for name, rows in (
+        ("identity_exclusion", exclusion_rows),
+        ("identity_exclusion_evidence", exclusion_links),
+    ):
         row_type = STAGE_TYPES[name][0]
-        copied[name] = tuple(row_type(**{f.name: row[f.name] for f in fields(row_type)}) for row in rows)
+        copied[name] = tuple(
+            row_type(**{f.name: row[f.name] for f in fields(row_type)}) for row in rows
+        )
     observations_table = table("kb.observation")
-    copied["_identity_exclusion_sources"] = tuple(conn.execute(select(
-        observations_table.c.id, observations_table.c.observation_key).where(
-        observations_table.c.id.in_({row["observation_id"] for row in exclusion_rows}))).all())
+    copied["_identity_exclusion_sources"] = tuple(
+        conn.execute(
+            select(observations_table.c.id, observations_table.c.observation_key).where(
+                observations_table.c.id.in_({row["observation_id"] for row in exclusion_rows})
+            )
+        ).all()
+    )
     for name, rows in [("membership", memberships), ("membership_support", supports)]:
         row_type = STAGE_TYPES[name][0]
         copied[name] = tuple(
@@ -834,41 +860,83 @@ def _entity_mappings(prepared, observations, output, known, contexts):
             raise DomainOperationRefused("identity exclusions require semantic-2")
         for exclusion in payload.get("identity_exclusions", ()):
             if _eligible_exclusion(exclusion):
-                def endpoint(value):
-                    return ("known", value["target"]) if value["kind"] == "known" else (observation_keys[oid], value["target"])
-                exclusions.append((oid, exclusion, endpoint(exclusion["left"]), endpoint(exclusion["right"])))
+
+                def endpoint(value, oid=oid):
+                    return (
+                        ("known", value["target"])
+                        if value["kind"] == "known"
+                        else (observation_keys[oid], value["target"])
+                    )
+
+                exclusions.append(
+                    (oid, exclusion, endpoint(exclusion["left"]), endpoint(exclusion["right"]))
+                )
     soft_groups = {}
     soft_ids = {}
+
     def label_key(definition, label):
-        case = CaseRule.FOLD if meta[definition.name].get("cs:case") == "casefold" else CaseRule.PRESERVE
+        case = (
+            CaseRule.FOLD
+            if meta[definition.name].get("cs:case") == "casefold"
+            else CaseRule.PRESERVE
+        )
         return (definition.iri, normalize_label(label, compact(definition.iri), aliases, case))
+
     for observation, entity, definition in entries:
         groups = [g for g in definition.identity_groups if g != definition.identity_slots]
-        if not groups and meta.get(definition.name, {}).get("cs:scope") == "global" and entity.get("label"):
+        if (
+            not groups
+            and meta.get(definition.name, {}).get("cs:scope") == "global"
+            and entity.get("label")
+        ):
             node = (observation["observation_key"], entity["id"])
             soft_groups.setdefault(label_key(definition, entity["label"]), set()).add(node)
             soft_ids[node] = original_mappings[observation["id"]][entity["id"]]
     for identity, item in known.items():
         for iri in item["class_iris"]:
             definition = by_iri[iri]
-            if not [g for g in definition.identity_groups if g != definition.identity_slots] and meta.get(definition.name, {}).get("cs:scope") == "global" and item.get("label"):
+            if (
+                not [g for g in definition.identity_groups if g != definition.identity_slots]
+                and meta.get(definition.name, {}).get("cs:scope") == "global"
+                and item.get("label")
+            ):
                 node = ("known", identity)
                 soft_groups.setdefault(label_key(definition, item["label"]), set()).add(node)
                 soft_ids[node] = identity
     soft_resolved = {}
     from .identity_resolution import constrained_label_groups
+
     for (iri, label), members in soft_groups.items():
         anchors = {node for node in members if node[0] == "known"}
-        forbidden = [(left, right) for _, _, left, right in exclusions if left in members and right in members]
+        forbidden = [
+            (left, right)
+            for _, _, left, right in exclusions
+            if left in members and right in members
+        ]
         if not forbidden and len(anchors) <= 1:
-            canonical = soft_ids[next(iter(anchors))] if anchors else "entity:" + sha256(canonical_bytes([prepared.release_id, output, iri, "label", label])).hexdigest()
+            canonical = (
+                soft_ids[next(iter(anchors))]
+                if anchors
+                else "entity:"
+                + sha256(
+                    canonical_bytes([prepared.release_id, output, iri, "label", label])
+                ).hexdigest()
+            )
             soft_resolved.update((node, canonical) for node in members)
             continue
         # Ambiguous reference labels do not choose one existing identity by incidental order.
-        partitions = constrained_label_groups(members, forbidden, anchors) if len(anchors) <= 1 else tuple(frozenset((node,)) for node in sorted(members))
+        partitions = (
+            constrained_label_groups(members, forbidden, anchors)
+            if len(anchors) <= 1
+            else tuple(frozenset((node,)) for node in sorted(members))
+        )
         for group in partitions:
             anchored = group & anchors
-            canonical = soft_ids[next(iter(anchored))] if anchored else min(soft_ids[node] for node in group)
+            canonical = (
+                soft_ids[next(iter(anchored))]
+                if anchored
+                else min(soft_ids[node] for node in group)
+            )
             soft_resolved.update((node, canonical) for node in group)
     resolved = set()
     keys = {}
@@ -958,7 +1026,8 @@ def _entity_mappings(prepared, observations, output, known, contexts):
             break
         pending = remaining
     for oid, exclusion, _left, _right in exclusions:
-        def mapped(endpoint):
+
+        def mapped(endpoint, oid=oid):
             if endpoint["kind"] == "known":
                 if endpoint["target"] not in known:
                     raise DomainOperationRefused("identity exclusion has an unbound known endpoint")
@@ -966,9 +1035,12 @@ def _entity_mappings(prepared, observations, output, known, contexts):
             if endpoint["target"] not in mappings[oid]:
                 raise DomainOperationRefused("identity exclusion has an undeclared local endpoint")
             return mappings[oid][endpoint["target"]]
+
         left, right = mapped(exclusion["left"]), mapped(exclusion["right"])
         if left == right:
-            raise IdentityResolutionConflict(prepared.release_id, exclusion["id"], exclusion["left"], exclusion["right"], left)
+            raise IdentityResolutionConflict(
+                prepared.release_id, exclusion["id"], exclusion["left"], exclusion["right"], left
+            )
     return mappings, extra, parsed
 
 
@@ -1384,12 +1456,30 @@ def _project_cut(
                 start, end = citation["start"], citation["end"]
                 if not 0 <= start < end <= len(descriptor["text"]):
                     raise DomainOperationRefused("identity evidence lies outside rendition")
-                eid = "evidence:" + sha256(canonical_bytes([
-                    source, "identity_exclusions", exclusion["id"], ordinal, citation])).hexdigest()
-                located.append(EvidenceRow(eid, descriptor["source_uri"],
-                    canonical_bytes({"locator": citation["locator"], "start": start,
-                                     "end": end, "role": citation["role"]}).decode(),
-                    descriptor["provider"], descriptor["version"]))
+                eid = (
+                    "evidence:"
+                    + sha256(
+                        canonical_bytes(
+                            [source, "identity_exclusions", exclusion["id"], ordinal, citation]
+                        )
+                    ).hexdigest()
+                )
+                located.append(
+                    EvidenceRow(
+                        eid,
+                        descriptor["source_uri"],
+                        canonical_bytes(
+                            {
+                                "locator": citation["locator"],
+                                "start": start,
+                                "end": end,
+                                "role": citation["role"],
+                            }
+                        ).decode(),
+                        descriptor["provider"],
+                        descriptor["version"],
+                    )
+                )
                 evidence_roles[eid] = citation["role"]
                 source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
             for endpoint in (exclusion["left"], exclusion["right"]):
@@ -1401,10 +1491,20 @@ def _project_cut(
                 entity = next(e for e in payload["entities"] if e["id"] == endpoint["target"])
                 definition = definitions[entity["class_iri"]]
                 evidence_by_entity.setdefault(subject, tuple(located))
-                item_by_entity.setdefault(subject, SourceItem(
-                    subject, definition.name, "id", entity["id"],
-                    {"modality": "asserted", "polarity": True}, source,
-                    "identity_exclusions/" + exclusion["id"], "stated", tuple(located)))
+                item_by_entity.setdefault(
+                    subject,
+                    SourceItem(
+                        subject,
+                        definition.name,
+                        "id",
+                        entity["id"],
+                        {"modality": "asserted", "polarity": True},
+                        source,
+                        "identity_exclusions/" + exclusion["id"],
+                        "stated",
+                        tuple(located),
+                    ),
+                )
         # Source-declared entity fields use the actual qualified source assertion that names them.
         for local, e in ((e["id"], e) for e in payload.get("entities", ())):
             subject = mapping[local]
@@ -1540,8 +1640,14 @@ def _project_cut(
             )
     batch_id = _source_batch_id(prepared.release_id, output, observations)
     batch = assemble(prepared, output, batch_id, tuple(items))
-    from .publication import (IdentityExclusionRow, IdentityExclusionEvidenceRow,
-                              EntityRow, MembershipRow, MembershipSupportRow)
+    from .publication import (
+        EntityRow,
+        IdentityExclusionEvidenceRow,
+        IdentityExclusionRow,
+        MembershipRow,
+        MembershipSupportRow,
+    )
+
     exclusion_rows = []
     exclusion_links = []
     exclusion_evidence = []
@@ -1554,58 +1660,107 @@ def _project_cut(
         for exclusion in payload.get("identity_exclusions", ()):
             source = observation["observation_key"]
             if descriptor is None or not _eligible_exclusion(exclusion):
-                coverage_row("identity_exclusion", source + "/" + exclusion["id"],
-                             "partial", "no located primary identity evidence")
+                coverage_row(
+                    "identity_exclusion",
+                    source + "/" + exclusion["id"],
+                    "partial",
+                    "no located primary identity evidence",
+                )
                 continue
             mapping = entity_mappings[observation["id"]]
-            def endpoint(value):
+
+            def endpoint(value, mapping=mapping):
                 return mapping[value["target"]] if value["kind"] == "local" else value["target"]
+
             left, right = endpoint(exclusion["left"]), endpoint(exclusion["right"])
-            if any(identity not in metadata or metadata[identity].get("representable") is False
-                   for identity in (left, right)):
+            if any(
+                identity not in metadata or metadata[identity].get("representable") is False
+                for identity in (left, right)
+            ):
                 raise DomainOperationRefused(
                     "identity exclusion endpoint lacks representable required identity: "
                     + exclusion["id"]
                 )
-            xid = "identity-exclusion:" + sha256(canonical_bytes(
-                [prepared.release_id, output, source, exclusion["id"]])).hexdigest()
-            exclusion_rows.append(IdentityExclusionRow(
-                exclusion_id=xid, observation_id=observation["id"], local_id=exclusion["id"],
-                left_kind=exclusion["left"]["kind"], left_ref=exclusion["left"]["target"],
-                right_kind=exclusion["right"]["kind"], right_ref=exclusion["right"]["target"],
-                left_entity_id=left, right_entity_id=right, reason=exclusion["reason"],
-                operation_id="resolve_identity", operation_version=VERSION))
+            xid = (
+                "identity-exclusion:"
+                + sha256(
+                    canonical_bytes([prepared.release_id, output, source, exclusion["id"]])
+                ).hexdigest()
+            )
+            exclusion_rows.append(
+                IdentityExclusionRow(
+                    exclusion_id=xid,
+                    observation_id=observation["id"],
+                    local_id=exclusion["id"],
+                    left_kind=exclusion["left"]["kind"],
+                    left_ref=exclusion["left"]["target"],
+                    right_kind=exclusion["right"]["kind"],
+                    right_ref=exclusion["right"]["target"],
+                    left_entity_id=left,
+                    right_entity_id=right,
+                    reason=exclusion["reason"],
+                    operation_id="resolve_identity",
+                    operation_version=VERSION,
+                )
+            )
             for ordinal, citation in enumerate(exclusion["evidence"]):
                 if citation.get("outcome") != "located":
                     continue
                 start, end = citation["start"], citation["end"]
                 if not 0 <= start < end <= len(descriptor["text"]):
                     raise DomainOperationRefused("identity evidence lies outside rendition")
-                eid = "evidence:" + sha256(canonical_bytes(
-                    [source, "identity_exclusions", exclusion["id"], ordinal, citation])).hexdigest()
-                exclusion_evidence.append(EvidenceRow(eid, descriptor["source_uri"],
-                    canonical_bytes({"locator": citation["locator"], "start": start,
-                                     "end": end, "role": citation["role"]}).decode(),
-                    descriptor["provider"], descriptor["version"]))
+                eid = (
+                    "evidence:"
+                    + sha256(
+                        canonical_bytes(
+                            [source, "identity_exclusions", exclusion["id"], ordinal, citation]
+                        )
+                    ).hexdigest()
+                )
+                exclusion_evidence.append(
+                    EvidenceRow(
+                        eid,
+                        descriptor["source_uri"],
+                        canonical_bytes(
+                            {
+                                "locator": citation["locator"],
+                                "start": start,
+                                "end": end,
+                                "role": citation["role"],
+                            }
+                        ).decode(),
+                        descriptor["provider"],
+                        descriptor["version"],
+                    )
+                )
                 evidence_roles[eid] = citation["role"]
                 source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
                 exclusion_links.append(IdentityExclusionEvidenceRow(xid, eid))
                 for identity, value in ((left, exclusion["left"]), (right, exclusion["right"])):
                     exclusion_entities.add(EntityRow(identity))
                     if value["kind"] == "local":
-                        cls = next(e["class_iri"] for e in payload["entities"] if e["id"] == value["target"])
+                        cls = next(
+                            e["class_iri"]
+                            for e in payload["entities"]
+                            if e["id"] == value["target"]
+                        )
                         exclusion_memberships.add(MembershipRow(identity, cls, "stated"))
                         exclusion_membership_support.add(MembershipSupportRow(identity, cls, eid))
+
     def rows_union(old, new):
         from dataclasses import astuple
+
         return tuple(sorted(set((*old, *new)), key=lambda row: canonical_bytes(astuple(row))))
-    batch = replace(batch,
+
+    batch = replace(
+        batch,
         entity=rows_union(batch.entity, exclusion_entities),
         membership=rows_union(batch.membership, exclusion_memberships),
         membership_support=rows_union(batch.membership_support, exclusion_membership_support),
         evidence=rows_union(batch.evidence, exclusion_evidence),
         identity_exclusion=tuple(exclusion_rows),
-        identity_exclusion_evidence=tuple(exclusion_links))
+        identity_exclusion_evidence=tuple(exclusion_links),
+    )
     from .publication import EntityInputRow, FactInputRow
 
     used = {e.entity_id for e in batch.entity} & known.keys()
@@ -1672,15 +1827,26 @@ def _project_cut(
     inherited_exclusions = []
     for row in copied.pop("identity_exclusion", ()):
         if row.left_entity_id in used and row.right_entity_id in used:
-            xid = "identity-exclusion:" + sha256(canonical_bytes([
-                prepared.release_id, output, source_keys[row.observation_id], row.local_id])).hexdigest()
+            xid = (
+                "identity-exclusion:"
+                + sha256(
+                    canonical_bytes(
+                        [prepared.release_id, output, source_keys[row.observation_id], row.local_id]
+                    )
+                ).hexdigest()
+            )
             inherited_ids[row.exclusion_id] = xid
             inherited_exclusions.append(replace(row, exclusion_id=xid))
-    inherited_links = [replace(row, exclusion_id=inherited_ids[row.exclusion_id])
-        for row in copied.pop("identity_exclusion_evidence", ()) if row.exclusion_id in inherited_ids]
-    batch = replace(batch,
+    inherited_links = [
+        replace(row, exclusion_id=inherited_ids[row.exclusion_id])
+        for row in copied.pop("identity_exclusion_evidence", ())
+        if row.exclusion_id in inherited_ids
+    ]
+    batch = replace(
+        batch,
         identity_exclusion=rows_union(batch.identity_exclusion, inherited_exclusions),
-        identity_exclusion_evidence=rows_union(batch.identity_exclusion_evidence, inherited_links))
+        identity_exclusion_evidence=rows_union(batch.identity_exclusion_evidence, inherited_links),
+    )
     for name, rows in copied.items():
         if name.startswith("membership"):
             rows = tuple(row for row in rows if row.entity_id in used)

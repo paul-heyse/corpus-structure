@@ -1,4 +1,5 @@
 """Deterministic label partitions constrained by explicit identity exclusions."""
+
 from __future__ import annotations
 
 

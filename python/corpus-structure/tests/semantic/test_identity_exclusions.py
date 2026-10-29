@@ -1,5 +1,7 @@
 """Actual source-task publication of grounded identity exclusions."""
+
 import json
+
 import anyio
 from fastmcp import Client
 from sqlalchemy import select
@@ -7,37 +9,114 @@ from sqlalchemy import select
 from corpus_structure.intervene.semantic_server import SemanticAgentSession, build_semantic_server
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.metadata import table
+
 from .test_agent_resubmission import lease_and_read, source_task
 
 
-def exclusion_result(admin, writer, tmp_path, *, finalize=True, citations=1, keyed=False, global_names=False, local_ids=("p", "q")):
-    prepared, run, task, locator = source_task(admin, writer, tmp_path / "exclusions.html", composed=True, identity_keyed=keyed, global_names=global_names)
+def exclusion_result(
+    admin,
+    writer,
+    tmp_path,
+    *,
+    finalize=True,
+    citations=1,
+    keyed=False,
+    global_names=False,
+    local_ids=("p", "q"),
+):
+    prepared, run, task, locator = source_task(
+        admin,
+        writer,
+        tmp_path / "exclusions.html",
+        composed=True,
+        identity_keyed=keyed,
+        global_names=global_names,
+    )
     session = SemanticAgentSession(writer, run)
+
     async def submit():
         async with Client(build_semantic_server(session)) as client:
             unit = await lease_and_read(client, run, task)
-            response = await client.call_tool("propose_claims", {"task_id": task, "batch": {
-                "unit_ref": locator,
-                "entities": [{"id": ref, "class_iri": "https://example.org/Person", "label": "Alice", "attributes": [{"predicate": "https://example.org/name", "value": {"kind": "text", "text": "Alice"}}] if keyed else []} for ref in local_ids],
-                "identity_exclusions": [{"id": "different", "left": {"kind": "local", "target": local_ids[0]},
-                    "right": {"kind": "local", "target": local_ids[1]}, "reason": "separate source identities",
-                    "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}, *([{ "sentence": unit["sentences"][0]["id"], "quote": "Alice", "role": "supporting"}] if citations == 2 else [])]}]}})
+            response = await client.call_tool(
+                "propose_claims",
+                {
+                    "task_id": task,
+                    "batch": {
+                        "unit_ref": locator,
+                        "entities": [
+                            {
+                                "id": ref,
+                                "class_iri": "https://example.org/Person",
+                                "label": "Alice",
+                                "attributes": [
+                                    {
+                                        "predicate": "https://example.org/name",
+                                        "value": {"kind": "text", "text": "Alice"},
+                                    }
+                                ]
+                                if keyed
+                                else [],
+                            }
+                            for ref in local_ids
+                        ],
+                        "identity_exclusions": [
+                            {
+                                "id": "different",
+                                "left": {"kind": "local", "target": local_ids[0]},
+                                "right": {"kind": "local", "target": local_ids[1]},
+                                "reason": "separate source identities",
+                                "evidence": [
+                                    {
+                                        "sentence": unit["sentences"][0]["id"],
+                                        "quote": "Alice is here.",
+                                        "role": "primary",
+                                    },
+                                    *(
+                                        [
+                                            {
+                                                "sentence": unit["sentences"][0]["id"],
+                                                "quote": "Alice",
+                                                "role": "supporting",
+                                            }
+                                        ]
+                                        if citations == 2
+                                        else []
+                                    ),
+                                ],
+                            }
+                        ],
+                    },
+                },
+            )
             assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted", json.dumps(response.structured_content, indent=2)
+            assert response.structured_content["submission_disposition"] == "completed_accepted", (
+                json.dumps(response.structured_content, indent=2)
+            )
+
     anyio.run(submit)
     if not finalize:
         from corpus_structure.semantic.operations import seal_cut
+
         with writer.begin() as conn:
             cut = seal_cut(conn, run, "evaluation", final=True)
         return prepared, run, cut, None
     result = finalize_bound_run(writer, run, "excluded-result")
     with writer.connect() as conn:
-        cut = conn.scalar(select(table("ops.input_cut").c.id).where(table("ops.input_cut").c.run_id == run).order_by(table("ops.input_cut").c.id.desc()).limit(1))
+        cut = conn.scalar(
+            select(table("ops.input_cut").c.id)
+            .where(table("ops.input_cut").c.run_id == run)
+            .order_by(table("ops.input_cut").c.id.desc())
+            .limit(1)
+        )
     return prepared, run, cut, result
 
 
-def test_exclusion_only_entities_publish_grounded_memberships(semantic_db_engine, semantic_writer_engine, tmp_path):
-    prepared, run, cut, result = exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path)
+def test_exclusion_only_entities_publish_grounded_memberships(
+    semantic_db_engine, semantic_writer_engine, tmp_path
+):
+    _prepared, _run, _cut, _result = exclusion_result(
+        semantic_db_engine, semantic_writer_engine, tmp_path
+    )
     with semantic_writer_engine.connect() as conn:
         exclusions = conn.execute(select(table("data.identity_exclusion"))).mappings().all()
         assert len(exclusions) == 1
@@ -52,78 +131,203 @@ def test_mandatory_identity_conflict_refuses_actual_cut_without_partial_output(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
     import pytest
-    from corpus_structure.semantic.domain_operations import consolidate_cut, IdentityResolutionConflict
-    _, run, cut, _ = exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path,
-                                     finalize=False, keyed=True)
+
+    from corpus_structure.semantic.domain_operations import (
+        IdentityResolutionConflict,
+        consolidate_cut,
+    )
+
+    _, run, cut, _ = exclusion_result(
+        semantic_db_engine, semantic_writer_engine, tmp_path, finalize=False, keyed=True
+    )
     with pytest.raises(IdentityResolutionConflict) as conflict:
         consolidate_cut(semantic_writer_engine, cut, "contradictory-result")
     assert conflict.value.code == "identity_conflict"
     assert conflict.value.exclusion_id == "different"
     with semantic_writer_engine.connect() as conn:
-        assert not conn.scalar(select(table("data.realization").c.realization_id).where(
-            table("data.realization").c.realization_id == "contradictory-result"))
+        assert not conn.scalar(
+            select(table("data.realization").c.realization_id).where(
+                table("data.realization").c.realization_id == "contradictory-result"
+            )
+        )
         assert conn.scalar(select(table("kb.observation").c.id)) is not None
-        assert conn.scalar(select(table("ops.run").c.result_realization_id).where(
-            table("ops.run").c.id == run)) is None
+        assert (
+            conn.scalar(
+                select(table("ops.run").c.result_realization_id).where(table("ops.run").c.id == run)
+            )
+            is None
+        )
 
 
 def test_known_input_exclusions_follow_participating_endpoints(
     semantic_db_engine, semantic_writer_engine, tmp_path
 ):
     import json
+
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.orchestrate.semantic import queue_agent
     from corpus_structure.semantic.operations import OperationBinding, create_run
-    prepared, old_run, _, first = exclusion_result(semantic_db_engine, semantic_writer_engine, tmp_path, global_names=True)
+
+    prepared, old_run, _, first = exclusion_result(
+        semantic_db_engine, semantic_writer_engine, tmp_path, global_names=True
+    )
     assert first is not None
     with semantic_writer_engine.begin() as conn:
-        previous = conn.execute(select(table("ops.run")).where(table("ops.run").c.id == old_run)).mappings().one()
+        previous = (
+            conn.execute(select(table("ops.run")).where(table("ops.run").c.id == old_run))
+            .mappings()
+            .one()
+        )
         config = previous["options"]["agent_configs"]["extract"]
-        run = create_run(conn, project_id="resubmit", binding=OperationBinding(
-            prepared.release_id, first.realization_id, first.data_revision, b"{}"),
-            kind="full", options={"agent_configs": {"extract": config}}, code_commit="test")
-        segment = conn.execute(select(table("kb.segment")).where(table("kb.segment").c.kind == "paragraph")).mappings().one()
+        run = create_run(
+            conn,
+            project_id="resubmit",
+            binding=OperationBinding(
+                prepared.release_id, first.realization_id, first.data_revision, b"{}"
+            ),
+            kind="full",
+            options={"agent_configs": {"extract": config}},
+            code_commit="test",
+        )
+        segment = (
+            conn.execute(
+                select(table("kb.segment")).where(table("kb.segment").c.kind == "paragraph")
+            )
+            .mappings()
+            .one()
+        )
         from corpus_structure.core.evidence import RenditionContent
         from corpus_structure.core.locators import LocatorIndex
-        rendition = conn.execute(select(table("kb.rendition")).where(table("kb.rendition").c.id == segment["rendition_id"])).mappings().one()
+
+        rendition = (
+            conn.execute(
+                select(table("kb.rendition")).where(
+                    table("kb.rendition").c.id == segment["rendition_id"]
+                )
+            )
+            .mappings()
+            .one()
+        )
         content = RenditionContent.model_validate(rendition["content"])
         locator = str(LocatorIndex(content, "source.html").generate(content.document.children[0]))
-        from corpus_structure.semantic.operations import create_task, claim_tasks, store_rendition, complete_task
-        source_config = conn.scalar(select(table("ops.task").c.method_config_id).where(
-            table("ops.task").c.run_id == old_run, table("ops.task").c.stage == "ingest"))
+        from corpus_structure.semantic.operations import (
+            claim_tasks,
+            complete_task,
+            create_task,
+            store_rendition,
+        )
+
+        source_config = conn.scalar(
+            select(table("ops.task").c.method_config_id).where(
+                table("ops.task").c.run_id == old_run, table("ops.task").c.stage == "ingest"
+            )
+        )
         assert source_config is not None
-        source_task_id = create_task(conn, run_id=run, config_id=source_config,
-            stage="ingest", unit_type="run", input_hash="same-source-new-input")
+        source_task_id = create_task(
+            conn,
+            run_id=run,
+            config_id=source_config,
+            stage="ingest",
+            unit_type="run",
+            input_hash="same-source-new-input",
+        )
         claim = claim_tasks(conn, run_id=run, config_id=source_config, holder="source")[0]
-        rid = store_rendition(conn, run_id=run, document_id=rendition["document_id"],
-            content=content, task_id=source_task_id, config_id=source_config, parse_detail={})
-        complete_task(conn, task_id=source_task_id, attempt=claim.attempt, holder="source",
-            prepared=prepared, observations=[], outcome="empty")
-        segment = conn.execute(select(table("kb.segment")).where(
-            table("kb.segment").c.rendition_id == rid,
-            table("kb.segment").c.kind == "paragraph")).mappings().one()
-        task, = queue_agent(conn, run_id=run, prepared=prepared, configuration=config,
-            units=(UnitRef(TaskUnitType.SEGMENT, segment["id"], locator),))
-        inherited = conn.execute(select(table("data.identity_exclusion")).where(
-            table("data.identity_exclusion").c.realization_id == first.realization_id)).mappings().one()
+        rid = store_rendition(
+            conn,
+            run_id=run,
+            document_id=rendition["document_id"],
+            content=content,
+            task_id=source_task_id,
+            config_id=source_config,
+            parse_detail={},
+        )
+        complete_task(
+            conn,
+            task_id=source_task_id,
+            attempt=claim.attempt,
+            holder="source",
+            prepared=prepared,
+            observations=[],
+            outcome="empty",
+        )
+        segment = (
+            conn.execute(
+                select(table("kb.segment")).where(
+                    table("kb.segment").c.rendition_id == rid,
+                    table("kb.segment").c.kind == "paragraph",
+                )
+            )
+            .mappings()
+            .one()
+        )
+        (task,) = queue_agent(
+            conn,
+            run_id=run,
+            prepared=prepared,
+            configuration=config,
+            units=(UnitRef(TaskUnitType.SEGMENT, segment["id"], locator),),
+        )
+        inherited = (
+            conn.execute(
+                select(table("data.identity_exclusion")).where(
+                    table("data.identity_exclusion").c.realization_id == first.realization_id
+                )
+            )
+            .mappings()
+            .one()
+        )
         endpoints = (inherited["left_entity_id"], inherited["right_entity_id"])
+
     async def submit_known():
-        async with Client(build_semantic_server(SemanticAgentSession(semantic_writer_engine, run))) as client:
+        async with Client(
+            build_semantic_server(SemanticAgentSession(semantic_writer_engine, run))
+        ) as client:
             unit = await lease_and_read(client, run, task)
-            response = await client.call_tool("propose_claims", {"task_id": task, "batch": {
-                "unit_ref": locator, "claims": [{"id": "c" + str(i), "subject": entity,
-                    "predicate": "https://example.org/name", "object": {"kind": "text", "text": "Alice"},
-                    "qualification": {"modality": "asserted", "polarity": True}, "establishment": "stated",
-                    "evidence": [{"sentence": unit["sentences"][0]["id"], "quote": "Alice is here.", "role": "primary"}]}
-                    for i, entity in enumerate(endpoints)]}})
+            response = await client.call_tool(
+                "propose_claims",
+                {
+                    "task_id": task,
+                    "batch": {
+                        "unit_ref": locator,
+                        "claims": [
+                            {
+                                "id": "c" + str(i),
+                                "subject": entity,
+                                "predicate": "https://example.org/name",
+                                "object": {"kind": "text", "text": "Alice"},
+                                "qualification": {"modality": "asserted", "polarity": True},
+                                "establishment": "stated",
+                                "evidence": [
+                                    {
+                                        "sentence": unit["sentences"][0]["id"],
+                                        "quote": "Alice is here.",
+                                        "role": "primary",
+                                    }
+                                ],
+                            }
+                            for i, entity in enumerate(endpoints)
+                        ],
+                    },
+                },
+            )
             assert response.structured_content is not None
-            assert response.structured_content["submission_disposition"] == "completed_accepted", json.dumps(response.structured_content, indent=2)
+            assert response.structured_content["submission_disposition"] == "completed_accepted", (
+                json.dumps(response.structured_content, indent=2)
+            )
+
     anyio.run(submit_known)
     second = finalize_bound_run(semantic_writer_engine, run, "inherited-result")
     with semantic_writer_engine.connect() as conn:
-        row = conn.execute(select(table("data.identity_exclusion")).where(
-            table("data.identity_exclusion").c.realization_id == second.realization_id)).mappings().one()
+        row = (
+            conn.execute(
+                select(table("data.identity_exclusion")).where(
+                    table("data.identity_exclusion").c.realization_id == second.realization_id
+                )
+            )
+            .mappings()
+            .one()
+        )
         assert (row["left_entity_id"], row["right_entity_id"]) == endpoints
         assert row["observation_id"] == inherited["observation_id"]
         assert row["exclusion_id"] != inherited["exclusion_id"]

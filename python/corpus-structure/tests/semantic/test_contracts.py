@@ -75,7 +75,8 @@ def test_all_transitioned_families_and_measurement_context(products):
         "analysis",
     }
     assert products.required_capabilities == (
-        "execution.lifecycle.v1", "execution.identity_exclusions.v1"
+        "execution.lifecycle.v1",
+        "execution.identity_exclusions.v1",
     )
     assert {op.implementation for op in products.operations} == set(approved_implementations())
     for binding in products.implementations:
