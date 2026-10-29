@@ -14,6 +14,7 @@ subsets:
   data: {}
   ops: {}
   kb: {}
+  eval: {}
 types:
   timestamp:
     typeof: string
@@ -334,6 +335,9 @@ classes:
       active_release_id:
         range: string
         required: false
+      selected_result_run_id:
+        range: integer
+        required: false
       generation:
         range: integer
         required: true
@@ -344,7 +348,7 @@ classes:
         unique_key_slots:
         - project_id
     annotations:
-      ph:foreign_keys: '[{"columns": ["active_release_id"], "target": "sem.release.release_id"}]'
+      ph:foreign_keys: '[{"columns": ["active_release_id"], "target": "sem.release.release_id"}, {"columns": ["selected_result_run_id"], "target": "ops.completed_result.run_id"}]'
       ph:checks: '["generation >= 0"]'
   realization:
     in_subset:
@@ -1051,7 +1055,8 @@ classes:
         - id
     annotations:
       ph:foreign_keys: '[{"columns": ["document_id"], "target": "kb.document.id"}]'
-      ph:checks: '[]'
+      ph:indexes: '[{"name":"ix_rendition_canonical_text_search","expression":"to_tsvector(''english''::regconfig, canonical_text)","using":"gin"}]'
+      ph:checks: '[]' 
   segment:
     in_subset:
     - kb
@@ -2080,3 +2085,260 @@ classes:
         unique_key_slots: [realization_id, release_id, exclusion_id, evidence_id]
     annotations:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "exclusion_id"], "target": "data.identity_exclusion.realization_id,release_id,exclusion_id"}, {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
+
+  reference_set:
+    in_subset:
+    - eval
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      project_id:
+        range: string
+        required: true
+      release_id:
+        range: string
+        required: true
+      source_run_id:
+        range: integer
+        required: true
+      label:
+        range: string
+        required: true
+      split:
+        range: string
+        required: true
+      guideline:
+        range: string
+        required: true
+      sampling:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - project_id
+        - label
+        - split
+    annotations:
+      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
+        {"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns":
+        ["source_run_id"], "target": "ops.completed_result.run_id"}]'
+      ph:checks: '["split IN (''dev'',''test'')"]'
+
+  reference_unit:
+    in_subset:
+    - eval
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      set_id:
+        range: integer
+        required: true
+      rendition_id:
+        range: integer
+        required: true
+      unit_key:
+        range: string
+        required: true
+      context:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - set_id
+        - unit_key
+    annotations:
+      ph:foreign_keys: '[{"columns": ["set_id"], "target": "eval.reference_set.id"},
+        {"columns": ["rendition_id"], "target": "kb.rendition.id"}]'
+      ph:checks: '[]'
+
+  reference_pass:
+    in_subset:
+    - eval
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      unit_id:
+        range: integer
+        required: true
+      pass_kind:
+        range: string
+        required: true
+      actor:
+        range: string
+        required: true
+      authored:
+        range: bytes
+        required: true
+      content_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["unit_id"], "target": "eval.reference_unit.id"}]'
+      ph:checks: '["pass_kind IN (''A'',''B'',''C'')"]'
+
+  reference_frame:
+    in_subset:
+    - eval
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      pass_id:
+        range: integer
+        required: true
+      version:
+        range: integer
+        required: true
+      rendition_id:
+        range: integer
+        required: true
+      rendition_digest:
+        range: string
+        required: true
+      frame:
+        range: json_payload
+        required: true
+      parent_id:
+        range: integer
+        required: false
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - pass_id
+        - version
+    annotations:
+      ph:foreign_keys: '[{"columns": ["pass_id"], "target": "eval.reference_pass.id"},
+        {"columns": ["rendition_id"], "target": "kb.rendition.id"}, {"columns": ["parent_id"],
+        "target": "eval.reference_frame.id"}]'
+      ph:checks: '["version > 0"]'
+
+  reference_item:
+    in_subset:
+    - eval
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      pass_id:
+        range: integer
+        required: true
+      frame_id:
+        range: integer
+        required: true
+      item_kind:
+        range: string
+        required: true
+      local_ref:
+        range: string
+        required: true
+      payload:
+        range: json_payload
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - frame_id
+        - item_kind
+        - local_ref
+    annotations:
+      ph:foreign_keys: '[{"columns": ["pass_id"], "target": "eval.reference_pass.id"},
+        {"columns": ["frame_id"], "target": "eval.reference_frame.id"}]'
+      ph:checks: '[]'
+
+  reference_evaluation:
+    in_subset:
+    - eval
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      project_id:
+        range: string
+        required: true
+      run_id:
+        range: integer
+        required: true
+      set_id:
+        range: integer
+        required: true
+      reference_snapshot:
+        range: json_payload
+        required: true
+      result:
+        range: json_payload
+        required: true
+      content_digest:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+    annotations:
+      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
+        {"columns": ["run_id"], "target": "ops.completed_result.run_id"}, {"columns":
+        ["set_id"], "target": "eval.reference_set.id"}]'
+      ph:checks: '[]'
+
+  document_split:
+    in_subset:
+    - eval
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+      project_id:
+        range: string
+        required: true
+      source_uri:
+        range: string
+        required: true
+      split:
+        range: string
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - id
+      unique_0:
+        unique_key_slots:
+        - project_id
+        - source_uri
+    annotations:
+      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}]'
+      ph:checks: '["split IN (''dev'',''test'')"]'
