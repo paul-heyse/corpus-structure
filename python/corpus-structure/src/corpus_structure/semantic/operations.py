@@ -923,7 +923,7 @@ def run_view(
 
 
 def end_source_run(
-    conn: Connection, run_id: int, *, failure: Mapping[str, str] | None = None
+    conn: Connection, run_id: int, *, failure: Mapping[str, JsonValue] | None = None
 ) -> int:
     import json
 
