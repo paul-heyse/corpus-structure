@@ -131,8 +131,14 @@ def bind_result(
     for ordinal, draft in enumerate(result.observations):
         item_key = f"{draft.kind.value}/{ordinal}"
         identity = [
-            prepared.release_id, source, method, operation_version,
-            configuration_hash, input_hash, unit_key, item_key,
+            prepared.release_id,
+            source,
+            method,
+            operation_version,
+            configuration_hash,
+            input_hash,
+            unit_key,
+            item_key,
         ]
         row: dict[str, Any] = {
             "observation_key": "observation:" + sha256(canonical_bytes(identity)).hexdigest(),
@@ -145,7 +151,11 @@ def bind_result(
         row["outcome"] = draft.outcome.value
         if draft.score is not None:
             row["score"] = source_value(draft.score)
-        confidence = method_confidence_source if draft.confidence_source is METHOD_SOURCE else draft.confidence_source
+        confidence = (
+            method_confidence_source
+            if draft.confidence_source is METHOD_SOURCE
+            else draft.confidence_source
+        )
         if confidence is not None:
             row["confidence_source"] = str(confidence)
         if draft.rendition_id is not None:
@@ -155,7 +165,7 @@ def bind_result(
         if draft.span is not None:
             row["span_start"], row["span_end"] = draft.span
         observations.append(row)
-    payload = {
+    payload: dict[str, object] = {
         "release_id": prepared.release_id,
         "source": source,
         "method": method,
@@ -167,8 +177,12 @@ def bind_result(
         "observations": tuple(observations),
         "coverage": (
             *(
-                {"family": item.family, "scope": item.scope, "outcome": item.outcome,
-                 **({"reason": item.reason} if item.reason is not None else {})}
+                {
+                    "family": item.family,
+                    "scope": item.scope,
+                    "outcome": item.outcome,
+                    **({"reason": item.reason} if item.reason is not None else {}),
+                }
                 for item in result.coverage
             ),
             *(dict(item) for item in coverage),
