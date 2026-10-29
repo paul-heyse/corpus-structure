@@ -191,3 +191,18 @@ def test_coverage_counts_the_fates_as_of_the_cut(
     result = serve_query(db, registry, "count", {"n": 1}, run=run)
     assert result.coverage.partial and result.coverage.skipped == {"scope": 1}
     assert result.rows  # partial coverage never fails a query
+
+
+def test_serialized_response_character_bound_counts_envelope(db,world,helpers):
+    run=finished_run(db,world,helpers)
+    reg=build_registry([Count()])
+    first=serve_query(db,reg,'count',{'n':5},run=run,max_rows=1)
+    bound=len(first.model_dump_json())
+    page=serve_query(db,reg,'count',{'n':5},run=run,max_chars=bound)
+    found=list(page.rows)
+    assert len(page.model_dump_json())<=bound
+    while page.next_page_token:
+        page=serve_query(db,reg,'count',{'n':5},page_token=page.next_page_token,max_chars=bound)
+        assert len(page.model_dump_json())<=bound
+        found+=page.rows
+    assert [r['i'] for r in found]==list(range(5))

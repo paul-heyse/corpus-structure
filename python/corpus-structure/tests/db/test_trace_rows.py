@@ -437,14 +437,17 @@ def test_statement_query_orders_same_anchor_by_recorded_ordinal(db,t3,world):
     from corpus_structure.schema.pack import DOMAINS,load_pack
     e=metadata.tables['kb.entity']
     anchor=db.execute(select(e.c.scope_segment_id).where(e.c.id==t3.entities.rel1)).scalar_one()
-    db.execute(e.update().where(e.c.id==t3.entities.rel1).values(statement_ordinal=1))
-    db.execute(insert(e).values(run_id=t3_run(db),schema_version_id=world.schema_version,key='stm:zzz-first-ordinal',type='core:Statement',label='Independent earlier statement',scope='local',scope_segment_id=anchor,kind='theorem',statement_ordinal=0))
+    db.execute(e.update().where(e.c.id==t3.entities.rel1).values(statement_ordinal=2))
+    db.execute(insert(e).values(run_id=t3_run(db),schema_version_id=world.schema_version,key='stm:zzz-first-ordinal',type='core:Statement',label='Independent earlier statement',scope='local',scope_segment_id=anchor,kind='theorem',statement_ordinal=1))
     ctx=QueryContext(t3_run(db),db)
     ctx.reader.__dict__['compiled']=compile_schema([load_pack(DOMAINS/'statistics')])
     page=ctx.reader.index(t3.ren)[0].page
     p=StatementParams(locator=page+'#rel1',include_suppositions=True,include_candidates=True)
     rows=list(Statement().rows(ctx,p))
-    assert rows[0].row.key=='stm:zzz-first-ordinal' and rows[0].row.ordinal==0
+    from corpus_structure.serve.results import StatementAnswer
+    assert isinstance(rows[0].row,StatementAnswer)
+    assert rows[0].row.key=='stm:zzz-first-ordinal' and rows[0].row.ordinal==1
     continued=list(Statement().rows(ctx,p,after=rows[0].position))
-    assert continued[0].row.ordinal==1
-    assert all(r.row.key!='stm:zzz-first-ordinal' for r in continued)
+    assert isinstance(continued[0].row,StatementAnswer)
+    assert continued[0].row.ordinal==2
+    assert all(StatementAnswer.model_validate(r.row).key!='stm:zzz-first-ordinal' for r in continued)

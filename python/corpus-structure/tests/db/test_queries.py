@@ -2,23 +2,18 @@
 from __future__ import annotations
 import pytest
 from sqlalchemy import text
-from .test_consolidate_pass import pool_run as _pool_fixture, seal
 
-pool_run = _pool_fixture
 from corpus_structure.consolidate import run_pass
 from corpus_structure.serve.journey import serve_query, QueryRefused
 from corpus_structure.serve.queries import GENERIC
 from corpus_structure.serve.registry import build_registry
 from corpus_structure.schema.pack import DOMAINS
-from corpus_structure.serve.explain import explain
+from corpus_structure.serve.explain import explain, ClaimExplanation
+from corpus_structure.serve.results import ClaimAnswer,EntityAnswer,TransformationAnswer
 
 @pytest.fixture
-def ready(pool_run):
-    seal(pool_run)
-    with pool_run.engine.begin() as conn:
-        run_pass(conn,pool_run.run,'finalize',pool_run.m19)
-        conn.execute(text("UPDATE ops.run SET status='finished',finished_at=now() WHERE id=:r"),{'r':pool_run.run})
-    return pool_run
+def ready(finalized_pool_run):
+    return finalized_pool_run
 
 def test_c1_trace_generic_and_pack_questions(ready):
     reg=build_registry(GENERIC,DOMAINS/'statistics')
@@ -26,17 +21,20 @@ def test_c1_trace_generic_and_pack_questions(ready):
         def ask(name,**params):return serve_query(conn,reg,name,params,run=ready.run)
         all_=ask('claims')
         assert all_.rows
-        assert all(r['status']=='accepted' for r in all_.rows)
-        assert all(r['premise'] for r in all_.rows if r['modality']=='supposed')
-        unresolved=[r for r in all_.rows if isinstance(r['object'],dict) and r['object'].get('type')=='core:ExternalReference']
-        assert unresolved and all(r['conditional'] for r in unresolved)
-        assert all(r['object']['descriptor'] and r['object']['citation']['locator'] for r in unresolved)
+        typed=[ClaimAnswer.model_validate(r) for r in all_.rows]
+        assert all(r.status=='accepted' for r in typed)
+        assert all(r.premise for r in typed if r.modality=='supposed')
+        unresolved=[r for r in typed if isinstance(r.object,EntityAnswer) and r.object.type=='core:ExternalReference']
+        assert unresolved and all(r.conditional for r in unresolved)
+        for r in unresolved:
+            assert isinstance(r.object,EntityAnswer)
+            assert r.object.descriptor and r.object.citation and r.object.citation.locator
         assert all_.coverage.unresolved_references>=1 and all_.coverage.partial
         profile=ask('family_profile',family='normal')
         assert profile.rows
         assert len([r for r in profile.rows if r['predicate']=='stat:identical_parameter'])==2
         assert ask('statement',locator='special/Normal.html#rel1').rows
-        key=all_.rows[0]['key']
+        key=ClaimAnswer.model_validate(all_.rows[0]).key
         assert ask('evidence',key=key).rows
         entity=ask('entity',label='normal')
         assert any(r['type']=='stat:DistributionFamily' for r in entity.rows)
@@ -44,6 +42,7 @@ def test_c1_trace_generic_and_pack_questions(ready):
         assert trans.rows and all(r['definiens'] for r in trans.rows)
         assert ask('find',text='normally distributed').rows
         detail=explain(conn,ready.run,'claim',key)
+        assert isinstance(detail.detail,ClaimExplanation)
         assert detail.detail.m19_task_id==ready.m19
         assert detail.detail.supports
         assert detail.detail.claim.key==key
@@ -66,33 +65,20 @@ def test_explain_selects_exact_claim_from_sealed_m19(ready):
     import json
     reg=build_registry(GENERIC,DOMAINS/'statistics')
     with ready.engine.begin() as conn:
-        key=serve_query(conn,reg,'claims',run=ready.run).rows[-1]['key']
+        key=ClaimAnswer.model_validate(serve_query(conn,reg,'claims',run=ready.run).rows[-1]).key
         schema=conn.execute(text("SELECT id FROM meta.payload_schema WHERE kind='verification' ORDER BY id DESC LIMIT 1")).scalar_one()
         for task,claim,marker in [(ready.m19,key,'sealed-only'),(ready.m19_again,key,'other-pass'),(ready.m19,'clm:unrelated','other-claim')]:
             ordinal=conn.execute(text('SELECT coalesce(max(ordinal),-1)+1 FROM kb.observation WHERE task_id=:t'),{'t':task}).scalar_one()
             payload={'claim_key':claim,'verifier':'validate.rules','verdict':'refuted','detail':{'rule':marker,'severity':'warning','message':'independent seeded outcome'}}
             conn.execute(text("INSERT INTO kb.observation(task_id,ordinal,kind,payload,payload_schema_id,outcome) VALUES(:t,:n,'verification',CAST(:p AS jsonb),:s,'produced')"),{'t':task,'n':ordinal,'p':json.dumps(payload),'s':schema})
         result=explain(conn,ready.run,'claim',key)
+        assert isinstance(result.detail,ClaimExplanation)
         assert result.detail.claim.key==key
         serialized=result.model_dump_json()
         assert 'sealed-only' in serialized
         assert 'other-pass' not in serialized and 'other-claim' not in serialized
 
 
-def test_serialized_response_character_bound_counts_envelope(db,world,helpers):
-    from .test_serve import Count,finished_run
-    run=finished_run(db,world,helpers)
-    reg=build_registry([Count()])
-    first=serve_query(db,reg,'count',{'n':5},run=run,max_rows=1)
-    bound=len(first.model_dump_json())
-    page=serve_query(db,reg,'count',{'n':5},run=run,max_chars=bound)
-    found=list(page.rows)
-    assert len(page.model_dump_json())<=bound
-    while page.next_page_token:
-        page=serve_query(db,reg,'count',{'n':5},page_token=page.next_page_token,max_chars=bound)
-        assert len(page.model_dump_json())<=bound
-        found+=page.rows
-    assert [r['i'] for r in found]==list(range(5))
 
 
 def test_unresolved_external_premise_edge_is_a_served_gap(ready):
@@ -108,7 +94,7 @@ def test_unresolved_external_premise_edge_is_a_served_gap(ready):
         conn.execute(c.update().where(c.c.id==source.id).values(qualifiers={'core:conditions':{'op':'claim','ref':ref.key}}))
         conn.execute(insert(er).values(run_id=ready.run,claim_id=source.id,role='condition_premise',path='/qualifiers/core:conditions/ref',entity_id=ref.id))
         answer=serve_query(conn,reg,'claims',{'predicate':conn.execute(select(c.c.predicate).where(c.c.id==source.id)).scalar_one()},run=ready.run)
-        row=next(r for r in answer.rows if r['key']==source.key)
-        external=next(x for x in row['entity_references'] if x['role']=='condition_premise')
-        assert external['entity']['descriptor'] and external['entity']['citation']['locator']
-        assert row['conditional'] is True
+        row=ClaimAnswer.model_validate(next(r for r in answer.rows if r['key']==source.key))
+        external=next(x for x in row.entity_references if x.role=='condition_premise')
+        assert external.entity.descriptor and external.entity.citation and external.entity.citation.locator
+        assert row.conditional is True
