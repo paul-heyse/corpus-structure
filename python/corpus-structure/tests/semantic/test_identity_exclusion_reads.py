@@ -16,7 +16,7 @@ from corpus_structure.semantic.query import read_session
 def test_identity_exclusion_snapshot_reader_and_columnar_closure(
     semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path
 ):
-    from test_identity_exclusions import exclusion_result
+    from .test_identity_exclusions import exclusion_result
 
     prepared, _run, cut, result = exclusion_result(
         semantic_db_engine, semantic_writer_engine, tmp_path
