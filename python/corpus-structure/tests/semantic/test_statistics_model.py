@@ -118,3 +118,14 @@ def test_required_released_rules_are_compiled_at_preparation():
     with pytest.raises(PreparationError) as failure:
         prepare_release(statistics_inputs(), dependencies)
     assert failure.value.diagnostics[0].code == 'domain_rules'
+
+
+
+@pytest.mark.parametrize('assessment_field', ['normal_form', 'parse_outcome'])
+def test_scientific_interpretations_are_not_expression_identity_fields(assessment_field):
+    prepared = prepare_release(statistics_inputs())
+    with pytest.raises(ValidationError):
+        prepared.validate_python('Formula', {
+            'kind': 'formula', 'language': 'latex', 'expression': 'x + 1',
+            assessment_field: 'derived interpretation belongs to operation assessments',
+        })
