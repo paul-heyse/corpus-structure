@@ -12,6 +12,7 @@ types:
   boolean: {base: bool, uri: xsd:boolean}
   integer: {base: int, uri: xsd:integer}
   datetime: {base: datetime, uri: xsd:dateTime}
+  date: {base: date, uri: xsd:date}
 classes:
   Value:
     abstract: true
@@ -94,12 +95,70 @@ classes:
       upper: {range: NumberValue, inlined: true}
       lower_closed: {range: boolean, required: true}
       upper_closed: {range: boolean, required: true}
+  BooleanValue:
+    is_a: Value
+    attributes:
+      kind: {equals_string: boolean}
+      boolean: {range: boolean, required: true}
+  DateValue:
+    is_a: Value
+    attributes:
+      kind: {equals_string: date}
+      date: {range: date, required: true}
+  InstantValue:
+    is_a: Value
+    attributes:
+      kind: {equals_string: instant}
+      instant: {range: datetime, required: true}
+  ExpressionBinding:
+    abstract: true
+    attributes:
+      kind: {required: true}
+      symbol: {required: true}
+  VariableBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind: {equals_string: variable}
+      entity: {range: Entity, required: true}
+  FamilyParameterBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind: {equals_string: family_param}
+      entity: {range: Entity, required: true}
+  ParameterOfBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind: {equals_string: param_of}
+      claim: {required: true}
+      parameter: {required: true}
+  ParameterExpressionOfBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind: {equals_string: param_expr_of}
+      claim: {required: true}
+      parameter: {required: true}
+  FreeBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind: {equals_string: free}
+  ConstantBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind: {equals_string: constant}
+  UnresolvedBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind: {equals_string: unresolved}
   ExpressionValue:
     is_a: Value
     attributes:
       kind: {equals_string: expression}
       language: {required: true}
       expression: {required: true}
+      form: {range: ExpressionForm}
+      bindings: {range: ExpressionBinding, multivalued: true, inlined: true}
+      normal_form: {}
+      parse_outcome: {}
   MissingValue:
     is_a: Value
     attributes:
@@ -163,6 +222,8 @@ classes:
       rule_version: {required: true}
       premises: {range: SemanticFact, multivalued: true, required: true}
 enums:
+  ExpressionForm:
+    permissible_values: {formula: {}, set: {}, relation: {}, membership: {}, list: {}}
   ScopeExtent:
     permissible_values: {statement: {}, section: {}, document: {}}
   Establishment:

@@ -133,7 +133,10 @@ def assemble(
         memberships[item.subject, definition.iri] = MembershipRow(item.subject, definition.iri, item.establishment)
         facts[fact_id] = FactRow(fact_id, item.subject, prop.iri, object_id, qualification_id)
         occurrences[occurrence_id] = occurrence
-        establishments[occurrence_id] = OccurrenceEstablishmentRow(occurrence_id, item.establishment)
+        establishment = OccurrenceEstablishmentRow(occurrence_id, item.establishment)
+        if occurrence_id in establishments and establishments[occurrence_id] != establishment:
+            raise ValueError('source item identity cannot bind different establishment')
+        establishments[occurrence_id] = establishment
         supports.add(SupportRow(fact_id, occurrence_id))
         for ref in item.evidence:
             if ref.evidence_id in evidence and evidence[ref.evidence_id] != ref:
