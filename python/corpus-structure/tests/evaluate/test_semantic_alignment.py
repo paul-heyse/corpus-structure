@@ -104,7 +104,7 @@ def test_scalar_declared_identity_attributes_align_without_a_label():
 def test_release_qualification_provenance_does_not_change_meaning_and_statement_is_required():
     p=prepared()
     field=PropertyDefinition('confidence','https://example.org/confidence','string',False,False,None,None,None,None,None,False,key_role='provenance')
-    p.definitions=(*p.definitions,ClassDefinition('Qualification','https://example.org/Qualification',(),(field,),()))
+    p.definitions=(*p.definitions,ClassDefinition('Qualification','https://example.org/Qualification',(),(field,PropertyDefinition('modality','https://example.org/modality','string',True,False,None,None,None,None,None,False),PropertyDefinition('polarity','https://example.org/polarity','boolean',True,False,None,None,None,None,None,False)),()))
     a,b=batch(),batch()
     a['claims'][0]['qualification']['confidence']='source-A'
     b['claims'][0]['qualification']['confidence']='source-B'
@@ -118,3 +118,33 @@ def test_located_evidence_in_the_same_source_sentence_matches_without_quote_over
     a['claims'][0]['evidence'][0]['locator']='source#sentence'
     b['claims'][0]['evidence'][0].update(locator='source#sentence',start=8,end=10)
     assert align_semantic(side(a),side(b),prepared()).counts['evidence'].matched==1
+
+
+def test_equal_labels_cannot_override_incompatible_declared_identity_keys():
+    p=prepared()
+    registry=PropertyDefinition('registry_id','https://example.org/registry_id','string',True,False,None,None,None,None,None,False)
+    p.definitions=(p.definitions[0],ClassDefinition('Person',P,('Entity',),(registry,),('id',),(('id',),('registry_id',))))
+    a,b=batch('Acme'),batch('Acme')
+    a['entities'][0]['attributes']=[{'predicate':registry.iri,'value':{'kind':'text','text':'100'}}]
+    b['entities'][0]['attributes']=[{'predicate':registry.iri,'value':{'kind':'text','text':'101'}}]
+    assert align_semantic(side(a),side(b),p).entity_pairs==[]
+
+
+def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_plain_text():
+    from corpus_structure.evaluate.semantic_values import rewrite_references
+    p=prepared()
+    kind=PropertyDefinition('kind','https://example.org/kind','string',True,False,None,None,None,None,None,False,equals_string='inspection')
+    inspector=PropertyDefinition('inspector','https://example.org/inspector','Person',True,False,None,None,None,None,None,False)
+    custodian=PropertyDefinition('custodian','https://example.org/custodian','Person',True,False,None,None,None,None,None,False)
+    note=PropertyDefinition('note','https://example.org/note','string',False,False,None,None,None,None,None,False)
+    p.definitions=(*p.definitions,ClassDefinition('Value','https://example.org/Value',(),(),(),abstract=True),ClassDefinition('InspectionValue','https://example.org/InspectionValue',('Value',),(kind,inspector,custodian,note),()))
+    a,b=batch(),batch()
+    a['entities'].append({'id':'q','class_iri':P,'label':'Bob'})
+    b['entities'][0]['id']='x';b['entities'].append({'id':'y','class_iri':P,'label':'Bob'})
+    b['claims'][0]['subject']='x'
+    a['claims'][0]['object']={'kind':'inspection','inspector':'p','custodian':'q','note':'p'}
+    b['claims'][0]['object']={'kind':'inspection','inspector':'x','custodian':'y','note':'p'}
+    assert align_semantic(side(a),side(b),p).counts['full'].matched==1
+    assert rewrite_references(p.definitions,'Value',a['claims'][0]['object'],{'p':'x','q':'y'})==b['claims'][0]['object']
+    b['claims'][0]['object']['note']='x'
+    assert align_semantic(side(a),side(b),p).counts['core'].matched==0

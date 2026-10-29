@@ -34,7 +34,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(semant
     try:
         with evaluator.begin() as conn:
             split_documents(conn,'resubmit')
-            made=create_reference_set(conn,project_id='resubmit',source_run_id=run,label='independent',split='dev')
+            made=create_reference_set(conn,project_id='resubmit',source_run_id=run,label='independent',split='dev',size=1)
             uid=next(iter(made['units'].values()))
             raw=('  '+json.dumps(authored)+'\n').encode()
             a=record_pass(conn,unit_id=uid,pass_kind='A',actor='automated-reference-A',authored=raw,frame=frame)
@@ -83,7 +83,7 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(semant
         settings=lambda:Settings(database={'url':semantic_writer_engine.url.set(drivername='postgresql').render_as_string(hide_password=False),'maintenance_url':semantic_db_engine.url.set(drivername='postgresql').render_as_string(hide_password=False),'evaluator_url':evaluator.url.set(drivername='postgresql').render_as_string(hide_password=False)})
         split_result=cli('golden','split','--project','resubmit','--json',settings=settings)
         assert split_result.exit_code==0,split_result.stderr
-        created=cli('golden','create','--project','resubmit','--from-run',str(run),'--label','cli-reference','--split','dev','--json',settings=settings)
+        created=cli('golden','create','--project','resubmit','--from-run',str(run),'--label','cli-reference','--split','dev','--size','1','--json',settings=settings)
         assert created.exit_code==0,created.stderr
         made_cli=json.loads(created.stdout)
         authored_file=tmp_path/'reference.json';authored_file.write_bytes(json.dumps(authored).encode())
@@ -95,4 +95,39 @@ def test_independent_reference_grade_retains_exact_pass_and_qualification(semant
         graded=cli('eval','run','--project','resubmit','--run',str(run),'--set-id',str(made_cli['set_id']),'--json',settings=settings)
         assert graded.exit_code==0,graded.stderr
         assert json.loads(graded.stdout)['result']['tiers']['full']['matched']==1
+    finally:evaluator.dispose()
+
+
+def test_archived_split_policy_preserves_reserved_forced_and_chapter_partitions(semantic_db_engine,semantic_writer_engine,tmp_path):
+    from corpus_structure.evaluate.semantic import evaluation_config
+    policy=b"""split:
+  seed: 17
+  reserved:
+    Reserved.html: independent worked example
+  forced_dev:
+    source.html: source reference unit
+    ch1/Page0.html: required development page
+golden:
+  sizes: {dev: 2, test: 1}
+"""
+    prepared,_,_,_=source_task(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',composed=True,evaluation_policy=policy)
+    with semantic_db_engine.begin() as conn:
+        for chapter in ('ch1','ch2'):
+            for i in range(5):
+                conn.execute(insert(table('kb.document')).values(project_id='resubmit',key=f'{chapter}-{i}',source_uri=f'https://example.org/{chapter}/Page{i}.html',content_hash='independent-fixture',original_path='unused',mime='text/html',meta={'chapter':chapter}))
+        conn.execute(insert(table('kb.document')).values(project_id='resubmit',key='reserved',source_uri='https://example.org/Reserved.html',content_hash='independent-fixture',original_path='unused',mime='text/html',meta={'chapter':'ch1'}))
+    evaluator=create_engine(semantic_db_engine.url.set(username='corpus_sem_evaluator'),poolclass=NullPool)
+    try:
+        with evaluator.begin() as conn:
+            assert evaluation_config(conn,prepared.release_id).golden.sizes=={'dev':2,'test':1}
+            first=split_documents(conn,'resubmit')
+            assert first['seed']==17 and first['added']=={'dev':10,'test':1,'reserved':1}
+            rows={row.source_uri:row.split for row in conn.execute(select(table('eval.document_split')))}
+            assert rows['https://example.org/Reserved.html']=='reserved'
+            assert rows['https://example.org/ch1/Page0.html']=='dev'
+            assert sum(split=='test' for uri,split in rows.items() if '/ch1/' in uri)==0
+            assert sum(split=='test' for uri,split in rows.items() if '/ch2/' in uri)==1
+            replay=split_documents(conn,'resubmit',seed=999)
+            assert replay['added']=={} and replay['total']==first['total']
+            assert {row.source_uri:row.split for row in conn.execute(select(table('eval.document_split')))}==rows
     finally:evaluator.dispose()

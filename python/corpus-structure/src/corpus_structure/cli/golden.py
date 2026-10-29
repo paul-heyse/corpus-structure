@@ -39,13 +39,13 @@ def output(result,json):
         stdout_console().print(Pretty(result))
 
 @golden_app.command('split')
-def split_command(ctx:typer.Context,seed:int=0,project:str|None=None,json:JsonOpt=False):
+def split_command(ctx:typer.Context,seed:int|None=None,project:str|None=None,json:JsonOpt=False):
     """Assign registered source documents immutably to development/test splits."""
     with reference_session(ctx,project) as (conn,pid):result=references.split_documents(conn,pid,seed=seed)
     output(result,json)
 
 @golden_app.command('create')
-def create_command(ctx:typer.Context,split:Annotated[str,typer.Option()],label:Annotated[str,typer.Option()],size:int|None=None,seed:int=0,from_run:int|None=None,project:str|None=None,json:JsonOpt=False):
+def create_command(ctx:typer.Context,split:Annotated[str,typer.Option()],label:Annotated[str,typer.Option()],size:int|None=None,seed:int|None=None,from_run:int|None=None,project:str|None=None,json:JsonOpt=False):
     """Sample independent reference units from a completed result's frozen source cut."""
     with reference_session(ctx,project) as (conn,pid):
         run=from_run or conn.scalar(select(table('data.project').c.selected_result_run_id).where(table('data.project').c.project_id==pid))
