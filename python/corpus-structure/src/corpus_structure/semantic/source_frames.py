@@ -18,8 +18,20 @@ def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket)
     task = conn.execute(select(tasks).where(tasks.c.id == task_id)).mappings().one()
     if task["reused_task_id"] is not None:
         raise OperationConflict("a reused task consumes its origin source frame")
-    if task["packet_hash"] != packet.hash or task["unit_key"] != packet.frame.unit_ref:
+    packet_hash = packet.hash
+    if task["packet_hash"] != packet_hash or task["unit_key"] != packet.frame.unit_ref:
         raise OperationConflict("source frame differs from the recorded packet hash")
+    frames = table("ops.source_frame")
+    existing = conn.execute(select(frames).where(frames.c.task_id == task_id)).mappings().one_or_none()
+    if existing is not None:
+        if existing["packet_hash"] != packet_hash or existing["unit_ref"] != task["unit_key"]:
+            raise OperationConflict("captured source frame differs from its immutable task binding")
+        if ((task["unit_type"] == "segment" and existing["unit_segment_id"] != task["unit_id"])
+            or (task["unit_type"] == "rendition" and existing["rendition_id"] != task["unit_id"])):
+            raise OperationConflict("captured source frame differs from its native source unit")
+        # Native capture checked geometry and custody once. The task's source binding, frame
+        # and rendition are immutable; equal packet hashes commit to the complete same frame.
+        return
     query = select(renditions).join(selected, selected.c.rendition_id == renditions.c.id).where(selected.c.run_id == task["run_id"])
     if task["unit_type"] == "segment":
         query = query.join(segments, segments.c.rendition_id == renditions.c.id).where(segments.c.id == task["unit_id"])
@@ -47,7 +59,7 @@ def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket)
                           "start": sentence.start, "end": sentence.end,
                           "text": content.canonical_text[sentence.start:sentence.end]})
     conn.execute(text("SELECT ops.record_source_frame(:task,:hash,:rendition,:unit,:locator,:segment,CAST(:sentences AS jsonb))"),
-                 {"task": task_id, "hash": packet.hash, "rendition": rendition["id"],
+                 {"task": task_id, "hash": packet_hash, "rendition": rendition["id"],
                   "unit": packet.frame.unit_ref, "locator": str(index.generate(unit)), "segment": unit_id,
                   "sentences": json.dumps(sentences)})
 
