@@ -109,7 +109,8 @@ def coverage(conn: Connection, run_id: int, scope: Scope) -> Coverage:
     elif scope.kind == 'units':
         # Fate keys correspond to unit anchors; offsets locate references within those units.
         task = metadata.tables['ops.task']
-        stmt = stmt.join(seg, seg.c.id == e.c.scope_segment_id).where(seg.c.id.in_(select(task.c.unit_id).where(task.c.run_id == run_id, task.c.unit_key.in_(scope.unit_keys))))
+        unit = seg.alias('coverage_unit')
+        stmt = stmt.join(seg, seg.c.id == e.c.scope_segment_id).join(unit, (unit.c.rendition_id == seg.c.rendition_id) & (unit.c.start_offset <= seg.c.start_offset) & (unit.c.end_offset >= seg.c.end_offset)).where(unit.c.id.in_(select(task.c.unit_id).where(task.c.run_id == run_id, task.c.stage == 'propose', task.c.unit_key.in_(scope.unit_keys)))).distinct()
     unresolved_references = len(list(conn.execute(stmt).scalars()))
     return Coverage(
         unresolved_references=unresolved_references,

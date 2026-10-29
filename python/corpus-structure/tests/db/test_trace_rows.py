@@ -411,3 +411,18 @@ def test_generic_claim_and_evidence_readers_over_independent_trace_rows(db, t3):
     assert any(e['text'].startswith('then') for e in c3['evidence'])
     assert all(e['locator'] for e in c3['evidence'])
     assert list(ctx.reader.claims(after='clm:C3', include_candidates=True, include_suppositions=True))[-1]['key']=='clm:D1'
+
+
+@pytest.mark.parametrize('op',['phrase','unsupported'])
+def test_query_conditional_uses_typed_condition_leaves(db,t3,op):
+    from corpus_structure.serve.protocol import QueryContext
+    from corpus_structure.schema.compile import compile_schema
+    from corpus_structure.schema.pack import DOMAINS,load_pack
+    leaf={'op':op,'text':'when the unmodelled restriction holds','start':0,'end':5}
+    if op=='unsupported':
+        leaf['reason']='independent fixture restriction'
+    sql(db,"UPDATE kb.claim SET qualifiers=CAST(:q AS jsonb),completeness='{}' WHERE id=:id",q=json.dumps({'core:conditions':{'op':'not','arg':leaf}}),id=t3.claims.c3)
+    ctx=QueryContext(t3_run(db),db)
+    ctx.reader.__dict__['compiled']=compile_schema([load_pack(DOMAINS/'statistics')])
+    row=next(ctx.reader.claims(key='clm:C3',include_candidates=True,include_suppositions=True,with_premises=False))
+    assert row['conditional'] is True

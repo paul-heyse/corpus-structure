@@ -74,9 +74,8 @@ class Entity(Query):
     name,params='entity',EntityParams
     result=EntityAnswer
     def rows(self,ctx:QueryContext,p:EntityParams,after:JsonValue=None)->Iterator[Positioned]:
-        for row in ctx.entities(p.key,p.label):
-            if after is None or row['key']>after:
-                yield Positioned(EntityAnswer.model_validate(row),row['key'])
+        for row in ctx.reader.entity_rows(p.key,p.label,after):
+            yield Positioned(EntityAnswer.model_validate(row),row['key'])
 
 class Statement(Query):
     name,params='statement',StatementParams
@@ -86,7 +85,7 @@ class Statement(Query):
         value=p.key or p.locator
         if not value: raise QueryRefused('statement needs key or locator')
         ids,_=ctx.reader.resolve_statement(value)
-        e,s,c=T['kb.entity'],T['kb.segment'],T['kb.claim']
+        e,s=T['kb.entity'],T['kb.segment']
         stmt=select(e.c.id,e.c.key,s.c.start_offset).join(s,s.c.id==e.c.scope_segment_id).where(e.c.run_id==ctx.run_id,e.c.id.in_(ids))
         if after is not None:
             if not isinstance(after,list) or len(after)!=2: raise QueryRefused('invalid statement cursor')
@@ -97,7 +96,7 @@ class Statement(Query):
                 ctx.reader.prime_entities({r['id'] for r in anchors})
                 flags={'include_candidates':p.include_candidates,'include_suppositions':p.include_suppositions}
                 claims=list(ctx.reader.claims(statement_id=[r['id'] for r in anchors],**flags))
-                proofs=list(ctx.reader.claims(object_entity_id=[r['id'] for r in anchors],**flags))
+                proofs=list(ctx.reader.claims(object_entity_id=[r['id'] for r in anchors],predicate='core:proves',**flags))
                 for r in anchors:
                     body=[x for x in claims if x['statement'] and x['statement']['key']==r['key']]
                     # Referenced premises outside this statement are kept alongside conclusions.
@@ -108,8 +107,7 @@ class Statement(Query):
                     proof=[x for x in proofs if isinstance(x['object'],dict) and x['object'].get('key')==r['key']]
                     yield Positioned(StatementAnswer(key=r['key'],statement=ctx.reader.entity(r['id']),claims=body,proofs=proof),[r['start_offset'],r['key']])
     def scope(self,ctx:QueryContext,p:StatementParams)->Scope:
-        _,locator=ctx.reader.resolve_statement(p.key or p.locator or '')
-        return Scope.of_units([locator]) if locator else Scope.run()
+        return ctx.reader.statement_scope(p.key or p.locator or '')
 
 class Evidence(Query):
     name,params='evidence',EvidenceParams

@@ -28,6 +28,10 @@ def test_c1_trace_generic_and_pack_questions(ready):
         assert all_.rows
         assert all(r['status']=='accepted' for r in all_.rows)
         assert all(r['premise'] for r in all_.rows if r['modality']=='supposed')
+        unresolved=[r for r in all_.rows if isinstance(r['object'],dict) and r['object'].get('type')=='core:ExternalReference']
+        assert unresolved and all(r['conditional'] for r in unresolved)
+        assert all(r['object']['descriptor'] and r['object']['citation']['locator'] for r in unresolved)
+        assert all_.coverage.unresolved_references>=1 and all_.coverage.partial
         profile=ask('family_profile',family='normal')
         assert profile.rows
         assert len([r for r in profile.rows if r['predicate']=='stat:identical_parameter'])==2
@@ -56,3 +60,36 @@ def test_keyset_pagination_matches_unpaged_logical_rows(ready):
         assert found==full.rows
         with pytest.raises(QueryRefused,match='size limit'):
             serve_query(conn,reg,'claims',run=ready.run,max_chars=100)
+
+
+def test_explain_selects_exact_claim_from_sealed_m19(ready):
+    import json
+    reg=build_registry(GENERIC,DOMAINS/'statistics')
+    with ready.engine.begin() as conn:
+        key=serve_query(conn,reg,'claims',run=ready.run).rows[-1]['key']
+        schema=conn.execute(text("SELECT id FROM meta.payload_schema WHERE kind='verification' ORDER BY id DESC LIMIT 1")).scalar_one()
+        for task,claim,marker in [(ready.m19,key,'sealed-only'),(ready.m19_again,key,'other-pass'),(ready.m19,'clm:unrelated','other-claim')]:
+            ordinal=conn.execute(text('SELECT coalesce(max(ordinal),-1)+1 FROM kb.observation WHERE task_id=:t'),{'t':task}).scalar_one()
+            payload={'claim_key':claim,'verifier':'validate.rules','verdict':'refuted','detail':{'rule':marker,'severity':'warning','message':'independent seeded outcome'}}
+            conn.execute(text("INSERT INTO kb.observation(task_id,ordinal,kind,payload,payload_schema_id,outcome) VALUES(:t,:n,'verification',CAST(:p AS jsonb),:s,'produced')"),{'t':task,'n':ordinal,'p':json.dumps(payload),'s':schema})
+        result=explain(conn,ready.run,'claim',key)
+        assert result.detail.claim.key==key
+        serialized=result.model_dump_json()
+        assert 'sealed-only' in serialized
+        assert 'other-pass' not in serialized and 'other-claim' not in serialized
+
+
+def test_serialized_response_character_bound_counts_envelope(db,world,helpers):
+    from .test_serve import Count,finished_run
+    run=finished_run(db,world,helpers)
+    reg=build_registry([Count()])
+    first=serve_query(db,reg,'count',{'n':5},run=run,max_rows=1)
+    bound=len(first.model_dump_json())
+    page=serve_query(db,reg,'count',{'n':5},run=run,max_chars=bound)
+    found=list(page.rows)
+    assert len(page.model_dump_json())<=bound
+    while page.next_page_token:
+        page=serve_query(db,reg,'count',{'n':5},page_token=page.next_page_token,max_chars=bound)
+        assert len(page.model_dump_json())<=bound
+        found+=page.rows
+    assert [r['i'] for r in found]==list(range(5))

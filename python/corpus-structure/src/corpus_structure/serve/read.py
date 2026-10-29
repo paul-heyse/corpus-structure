@@ -8,7 +8,8 @@ from typing import Any
 from sqlalchemy import or_, select, tuple_
 
 from corpus_structure.core.db import metadata, repo
-from corpus_structure.core.keys import LabelRules, normalize_label
+from corpus_structure.core.keys import LabelRules, normalize_label, condition_nodes
+from corpus_structure.core.values import CONDITION_ADAPTERS, StoredPhraseNode
 from corpus_structure.core.locators import LocatorIndex, page_of, parse
 from corpus_structure.schema import registry
 
@@ -21,6 +22,8 @@ class Reader:
         self.conn, self.run = ctx.conn, ctx.run_id
         self._entities: dict[int, dict[str, Any]] = {}
         self._evidence: dict[int, list[dict[str, Any]]] = {}
+        self._anchors: dict[int, Any] = {}
+        self._entity_answers: dict[int, dict[str, Any]] = {}
         self._indices: dict[int, tuple[LocatorIndex, dict[int, Any]]] = {}
 
     @cached_property
@@ -61,6 +64,13 @@ class Reader:
         rows = self.conn.execute(select(e).where(e.c.run_id == self.run, e.c.id.in_(missing))).mappings()
         for row in rows:
             self._entities[row['id']] = dict(row) | {'identity': {}}
+        segment = T['kb.segment']
+        anchors = {r['scope_segment_id'] for id_,r in self._entities.items() if id_ in missing and r.get('scope_segment_id')} - self._anchors.keys()
+        if anchors:
+            self._anchors.update({r['id']:r for r in self.conn.execute(select(segment).where(segment.c.id.in_(anchors))).mappings()})
+        resolutions = {r['resolved_to_id'] for id_,r in self._entities.items() if id_ in missing and r.get('resolved_to_id')}
+        if resolutions:
+            self.prime_entities(resolutions)
         target = e.alias('identity_target')
         for row in self.conn.execute(select(i, target.c.key.label('target_key')).outerjoin(target, target.c.id == i.c.value_entity_id).where(i.c.entity_id.in_(missing))).mappings():
             self._entities[row['entity_id']]['identity'][row['slot']] = {'ref': row['target_key']} if row['value_entity_id'] is not None else row['value_text']
@@ -68,13 +78,14 @@ class Reader:
     def entity(self, id_: int | None) -> dict[str, Any] | None:
         if id_ is None:
             return None
+        if id_ in self._entity_answers:
+            return self._entity_answers[id_]
         self.prime_entities({id_})
         row = self._entities[id_]
         out = {k: row[k] for k in ('key', 'type', 'label', 'kind', 'identity')}
         out['scope'] = row['scope']
         if row.get('scope_segment_id'):
-            seg = T['kb.segment']
-            anchor = self.conn.execute(select(seg).where(seg.c.id == row['scope_segment_id'])).mappings().one()
+            anchor = self._anchors[row['scope_segment_id']]
             idx, segments = self.index(anchor['rendition_id'])
             out['scope_locator'] = str(idx.generate(segments[anchor['id']]))
             if row['kind'] is not None:
@@ -86,13 +97,13 @@ class Reader:
             out['descriptor'] = row.get('reference_descriptor')
             out['display'] = f"an unresolved reference: {row['label']}" if out['unresolved'] else out['resolved_to']['label']
             if row.get('scope_segment_id'):
-                seg = T['kb.segment']
-                r = self.conn.execute(select(seg).where(seg.c.id == row['scope_segment_id'])).mappings().one()
+                r = self._anchors[row['scope_segment_id']]
                 d = row.get('reference_descriptor') or {}
                 out['citation'] = self.locator(r['rendition_id'], r['id'], d.get('start', r['start_offset']), d.get('end', r['end_offset']), row['label'])
+        self._entity_answers[id_] = out
         return out
 
-    def entities(self, key: str | None = None, label: str | None = None) -> list[dict[str, Any]]:
+    def entity_rows(self, key: str | None = None, label: str | None = None, after: Any = None) -> Iterator[dict[str, Any]]:
         e, a = T['kb.entity'], T['kb.entity_alias']
         stmt = select(e.c.id).where(e.c.run_id == self.run)
         if key:
@@ -105,9 +116,21 @@ class Reader:
                 normalized = normalize_label(label, cls.prefixed, self.labels, case.label_case)
                 choices.append((e.c.type == cls.prefixed) & e.c.id.in_(select(a.c.entity_id).where(a.c.normalized == normalized)))
             stmt = stmt.where(or_(*choices))
-        ids = list(self.conn.execute(stmt.order_by(e.c.key)).scalars())
-        self.prime_entities(set(ids))
-        return [row for id_ in ids if (row := self.entity(id_)) is not None]
+        if after is not None:
+            if not isinstance(after, str):
+                raise ValueError('invalid entity cursor')
+            stmt = stmt.where(e.c.key > after)
+        with self.conn.execute(stmt.order_by(e.c.key).execution_options(yield_per=64)) as result:
+            for batch in result.scalars().partitions(64):
+                ids = list(batch)
+                self.prime_entities(set(ids))
+                for id_ in ids:
+                    entity = self.entity(id_)
+                    if entity is not None:
+                        yield entity
+
+    def entities(self, key: str | None = None, label: str | None = None) -> list[dict[str, Any]]:
+        return list(self.entity_rows(key, label))
 
     def prime_evidence(self, ids: list[int]) -> None:
         ce, sp = T['kb.claim_evidence'], T['kb.span']
@@ -201,13 +224,31 @@ class Reader:
                     q = r['qualifiers'] or {}
                     entities = [self.entity(r[col]) for col in ('subject_id','object_entity_id','attribution_entity_id') if r[col] is not None]
                     entities += [self.entity(x['entity_id']) for x in erefs[r['id']]]
-                    conditional = bool((r.get('completeness') or {}).get('phrase_conditions')) or any(x and x.get('unresolved') for x in entities)
+                    condition = q.get('core:conditions', q.get('conditions'))
+                    typed_condition = CONDITION_ADAPTERS['stored'].validate_python(condition) if condition is not None else None
+                    conditional = (typed_condition is not None and any(isinstance(node, StoredPhraseNode) for node in condition_nodes(typed_condition))) or any(x and x.get('unresolved') for x in entities)
                     yield {'key': r['key'], 'predicate': r['predicate'], 'subject': self.entity(r['subject_id']), 'object': self.entity(r['object_entity_id']) if r['object_entity_id'] else r['object_value'], 'qualifiers': q, 'conditions': q.get('core:conditions', q.get('conditions')), 'conditions_text': str(q.get('core:conditions', q.get('conditions', ''))), 'modality': r['modality'], 'polarity': r['polarity'], 'attribution': self.entity(r['attribution_entity_id']), 'status': r['status'], 'statement': self.entity(r['statement_id']), 'role': r['statement_role'], 'evidence': self._evidence[r['id']], 'premises': sorted(refs[r['id']], key=lambda x:(x['kind'],x['path'],x['key'])), 'entity_references': [{'role':x['role'],'path':x['path'],'slot':x['slot'],'entity':self.entity(x['entity_id'])} for x in sorted(erefs[r['id']], key=lambda x:(x['role'],x['path']))], 'conditional': conditional, 'premise': r['modality'] in self.compiled.lookup.version_sets['ClaimModality'].property('premise_forming')}
+
+    def statement_scope(self, value: str) -> Any:
+        from corpus_structure.serve.protocol import Scope
+        ids, _ = self.resolve_statement(value)
+        self.prime_entities(set(ids))
+        units=set()
+        for id_ in ids:
+            segment_id=self._entities[id_].get('scope_segment_id')
+            if segment_id is None:
+                continue
+            row=self._anchors[segment_id]
+            idx,segments=self.index(row['rendition_id'])
+            anchor=segments[segment_id]
+            containing=[u for u in idx.annotation_units().units if u.segment.start<=anchor.start and anchor.end<=u.segment.end]
+            units.update(u.key for u in containing)
+        return Scope.of_units(list(units))
 
     def resolve_statement(self, value: str) -> tuple[list[int], str | None]:
         e, rr = T['kb.entity'], T['kb.run_rendition']
         if value.startswith(('stm:', 'ent:')):
-            ids = list(self.conn.execute(select(e.c.id).where(e.c.run_id == self.run, e.c.key == value)).scalars())
+            ids = list(self.conn.execute(select(e.c.id).where(e.c.run_id == self.run, e.c.key == value, e.c.kind.is_not(None))).scalars())
             return ids, None
         loc = parse(value)
         renditions = self.conn.execute(select(rr.c.rendition_id).where(rr.c.run_id == self.run)).scalars()

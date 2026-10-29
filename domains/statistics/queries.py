@@ -28,7 +28,11 @@ def ids(ctx:QueryContext,value:str)->list[int]:
 def profile(ctx:QueryContext,p:Params,subjects:list[int])->Any:
     c,i=T['kb.claim'],T['kb.entity_identity']
     parameters=select(i.c.entity_id).where(i.c.slot=='stat:family',i.c.value_entity_id.in_(subjects))
-    return ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(or_(c.c.subject_id.in_(subjects),c.c.subject_id.in_(parameters)))
+    choices=[c.c.subject_id.in_(subjects),c.c.subject_id.in_(parameters),(c.c.predicate=='stat:member_of_construction') & c.c.object_entity_id.in_(subjects)]
+    if p.include_suppositions:
+        premise=ctx.compiled.lookup.version_sets['ClaimModality'].property('premise_forming')
+        choices.append(c.c.modality.in_(premise) & or_(c.c.subject_id.in_(subjects),c.c.object_entity_id.in_(subjects)))
+    return ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(or_(*choices))
 
 class FamilyProfile(Query):
     name,params='family_profile',Family
@@ -110,7 +114,8 @@ class Relations(Query):
         if after is not None: stmt=stmt.where(walk.c.path>after)
         for r in ctx.conn.execute(stmt.order_by(walk.c.path)).mappings():
             keys=r['path'].split('|')
-            claims=list(ctx.reader.claims(key=keys,include_suppositions=True,include_candidates=True))
+            by_key={row['key']:row for row in ctx.reader.claims(key=keys,include_suppositions=True,include_candidates=True,with_premises=False)}
+            claims=[by_key[key] for key in keys]
             yield Positioned(RelationAnswer.model_validate({'key':r['path'],'depth':r['depth'],'claims':claims}),r['path'])
 
 QUERIES=(FamilyProfile(),FamiliesWhere(),Relations(),Transformations(),ParameterMapping(),ConstructionProfile())

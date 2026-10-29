@@ -4,6 +4,7 @@ import json as jsonlib
 from contextlib import contextmanager
 from typing import Annotated,Any
 import typer
+from rich.table import Table
 from pydantic import ValidationError
 from sqlalchemy import text
 from corpus_structure.cli.output import JsonOpt,emit,state,stderr_console
@@ -37,6 +38,16 @@ def context(conn:Any,project:str|None,run:str)->tuple[int,int,Any]:
         domain=conn.execute(text('SELECT domain FROM meta.project WHERE id=:p'),{'p':pid}).scalar_one()
     return pid,rid,build_registry(GENERIC,DOMAINS/domain)
 
+def render_query(result:Any)->Table:
+    table=Table('key','predicate / type','status / label',title=f"run {result.run_id}: {result.query}")
+    for row in result.rows:
+        table.add_row(str(row.get('key','')),str(row.get('predicate',row.get('type',''))),str(row.get('status',row.get('label',''))))
+    if result.coverage.partial:
+        table.caption='Partial coverage; inspect --json for fates and unresolved references.'
+    if result.next_page_token:
+        table.caption=(table.caption or '')+' Next page: '+result.next_page_token
+    return table
+
 def query(ctx:typer.Context,name:Annotated[str,typer.Argument()],run:str='promoted',project:str|None=None,param:Annotated[list[str]|None,typer.Option('--param')]=None,page_token:str|None=None,max_rows:int|None=None,max_chars:int|None=None,json:JsonOpt=False)->None:
     params={}
     with refusal(json):
@@ -52,7 +63,7 @@ def query(ctx:typer.Context,name:Annotated[str,typer.Argument()],run:str='promot
             selected=str(decode_token(page_token)['run']) if page_token else run
             pid,_,registry=context(conn,project,selected)
             result=serve_query(conn,registry,name,params,project_id=pid,run=run if run=='promoted' else int(run),page_token=page_token,max_rows=max_rows,max_chars=max_chars)
-            emit(result,json=json)
+            emit(result,json=json,render=render_query)
 
 def register(app:typer.Typer)->None:
     app.command('query')(query)
