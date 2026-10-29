@@ -1165,6 +1165,12 @@ classes:
       tier:
         range: string
         required: true
+      unit_type:
+        range: string
+        required: false
+      configuration_schema_digest:
+        range: string
+        required: false
       confidence_source:
         range: string
         required: false
