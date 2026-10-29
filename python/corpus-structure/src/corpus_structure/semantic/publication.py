@@ -248,15 +248,10 @@ class PublicationBatch:
         for name in STAGE_TYPES:
             rows = [list(astuple(row)) for row in getattr(self, name)]
             # Native receipt encoding uses exact textual numeric representations.
-            if name == "typed_value":
-                for row in rows:
-                    for index in (3, 4):
-                        if row[index] is not None:
-                            row[index] = (
-                                format(row[index], "f")
-                                if isinstance(row[index], Decimal)
-                                else str(row[index])
-                            )
+            for row in rows:
+                for index, typ in enumerate(STAGE_TYPES[name][1]):
+                    if typ == "numeric" and row[index] is not None:
+                        row[index] = format(row[index], "f") if isinstance(row[index], Decimal) else str(row[index])
             body[name] = sorted(rows, key=canonical_bytes)
         return canonical_bytes([self.release_id, self.realization_id, body])
 
