@@ -310,3 +310,20 @@ def test_semantic_1_and_preview_keep_refusing_rules():
     baseline = prepare_release(bundle(data))
     baseline.validate_json("Thing", '{"id":"a"}')
     assert all(a.kind != "conditional_rules.json" for a in baseline.artifacts)
+
+
+def test_native_rule_atoms_preserve_alias_presence_and_branch_scope():
+    from corpus_structure.semantic.conditional_rules import compile_native_conditionals
+
+    data = schema()
+    data["classes"]["Thing"]["attributes"]["status"]["alias"] = "state"
+    view = _view(bundle(data), PROFILE)
+    rows = compile_native_conditionals(view, compile_conditional_rules(view), "accepted_value")
+    assert len(rows) == 1
+    assert rows[0]["scope"] == "accepted_value"
+    assert rows[0]["branches"] == {
+        "if": [{"property": "status", "presence": "present", "choices": None},
+               {"property": "status", "presence": "optional", "choices": ["ready"]}],
+        "then": [{"property": "label", "presence": "present", "choices": None}],
+        "else": [{"property": "reason", "presence": "present", "choices": None}],
+    }

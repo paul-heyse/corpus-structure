@@ -38,6 +38,7 @@ _LIBRARIES = (
     "linkml-term-validator",
     "valuesets",
     "jsonschema",
+    "cattrs",
 )
 
 

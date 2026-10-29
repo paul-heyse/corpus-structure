@@ -503,6 +503,7 @@ source = { editable = "python/corpus-structure" }
 dependencies = [
     { name = "adbc-driver-postgresql" },
     { name = "alembic" },
+    { name = "cattrs" },
     { name = "cssselect2" },
     { name = "duckdb" },
     { name = "en-core-web-sm" },
@@ -542,6 +543,7 @@ dependencies = [
 requires-dist = [
     { name = "adbc-driver-postgresql", specifier = "==1.13.0" },
     { name = "alembic", specifier = "==1.20.0" },
+    { name = "cattrs", specifier = "==26.2.1" },
     { name = "cssselect2", specifier = "==0.10.1" },
     { name = "duckdb", specifier = "==2.0.0" },
     { name = "en-core-web-sm", url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" },

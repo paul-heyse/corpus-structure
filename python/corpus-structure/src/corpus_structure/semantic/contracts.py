@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
@@ -18,12 +18,14 @@ from typing import Any, Never
 
 import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
+from cattrs import Converter
+from cattrs.v import transform_error
 from pydantic import ValidationError
 
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
-EXECUTION_COMPILER_VERSION = "1"
+EXECUTION_COMPILER_VERSION = "2"
 
 
 @lru_cache(maxsize=1)
@@ -121,10 +123,10 @@ class EndpointRole:
     role: str
     concept: str
     minimum: int
-    maximum: int | None
+    maximum: int | None = field(default=None, kw_only=True)
     ordered: bool
     unresolved: bool
-    unresolved_concept: str | None
+    unresolved_concept: str | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -342,88 +344,33 @@ def _refs(names: tuple[str, ...], index: Mapping[str, Any], location: str) -> No
             _fail("unresolved_contract_reference", location, name)
 
 
+def _product_converter() -> Converter:
+    """Prepare conversion for admitted records; never a replacement ingress validator."""
+    converter = Converter(forbid_extra_keys=True, detailed_validation=True)
+
+    def exact(value: Any, expected: type) -> Any:
+        if type(value) is not expected:
+            raise TypeError(f"expected {expected.__name__}, got {type(value).__name__}")
+        return value
+
+    # Register primitives before composite hooks capture their dependencies.
+    for primitive in (str, int, bool, bytes, float):
+        converter.register_structure_hook(primitive, exact)
+    return converter
+
+
+_PRODUCT_CONVERTER = _product_converter()
+
+
 def _normalize(data: dict[str, Any], model_id: str) -> ExecutionModelProducts:
-    concepts = tuple(
-        ConceptDefinition(
-            v["id"],
-            v["family"],
-            v["meaning"],
-            v["identity"],
-            v["scope"],
-            tuple(AttributeDefinition(**a) for a in v["attributes"]),
-            tuple(v["relationships"]),
+    # Version is already checked by the admitted LinkML catalog boundary.
+    fields = {key: value for key, value in data.items() if key != "version"}
+    try:
+        products = _PRODUCT_CONVERTER.structure(
+            {**fields, "model_id": model_id, "content": b""}, ExecutionModelProducts
         )
-        for v in data["concepts"]
-    )
-    relationships = tuple(
-        RelationshipDefinition(
-            v["id"],
-            v["kind"],
-            v["direction"],
-            tuple(
-                EndpointRole(
-                    e["role"],
-                    e["concept"],
-                    e["minimum"],
-                    e.get("maximum"),
-                    e["ordered"],
-                    e["unresolved"],
-                    e.get("unresolved_concept"),
-                )
-                for e in v["endpoints"]
-            ),
-            v["cardinality_scope"],
-            v["identity_kind"],
-            tuple(v["identity_roles"]),
-            tuple(v["identity_context"]),
-            tuple(v["qualifications"]),
-            v["multiplicity"],
-            v["reference_scope"],
-            tuple(v["invariants"]),
-        )
-        for v in data["relationships"]
-    )
-    lifecycles = tuple(
-        LifecycleDefinition(
-            v["id"],
-            v["subject"],
-            tuple(StateDimension(d["id"], tuple(d["values"])) for d in v["dimensions"]),
-            tuple(
-                ComposedState(
-                    state["id"],
-                    tuple(StateValue(**p) for p in state["values"]),
-                    state["terminal"],
-                )
-                for state in v["states"]
-            ),
-            tuple(v["initial_states"]),
-            tuple(v["transitions"]),
-            tuple(v["invariants"]),
-        )
-        for v in data["lifecycles"]
-    )
-
-    def records(key: str, cls: Any) -> tuple[Any, ...]:
-        return tuple(
-            cls(**{k: tuple(v) if isinstance(v, list) else v for k, v in row.items()})
-            for row in data[key]
-        )
-
-    products = ExecutionModelProducts(
-        model_id,
-        b"",
-        tuple(data["required_capabilities"]),
-        concepts,
-        relationships,
-        lifecycles,
-        records("transitions", TransitionDefinition),
-        records("operations", OperationContract),
-        records("invariants", InvariantDefinition),
-        records("implementations", ImplementationBinding),
-        records("projections", ProjectionContract),
-        records("outcome_domains", OutcomeDomain),
-        records("outcome_translations", OutcomeTranslation),
-    )
+    except Exception as exc:
+        _fail("contract_product", "ExecutionCatalog", "; ".join(transform_error(exc)))
     _validate(products)
     return products
 
@@ -683,5 +630,5 @@ def _compile_execution_model(inputs: ExecutionModelInputs) -> ExecutionModelProd
     }
     model_id = "execution:" + sha256(canonical_bytes(identity)).hexdigest()
     products = _normalize(data, model_id)
-    normalized = {key: value for key, value in asdict(products).items() if key != "content"}
+    normalized = {key: value for key, value in _PRODUCT_CONVERTER.unstructure(products).items() if key != "content"}
     return replace(products, content=canonical_bytes({"inputs": identity, **normalized}))
