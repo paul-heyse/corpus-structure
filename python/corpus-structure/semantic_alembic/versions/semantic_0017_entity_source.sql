@@ -11,7 +11,7 @@ CREATE TABLE data.entity_source(
 );
 ALTER TABLE data.entity_source OWNER TO corpus_sem_publisher;
 -- Publisher-owned routines
-GRANT SELECT ON data.entity_source TO corpus_sem_reader;
+GRANT SELECT ON data.entity_source TO corpus_sem_reader,corpus_sem_writer;
 CREATE FUNCTION data.validate_entity_source(r text,z text) RETURNS void LANGUAGE plpgsql STABLE
 SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE source data.entity_source; observation kb.observation; declaration jsonb;
