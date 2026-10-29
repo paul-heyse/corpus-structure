@@ -98,3 +98,23 @@ def test_unresolved_external_premise_edge_is_a_served_gap(ready):
         external=next(x for x in row.entity_references if x.role=='condition_premise')
         assert external.entity.descriptor and external.entity.citation and external.entity.citation.locator
         assert row.conditional is True
+
+
+def test_parameter_mapping_excludes_other_members_of_requested_construction(ready):
+    from sqlalchemy import insert,select
+    from corpus_structure.core.db import metadata
+    e,c,ce=(metadata.tables[n] for n in ('kb.entity','kb.claim','kb.claim_evidence'))
+    reg=build_registry(GENERIC,DOMAINS/'statistics')
+    with ready.engine.begin() as conn:
+        family=conn.execute(select(e.c.id,e.c.key,e.c.schema_version_id).where(e.c.run_id==ready.run,e.c.type=='stat:DistributionFamily').order_by(e.c.id)).first()
+        assert family is not None
+        construction=conn.execute(insert(e).values(run_id=ready.run,key='ent:fixture-construction',schema_version_id=family.schema_version_id,type='stat:FamilyConstruction',label='fixture construction',scope='global').returning(e.c.id)).scalar_one()
+        other=conn.execute(insert(e).values(run_id=ready.run,key='ent:fixture-other-family',schema_version_id=family.schema_version_id,type='stat:DistributionFamily',label='other fixture family',scope='global').returning(e.c.id)).scalar_one()
+        span=conn.execute(select(ce.c.span_id).limit(1)).scalar_one()
+        for subject,key in [(family.id,'clm:fixture-requested-mapping'),(other,'clm:fixture-other-mapping')]:
+            id_=conn.execute(insert(c).values(run_id=ready.run,key=key,subject_id=subject,predicate='stat:member_of_construction',object_entity_id=construction,schema_version_id=family.schema_version_id,status='accepted',establishment='stated').returning(c.c.id)).scalar_one()
+            conn.execute(insert(ce).values(claim_id=id_,span_id=span,role='primary'))
+        result=serve_query(conn,reg,'parameter_mapping',{'construction':'ent:fixture-construction','family':family.key},run=ready.run)
+        keys={r['key'] for r in result.rows}
+        assert 'clm:fixture-requested-mapping' in keys
+        assert 'clm:fixture-other-mapping' not in keys

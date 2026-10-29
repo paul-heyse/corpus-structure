@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "c2.parameter-mapping-plans",
+  "title": "Parameter-mapping access plans after family-scope correction",
+  "group": "C2 query access plans",
+  "package": "P0-C-2",
+  "finalized": "2026-10-29",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the final requested-family restriction preserve the parameter_mapping query access paths on the retained Q4 workload?",
+  "answers": [
+    "P0-C-2",
+    "F04"
+  ],
+  "method": "Reuse c2.query-plans restoration/adaptation and native SQL/EXPLAIN capture unchanged, selecting only parameter_mapping, with separate outputs. The source correction follows a failed-then-passed independent native-store control for an unrelated member family.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-29_c2-parameter-mapping-plans/code/recheck.py",
+    "uv run pytest python/corpus-structure/tests/db/test_queries.py::test_parameter_mapping_excludes_other_members_of_requested_construction -q"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "code/recheck.py",
+      "role": "bounded wrapper over the frozen parent inspection",
+      "sha256": "7a8317f586994e8ca9035671aae80e1a213276c1cf194927f1a7c329d21a430c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "actual SQL, bindings, native plans, adaptation and cleanup receipt",
+      "sha256": "b153d452098f9ca72e2c0390079523c3f093c54635101f4d3502dd75259dea11"
+    }
+  ],
+  "depends_on": [
+    "c2.query-plans"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "All seven physical statements emitted by the changed parameter_mapping query were inspected with zero execution or EXPLAIN errors. Predicate and identity index paths remain available without planner forcing. This supplements c2.query-plans for the changed query only; no speed/capacity or semantic-answer qualification follows from these plans. Its independent native-store family-scope control passed separately.",
+  "consumed_by": [
+    "P0-C-2",
+    "F04"
+  ]
+}

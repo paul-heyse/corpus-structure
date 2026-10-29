@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "c2.query-plans",
+  "title": "C2 native query plans over the retained Q4 volume workload",
+  "group": "C2 query access plans",
+  "package": "P0-C-2",
+  "finalized": "2026-10-29",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do current generic and statistics queries expose the declared selective relationship indexes and the generated partial BM25 index on the retained run-scale data?",
+  "answers": [
+    "P0-C-2",
+    "F04"
+  ],
+  "method": "Restore Q4 in an owned database on 18/corpus; apply the explicitly recorded current projection/identity/payload/ingest adaptations; capture all twelve actual query implementations and inspect native EXPLAIN ANALYZE BUFFERS plans without planner forcing. Preserve failed attempts. This is access-path inspection, not semantic, throughput or full-run qualification.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-10-29_c2-query-plans/code/inspect_plans.py"
+  ],
+  "agents": [
+    {
+      "role": "C2 executor",
+      "model": "gpt-6.1-sol",
+      "brief": null,
+      "separation": "isolated cq-serve worktree; production SQL and dedicated owned database; root owns integrated qualification"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/inspect_plans.py",
+      "role": "reproducible current-projection adaptation and plan inspection",
+      "sha256": "500f06ec802120aac4c3b4992ed6faf6f6bfaed9d3f122fe6294abd6df1fc9f7"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "full SQL/plans, failed attempts, environment, access-path summary and cleanup",
+      "sha256": "b02708ce78bf39f440e72ac1aaf78874ed3bf7d1de5499f5409d9803ceb8591e"
+    }
+  ],
+  "depends_on": [
+    "p0q.fk-cost"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "All twelve query implementations were inspected with zero final execution/EXPLAIN errors. Current BM25 ranking uses segment_bm25; selective transformations use claim_ref_target and claim_entity_ref_entity; profile joins use entity_identity_value. Forward edge hydration uses primary keys. Broad whole-run closure/identity scans are distinguished from selective access. The old Q4 BM25 predicate was inapplicable until replaced by the current generated overlay. No speed/capacity or semantic-answer claim follows. All owned databases were removed.",
+  "consumed_by": [
+    "P0-C-2",
+    "F04"
+  ]
+}
