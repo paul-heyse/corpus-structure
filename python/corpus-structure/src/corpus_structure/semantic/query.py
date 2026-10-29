@@ -21,6 +21,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import Connection, Engine, Select, and_, exists, literal, select
+from sqlalchemy.sql import CompoundSelect
 from sqlalchemy.sql.elements import ColumnElement
 
 from .identity import canonical_bytes
@@ -735,7 +736,7 @@ class ReadSession:
         )
 
     def _identity_exclusions(
-        self, entity_ids: tuple[str, ...] | Select | None
+        self, entity_ids: tuple[str, ...] | Select | CompoundSelect | None
     ) -> tuple[IdentityExclusion, ...]:
         if isinstance(entity_ids, tuple) and not entity_ids:
             return ()
