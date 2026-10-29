@@ -8,7 +8,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
-SEMANTIC_COMPILER_VERSION = "5"  # rules, keyed collections and operation products are release-bound
+SEMANTIC_COMPILER_VERSION = "6"  # rules, keyed collections and operation products are release-bound
 
 
 @dataclass(frozen=True)
@@ -129,6 +129,34 @@ class PreparedArtifact:
 class QueryDescriptor:
     class_iri: str
     properties: tuple[PropertyDefinition, ...]
+
+
+@dataclass(frozen=True)
+class PropertyPreview:
+    name: str
+    iri: str
+
+
+@dataclass(frozen=True)
+class ClassPreview:
+    name: str
+    iri: str
+    ancestors: tuple[str, ...]
+    properties: tuple[PropertyPreview, ...]
+    abstract: bool
+
+
+@dataclass(frozen=True)
+class SchemaPreview:
+    """Names and closed vocabulary for authoring inputs, without release admission artifacts."""
+
+    classes: tuple[ClassPreview, ...]
+    vocabularies: tuple[VocabularySnapshot, ...]
+    diagnostics: tuple[Diagnostic, ...]
+
+    def enum_members(self, name: str) -> frozenset[str]:
+        vocabulary = next(v for v in self.vocabularies if v.enum == name)
+        return frozenset(m.value for m in vocabulary.members)
 
 
 @dataclass(frozen=True)
