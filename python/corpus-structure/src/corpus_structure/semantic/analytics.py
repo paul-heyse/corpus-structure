@@ -773,7 +773,7 @@ class AnalysisScope:
         """Reader cancellation/exception closes its native result before input teardown."""
         if self._closed:
             raise RuntimeError("analysis scope is closed")
-        reader = relation.to_arrow_reader(batch_size)
+        reader = self._borrow(relation.to_arrow_reader(batch_size))
         try:
             yield reader
         finally:

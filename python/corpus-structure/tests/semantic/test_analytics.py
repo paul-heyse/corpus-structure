@@ -718,3 +718,13 @@ def test_constructor_retains_invalid_input_and_cleanup_failure(monkeypatch):
     assert isinstance(failure.value.exceptions[0], ValueError)
     assert "complete normalized spine" in str(failure.value.exceptions[0])
     assert "scratch cleanup failed" in str(failure.value.exceptions[1].exceptions[0])
+
+
+def test_reader_adopts_native_relation_reader_and_releases_it():
+    import duckdb
+    with duckdb.connect(":memory:") as connection:
+        relation = connection.sql("SELECT 7 AS value")
+        with AnalysisScope(empty_packet(prepared_inputs()[2])) as scope:
+            with scope.reader(relation) as reader:
+                assert reader.read_all().to_pylist() == [{"value": 7}]
+            assert scope._readers == []
