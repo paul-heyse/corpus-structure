@@ -2,6 +2,7 @@ CREATE TABLE data.occurrence_context(
  realization_id text NOT NULL,release_id text NOT NULL,occurrence_id text NOT NULL,
  statement_entity_id text,statement_role text,
  PRIMARY KEY(realization_id,release_id,occurrence_id),
+ FOREIGN KEY(realization_id,release_id) REFERENCES data.realization(realization_id,release_id),
  FOREIGN KEY(realization_id,release_id,occurrence_id)
   REFERENCES data.occurrence(realization_id,release_id,occurrence_id),
  FOREIGN KEY(realization_id,release_id,statement_entity_id)
@@ -12,6 +13,7 @@ CREATE TABLE data.occurrence_evidence_role(
  realization_id text NOT NULL,release_id text NOT NULL,occurrence_id text NOT NULL,
  evidence_id text NOT NULL,role text NOT NULL,
  PRIMARY KEY(realization_id,release_id,occurrence_id,evidence_id),
+ FOREIGN KEY(realization_id,release_id) REFERENCES data.realization(realization_id,release_id),
  FOREIGN KEY(realization_id,release_id,occurrence_id,evidence_id)
   REFERENCES data.occurrence_evidence(realization_id,release_id,occurrence_id,evidence_id)
 );

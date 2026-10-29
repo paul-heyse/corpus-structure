@@ -785,7 +785,7 @@ classes:
       primary_key:
         unique_key_slots: [realization_id, release_id, occurrence_id]
     annotations:
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "statement_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}]'
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "statement_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}]'
       ph:checks: '["statement_entity_id IS NOT NULL OR statement_role IS NOT NULL"]'
   occurrence_evidence_role:
     in_subset: [data]
@@ -799,7 +799,7 @@ classes:
       primary_key:
         unique_key_slots: [realization_id, release_id, occurrence_id, evidence_id]
     annotations:
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "occurrence_id", "evidence_id"], "target": "data.occurrence_evidence.realization_id,release_id,occurrence_id,evidence_id"}]'
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "occurrence_id", "evidence_id"], "target": "data.occurrence_evidence.realization_id,release_id,occurrence_id,evidence_id"}]'
   membership_support:
     in_subset:
     - data
