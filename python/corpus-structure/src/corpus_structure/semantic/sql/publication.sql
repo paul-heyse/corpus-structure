@@ -24,6 +24,7 @@ BEGIN
  {insert}
  PERFORM data.validate_state(r,z);
  PERFORM data.validate_occurrence_context(r,z);
+ PERFORM data.validate_entity_source(r,z);
  FOR f IN SELECT * FROM pg_temp.sp_occurrence LOOP
  expected:='occ:'||encode(sha256(convert_to(data.canonical_json(jsonb_build_array(r,z,f.source,f.item)),'UTF8')),'hex');
  IF expected<>f.occurrence_id THEN RAISE EXCEPTION 'invalid occurrence identity' USING ERRCODE='23514'; END IF;
