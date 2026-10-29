@@ -33,7 +33,7 @@ def view(**kwargs):
                 "ex": {"prefix_reference": "https://example.org/"},
                 "xsd": {"prefix_reference": "http://www.w3.org/2001/XMLSchema#"},
             },
-            types={"string": {"uri": "xsd:string", "base": "str"}},
+            types=kwargs.pop("types", {"string": {"uri": "xsd:string", "base": "str"}}),
             **kwargs,
         )
     )
@@ -342,3 +342,95 @@ def test_inherited_nested_concept_validation_keeps_parent_semantics(tmp_path):
     )
     with pytest.raises(OntologyError, match="not found"):
         resolve_vocabularies(schema, {"test": path})
+
+
+@pytest.mark.parametrize(
+    "scope, constrained", [("shape", True), ("accepted_value", False), ("context", False)]
+)
+def test_graph_integrity_respects_constraint_scope_without_mutating_model(scope, constrained):
+    from rdflib.namespace import OWL, SH
+
+    schema = view(
+        classes={
+            "Record": {
+                "class_uri": "ex:Record",
+                "attributes": {
+                    "value": {
+                        "slot_uri": "ex:value",
+                        "range": "string",
+                        "required": True,
+                        "maximum_cardinality": 1,
+                        "pattern": "^[A-Z]+$",
+                        "annotations": {"cs:constraint_scope": scope},
+                    }
+                },
+            }
+        }
+    )
+    source = schema.get_class("Record")
+    assert source is not None
+    before = str(schema.schema)
+    artifacts = build_graph_artifacts(schema)
+    shacl = Graph().parse(data=artifacts["shacl"], format="nt")
+    owl = Graph().parse(data=artifacts["owl"], format="nt")
+    assert bool(list(shacl.objects(None, SH.maxCount))) is constrained
+    assert bool(list(shacl.objects(None, SH.minCount))) is constrained
+    assert bool(list(shacl.objects(None, SH.pattern))) is constrained
+    cardinalities = (
+        OWL.cardinality,
+        OWL.minCardinality,
+        OWL.maxCardinality,
+        OWL.qualifiedCardinality,
+        OWL.minQualifiedCardinality,
+        OWL.maxQualifiedCardinality,
+    )
+    restrictions = set(owl.subjects(OWL.onProperty, URIRef("https://example.org/value")))
+    assert (
+        any(
+            list(owl.objects(node, predicate))
+            for node in restrictions
+            for predicate in cardinalities
+        )
+        is constrained
+    )
+    assert str(schema.schema) == before
+
+
+def test_nonshape_inherited_slot_and_datatype_constraints_are_not_unconditional():
+    from rdflib.namespace import SH
+
+    schema = view(
+        types={"string": {"uri": "xsd:string", "base": "str", "pattern": "^[A-Z]+$"}},
+        slots={
+            "value": {
+                "slot_uri": "ex:value",
+                "range": "string",
+                "required": True,
+                "maximum_cardinality": 1,
+                "annotations": {"cs:constraint_scope": "accepted_value"},
+            }
+        },
+        classes={"Parent": {"slots": ["value"]}, "Child": {"is_a": "Parent"}},
+    )
+    shapes = Graph().parse(data=build_graph_artifacts(schema)["shacl"], format="nt")
+    assert not list(shapes.objects(None, SH.maxCount))
+    assert not list(shapes.objects(None, SH.minCount))
+    assert not list(shapes.objects(None, SH.pattern))
+
+
+def test_profile_default_scope_is_applied_to_graph_projection():
+    from rdflib.namespace import SH
+
+    schema = view(
+        classes={
+            "Record": {
+                "attributes": {
+                    "value": {"range": "string", "required": True, "maximum_cardinality": 1}
+                }
+            }
+        }
+    )
+    artifacts = build_graph_artifacts(schema, default_constraint_scope="occurrence")
+    shapes = Graph().parse(data=artifacts["shacl"], format="nt")
+    assert not list(shapes.objects(None, SH.maxCount))
+    assert not list(shapes.objects(None, SH.minCount))

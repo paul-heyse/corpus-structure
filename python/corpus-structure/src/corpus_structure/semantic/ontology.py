@@ -18,11 +18,14 @@ from typing import Any
 from linkml.generators.owlgen import OwlSchemaGenerator
 from linkml.generators.shaclgen import ShaclGenerator
 from linkml.validator.validation_context import ValidationContext
+from linkml_runtime.dumpers import json_dumper
 from linkml_runtime.linkml_model import (
     ClassDefinition,
     EnumDefinition,
     PermissibleValue,
     SchemaDefinition,
+    SlotDefinition,
+    TypeDefinition,
 )
 from linkml_runtime.utils.schemaview import SchemaView
 from linkml_term_validator.plugins import (
@@ -90,7 +93,117 @@ def canonical_graph_bytes(graph: Graph) -> bytes:
     return ("".join(sorted(f"{s.n3()} {p.n3()} {o.n3()} .\n" for s, p, o in canonical))).encode()
 
 
-def build_graph_artifacts(view: SchemaView) -> Mapping[str, bytes]:
+_INTEGRITY_FIELDS = (
+    "required",
+    "identifier",
+    "key",
+    "minimum_cardinality",
+    "maximum_cardinality",
+    "exact_cardinality",
+    "minimum_value",
+    "maximum_value",
+    "pattern",
+    "structured_pattern",
+)
+
+
+def _clear_integrity(slot: Any) -> None:
+    for field in _INTEGRITY_FIELDS:
+        setattr(slot, field, None)
+    # Native generators infer maxCount/cardinality=1 from scalar slots.
+    slot.multivalued = True
+
+
+def _scope_projected_schema(view: SchemaView, default_scope: str) -> SchemaDefinition:
+    """Lower only shape-scoped integrity into unconditional OWL/SHACL.
+
+    Materialize effective slots before clearing global defaults so inheritance is
+    resolved once from the original semantic authority. The copy is a projection,
+    never a modification of the admitted model or its relational descriptors.
+    """
+    scopes = {"shape", "occurrence", "accepted_value", "context"}
+    if default_scope not in scopes:
+        raise OntologyError(f"unsupported constraint scope {default_scope!r}")
+    # SchemaView induced-slot resolution can populate domain_of on source slots;
+    # compute against a private view as well as a private output schema.
+    view = SchemaView(copy.deepcopy(_schema(view)))
+    schema = copy.deepcopy(_schema(view))
+    classes = schema.classes
+    slots = schema.slots
+    types = schema.types
+    if not isinstance(classes, dict) or not isinstance(slots, dict) or not isinstance(types, dict):
+        raise OntologyError("graph projection requires normalized metamodel mappings")
+
+    def carrier_range(name: str) -> str:
+        if view.get_type(name) is None:
+            return name
+        current = name
+        seen = set()
+        uri = None
+        base = None
+        while current:
+            if current in seen:
+                raise OntologyError("datatype inheritance cycle")
+            seen.add(current)
+            definition = view.get_type(current)
+            if definition is None:
+                raise OntologyError(f"unknown datatype {current!r}")
+            if definition.uri:
+                uri = definition.uri
+            if definition.base:
+                base = definition.base
+            current = str(definition.typeof) if definition.typeof else ""
+        if uri is None:
+            raise OntologyError(f"datatype {name!r} has no primitive URI")
+        alias = f"ScopedCarrier_{name}"
+        if alias in view.all_types():
+            raise OntologyError(f"reserved projection datatype name {alias!r}")
+        types[alias] = TypeDefinition(name=alias, uri=uri, base=base)
+        return alias
+
+    for name in view.all_classes():
+        cls = classes[name]
+        if not isinstance(cls, ClassDefinition):
+            raise OntologyError("graph projection requires normalized classes")
+        attributes = {}
+        for effective in view.class_induced_slots(name):
+            fields = json_dumper.to_dict(effective)
+            if not isinstance(fields, Mapping):
+                raise OntologyError("induced slot serialization must be a mapping")
+            attribute = SlotDefinition(**{str(key): value for key, value in fields.items()})
+            annotations = getattr(attribute, "annotations", None) or {}
+            scope_annotation = annotations.get("cs:constraint_scope")
+            scope = str(scope_annotation.value) if scope_annotation is not None else default_scope
+            if scope not in scopes:
+                raise OntologyError(f"unsupported constraint scope {scope!r}")
+            # Already materialized; do not inherit global slot constraints again.
+            attribute.is_a = None
+            attribute.mixins = []
+            if scope != "shape":
+                _clear_integrity(attribute)
+                if attribute.range:
+                    attribute.range = carrier_range(str(attribute.range))
+            attributes[str(attribute.name)] = attribute
+        # Mutate normalized containers rather than assigning plain dicts through
+        # the LinkML JsonObj setter, which would lose the metamodel mapping type.
+        if not isinstance(cls.attributes, dict) or not isinstance(cls.slot_usage, dict):
+            raise OntologyError("graph projection requires normalized class slot mappings")
+        cls.attributes.clear()
+        cls.attributes.update(attributes)
+        cls.slot_usage.clear()
+        cls.slots = []
+    for slot in slots.values():
+        if not isinstance(slot, SlotDefinition):
+            raise OntologyError("graph projection requires normalized slots")
+        _clear_integrity(slot)
+        if slot.range:
+            slot.range = carrier_range(str(slot.range))
+    return schema
+
+
+def build_graph_artifacts(
+    view: SchemaView, *, default_constraint_scope: str = "shape"
+) -> Mapping[str, bytes]:
     """Generate OWL/SHACL for a fully resolved, admitted local schema.
 
     Imports must be merged by the caller. This prevents generator import resolution
@@ -98,16 +211,17 @@ def build_graph_artifacts(view: SchemaView) -> Mapping[str, bytes]:
     """
     if _schema(view).imports:
         raise OntologyError("graph generation requires a merged schema without unresolved imports")
+    schema = _scope_projected_schema(view, default_constraint_scope)
     return {
         "owl": canonical_graph_bytes(
             OwlSchemaGenerator(
-                _schema(view),
+                schema,
                 skip_vacuous_min_zero_cardinality_axioms=True,
                 skip_vacuous_local_range_axioms=True,
                 consolidate_cardinality_axioms=True,
             ).as_graph()
         ),
-        "shacl": canonical_graph_bytes(ShaclGenerator(_schema(view)).as_graph()),
+        "shacl": canonical_graph_bytes(ShaclGenerator(schema).as_graph()),
     }
 
 
