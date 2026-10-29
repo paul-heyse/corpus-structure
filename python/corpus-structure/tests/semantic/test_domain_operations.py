@@ -2,6 +2,7 @@
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 import yaml
@@ -21,9 +22,9 @@ from corpus_structure.semantic.proposals import proposal_inputs,locate_proposal,
 from corpus_structure.semantic.releases import persist_release
 
 
-def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False,formulas=(),known=False,local_known=False,nary=False,broken=False,claim_chain=False,cycle=False,condition=None,two_reports=False,authored_alternative=False,integer_alias=False):
+def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False,formulas=(),known=False,local_known=False,nary=False,broken=False,claim_chain=False,cycle=False,condition=None,two_reports=False,authored_alternative=False,integer_alias=False,math=None,second_math=None,source_macros=None):
     core=Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml'
-    schema={'id':'https://example.org/domain','name':'domain','imports':['semantic_core'],
+    schema:dict[str,Any]={'id':'https://example.org/domain','name':'domain','imports':['semantic_core'],
         'prefixes':{'ex':'https://example.org/'},'default_prefix':'ex',
         'classes':{'Person':{'is_a':'Entity','attributes':{'name':{'range':'string'}}}}}
     if integer_alias:
@@ -66,13 +67,13 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
         run=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'source',1 if known else 0,b'{}'),
                        kind='full',options={'corpus':{'documents':[document_key]}},code_commit='test')
         cid=record_method(conn,SimpleNamespace(name='agent.opus',version='1',family='agent',tier='agent',confidence_source='agent'),
-                          'extract',{},'config')
+                          'extract',{'math':math} if math is not None else {},'config')
         task=create_task(conn,run_id=run,config_id=cid,stage='propose',unit_type='document',unit_id=document,
                          unit_key='page#one',input_hash='input')
         lease=claim_tasks(conn,run_id=run,config_id=cid,holder='worker')[0]
-        content=RenditionContent(canonical_text='Alice is here.',document=Segment(kind=SegmentKind.DOCUMENT,start=0,end=14))
+        content=RenditionContent(canonical_text='Alice is here.',document=Segment(kind=SegmentKind.DOCUMENT,start=0,end=14),macros=source_macros or {})
         rid=store_rendition(conn,run_id=run,document_id=document,content=content,task_id=task,config_id=cid,parse_detail={})
-    raw={'unit_ref':'page#one','entities':[{'id':'person','class_iri':'https://example.org/Person','label':'Alice'}],
+    raw:dict[str,Any]={'unit_ref':'page#one','entities':[{'id':'person','class_iri':'https://example.org/Person','label':'Alice'}],
          'statements':[{'id':'s','kind':'remark','anchor':'page#one'}],
          'claims':[{'id':'c','subject':'person','predicate':'https://example.org/name',
                     'object':{'kind':'text','text':'Alice'},'qualification':{'modality':'asserted','polarity':True},
@@ -111,7 +112,8 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
     if authored_alternative:raw['alternatives']=[{'id':'choice','members':[c['id'] for c in raw['claims']],'faithful':True,'reason':'source explicitly contrasts these possibilities'}]
     if condition is not None:
         for claim in raw['claims']:claim['qualification']={**claim['qualification'],'condition':condition}
-    located=locate_proposal(prepared,raw,ProposalFrame('page#one','Alice is here.',(ProposalSentence('s1','page#sentence',0,14),)),**({'known_classes':{'known:alice':('https://example.org/Person',)}} if known else {}))
+    frame=ProposalFrame('page#one','Alice is here.',(ProposalSentence('s1','page#sentence',0,14),))
+    located=locate_proposal(prepared,raw,frame,known_classes={'known:alice':('https://example.org/Person',)}) if known else locate_proposal(prepared,raw,frame)
     with writer.begin() as conn:
         complete_task(conn,task_id=task,attempt=lease['attempt'],holder='worker',prepared=prepared,
             observations=[{'payload_definition':'AgentStoredBatch','item_key':'proposal','kind':'claim_proposal',
@@ -121,7 +123,7 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
             second=copy.deepcopy(raw)
             second['claims'][0]['object']['bindings']=[{'symbol':'x','kind':'constant'}]
             second_located=locate_proposal(prepared,second,ProposalFrame('page#one','Alice is here.',(ProposalSentence('s1','page#sentence',0,14),)))
-            second_config=record_method(conn,SimpleNamespace(name='agent.opus',version='1',family='agent',tier='agent',confidence_source='agent'),'extract',{'variant':'second'},'config-second')
+            second_config=record_method(conn,SimpleNamespace(name='agent.opus',version='1',family='agent',tier='agent',confidence_source='agent'),'extract',{'variant':'second',**({'math':second_math if second_math is not None else math} if second_math is not None or math is not None else {})},'config-second')
             second_task=create_task(conn,run_id=run,config_id=second_config,stage='propose',unit_type='document',unit_id=document,unit_key='page#one',input_hash='input-second')
             second_lease=claim_tasks(conn,run_id=run,config_id=second_config,holder='worker')[0]
             complete_task(conn,task_id=second_task,attempt=second_lease['attempt'],holder='worker',prepared=prepared,observations=[{'payload_definition':'AgentStoredBatch','item_key':'proposal','kind':'claim_proposal','payload':second_located.stored.model_dump(mode='python'),'rendition_id':rid}])
@@ -296,8 +298,10 @@ def test_claim_references_use_canonical_premise_fact_and_separate_source_view_id
     assert by_ref['p1'].fact_id==by_ref['p2'].fact_id
     assert by_ref['d1'].fact_id==by_ref['d2'].fact_id
     assert by_ref['d1'].qualification['condition']['ref']==by_ref['p1'].fact_id
-    assert by_ref['d1'].rule_qualification['condition']['ref']==by_ref['p1'].occurrence_id
-    assert by_ref['d2'].rule_qualification['condition']['ref']==by_ref['p2'].occurrence_id
+    first,second=by_ref['d1'].rule_qualification,by_ref['d2'].rule_qualification
+    assert first is not None and second is not None
+    assert first['condition']['ref']==by_ref['p1'].occurrence_id
+    assert second['condition']['ref']==by_ref['p2'].occurrence_id
     consolidate_cut(semantic_writer_engine,cut,'evaluated')
 
 
@@ -366,3 +370,27 @@ def test_primitive_alias_rule_view_keeps_source_value_kind(semantic_db_engine,se
     with semantic_writer_engine.connect() as conn:
         statuses=conn.execute(select(table('data.assessment').c.outcome).where(table('data.assessment').c.operation_id=='consolidate.status')).scalars().all()
         assert statuses==['accepted']
+
+
+@pytest.mark.parametrize(('operand','source_override'),[('fallback',False),('fallback',True),('constant',False)])
+def test_recorded_math_fallbacks_constants_and_source_override_drive_science(semantic_db_engine,semantic_writer_engine,semantic_reader_engine,tmp_path,operand,source_override):
+    from corpus_structure.semantic.query import read_session,QuerySpec
+    from corpus_structure.core.evidence import MacroDef
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',formulas=((r'\A' if operand=='fallback' else r'e^{\ln x}'),'x'),math={'macros':{r'\A':'100' if source_override else 'x','unused':'z'},'constants':['e',r'\pi']},source_macros={r'\A':MacroDef(body='x')} if source_override else None)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with read_session(semantic_reader_engine,'evaluated') as session:
+        cls=session.class_handle('Person');prop=session.property_handle(cls,'name')
+        rows=session.query(QuerySpec(cls,prop)).rows
+        if operand=='fallback':
+            used=next(row.object for row in rows if row.object.expression.startswith(r'\A'))
+            assert used.macro_context[r'\A'].body=='x' and 'unused' not in used.macro_context
+        assert len(session.query(QuerySpec(cls,prop,'accepted')).rows)==1
+        assert {a.outcome for a in session.explain(rows[0].fact_id).assessments if a.operation_id=='scientific.value_equivalence'}=={'equivalent'}
+
+
+def test_conflicting_recorded_constant_profiles_refuse_cut(semantic_db_engine,semantic_writer_engine,tmp_path):
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',formulas=('x',),two_reports=True,math={'constants':['e']},second_math={'constants':[]})
+    with pytest.raises(DomainOperationRefused,match='incompatible recorded mathematical constant profiles'):
+        consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with semantic_writer_engine.connect() as conn:
+        assert not conn.execute(select(table('data.realization')).where(table('data.realization').c.realization_id=='evaluated')).first()
