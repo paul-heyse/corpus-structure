@@ -578,6 +578,7 @@ def prepare_release(
                 tuple(slots),
                 keys,
                 groups,
+                bool(cls.abstract),
             )
         )
         try:

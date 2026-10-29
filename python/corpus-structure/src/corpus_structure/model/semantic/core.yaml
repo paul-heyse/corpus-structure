@@ -37,7 +37,7 @@ classes:
     is_a: Value
     attributes:
       kind: {equals_string: entity}
-      target: {required: true}
+      target: {range: Entity, required: true}
   CollectionValue:
     is_a: Value
     attributes:

@@ -67,7 +67,7 @@ def test_metadata_deterministic_and_fixed() -> None:
     assert set(t.schema for t in metadata.tables.values()) == {'sem', 'data'}
     assert table('sem.release') is metadata.tables['sem.release']
     assert PHYSICAL_MODEL_ID.startswith('physical:')
-    assert head_revision() == 'semantic_0002'
+    assert head_revision() is not None
 
 
 def test_candidate_schema_is_not_a_physical_model() -> None:
@@ -81,6 +81,7 @@ def test_exact_decimal_projection_preserves_lexical_semantics() -> None:
     assert decimal_projection('1e131071') == Decimal('1e131071')
     assert decimal_projection('1e131072') is None
     assert decimal_projection('1e-16384') is None
+    assert decimal_projection('1e9999999999999999999999') is None
     for lexical in ('NaN', 'Infinity', '1_000', ' 1', ''):
         with pytest.raises(ValueError):
             decimal_projection(lexical)

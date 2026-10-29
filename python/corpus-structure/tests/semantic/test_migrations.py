@@ -49,5 +49,8 @@ def test_native_cross_realization_and_variant_constraints(semantic_db_engine: En
 
 def test_bootstrap_downgrade_refuses_destructive_reversal(semantic_db_engine: Engine) -> None:
     with semantic_db_engine.begin() as conn:
+        before = current_revision(conn)
         with pytest.raises(RuntimeError, match='destructive'):
             downgrade(conn)
+        assert current_revision(conn) == before
+        assert 'selected_fact' in inspect(conn).get_view_names(schema='data')

@@ -147,6 +147,11 @@ classes:
       iri:
         range: string
         required: true
+      abstract:
+        range: boolean
+        required: true
+        annotations:
+          ph:default: 'false'
     unique_keys:
       primary_key:
         unique_key_slots:

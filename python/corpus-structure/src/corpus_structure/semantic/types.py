@@ -100,6 +100,7 @@ class ClassDefinition:
     properties: tuple[PropertyDefinition, ...]
     identity_slots: tuple[str, ...]
     identity_groups: tuple[tuple[str, ...], ...] = ()
+    abstract: bool = False
 
 
 @dataclass(frozen=True)

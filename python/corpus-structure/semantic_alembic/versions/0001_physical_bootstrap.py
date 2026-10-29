@@ -56,6 +56,7 @@ def upgrade() -> None:
     sa.Column('class_id', sa.Text(), nullable=False),
     sa.Column('name', sa.Text(), nullable=False),
     sa.Column('iri', sa.Text(), nullable=False),
+    sa.Column('abstract', sa.Boolean(), server_default=sa.text('false'), nullable=False),
     sa.ForeignKeyConstraint(['release_id'], ['sem.release.release_id'], name=op.f('fk_class_definition_release_id')),
     sa.PrimaryKeyConstraint('release_id', 'class_id', name=op.f('pk_class_definition')),
     sa.UniqueConstraint('release_id', 'iri', name=op.f('uq_class_definition_release_id_iri')),

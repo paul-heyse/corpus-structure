@@ -39,4 +39,7 @@ def upgrade(connection: Connection, target: str = "head") -> list[dict[str, Any]
 
 
 def downgrade(connection: Connection, target: str = "base") -> None:
+    if target == "base":
+        # Refuse before an earlier revision's reversible projection has been dropped.
+        raise RuntimeError("semantic bootstrap downgrade is destructive; rebuild the owned realization")
     command.downgrade(alembic_config(connection), target)

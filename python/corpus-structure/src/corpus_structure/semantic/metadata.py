@@ -7,7 +7,7 @@ this MetaData and never creates a table. Migration, publication and queries shar
 from __future__ import annotations
 
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
@@ -39,7 +39,11 @@ def decimal_projection(lexical: str) -> Decimal | None:
     """
     if not _DECIMAL.fullmatch(lexical):
         raise ValueError("not a finite decimal lexical value")
-    value = Decimal(lexical)
+    try:
+        value = Decimal(lexical)
+    except InvalidOperation:
+        # A syntactically valid exponent may exceed even Decimal's exponent range.
+        return None
     digits = value.as_tuple()
     exponent = digits.exponent
     if not isinstance(exponent, int):

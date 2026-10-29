@@ -405,3 +405,16 @@ classes:
     }
     with pytest.raises(ValidationError):
         prepared.validate_json("Prediction", '{"outcome":"unknown"}')
+
+
+def test_registry_retains_abstract_and_native_entity_reference():
+    root = Path(__file__).parents[2] / 'src/corpus_structure/model/semantic/core.yaml'
+    release = prepare_release(SourceBundle('core', (SourceArtifact('core', root.read_bytes()),)))
+    definitions = {item.name: item for item in release.definitions}
+    assert definitions['Value'].abstract is True
+    assert definitions['Condition'].abstract is True
+    assert definitions['EntityValue'].abstract is False
+    target = next(item for item in definitions['EntityValue'].properties if item.name == 'target')
+    assert target.range == 'Entity'
+    assert target.inlined is False
+    assert release.validate_json('EntityValue', '{"kind":"entity","target":"e"}').model_dump() == {'kind': 'entity', 'target': 'e'}
