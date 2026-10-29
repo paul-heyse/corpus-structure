@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import Counter
 from typing import Any
+from types import SimpleNamespace
 
 from sqlalchemy import Connection, select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -66,9 +67,9 @@ def propose(conn: Connection, run_id: int, registry: Any) -> None:
             if bearing is None:
                 bearing = kind in enums.property('claim_bearing')
             thing = {'phase': run.phase, 'iteration': 0,
-                'unit': {'kind': segment.kind.value, 'statement_kind': kind, 'claim_bearing': bool(bearing)},
-                'target': {'kind':None,'size':None,'max_confidence':None,'margin':None},
-                'budget': {'agent_packets_left':None,'llm_tokens_left':None},
+                'unit': SimpleNamespace(kind=segment.kind.value, statement_kind=kind, claim_bearing=bool(bearing)),
+                'target': SimpleNamespace(kind=None,size=None,max_confidence=None,margin=None),
+                'budget': SimpleNamespace(agent_packets_left=None,llm_tokens_left=None),
                 'ran':lambda m:False,'outcome':lambda m:None,'judged_by':lambda m:False,
                 'decision':lambda m:None,'confidence':lambda m:None}
             matched = rules.matches(PolicyChain.PROPOSE, thing)
