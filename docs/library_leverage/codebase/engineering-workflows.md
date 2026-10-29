@@ -81,6 +81,8 @@ framework is needed.
    selection unchanged?
 3. How does the ADBC capture connection derive from the same principal configuration?
 
+**Library assessment (2026-10-29).** The publisher is `NOLOGIN`, so it is not a connection principal. Since `3d97504`, `connection_settings(settings, purpose)` derives write/read/evaluate/maintenance URLs. `NullConnectionPool` behind SQLAlchemy is ruled out at psycopg-pool 3.3.3 ([psycopg](../libraries/psycopg/README.md#applicability-cbo-004), [pydantic-settings](../libraries/pydantic-settings/README.md#applicability-cbo-004)).
+
 <a id="cbo-010"></a>
 
 ## CBO-010 — Native test databases have no reusable migrated template or revision-pair route
@@ -129,6 +131,8 @@ The consumers are developers, the SP-08 consumer tests and the SP-10 qualificati
    on the shared 5434 cluster?
 2. Can its template key include the full revision directory and role state?
 
+**Library assessment (2026-10-29).** **Premise failure.** `CREATE DATABASE … TEMPLATE` does not copy database-level grants. Revisions 0003 and 0007 revoke `TEMP` from `PUBLIC` at that level, so a cloned head template would re-grant TEMP to every role. Any template route must replay the database ACL after cloning ([LOP-X007](../assessment-patterns.md#lop-x007)). The template key must also cover the role inventory: a fourth role exists, and revisions now number 28 ([postgresql](../libraries/postgresql/README.md#applicability-cbo-010)).
+
 <a id="cbo-011"></a>
 
 ## CBO-011 — The qualification route cannot classify outcomes for the required union
@@ -167,3 +171,5 @@ Current configuration: `pyproject.toml` `[tool.pytest.ini_options]` (`-q`) and t
 1. Which built-in pytest output records skip reasons and per-test outcomes faithfully enough to
    account for the union?
 2. Is a timeout plugin needed, or does an existing facility bound hangs?
+
+**Library assessment (2026-10-29).** pytest-timeout's `signal` method conflicts with the math grammar's `SIGALRM` deadline. faulthandler-exit makes a hang observable but writes no JUnit file. `--hypothesis-profile=ci` overrides the conftest default ([pytest](../libraries/pytest/README.md#applicability-cbo-011), [hypothesis](../libraries/hypothesis/README.md#applicability-cbo-011)).

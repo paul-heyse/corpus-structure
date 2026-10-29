@@ -37,9 +37,16 @@ source `9f8df02`, reconciled through `f697233`). It holds 24 opportunities, with
 the semantic-model pivot's SP-08–SP-10 work. That pass also created the shared
 [additional assessment patterns](assessment-patterns.md) (LOP-X001–X004).
 
-The [library assessment](libraries/README.md) and [comparative review](reviews/README.md)
-collections remain unassessed. Record inspected baselines and limits rather than treating empty
-collections as assessed, and add patterns only when a framing is genuinely missing.
+The [library assessment collection](libraries/README.md) has its first baseline (2026-10-29,
+source `d739b88`, consuming codebase publication `d739b88`). It covers:
+- reusable opportunity types across 19 library accounts, prioritized by the libraries the project
+  uses;
+- an applicability conclusion for every CBO;
+- additional patterns LOP-X005–X007 and refinements to LOP-X001–X004.
+
+The [comparative review](reviews/README.md) collection remains unassessed. Record inspected
+baselines and limits rather than treating empty collections as assessed, and add patterns only when
+a framing is genuinely missing.
 
 The shared [vocabulary](references/shared-language.md) and
 [collection-writing guidance](references/collection-writing.md) support all three skills. Keep

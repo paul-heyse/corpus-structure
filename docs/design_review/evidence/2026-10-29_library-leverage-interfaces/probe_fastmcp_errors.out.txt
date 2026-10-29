@@ -1,0 +1,39 @@
+{
+  "no_middleware": {
+    "is_error": true,
+    "text": [
+      "Error calling tool 'refuse': task is not leased by this session"
+    ],
+    "structured": false
+  },
+  "error_handling_default": {
+    "raised": "MCPError",
+    "message": "Internal error: Error calling tool 'refuse': task is not leased by this session"
+  },
+  "custom_refusal_mapping": {
+    "is_error": true,
+    "text": [
+      "task is not leased by this session"
+    ],
+    "structured": false
+  },
+  "list_output_schema_without_limit": {
+    "refuse": true,
+    "big": true
+  },
+  "list_output_schema_with_limit": {
+    "refuse": false,
+    "big": false
+  },
+  "list_output_schema_with_limit_scoped": {
+    "refuse": true,
+    "big": false
+  },
+  "big_under_limit": {
+    "is_error": false,
+    "text": [
+      "{\"text\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    "structured": false
+  }
+}

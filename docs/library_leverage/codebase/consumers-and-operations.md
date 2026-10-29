@@ -103,6 +103,8 @@ wire validation and JSON Schema. [fastmcp](../../libraries/fastmcp.md): `Respons
 **Related.** [CBO-003](release-preparation.md#cbo-003) (every session reloads the release);
 [CBO-007](#cbo-007) (exports).
 
+**Library assessment (2026-10-29).** Core fits with conditions ([applicability](../libraries/sqlalchemy/README.md#applicability-cbo-001)). Three exact-lowering gaps were not recorded above: floats stored as hex text, decimals with `NULL` `numeric_value` beyond NUMERIC bounds, and the reader lacking EXECUTE on native value functions. `_values`/`_entities` use expanding `.in_()` ([LOP-X005](../assessment-patterns.md#lop-x005)). Concurrent SP-08 commit `7cfd7f8` added `serve/read.py` and migrated serving; refresh this premise before review.
+
 <a id="cbo-005"></a>
 
 ## CBO-005 — The released rule policy evaluates semantic candidates through the retiring rule environment
@@ -165,6 +167,8 @@ dataclass resolvers, `DataType.from_type`, public AST traversal.
    `_object_type`?
 3. What smallest stable "rule view" keeps archived rule text meaningful after legacy retirement?
 
+**Library assessment (2026-10-29).** `ReleasedRulesPolicy` evaluates `when`/`check` `Rule` pairs, not a `Chain`. `type_resolver_from_dict` is already used. Deriving rule types from the release's Pydantic models is ruled out at rule-engine 5.1.0; a logical view (OBJECT plus accessor) fits with conditions, and its nullability is part of the archived contract ([applicability](../libraries/rule-engine/README.md#applicability-cbo-005)).
+
 <a id="cbo-006"></a>
 
 ## CBO-006 — Scientific comparison and alignment kernels take the retiring value and batch model
@@ -205,6 +209,8 @@ privileges.
 **Questions for library research.**
 1. Should the comparator own one adapter from release-validated values, used by every consumer?
 2. Can gold isolation be enforced by database privileges rather than by convention?
+
+**Library assessment (2026-10-29).** `model_copy(update=…)` in the comparison path writes without validation. Gold isolation by privileges is being implemented concurrently (`4de601c`) ([applicability](../libraries/postgresql/README.md#applicability-cbo-006)).
 
 <a id="cbo-007"></a>
 
@@ -255,6 +261,8 @@ metadata. [adbc-driver-postgresql](../../libraries/adbc-driver-postgresql.md).
    identity?
 3. Who owns ADBC connection construction from `Settings` and the restricted principals?
 
+**Library assessment (2026-10-29).** Premise corrected. Settings already held the libpq URL and driver path, and since `3d97504` `connection_settings(settings, "read")` derives the reader URL. Concurrent SP-08 commit `7cfd7f8` added `ci export` using that route plus pyarrow `write_table(store_schema=True)`. DuckDB drops Arrow metadata, so a DuckDB export must restate identity as `KV_METADATA` ([duckdb](../libraries/duckdb/README.md#applicability-cbo-007), [pyarrow](../libraries/pyarrow/README.md#applicability-cbo-007), [adbc](../libraries/adbc-driver-postgresql/README.md#applicability-cbo-007)).
+
 <a id="cbo-012"></a>
 
 ## CBO-012 — Refusal mapping and MCP conventions are re-decided per surface
@@ -298,6 +306,8 @@ middleware; providers and tool transforms for schemas bound to a release.
 1. Can FastMCP middleware own error translation and size bounds for both servers?
 2. Is a per-run input schema worth its cost compared with the pages-plus-hash protocol?
 
+**Library assessment (2026-10-29).** Premise partly stale at `3d97504`: `intervene/server.py` now delegates to the semantic server, the legacy response backstop and `DBAPIError` mapping no longer exist, and a new `record_direction` tool has no refusal mapping. The built-in `ErrorHandlingMiddleware` would turn every tool error into a protocol error; a custom middleware or decorator fits ([fastmcp](../libraries/fastmcp/README.md#applicability-cbo-012)).
+
 <a id="cbo-016"></a>
 
 ## CBO-016 — Release-typed instance traversal is reimplemented per consumer
@@ -339,6 +349,8 @@ traversal. A descriptor visitor exposed by the prepared release
 **Question for library research.** Can one descriptor-directed visitor (collect, rewrite, lower)
 serve all consumers?
 
+**Library assessment (2026-10-29).** `model_dump(exclude_unset=True)` equals `_native` exactly on compiler output (probe); the walkers' policy stays owned. `conditional_rules.validate_rules` is a further shallow projection site ([pydantic](../libraries/pydantic/README.md#applicability-cbo-016)).
+
 <a id="cbo-020"></a>
 
 ## CBO-020 — Each cut loads and decodes the whole input realization, then narrows in Python
@@ -372,6 +384,8 @@ uses. [sqlalchemy](../../libraries/sqlalchemy.md).
 **Question for library research.** Which attributes does identity resolution need globally, and can
 the rest be fetched by reachability inside the database?
 
+**Library assessment (2026-10-29).** Premise corrected. Identity resolution needs memberships plus decoded identity-group and display-label values for every known entity. The reachable set is seeded from Python resolution output, so a database closure is a second phase. The known-entity `.in_(ids)` sets would hit the 65,535-parameter ceiling regardless ([sqlalchemy](../libraries/sqlalchemy/README.md#applicability-cbo-020)).
+
 <a id="cbo-023"></a>
 
 ## CBO-023 — The math deadline confines comparison and domain decisions to the main thread
@@ -401,3 +415,5 @@ grammar. Bounded parse time is a real protection.
 
 **Question for library research.** How does FastMCP execute synchronous tools, and which SP-08
 paths would run the grammar off the main thread?
+
+**Library assessment (2026-10-29).** Settled by probe: default synchronous FastMCP tools run on a worker thread (`OffMainThread`), while `async def` or `run_in_thread=False` tools run on the main thread under `ci mcp serve` ([fastmcp](../libraries/fastmcp/README.md#applicability-cbo-023)).

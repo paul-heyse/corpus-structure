@@ -1,0 +1,59 @@
+sqlalchemy 2.1.5 psycopg 3.3.6
+
+=== Q1a in_() cached form: SELECT data.fact.fact_id 
+FROM data.fact 
+WHERE data.fact.fact_id IN (__[POSTCOMPILE_fact_id_1])
+Q1a in_() post-compile form: SELECT data.fact.fact_id 
+FROM data.fact 
+WHERE data.fact.fact_id IN (%(fact_id_1_1)s::VARCHAR, %(fact_id_1_2)s::VARCHAR, %(fact_id_1_3)s::VARCHAR, %(fact_id_1_4)s::VARCHAR, %(fact_id_1_5)s::VARCHAR) params: 5
+
+=== Q1b = ANY(array bind)
+SELECT data.fact.fact_id 
+FROM data.fact 
+WHERE data.fact.fact_id = ANY (%(ids)s::TEXT[])
+params=['ids']... n=1
+
+=== Q2a predicate over value_role/typed_value composed into one SELECT
+SELECT data.fact.fact_id, data.fact.subject_id 
+FROM data.fact 
+WHERE data.fact.release_id = %(release_id_1)s::VARCHAR AND data.fact.realization_id = %(realization_id_1)s::VARCHAR AND data.fact.property_id = %(property_id_1)s::VARCHAR AND (EXISTS (SELECT 1 
+FROM data.value_role 
+WHERE data.value_role.release_id = %(release_id_2)s::VARCHAR AND data.value_role.realization_id = %(realization_id_2)s::VARCHAR AND data.value_role.parent_value_id = data.fact.object_value_id AND data.value_role.role = %(role_1)s::VARCHAR AND (EXISTS (SELECT 1 
+FROM data.typed_value 
+WHERE data.typed_value.release_id = %(release_id_3)s::VARCHAR AND data.typed_value.realization_id = %(realization_id_3)s::VARCHAR AND data.typed_value.value_id = data.value_role.child_value_id AND data.typed_value.kind = %(kind_1)s::VARCHAR AND data.typed_value.text_value = %(text_value_1)s::VARCHAR)))) AND (data.fact.fact_id COLLATE "C") > %(param_1)s::VARCHAR COLLATE "C" ORDER BY data.fact.fact_id COLLATE "C" 
+ LIMIT %(param_2)s::INTEGER
+params=['kind_1', 'param_1', 'param_2', 'property_id_1', 'realization_id_1', 'realization_id_2', 'realization_id_3', 'release_id_1']... n=12
+
+=== Q2b set-oriented support read keyed by fact_id = ANY(:fact_ids)
+SELECT data.support.fact_id, data.occurrence.realization_id, data.occurrence.release_id, data.occurrence.occurrence_id, data.occurrence.fact_id AS fact_id_1, data.occurrence.source, data.occurrence.item, data.occurrence.batch_id, data.occurrence.report_object_value_id, data.occurrence.report_qualification_value_id 
+FROM data.support JOIN data.occurrence ON data.support.release_id = data.occurrence.release_id AND data.support.realization_id = data.occurrence.realization_id AND data.support.occurrence_id = data.occurrence.occurrence_id 
+WHERE data.support.release_id = %(release_id_1)s::VARCHAR AND data.support.realization_id = %(realization_id_1)s::VARCHAR AND data.support.fact_id = ANY (%(fact_ids)s::TEXT[]) ORDER BY data.support.fact_id, data.occurrence.occurrence_id
+params=['fact_ids', 'realization_id_1', 'release_id_1']... n=3
+
+=== Q3 reachability closure over a UNION ALL edge relation
+WITH RECURSIVE reach(kind, node) AS 
+(SELECT %(param_1)s::VARCHAR AS kind, %(param_2)s::VARCHAR AS node UNION SELECT edges.dst_kind AS dst_kind, edges.dst AS dst 
+FROM (SELECT %(param_3)s::VARCHAR AS src_kind, data.fact.subject_id AS src, %(param_4)s::VARCHAR AS dst_kind, data.fact.object_value_id AS dst 
+FROM data.fact 
+WHERE data.fact.release_id = %(release_id_1)s::VARCHAR AND data.fact.realization_id = %(realization_id_1)s::VARCHAR AND data.fact.property_id IN (__[POSTCOMPILE_property_id_1]) UNION ALL SELECT %(param_5)s::VARCHAR AS anon_1, data.value_role.parent_value_id AS parent_value_id, %(param_6)s::VARCHAR AS anon_2, data.value_role.child_value_id AS child_value_id 
+FROM data.value_role 
+WHERE data.value_role.release_id = %(release_id_2)s::VARCHAR AND data.value_role.realization_id = %(realization_id_2)s::VARCHAR UNION ALL SELECT %(param_7)s::VARCHAR AS anon_3, data.typed_value.value_id AS value_id, %(param_8)s::VARCHAR AS anon_4, data.typed_value.entity_id AS entity_id 
+FROM data.typed_value 
+WHERE data.typed_value.release_id = %(release_id_3)s::VARCHAR AND data.typed_value.realization_id = %(realization_id_3)s::VARCHAR AND data.typed_value.kind = %(kind_1)s::VARCHAR) AS edges JOIN reach ON edges.src_kind = reach.kind AND edges.src = reach.node)
+ SELECT reach.node 
+FROM reach 
+WHERE reach.kind = %(kind_2)s::VARCHAR
+params=['kind_1', 'kind_2', 'param_1', 'param_2', 'param_3', 'param_4', 'param_5', 'param_6']... n=17
+Q3 single recursive reference in the recursive term: True
+
+=== Q4 data.identity_exclusion: CreateTable text == frozen 0027 text: True
+
+=== Q4 data.identity_exclusion_evidence: CreateTable text == frozen 0027 text: True
+
+=== Q5 corpus_sem_writer: dbname=corpus host=/var/run/postgresql port=5434 user=corpus_sem_writer application_name=probe  -> {'user': 'corpus_sem_writer', 'dbname': 'corpus', 'host': '/var/run/postgresql', 'port': '5434', 'application_name': 'probe'}
+
+=== Q5 corpus_sem_reader: dbname=corpus host=/var/run/postgresql port=5434 user=corpus_sem_reader application_name=probe  -> {'user': 'corpus_sem_reader', 'dbname': 'corpus', 'host': '/var/run/postgresql', 'port': '5434', 'application_name': 'probe'}
+
+=== Q6 psycopg.sql offline: CREATE TEMP TABLE "sp_fact"("fact_id" text,"n" numeric) ON COMMIT DROP; GRANT INSERT ("fact_id","n") ON pg_temp."sp_fact" TO "corpus_sem_writer"
+Q6 psycopg.sql Literal offline: 'it''s'
+Q6 SQLAlchemy preparer: sp_fact corpus_sem_writer "Mixed"

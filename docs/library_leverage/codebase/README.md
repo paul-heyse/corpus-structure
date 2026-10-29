@@ -216,8 +216,11 @@ never reused.
 
 ## Questions for library research
 
-These are the most consequential questions for `leverage-library-assessment`. Each opportunity
-lists its own.
+These were the most consequential questions for `leverage-library-assessment`. Each opportunity
+lists its own. The first [library assessment](../libraries/README.md#applicability) (2026-10-29,
+source `d739b88`) answered them per opportunity. It also added dated notes to the affected CBO
+entries where premises changed or were corrected. Those notes include a correctness gap in
+CBO-013 and a template-ACL premise failure in CBO-010.
 
 1. **SQLAlchemy Core and psycopg** (CBO-001, CBO-020): release-checked predicate composition over
    `typed_value`/`value_role`, streaming with response budgets, set-oriented explanation and value

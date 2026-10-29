@@ -1,0 +1,47 @@
+Ambiguous attribute: id https://example.org/id
+Ambiguous attribute: id https://example.org/id
+Rule in class 'Thing' has elseconditions; only the forward (if/then) branch is emitted as sh:sparql. The else branch cannot be represented in SHACL-SPARQL.
+versions 2.14.1 2.50.1
+P1-annotation score <class 'float'>
+P1-annotation scores tuple[float, ...]
+P1-annotation thing <class 'corpus_structure.semantic.prepare.Thing'>
+P1-annotation things dict[str, corpus_structure.semantic.prepare.Thing]
+P1-annotation listed tuple[corpus_structure.semantic.prepare.Thing, ...]
+P1-annotation ref <class 'str'>
+P1-annotation amount <class 'decimal.Decimal'>
+P1a model refuses NaN score raised ValidationError: 1 validation error for Holder
+P1b property_adapter(score) accepts NaN strict nan
+P1c property_adapter(scores,item) accepts inf strict inf
+P1d public adapter(score) refuses NaN raised ValidationError: 1 validation error for float
+P1e public adapter(scores,item) refuses inf raised ValidationError: 1 validation error for float
+P1f public adapter(thing) config route <class 'corpus_structure.semantic.prepare.Thing'>
+P1g TypeAdapter(Thing, config=...) refused raised PydanticUserError: Cannot use `config` when the type is a BaseModel, dataclass or TypedDict. These types can have their own config and setting the config via the `config` paramete
+P1h TypeAdapter(tuple[Thing,...], config=...) allowed (Thing(id='t', label=MISSING, reason='r', status=MISSING),)
+P1i public adapter(amount) keeps ge=0 raised ValidationError: 1 validation error for decimal
+P1j public adapter(amount) strict refuses str raised ValidationError: 1 validation error for decimal
+P1k strict per-call == strict config for amount raised ValidationError: 1 validation error for decimal
+P1l public adapter(things,item) keyed member type <class 'corpus_structure.semantic.prepare.Thing'>
+P1m whole-field adapter(things) keeps keyed validator raised ValidationError: 1 validation error for function-after[validate(), dict[str,function-after[validate_rules(), Thing]]]
+P1n public attribute for adapter type? ['_type']
+P2a model_dump(exclude_unset) {'amount': Decimal('1.50'), 'id': 'h', 'listed': ({'id': 't3', 'reason': 'r'},), 'ref': 't9', 'renamed': 'x', 'tags': ('a', 'b'), 'thing': {'id': 't1', 'label': 'L', 'status': 'ready'}, 'things': {'t2': {'id': 't2', 'reason': 'r'}}}
+P2b _plain {'amount': Decimal('1.50'), 'id': 'h', 'listed': [{'id': 't3', 'reason': 'r'}], 'ref': 't9', 'renamed': 'x', 'tags': ['a', 'b'], 'thing': {'id': 't1', 'label': 'L', 'status': 'ready'}, 'things': {'t2': {'id': 't2', 'reason': 'r'}}}
+P2c _native {'amount': Decimal('1.50'), 'id': 'h', 'listed': ({'id': 't3', 'reason': 'r'},), 'ref': 't9', 'renamed': 'x', 'tags': ('a', 'b'), 'thing': {'id': 't1', 'label': 'L', 'status': 'ready'}, 'things': {'t2': {'id': 't2', 'reason': 'r'}}}
+P2d consolidation.plain == _plain True
+P2e dump == _native (tuple-preserving) True
+P2f lists(dump) == _plain True
+P2g dump keys are field names (renamed) True False
+P2h dump by_alias keys ['amount', 'id', 'listed', 'ref', 'renamed_external', 'tags', 'thing', 'things']
+P2i TypeAdapter.dump_python(exclude_unset) on adapter output == _native True
+P2j explicit-set fields kept {'id': 't', 'label': 'x', 'reason': 'r'}
+P3a per-class Thing top-level has if/then True True
+P3b per-class Holder $defs keys ['Thing']
+P3c Holder $defs.Thing carries if/then True
+P3d Holder.properties.thing {"$ref": "#/$defs/Thing"}
+P3e models_json_schema map {'Holder': {'$ref': '#/$defs/Holder'}, 'Thing': {'$ref': '#/$defs/Thing'}}
+P3f shared $defs keys ['Holder', 'Thing']
+P3g shared $defs.Thing carries if/then True
+P3h shared Thing def == per-class Thing (minus title/$defs) True
+P3i TypeAdapter.json_schemas == models_json_schema defs True
+P3j shared Holder def == per-class Holder (minus $defs) True
+P4a PostgresDsn socket-only URL raised ValidationError: 1 validation error for function-wrap[wrap_val()]
+P4b PostgresDsn host URL postgresql://reader@localhost:5434/corpus

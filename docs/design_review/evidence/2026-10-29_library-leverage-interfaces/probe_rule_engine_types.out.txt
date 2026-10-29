@@ -1,0 +1,62 @@
+{
+  "rule_engine": "5.1.0",
+  "pydantic": "2.14.1",
+  "DataType.from_type": {
+    "str": "<_DataTypeDef name=STRING python_type=str >",
+    "Annotated[str, Field(pattern)]": "<_DataTypeDef name=STRING python_type=str >",
+    "tuple[str, ...]": "<_ArrayDataTypeDef name=ARRAY python_type=tuple value_type=UNDEFINED >",
+    "list[str]": "<_ArrayDataTypeDef name=ARRAY python_type=tuple value_type=STRING >",
+    "dict[str, int]": "<_MappingDataTypeDef name=MAPPING python_type=dict key_type=STRING value_type=FLOAT >",
+    "str | None": "<_NullableDataTypeDef name=NULLABLE inner_type=STRING >",
+    "Literal['x']": "TypeError: from_type argument 1 must be a type or a type hint, not _TypedCacheSpecialForm",
+    "StrEnum": "ValueError: can not map python type 'Kind' to a compatible data type",
+    "Q | R (discriminated)": "ValueError: can not map python type __main__.Q | __main__.R to a compatible data type",
+    "BaseModel Q": "ValueError: can not map python type 'Q' to a compatible data type"
+  },
+  "type_resolver_from_dataclass(BaseModel)": "TypeError: type_resolver_from_dataclass argument 1 must be a dataclass, not ModelMetaclass",
+  "pydantic dataclass strict=True": "ValueError: can not map python type 'Kind' to a compatible data type",
+  "pydantic dataclass strict=False": {
+    "name": "<_DataTypeDef name=STRING python_type=str >",
+    "tags": "<_ArrayDataTypeDef name=ARRAY python_type=tuple value_type=UNDEFINED >",
+    "kind": "UNDEFINED",
+    "note": "<_NullableDataTypeDef name=NULLABLE inner_type=STRING >"
+  },
+  "pydantic dataclass is_dataclass": true,
+  "owner routes": [
+    {
+      "rule": "claim.subject.type == \"x\"",
+      "attribute": "type",
+      "_object_type": "Entity",
+      "object.result_type (unwrapped)": "Entity",
+      "agree": true
+    },
+    {
+      "rule": "claim.subject.type == \"x\"",
+      "attribute": "subject",
+      "_object_type": "Claim",
+      "object.result_type (unwrapped)": "Claim",
+      "agree": true
+    },
+    {
+      "rule": "claim.object&.type == \"x\"",
+      "attribute": "type",
+      "_object_type": "Entity",
+      "object.result_type (unwrapped)": "Entity",
+      "agree": true
+    },
+    {
+      "rule": "claim.object&.type == \"x\"",
+      "attribute": "object",
+      "_object_type": "Claim",
+      "object.result_type (unwrapped)": "Claim",
+      "agree": true
+    },
+    {
+      "rule": "[e.type for e in [claim.subject]][0] == \"x\"",
+      "attribute": "type",
+      "_object_type": "Entity",
+      "object.result_type (unwrapped)": "Entity",
+      "agree": true
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+python 3.14.10 pyarrow 26.0.0
+
+P1 Parquet/dataset metadata round trip
+  write_table default:
+    schema.equals(check_metadata=True): True
+    schema metadata keys: [b'cs.projection', b'cs.relation', b'cs.release']
+    field metadata: {'fact_id': {b'cs.field': b'id'}, 'decimal_value': {b'cs.scale': b'12'}, 'datetime_value': {}, 'flag': {}}
+    types: ['string', 'decimal128(38, 12)', 'timestamp[ns, tz=UTC]', 'bool'] nullable: [False, True, True, False]
+    values equal: True
+  write_table store_schema=False:
+    schema.equals(check_metadata=True): False
+    schema metadata keys: []
+    field metadata: {'fact_id': {}, 'decimal_value': {}, 'datetime_value': {}, 'flag': {}}
+    types: ['string', 'decimal128(38, 12)', 'timestamp[ns, tz=UTC]', 'bool'] nullable: [False, True, True, False]
+    values equal: True
+  write_table version=2.6 coerce_timestamps=None:
+    schema.equals(check_metadata=True): True
+    schema metadata keys: [b'cs.projection', b'cs.relation', b'cs.release']
+    field metadata: {'fact_id': {b'cs.field': b'id'}, 'decimal_value': {b'cs.scale': b'12'}, 'datetime_value': {}, 'flag': {}}
+    types: ['string', 'decimal128(38, 12)', 'timestamp[ns, tz=UTC]', 'bool'] nullable: [False, True, True, False]
+    values equal: True
+  footer KV keys (default): [b'ARROW:schema', b'cs.projection', b'cs.relation', b'cs.release']
+  footer KV keys (store_schema=False): None
+  ParquetWriter batches: equals(check_metadata=True): True
+  write_dataset(table) -> ds.dataset().to_table(): equals(check_metadata=True): True schema md: {b'cs.release': b'r1', b'cs.projection': b'projection:abc', b'cs.relation': b'fact'}
+  write_dataset(table) -> pq.read_table(dir): equals(check_metadata=True): True
+  write_dataset(reader): equals(check_metadata=True): True
+  write_dataset(schema=metadata-stripped): schema md: None
+  partitioned fragment file schema md: {b'cs.release': b'r1', b'cs.projection': b'projection:abc', b'cs.relation': b'fact'} fields: ['fact_id', 'decimal_value', 'datetime_value']
+  file_visitor footer KV keys: [[b'ARROW:schema', b'cs.projection', b'cs.relation', b'cs.release']]
+  projected scan schema md: {b'cs.release': b'r1', b'cs.projection': b'projection:abc', b'cs.relation': b'fact'} field md: {'fact_id': {b'cs.field': b'id'}, 'flag': {}}
+  Table.select keeps schema md: True
+  Table.cast(target w/o md) md: None
+
+P2 Decimal behaviour
+  cast '1.0000000000015' -> decimal128(38,12) safe: ArrowInvalid: Rescaling Decimal value would cause data loss
+  cast '1.0000000000015' -> decimal128(38,12) safe=False: OK -> [
+  1.000000000001
+]
+  decimal128(38,13) 1.0000000000015 -> decimal128(38,12) safe: ArrowInvalid: Rescaling Decimal value would cause data loss
+  decimal128(38,13) -> (38,12) safe=False (truncate?): OK -> [
+  1.000000000001,
+  -1.000000000001
+]
+  pc.round on decimal128(38,13) ndigits=12 half_to_even (type kept?): OK -> (Decimal128Type(decimal128(38, 13)), [Decimal('1.0000000000020'), Decimal('1.0000000000020'), Decimal('-1.0000000000020')])
+  cast exponent strings -> decimal128(38,12): OK -> [Decimal('100000.000000000000'), Decimal('0.001500000000'), Decimal('0E-12'), Decimal('0E-12'), Decimal('100.000000000000')]
+  cast 'NaN' -> decimal: ArrowInvalid: The string 'NaN' is not a valid decimal128 number
+  cast 'Infinity' -> decimal: ArrowInvalid: The string 'Infinity' is not a valid decimal128 number
+  cast '  1.5' (whitespace) -> decimal: ArrowInvalid: The string ' 1.5' is not a valid decimal128 number
+  cast '+1.5' -> decimal: OK -> [
+  1.500000000000
+]
+  cast '.5' -> decimal: OK -> [
+  0.500000000000
+]
+  cast 27 integer digits -> decimal128(38,12): ArrowInvalid: Decimal value does not fit in precision 38
+  round overflow 99..9.9999999999995 (26 int digits) in decimal128(38,13) -> ndigits 12: ArrowInvalid: Rounded value 10000000000000000000000000.0000000000000 does not fit in precision of decimal128(38, 13)
+  per-value comparison of vectorized route vs stdlib reference:
+    agree                                   '1.0000000000015'  ref=(Decimal('1.000000000002'), True)  arrow=(Decimal('1.000000000002'), True)
+    agree                                   '1.0000000000025'  ref=(Decimal('1.000000000002'), True)  arrow=(Decimal('1.000000000002'), True)
+    agree                                  '-1.0000000000025'  ref=(Decimal('-1.000000000002'), True)  arrow=(Decimal('-1.000000000002'), True)
+    agree                                   '0.0000000000005'  ref=(Decimal('0E-12'), True)  arrow=(Decimal('0E-12'), True)
+    agree                                   '0.0000000000015'  ref=(Decimal('2E-12'), True)  arrow=(Decimal('2E-12'), True)
+    agree                                  '-0.0000000000005'  ref=(Decimal('-0E-12'), True)  arrow=(Decimal('0E-12'), True)
+    agree                                           '123.456'  ref=(Decimal('123.456000000000'), False)  arrow=(Decimal('123.456000000000'), False)
+    agree                                              '1E+5'  ref=(Decimal('100000.000000000000'), False)  arrow=(Decimal('100000.000000000000'), False)
+    agree                                           '1.5E-13'  ref=(Decimal('0E-12'), True)  arrow=(Decimal('0E-12'), True)
+    agree                                           '2.5E-12'  ref=(Decimal('2E-12'), True)  arrow=(Decimal('2E-12'), True)
+    agree                                                 '0'  ref=(Decimal('0E-12'), False)  arrow=(Decimal('0E-12'), False)
+    agree                                                '-0'  ref=(Decimal('-0E-12'), False)  arrow=(Decimal('0E-12'), False)
+    agree                                             '0E-20'  ref=(Decimal('0E-12'), False)  arrow=(Decimal('0E-12'), False)
+    agree                                             '1e-30'  ref=(Decimal('0E-12'), True)  arrow=(Decimal('0E-12'), True)
+    agree                        '12345678901234567890123456'  ref=(Decimal('12345678901234567890123456.000000000000'), False)  arrow=(Decimal('12345678901234567890123456.000000000000'), False)
+    DIFFER          '99999999999999999999999999.9999999999995'  ref=refuse  arrow=(Decimal('99999999999999999999999999.999999999998'), True)
+    agree                       '100000000000000000000000000'  ref=refuse  arrow=refuse<ArrowInvalid: Decimal value does not fit in precision 38>
+    agree                                               'NaN'  ref=refuse  arrow=refuse<ArrowInvalid: The string 'NaN' is not a valid decimal256 number>
+    agree                                          'Infinity'  ref=refuse  arrow=refuse<ArrowInvalid: The string 'Infinity' is not a valid decimal256 number>
+    DIFFER                                             '1e-41'  ref=(Decimal('0E-12'), True)  arrow=refuse<ArrowInvalid: Rescaling Decimal value would cause data loss>
+    DIFFER  '1.0000000000000000000000000000000000000000000001'  ref=(Decimal('1.000000000000'), True)  arrow=refuse<ArrowInvalid: Rescaling Decimal value would cause data loss>
+    agree                                              '100%'  ref=error  arrow=refuse<ArrowInvalid: The string '100%' is not a valid decimal256 number>
+    agree                                                None  ref=None  arrow=None
+  agree=20 differ=3
+  note: a whole-array cast fails on the first refusing element (all-or-nothing):
+  vectorized(['1.5','NaN']): ArrowInvalid: The string 'NaN' is not a valid decimal256 number
+
+P3 float hexadecimal spelling
+  cast '0x1.8000000000000p+0' -> float64: ArrowInvalid: Failed to parse string: '0x1.8000000000000p+0' as a scalar of type double
+  cast '-0x0.0p+0' -> float64: ArrowInvalid: Failed to parse string: '-0x0.0p+0' as a scalar of type double
+  cast '5e-324' -> float64 (decimal text, subnormal): OK -> [5e-324]
+  cast '-0.0' -> float64 signbit: OK -> [0.0]
+  utf8 functions available for hex parse? (no 'parse_hex_float' kernel): OK -> []
+
+P4 IPC stream metadata round trip
+  IPC equals(check_metadata=True): True
+  sink.getvalue() is immutable Buffer: Buffer is_mutable= True
