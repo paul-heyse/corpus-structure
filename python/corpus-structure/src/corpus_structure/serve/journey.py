@@ -127,7 +127,16 @@ def coverage(conn: Connection, run_id: int, scope: Scope) -> Coverage:
 
 
 def params_digest(params: Mapping[str, Any]) -> str:
-    return digest(dict(params))
+    from corpus_structure.core.canonical import decimal_of_float
+    def normalized(value: Any) -> Any:
+        if isinstance(value, float):
+            return {'$float': decimal_of_float(value)}
+        if isinstance(value, dict):
+            return {k: normalized(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [normalized(v) for v in value]
+        return value
+    return digest(normalized(dict(params)))
 
 
 def encode_token(run_id: int, query: DomainQuery, params: Mapping[str, Any], position: JsonValue) -> str:
@@ -213,19 +222,22 @@ def serve_query(
     cursor = position
     iterator = query.rows(ctx, p, after=position)
     try:
-        for found in iterator:
+        found = next(iterator, None)
+        while found is not None:
+            following = next(iterator, None)
             if max_rows is not None and len(rows) >= max_rows:
                 return response(True, cursor)
             item = found.row.model_dump(mode="json")
             rows.append(item)
             # Reserve the continuation envelope too, even for a last row.
-            candidate = response(True, found.position)
+            candidate = response(following is not None, found.position)
             if max_chars is not None and len(candidate.model_dump_json()) > max_chars:
                 rows.pop()
                 if not rows:
                     raise QueryRefused("size limit: a complete row and response envelope do not fit; raise max_chars")
                 return response(True, cursor)
             cursor = found.position
+            found = following
     finally:
         close = getattr(iterator, "close", None)
         if close is not None:

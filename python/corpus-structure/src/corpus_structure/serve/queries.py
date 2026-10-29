@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 from pydantic import BaseModel, ConfigDict, JsonValue
-from sqlalchemy import select, or_, text
+from sqlalchemy import select, or_, text, false, tuple_
 from corpus_structure.core.db import metadata
 from corpus_structure.core.vocab import SEARCH_BLOCK
 from corpus_structure.serve.protocol import Positioned, QueryContext, Scope
@@ -39,14 +39,13 @@ class FindParams(BaseModel):
     model_config = ConfigDict(extra='forbid')
     text: str
 
-class Row(BaseModel):
-    """Query-owned answer context; domain payloads retain their declared shapes."""
-    model_config = ConfigDict(extra='allow')
-    key: str
+from corpus_structure.serve.results import ClaimAnswer, EntityAnswer, EvidenceAnswer, FindAnswer, StatementAnswer
+
+Row = ClaimAnswer
 
 class Query:
     version = '2'
-    result = Row
+    result: type[BaseModel] = Row
     def scope(self, ctx: QueryContext, p: Any) -> Scope:
         return Scope.run()
 
@@ -73,35 +72,53 @@ class Claims(Query):
 
 class Entity(Query):
     name,params='entity',EntityParams
+    result=EntityAnswer
     def rows(self,ctx:QueryContext,p:EntityParams,after:JsonValue=None)->Iterator[Positioned]:
         for row in ctx.entities(p.key,p.label):
             if after is None or row['key']>after:
-                yield Positioned(Row.model_validate(row),row['key'])
+                yield Positioned(EntityAnswer.model_validate(row),row['key'])
 
-class Statement(Claims):
+class Statement(Query):
     name,params='statement',StatementParams
-    def statement(self,ctx:QueryContext,p:Any)->Any:
+    result=StatementAnswer
+    def rows(self,ctx:QueryContext,p:StatementParams,after:JsonValue=None)->Iterator[Positioned]:
         from corpus_structure.serve.journey import QueryRefused
         value=p.key or p.locator
         if not value: raise QueryRefused('statement needs key or locator')
         ids,_=ctx.reader.resolve_statement(value)
-        c=T['kb.claim']
-        # Structural proof claims point at the requested statement as object.
-        return ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(or_(c.c.statement_id.in_(ids),c.c.object_entity_id.in_(ids)))
-    def scope(self,ctx:QueryContext,p:Any)->Scope:
+        e,s,c=T['kb.entity'],T['kb.segment'],T['kb.claim']
+        stmt=select(e.c.id,e.c.key,s.c.start_offset).join(s,s.c.id==e.c.scope_segment_id).where(e.c.run_id==ctx.run_id,e.c.id.in_(ids))
+        if after is not None:
+            if not isinstance(after,list) or len(after)!=2: raise QueryRefused('invalid statement cursor')
+            stmt=stmt.where(tuple_(s.c.start_offset,e.c.key)>tuple_(*after))
+        with ctx.conn.execute(stmt.order_by(s.c.start_offset,e.c.key).execution_options(yield_per=32)) as result:
+            for batch in result.mappings().partitions(32):
+                anchors=list(batch)
+                ctx.reader.prime_entities({r['id'] for r in anchors})
+                flags={'include_candidates':p.include_candidates,'include_suppositions':p.include_suppositions}
+                claims=list(ctx.reader.claims(statement_id=[r['id'] for r in anchors],**flags))
+                proofs=list(ctx.reader.claims(object_entity_id=[r['id'] for r in anchors],**flags))
+                for r in anchors:
+                    body=[x for x in claims if x['statement'] and x['statement']['key']==r['key']]
+                    # Referenced premises outside this statement are kept alongside conclusions.
+                    needed={z['key'] for x in body for z in x['premises'] if z['kind']=='condition_premise'}
+                    body += [x for x in claims if x['key'] in needed and x not in body]
+                    ranks={'premise':0,'definiens':1,'restriction':2,'conclusion':3}
+                    body.sort(key=lambda x:(ranks.get(x['role'],4),x['key']))
+                    proof=[x for x in proofs if isinstance(x['object'],dict) and x['object'].get('key')==r['key']]
+                    yield Positioned(StatementAnswer(key=r['key'],statement=ctx.reader.entity(r['id']),claims=body,proofs=proof),[r['start_offset'],r['key']])
+    def scope(self,ctx:QueryContext,p:StatementParams)->Scope:
         _,locator=ctx.reader.resolve_statement(p.key or p.locator or '')
         return Scope.of_units([locator]) if locator else Scope.run()
 
 class Evidence(Query):
     name,params='evidence',EvidenceParams
+    result=EvidenceAnswer
     def rows(self,ctx:QueryContext,p:EvidenceParams,after:JsonValue=None)->Iterator[Positioned]:
-        for i,row in enumerate(ctx.evidence(p.key)):
-            if after is not None and not isinstance(after, int):
-                raise ValueError('invalid evidence cursor')
-            if after is None or i>after:
-                yield Positioned(Row.model_validate({'key':p.key,**row}),i)
+        for row, position in ctx.reader.evidence_rows(p.key, after):
+            yield Positioned(EvidenceAnswer.model_validate({'key':p.key, **row}),position)
     def scope(self,ctx:QueryContext,p:EvidenceParams)->Scope:
-        return Scope.of_units([r['unit_key'] for r in ctx.evidence(p.key) if r.get('unit_key')])
+        return ctx.reader.evidence_scope(p.key)
 
 class Unsupported(Claims):
     name,params='unsupported',Params
@@ -110,21 +127,25 @@ class Unsupported(Claims):
 
 class Find(Query):
     name,params='find',FindParams
+    result=FindAnswer
     def rows(self,ctx:QueryContext,p:FindParams,after:JsonValue=None)->Iterator[Positioned]:
         # pg_textsearch's operator is represented by the physical overlay's named index.
         s,rr=T['kb.segment'],T['kb.run_rendition']
         score=s.c.text.op('<@>')(text("to_bm25query(:query, 'kb.segment_bm25')"))
         stmt=select(s,score.label('score')).where(s.c.kind.in_(sorted(SEARCH_BLOCK)),s.c.ts_config==text("'english'::regconfig"),s.c.rendition_id.in_(select(rr.c.rendition_id).where(rr.c.run_id==ctx.run_id)))
+        phase = after[0] if isinstance(after, list) and after else 0
         if after is not None:
-            if not isinstance(after, list) or len(after) != 2:
+            if not isinstance(after, list) or len(after) != 3 or not isinstance(after[0], int) or not isinstance(after[1], str) or not isinstance(after[2], str):
                 raise ValueError('invalid find cursor')
-            stmt=stmt.where(or_(score>float(after[0]),(score==float(after[0]))&(s.c.key>after[1])))
+            stmt=stmt.where(or_(score>float(after[1]),(score==float(after[1]))&(s.c.key>after[2])))
+        if phase == 1:
+            stmt=stmt.where(false())
         with ctx.conn.execute(stmt.order_by(score,s.c.key).execution_options(yield_per=64),{'query':p.text}) as result:
             for r in result.mappings():
                 loc=ctx.reader.locator(r['rendition_id'],r['id'],r['start_offset'],r['end_offset'],r['text'])
-                yield Positioned(Row.model_validate({'key':r['key'],'score':r['score'],**loc}),[str(r['score']),r['key']])
+                yield Positioned(FindAnswer.model_validate({'key':r['key'],'score':r['score'],'locator':loc}),[0,str(r['score']),r['key']])
         for entity in ctx.entities(label=p.text):
-            if after is None or (0.0, entity['key']) > (float(after[0]), after[1]):
-                yield Positioned(Row.model_validate({'key':entity['key'],'score':0.0,'entity':entity}),['0.0',entity['key']])
+            if after is None or phase == 0 or entity['key'] > after[2]:
+                yield Positioned(FindAnswer.model_validate({'key':entity['key'],'score':0.0,'entity':entity}),[1,'0.0',entity['key']])
 
 GENERIC=(Entity(),Claims(),Statement(),Evidence(),Find(),Unsupported())

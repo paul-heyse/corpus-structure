@@ -24,9 +24,17 @@ def refusal(json:bool):
 def context(conn:Any,project:str|None,run:str)->tuple[int,int,Any]:
     from corpus_structure.orchestrate.commands import project_id
     from corpus_structure.schema.pack import DOMAINS
-    pid,_=project_id(conn,project)
-    rid=select_run(conn,pid,run if run=='promoted' else int(run))
-    domain=conn.execute(text('SELECT domain FROM meta.project WHERE id=:p'),{'p':pid}).scalar_one()
+    if run != 'promoted':
+        row=conn.execute(text('SELECT p.id,p.domain FROM ops.run r JOIN meta.project p ON p.id=r.project_id WHERE r.id=:r'),{'r':int(run)}).one_or_none()
+        if row is None: raise QueryRefused(f'no run {run}')
+        pid,domain=row
+        if project is not None and project_id(conn,project)[0]!=pid:
+            raise QueryRefused('run belongs to another project')
+        rid=select_run(conn,pid,int(run))
+    else:
+        pid,_=project_id(conn,project)
+        rid=select_run(conn,pid,run)
+        domain=conn.execute(text('SELECT domain FROM meta.project WHERE id=:p'),{'p':pid}).scalar_one()
     return pid,rid,build_registry(GENERIC,DOMAINS/domain)
 
 def query(ctx:typer.Context,name:Annotated[str,typer.Argument()],run:str='promoted',project:str|None=None,param:Annotated[list[str]|None,typer.Option('--param')]=None,page_token:str|None=None,max_rows:int|None=None,max_chars:int|None=None,json:JsonOpt=False)->None:
@@ -40,7 +48,9 @@ def query(ctx:typer.Context,name:Annotated[str,typer.Argument()],run:str='promot
             except ValueError: params[key]=value
         with ENGINE(state(ctx).settings()) as engine,engine.connect() as conn:
             conn.execute(text('SET TRANSACTION READ ONLY'))
-            pid,_,registry=context(conn,project,run)
+            from corpus_structure.serve.journey import decode_token
+            selected=str(decode_token(page_token)['run']) if page_token else run
+            pid,_,registry=context(conn,project,selected)
             result=serve_query(conn,registry,name,params,project_id=pid,run=run if run=='promoted' else int(run),page_token=page_token,max_rows=max_rows,max_chars=max_chars)
             emit(result,json=json)
 

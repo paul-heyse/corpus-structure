@@ -2,9 +2,10 @@
 from __future__ import annotations
 from typing import Any
 from pydantic import JsonValue
-from sqlalchemy import select,or_,literal
+from sqlalchemy import select,or_,literal,exists
 from corpus_structure.serve.protocol import QueryContext,Positioned
 from corpus_structure.serve.queries import Query,Params,Row,T
+from corpus_structure.serve.results import TransformationAnswer,RelationAnswer,FamilyAnswer
 
 class Family(Params):
     family:str
@@ -48,13 +49,24 @@ class ConstructionProfile(Query):
             yield Positioned(Row.model_validate(row),row['key'])
 class FamiliesWhere(Query):
     name,params='families_where',Where
+    result=FamilyAnswer
     def rows(self,ctx:QueryContext,p:Where,after:JsonValue=None):
         c=T['kb.claim']
         stmt=ctx.reader.claim_statement(predicate=p.predicate,include_candidates=p.include_candidates,include_suppositions=p.include_suppositions)
         if p.value is not None:
             stmt=stmt.where(c.c.object_value==p.value) if isinstance(p.value,dict) else stmt.where(c.c.object_value['v'].as_string()==str(p.value))
-        for row in ctx.reader.claims(statement=stmt,after=after):
-            yield Positioned(Row.model_validate(row),row['key'])
+        e,i=T['kb.entity'],T['kb.entity_identity']
+        fam=e.alias('family')
+        stmt=stmt.where(or_(c.c.subject_id.in_(select(e.c.id).where(e.c.run_id==ctx.run_id,e.c.type=='stat:DistributionFamily')),c.c.subject_id.in_(select(i.c.entity_id).join(fam,fam.c.id==i.c.value_entity_id).where(i.c.slot=='stat:family',fam.c.run_id==ctx.run_id,fam.c.type=='stat:DistributionFamily'))))
+        for row in ctx.reader.claims(statement=stmt,after=after,with_premises=False):
+            subject=row['subject']
+            if subject['type']=='stat:DistributionFamily':
+                family=subject
+            else:
+                key=(subject['identity'].get('stat:family') or {}).get('ref')
+                family=next(iter(ctx.entities(key=key)),None)
+            if family is not None:
+                yield Positioned(FamilyAnswer(key=row['key'],family=family,claim=row),row['key'])
 class ParameterMapping(Query):
     name,params='parameter_mapping',MappingParams
     def rows(self,ctx:QueryContext,p:MappingParams,after:JsonValue=None):
@@ -65,19 +77,30 @@ class ParameterMapping(Query):
             yield Positioned(Row.model_validate(row),row['key'])
 class Transformations(Query):
     name,params='transformations_of',Family
+    result=TransformationAnswer
     def rows(self,ctx:QueryContext,p:Family,after:JsonValue=None):
         c,cr,er=T['kb.claim'],T['kb.claim_ref'],T['kb.claim_entity_ref']
         family=ids(ctx,p.family)
         premise=c.alias('premise')
         premise_ids=select(premise.c.id).where(premise.c.run_id==ctx.run_id,premise.c.predicate=='stat:has_distribution',or_(premise.c.object_entity_id.in_(family),premise.c.id.in_(select(er.c.claim_id).where(er.c.entity_id.in_(family)))))
         conclusions=select(cr.c.claim_id).where(cr.c.kind=='condition_premise',cr.c.target_claim_id.in_(premise_ids))
-        stmt=ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(c.c.predicate=='stat:has_distribution',c.c.id.in_(conclusions))
-        for row in ctx.reader.claims(statement=stmt,after=after):
-            stmtid=ctx.conn.execute(select(c.c.statement_id).where(c.c.run_id==ctx.run_id,c.c.key==row['key'])).scalar_one()
-            row['definiens']=list(ctx.reader.claims(statement_id=stmtid,statement_role='definiens',subject_id=ctx.conn.execute(select(c.c.subject_id).where(c.c.run_id==ctx.run_id,c.c.key==row['key'])).scalar_one(),include_suppositions=True))
-            yield Positioned(Row.model_validate(row),row['key'])
+        definition=c.alias('definition')
+        stmt=ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(c.c.predicate=='stat:has_distribution',c.c.id.in_(conclusions),exists(select(definition.c.id).where(definition.c.run_id==ctx.run_id,definition.c.statement_id==c.c.statement_id,definition.c.subject_id==c.c.subject_id,definition.c.statement_role=='definiens')))
+        if after is not None: stmt=stmt.where(c.c.key>after)
+        with ctx.conn.execute(stmt.order_by(c.c.key).execution_options(yield_per=32)) as result:
+            for batch in result.mappings().partitions(32):
+                meta=list(batch)
+                rows=list(ctx.reader.claims(statement=select(c).where(c.c.id.in_([x['id'] for x in meta])),with_premises=False))
+                definitions=list(ctx.reader.claims(statement_id=[x['statement_id'] for x in meta],statement_role='definiens',include_suppositions=True,with_premises=False))
+                premise_keys={x['key'] for r in rows for x in r['premises'] if x['kind']=='condition_premise'}
+                premises=list(ctx.reader.claims(key=list(premise_keys),include_suppositions=True,include_candidates=True,with_premises=False)) if premise_keys else []
+                for row in rows:
+                    refs={x['key'] for x in row['premises'] if x['kind']=='condition_premise'}
+                    defs=[x for x in definitions if x['statement']['key']==row['statement']['key'] and x['subject']['key']==row['subject']['key']]
+                    yield Positioned(TransformationAnswer(key=row['key'],conclusion=row,premises=[x for x in premises if x['key'] in refs],definiens=defs),row['key'])
 class Relations(Query):
     name,params='relations_between',Between
+    result=RelationAnswer
     def rows(self,ctx:QueryContext,p:Between,after:JsonValue=None):
         c=T['kb.claim']
         edges=ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(c.c.predicate.in_(['stat:special_case_of','stat:transformation_of','stat:limit_of']),c.c.object_entity_id.is_not(None)).subquery()
@@ -88,6 +111,6 @@ class Relations(Query):
         for r in ctx.conn.execute(stmt.order_by(walk.c.path)).mappings():
             keys=r['path'].split('|')
             claims=list(ctx.reader.claims(key=keys,include_suppositions=True,include_candidates=True))
-            yield Positioned(Row.model_validate({'key':r['path'],'depth':r['depth'],'claims':claims}),r['path'])
+            yield Positioned(RelationAnswer.model_validate({'key':r['path'],'depth':r['depth'],'claims':claims}),r['path'])
 
 QUERIES=(FamilyProfile(),FamiliesWhere(),Relations(),Transformations(),ParameterMapping(),ConstructionProfile())

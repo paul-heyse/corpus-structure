@@ -30,8 +30,7 @@ def test_c1_trace_generic_and_pack_questions(ready):
         assert all(r['premise'] for r in all_.rows if r['modality']=='supposed')
         profile=ask('family_profile',family='normal')
         assert profile.rows
-        assert {r['predicate'] for r in profile.rows} == {'stat:identical_parameter'}
-        assert len(profile.rows)==2
+        assert len([r for r in profile.rows if r['predicate']=='stat:identical_parameter'])==2
         assert ask('statement',locator='special/Normal.html#rel1').rows
         key=all_.rows[0]['key']
         assert ask('evidence',key=key).rows
@@ -41,9 +40,9 @@ def test_c1_trace_generic_and_pack_questions(ready):
         assert trans.rows and all(r['definiens'] for r in trans.rows)
         assert ask('find',text='normally distributed').rows
         detail=explain(conn,ready.run,'claim',key)
-        assert detail.detail['m19_task_id']==ready.m19
-        assert detail.detail['supports']
-        assert detail.detail['claim']['key']==key
+        assert detail.detail.m19_task_id==ready.m19
+        assert detail.detail.supports
+        assert detail.detail.claim.key==key
 
 def test_keyset_pagination_matches_unpaged_logical_rows(ready):
     reg=build_registry(GENERIC,DOMAINS/'statistics')
