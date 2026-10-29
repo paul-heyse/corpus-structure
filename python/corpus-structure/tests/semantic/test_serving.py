@@ -5,6 +5,10 @@ from pathlib import Path
 
 import anyio
 import pytest
+from pydantic import BaseModel
+from corpus_structure.serve.results import ClaimAnswer,FamilyAnswer,RelationAnswer,TransformationAnswer,StatementAnswer
+from corpus_structure.semantic.query import Explanation as FactExplanation
+from corpus_structure.serve.explain import UnitExplanation
 from fastmcp import Client
 from sqlalchemy import select
 
@@ -12,7 +16,7 @@ from corpus_structure.intervene.semantic_server import SemanticAgentSession,buil
 from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.analytics import load_packet,SPINE
 from corpus_structure.semantic.query import read_session
-from corpus_structure.serve.journey import serve_query,StaleToken
+from corpus_structure.serve.journey import serve_query,StaleToken,QueryRefused
 from corpus_structure.serve.queries import GENERIC
 from corpus_structure.serve.registry import build_registry
 from corpus_structure.serve.explain import explain
@@ -21,12 +25,13 @@ from .test_agent_resubmission import source_task,lease_and_read
 
 
 def completed(admin,writer,tmp_path):
-    prepared,run,task,locator=source_task(admin,writer,tmp_path/'source.html',composed=True)
+    prepared,run,task,locator=source_task(admin,writer,tmp_path/'source.html',composed=True,domain='statistics')
     async def submit():
         async with Client(build_semantic_server(SemanticAgentSession(writer,run))) as client:
             unit=await lease_and_read(client,run,task)
             claims=[{'id':item,'subject':'person2' if name=='Bob' else 'person','predicate':'https://example.org/name','object':{'kind':'text','text':name},'qualification':{'modality':'asserted','polarity':True},'establishment':'stated','evidence':[{'sentence':unit['sentences'][0]['id'],'quote':'Alice is here.','role':'primary'}]} for item,name in [('name1','Alice'),('name2','Alice'),('name3','Bob')]]
             result=await client.call_tool('propose_claims',{'task_id':task,'batch':{'unit_ref':locator,'entities':[{'id':'person','class_iri':'https://example.org/Person'},{'id':'person2','class_iri':'https://example.org/Person'}],'claims':claims}})
+            assert result.structured_content is not None
             assert result.structured_content['submission_disposition']=='completed_accepted'
     anyio.run(submit)
     finalize_bound_run(writer,run,'served-result')
@@ -42,15 +47,30 @@ def test_named_semantic_pages_explanations_and_source_search(semantic_db_engine,
         assert first.binding.release_id==prepared.release_id
         assert len(first.rows)==1 and first.next_page_token
         second=serve_query(conn,registry,'claims',{'predicate':'https://example.org/name'},run=run,page_token=first.next_page_token,max_rows=1)
-        assert {first.rows[0]['fact']['object'],second.rows[0]['fact']['object']}=={'Alice','Bob'}
-        assert first.rows[0]['fact']['fact_id']!=second.rows[0]['fact']['fact_id']
+        first_fact=json.loads(first.model_dump_json())['rows'][0]['fact']
+        second_fact=json.loads(second.model_dump_json())['rows'][0]['fact']
+        assert {first_fact['object'],second_fact['object']}=={'Alice','Bob'}
+        assert first_fact['fact_id']!=second_fact['fact_id']
         occurrences=serve_query(conn,registry,'claims',{'predicate':'https://example.org/name'},run=run,projection='occurrence')
-        assert sorted(row['fact']['object'] for row in occurrences.rows)==['Alice','Alice','Bob']
-        assert len({row['fact']['occurrence_id'] for row in occurrences.rows})==3
-        explanation=explain(conn,run,'claim',first.rows[0]['fact']['fact_id'])
+        occurrence_rows=json.loads(occurrences.model_dump_json())['rows']
+        assert sorted(row['fact']['object'] for row in occurrence_rows)==['Alice','Alice','Bob']
+        assert len({row['fact']['occurrence_id'] for row in occurrence_rows})==3
+        candidates=serve_query(conn,registry,'claims',{'predicate':'https://example.org/name','include_candidates':True},run=run)
+        assert candidates.projection=='fact'
+        unknown=serve_query(conn,registry,'claims',{'predicate':'https://example.org/name','subject':'missing'},run=run)
+        assert unknown.rows==[] and unknown.knowledge=='unknown'
+        with pytest.raises(QueryRefused,match='size limit'):
+            serve_query(conn,registry,'claims',{'predicate':'https://example.org/name'},run=run,max_chars=1)
+        with pytest.raises(StaleToken,match='parameters differ'):
+            serve_query(conn,registry,'claims',{'predicate':'https://example.org/name','subject':'different'},run=run,page_token=first.next_page_token)
+
+        explanation=explain(conn,run,'claim',first_fact['fact_id'])
+        assert isinstance(explanation.detail,FactExplanation)
         assert explanation.detail.supports and explanation.detail.evidence
+        assert explanation.detail.evidence[0].source is not None
         assert explanation.detail.evidence[0].source.observation_key
         source=explain(conn,run,'unit',locator)
+        assert isinstance(source.detail,UnitExplanation)
         assert any(t.included_in_cut for t in source.detail.tasks)
         assert source.detail.observations
         matches=serve_query(conn,registry,'find',{'text':'Alice'},run=run)
@@ -88,7 +108,7 @@ def test_full_projection_exports_and_cancel_cleanup(semantic_db_engine,semantic_
     assert not list(tmp_path.glob('.semantic-export-*'))
 
 
-def install_pack(admin,writer,name,entries):
+def install_pack(admin,writer,name,entries,*,contexts=False):
     from dataclasses import replace
     from corpus_structure.semantic import SourceArtifact,SourceBundle,PreparationProfile,ResolvedDependencies,prepare_release
     from corpus_structure.semantic.releases import persist_release
@@ -103,10 +123,14 @@ def install_pack(admin,writer,name,entries):
         persist_release(conn,bundle,ResolvedDependencies(),PreparationProfile(),prepared)
         conn.execute(insert(table('data.project')).values(project_id='pack'))
         conn.execute(insert(table('data.realization')).values(project_id='pack',realization_id='pack',release_id=prepared.release_id))
+    if callable(entries): entries=entries(prepared)
     entries=list(entries)+[(subject,cls,'id',subject,{'modality':'asserted','polarity':True},'Qualification') for subject,cls in sorted({(row[0],row[1]) for row in entries})]
     evidence=(EvidenceRow('pack-evidence','pack.html','pack.html#p','native-parser','1'),)
     items=tuple(SourceItem(subject,cls,prop,obj,qualification,'pack-source',str(i),'stated',evidence,qcls) for i,(subject,cls,prop,obj,qualification,qcls) in enumerate(entries))
     batch=assemble(prepared,'pack','pack-test',items)
+    if contexts:
+        from corpus_structure.semantic.publication import OccurrenceContextRow
+        batch=replace(batch,occurrence_context=tuple(OccurrenceContextRow(o.occurrence_id,'stmt','definiens' if items[int(o.item)].property_name=='defined_as' else 'premise' if items[int(o.item)].qualification['modality']=='supposed' else 'conclusion') for o in batch.occurrence if items[int(o.item)].subject in {'rv0','rv1'} and items[int(o.item)].property_name in {'has_distribution','defined_as'}))
     batch=replace(batch,selection=tuple(SelectionRow(f.fact_id) for f in batch.fact))
     publish_batch(writer,batch)
     return prepared,batch
@@ -126,25 +150,45 @@ def test_statistics_named_algorithms_and_exact_ownership(semantic_db_engine,sema
         ('scale','FamilyParameter','parameter_role','scale',q,'Qualification'),
         ('normal','DistributionFamily','has_parameter','scale',q,'Qualification'),
     ]
-    prepared,batch=install_pack(semantic_db_engine,semantic_writer_engine,'statistics',entries)
+    original_entries=entries
+    def with_transformations(prepared):
+        premise={**q,'modality':'supposed'}
+        ref=prepared.fact_identity('pack','rv0',prepared.expand_name('stat:has_distribution'),'normal',premise)
+        return original_entries+[
+            ('rv0','RandomVariable','symbol','X',q,'Qualification'),
+            ('rv0','RandomVariable','scope_locator','pack.html#stmt',q,'Qualification'),
+            ('rv1','RandomVariable','symbol','Y',q,'Qualification'),
+            ('rv1','RandomVariable','scope_locator','pack.html#stmt',q,'Qualification'),
+            ('rv0','RandomVariable','has_distribution','normal',premise,'Qualification'),
+            ('rv1','RandomVariable','has_distribution','standard',{**q,'condition':{'kind':'claim','ref':ref}},'Qualification'),
+            ('rv1','RandomVariable','defined_as',{'kind':'formula','language':'latex','expression':'X + 1'}, {**q,'modality':'defined'},'Qualification'),
+            ('stmt','SourceStatement','locator','pack.html#stmt',q,'Qualification'),
+        ]
+    prepared,batch=install_pack(semantic_db_engine,semantic_writer_engine,'statistics',with_transformations,contexts=True)
     registry=build_registry(GENERIC,Path(__file__).resolve().parents[4]/'domains/statistics')
     with read_session(semantic_reader_engine,'pack') as session:
         ctx=QueryContext(0,session.connection)
         ctx.__dict__['session']=session
-        def run(name,params):
+        def run[T:BaseModel](name,params,result:type[T])->list[T]:
             query=registry[name]
-            return [row.row for row in query.rows(ctx,query.params.model_validate(params))]
-        profile=run('family_profile',{'family':'Normal'})
+            return [result.model_validate(row.row) for row in query.rows(ctx,query.params.model_validate(params))]
+        profile=run('family_profile',{'family':'normal'},ClaimAnswer)
         assert {row.fact.property_iri.rsplit('/',1)[-1] for row in profile}>={'family','canonical_name','parameter_role','has_parameter','member_of_construction'}
-        mapping=run('parameter_mapping',{'family':'Normal','construction':'Location scale'})
-        assert any(row.fact.qualification.__class__.__name__=='StatisticsQualification' and row.fact.qualification.base=='standard' for row in mapping)
-        families=run('families_where',{'predicate':'stat:parameter_role','value':'scale'})
+        mapping=run('parameter_mapping',{'family':'Normal','construction':'Location scale'},ClaimAnswer)
+        assert any(row.fact.qualification is not None and row.fact.qualification.__class__.__name__=='StatisticsQualification' and row.fact.qualification.model_dump()['base']=='standard' for row in mapping)
+        families=run('families_where',{'predicate':'stat:parameter_role','value':'scale'},FamilyAnswer)
         assert [row.family.entity_id for row in families]==['normal']
-        relations=run('relations_between',{'a':'Standard normal','b':'Normal'})
+        relations=run('relations_between',{'a':'Standard normal','b':'Normal'},RelationAnswer)
         assert len(relations)==1 and relations[0].depth==1
         assert relations[0].claims[0].fact.property_iri.endswith('/special_case_of')
-        assert run('construction_profile',{'construction':'Location scale'})
-        assert run('transformations_of',{'family':'Normal'})==[]
+        assert run('construction_profile',{'construction':'Location scale'},ClaimAnswer)
+        transformations=run('transformations_of',{'family':'Normal'},TransformationAnswer)
+        assert len(transformations)==1
+        assert transformations[0].conclusion.fact.subject.entity_id=='rv1'
+        assert transformations[0].premises[0].fact.subject.entity_id=='rv0'
+        assert transformations[0].definiens[0].fact.object.expression=='X + 1'
+        statements=run('statement',{'key':'stmt'},StatementAnswer)
+        assert len(statements)==1 and statements[0].statement.entity_id=='stmt'
 
 
 def test_ownership_uses_declared_qualification_type_and_exact_scale(semantic_db_engine,semantic_writer_engine,semantic_reader_engine):
@@ -159,9 +203,34 @@ def test_ownership_uses_declared_qualification_type_and_exact_scale(semantic_db_
         ctx=QueryContext(0,session.connection)
         ctx.__dict__['session']=session
         query=registry['ownership_at']
-        def rows(at): return [p.row for p in query.rows(ctx,query.params.model_validate({'asset':'Asset X','date':at}))]
+        def rows(at): return [p.row.model_dump(mode='python',serialize_as_any=True) for p in query.rows(ctx,query.params.model_validate({'asset':'Asset X','date':at}))]
         current=rows('2020-06-01')
-        assert len(current)==1 and current[0].applicability=='established'
-        assert current[0].claim.fact.qualification.share.number.as_tuple().exponent==-4
-        assert current[0].claim.fact.qualification.filing_ref=='filing-A'
-        assert rows('2020-12-31')[0].applicability=='not_applicable'
+        assert len(current)==1 and current[0]['applicability']=='established'
+        assert current[0]['claim']['fact']['qualification']['share']['number'].as_tuple().exponent==-4
+        assert current[0]['claim']['fact']['qualification']['filing_ref']=='filing-A'
+        assert rows('2020-12-31')[0]['applicability']=='not_applicable'
+
+
+def test_real_cli_query_explain_and_export_dispatch(semantic_db_engine,semantic_writer_engine,semantic_reader_engine,tmp_path,cli):
+    from corpus_structure.settings import Settings
+    _,run,_,locator=completed(semantic_db_engine,semantic_writer_engine,tmp_path)
+    settings=Settings(database={'url':semantic_reader_engine.url.set(drivername='postgresql').render_as_string(hide_password=False)})
+    queried=cli('query','claims','--run',str(run),'--param','predicate=https://example.org/name','--max-rows','1','--json',settings=lambda:settings)
+    assert queried.exit_code==0,queried.output
+    page=json.loads(queried.stdout)
+    assert page['binding']['realization_id']=='served-result' and page['next_page_token']
+    continued=cli('query','claims','--param','predicate=https://example.org/name','--page-token',page['next_page_token'],'--json',settings=lambda:settings)
+    assert continued.exit_code==0,continued.output
+    assert len(json.loads(continued.stdout)['rows'])==1
+    fact=page['rows'][0]['fact']['fact_id']
+    explained=cli('explain','claim',fact,'--run',str(run),'--json',settings=lambda:settings)
+    assert explained.exit_code==0,explained.output
+    assert json.loads(explained.stdout)['detail']['fact_id']==fact
+    unit=cli('explain','unit',locator,'--run',str(run),'--json',settings=lambda:settings)
+    assert unit.exit_code==0,unit.output
+    assert json.loads(unit.stdout)['detail']['observations']
+    exported=cli('export','--out',str(tmp_path/'cli-export'),'--run',str(run),'--format','parquet','--json',settings=lambda:settings)
+    assert exported.exit_code==0,exported.output
+    result=json.loads(exported.stdout)
+    assert result['manifest']['binding']['realization_id']=='served-result'
+    assert (tmp_path/'cli-export'/'manifest.json').is_file()

@@ -2,7 +2,8 @@
 from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
-from sqlalchemy import and_, exists, or_, select
+import json
+from sqlalchemy import and_, exists, func, or_, select
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import QueryRow, _scope, _same_scope
 from corpus_structure.serve.results import ClaimAnswer, EntityAnswer
@@ -87,13 +88,7 @@ class Reader:
                 key = (definition.name,prop.name)
                 if key not in self._adapters: self._adapters[key] = self.prepared.property_adapter(*key,item=prop.multivalued)
                 value = self._adapters[key].validate_python(decoded[row["object_value_id"]],strict=True)
-                qualification = None
-                if row["qualification_value_id"] is not None:
-                    qnode = next(node for node in nodes if node.value_id == row["qualification_value_id"])
-                    qdefinition = next((d for d in self.prepared.definitions if d.iri == qnode.datatype),None)
-                    if qdefinition is None: raise ValueError("qualification has no archived declared datatype")
-                    self.prepared.qualification_definition(qdefinition.name)
-                    qualification = self.prepared.validate_python(qdefinition.name,decoded[row["qualification_value_id"]])
+                qualification = None if row["qualification_value_id"] is None else self.session.qualification(row["qualification_value_id"],decoded,nodes)
                 occurrence = row.get("occurrence_id")
                 fact = QueryRow(fact_id=row["fact_id"],subject=entities[row["subject_id"]],property_iri=row["property_id"],object_value_id=row["object_value_id"],object=value,qualification_value_id=row["qualification_value_id"],qualification=qualification,occurrence_id=occurrence,source=row.get("source"),item=row.get("item"),context=contexts.get(occurrence),citation_roles=citations.get(occurrence,()))
                 # Preserve the exact reachable value graph, including scale/lexical forms.
@@ -117,7 +112,11 @@ class Reader:
         if label is not None:
             # Labels are semantic property values, never old compiled key normalization.
             iris = {p.iri for d in self.prepared.definitions for p in d.properties if p.name in {"label","aliases","name","canonical_name"}}
-            stmt = stmt.where(exists(select(1).select_from(f.join(v,and_(_same_scope(f,v),f.c.object_value_id == v.c.value_id))).where(self.scope(f),f.c.subject_id == e.c.entity_id,f.c.property_id.in_(iris),v.c.text_value == label)))
+            folded_classes = {json.loads(row.body)["iri"] for row in self.prepared.registry_rows if row.kind == "operation_class" and json.loads(row.body).get("cs:case") == "casefold"}
+            membership = T["membership"]
+            folded = exists(select(1).where(self.scope(membership),membership.c.entity_id == e.c.entity_id,membership.c.class_id.in_(folded_classes)).correlate(e))
+            matches = or_(v.c.text_value == label, and_(folded,func.casefold(v.c.text_value.collate("pg_unicode_fast")) == label.casefold()))
+            stmt = stmt.where(exists(select(1).select_from(f.join(v,and_(_same_scope(f,v),f.c.object_value_id == v.c.value_id))).where(self.scope(f),f.c.subject_id == e.c.entity_id,f.c.property_id.in_(iris),matches)))
         return stmt
     def resolve(self, value, class_name=None):
         e = T["entity"]
