@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import anyio
 import pytest
@@ -42,9 +43,9 @@ from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
 
 
-def source_task(admin, engine, path, *, composed=False):
+def source_task(admin, engine, path, *, composed=False, identity_keyed=False):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    schema = {
+    schema: dict[str, Any] = {
         "id": "https://example.org/resubmit",
         "name": "resubmit",
         "imports": ["core"],
@@ -52,6 +53,8 @@ def source_task(admin, engine, path, *, composed=False):
         "default_prefix": "ex",
         "classes": {"Person": {"is_a": "Entity", "attributes": {"name": {"range": "string"}}}},
     }
+    if identity_keyed:
+        schema["classes"]["Person"]["unique_keys"] = {"name": {"unique_key_slots": ["name"]}}
     deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []")
     bundle = proposal_inputs(
         SourceBundle(
