@@ -126,6 +126,18 @@ class Unsupported(Claims):
     def statement(self,ctx:QueryContext,p:Params)->Any:
         return ctx.reader.claim_statement(include_candidates=True,include_suppositions=p.include_suppositions,predicate='core:unschematized',status='unsupported')
 
+def _find_position(after:JsonValue)->tuple[int,float|None,str|None]:
+    if after is None:return 0,None,None
+    if not isinstance(after,list) or len(after)!=3:
+        raise ValueError('invalid find cursor')
+    phase,score,key=after
+    if not isinstance(phase,int) or phase not in (0,1) or not isinstance(score,str) or not isinstance(key,str):
+        raise ValueError('invalid find cursor')
+    from math import isfinite
+    number=float(score)
+    if not isfinite(number):raise ValueError('invalid find cursor score')
+    return phase,number,key
+
 class Find(Query):
     name,params='find',FindParams
     result=FindAnswer
@@ -133,20 +145,28 @@ class Find(Query):
         # pg_textsearch's operator is represented by the physical overlay's named index.
         s,rr=T['kb.segment'],T['kb.run_rendition']
         score=s.c.text.op('<@>')(text("to_bm25query(:query, 'kb.segment_bm25')"))
-        stmt=select(s,score.label('score')).where(s.c.kind.in_(sorted(SEARCH_BLOCK)),s.c.ts_config==text("'english'::regconfig"),s.c.rendition_id.in_(select(rr.c.rendition_id).where(rr.c.run_id==ctx.run_id)))
-        phase = after[0] if isinstance(after, list) and after else 0
-        if after is not None:
-            if not isinstance(after, list) or len(after) != 3 or not isinstance(after[0], int) or not isinstance(after[1], str) or not isinstance(after[2], str):
-                raise ValueError('invalid find cursor')
-            stmt=stmt.where(or_(score>float(after[1]),(score==float(after[1]))&(s.c.key>after[2])))
-        if phase == 1:
-            stmt=stmt.where(false())
-        with ctx.conn.execute(stmt.order_by(score,s.c.key).execution_options(yield_per=64),{'query':p.text}) as result:
-            for r in result.mappings():
-                loc=ctx.reader.locator(r['rendition_id'],r['id'],r['start_offset'],r['end_offset'],r['text'])
-                yield Positioned(FindAnswer.model_validate({'key':r['key'],'score':r['score'],'locator':loc}),[0,str(r['score']),r['key']])
+        base=select(s,score.label('score')).where(s.c.kind.in_(sorted(SEARCH_BLOCK)),s.c.ts_config==text("'english'::regconfig"),s.c.rendition_id.in_(select(rr.c.rendition_id).where(rr.c.run_id==ctx.run_id)),score<0)
+        phase,last_score,last_key=_find_position(after)
+        alias_after=last_key if phase==1 else None
+        if phase==0:
+            while True:
+                stmt=base
+                if last_score is not None and last_key is not None:
+                    stmt=stmt.where(or_(score>last_score,(score==last_score)&(s.c.key>last_key)))
+                # Native top-k keeps the BM25 access path visible; include the entire boundary
+                # tie before ordering by key, so ties never skip a logical hit.
+                ranked=stmt.order_by(score).fetch(128,with_ties=True).subquery()
+                count=0
+                with ctx.conn.execute(select(ranked).order_by(ranked.c.score,ranked.c.key).execution_options(yield_per=32),{'query':p.text}) as result:
+                    for r in result.mappings():
+                        count+=1
+                        loc=ctx.reader.locator(r['rendition_id'],r['id'],r['start_offset'],r['end_offset'],r['text'])
+                        last_score,last_key=float(r['score']),str(r['key'])
+                        cursor:JsonValue=[0,str(last_score),last_key]
+                        yield Positioned(FindAnswer.model_validate({'key':r['key'],'score':r['score'],'locator':loc}),cursor)
+                if count<128:break
         for entity in ctx.entities(label=p.text):
-            if after is None or phase == 0 or entity['key'] > after[2]:
+            if alias_after is None or entity['key'] > alias_after:
                 yield Positioned(FindAnswer.model_validate({'key':entity['key'],'score':0.0,'entity':entity}),[1,'0.0',entity['key']])
 
 GENERIC=(Entity(),Claims(),Statement(),Evidence(),Find(),Unsupported())
