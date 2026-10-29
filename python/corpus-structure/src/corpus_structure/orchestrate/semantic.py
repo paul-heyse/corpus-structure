@@ -285,7 +285,7 @@ def propose_agents(conn,run_id,prepared,registry,policy_source):
                 'budget':SimpleNamespace(agent_packets_left=None,llm_tokens_left=None),
                 'ran':lambda name:outcome(name) is not None,'outcome':outcome,'judged_by':lambda name:False,'decision':lambda name:None,'confidence':lambda name:None}
             if entry.key not in {match.key for match in rules.matches(PolicyChain.PROPOSE,thing)}:continue
-            identity=(config_name,ref.unit_key)
+            identity=(entry.method,canonical_bytes(configs[config_name]),ref.unit_key)
             if identity in scheduled:continue
             scheduled.add(identity)
             reason='scope' if ref.unit_key not in allowed else 'limit' if entry.entry.do.limit is not None and counts[entry.key]>=entry.entry.do.limit else None
