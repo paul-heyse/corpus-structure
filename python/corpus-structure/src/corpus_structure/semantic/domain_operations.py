@@ -407,9 +407,12 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
     batch=replace(batch,coverage=tuple(sorted(coverage,key=lambda c:c.coverage_id)))
     # Source links are resolved to native spans only in the final short publication transaction.
     from .publication import OccurrenceContextRow,OccurrenceEvidenceRoleRow
-    batch=replace(batch,occurrence_context=tuple(OccurrenceContextRow(c.occurrence_id,c.statement,c.statement_role) for c in claims),
+    batch=replace(batch,occurrence_context=tuple(OccurrenceContextRow(c.occurrence_id,c.statement,c.statement_role) for c in claims if c.statement is not None or c.statement_role is not None),
         occurrence_evidence_role=tuple(OccurrenceEvidenceRoleRow(link.occurrence_id,link.evidence_id,evidence_roles[link.evidence_id])
             for link in batch.occurrence_evidence if link.evidence_id in evidence_roles))
+    from .publication import EntitySourceRow
+    declared={m.entity_id for m in batch.membership}
+    batch=replace(batch,entity_source=tuple(sorted({EntitySourceRow(mapping[e['id']],observation['id'],e['id']) for observation in observations if observation['payload_definition']=='AgentStoredBatch' for mapping in (entity_mappings[observation['id']],) for e in parsed[observation['id']].get('entities',()) if mapping[e['id']] in declared},key=lambda row:(row.entity_id,row.observation_id,row.local_id))))
     return CutInput(cut['id'],job['id'],job['project_id'],prepared,output,tuple(reports),tuple(claims),batch,MappingProxyType(metadata),MappingProxyType(source_links))
 
 
