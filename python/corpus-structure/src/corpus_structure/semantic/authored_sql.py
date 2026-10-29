@@ -17,7 +17,8 @@ from pglast import ast, parse_sql
 from pglast.parser import ParseError
 from pglast.stream import RawStream
 from pglast.visitors import Visitor, referenced_relations
-from sqlalchemy import Connection, MetaData, text
+from sqlalchemy import Connection, MetaData, select, text
+from sqlalchemy.dialects.postgresql import insert
 
 from .identity import canonical_bytes
 
@@ -183,3 +184,47 @@ def admit_sql(
 def decode_artifact(content: bytes) -> dict[str, Any]:
     """Read archived data for diagnostics; admission is never inferred from this decode."""
     return json.loads(content)
+
+
+def admit_archived_sql(
+    conn: Connection, release_id: str, *, reader_conn: Connection | None = None
+) -> tuple[AuthoredSQL, ...]:
+    """Admit reserved exact SQL dependencies before activation, on its caller transaction.
+
+    Raw SQL belongs to the release digest; native catalog admission is a derived deployment
+    artifact. Keeping those separate avoids an impossible self-referential release identity.
+    """
+    from .metadata import PHYSICAL_MODEL_ID, metadata, table
+
+    inputs = table("sem.input")
+    admitted = table("sem.sql_admission")
+    rows = conn.execute(select(inputs.c.input_name, inputs.c.content).where(
+        inputs.c.release_id == release_id,
+        inputs.c.input_kind == "dependency",
+        inputs.c.input_name.startswith("authored-sql/"),
+    ).order_by(inputs.c.input_name)).all()
+    if rows and reader_conn is None:
+        raise SQLAdmissionError("authored SQL activation requires a restricted reader connection")
+    artifacts = []
+    for name, content in rows:
+        if not name.endswith(".sql") or len(name) <= len("authored-sql/.sql"):
+            raise SQLAdmissionError(f"invalid reserved authored SQL dependency name {name}")
+        try:
+            sql = bytes(content).decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SQLAdmissionError(f"authored SQL {name} is not UTF-8") from exc
+        assert reader_conn is not None
+        artifact = admit_sql(reader_conn, sql, release_id=release_id, metadata=metadata,
+                             physical_id=PHYSICAL_MODEL_ID)
+        values = dict(release_id=release_id, input_kind="dependency", input_name=name,
+                      physical_id=PHYSICAL_MODEL_ID, content=artifact.content,
+                      content_digest=artifact.digest)
+        conn.execute(insert(admitted).values(**values).on_conflict_do_nothing())
+        prior = conn.execute(select(admitted.c.content).where(
+            admitted.c.release_id == release_id, admitted.c.input_name == name,
+            admitted.c.physical_id == PHYSICAL_MODEL_ID,
+        )).scalar_one()
+        if bytes(prior) != artifact.content:
+            raise SQLAdmissionError(f"catalog admission changed for {name}; rebuild the realization")
+        artifacts.append(artifact)
+    return tuple(artifacts)
