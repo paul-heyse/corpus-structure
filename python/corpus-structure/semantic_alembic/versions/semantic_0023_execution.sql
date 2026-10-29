@@ -398,3 +398,23 @@ END $$;
 ALTER FUNCTION ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb) OWNER TO corpus_sem_publisher;
 REVOKE ALL ON FUNCTION ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb) TO corpus_sem_writer;
+
+-- A private evaluation output is a transaction-local phase, not a durable readable state.
+SET LOCAL ROLE __MIGRATION_OWNER__;
+CREATE FUNCTION ops.require_atomic_evaluation() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE final_run ops.run;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM sem.release WHERE release_id=NEW.release_id AND profile='semantic-2') THEN RETURN NULL; END IF;
+ SELECT * INTO STRICT final_run FROM ops.run WHERE id=NEW.id;
+ IF final_run.result_realization_id IS NOT NULL AND (
+  final_run.status<>'finished' OR NOT EXISTS(SELECT 1 FROM ops.completed_result result
+   WHERE result.run_id=final_run.id AND result.release_id=final_run.release_id
+    AND result.output_realization_id=final_run.result_realization_id)) THEN
+  RAISE EXCEPTION 'evaluation output must commit with its completed EvaluationResult' USING ERRCODE='23514';
+ END IF;
+ RETURN NULL;
+END $fn$;
+REVOKE ALL ON FUNCTION ops.require_atomic_evaluation() FROM PUBLIC;
+CREATE CONSTRAINT TRIGGER run_evaluation_atomic AFTER INSERT OR UPDATE OF result_realization_id ON ops.run
+ DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ops.require_atomic_evaluation();
