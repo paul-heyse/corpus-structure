@@ -1,0 +1,112 @@
+id: https://corpus-structure.dev/semantic/agent
+name: semantic_agent
+prefixes:
+  agent: https://corpus-structure.dev/semantic/agent/
+default_prefix: agent
+default_range: string
+classes:
+  AgentAttribute:
+    attributes:
+      predicate: {range: AgentPropertyIRI, required: true}
+      value: {range: Value, inlined: true, required: true}
+  AgentReference:
+    attributes:
+      source_uri: {}
+      locator: {}
+      description: {required: true}
+  AgentEntity:
+    attributes:
+      id: {required: true}
+      class_iri: {range: AgentClassIRI, required: true}
+      label: {}
+      attributes: {range: AgentAttribute, inlined: true, multivalued: true}
+      scope: {range: SemanticScope, inlined: true}
+      reference: {range: AgentReference, inlined: true}
+  AgentStatement:
+    attributes:
+      id: {required: true}
+      kind: {required: true}
+      anchor: {required: true}
+      title: {}
+      reference: {range: AgentReference, inlined: true}
+  AgentEvidence:
+    attributes:
+      sentence: {required: true}
+      quote: {required: true}
+      role: {range: AgentEvidenceRole, required: true}
+  AgentLocatedEvidence:
+    attributes:
+      sentence: {required: true}
+      quote: {required: true}
+      role: {range: AgentEvidenceRole, required: true}
+      locator: {}
+      start: {range: integer, minimum_value: 0}
+      end: {range: integer, minimum_value: 0}
+      placement: {required: true}
+      matches: {range: integer, minimum_value: 0, required: true}
+      picked: {range: boolean, required: true}
+      timeouts: {multivalued: true}
+      alignment_score: {range: decimal}
+      fuzzy_counts: {range: integer, multivalued: true}
+      outcome: {range: AgentPlacementOutcome, required: true}
+  AgentAlternative:
+    attributes:
+      id: {required: true}
+      members: {multivalued: true, required: true}
+      faithful: {range: boolean, required: true}
+      reason: {required: true}
+  AgentClaim:
+    attributes:
+      id: {required: true}
+      subject: {required: true}
+      predicate: {range: AgentPropertyIRI, required: true}
+      object: {range: Value, inlined: true, required: true}
+      qualification: {range: Qualification, inlined: true, required: true}
+      establishment: {range: Establishment, required: true}
+      statement: {}
+      statement_role: {}
+      evidence: {range: AgentEvidence, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
+  AgentStoredClaim:
+    is_a: AgentClaim
+    slot_usage:
+      evidence: {range: AgentLocatedEvidence}
+  AgentUnsupported:
+    attributes:
+      id: {required: true}
+      kind: {required: true}
+      reason: {required: true}
+      text: {required: true}
+      evidence: {range: AgentEvidence, inlined: true, multivalued: true, minimum_cardinality: 1, required: true}
+  AgentStoredUnsupported:
+    is_a: AgentUnsupported
+    slot_usage:
+      evidence: {range: AgentLocatedEvidence}
+  AgentAuthoredBatch:
+    attributes:
+      unit_ref: {required: true}
+      entities: {range: AgentEntity, inlined: true, multivalued: true}
+      statements: {range: AgentStatement, inlined: true, multivalued: true}
+      claims: {range: AgentClaim, inlined: true, multivalued: true}
+      alternatives: {range: AgentAlternative, inlined: true, multivalued: true}
+      unsupported: {range: AgentUnsupported, inlined: true, multivalued: true}
+  AgentStoredBatch:
+    is_a: AgentAuthoredBatch
+    slot_usage:
+      claims: {range: AgentStoredClaim}
+      unsupported: {range: AgentStoredUnsupported}
+enums:
+  AgentClassIRI:
+    permissible_values: {}
+  AgentPropertyIRI:
+    permissible_values: {}
+  AgentEvidenceRole:
+    permissible_values:
+      primary: {}
+      supporting: {}
+      condition: {}
+      definition: {}
+  AgentPlacementOutcome:
+    permissible_values:
+      located: {}
+      coarse: {}
+      unlocated: {}
