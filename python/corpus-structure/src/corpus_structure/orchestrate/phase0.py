@@ -1,20 +1,9 @@
-"""The phase 0 graph (orchestration §3.8; D6 §2, phase 0), as data.
+"""Configured source-method graph shared by semantic preparation and execution.
 
-| Stage | Steps | Upstream |
-|---|---|---|
-| `ingest` | `ingest.html/default` (M01, with M03); `profile.segments/default` (M02) | M02: M01 |
-| `normalize` | `extract.math/default` (M09), `normalize.formula/default` (M11), independent | M01 |
-| `scope` | `resolve.symbol_scope/default` (M13) | M09, M11 |
-| `propose` | the `propose` chain (§3.10, P0-O-2) | M24: M01, M13 |
-| `assemble` | one consolidation pass | — |
-| `finalize` | the seal; the final pass with M19 as of the cut; measure, evaluate, finish | — |
-
-Every step's units come from its method's `select`. The propose chain joins with P0-O-2; until then
-the graph ends its base stages at `scope`. The passes run consolidation's `run_pass` (P0-C-1) under
-`consolidate.claims`, with M19 (`validate.rules`) as of the cut. Until evaluation (P0-E-2b) lands,
-`EvaluateStub` registers `evaluate.score`, whose task the seal creates, and `stub_evaluate` is its
-outcome: no adjudicated unit in scope (`empty`). `stub_pass`, a pass that consolidates nothing,
-serves tests.
+The base graph ingests/profile documents, recognizes mathematical source reports and queues
+release-bound automated proposals. Semantic domain operations own final materialization;
+independent reference evaluation uses evaluate.semantic. Config descriptors for those later
+operations remain registered so existing methods.yaml declarations resolve consistently.
 """
 
 from __future__ import annotations
