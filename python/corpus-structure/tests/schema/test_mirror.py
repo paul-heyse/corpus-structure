@@ -165,6 +165,8 @@ def _qualifier_differences(view: Any) -> list[str]:
             rng = str(rng or slot.range)
             named = {getattr(m, "__name__", None) for m in _members(fields[name].annotation)}
             hand_range = {"Condition": {"AuthoredAnd", "StoredAnd"},
+                          # a schema-version-scoped set admits pack members: a name, not the enum
+                          "ClaimModality": {"str"},
                           "PhraseValue": {"AuthoredPhrase", "StoredPhrase"},
                           "Entity": {"EntityRef"}}.get(rng, {rng})  # fmt: skip
             if not named & hand_range:

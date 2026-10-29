@@ -15,6 +15,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import TypeAdapter, ValidationError
 
+from corpus_structure.core._model.qualifiers import MISSING, QualifierSpec
 from corpus_structure.core.candidates import (
     CandidateStatement,
     KeyedCandidateSet,
@@ -36,6 +37,7 @@ from corpus_structure.core.keys import (
     LabelRules,
     Member,
     Rewrite,
+    ValueSpec,
     alternative_group_key,
     canonical_condition,
     canonical_value,
@@ -46,7 +48,18 @@ from corpus_structure.core.keys import (
     symbol_form,
 )
 from corpus_structure.core.values import CONDITION_ADAPTERS, AuthoredObject, StoredObject
+from corpus_structure.core.vocab import CanonicalForm, CaseRule, KeyRole, QualifierStore
 from corpus_structure.core.vocab import DropReason as Code
+
+
+def pack_spec(name: str, canonical: CanonicalForm, range_: str = "string",
+              role: KeyRole = KeyRole.IDENTITY) -> QualifierSpec:  # fmt: skip
+    """A test pack's qualifier specification, as S1 compiles one."""
+    return QualifierSpec(
+        name=name, local_name=name.split(":")[1], range=range_, default=MISSING, key_role=role,
+        key_role_when=None, canonical=canonical, case=CaseRule.FOLD, store=QualifierStore.JSON,
+    )  # fmt: skip
+
 
 MACROS = {"\\R": MacroDef(body="\\mathbb{R}")}
 DOC = document_key("statistics", "special/Test.html", "0" * 64)
@@ -276,9 +289,12 @@ SCHEMA = KeySchema(  # every schema name prefixed, as the stored form writes it
     predicates=frozenset(
         {"stat:has_distribution", "stat:defined_as", "core:proves", "core:follows_from"}
     ),
-    identity_qualifiers={"stat:has_distribution": ("stat:param_values",)},
+    # ci:identity_qualifiers: param_values, as S1 compiles it
+    qualifiers={"stat:has_distribution": (
+        pack_spec("stat:param_values", CanonicalForm.MAP, "stat:ParamValue"),)},
+    map_values={"stat:ParamValue": ValueSpec("Formula", CanonicalForm.TOKEN_FORM)},
     symmetric_predicates=frozenset({"independent"}),
-)
+)  # fmt: skip
 
 
 def claim_key(qualifiers: dict, **extra: Any) -> str:
@@ -709,7 +725,8 @@ def test_stored_names_are_prefixed_and_unknown_predicates_refused() -> None:
     with pytest.raises(ValidationError, match="not a prefixed name"):
         keys_for([{"id": "c1", "qualifiers": {"modality": "supposed"}}])
     with pytest.raises(ValidationError, match="not a known predicate"):
-        KeySchema(predicates=frozenset({"x:p"}), identity_qualifiers={"x:q": ("x:r",)})
+        KeySchema(predicates=frozenset({"x:p"}),
+                  qualifiers={"x:q": (pack_spec("x:r", CanonicalForm.IDENTIFIER),)})  # fmt: skip
     with pytest.raises(ValidationError):
         KeySchema(predicates=frozenset({"p"}))
 

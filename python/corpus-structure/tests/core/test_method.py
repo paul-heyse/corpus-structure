@@ -19,6 +19,8 @@ from typing import Annotated, Any
 
 import pytest
 from pydantic import BaseModel, ConfigDict, ValidationError
+from sqlalchemy import Column, Connection, MetaData, Table, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.core.evidence import RenditionContent, Segment, SegmentKind
 from corpus_structure.core.method import (
@@ -155,20 +157,51 @@ def link(score: float = 0.85) -> LinkPayload:
                        features={"cosine": 0.731, "same_page": True})  # fmt: skip
 
 
-def test_payload_hash_of_a_model_equals_its_jsonb_read_back() -> None:
-    payload = link()
-    stored = json.loads(json.dumps(payload.model_dump(mode="json")))  # as written to JSONB
-    reordered = dict(reversed(list(stored.items())))  # keys as PostgreSQL may return them
-    assert payload_hash(payload) == payload_hash(reordered)
-    assert payload_hash(payload) != payload_hash(link(0.86))
-    markup = AuthorMarkupPayload(markup="dfn", value="Café")
-    assert payload_hash(markup) == payload_hash({"value": unicodedata.normalize("NFD", "Café"),
-                                                 "markup": "dfn"})  # fmt: skip
+CAFE_NFD = unicodedata.normalize("NFD", "Café")
+ROUND_TRIPS: list[BaseModel | dict[str, Any]] = [
+    link(),
+    LinkPayload(pair=("ent:a", "ent:b"), candidate="ent:b", score=1.0, rank=3,
+                features={"count": 1e16, "huge": 1.5e300, "tiny": 1e-20, "sum": 0.1 + 0.2,
+                          "whole": 2.0, "big_int": 10**20, "negative": -7, "zero": 0}),
+    AuthorMarkupPayload(markup="dfn", value=CAFE_NFD),
+    {"score": 1e16, "ints": [0, 1, -1, 2**63], "decimals": [0.5, 1.25, 1e-7, 123456789.125],
+     "nested": {"z": {"b": [{"y": 1.0, "x": "Ångström"}], "a": None}, "aa": True},
+     "text": CAFE_NFD, CAFE_NFD: "key"},
+]  # fmt: skip
 
 
-def test_payload_hash_converts_floats_and_refuses_non_finite_ones() -> None:
+@pytest.mark.parametrize("payload", ROUND_TRIPS)
+def test_payload_hash_agrees_on_write_and_jsonb_read_back(db: Connection, payload) -> None:
+    """Written through SQLAlchemy's JSONB binding, read back as psycopg returns it from PG 18."""
+    table = Table("payload_round_trip", MetaData(), Column("payload", JSONB, nullable=False),
+                  prefixes=["TEMPORARY"])  # fmt: skip
+    table.create(db)
+    written = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
+    db.execute(table.insert(), {"payload": written})
+    read_back = db.execute(select(table.c.payload)).scalar_one()
+    table.drop(db)
+    assert payload_hash(payload) == payload_hash(read_back)
+    assert payload_hash(written) == payload_hash(read_back)
+
+
+def test_the_jsonb_read_back_differs_from_what_was_written(db: Connection) -> None:
+    """The round trip changes what the hash must see through: an integral float comes back an
+    integer, keys in JSONB's order, text unnormalized."""
+    payload = {"score": 1e16, "ab": 1.0, "b": CAFE_NFD}
+    stored = db.execute(text("SELECT CAST(:p AS jsonb)"), {"p": json.dumps(payload)})
+    read_back = stored.scalar_one()
+    assert read_back == {"b": CAFE_NFD, "ab": 1.0, "score": 10000000000000000}
+    assert isinstance(read_back["score"], int) and list(read_back) == ["b", "ab", "score"]
+    assert payload_hash(payload) == payload_hash(read_back)
+    assert payload_hash(link()) != payload_hash(link(0.86))
+    assert payload_hash({"n": 1}) != payload_hash({"n": 2})
+
+
+def test_payload_hash_converts_numbers_and_refuses_non_finite_floats() -> None:
     assert payload_hash({"score": 0.85}) == payload_hash({"score": "0.85"})  # decimal_of_float
     assert payload_hash({"score": 1e-3}) == payload_hash({"score": "0.001"})
+    assert payload_hash({"score": 1e16}) == payload_hash({"score": 10000000000000000})
+    assert payload_hash({"n": 3}) == payload_hash({"n": 3.0}) == payload_hash({"n": "3"})
     for bad in (float("nan"), float("inf"), -float("inf")):
         with pytest.raises(ValueError, match="non-finite"):
             payload_hash({"score": bad})

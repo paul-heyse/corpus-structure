@@ -40,15 +40,7 @@
           "type": "string"
         },
         "rel": {
-          "enum": [
-            "<",
-            "<=",
-            "=",
-            "!=",
-            ">",
-            ">="
-          ],
-          "type": "string"
+          "$ref": "#/$defs/Relation"
         },
         "lhs": {
           "$ref": "#/$defs/Formula"
@@ -170,6 +162,18 @@
         "args"
       ],
       "type": "object"
+    },
+    "Relation": {
+      "description": "The relation of a cmp condition node (D1 §7). Lifecycle: static.",
+      "enum": [
+        "<",
+        "<=",
+        "=",
+        "!=",
+        ">",
+        ">="
+      ],
+      "type": "string"
     },
     "SetValue": {
       "additionalProperties": false,

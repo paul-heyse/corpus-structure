@@ -6,6 +6,7 @@ TM §11, never read back from the generated files they check.
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -107,6 +108,86 @@ def test_a_seeded_declaration_is_refused(tmp_path: Path, edit, problem: str) -> 
     assert any(problem in p for p in problems), problems
 
 
+def _include(enum: dict, members: dict) -> None:
+    enum.setdefault("include", []).append({"permissible_values": members})
+
+
+def _attr(data: dict, cls: str, name: str) -> dict:
+    return _class(data, cls)["attributes"][name]
+
+
+@pytest.mark.parametrize(
+    ("module", "edit", "problem"),
+    [
+        # placements the walk covers: subset definitions, unique keys, expression members
+        ("core", lambda d: d["subsets"]["search_block"].update({"annotations": {"ci:colour": "x"}}),
+         "core.subsets.search_block: ci:colour is not in the declaration vocabulary"),
+        ("system", lambda d: _class(d, "KbSegment")["unique_keys"]["segment_key"].update(
+            {"annotations": {"ci:colour": "x"}}),
+         "system.classes.KbSegment.unique_keys.segment_key: ci:colour is not in the declaration"),
+        ("core", lambda d: _include(d["enums"]["Polarity"],
+                                    {"neutral": {"annotations": {"ci:colour": "x"}}}),
+         "core.enums.Polarity.include[0].neutral: ci:colour is not in the declaration vocabulary"),
+        ("core", lambda d: _class(d, "Statement")["annotations"].update({"ci:consumer": "x"}),
+         "core.classes.Statement: ci:consumer is not declared on a class"),
+        # a member property on a class attribute, and one of another enum inside an include
+        ("system", lambda d: _attr(d, "KbSegment", "kind").update({"in_subset": ["search_block"]}),
+         "member property search_block is also an element subset"),
+        ("core", lambda d: _include(d["enums"]["Polarity"],
+                                    {"paragraph": {"in_subset": ["search_block"]}}),
+         "member property search_block is used by ['Polarity', 'SegmentKind']; one enum and the "
+         "enums that extend it only"),
+        # an unrelated enum reusing a ClaimModality property
+        ("core", lambda d: d["enums"]["Polarity"]["permissible_values"]["negative"].update(
+            {"in_subset": ["attribution_identifying"]}),
+         "member property attribution_identifying is used by ['ClaimModality', 'Polarity']"),
+        # ADR-0023: a member property names its consumer on its subset definition
+        ("core", lambda d: d["subsets"]["premise_forming"].pop("annotations"),
+         "member property premise_forming names no consumer (ci:consumer on its subset"),
+        ("core", lambda d: d["enums"]["Polarity"]["permissible_values"]["negative"].update(
+            {"in_subset": ["undeclared"]}), "member property undeclared has no subset definition"),
+        # one name space for classes, enums and types, across core and system
+        ("core", lambda d: d["enums"].update({"Statement": {
+            "annotations": {"ci:lifecycle": "static"}, "permissible_values": {"x": {}}}}),
+         "core.enums.Statement: the name is also core.classes.Statement"),
+        ("system", lambda d: d["classes"].update({"Polarity": {"description": "clash"}}),
+         "system.classes.Polarity: the name is also core.enums.Polarity"),
+        # ci:same names a slot of the declaring and of the referenced class
+        ("system", lambda d: _ann(_attr(d, "KbEntity", "resolved_to"), "ci:same", "nowhere"),
+         "system.classes.KbEntity.resolved_to: ci:same 'nowhere' is not a slot of KbEntity"),
+        ("system", lambda d: _ann(_attr(d, "Claim", "attribution_entity"), "ci:same", "modality"),
+         "ci:same 'modality' is not a slot of the referenced KbEntity"),
+    ],
+)  # fmt: skip
+def test_a_seeded_placement_is_refused(tmp_path: Path, module: str, edit, problem: str) -> None:
+    edits = {"edit_core": edit} if module == "core" else {"edit_system": edit}
+    problems = model.check(seeded(tmp_path, **edits), vocab.MEMBER_PROPERTIES)
+    assert any(problem in p for p in problems), problems
+
+
+def test_a_pack_style_enum_extending_a_core_enum_may_use_its_properties(tmp_path: Path) -> None:
+    """Model and projections §3.1, ADR-0023: an enum that inherits ClaimModality adds a member
+    under which attribution identifies; only an unrelated enum is refused (above)."""
+
+    def edit(d: dict) -> None:
+        d["enums"]["BusinessModality"] = {
+            "inherits": ["ClaimModality"],
+            "annotations": {"ci:lifecycle": "schema_version"},
+            "permissible_values": {"reported": {"in_subset": ["attribution_identifying"]}},
+        }
+        d["enums"]["DeskModality"] = {  # extends ClaimModality through an include expression
+            "include": [{"inherits": ["BusinessModality"]}],
+            "annotations": {"ci:lifecycle": "schema_version"},
+            "permissible_values": {"overheard": {"in_subset": ["attribution_identifying"]}},
+        }
+
+    extended = seeded(tmp_path, edit_core=edit)
+    assert model.check(extended, vocab.MEMBER_PROPERTIES) == []
+    members = {m.text: m for m in extended.expanded("DeskModality")}
+    assert members["cited"].defined_in == "ClaimModality"
+    assert members["reported"].properties == members["overheard"].properties
+
+
 def test_an_invariant_value_outside_its_enum_is_refused(tmp_path: Path) -> None:
     def edit(d: dict) -> None:
         _class(d, "KbSegment")["annotations"]["ci:invariant"] = (
@@ -146,12 +227,12 @@ enums:
   Extra:
     permissible_values:
       hearsay: {in_subset: [attribution_identifying]}
-      supposed: {}
+      supposed: {in_subset: [premise_forming]}
   PackModality:
     inherits: [CoreModality]
     include:
       - inherits: [Extra]
-      - permissible_values: {asserted: {}, reported: {in_subset: [attribution_identifying]}}
+      - permissible_values: {reported: {in_subset: [attribution_identifying]}}
     minus:
       - permissible_values: {posed: {}}
     permissible_values:
@@ -176,13 +257,37 @@ def test_inherits_include_and_minus_expand_in_order_with_their_properties(tmp_pa
         ("cited", ("attribution_identifying",), "CoreModality"),
         ("hearsay", ("attribution_identifying",), "Extra"),
         ("reported", ("attribution_identifying",), "PackModality"),
-    ]  # include's repeats (supposed, asserted) kept once, from their first definition; posed minus
+    ]  # supposed, from both parents with one property, is kept once from the first; posed minus
 
 
 def test_a_pack_member_colliding_with_a_core_member_is_refused(tmp_path: Path) -> None:
     text = MODALITIES.replace("warranted: {in_subset: [conflict_bearing]}", "cited: {}")
     with pytest.raises(model.EnumExpansionError, match="'cited' collides with CoreModality"):
         model.expand_enum(view(tmp_path, text), "PackModality")
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "refusal"),
+    [
+        # an include expression's inline member repeating an inherited one, as an own member would
+        ("{reported: {in_subset: [attribution_identifying]}}", "{asserted: {}}",
+         "'asserted' collides with CoreModality's member"),
+        # the same, keeping the inherited member's properties: still a second definition
+        ("{reported: {in_subset: [attribution_identifying]}}",
+         "{asserted: {in_subset: [conflict_bearing]}}", "'asserted' collides with CoreModality"),
+        # an inline member repeating an own member
+        ("{reported: {in_subset: [attribution_identifying]}}", "{warranted: {}}",
+         "'warranted' is defined twice"),
+        # two parents bringing one member with different properties
+        ("supposed: {in_subset: [premise_forming]}\n  PackModality", "supposed: {}\n  PackModality",
+         "'supposed' comes from CoreModality with properties ['premise_forming'] and from Extra "
+         "with []"),
+    ],
+)  # fmt: skip
+def test_an_enum_expansion_collision_is_refused(tmp_path: Path, old: str, new: str, refusal):
+    assert MODALITIES.count(old) == 1
+    with pytest.raises(model.EnumExpansionError, match=re.escape(refusal)):
+        model.expand_enum(view(tmp_path, MODALITIES.replace(old, new)), "PackModality")
 
 
 # --- The model revision ------------------------------------------------------------------------
@@ -199,6 +304,27 @@ def test_the_revision_hashes_the_parsed_files_and_is_logged(
     described = seeded(tmp_path, edit_core=lambda d: d.update({"description": "other"}))
     assert model.content_hash(*described.paths) != current.content_hash
     assert (current.content_hash, 1) == (revision.CONTENT_HASH, revision.KEY_SCHEME)
+
+
+def test_a_model_with_float_values_hashes_stably_and_by_content(tmp_path: Path) -> None:
+    """Valid LinkML carries floats (`minimum_value: 0.5`); they hash as canonical decimals."""
+
+    def bounded(value: float, reverse: bool = False):
+        def edit(d: dict) -> None:
+            d["slots"]["hedge"].update({"minimum_value": value, "maximum_value": 1e16})
+            if reverse:
+                d.update(dict(reversed(list(d.items()))))
+
+        return edit
+
+    for name in "abc":
+        (tmp_path / name).mkdir()
+    first = seeded(tmp_path / "a", edit_core=bounded(0.5))
+    assert "minimum_value: 0.5" in first.paths[0].read_text(encoding="utf-8")  # a YAML float
+    digest = model.content_hash(*first.paths)
+    assert digest == model.content_hash(*first.paths)
+    assert model.content_hash(*seeded(tmp_path / "b", edit_core=bounded(0.5, True)).paths) == digest
+    assert model.content_hash(*seeded(tmp_path / "c", edit_core=bounded(0.25)).paths) != digest
 
 
 def test_a_log_that_does_not_end_at_the_current_revision_is_refused(loaded: model.Model) -> None:
@@ -219,7 +345,7 @@ def test_regenerating_reproduces_every_committed_file(loaded: model.Model, tmp_p
     assert set(files) == {
         "core/vocab.py", "core/_model/__init__.py", "core/_model/qualifiers.py",
         "core/_model/names.py", "core/_model/sql.py", "core/_model/validators.py",
-        "core/_model/revision.py",
+        "core/_model/revision.py", "core/db/_tables.py",
     }  # fmt: skip
     assert generate.drift(files) == []
     generate.write(files, tmp_path)

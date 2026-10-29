@@ -52,19 +52,6 @@
       ],
       "type": "object"
     },
-    "ClaimModality": {
-      "description": "How the source holds a claim (D1 §5.2; guideline §10.6). Lifecycle: schema_version.",
-      "enum": [
-        "asserted",
-        "supposed",
-        "defined",
-        "conventional",
-        "exemplified",
-        "posed",
-        "cited"
-      ],
-      "type": "string"
-    },
     "ClaimNode": {
       "additionalProperties": false,
       "properties": {
@@ -91,15 +78,7 @@
           "type": "string"
         },
         "rel": {
-          "enum": [
-            "<",
-            "<=",
-            "=",
-            "!=",
-            ">",
-            ">="
-          ],
-          "type": "string"
+          "$ref": "#/$defs/Relation"
         },
         "lhs": {
           "$ref": "#/$defs/Formula"
@@ -382,6 +361,18 @@
         "args"
       ],
       "type": "object"
+    },
+    "Relation": {
+      "description": "The relation of a cmp condition node (D1 §7). Lifecycle: static.",
+      "enum": [
+        "<",
+        "<=",
+        "=",
+        "!=",
+        ">",
+        ">="
+      ],
+      "type": "string"
     },
     "ScopeExtent": {
       "description": "How far a supposition reaches beyond its statement. Lifecycle: static.",
@@ -756,8 +747,9 @@
       "description": "The stored qualifiers: the core ones as `core:<name>`, schema qualifiers by prefixed name.\n\nAttributes keep the local names (`q.modality`); validation and dumps use the prefixed ones.",
       "properties": {
         "core:modality": {
-          "$ref": "#/$defs/ClaimModality",
-          "default": "asserted"
+          "default": "asserted",
+          "pattern": "^[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?$",
+          "type": "string"
         },
         "core:polarity": {
           "$ref": "#/$defs/Polarity",

@@ -15,6 +15,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from corpus_structure.core import keys as keys_module
+from corpus_structure.core._model.qualifiers import MISSING, QualifierSpec
 from corpus_structure.core.batch import (
     AuthoredItem,
     StoredItem,
@@ -39,6 +40,7 @@ from corpus_structure.core.keys import (
     LabelRules,
     Member,
     Rewrite,
+    ValueSpec,
     canonical_condition,
     canonical_qualifier,
     canonical_value,
@@ -57,7 +59,24 @@ from corpus_structure.core.values import (
     StoredCondition,
     StoredValue,
 )
-from corpus_structure.core.vocab import DropReason
+from corpus_structure.core.vocab import CanonicalForm, CaseRule, DropReason, KeyRole, QualifierStore
+
+# the canonical form each value tag's range takes (TM §8), written out
+BY_TAG = {"text": CanonicalForm.TEXT_FORM, "number": CanonicalForm.NUMBER,
+          "bool": CanonicalForm.VERBATIM, "enum": CanonicalForm.ENUM,
+          "formula": CanonicalForm.TOKEN_FORM, "set": CanonicalForm.TOKEN_FORM,
+          "date": CanonicalForm.VERBATIM, "interval": CanonicalForm.INTERVAL,
+          "phrase": CanonicalForm.TEXT_FORM}  # fmt: skip
+
+
+def pack_spec(name: str, canonical: CanonicalForm, range_: str = "string",
+              role: KeyRole = KeyRole.IDENTITY) -> QualifierSpec:  # fmt: skip
+    """A test pack's qualifier specification, as S1 compiles one."""
+    return QualifierSpec(
+        name=name, local_name=name.split(":")[1], range=range_, default=MISSING, key_role=role,
+        key_role_when=None, canonical=canonical, case=CaseRule.FOLD, store=QualifierStore.JSON,
+    )  # fmt: skip
+
 
 MACROS = {"\\R": MacroDef(body="\\mathbb{R}")}
 
@@ -171,7 +190,8 @@ def test_every_value_member_through_every_value_dispatch(form: str) -> None:
         assert canonical_value(value, MACROS, resolve) == canonical, raw
         assert len(list(expressions(value))) == count, raw
         if form == "stored":
-            assert canonical_qualifier(value, MACROS, resolve) == canonical, raw
+            spec = ValueSpec(type(value).__name__, BY_TAG[raw["t"]])
+            assert canonical_qualifier(value, spec, KeySchema(), MACROS, resolve, "q") == canonical
     ref = EntityRef(ref="X")
     assert canonical_value(ref, MACROS, resolve) == {"key": "key:X"}
     assert list(expressions(ref)) == []
@@ -188,7 +208,8 @@ def test_every_condition_member_through_every_condition_dispatch(form: str) -> N
         assert claim_refs(node) == refs, raw
         assert len(list(expressions(node))) == count, raw
         if form == "stored":
-            assert canonical_qualifier(node, MACROS, resolve) == canonical, raw
+            spec = ValueSpec("Condition", CanonicalForm.CONDITION)
+            assert canonical_qualifier(node, spec, KeySchema(), MACROS, resolve, "q") == canonical
 
 
 def test_assert_never_is_reached_only_by_an_unrepresentable_member() -> None:
@@ -198,7 +219,7 @@ def test_assert_never_is_reached_only_by_an_unrepresentable_member() -> None:
         lambda: canonical_condition(stray, MACROS, resolve),
         lambda: list(condition_nodes(stray)),
         lambda: list(expressions(stray)),
-        lambda: canonical_qualifier(stray, MACROS, resolve),
+        lambda: canonical_qualifier(stray, ValueSpec("x", stray), KeySchema(), MACROS, resolve, ""),
     ):
         with pytest.raises(AssertionError):
             dispatch()
@@ -312,10 +333,13 @@ def seg(ctx: KeyContext, kind: SegmentKind, n: int = 0) -> str:
     return segment_key(ren, segment.kind, segment.start, segment.end)
 
 
+VALUES_MAP = {"stat:Values": ValueSpec("Formula", CanonicalForm.TOKEN_FORM)}
 SCHEMA = KeySchema(
     predicates=frozenset({"stat:p"}),
-    identity_qualifiers={"stat:p": ("stat:sentence", "stat:values")},
-)
+    qualifiers={"stat:p": (pack_spec("stat:sentence", CanonicalForm.IDENTIFIER),
+                           pack_spec("stat:values", CanonicalForm.MAP, "stat:Values"))},
+    map_values=VALUES_MAP,
+)  # fmt: skip
 RULES = LabelRules()
 
 
@@ -358,12 +382,14 @@ def test_every_drop_reason_has_a_case_producing_it() -> None:
         {"id": "c_float", "qualifiers": {"stat:values": {"mean": 1.5}}},
         {"id": "c_kind", "qualifiers": {"stat:values": {"mean": {"t": "quantity", "v": "1"}}}},
         {"id": "c_ok", "statement": "st", "qualifiers": {"stat:values": {"mean": FORMULA}}},
+        {"id": "c_surrogate", "object": {"t": "text", "v": "lone \ud800"}},
     ]
     identity = KeySchema(
         identity_keys={"stat:P": ("stat:of",)},
         entity_identity={"stat:P": ("stat:of",)},
         predicates=frozenset({"stat:p"}),
-        identity_qualifiers={"stat:p": ("stat:values",)},
+        qualifiers={"stat:p": (pack_spec("stat:values", CanonicalForm.MAP, "stat:Values"),)},
+        map_values=VALUES_MAP,
     )
     base = {"predicate": "stat:p", "subject": "N", "object": {"ref": "N"},
             "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
@@ -387,6 +413,7 @@ def test_every_drop_reason_has_a_case_producing_it() -> None:
         "c_cycle": Drop(DropReason.CONDITION_CYCLE, "c_cycle", ("c_cycle", "c_cycle")),
         "c_float": Drop(DropReason.MALFORMED_QUALIFIER, "stat:values", ("mean",)),
         "c_kind": Drop(DropReason.MALFORMED_QUALIFIER, "stat:values", ("mean",)),
+        "c_surrogate": Drop(DropReason.MALFORMED_VALUE, "c_surrogate", ("$.object.value.v",)),
     }
     assert set(out.claims) == {"c_ok"}
     assert {d.code for d in out.dropped.values()} == set(DropReason)
@@ -407,7 +434,9 @@ def test_a_pack_qualifier_named_sentence_keys_as_written() -> None:
 
     assert keys_of("s3") == keys_of(" S3 ")  # the text form of a literal
     assert keys_of("s3") != keys_of("s4")
-    assert keys_of({"sentence": "s3"}) != keys_of("s3")
+    out = key(ctx, [], [], [{"id": "c1", "qualifiers": {"stat:sentence": {"sentence": "s3"}}}])
+    # by its declared (string) range, never by its shape: an object there is no identifier
+    assert out.dropped == {"c1": Drop(DropReason.MALFORMED_QUALIFIER, "stat:sentence")}
 
 
 def test_preparation_happens_once_per_context(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -451,5 +480,7 @@ def test_malformed_pack_and_schema_inputs_are_refused_at_construction() -> None:
     """Construction errors stay `ValueError`s: they are input errors, not keying outcomes."""
     with pytest.raises(ValidationError, match="does not compile"):
         LabelRules(rewrites=(Rewrite(match="(unclosed", replace=""),))
-    with pytest.raises(ValidationError, match="core qualifier"):
-        KeySchema(predicates=frozenset({"stat:p"}), identity_qualifiers={"stat:p": ("core:hedge",)})
+    with pytest.raises(ValidationError, match="is core; its role is fixed"):
+        KeySchema(predicates=frozenset({"stat:p"}),
+                  qualifiers={"stat:p": (
+                      pack_spec("core:hedge", CanonicalForm.TEXT_FORM),)})  # fmt: skip

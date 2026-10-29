@@ -9,6 +9,7 @@ differs from the recorded text, is refused with the resolver's candidates. Every
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import assert_never
 
 from corpus_structure.core.batch import (
     AuthoredBatch,
@@ -27,15 +28,26 @@ from corpus_structure.core.locators import (
 )
 from corpus_structure.core.vocab import CITABLE_SENTENCE, FrameFailureReason
 
-_MESSAGES: dict[FrameFailureReason, str] = {
-    FrameFailureReason.LOCATOR_SYNTAX: "the locator is malformed",
-    FrameFailureReason.OTHER_PAGE: "the locator names another page",
-    FrameFailureReason.LOCATOR_REFUSED: "the locator is refused",
-    FrameFailureReason.NOT_A_SENTENCE: "the locator selects a segment that is not a sentence",
-    FrameFailureReason.TEXT_DIFFERS: "the sentence's text differs from the recorded text",
-    FrameFailureReason.NOT_IN_FRAME: "cited but not in the batch's frame",
-    FrameFailureReason.NOT_IN_PACKET: "not in the served packet",
-}
+
+def _message(code: FrameFailureReason) -> str:
+    """Each code's message; exhaustive, so a new code is a type error, not a runtime KeyError."""
+    match code:
+        case FrameFailureReason.LOCATOR_SYNTAX:
+            return "the locator is malformed"
+        case FrameFailureReason.OTHER_PAGE:
+            return "the locator names another page"
+        case FrameFailureReason.LOCATOR_REFUSED:
+            return "the locator is refused"
+        case FrameFailureReason.NOT_A_SENTENCE:
+            return "the locator selects a segment that is not a sentence"
+        case FrameFailureReason.TEXT_DIFFERS:
+            return "the sentence's text differs from the recorded text"
+        case FrameFailureReason.NOT_IN_FRAME:
+            return "cited but not in the batch's frame"
+        case FrameFailureReason.NOT_IN_PACKET:
+            return "not in the served packet"
+        case _:
+            assert_never(code)
 
 
 @dataclass(frozen=True)
@@ -54,7 +66,7 @@ class FrameFailure:
 
     @property
     def message(self) -> str:
-        text = _MESSAGES[self.code]
+        text = _message(self.code)
         if self.code is FrameFailureReason.LOCATOR_REFUSED:
             text += f" ({self.refusal})"
         elif self.code is FrameFailureReason.LOCATOR_SYNTAX:

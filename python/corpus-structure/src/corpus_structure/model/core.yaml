@@ -49,41 +49,63 @@ subsets:
     description: >-
       Something the source states that the schema cannot express; the claim has status unsupported
       (D1 §8.1).
-  # Member properties (D2 §3.4): subsets used by enum members only, generated as frozensets.
+  # Member properties (D2 §3.4): subsets used by enum members only, generated as frozensets. Each
+  # names its consumer (ADR-0023); one whose reader is not built yet names the planned reader.
   premise_forming:
     description: "Member property of ClaimModality: claims are premises (INV-06; D8 default filters)."
+    annotations: {ci:consumer: "validators (INV-06); D8 default filters"}
   attribution_identifying:
     description: "Member property of ClaimModality: attribution enters the claim key (D1 §10.1)."
+    annotations: {ci:consumer: "Stage A qualifier specs (ci:key_role_when); KeySchema and keys (F2d)"}
   conflict_bearing:
     description: "Member property of ClaimModality: claims can conflict across statements (D5 §5.5)."
+    annotations: {ci:consumer: "consolidation conflict detection (D5 §5.5)"}
   reserved:
     description: "Member property of ClaimModality: reserved, not authored under guideline v1."
+    annotations: {ci:consumer: "batch validation under guideline v1 (D1 §5.2; OPEN-D2-15)"}
   claim_bearing:
     description: "Member property of StatementKind: the kind's units state claims (D6 §7.2)."
+    annotations: {ci:consumer: "ingest (I1a) and source profiles; M24 packets (D6 §7.2)"}
   annotation_unit:
     description: "Member property of SegmentKind: a segment of the kind is an annotation unit (D1 §3.4)."
+    annotations: {ci:consumer: "locators (I0); source-profile segments (I1a)"}
   top_level_annotation_unit:
     description: >-
       Member property of SegmentKind: a segment of the kind is an annotation unit when its
       ancestors are only section-like segments (D1 §3.4).
+    annotations: {ci:consumer: "locators (I0); source-profile segments (I1a)"}
   statement_anchor:
     description: "Member property of SegmentKind: a statement anchors on the innermost such segment (D1 §10.1)."
+    annotations: {ci:consumer: "keys (statement anchors, D1 §10.1)"}
   search_block:
     description: "Member property of SegmentKind: a BM25 search block (D3 §5)."
+    annotations: {ci:consumer: "M2 BM25 index predicate and overlay check; source-profile segments (I1a)"}
   section_like:
     description: >-
       Member property of SegmentKind: a segment of the kind groups blocks without being a block
       (the document and sections); annotation units are found below it.
+    annotations: {ci:consumer: "keys; locators (I0)"}
   section_label:
     description: >-
       Member property of SegmentKind: a segment of the kind labels its section; it is neither an
       annotation unit nor uncovered text.
+    annotations: {ci:consumer: "locators (I0)"}
   container:
     description: "Member property of SegmentKind: a segment of the kind holds other blocks."
+    annotations: {ci:consumer: "ingest HTML segmentation (I1a)"}
   citable_sentence:
     description: >-
       Member property of SegmentKind: a citation frame's entries and statement ordinals address
       segments of the kind (D1 §10.1, §10.3).
+    annotations: {ci:consumer: "keys; citation frames (D1 §10.1, §10.3)"}
+  symmetric_relation:
+    description: "Member property of Relation: the operands' order does not matter (D1 §7)."
+    annotations: {ci:consumer: "keys (canonical relation form, D1 §7)"}
+  converse_rewritten:
+    description: >-
+      Member property of Relation: the canonical form writes it as its converse with the sides
+      swapped (> as <, >= as <=; D1 §7).
+    annotations: {ci:consumer: "keys (canonical relation form, D1 §7)"}
 
 classes:
   Entity:
@@ -314,7 +336,7 @@ classes:
     slot_usage:
       op: {equals_string: cmp}
     attributes:
-      rel: {required: true, description: "The relation: <, <=, =, !=, > or >=."}
+      rel: {range: Relation, required: true, description: The relation.}
       lhs: {range: Formula, inlined: true, required: true, description: The left side.}
       rhs: {range: Formula, inlined: true, required: true, description: The right side.}
 
@@ -647,6 +669,16 @@ enums:
       free: {description: "A symbol the statement introduces, restricted by its conditions."}
       constant: {description: A numeric or named constant.}
       unresolved: {description: Not bound; a counted resolution gap.}
+  Relation:
+    description: The relation of a cmp condition node (D1 §7).
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      "<": {title: lt, description: Less than.}
+      "<=": {title: le, description: Less than or equal.}
+      "=": {title: eq, description: Equal., in_subset: [symmetric_relation]}
+      "!=": {title: ne, description: Not equal., in_subset: [symmetric_relation]}
+      ">": {title: gt, description: Greater than; written as < with the sides swapped., in_subset: [converse_rewritten]}
+      ">=": {title: ge, description: Greater or equal; written as <= with the sides swapped., in_subset: [converse_rewritten]}
   ParseOutcome:
     description: The math grammar's parse outcome for a formula or set value (D4 M11).
     annotations: {ci:lifecycle: static}

@@ -22,6 +22,7 @@ projection of the code, never the reason itself.
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
@@ -32,8 +33,9 @@ from typing import Any, Literal, Self, assert_never
 import regex
 from pydantic import (
     MISSING,
+    ConfigDict,
     Field,
-    JsonValue,
+    InstanceOf,
     TypeAdapter,
     ValidationError,
     field_validator,
@@ -41,6 +43,8 @@ from pydantic import (
 )
 
 from corpus_structure.core._model import names
+from corpus_structure.core._model.qualifiers import CORE_QUALIFIERS, QualifierSpec
+from corpus_structure.core._model.revision import KEY_SCHEME
 from corpus_structure.core.batch import CORE_PREFIX, PrefixedName, StoredQualifiers, StoredScope
 from corpus_structure.core.candidates import (
     CandidateClaim,
@@ -48,7 +52,7 @@ from corpus_structure.core.candidates import (
     CandidateStatement,
     KeyedCandidateSet,
 )
-from corpus_structure.core.canonical import canonical_json, make_key
+from corpus_structure.core.canonical import CanonicalJsonError, canonical_json, make_key
 from corpus_structure.core.evidence import (
     MacroDef,
     RenditionContent,
@@ -61,6 +65,7 @@ from corpus_structure.core.evidence import (
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.tex import token_form
 from corpus_structure.core.values import (
+    CONDITION_ADAPTERS,
     AuthoredAnd,
     AuthoredCondition,
     AuthoredForall,
@@ -95,10 +100,19 @@ from corpus_structure.core.values import (
 )
 from corpus_structure.core.vocab import (
     CITABLE_SENTENCE,
+    CONVERSE_REWRITTEN,
+    MEMBER_PROPERTIES,
+    PROPERTY_OF,
     SECTION_LIKE,
     STATEMENT_ANCHOR,
+    SYMMETRIC_RELATION,
+    CanonicalForm,
+    CaseRule,
+    ClaimModality,
     DropReason,
     EntityScope,
+    KeyRole,
+    Relation,
 )
 
 Json = Any
@@ -110,11 +124,6 @@ Resolve = Callable[[str], str]  # a reference (entity, statement or claim id) to
 
 type Value = AuthoredValue | StoredValue
 type Condition = AuthoredCondition | StoredCondition
-# A qualifier's typed value: a core qualifier's field, or a schema qualifier's raw JSON made typed.
-type QualifierValue = (
-    EntityRef | StoredValue | StoredCondition | str | int | bool
-    | dict[str, QualifierValue] | tuple[QualifierValue, ...] | None
-)  # fmt: skip
 
 
 # --- Text and label forms ----------------------------------------------------------------------
@@ -125,9 +134,12 @@ def collapse(text: str) -> str:
     return " ".join(unicodedata.normalize("NFC", text).split())
 
 
-def text_form(text: str) -> str:
-    """The D1 §6.2 text form: NFC, casefolded, whitespace collapsed."""
-    return " ".join(unicodedata.normalize("NFC", text).casefold().split())
+def text_form(text: str, case: CaseRule = CaseRule.FOLD) -> str:
+    """The D1 §6.2 text form: NFC, whitespace collapsed, and casefolded under the `fold` case
+    policy (the default); `preserve` keeps case (math-bearing text, ADR-0023). It is also a string
+    identifier's canonical form under its declared case."""
+    nfc = unicodedata.normalize("NFC", text)
+    return " ".join((nfc.casefold() if case is CaseRule.FOLD else nfc).split())
 
 
 class Rewrite(CoreModel):
@@ -157,22 +169,25 @@ class LabelRules(CoreModel):
     rewrites: tuple[Rewrite, ...] = ()
 
 
-def normalize_label(text: str, type_: str, rules: LabelRules) -> str:
-    """Text form; one leading article removed; the rewrites in order; the class's head words
-    removed as trailing whole words; whitespace collapsed again. Never empties a label."""
-    label = text_form(text)
+def normalize_label(
+    text: str, type_: str, rules: LabelRules, case: CaseRule = CaseRule.FOLD
+) -> str:
+    """Text form under the class's case policy; one leading article removed; the rewrites in
+    order; the class's head words removed as trailing whole words; whitespace collapsed again.
+    Articles and head words match regardless of case. Never empties a label."""
+    label = text_form(text, case)
     words = label.split(" ")
     articles = {text_form(a) for a in rules.articles}
-    if len(words) > 1 and words[0] in articles:
+    if len(words) > 1 and words[0].casefold() in articles:
         label = " ".join(words[1:])
     for rewrite in rules.rewrites:
         label = regex.sub(rewrite.match, rewrite.replace, label)
-    label = text_form(label)
+    label = text_form(label, case)
     heads = {text_form(w) for w in rules.head_words.get(type_, ())}
     words = label.split(" ") if label else []
-    while len(words) > 1 and words[-1] in heads:
+    while len(words) > 1 and words[-1].casefold() in heads:
         words.pop()
-    return text_form(" ".join(words))
+    return text_form(" ".join(words), case)
 
 
 def symbol_form(symbol: str, macros: Mapping[str, MacroDef]) -> str:
@@ -221,6 +236,8 @@ class Drop:
             case DropReason.MALFORMED_QUALIFIER:
                 at = "/".join(self.path) or "its top"
                 return f"qualifier {ref} holds no typed value at {at}"
+            case DropReason.MALFORMED_VALUE:
+                return f"{ref} holds a value with no canonical JSON at {'/'.join(self.path)}"
             case _:
                 assert_never(self.code)
 
@@ -242,14 +259,18 @@ class KeyingError(LookupError):
 
 
 def canonical_value(
-    value: EntityRef | Value, macros: Mapping[str, MacroDef], resolve: Resolve
+    value: EntityRef | Value,
+    macros: Mapping[str, MacroDef],
+    resolve: Resolve,
+    case: CaseRule = CaseRule.FOLD,
 ) -> Json:
-    """The key form of a value or entity reference (JSON), per D1 §6.2."""
+    """The key form of a value or entity reference (JSON), per D1 §6.2; text and phrases under
+    the declared case policy."""
     match value:
         case EntityRef(ref=ref):
             return {"key": resolve(ref)}
         case TextValue(v=v):
-            return {"t": "text", "v": text_form(v)}
+            return {"t": "text", "v": text_form(v, case)}
         case NumberValue():
             out: Json = {"t": "number", "v": value.v}
             if value.unit is not MISSING:
@@ -271,7 +292,7 @@ def canonical_value(
                 interval["end_incl"] = value.end_incl
             return interval
         case AuthoredPhrase(text=text) | StoredPhrase(text=text):
-            return {"t": "phrase", "text": text_form(text)}
+            return {"t": "phrase", "text": text_form(text, case)}
         case BoolValue(v=v):
             return {"t": "bool", "v": v}
         case EnumValue(enum=enum, v=v):
@@ -379,10 +400,10 @@ def _canonical_node(
         case MemberNode(x=x, set=set_):
             return {"op": "member", "x": value(x), "set": value(set_)}
         case CmpNode(rel=rel, lhs=lhs, rhs=rhs):
-            if rel in (">", ">="):
-                rel, lhs, rhs = {">": "<", ">=": "<="}[rel], rhs, lhs
+            if rel in CONVERSE_REWRITTEN:  # > as <, >= as <=, the sides swapped
+                rel, lhs, rhs = Relation(rel.replace(">", "<")), rhs, lhs
             sides = [value(lhs), value(rhs)]
-            if rel in ("=", "!="):  # symmetric relations: operands in canonical order
+            if rel in SYMMETRIC_RELATION:  # operands in canonical order
                 sides = _sort(sides)
             return {"op": "cmp", "rel": rel, "lhs": sides[0], "rhs": sides[1]}
         case PredNode(name=name, args=pred_args):
@@ -419,11 +440,8 @@ def canonical_binding(
     return out
 
 
-def expressions(
-    value: QualifierValue | StoredScope | EntityRef | Value,
-) -> Iterator[Formula | SetValue]:
-    """Every formula and set inside a value, a condition tree (through `condition_nodes`), or a
-    typed qualifier value."""
+def expressions(value: EntityRef | Value | Condition) -> Iterator[Formula | SetValue]:
+    """Every formula and set inside a value or a condition tree (through `condition_nodes`)."""
     match value:
         case Formula() | SetValue():
             yield value
@@ -433,7 +451,7 @@ def expressions(
                     yield bound
         case (
             TextValue() | NumberValue() | BoolValue() | EnumValue() | DateValue()
-            | AuthoredPhrase() | StoredPhrase() | EntityRef() | StoredScope()
+            | AuthoredPhrase() | StoredPhrase() | EntityRef()
         ):  # fmt: skip
             return
         case (
@@ -444,19 +462,11 @@ def expressions(
             for node in condition_nodes(value):
                 for v in _parts(node)[1]:
                     yield from expressions(v)
-        case dict():
-            for item in value.values():
-                yield from expressions(item)
-        case tuple():
-            for item in value:
-                yield from expressions(item)
-        case str() | int() | bool() | None:
-            return
         case _:
             assert_never(value)
 
 
-# --- Qualifiers --------------------------------------------------------------------------------
+# --- Qualifiers and the key schema ------------------------------------------------------------
 
 
 class _Unset(Enum):
@@ -470,39 +480,39 @@ _CORE_FIELDS: dict[str, str] = {
     info.alias: name for name, info in StoredQualifiers.model_fields.items() if info.alias
 }
 _STORED_VALUE: TypeAdapter[Any] = TypeAdapter(StoredValue)
+_STORED_CONDITION: TypeAdapter[Any] = CONDITION_ADAPTERS["stored"]
+_PREFIXED = re.compile(r"^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$")
+
+# The value classes each canonical form takes (a schema qualifier's raw JSON is validated into
+# one of them by its declared range, never chosen by its shape).
+_KINDS: Mapping[CanonicalForm, tuple[type, ...]] = {
+    CanonicalForm.TOKEN_FORM: (Formula, SetValue),
+    CanonicalForm.TEXT_FORM: (TextValue, StoredPhrase),
+    CanonicalForm.ENUM: (EnumValue,),
+    CanonicalForm.INTERVAL: (IntervalValue,),
+    CanonicalForm.NUMBER: (NumberValue,),
+    CanonicalForm.VERBATIM: (DateValue, BoolValue),
+}
 
 
-def _typed_json(raw: JsonValue, name: str, path: tuple[str, ...]) -> QualifierValue:
-    """A schema qualifier's raw JSON as typed values: an object with `t` is a stored value, one
-    whose only key is `ref` an entity reference (by shape until F2d's canonical form by range);
-    maps and lists keep their structure. Anything else (a float, a malformed value) is refused."""
-    match raw:
-        case dict() if "t" in raw or set(raw) == {"ref"}:
-            try:
-                if "t" in raw:
-                    return _STORED_VALUE.validate_python(raw)
-                return EntityRef.model_validate(raw)
-            except ValidationError:
-                raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path) from None
-        case dict():
-            return {k: _typed_json(v, name, (*path, k)) for k, v in raw.items()}
-        case list() | tuple():
-            return tuple(_typed_json(v, name, (*path, str(i))) for i, v in enumerate(raw))
-        case bool() | int() | str() | None:
-            return raw
-        case _:  # a float: no canonical JSON (D1 §6.2 writes numbers as decimals)
-            raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+@dataclass(frozen=True, slots=True)
+class ValueSpec:
+    """A declared range's canonical form and case: a map entry's value range (S1 compiles one per
+    map qualifier range from its `MapEntry` subclass)."""
+
+    range: str
+    canonical: CanonicalForm
+    case: CaseRule = CaseRule.FOLD
 
 
-def qualifier_value(
-    qualifiers: StoredQualifiers, name: str
-) -> QualifierValue | StoredScope | Literal[_Unset.UNSET]:
-    """The typed value of a qualifier by its stored name, or `UNSET` when it is absent or (for
-    `modality` and `polarity`) the default, which equal JSON leaves out."""
+def qualifier_value(qualifiers: StoredQualifiers, name: str) -> Any:
+    """A qualifier's value by its stored name: a core qualifier's typed field, or a schema
+    qualifier's raw JSON; `UNSET` when it is absent or (`modality`, `polarity`) the default,
+    which equal JSON leaves out."""
     attr = _CORE_FIELDS.get(name)
     if attr is None:
         extras = qualifiers.__pydantic_extra__ or {}
-        return _typed_json(extras[name], name, ()) if name in extras else UNSET
+        return extras.get(name, UNSET)
     value = getattr(qualifiers, attr)
     exclude = StoredQualifiers.model_fields[attr].exclude_if
     if value is MISSING or (exclude is not None and exclude(value)):
@@ -510,72 +520,287 @@ def qualifier_value(
     return value
 
 
+def _typed(value: Any, kinds: tuple[type, ...], name: str, path: tuple[str, ...]) -> Any:
+    """`value` as one of the value classes its declared range takes, validating raw JSON."""
+    if isinstance(value, kinds):
+        return value
+    if isinstance(value, dict):
+        try:
+            typed = _STORED_VALUE.validate_python(value)
+        except ValidationError:
+            raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path) from None
+        if isinstance(typed, kinds):
+            return typed
+    raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+
+
+def _condition(value: Any, name: str, path: tuple[str, ...]) -> Condition:
+    if isinstance(value, dict):
+        try:
+            return _STORED_CONDITION.validate_python(value)
+        except ValidationError:
+            raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path) from None
+    if isinstance(value, StoredScope | str | int | bool | list | tuple) or value is None:
+        raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+    return value
+
+
 def canonical_qualifier(
-    value: QualifierValue, macros: Mapping[str, MacroDef], resolve: Resolve
-) -> Json:
-    """A qualifier's canonical form: a value, an entity reference, a condition tree, a literal
-    (text form) or a map/list of them."""
-    match value:
+    value: Any,
+    spec: QualifierSpec | ValueSpec,
+    schema: KeySchema,
+    macros: Mapping[str, MacroDef],
+    resolve: Resolve,
+    name: str,
+    path: tuple[str, ...] = (),
+    locate: Callable[[str], Json] | None = None,
+) -> Json | None:
+    """A qualifier's canonical form, chosen by its declared range's `CanonicalForm` (TM §8; D1
+    §6.2), never by the value's shape: core values arrive typed, schema qualifiers as raw JSON
+    validated into the range's class. `None` is an empty condition tree. A stored scope needs
+    `locate` (member keys only). A value outside its range is `MALFORMED_QUALIFIER`."""
+    form = spec.canonical
+    match form:
         case (
-            EntityRef() | TextValue() | NumberValue() | BoolValue() | EnumValue() | Formula()
-            | SetValue() | DateValue() | IntervalValue() | StoredPhrase()
+            CanonicalForm.TOKEN_FORM | CanonicalForm.TEXT_FORM | CanonicalForm.ENUM
+            | CanonicalForm.INTERVAL | CanonicalForm.NUMBER
         ):  # fmt: skip
-            return canonical_value(value, macros, resolve)
-        case (
-            StoredAnd() | StoredOr() | StoredNot() | StoredForall() | ClaimNode() | MemberNode()
-            | CmpNode() | PredNode() | StoredPhraseNode()
-        ):  # fmt: skip
-            return canonical_condition(value, macros, resolve)
-        case dict():
-            return {k: canonical_qualifier(v, macros, resolve) for k, v in value.items()}
-        case tuple():
-            return [canonical_qualifier(v, macros, resolve) for v in value]
-        case str():
-            return text_form(value)
-        case bool() | int() | None:
-            return value
+            typed = _typed(value, _KINDS[form], name, path)
+            return canonical_value(typed, macros, resolve, spec.case)
+        case CanonicalForm.VERBATIM:
+            if isinstance(value, bool | int | str):
+                return value
+            return canonical_value(_typed(value, _KINDS[form], name, path), macros, resolve)
+        case CanonicalForm.IDENTIFIER:
+            if not isinstance(value, str):
+                raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+            return text_form(value, spec.case)
+        case CanonicalForm.MEMBER:
+            if not isinstance(value, str):
+                raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+            return str(value)  # the bare member value
+        case CanonicalForm.ENTITY_KEY:
+            if isinstance(value, dict):
+                try:
+                    value = EntityRef.model_validate(value)
+                except ValidationError:
+                    raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path) from None
+            if not isinstance(value, EntityRef):
+                raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+            return resolve(value.ref)  # the resolved key, bare
+        case CanonicalForm.MAP:
+            entry = schema.map_values.get(spec.range)
+            if not isinstance(value, dict) or entry is None:
+                raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+            # keys stay as written: canonical JSON NFC-normalizes them, and refuses two that
+            # collide after NFC (mapped to this qualifier by `_key`)
+            return {
+                k: canonical_qualifier(v, entry, schema, macros, resolve, name, (*path, k), locate)
+                for k, v in value.items()
+            }
+        case CanonicalForm.CONDITION:
+            tree = _condition(value, name, path)
+            return canonical_condition(tree, macros, resolve, schema.symmetric_predicates)
+        case CanonicalForm.SCOPE:
+            if locate is None:
+                raise ValueError(f"{name}: a scope is canonical only with its rendition")
+            if isinstance(value, dict):
+                try:
+                    value = StoredScope.model_validate(value)
+                except ValidationError:
+                    raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path) from None
+            if not isinstance(value, StoredScope):
+                raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+            return {"extent": value.extent, "segment": locate(value.segment)}
         case _:
-            assert_never(value)
+            assert_never(form)
 
 
-# --- Schema facts and the rendition ------------------------------------------------------------
+def _canonical_expressions(
+    tree: Condition,
+    macros: Mapping[str, MacroDef],
+    resolve: Resolve,
+    symmetric: frozenset[str],
+) -> list[Formula | SetValue]:
+    """The formulas and sets of a condition tree's canonical form, over the one traversal: an
+    `and`/`or` keeps each canonically distinct argument once, flattened as its canonical form is,
+    and a node canonicalization drops (an empty `and`/`or`, a `not` or `forall` of one)
+    contributes nothing. So `or(M, M)` and `M` give the same expressions."""
+    done: dict[int, Json | None] = {}
+    found: dict[int, list[Formula | SetValue]] = {}
+    args: dict[int, list[tuple[bytes, list[Formula | SetValue]]]] = {}  # and/or: flattened
+
+    def value(v: EntityRef | Value) -> Json:
+        return canonical_value(v, macros, resolve)
+
+    for node in condition_nodes(tree):  # children first
+        done[id(node)] = form = _canonical_node(node, done, value, resolve, symmetric, macros)
+        children, values = _parts(node)
+        own = [e for v in values for e in expressions(v)]
+        match node:
+            case AuthoredAnd(op=op) | StoredAnd(op=op) | AuthoredOr(op=op) | StoredOr(op=op):
+                flat: list[tuple[bytes, list[Formula | SetValue]]] = []
+                for child in children:
+                    child_form = done[id(child)]
+                    if child_form is None:
+                        continue
+                    if id(child) in args and child_form["op"] == op:
+                        flat.extend(args[id(child)])  # flattened into this node
+                    else:
+                        flat.append((canonical_json(child_form), found[id(child)]))
+                unique = dict(flat[::-1])  # the first of each canonically equal argument wins
+                args[id(node)] = [(k, unique[k]) for k in dict.fromkeys(k for k, _ in flat)]
+                found[id(node)] = [e for _, es in args[id(node)] for e in es]
+            case _:
+                inner = [e for c in children if done[id(c)] is not None for e in found[id(c)]]
+                found[id(node)] = [*own, *inner] if form is not None else []
+    return found[id(tree)] if done[id(tree)] is not None else []
+
+
+def _qualifier_expressions(
+    value: Any,
+    spec: QualifierSpec | ValueSpec,
+    schema: KeySchema,
+    macros: Mapping[str, MacroDef],
+    resolve: Resolve,
+    name: str,
+    path: tuple[str, ...],
+) -> Iterator[Formula | SetValue]:
+    """The formulas and sets a qualifier's value holds, read by its declared range."""
+    match spec.canonical:
+        case CanonicalForm.TOKEN_FORM | CanonicalForm.INTERVAL:
+            yield from expressions(_typed(value, _KINDS[spec.canonical], name, path))
+        case CanonicalForm.CONDITION:
+            tree = _condition(value, name, path)
+            yield from _canonical_expressions(tree, macros, resolve, schema.symmetric_predicates)
+        case CanonicalForm.MAP:
+            entry = schema.map_values.get(spec.range)
+            if not isinstance(value, dict) or entry is None:
+                raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
+            for k, v in value.items():
+                at = (*path, k)
+                yield from _qualifier_expressions(v, entry, schema, macros, resolve, name, at)
+        case _:
+            return
+
+
+_CORE_MODALITY_PROPERTIES: dict[str, frozenset[str]] = {
+    prop: frozenset(str(m) for m in members)
+    for prop, members in MEMBER_PROPERTIES.items()
+    if PROPERTY_OF[prop] is ClaimModality
+}
 
 
 class KeySchema(CoreModel):
-    """The schema facts keys need (from S1's compiled lookup), every name prefixed as the stored
-    form writes it: classes, slots, predicates and qualifiers. `predicates` lists every predicate
-    the schema knows; a claim with another is refused.
+    """The schema facts keys need, compiled into one lookup (ADR-0023; foundations §3.6): every
+    name prefixed as the stored form writes it. The core qualifier specifications come from the
+    model (`_model/qualifiers.py`); S1 compiles a schema version's half:
 
-    A malformed schema is refused on construction (`ValueError`): that is an input error, not a
-    keying outcome, so it carries no `DropReason`."""
+    - `qualifiers`: each predicate's schema qualifier specifications (`ci:key_role`, or the
+      `ci:identity_qualifiers` list compiled into the same specs);
+    - `map_values`: each map range's entry value range (`MapEntry` subclasses);
+    - `modality_properties`: each `ClaimModality` member property's members, core and pack;
+    - `label_case`, `slot_case`: the case policy of a class's label and of a string-ranged
+      identity slot (`ci:case`; `fold` when absent);
+    - `identity_keys`, `entity_identity`, `predicates`, `symmetric_predicates`, as before;
+    - `key_scheme`: the scheme the keys are of, recorded beside them and never hashed (RC08).
+
+    Keys, consolidation's slots and conflicts, and the rule view read it (`specs`, `role`,
+    `meaning_qualifiers`, `has_property`) and restate nothing. A malformed schema is refused on
+    construction (`ValueError`): an input error, not a keying outcome."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     identity_keys: dict[PrefixedName, tuple[PrefixedName, ...]] = Field(default_factory=dict)
     entity_identity: dict[PrefixedName, tuple[PrefixedName, ...]] = Field(default_factory=dict)
     predicates: frozenset[PrefixedName] = frozenset()
-    identity_qualifiers: dict[PrefixedName, tuple[PrefixedName, ...]] = Field(
+    qualifiers: dict[PrefixedName, tuple[InstanceOf[QualifierSpec], ...]] = Field(
         default_factory=dict
-    )  # predicate -> its schema identity qualifiers
+    )
+    map_values: dict[str, InstanceOf[ValueSpec]] = Field(default_factory=dict)
+    modality_properties: dict[str, frozenset[str]] = Field(
+        default_factory=lambda: dict(_CORE_MODALITY_PROPERTIES)
+    )
+    label_case: dict[PrefixedName, CaseRule] = Field(default_factory=dict)
+    slot_case: dict[PrefixedName, CaseRule] = Field(default_factory=dict)
     # condition predicates, named as condition trees name them
     symmetric_predicates: frozenset[str] = frozenset()
+    key_scheme: int = Field(KEY_SCHEME, ge=1)
 
     @model_validator(mode="after")
-    def _qualifiers_of_known_predicates(self) -> Self:
-        for name, qualifiers in self.identity_qualifiers.items():
-            if name not in self.predicates:
-                raise ValueError(f"identity_qualifiers names {name!r}, not a known predicate")
-            for qualifier in qualifiers:
-                if qualifier.startswith(f"{CORE_PREFIX}:"):
-                    raise ValueError(
-                        f"identity_qualifiers names {qualifier!r}: a core qualifier's key role "
-                        "is fixed"
-                    )
+    def _specs_well_formed(self) -> Self:
+        for prop, members in _CORE_MODALITY_PROPERTIES.items():
+            if not members <= self.modality_properties.get(prop, frozenset()):
+                raise ValueError(f"modality property {prop!r} drops core members")
+        for spec in CORE_QUALIFIERS:
+            self._check(spec, "core")
+        for predicate, specs in self.qualifiers.items():
+            if predicate not in self.predicates:
+                raise ValueError(f"qualifiers names {predicate!r}, not a known predicate")
+            seen: set[str] = set()
+            for spec in specs:
+                if spec.name.startswith(f"{CORE_PREFIX}:"):
+                    raise ValueError(f"{predicate}: {spec.name!r} is core; its role is fixed")
+                if not _PREFIXED.match(spec.name) or spec.name in seen:
+                    raise ValueError(f"{predicate}: {spec.name!r} is malformed or repeated")
+                seen.add(spec.name)
+                self._check(spec, predicate)
         return self
+
+    def _check(self, spec: QualifierSpec, owner: str) -> None:
+        if spec.key_role_when is not None and spec.key_role_when not in self.modality_properties:
+            raise ValueError(f"{owner}: {spec.name}'s condition {spec.key_role_when!r} is unknown")
+        if spec.canonical is CanonicalForm.MAP and spec.range not in self.map_values:
+            raise ValueError(f"{owner}: {spec.name}'s map range {spec.range!r} has no value range")
+        if spec.canonical is CanonicalForm.SCOPE and owner != "core":
+            raise ValueError(f"{owner}: {spec.name}: only the core scope is a scope")
 
     def predicate(self, name: str) -> str:
         """`name` when the schema knows the predicate; otherwise refused."""
         if name in self.predicates:
             return name
         raise KeyingError(DropReason.UNKNOWN_PREDICATE, name)
+
+    def specs(self, predicate: str) -> tuple[QualifierSpec, ...]:
+        """The qualifier specifications that apply to the predicate's claims: core, then pack."""
+        return (*CORE_QUALIFIERS, *self.qualifiers.get(predicate, ()))
+
+    def spec(self, predicate: str, name: str) -> QualifierSpec | None:
+        return next((s for s in self.specs(predicate) if s.name == name), None)
+
+    def has_property(self, modality: str, prop: str) -> bool:
+        return modality in self.modality_properties.get(prop, frozenset())
+
+    def role(self, spec: QualifierSpec, modality: str) -> KeyRole:
+        """The qualifier's key role for a claim of that modality: `identity` when its role
+        condition holds (attribution under an `attribution_identifying` modality), else its
+        declared role."""
+        if spec.key_role_when is not None and self.has_property(modality, spec.key_role_when):
+            return KeyRole.IDENTITY
+        return spec.key_role
+
+    def meaning_qualifiers(self, predicate: str, modality: str) -> tuple[str, ...]:
+        """The qualifiers whose disagreement makes alternatives (C1, D5 §5.3)."""
+        return tuple(
+            s.name for s in self.specs(predicate) if self.role(s, modality) is KeyRole.MEANING
+        )
+
+
+def _key(prefix: str, parts: Json, ref: str) -> str:
+    """`make_key`, with a value that has no canonical JSON (a lone surrogate, keys equal after
+    NFC) dropped by code: inside a qualifier as `MALFORMED_QUALIFIER`, else `MALFORMED_VALUE`."""
+    try:
+        return make_key(prefix, parts)
+    except CanonicalJsonError as error:
+        m = re.match(r"^\$(?:\.member)?\.qualifiers\.([a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*)(.*)$",
+                     error.path)  # fmt: skip
+        if m:
+            rest = tuple(p for p in re.split(r"[.\[\]]", m.group(2)) if p)
+            raise KeyingError(DropReason.MALFORMED_QUALIFIER, m.group(1), rest) from None
+        raise KeyingError(DropReason.MALFORMED_VALUE, ref, (error.path,)) from None
+
+
+# --- Schema facts and the rendition ------------------------------------------------------------
 
 
 @dataclass
@@ -647,22 +872,28 @@ def global_entity_key(
     for slot in declared:
         if slot in entity.identity:
             value = entity.identity[slot]
-            identity[slot] = resolve(value) if slot in entity_slots else text_form(value)
+            case = schema.slot_case.get(slot, CaseRule.FOLD)
+            identity[slot] = resolve(value) if slot in entity_slots else text_form(value, case)
     parts: Json = {"type": entity.type, "identity": identity}
     if not declared or len(identity) < len(declared):
-        parts["label"] = normalize_label(entity.label, entity.type, rules)
-    return make_key("ent", parts)
+        case = schema.label_case.get(entity.type, CaseRule.FOLD)
+        parts["label"] = normalize_label(entity.label, entity.type, rules, case)
+    return _key("ent", parts, entity.id)
 
 
-def local_entity_key(entity: CandidateEntity, ctx: KeyContext, rules: LabelRules) -> str:
-    """`ent`: type, the scope segment's locator (structured), and the symbol or normalized label."""
+def local_entity_key(
+    entity: CandidateEntity, ctx: KeyContext, rules: LabelRules, schema: KeySchema
+) -> str:
+    """`ent`: type, the scope segment's locator (structured), and the symbol or normalized label
+    (under the class's label case policy)."""
     assert entity.scope_segment is not None
     parts: Json = {"type": entity.type, "scope": ctx.locator_key(ctx.segment(entity.scope_segment))}
     if entity.symbol:
         parts["symbol"] = symbol_form(entity.symbol, ctx.macros)
     else:
-        parts["label"] = normalize_label(entity.label, entity.type, rules)
-    return make_key("ent", parts)
+        case = schema.label_case.get(entity.type, CaseRule.FOLD)
+        parts["label"] = normalize_label(entity.label, entity.type, rules, case)
+    return _key("ent", parts, entity.id)
 
 
 def statement_anchor(statement: CandidateStatement, ctx: KeyContext) -> tuple[Segment, int]:
@@ -692,7 +923,7 @@ def statement_anchor(statement: CandidateStatement, ctx: KeyContext) -> tuple[Se
 def statement_key(statement: CandidateStatement, ctx: KeyContext) -> str:
     """`stm`: the anchor's generated locator (structured) and the first sentence's ordinal."""
     anchor, ordinal = statement_anchor(statement, ctx)
-    return make_key("stm", {"anchor": ctx.locator_key(anchor), "ordinal": ordinal})
+    return _key("stm", {"anchor": ctx.locator_key(anchor), "ordinal": ordinal}, statement.id)
 
 
 # --- Claim keys --------------------------------------------------------------------------------
@@ -714,8 +945,10 @@ def claim_parts(
     macros: Mapping[str, MacroDef],
     resolve: Resolve,
 ) -> Json:
-    """The parts of a claim key: subject, predicate, object, statement and the identity
-    qualifiers, all named as the stored form names them (`core:modality`, `stat:param_values`)."""
+    """The parts of a claim key: subject, predicate, object, statement, and every qualifier whose
+    key role for the claim's modality is `identity` (`KeySchema.role`), in its declared range's
+    canonical form, named as the stored form names it (`core:modality`, `stat:param_values`).
+    `modality` and `polarity` enter only when not the default."""
     predicate = schema.predicate(claim.predicate)
     q = claim.qualifiers
     parts: Json = {
@@ -726,37 +959,34 @@ def claim_parts(
     if claim.statement is not None:
         parts["statement"] = resolve(claim.statement)
     identity: Json = {}
-    for name in (MODALITY, POLARITY):
-        value = qualifier_value(q, name)
-        if value is not UNSET:  # present only when not the default
-            identity[name] = value
-    if q.conditions is not MISSING:
-        tree = canonical_condition(q.conditions, macros, resolve, schema.symmetric_predicates)
-        if tree is not None:
-            identity[CONDITIONS] = tree
-    if q.valid_time is not MISSING:
-        identity[VALID_TIME] = canonical_value(q.valid_time, macros, resolve)
-    if q.modality == "cited" and q.attribution is not MISSING:
-        identity[ATTRIBUTION] = resolve(q.attribution.ref)
-    for name in schema.identity_qualifiers.get(predicate, ()):
-        value = qualifier_value(q, name)
-        if value is not UNSET and not isinstance(value, StoredScope):
-            identity[name] = canonical_qualifier(value, macros, resolve)
+    for spec in schema.specs(predicate):
+        if schema.role(spec, q.modality) is not KeyRole.IDENTITY:
+            continue
+        value = qualifier_value(q, spec.name)
+        if value is UNSET:
+            continue
+        form = canonical_qualifier(value, spec, schema, macros, resolve, spec.name)
+        if form is not None:  # an empty condition tree is no condition
+            identity[spec.name] = form
     parts["qualifiers"] = identity
     return parts
 
 
-def claim_bindings(claim: CandidateClaim, macros: Mapping[str, MacroDef], resolve: Resolve) -> Json:
+def claim_bindings(
+    claim: CandidateClaim, schema: KeySchema, macros: Mapping[str, MacroDef], resolve: Resolve
+) -> Json:
     """Every formula's or set's canonical bindings beside its canonical value, over the object and
-    every qualifier, sorted by canonical JSON, so neither argument order nor a rewritten comparison
-    moves them."""
+    every declared qualifier read by its range (condition trees as their canonical form keeps
+    them), sorted by canonical JSON: neither argument order, a canonically repeated argument nor
+    a rewritten comparison moves them."""
     q = claim.qualifiers
-    names = (*_CORE_FIELDS, *(q.__pydantic_extra__ or {}))
     found = [*expressions(claim.object)]
-    for name in names:
-        value = qualifier_value(q, name)
+    for spec in schema.specs(claim.predicate):
+        value = qualifier_value(q, spec.name)
         if value is not UNSET:
-            found.extend(expressions(value))
+            found.extend(
+                _qualifier_expressions(value, spec, schema, macros, resolve, spec.name, ())
+            )
     out = [
         {
             "value": canonical_value(e, macros, resolve),
@@ -779,25 +1009,36 @@ class Member:
 
 
 def member_parts(
-    claim: CandidateClaim, member: Member, base: Json, ctx: KeyContext, resolve: Resolve
+    claim: CandidateClaim,
+    member: Member,
+    base: Json,
+    ctx: KeyContext,
+    resolve: Resolve,
+    schema: KeySchema,
 ) -> Json:
-    """A member's key parts: the claim's parts (`base`, from `claim_parts`) plus its canonical
-    disagreeing qualifiers (null when it leaves one unset) and, when bindings disagree, its
-    canonical bindings. A stored `scope` enters by its extent and its segment's locator, never by
-    the physical segment key."""
+    """A member's key parts: the claim's parts (`base`, from `claim_parts`) plus its disagreeing
+    qualifiers in their ranges' canonical forms (null when it leaves one unset) and, when
+    bindings disagree, its canonical bindings. A stored `scope` enters by its extent and its
+    segment's locator, never by the physical segment key. A qualifier the predicate does not
+    declare is `MALFORMED_QUALIFIER`."""
+
+    def locate(segment: str) -> Json:
+        return ctx.locator_key(ctx.segment(segment))
+
     own: Json = {}
     for name in sorted(member.qualifiers):
+        spec = schema.spec(claim.predicate, name)
+        if spec is None:
+            raise KeyingError(DropReason.MALFORMED_QUALIFIER, name)
         value = qualifier_value(claim.qualifiers, name)
-        match value:
-            case _Unset.UNSET:
-                own[name] = None
-            case StoredScope(extent=extent, segment=segment):
-                own[name] = {"extent": extent, "segment": ctx.locator_key(ctx.segment(segment))}
-            case _:
-                own[name] = canonical_qualifier(value, ctx.macros, resolve)
+        own[name] = (
+            None
+            if value is UNSET
+            else canonical_qualifier(value, spec, schema, ctx.macros, resolve, name, (), locate)
+        )
     extra: Json = {"qualifiers": own}
     if member.bindings:
-        extra["bindings"] = claim_bindings(claim, ctx.macros, resolve)
+        extra["bindings"] = claim_bindings(claim, schema, ctx.macros, resolve)
     return {**base, "member": extra}
 
 
@@ -821,8 +1062,10 @@ def identity_group_key(member_keys: Iterable[str]) -> str:
 
 @dataclass
 class Keys:
-    """Keys by candidate id, alternatives' member keys, and the dropped items with their codes."""
+    """Keys by candidate id, alternatives' member keys, and the dropped items with their codes;
+    `scheme` is the key scheme they are of, recorded beside them (never hashed into them)."""
 
+    scheme: int = KEY_SCHEME
     entities: dict[str, str] = field(default_factory=dict)
     statements: dict[str, str] = field(default_factory=dict)
     claims: dict[str, str] = field(default_factory=dict)
@@ -864,7 +1107,7 @@ def _entity_keys(
         if entity.key is not None:
             key = entity.key
         elif entity.scope is EntityScope.LOCAL:
-            key = local_entity_key(entity, ctx, rules)
+            key = local_entity_key(entity, ctx, rules, schema)
         else:
             key = global_entity_key(entity, schema, rules, key_of)
         visiting.discard(entity_id)
@@ -892,7 +1135,7 @@ def key_claims(
     statement, a malformed schema qualifier) is dropped with its `Drop` (D5 §5.2), never raised.
     `members` (C1's) adds member keys, reusing each claim's parts; a member that cannot be keyed is
     in `dropped_members` with its `Drop`."""
-    keys = Keys()
+    keys = Keys(scheme=schema.key_scheme)
     _entity_keys(candidates, ctx, schema, rules, keys)
     for statement in candidates.statements:
         if statement.key is not None:
@@ -950,7 +1193,7 @@ def key_claims(
                 keys.claims[claim_id] = claim.key
             else:
                 parts[claim_id] = claim_parts(claim, schema, ctx.macros, keys.of)
-                keys.claims[claim_id] = make_key("clm", parts[claim_id])
+                keys.claims[claim_id] = _key("clm", parts[claim_id], claim_id)
         except KeyingError as error:
             drop(claim_id, error.drop)
             return False
@@ -973,9 +1216,58 @@ def key_claims(
         try:
             if claim_id not in parts:  # a claim that arrived keyed
                 parts[claim_id] = claim_parts(claim, schema, ctx.macros, keys.of)
-            member_key = make_key("clm", member_parts(claim, member, parts[claim_id], ctx, keys.of))
+            member = member_parts(claim, member, parts[claim_id], ctx, keys.of, schema)
+            member_key = _key("clm", member, claim_id)
         except KeyingError as error:
             keys.dropped_members[claim_id] = error.drop
             continue
         keys.members[claim_id] = member_key
     return keys
+
+
+# --- Carry-over between key schemes (T8) -------------------------------------------------------
+
+type Keyer = Callable[[KeyedCandidateSet, KeyContext], Keys]
+
+
+@dataclass(frozen=True)
+class CarryOver:
+    """A carry-over map between two key schemes (ADR-0023, T8): each old key with an available
+    input mapped to its new key; `missing` the asked-for old keys no input produced (reported,
+    never guessed); `split` the old keys that map to more than one new key."""
+
+    from_scheme: int
+    to_scheme: int
+    mapping: dict[str, str]
+    missing: frozenset[str]
+    split: dict[str, frozenset[str]]
+
+
+def carry_over(
+    old_keys: Iterable[str],
+    inputs: Iterable[tuple[KeyedCandidateSet, KeyContext]],
+    old: Keyer,
+    new: Keyer,
+) -> CarryOver:
+    """Key the stored inputs under both schemes' key functions and map every old key to the new
+    key of the same candidate. Which inputs and how the outgoing scheme's function stays callable
+    are the caller's (probe Q-6)."""
+    found: dict[str, set[str]] = {}
+    schemes: tuple[int, int] | None = None
+    for candidates, ctx in inputs:
+        before, after = old(candidates, ctx), new(candidates, ctx)
+        schemes = (before.scheme, after.scheme)
+        for table in ("entities", "statements", "claims", "members"):
+            mine, theirs = getattr(before, table), getattr(after, table)
+            for ident, key in mine.items():
+                if ident in theirs:
+                    found.setdefault(key, set()).add(theirs[ident])
+    wanted = frozenset(old_keys)
+    from_scheme, to_scheme = schemes or (0, 0)
+    return CarryOver(
+        from_scheme,
+        to_scheme,
+        {k: next(iter(v)) for k, v in found.items() if k in wanted and len(v) == 1},
+        frozenset(k for k in wanted if k not in found),
+        {k: frozenset(v) for k, v in found.items() if k in wanted and len(v) > 1},
+    )

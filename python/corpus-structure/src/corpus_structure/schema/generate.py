@@ -9,7 +9,8 @@
 - `core/_model/sql.py`: the SQL literals of the static sets' member properties;
 - `core/_model/validators.py`: one validator per class with `ci:invariant`, calling
   `core/invariants.py`'s templates;
-- `core/_model/revision.py`: the model revision the files were generated from.
+- `core/_model/revision.py`: the model revision the files were generated from;
+- `core/db/_tables.py`: the relational projection's `MetaData` (`schema/relational.py`, M2).
 
 The output is a pure function of the model and this module (`GENERATOR_VERSION`), formatted by the
 repository's pinned ruff so `just turn-end` leaves it unchanged; a drift test regenerates it.
@@ -26,6 +27,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from corpus_structure.schema import relational
 from corpus_structure.schema.model import (
     GENERATOR,
     Member,
@@ -61,8 +63,10 @@ def _docstring(text: str, indent: str) -> str:
     return "\n".join(lines) + f'\n{indent}"""'
 
 
-def member_name(text: str) -> str:
-    name = re.sub(r"[^A-Za-z0-9]", "_", text).upper()
+def member_name(text: str, title: str | None = None) -> str:
+    """A member's Python name: its native `title` when it has one (symbols such as `<` and `<=`
+    would otherwise collide), else its text, upper-cased with other characters as `_`."""
+    name = re.sub(r"[^A-Za-z0-9]", "_", title or text).upper()
     if name[0].isdigit() or keyword.iskeyword(name):
         name = f"_{name}"
     return name
@@ -105,13 +109,18 @@ def _vocab(model: Model) -> str:
         out += ["", "", f"class {name}(StrEnum):"]
         out.append(_docstring(f"{enum.description or name} Lifecycle: {lifecycle}.", "    "))
         out.append("")
+        seen: dict[str, str] = {}
         for m in members:
-            out.append(f"    {member_name(m.text)} = {m.text!r}")
+            py = member_name(m.text, m.title)
+            if py in seen:
+                raise ModelError([f"{name}: members {seen[py]!r} and {m.text!r} both name {py}"])
+            seen[py] = m.text
+            out.append(f"    {py} = {m.text!r}")
             for prop in m.properties:
                 properties.setdefault(prop, (name, []))[1].append(m)
     out += ["", "", "# --- Member properties (D2 §3.4) ---", ""]
     for prop, (enum_name, members) in properties.items():
-        items = "".join(f"        {enum_name}.{member_name(m.text)},\n" for m in members)
+        items = "".join(f"        {enum_name}.{member_name(m.text, m.title)},\n" for m in members)
         out.append(
             f"{prop.upper()}: Final[frozenset[{enum_name}]] = frozenset(\n    {{\n{items}    }}\n)"
         )
@@ -141,25 +150,23 @@ def _canonical(view: View, rng: str, slot: Any) -> str:
     """A qualifier's canonical form, derived from its (stored) range (D1 §6.2)."""
     if view.get_enum(rng) is not None:
         return "member"
-    ancestors = set(view.class_ancestors(rng)) if view.get_class(rng) else set()
+    if rng == "string":  # a string identifier: NFC, collapsed, its declared case (fold by default)
+        return "identifier"
+    if view.get_class(rng) is None:
+        raise ModelError([f"qualifier {slot.name}: range {rng!r} has no canonical form"])
+    ancestors = set(view.class_ancestors(rng))
     if rng == "StoredScope":
         return "scope"
-    if "Condition" in ancestors:
-        return "condition"
-    if "Entity" in ancestors:
-        return "entity_key"
-    if "MapEntry" in ancestors:
-        return "map"
-    by_class = {
-        "Formula": "token_form", "SetExpr": "token_form", "TextValue": "text_form",
-        "PhraseValue": "text_form", "IntervalValue": "interval", "NumberValue": "number",
-        "EnumValue": "enum", "DateValue": "verbatim", "BoolValue": "verbatim",
-    }  # fmt: skip
-    if rng in by_class:
-        return by_class[rng]
-    if "ci:case" in ci_annotations(slot):
-        return "identifier"
-    return "verbatim"
+    by_ancestor = (  # the most specific first: SetExpr is a Formula
+        ("Condition", "condition"), ("Entity", "entity_key"), ("MapEntry", "map"),
+        ("Formula", "token_form"), ("TextValue", "text_form"), ("PhraseValue", "text_form"),
+        ("IntervalValue", "interval"), ("NumberValue", "number"), ("EnumValue", "enum"),
+        ("DateValue", "verbatim"), ("BoolValue", "verbatim"),
+    )  # fmt: skip
+    for ancestor, form in by_ancestor:
+        if ancestor in ancestors:
+            return form
+    raise ModelError([f"qualifier {slot.name}: range {rng!r} has no canonical form"])
 
 
 def _store(view: View, rng: str, slot: Any) -> str:
@@ -180,6 +187,8 @@ def qualifier_specs(view: View) -> list[dict[str, Any]]:
         ann = ci_annotations(slot)
         if ann.get("ci:role") != "qualifier":
             continue
+        if "ci:key_role" not in ann:
+            raise ModelError([f"core.slots.{name}: a core qualifier declares ci:key_role"])
         rng = str(ann.get("ci:stored_range") or slot.range)
         default = None
         if slot.ifabsent:
@@ -187,6 +196,11 @@ def qualifier_specs(view: View) -> list[dict[str, Any]]:
             if not m:
                 raise ModelError(
                     [f"core.slots.{name}: ifabsent {slot.ifabsent!r} is not string(…)"]
+                )
+            enum = view.get_enum(str(slot.range))
+            if enum is None or m.group(1) not in (enum.permissible_values or {}):
+                raise ModelError(
+                    [f"core.slots.{name}: ifabsent {m.group(1)!r} is not a {slot.range} member"]
                 )
             default = (str(slot.range), m.group(1))
         specs.append({
@@ -385,26 +399,39 @@ def _validators(model: Model) -> str:
     view = model.system
     out = [
         _header(
-            "Validators of the model's `ci:invariant` declarations (D2 §3.4; F01).\n\n"
-            "One function per class that declares or inherits an invariant, applying each with\n"
-            "the templates of `core/invariants.py`. The hand-written shapes call them in their\n"
-            "model validators, and M2 compiles the same declarations into CHECKs."
+            "Validators of the model's `ci:invariant` declarations and slot `pattern`s (D2 §3.4;\n"
+            "F01).\n\n"
+            "One function per class that declares or inherits an invariant or has a slot with a\n"
+            "`pattern`, applying each invariant with the templates of `core/invariants.py` and\n"
+            "searching each present string value for its pattern. The hand-written shapes call\n"
+            "them in their model validators, and M2 compiles the same declarations into CHECKs."
         ),
         "",
         "from __future__ import annotations",
         "",
+        "import re",
         "from collections.abc import Callable, Mapping",
         "from typing import Final",
         "",
         "from corpus_structure.core import invariants",
         "",
+        "",
+        "def _pattern(obj: object, name: str, pattern: str) -> None:",
+        '    """A slot\'s `pattern`: a present value matches it, searched as PostgreSQL\'s `~`."""',
+        "    value = getattr(obj, name, None)",
+        "    if not invariants.absent(value) and re.search(pattern, str(value)) is None:",
+        '        raise ValueError(f"{name} {value!r} does not match {pattern!r}")',
     ]
     registry: list[tuple[str, str, list[str]]] = []
+    patterns: list[tuple[str, list[tuple[str, str]]]] = []
     for _, module_view in model.modules():
         for name in module_view.schema.classes:
             cls = str(name)
             invs = invariants_of(view, cls)
-            if not invs:
+            slot_patterns = [
+                (str(s.name), str(s.pattern)) for s in view.class_induced_slots(cls) if s.pattern
+            ]
+            if not invs and not slot_patterns:
                 continue
             fn = _snake(cls)
             body = []
@@ -419,7 +446,10 @@ def _validators(model: Model) -> str:
                         f"    invariants.{inv.template}(obj, {inv.fields[0]!r}, "
                         f"{inv.condition!r}, ({values}))"
                     )
-            declared = "; ".join(str(i) for i in invs)
+            body += [f"    _pattern(obj, {s!r}, {p!r})" for s, p in slot_patterns]
+            declared = "; ".join(
+                [*(str(i) for i in invs), *(f"{s} ~ {p}" for s, p in slot_patterns)]
+            )
             out += [
                 "",
                 "",
@@ -428,15 +458,21 @@ def _validators(model: Model) -> str:
                 *body,
             ]
             registry.append((cls, fn, [str(i) for i in invs]))
+            if slot_patterns:
+                patterns.append((cls, slot_patterns))
     out += [
         "",
         "",
-        "# Class -> its validator, and class -> its declared invariants as written.",
+        "# Class -> its validator; class -> its declared invariants as written; class -> its",
+        "# slots' patterns.",
         "VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = {",
         *(f"    {c!r}: {f}," for c, f, _ in registry),
         "}",
         "INVARIANTS: Final[Mapping[str, tuple[str, ...]]] = {",
-        *(f"    {c!r}: ({', '.join(repr(i) for i in invs)},)," for c, _, invs in registry),
+        *(f"    {c!r}: ({', '.join(repr(i) for i in invs)},)," for c, _, invs in registry if invs),
+        "}",
+        "PATTERNS: Final[Mapping[str, tuple[tuple[str, str], ...]]] = {",
+        *(f"    {c!r}: ({', '.join(repr(p) for p in ps)},)," for c, ps in patterns),
         "}",
     ]
     return "\n".join(out) + "\n"
@@ -505,6 +541,10 @@ def render(model: Model) -> dict[str, str]:
         "core/_model/sql.py": _sql(model),
         "core/_model/validators.py": _validators(model),
         "core/_model/revision.py": _revision(current),
+        # the relational projection (P0-M-2): schema/relational.py compiles and renders it
+        "core/db/_tables.py": relational.render(
+            relational.compile_metadata(model.system), current.label
+        ),
     }
     return {path: _format(str(PACKAGE / path), text) for path, text in raw.items()}
 

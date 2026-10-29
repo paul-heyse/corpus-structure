@@ -112,10 +112,10 @@ def test_parse_status_is_derived_and_not_in_the_digest() -> None:
 @pytest.mark.parametrize(
     ("build", "message"),
     [
-        (lambda: seg("paragraph", 5, 4), "start 5 > end 4"),
+        (lambda: seg("paragraph", 5, 4), "start_offset 5 > end_offset 4"),
         (lambda: seg("paragraph", 0, 4, seg("sentence", 2, 6)), "outside its parent"),
-        (lambda: seg("paragraph", 0, 4, parse_reason="x"), "no parse_reason"),
-        (lambda: seg("paragraph", 0, 4, parse_status="partial"), "needs its parse_reason"),
+        (lambda: seg("paragraph", 0, 4, parse_reason="x"), "parse_reason is absent exactly when"),
+        (lambda: seg("paragraph", 0, 4, parse_status="partial"), "parse_reason is absent exactly"),
         (lambda: seg("paragraph", 0, 4, attrs={"parse_reason": "x"}), "reserved"),
         (lambda: seg("paragraph", -1, 4), "greater than or equal"),
         (lambda: Segment(kind="para", start=0, end=1), "Input should be"),
@@ -127,6 +127,31 @@ def test_parse_status_is_derived_and_not_in_the_digest() -> None:
 def test_segment_and_macro_refusals(build, message: str) -> None:
     with pytest.raises(ValidationError, match=re.escape(message)):
         build()
+
+
+# The model's KbSegment invariant, written out: parse_reason is absent (None) exactly when the
+# status is ok, and a present reason is never empty or only whitespace (its pattern '\S', P0-M-2),
+# as M2's CHECKs read them.
+SEGMENT_STATUS = [
+    ("ok", None, True), ("ok", "", False), ("ok", "x", False),
+    ("partial", None, False), ("partial", "", False), ("partial", "unclosed at block end", True),
+    ("failed", None, False), ("failed", " ", False), ("failed", "no closing delimiter", True),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(("status", "reason", "accepted"), SEGMENT_STATUS)
+def test_a_segment_accepts_what_the_model_declares(status, reason, accepted: bool) -> None:
+    def build() -> Segment:
+        return seg("math_inline", 4, 9, parse_status=status, parse_reason=reason)
+
+    if accepted:
+        assert build().parse_reason == reason
+    else:
+        with pytest.raises(
+            ValidationError, match=r"parse_reason is absent exactly when|does not match '\\\\S'"
+        ):
+            build()
+    assert seg("math_inline", 4, 4).start == 4  # ordered_eq: an empty range is a segment
 
 
 @pytest.mark.parametrize(

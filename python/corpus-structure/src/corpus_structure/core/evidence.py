@@ -7,9 +7,11 @@ These are the in-memory shapes ingest (I1a) produces and the locator function (I
 - `SegmentKind` (generated in `vocab.py` from the model, with its member properties), the D1
   §3.2 kinds (email kinds included); M2 builds the CHECK on `kb.segment.kind` from the model;
 - `Segment`, a range `[start, end)` of the canonical text with its kind, parse status and reason,
-  author-markup `attrs` and children. Text is not stored on the node; it is the canonical text's
-  substring. Children are sorted on validation (start, then the longer first, then kind), because
-  siblings may overlap and the digest needs one order;
+  author-markup `attrs` and children. Its cross-field invariants are the model's `KbSegment`
+  declarations, applied by the generated validator (`_model/validators.py`; F01), so the segment
+  and the stored row (M2's CHECK) accept the same values. Text is not stored on the node; it is
+  the canonical text's substring. Children are sorted on validation (start, then the longer
+  first, then kind), because siblings may overlap and the digest needs one order;
 - `MacroDef`, one entry of a rendition's macro table (D4 M01);
 - `RenditionContent`, the canonical text, the document root and the macro table, which is exactly
   what the content digest covers (D1 §3.2). Segments carry no diagnostics, so the digest needs no
@@ -23,15 +25,17 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Iterator, Mapping
-from typing import Any, Self
+from typing import Any, NamedTuple, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
+from corpus_structure.core._model import validators
 from corpus_structure.core.canonical import CanonicalJsonError, canonical_json, digest, make_key
 from corpus_structure.core.vocab import DelimitingStatus, SegmentKind
 
-# The `attrs` key under which the store writes a segment's parse reason (D3 has no column for it),
-# so author markup may not use it.
+# The `attrs` key under which the store writes a segment's parse reason, so author markup may not
+# use it. The model now has the column `kb.segment.parse_reason` (P0-M-2); this workaround is the
+# store writer's to retire.
 RESERVED_ATTR = "parse_reason"
 
 # Macros are expanded by whole control-word name (D1 §6.2), so a name is a control word.
@@ -47,6 +51,16 @@ _SEVERITY: dict[DelimitingStatus, int] = {
 
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class _StoredSegment(NamedTuple):
+    """A segment's fields under the names of its `kb.segment` row, which the model's `KbSegment`
+    invariants are declared on."""
+
+    start_offset: int
+    end_offset: int
+    parse_status: DelimitingStatus
+    parse_reason: str | None
 
 
 def _child_order(segment: Segment) -> tuple[int, int, str]:
@@ -69,12 +83,8 @@ class Segment(_Frozen):
 
     @model_validator(mode="after")
     def _well_formed(self) -> Self:
-        if self.start > self.end:
-            raise ValueError(f"{self.kind} segment has start {self.start} > end {self.end}")
-        if self.parse_status == "ok" and self.parse_reason is not None:
-            raise ValueError("an ok segment has no parse_reason")
-        if self.parse_status != "ok" and not self.parse_reason:
-            raise ValueError(f"a {self.parse_status} segment needs its parse_reason")
+        stored = _StoredSegment(self.start, self.end, self.parse_status, self.parse_reason)
+        validators.kb_segment(stored)  # ordered_eq(start, end); parse_reason absent iff ok
         if RESERVED_ATTR in self.attrs:
             raise ValueError(f"attrs key {RESERVED_ATTR!r} is reserved for the store")
         try:  # author markup is content: refuse what the digest would refuse, here

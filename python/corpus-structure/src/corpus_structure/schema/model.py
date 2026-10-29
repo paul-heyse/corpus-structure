@@ -10,21 +10,30 @@ module and are S1's. Everything here is a pure function of the model files.
 - an annotation whose declaration has no consumer (`ci:record` and `ci:anchor` are reserved);
 - a value outside its declaration's admitted values, an invariant that does not parse or names an
   unknown field, a `ci:key_role_when` that is not a member property of `ClaimModality`;
+- a `ci:same` naming a slot that the declaring class or the referenced class lacks;
+- a name that is both a class, an enum or a type, across core and system (a range names any);
 - member properties used wrongly. Member properties are native `in_subset` on permissible values
   (probe Q-2, `p0q.member-properties`), and they share the schema's subset namespace with element
   subsets (`structural`, `meta`, …), so a subset counts as a member property by being used on
-  members. One must be used by the members of one enum only and on no element, and must be in the
-  generated `core/vocab.py`'s `MEMBER_PROPERTIES`.
+  members (an `include` or `minus` expression's members count for the enum that writes it). One
+  must be used by the members of one enum and of the enums that extend it (`inherits`, directly or
+  in an `include`; model and projections §3.1, ADR-0023), never by unrelated enums and on no
+  element (an attribute, a unique key or a subset included); its subset definition names its
+  consumer with `ci:consumer` (ADR-0023: no member property without a reader); and it must be in
+  the generated `core/vocab.py`'s `MEMBER_PROPERTIES`.
 
 **Enum expressions** (`expand_enum`): own members, then each `inherits` enum in order, then each
 `include` expression, then `minus` removes members by text; a member's properties come from the
-enum that defines it; repeated members are kept once; an own member that collides with an
-inherited or included one is refused (a pack member colliding with a core member). linkml-runtime
-1.12.1's `induced_enum` does not expand these (model and projections §3.1).
+enum that defines it. A member the enum defines (its own, or inline in an `include`) that
+collides with an inherited one is refused (a pack member colliding with a core member), as is one
+defined twice; a member brought by two parents is kept once, from the first, when both give it
+the same properties, and refused otherwise. linkml-runtime 1.12.1's `induced_enum` does not
+expand these (model and projections §3.1).
 
 **The model revision** (TM §2) is the LinkML `version`, the SHA-256 of the canonical JSON (D1 §10.1)
-of the parsed core and system files, the compiler versions and the key scheme. The checked-in
-log `model/revisions.yaml` is the authority; its last entry must be the current revision.
+of the parsed core and system files (floats as their canonical decimals), the compiler versions and
+the key scheme. The checked-in log `model/revisions.yaml` is the authority; its last entry must be
+the current revision.
 """
 
 from __future__ import annotations
@@ -42,7 +51,7 @@ import yaml
 from linkml_runtime.linkml_model.meta import SlotDefinition
 from linkml_runtime.utils.schemaview import SchemaView
 
-from corpus_structure.core.canonical import canonical_json
+from corpus_structure.core.canonical import canonical_json, decimal_of_float
 
 MODEL_DIR = Path(__file__).resolve().parents[1] / "model"
 CORE = MODEL_DIR / "core.yaml"
@@ -146,6 +155,9 @@ VOCABULARY: Mapping[str, Declaration] = {
     "ci:on_delete": _d("attribute slot", "M2 MetaData", values="cascade set_null restrict"),
     "ci:generated": _d("attribute slot", "M2 MetaData compiler", values="insert_time"),
     "ci:sql_type": _d("type", "M2 MetaData compiler", pattern=r"^[a-z][a-z0-9_]*$"),
+    "ci:same": _d("attribute slot", "M2 MetaData compiler; overlay index check", pattern=_NAME),
+    # ADR-0023: a member property's subset definition names who reads the property
+    "ci:consumer": _d("subset", "the declaration check (a member property's declared readers)"),
 }  # fmt: skip
 
 
@@ -160,6 +172,7 @@ class Member:
     description: str | None
     properties: tuple[str, ...]
     defined_in: str
+    title: str | None = None  # the native title, which names the generated member when given
 
 
 @dataclass
@@ -225,18 +238,28 @@ class EnumExpansionError(ValueError):
 
 def _members_of(enum_name: str, pvs: Mapping[str, Any]) -> list[Member]:
     return [
-        Member(str(text), pv.description, tuple(str(p) for p in pv.in_subset or ()), enum_name)
+        Member(
+            str(text),
+            pv.description,
+            tuple(str(p) for p in pv.in_subset or ()),
+            enum_name,
+            str(pv.title) if getattr(pv, "title", None) else None,
+        )
         for text, pv in pvs.items()
     ]
 
 
-def _expression(view: View, owner: str, expr: Any, seen: tuple[str, ...]) -> list[Member]:
+def _expression(
+    view: View, owner: str, expr: Any, seen: tuple[str, ...]
+) -> list[tuple[Member, bool]]:
+    """An expression's members in order, each with whether `owner` defines it (an inline
+    member) rather than brings it from a parent (`inherits`)."""
     for unsupported in ("reachable_from", "matches", "concepts"):
         if getattr(expr, unsupported, None):
             raise EnumExpansionError(f"{owner}: {unsupported} is not expanded")
-    out = _members_of(owner, expr.permissible_values or {})
+    out = [(m, True) for m in _members_of(owner, expr.permissible_values or {})]
     for parent in expr.inherits or ():
-        out += _expand(view, str(parent), seen)
+        out += [(m, False) for m in _expand(view, str(parent), seen)]
     return out
 
 
@@ -250,24 +273,39 @@ def _expand(view: View, name: str, seen: tuple[str, ...]) -> list[Member]:
     for unsupported in ("reachable_from", "matches", "concepts"):
         if getattr(enum, unsupported, None):
             raise EnumExpansionError(f"{name}: {unsupported} is not expanded")
-    own = _members_of(name, enum.permissible_values or {})
-    brought: list[Member] = []
+    # own members, each inherits enum, each include expression; True: defined by this enum
+    members = [(m, True) for m in _members_of(name, enum.permissible_values or {})]
     for parent in enum.inherits or ():
-        brought += _expand(view, str(parent), seen)
+        members += [(m, False) for m in _expand(view, str(parent), seen)]
     for expr in enum.include or ():
-        brought += _expression(view, name, expr, seen)
-    own_texts = {m.text for m in own}
-    for member in brought:
-        if member.text in own_texts:
+        members += _expression(view, name, expr, seen)
+    defined: dict[str, Member] = {}
+    for member, own in members:
+        if own and member.text in defined:
+            raise EnumExpansionError(f"{name}: member {member.text!r} is defined twice")
+        if own:
+            defined[member.text] = member
+    first: dict[str, Member] = {}
+    for member, own in members:
+        if own:
+            continue
+        if member.text in defined:
             raise EnumExpansionError(
                 f"{name}: member {member.text!r} collides with {member.defined_in}'s member"
             )
+        earlier = first.setdefault(member.text, member)
+        if set(earlier.properties) != set(member.properties):
+            raise EnumExpansionError(
+                f"{name}: member {member.text!r} comes from {earlier.defined_in} with properties "
+                f"{sorted(earlier.properties)} and from {member.defined_in} with "
+                f"{sorted(member.properties)}"
+            )
     removed: set[str] = set()
     for expr in enum.minus or ():
-        removed |= {m.text for m in _expression(view, name, expr, seen)}
+        removed |= {m.text for m, _ in _expression(view, name, expr, seen)}
     out: list[Member] = []
     kept: set[str] = set()
-    for member in (*own, *brought):
+    for member, _ in members:
         if member.text in kept or member.text in removed:
             continue
         kept.add(member.text)
@@ -334,10 +372,14 @@ def invariants_of(view: View, cls: str) -> list[Invariant]:
 
 
 def _elements(model: Model) -> Iterator[tuple[str, str, Any, Any]]:
-    """(path, kind, element, owning class) for every annotatable element of both modules."""
+    """(path, kind, element, owner) for every annotatable element of both modules: the owner is
+    an attribute's or unique key's class and a member's enum. A member of an `include` or `minus`
+    expression is a member of the enum that writes the expression."""
     for module, view in model.modules():
         schema = view.schema
         yield f"{module}", "schema", schema, None
+        for name, subset in (schema.subsets or {}).items():
+            yield f"{module}.subsets.{name}", "subset", subset, None
         for name, typ in (schema.types or {}).items():
             yield f"{module}.types.{name}", "type", typ, None
         for name, cls in (schema.classes or {}).items():
@@ -346,12 +388,18 @@ def _elements(model: Model) -> Iterator[tuple[str, str, Any, Any]]:
                 yield f"{module}.classes.{name}.{attr_name}", "attribute", attr, cls
             for usage_name, usage in (cls.slot_usage or {}).items():
                 yield f"{module}.classes.{name}.slot_usage.{usage_name}", "attribute", usage, cls
+            for key_name, key in (cls.unique_keys or {}).items():
+                yield f"{module}.classes.{name}.unique_keys.{key_name}", "unique key", key, cls
         for name, slot in (schema.slots or {}).items():
             yield f"{module}.slots.{name}", "slot", slot, None
         for name, enum in (schema.enums or {}).items():
             yield f"{module}.enums.{name}", "enum", enum, None
             for text, pv in (enum.permissible_values or {}).items():
-                yield f"{module}.enums.{name}.{text}", "member", pv, None
+                yield f"{module}.enums.{name}.{text}", "member", pv, enum
+            for part in ("include", "minus"):
+                for i, expr in enumerate(getattr(enum, part) or ()):
+                    for text, pv in (expr.permissible_values or {}).items():
+                        yield f"{module}.enums.{name}.{part}[{i}].{text}", "member", pv, enum
 
 
 def _admitted(model: Model, decl: Declaration, value: Any) -> bool:
@@ -369,7 +417,7 @@ def check(model: Model, generated_properties: Mapping[str, object] | None = None
     """Every problem of the model's declarations (module doc); empty when it passes.
     `generated_properties` is the generated vocabulary's `MEMBER_PROPERTIES`, checked if given."""
     problems: list[str] = []
-    for path, kind, element, _ in _elements(model):
+    for path, kind, element, owner in _elements(model):
         for tag, value in ci_annotations(element).items():
             decl = VOCABULARY.get(tag)
             if decl is None:
@@ -383,8 +431,9 @@ def check(model: Model, generated_properties: Mapping[str, object] | None = None
                 continue
             if not _admitted(model, decl, value):
                 problems.append(f"{path}: {tag} value {value!r} is not admitted")
-            problems += _check_value(model, path, tag, str(value), element)
+            problems += _check_value(model, path, tag, str(value), element, owner)
     problems += _check_member_properties(model, generated_properties)
+    problems += _check_names(model)
     for module, enum in model.enums():
         try:
             model.expanded(str(enum.name))
@@ -392,11 +441,19 @@ def check(model: Model, generated_properties: Mapping[str, object] | None = None
             problems.append(f"{module}.enums.{enum.name}: {error}")
         if "ci:lifecycle" not in ci_annotations(enum):
             problems.append(f"{module}.enums.{enum.name}: a closed set declares its ci:lifecycle")
+    for name, slot in (model.core.schema.slots or {}).items():
+        ann = ci_annotations(slot)
+        if ann.get("ci:role") == "qualifier" and "ci:key_role" not in ann:
+            problems.append(f"core.slots.{name}: a core qualifier declares ci:key_role")
     return problems
 
 
-def _check_value(model: Model, path: str, tag: str, value: str, element: Any) -> list[str]:
+def _check_value(
+    model: Model, path: str, tag: str, value: str, element: Any, owner: Any
+) -> list[str]:
     view = model.system
+    if tag == "ci:same":
+        return _check_same(view, path, value, element, owner)
     if tag == "ci:invariant":
         try:
             parsed = parse_invariants(value)
@@ -428,25 +485,94 @@ def _check_value(model: Model, path: str, tag: str, value: str, element: Any) ->
     return []
 
 
+def _check_same(view: View, path: str, value: str, element: Any, owner: Any) -> list[str]:
+    """`ci:same: s` on a reference: this row's class and the referenced class both have `s`."""
+    out: list[str] = []
+    if owner is not None:
+        if value not in view.class_slots(str(owner.name)):
+            out.append(f"{path}: ci:same {value!r} is not a slot of {owner.name}")
+        target = view.induced_slot(str(element.name), str(owner.name)).range
+    else:
+        if view.get_slot(value) is None:
+            out.append(f"{path}: ci:same {value!r} is not a slot")
+        target = element.range
+    if target is None or view.get_class(target) is None:
+        out.append(f"{path}: ci:same is declared on a slot whose range is not a class")
+    elif value not in view.class_slots(target):
+        out.append(f"{path}: ci:same {value!r} is not a slot of the referenced {target}")
+    return out
+
+
+def _extends(view: View, name: str) -> set[str]:
+    """The enums an enum extends: its `inherits` and its `include` expressions' `inherits`,
+    transitively (a cycle is the expansion's to refuse)."""
+    out: set[str] = set()
+    todo = [name]
+    while todo:
+        enum = view.get_enum(todo.pop())
+        if enum is None:
+            continue
+        parents = [*(enum.inherits or ())]
+        for expr in enum.include or ():
+            parents += [*(expr.inherits or ())]
+        for parent in map(str, parents):
+            if parent not in out:
+                out.add(parent)
+                todo.append(parent)
+    return out
+
+
 def _check_member_properties(model: Model, generated: Mapping[str, object] | None) -> list[str]:
+    """A member property is used on members of one enum and of the enums that extend it (a pack
+    enum adding a member with a core property), never by unrelated enums and never on an element;
+    its subset definition names its consumer (ADR-0023); it is generated."""
     problems: list[str] = []
     users: dict[str, set[str]] = {}
-    for _, enum in model.enums():
-        for pv in enum.permissible_values.values():
-            for prop in pv.in_subset or ():
-                users.setdefault(str(prop), set()).add(str(enum.name))
     on_elements: set[str] = set()
+    for _, kind, element, owner in _elements(model):
+        subsets = {str(s) for s in getattr(element, "in_subset", None) or ()}
+        if kind == "member":
+            for prop in subsets:
+                users.setdefault(prop, set()).add(str(owner.name))
+        else:
+            on_elements |= subsets
+    definitions: dict[str, Any] = {}
     for _, view in model.modules():
-        for collection in (view.schema.classes, view.schema.slots, view.schema.enums):
-            for element in (collection or {}).values():
-                on_elements |= {str(s) for s in element.in_subset or ()}
+        definitions.update(view.schema.subsets or {})
+    view = model.system
     for prop, enums in sorted(users.items()):
-        if len(enums) > 1:
-            problems.append(f"member property {prop} is used by {sorted(enums)}; one enum only")
+        if not any(enums - {root} <= {e for e in enums if root in _extends(view, e)}
+                   for root in enums):  # fmt: skip
+            problems.append(
+                f"member property {prop} is used by {sorted(enums)}; one enum and the enums "
+                "that extend it only"
+            )
         if prop in on_elements:
             problems.append(f"member property {prop} is also an element subset")
+        if prop not in definitions:
+            problems.append(f"member property {prop} has no subset definition")
+        elif "ci:consumer" not in ci_annotations(definitions[prop]):
+            problems.append(
+                f"member property {prop} names no consumer (ci:consumer on its subset definition)"
+            )
         if generated is not None and prop not in generated:
             problems.append(f"member property {prop} is not in the generated vocabulary")
+    return problems
+
+
+def _check_names(model: Model) -> list[str]:
+    """Classes, enums and types share one name space (a range names any of them), across core and
+    system."""
+    seen: dict[str, str] = {}
+    problems: list[str] = []
+    for module, view in model.modules():
+        for kind in ("classes", "enums", "types"):
+            for name in getattr(view.schema, kind) or {}:
+                where = f"{module}.{kind}.{name}"
+                if str(name) in seen:
+                    problems.append(f"{where}: the name is also {seen[str(name)]}")
+                else:
+                    seen[str(name)] = where
     return problems
 
 
@@ -471,13 +597,26 @@ class Revision:
         }
 
 
+def _floats_as_decimals(value: Any) -> Any:
+    """The parsed YAML with every float as its canonical decimal (`minimum_value: 0.5`), which
+    canonical JSON would otherwise refuse; a non-finite float is refused."""
+    if isinstance(value, float):
+        return decimal_of_float(value)
+    if isinstance(value, dict):
+        return {key: _floats_as_decimals(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_floats_as_decimals(item) for item in value]
+    return value
+
+
 def content_hash(core: Path = CORE, system: Path = SYSTEM) -> str:
-    """SHA-256 of the canonical JSON of the parsed core and system files (D2 §2's rule)."""
+    """SHA-256 of the canonical JSON of the parsed core and system files (D2 §2's rule), floats
+    as their canonical decimals."""
     parsed = {
         "core": yaml.safe_load(core.read_text(encoding="utf-8")),
         "system": yaml.safe_load(system.read_text(encoding="utf-8")),
     }
-    return hashlib.sha256(canonical_json(parsed)).hexdigest()
+    return hashlib.sha256(canonical_json(_floats_as_decimals(parsed))).hexdigest()
 
 
 def compilers() -> dict[str, str]:

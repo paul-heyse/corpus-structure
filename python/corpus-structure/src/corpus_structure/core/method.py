@@ -64,6 +64,8 @@ class Digest(NamedTuple):
 def _decimals(value: Any, path: str) -> Any:
     if isinstance(value, bool):
         return value
+    if isinstance(value, int):
+        return str(int(value))  # an integer's canonical decimal is its digits
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError(f"{path}: payload holds a non-finite float {value!r}")
@@ -79,11 +81,14 @@ def payload_hash(payload: BaseModel | Mapping[str, Any]) -> str:
     """The SHA-256 hex digest of an observation payload's canonical JSON: the form in which digests
     cite upstream observations (coordinator decision 15).
 
-    A model is taken in its JSON dump; a mapping as read back from JSONB. Every float (a `score`,
-    an encoder confidence) becomes its canonical decimal (`decimal_of_float`) first, so a payload
-    hashes alike when written and when read back, whatever key order PostgreSQL returns; a
-    non-finite float is refused, and canonical JSON refuses anything else outside JSON (and
-    NFC-normalizes every string)."""
+    A model is taken in its JSON dump; a mapping as read back from JSONB. Every number, integer or
+    float (a `score`, an encoder confidence), becomes its canonical decimal string first
+    (`decimal_of_float` for a float), so a payload hashes alike when written and when read back:
+    JSONB stores numbers as `numeric` and returns them in its own form, an integral float as an
+    integer (`1e16` comes back as `10000000000000000`) and `1.0` as `1.0`, in its own key order.
+    A number and the string of its canonical decimal therefore hash alike, which a payload class's
+    declared field types keep apart. A non-finite float is refused, and canonical JSON refuses
+    anything else outside JSON (and NFC-normalizes every string)."""
     raw = payload.model_dump(mode="json") if isinstance(payload, BaseModel) else payload
     return hashlib.sha256(canonical_json(_decimals(raw, "$"))).hexdigest()
 

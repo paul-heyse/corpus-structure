@@ -99,6 +99,17 @@ class BindKind(StrEnum):
     UNRESOLVED = "unresolved"
 
 
+class Relation(StrEnum):
+    """The relation of a cmp condition node (D1 §7). Lifecycle: static."""
+
+    LT = "<"
+    LE = "<="
+    EQ = "="
+    NE = "!="
+    GT = ">"
+    GE = ">="
+
+
 class ParseOutcome(StrEnum):
     """The math grammar's parse outcome for a formula or set value (D4 M11). Lifecycle: static."""
 
@@ -539,6 +550,7 @@ class DropReason(StrEnum):
     IDENTITY_CYCLE = "identity_cycle"
     CONDITION_CYCLE = "condition_cycle"
     MALFORMED_QUALIFIER = "malformed_qualifier"
+    MALFORMED_VALUE = "malformed_value"
 
 
 class FrameFailureReason(StrEnum):
@@ -617,6 +629,17 @@ class EntityRefRole(StrEnum):
     PRED_ARG = "pred_arg"
     BINDING_VARIABLE = "binding_variable"
     BINDING_FAMILY_PARAM = "binding_family_param"
+
+
+class MathKind(StrEnum):
+    """The typed start symbol of the math grammar that read a value's span (ValuePayload.math_kind,
+    M11). Lifecycle: static.
+    """
+
+    FORMULA = "formula"
+    RELATION = "relation"
+    MEMBERSHIP = "membership"
+    SET = "set"
 
 
 class MarkupKind(StrEnum):
@@ -800,6 +823,18 @@ ATTRIBUTION_IDENTIFYING: Final[frozenset[ClaimModality]] = frozenset(
         ClaimModality.CITED,
     }
 )
+SYMMETRIC_RELATION: Final[frozenset[Relation]] = frozenset(
+    {
+        Relation.EQ,
+        Relation.NE,
+    }
+)
+CONVERSE_REWRITTEN: Final[frozenset[Relation]] = frozenset(
+    {
+        Relation.GT,
+        Relation.GE,
+    }
+)
 SECTION_LIKE: Final[frozenset[SegmentKind]] = frozenset(
     {
         SegmentKind.DOCUMENT,
@@ -921,6 +956,8 @@ MEMBER_PROPERTIES: Final[Mapping[str, frozenset[StrEnum]]] = {
     "premise_forming": PREMISE_FORMING,
     "reserved": RESERVED,
     "attribution_identifying": ATTRIBUTION_IDENTIFYING,
+    "symmetric_relation": SYMMETRIC_RELATION,
+    "converse_rewritten": CONVERSE_REWRITTEN,
     "section_like": SECTION_LIKE,
     "container": CONTAINER,
     "annotation_unit": ANNOTATION_UNIT,
@@ -946,6 +983,8 @@ PROPERTY_OF: Final[Mapping[str, type[StrEnum]]] = {
     "premise_forming": ClaimModality,
     "reserved": ClaimModality,
     "attribution_identifying": ClaimModality,
+    "symmetric_relation": Relation,
+    "converse_rewritten": Relation,
     "section_like": SegmentKind,
     "container": SegmentKind,
     "annotation_unit": SegmentKind,
@@ -973,6 +1012,7 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     EntityExtent: Lifecycle.STATIC,
     EntityScope: Lifecycle.STATIC,
     BindKind: Lifecycle.STATIC,
+    Relation: Lifecycle.STATIC,
     ParseOutcome: Lifecycle.STATIC,
     EvidenceRole: Lifecycle.STATIC,
     SegmentKind: Lifecycle.STATIC,
@@ -1019,6 +1059,7 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     SkipReason: Lifecycle.STATIC,
     ClaimRefKind: Lifecycle.STATIC,
     EntityRefRole: Lifecycle.STATIC,
+    MathKind: Lifecycle.STATIC,
     MarkupKind: Lifecycle.STATIC,
     InterventionTargetKind: Lifecycle.STATIC,
     JudgmentTargetKind: Lifecycle.STATIC,

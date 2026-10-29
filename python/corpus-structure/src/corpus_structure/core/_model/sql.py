@@ -17,6 +17,20 @@ def in_list(members: Iterable[str]) -> str:
     return "(" + ", ".join(f"'{m}'" for m in members) + ")"
 
 
+# Relation members with the property symmetric_relation.
+SYMMETRIC_RELATION: Final[tuple[str, ...]] = (
+    "=",
+    "!=",
+)
+SYMMETRIC_RELATION_IN: Final = in_list(SYMMETRIC_RELATION)
+
+# Relation members with the property converse_rewritten.
+CONVERSE_REWRITTEN: Final[tuple[str, ...]] = (
+    ">",
+    ">=",
+)
+CONVERSE_REWRITTEN_IN: Final = in_list(CONVERSE_REWRITTEN)
+
 # SegmentKind members with the property section_like.
 SECTION_LIKE: Final[tuple[str, ...]] = (
     "document",

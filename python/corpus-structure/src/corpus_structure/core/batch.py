@@ -66,6 +66,10 @@ CORE_PREFIX = names.PREFIX
 _PREFIXED = re.compile(PREFIXED_NAME)
 
 DEFAULT_MODALITY: ClaimModality = BY_NAME[names.MODALITY].default
+# `ClaimModality` is schema-version-scoped: the generic shapes admit a pack's members (a local
+# name, or a prefixed one), and S1's per-version models and S2's checks refuse what the run's
+# schema version lacks; `ClaimModality` lists the core members.
+ModalityName = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?$")]
 DEFAULT_POLARITY: Polarity = BY_NAME[names.POLARITY].default
 
 
@@ -85,7 +89,7 @@ class _Qualifiers(CoreModel):
     # schema qualifiers, raw JSON until S1 types them (Pydantic's typed-extras declaration)
     __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
 
-    modality: ClaimModality = Field(DEFAULT_MODALITY, exclude_if=_is_default_modality)
+    modality: ModalityName = Field(DEFAULT_MODALITY, exclude_if=_is_default_modality)
     polarity: Polarity = Field(DEFAULT_POLARITY, exclude_if=_is_default_polarity)
     attribution: EntityRef | MISSING = MISSING  # type: ignore[valid-type]
     valid_time: IntervalValue | MISSING = MISSING  # type: ignore[valid-type]
@@ -127,7 +131,7 @@ class StoredQualifiers(CoreModel):
     # schema qualifiers, raw JSON until S1 types them (Pydantic's typed-extras declaration)
     __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
 
-    modality: ClaimModality = Field(
+    modality: ModalityName = Field(
         DEFAULT_MODALITY, alias=_core("modality"), exclude_if=_is_default_modality
     )
     polarity: Polarity = Field(

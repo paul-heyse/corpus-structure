@@ -42,7 +42,7 @@ from pydantic import (
 
 from corpus_structure.core._model import validators
 from corpus_structure.core.canonical import CANONICAL_DECIMAL, canonical_decimal
-from corpus_structure.core.vocab import BindKind, ParseOutcome
+from corpus_structure.core.vocab import BindKind, ParseOutcome, Relation
 
 SENTENCE_ID = r"^[sc][0-9]+$"
 ISO_8601 = (
@@ -50,8 +50,6 @@ ISO_8601 = (
     r"(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$"
 )
 _DECIMAL = re.compile(CANONICAL_DECIMAL)
-
-Relation = Literal["<", "<=", "=", "!=", ">", ">="]
 
 
 class _Citation:
