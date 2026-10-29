@@ -121,9 +121,13 @@ def consistent(profile: Any) -> None:
             raise ValueError(f"{field} names an entry twice")
     for field, selector in profile.selectors():
         try:
-            cssselect2.compile_selector_list(selector)
+            compiled = cssselect2.compile_selector_list(selector)
         except cssselect2.SelectorError as error:
             raise ValueError(f"{field}: selector {selector!r} does not compile: {error}") from None
+        if any(item.pseudo_element is not None for item in compiled):
+            raise ValueError(
+                f"{field}: selector {selector!r} selects a pseudo-element, not a source element"
+            )
 
 
 # --- Method classes (`ci:mixin`) ---------------------------------------------------------------

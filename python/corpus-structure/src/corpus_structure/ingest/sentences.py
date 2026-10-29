@@ -167,8 +167,8 @@ def boundaries(block: Block, doc: Doc) -> list[tuple[int, int]]:
 def split(blocks: Sequence[Block], config: SentenceConfig) -> list[list[tuple[int, int]]]:
     """Sentence extents of each block, relative to it, in input order."""
     nlp = pipeline(config)
-    items = [(make_doc(nlp, block), n) for n, block in enumerate(blocks)]
-    out: list[list[tuple[int, int]]] = [[] for _ in items]
+    items = ((make_doc(nlp, block), n) for n, block in enumerate(blocks))
+    out: list[list[tuple[int, int]]] = [[] for _ in blocks]
     for doc, n in nlp.pipe(items, batch_size=config.batch_size, as_tuples=True):
         out[n] = boundaries(blocks[n], doc)
     return out
