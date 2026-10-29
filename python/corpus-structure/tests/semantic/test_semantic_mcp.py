@@ -1,11 +1,13 @@
 """Native semantic-run MCP dispatch with independent source-backed submissions; no regrading."""
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import anyio
 from fastmcp import Client
+from mcp.types import TextContent
 from sqlalchemy import insert, select
 
 from corpus_structure.core.evidence import RenditionContent, Segment
@@ -68,7 +70,8 @@ classes:
 """,
                 ),
             ),
-        ), qualification_class="ScopedQualification"
+        ),
+        qualification_class="ScopedQualification",
     )
     prepared = prepare_release(bundle)
     with semantic_db_engine.begin() as conn:
@@ -80,7 +83,12 @@ classes:
             )
         )
     raw = tmp_path / "source.html"
-    text = "Alice has exact value 1.23456789012345678901234567890123456789."
+    cap = 512
+    text = (
+        "Alice has exact value 1.23456789012345678901234567890123456789 "
+        + "with long source detail " * 40
+        + "."
+    )
     raw.write_text("<p>" + text + "</p>", encoding="utf-8")
     sentence = Segment(kind=SegmentKind.SENTENCE, start=0, end=len(text))
     paragraph = Segment(kind=SegmentKind.PARAGRAPH, start=0, end=len(text), children=(sentence,))
@@ -96,9 +104,16 @@ classes:
             project_id="mcp",
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
-            options={'agent_configs':{'extract':{
-                'model':'declared-automated-agent','mode':'extract','max_units':1,'packet_cap_chars':18000,
-            }}},
+            options={
+                "agent_configs": {
+                    "extract": {
+                        "model": "declared-automated-agent",
+                        "mode": "extract",
+                        "max_units": 1,
+                        "packet_cap_chars": cap,
+                    }
+                }
+            },
             code_commit="native-mcp",
             guideline="Extract only what the source states.",
         )
@@ -149,7 +164,7 @@ classes:
                 "model": "declared-automated-agent",
                 "mode": "extract",
                 "max_units": 1,
-                "packet_cap_chars": 18000,
+                "packet_cap_chars": cap,
             },
             units=(UnitRef(TaskUnitType.SEGMENT, segment, locator),),
         )
@@ -180,13 +195,20 @@ classes:
                         "read_instructions",
                         {"task_id": agent_task, "part": part["name"], "page": page},
                     )
-            source_sentences = []
+            source_fragments = []
             for page in range(1, leased[0]["parts"] + 1):
-                unit = (
-                    await client.call_tool("read_unit", {"task_id": agent_task, "part": page})
-                ).structured_content
+                response = await client.call_tool(
+                    "read_unit", {"task_id": agent_task, "part": page}
+                )
+                unit = response.structured_content
                 assert unit is not None
-                source_sentences.extend(unit["sentences"])
+                assert "sentences" not in unit
+                assert len(unit["text"]) <= cap
+                rendered = response.content[0]
+                assert isinstance(rendered, TextContent)
+                assert rendered.text == unit["text"]
+                source_fragments.append(unit["text"])
+            source_sentences = json.loads("".join(source_fragments))["sentences"]
             sid = next(item["id"] for item in source_sentences if item["text"] == text)
             batch: dict[str, Any] = {
                 "unit_ref": locator,
@@ -217,13 +239,25 @@ classes:
                 "scale": {"key": "scale", "amount": exact, "owner": "p"}
             }
             rounded_map = deepcopy(batch)
-            rounded_map["claims"][0]["qualification"]["parameters"]["scale"]["amount"] = float(exact)
-            map_refused = (await client.call_tool("propose_claims", {"task_id": agent_task, "batch": rounded_map})).structured_content
+            rounded_map["claims"][0]["qualification"]["parameters"]["scale"]["amount"] = float(
+                exact
+            )
+            map_refused = (
+                await client.call_tool(
+                    "propose_claims", {"task_id": agent_task, "batch": rounded_map}
+                )
+            ).structured_content
             assert map_refused is not None and map_refused["status"] == "held"
             assert "binary floats" in map_refused["rejected"][0]["message"]
             unknown_reference = deepcopy(batch)
-            unknown_reference["claims"][0]["qualification"]["parameters"]["scale"]["owner"] = "missing"
-            reference_refused = (await client.call_tool("propose_claims", {"task_id": agent_task, "batch": unknown_reference})).structured_content
+            unknown_reference["claims"][0]["qualification"]["parameters"]["scale"]["owner"] = (
+                "missing"
+            )
+            reference_refused = (
+                await client.call_tool(
+                    "propose_claims", {"task_id": agent_task, "batch": unknown_reference}
+                )
+            ).structured_content
             assert reference_refused is not None and reference_refused["status"] == "held"
             assert "nested entity reference" in reference_refused["rejected"][0]["message"]
             rounded = deepcopy(batch)
@@ -270,4 +304,7 @@ classes:
             "number": "1.23456789012345678901234567890123456789",
         }
 
-        assert row["payload"]["claims"][0]["qualification"]["parameters"]["scale"]["amount"] == "1.23456789012345678901234567890123456789"
+        assert (
+            row["payload"]["claims"][0]["qualification"]["parameters"]["scale"]["amount"]
+            == "1.23456789012345678901234567890123456789"
+        )
