@@ -1,0 +1,265 @@
+"""Pure alignment over release-admitted semantic batches, without installed schema defaults.
+
+Alignment is an assessment, separate from publication's semantic identity. Unknown mathematical
+meaning and ambiguous entity assignments are retained as undecided rather than guessed.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from decimal import Decimal
+from hashlib import sha256
+from collections.abc import Mapping
+from typing import Any
+import unicodedata
+import numpy as np
+import sympy
+from scipy.optimize import linear_sum_assignment
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.types import PreparedRelease
+
+@dataclass(frozen=True)
+class SemanticSide:
+    unit: str
+    batch: Mapping[str, Any]
+    context: frozenset[str] = frozenset()
+    known_ids: Mapping[str,str] = field(default_factory=dict)
+    anchors: Mapping[str,tuple[tuple[int,int],...]] = field(default_factory=dict)
+
+@dataclass(frozen=True)
+class ValueDecision:
+    equal: bool
+    outcome: str
+    reason: str = ''
+
+@dataclass(frozen=True)
+class TierCounts:
+    reference: int
+    prediction: int
+    matched: int
+    @property
+    def precision(self):
+        return self.matched/self.prediction if self.prediction else None
+    @property
+    def recall(self):
+        return self.matched/self.reference if self.reference else None
+    @property
+    def f1(self):
+        return 2*self.matched/(self.reference+self.prediction) if self.reference+self.prediction else None
+    def as_dict(self):
+        return {'reference':self.reference,'prediction':self.prediction,'matched':self.matched,'precision':self.precision,'recall':self.recall,'f1':self.f1}
+
+@dataclass
+class SemanticAlignment:
+    unit: str
+    entity_pairs: list[tuple[str,str,str]] = field(default_factory=list)
+    matches: dict[str,list[tuple[str,str]]] = field(default_factory=lambda:{k:[] for k in ('core','full','evidence')})
+    counts: dict[str,TierCounts] = field(default_factory=dict)
+    undecided: list[dict[str,str]] = field(default_factory=list)
+    field_failures: list[dict[str,Any]] = field(default_factory=list)
+    iterations: int = 0
+    converged: bool = True
+    def as_dict(self):
+        return {'unit':self.unit,'entity_pairs':self.entity_pairs,'matches':self.matches,'tiers':{k:v.as_dict() for k,v in self.counts.items()},'undecided':self.undecided,'field_failures':self.field_failures,'iterations':self.iterations,'converged':self.converged}
+
+def _text(value):
+    return ' '.join(unicodedata.normalize('NFC',value).casefold().split())
+
+def _overlap(a,b):
+    return max(0,min(a[1],b[1])-max(a[0],b[0]))
+
+def _spans(claim):
+    return tuple((e['start'],e['end']) for e in claim.get('evidence',()) if e.get('outcome')=='located' and e.get('role')=='primary' and e.get('start') is not None and e.get('end') is not None)
+
+def _assignment(weights):
+    if not weights.size:return []
+    a,b=linear_sum_assignment(weights,maximize=True)
+    return [(int(i),int(j)) for i,j in zip(a,b,strict=True) if weights[i,j]>0]
+
+def _math_read(value):
+    from corpus_structure.core.evidence import MacroDef
+    from corpus_structure.methods.math import grammar
+    from corpus_structure.core.vocab import ParseOutcome
+    if value.get('language') not in {'tex','latex'}:
+        return None,'unsupported expression language'
+    bindings=value.get('bindings',())
+    if isinstance(bindings,dict):bindings=bindings.values()
+    if any(b.get('kind') in {'unresolved','param_of','param_expr_of'} for b in bindings):
+        return None,'unresolved expression binding'
+    macros=value.get('macro_context',())
+    if isinstance(macros,dict):macros=macros.values()
+    env={m['name']:MacroDef(nargs=m['nargs'],body=m['body'],default=m.get('default')) for m in macros}
+    variables=frozenset(b['symbol'] for b in bindings if b.get('kind') in {'variable','family_param','free'})
+    context=grammar.MathContext(variables=variables,constants=frozenset(b['symbol'] for b in bindings if b.get('kind')=='constant'))
+    for kind in (('set_expr',) if value['kind']=='set' else ('formula','relation','member')):
+        parsed=grammar.parse(value['expression'],kind,env,context)
+        if parsed.status is ParseOutcome.AMBIGUOUS:return None,'ambiguous expression grammar'
+        if parsed.status in {ParseOutcome.OK,ParseOutcome.PARTIAL}:
+            try:return grammar.to_sympy(parsed),parsed.status.value
+            except (ValueError,TypeError,NotImplementedError):pass
+    return None,'expression grammar did not produce a mathematical value'
+
+def equivalent(a,b,entity_map,claim_map=None,*,conditions=None):
+    """Canonical typed values, aligned references, commutative condition trees and math.
+
+    Numeric probes only run after successful grammar interpretation; unequal probes disprove,
+    whereas coincident probes without a symbolic proof remain explicitly undecided.
+    """
+    claim_map={} if claim_map is None else claim_map
+    if isinstance(a,Mapping) and isinstance(b,Mapping):
+        ka,kb=a.get('kind'),b.get('kind')
+        if ka!=kb:return ValueDecision(False,'canonical','different semantic value kinds')
+        if ka=='entity':return ValueDecision(entity_map.get(a['target'])==b['target'],'reference')
+        if ka=='claim':return ValueDecision(claim_map.get(a['ref'])==b['ref'],'reference')
+        if ka in {'number','quantity'}:
+            if {k:v for k,v in a.items() if k!='number'}!={k:v for k,v in b.items() if k!='number'}:return ValueDecision(False,'canonical','quantity unit or basis differs')
+            return ValueDecision(Decimal(str(a['number']))==Decimal(str(b['number'])),'canonical')
+        if ka in {'expression','formula','set'}:
+            # Entity and fact bindings are compared separately from written symbols.
+            def binding_meaning(value,left):
+                result=[]
+                bindings=value.get('bindings',())
+                if isinstance(bindings,dict):bindings=bindings.values()
+                for item in bindings:
+                    item=dict(item)
+                    if left and 'entity' in item:item['entity']=entity_map.get(item['entity'],'unresolved:'+item['entity'])
+                    if left and 'claim' in item:item['claim']=claim_map.get(item['claim'],'unresolved:'+item['claim'])
+                    result.append(item)
+                return sorted(result,key=canonical_bytes)
+            if binding_meaning(a,True)!=binding_meaning(b,False):return ValueDecision(False,'undecided','expression bindings differ or remain unresolved')
+            if canonical_bytes(a)==canonical_bytes(b):return ValueDecision(True,'canonical')
+            from corpus_structure.methods.math import grammar
+            grammar.require_main_thread()
+            x,why_a=_math_read(a);y,why_b=_math_read(b)
+            if x is None or y is None:return ValueDecision(False,'undecided',why_a+'; '+why_b)
+            try:
+                with grammar.deadline(5):
+                    if isinstance(x,sympy.Equality) and isinstance(y,sympy.Equality):
+                        dx,dy=x.lhs-x.rhs,y.lhs-y.rhs
+                        same=sympy.simplify(dx-dy)==0 or sympy.simplify(dx+dy)==0
+                    elif isinstance(x,sympy.Set) and isinstance(y,sympy.Set):same=x.symmetric_difference(y)==sympy.S.EmptySet
+                    elif isinstance(x,sympy.Expr) and isinstance(y,sympy.Expr):same=sympy.simplify(x-y)==0
+                    else:same=x==y
+                if same:return ValueDecision(True,'symbolic')
+                # Reuse deterministic probes only as disproof. Conditions are never discarded.
+                if isinstance(x,sympy.Expr) and isinstance(y,sympy.Expr) and not conditions:
+                    symbols=sorted(x.free_symbols|y.free_symbols,key=str)
+                    rng=np.random.default_rng(int(sha256(canonical_bytes(sorted((dict(a),dict(b)),key=canonical_bytes))).hexdigest()[:16],16))
+                    for _ in range(12):
+                        values=dict(zip(symbols,(float(v) for v in rng.uniform(.25,3,len(symbols))),strict=True))
+                        xa,ya=complex(x.evalf(subs=values)),complex(y.evalf(subs=values))
+                        if np.isfinite(xa) and np.isfinite(ya) and abs(xa-ya)>1e-9*max(1,abs(xa),abs(ya)):
+                            return ValueDecision(False,'numeric','deterministic counterexample')
+                return ValueDecision(False,'undecided','no symbolic equivalence proof')
+            except (ArithmeticError,ValueError,TypeError,NotImplementedError,TimeoutError):
+                return ValueDecision(False,'undecided','symbolic comparison unavailable or timed out')
+        if ka in {'all','any'}:
+            aa,bb=a.get('terms',()),b.get('terms',())
+            if len(aa)!=len(bb):return ValueDecision(False,'canonical')
+            decisions=[[equivalent(x,y,entity_map,claim_map) for y in bb] for x in aa]
+            matched=_assignment(np.array([[float(v.equal) for v in row] for row in decisions]))
+            if len(matched)==len(aa):return ValueDecision(True,'condition')
+            return ValueDecision(False,'undecided' if any(v.outcome=='undecided' for row in decisions for v in row) else 'condition')
+        if set(a)!=set(b):return ValueDecision(False,'canonical','different qualification/value fields')
+        decisions=[]
+        for key in a:
+            if key in {'attribution','entity'} and isinstance(a[key],str) and isinstance(b[key],str):
+                decisions.append(ValueDecision(entity_map.get(a[key])==b[key],'reference'))
+            else:decisions.append(equivalent(a[key],b[key],entity_map,claim_map))
+        return ValueDecision(all(d.equal for d in decisions),'undecided' if any(d.outcome=='undecided' for d in decisions) else 'canonical')
+    if isinstance(a,(list,tuple)) and isinstance(b,(list,tuple)):
+        if len(a)!=len(b):return ValueDecision(False,'canonical')
+        ds=[equivalent(x,y,entity_map,claim_map) for x,y in zip(a,b,strict=True)]
+        return ValueDecision(all(d.equal for d in ds),'undecided' if any(d.outcome=='undecided' for d in ds) else 'canonical')
+    return ValueDecision(type(a)==type(b) and a==b,'canonical')
+
+def _entity_pairs(ref,pred,prepared,out):
+    from corpus_structure.core.keys import LabelRules,normalize_label
+    from corpus_structure.core.vocab import CaseRule
+    import yaml
+    from corpus_structure.semantic.domain_operations import RULE_INPUT
+    policy=next((yaml.safe_load(a.content) for a in prepared.artifacts if a.kind==RULE_INPUT),{}) or {}
+    rules=LabelRules.model_validate((policy.get('identity') or {}).get('aliases',{}))
+    definitions={d.iri:d for d in prepared.definitions}
+    prefixes={r.name:__import__('json').loads(r.body)['uri'] for r in prepared.registry_rows if r.kind=='prefix'}
+    def compact(iri):
+        candidates=[(len(uri),prefix+':'+iri[len(uri):]) for prefix,uri in prefixes.items() if iri.startswith(uri)]
+        return max(candidates)[1] if candidates else iri
+    def compatible(a,b):
+        da,db=definitions.get(a),definitions.get(b)
+        return a==b or (da is not None and db is not None and (da.name in db.ancestors or db.name in da.ancestors))
+    ra=list(ref.batch.get('entities',()))+[{**s,'class_iri':'__statement__','label':s.get('title')} for s in ref.batch.get('statements',())]
+    pa=list(pred.batch.get('entities',()))+[{**s,'class_iri':'__statement__','label':s.get('title')} for s in pred.batch.get('statements',())]
+    weights=np.zeros((len(ra),len(pa)));bases={}
+    for i,a in enumerate(ra):
+        for j,b in enumerate(pa):
+            if not compatible(a['class_iri'],b['class_iri']):continue
+            known_a=ref.known_ids.get(a['id']);known_b=pred.known_ids.get(b['id'])
+            if known_a or known_b:
+                if known_a and known_a==known_b:weights[i,j]=1;bases[i,j]='known_identity'
+                continue
+            if a['class_iri']=='__statement__':
+                spans_a=ref.anchors.get(a['id'],());spans_b=pred.anchors.get(b['id'],())
+                ratio=max((_overlap(x,y)/max(1,max(x[1],y[1])-min(x[0],y[0])) for x in spans_a for y in spans_b),default=0)
+                if ratio:weights[i,j]=.6+.3*ratio+.1*(a.get('kind')==b.get('kind'));bases[i,j]='statement_anchor'
+                elif a.get('anchor')==b.get('anchor') and a.get('anchor'):weights[i,j]=.9;bases[i,j]='statement_locator'
+                continue
+            scope_a,scope_b=a.get('scope'),b.get('scope')
+            if (scope_a or scope_b) and scope_a!=scope_b:continue
+            labels_a=[a.get('label'),*a.get('aliases',())];labels_b=[b.get('label'),*b.get('aliases',())]
+            definition=definitions.get(a['class_iri']);case=CaseRule.PRESERVE if definition and any(p.name=='label' and p.case_policy=='preserve' for p in definition.properties) else CaseRule.FOLD
+            for la in filter(None,labels_a):
+                for lb in filter(None,labels_b):
+                    if _text(la)==_text(lb):weights[i,j]=1;bases[i,j]='label'
+                    elif normalize_label(la,compact(a['class_iri']),rules,case)==normalize_label(lb,compact(b['class_iri']),rules,case) and weights[i,j]<.9:weights[i,j]=.9;bases[i,j]='alias_normalization'
+    # Equal best candidates are an ambiguity, not permission to let array order choose identity.
+    for i in range(len(ra)):
+        if weights.shape[1] and weights[i].max()>=.5 and (weights[i]==weights[i].max()).sum()>1:
+            out.undecided.append({'entity':ra[i]['id'],'reason':'ambiguous label/anchor assignment'});weights[i,:]=0
+    for j in range(len(pa)):
+        if weights.shape[0] and weights[:,j].max()>=.5 and (weights[:,j]==weights[:,j].max()).sum()>1:
+            out.undecided.append({'entity':pa[j]['id'],'reason':'ambiguous label/anchor assignment'});weights[:,j]=0
+    for i,j in _assignment(np.where(weights>=.5,weights,0)):
+        out.entity_pairs.append((ra[i]['id'],pa[j]['id'],bases[i,j]))
+    return {a:b for a,b,_ in out.entity_pairs}
+
+def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:PreparedRelease)->SemanticAlignment:
+    if ref.unit!=pred.unit:raise ValueError('alignment sides refer to different source units')
+    out=SemanticAlignment(ref.unit);emap=_entity_pairs(ref,pred,prepared,out)
+    # Repeated supports or repeated identical fact declarations never increase fact counts.
+    def unique(side):
+        seen=set();result=[]
+        for c in side.batch.get('claims',()):
+            if c['id'] in side.context:continue
+            key=canonical_bytes({k:v for k,v in c.items() if k not in {'id','evidence','establishment'}})
+            if key not in seen:seen.add(key);result.append(c)
+        return result
+    rr,pp=unique(ref),unique(pred);claim_map={};last=None;size=min(len(rr),len(pp))+1
+    for iteration in range(8):
+        out.iterations=iteration+1;weights=np.zeros((len(rr),len(pp)));tiers={};failures=[];undecided=[]
+        for i,r in enumerate(rr):
+            for j,p in enumerate(pp):
+                if emap.get(r['subject'])!=p['subject'] or r['predicate']!=p['predicate']:continue
+                value=equivalent(r['object'],p['object'],emap,claim_map,conditions=r.get('qualification',{}).get('condition'))
+                if value.outcome=='undecided':undecided.append({'reference':r['id'],'prediction':p['id'],'reason':value.reason or 'value comparison undecided'})
+                if not value.equal:continue
+                qual=equivalent(r.get('qualification',{}),p.get('qualification',{}),emap,claim_map)
+                same_statement=(not r.get('statement') and not p.get('statement')) or emap.get(r.get('statement'))==p.get('statement')
+                full=qual.equal and same_statement and r.get('statement_role')==p.get('statement_role')
+                evidence=full and any(_overlap(a,b)>0 for a in _spans(r) for b in _spans(p))
+                overlap=max((_overlap(a,b)/max(1,max(a[1],b[1])-min(a[0],b[0])) for a in _spans(r) for b in _spans(p)),default=0)
+                weights[i,j]=size**3+size**2*full+size*evidence+overlap
+                tiers[i,j]=(full,evidence)
+                if not full:failures.append({'reference':r['id'],'prediction':p['id'],'fields':['qualification' if not qual.equal else 'statement_context']})
+                if qual.outcome=='undecided':undecided.append({'reference':r['id'],'prediction':p['id'],'reason':'qualification comparison undecided'})
+        pairs=_assignment(weights);new={(rr[i]['id'],pp[j]['id']) for i,j in pairs}
+        out.matches={k:[] for k in ('core','full','evidence')}
+        for i,j in pairs:
+            pair=(rr[i]['id'],pp[j]['id']);out.matches['core'].append(pair)
+            if tiers[i,j][0]:out.matches['full'].append(pair)
+            if tiers[i,j][1]:out.matches['evidence'].append(pair)
+        out.field_failures=failures;out.undecided.extend(v for v in undecided if v not in out.undecided)
+        if new==last:break
+        last=new;claim_map=dict(new)
+    else:out.converged=False
+    for tier,pairs in out.matches.items():out.counts[tier]=TierCounts(len(rr),len(pp),len(pairs))
+    return out
