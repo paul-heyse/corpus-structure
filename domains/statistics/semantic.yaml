@@ -153,14 +153,20 @@ classes:
         description: 'The parameter values the sentence states, an object from the
           family''s canonical parameter names to formulas: {"shape": <formula>, "scale":
           <formula>} (guideline §10.5).'
+        annotations:
+          cs:role: qualifier
       param_constraints:
         range: Condition
         description: A condition tree (D1 §7) over the base family's parameters under
           which the special case holds (k = 1).
+        annotations:
+          cs:role: qualifier
       transform:
         range: Formula
         description: The transformation, as a formula in the base variable. "e^Y".
         inlined: true
+        annotations:
+          cs:role: qualifier
       param_mapping:
         range: ParamMapping
         multivalued: true
@@ -168,17 +174,25 @@ classes:
         description: 'An object from the target family''s canonical parameter names
           to the base family''s canonical parameter names they correspond to: {"shape":
           "sigma"}.'
+        annotations:
+          cs:role: qualifier
       limit:
         range: PhraseValue
         description: The limiting operation as stated. "as n → ∞".
         inlined: true
+        annotations:
+          cs:role: qualifier
       base:
         range: Entity
         description: The base family the construction is applied to.
+        annotations:
+          cs:role: qualifier
       base_variable:
         range: RandomVariable
         description: The base variable the construction formula transforms (Z in a
           + b Z).
+        annotations:
+          cs:role: qualifier
       param_symbols:
         range: ParamValue
         multivalued: true
@@ -186,6 +200,8 @@ classes:
         description: 'An object from the construction''s canonical parameter names
           to the symbols that stand for them in its formula: {"location": <formula
           a>, "scale": <formula b>}.'
+        annotations:
+          cs:role: qualifier
 slots:
   family:
     range: Parameterized
@@ -196,6 +212,8 @@ slots:
       as a parameter of the family: its role word spelled as the ParameterRole value,
       else the symbol without backslash (guideline §10.4). A symbol fallback keeps
       its case (OPEN-D1-3), so the slot preserves case.'
+    annotations:
+      cs:case: preserve
   symbol:
     description: The symbol or expression that denotes the random variable, as written.
   has_distribution:
@@ -205,18 +223,32 @@ slots:
       σ²".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:qualifiers: param_values
+      cs:identity_qualifiers: param_values
+      cs:param_map: param_values
+      cs:extract: relation
+      cs:functional: true
+    in_subset:
+    - distribution
   defined_as:
     range: Formula
     description: The random variable is defined by a formula in other variables. "let
       X = a + b Z".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
+    in_subset:
+    - formula_definition
   takes_values_in:
     range: SetExpr
     description: The random variable's values lie in the set. "with values in ℝ".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
   has_parameter:
     range: FamilyParameter
@@ -224,31 +256,52 @@ slots:
       k and scale parameter b".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: relation
+    in_subset:
+    - family_structure
   parameter_role:
     range: ParameterRole
     description: The parameter plays this role, stated when it differs from its canonical
       name. "σ is the shape parameter".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
+    in_subset:
+    - family_structure
   parameter_domain:
     range: SetExpr
     description: The set of the parameter's allowed values. "b ∈ (0, ∞)".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
+      cs:functional: true
     inlined: true
+    in_subset:
+    - family_structure
   identical_parameter:
     range: FamilyParameter
     description: Two parameter names denote the same parameter of the family. "the
       location and scale parameters are also the mean and standard deviation, respectively".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
+    in_subset:
+    - family_structure
   derived_parameter:
     range: Formula
     description: The parameter equals a formula in the family's other parameters.
       "e^μ is the scale parameter".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
+    in_subset:
+    - family_structure
   special_case_of:
     range: Entity
     description: The family is the special case of another family or construction
@@ -256,17 +309,33 @@ slots:
       distribution with k = 1".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:qualifiers: param_constraints
+      cs:identity_qualifiers: param_constraints
+      cs:extract: llm
+    in_subset:
+    - family_structure
   transformation_of:
     range: DistributionFamily
     description: Variables in this family arise by transforming a variable of the
       other family. "X = e^Y has the lognormal distribution".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:qualifiers: transform param_mapping
+      cs:identity_qualifiers: transform
+      cs:extract: llm
+    in_subset:
+    - formula_definition
+    - family_structure
   limit_of:
     range: DistributionFamily
     description: The family is a limit of the other under a stated limiting operation.
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:qualifiers: limit param_mapping
+      cs:extract: llm
   member_of_construction:
     range: FamilyConstruction
     description: The family is the construction applied to a base. "The general normal
@@ -274,19 +343,31 @@ slots:
       distribution".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:qualifiers: base
+      cs:identity_qualifiers: base
+      cs:extract: llm
   construction_formula:
     range: Formula
     description: The formula generating members of the construction, without the variable
       it defines. "X = a + b Z" gives a + b Z.
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:qualifiers: base_variable param_symbols
+      cs:extract: llm
     inlined: true
+    in_subset:
+    - formula_definition
+    - family_structure
   support:
     range: SetExpr
     description: The support of the distribution, the set of values with positive
       density or mass. "on (0, ∞)".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
   pdf:
     range: Formula
@@ -294,6 +375,8 @@ slots:
       as a condition.
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
   cdf:
     range: Formula
@@ -301,6 +384,8 @@ slots:
       a condition.
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
   mgf:
     range: Formula
@@ -308,18 +393,24 @@ slots:
       is finite as a condition.
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
   mean_value:
     range: Formula
     description: The mean (expected value) as a formula. "E(X) = μ".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
   variance_value:
     range: Formula
     description: The variance as a formula. "var(X) = σ²".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
   definition_formula:
     range: Formula
@@ -327,7 +418,11 @@ slots:
       / σ".
     annotations:
       cs:constraint_scope: accepted_value
+      cs:role: predicate
+      cs:extract: llm
     inlined: true
+    in_subset:
+    - formula_definition
   scope_locator:
     description: Stable source scope locator, never a physical segment id.
 enums:

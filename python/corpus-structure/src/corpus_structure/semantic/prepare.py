@@ -70,7 +70,7 @@ _UNSUPPORTED = frozenset(
         "slot_conditions",
     }
 )
-_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case"})
+_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case", "cs:role", "cs:qualifiers", "cs:identity_qualifiers", "cs:param_map", "cs:extract", "cs:functional"})
 _PRIMITIVES: dict[str, Any] = {
     "string": str,
     "integer": int,
@@ -141,6 +141,7 @@ _ALLOWED = {
         "pattern",
         "equals_string",
         "alias",
+        "in_subset",
         "inverse",
         "symmetric",
         "transitive",
@@ -659,6 +660,15 @@ def prepare_release(
             except Exception as exc:
                 _fail("analytical_profile", dependency.name, str(exc))
             artifacts.append(PreparedArtifact(dependency.name, dependency.content))
+    for dependency in dependencies.artifacts:
+        if dependency.name == "operation/domain-rules.yaml":
+            try:
+                declared = yaml.safe_load(dependency.content)
+            except yaml.YAMLError as exc:
+                _fail("operation_rules", dependency.name, str(exc))
+            if not isinstance(declared, dict):
+                _fail("operation_rules", dependency.name, "rules must be a mapping")
+            artifacts.append(PreparedArtifact(dependency.name, dependency.content))
     for name, adapter in adapters:
         artifacts.append(
             PreparedArtifact(f"json_schema/{name}", canonical_bytes(adapter.json_schema()))
@@ -752,6 +762,14 @@ def prepare_release(
     rows += tuple(
         RegistryRow("prefix", str(name), canonical_bytes({"uri": str(prefix.prefix_reference)}))
         for name, prefix in sorted(view.schema.prefixes.items())
+    )
+    rows += tuple(
+        RegistryRow("operation_property", f"{definition.name}/{prop.name}", canonical_bytes({
+            "class": definition.name, "property": prop.iri, "name": prop.name,
+            "groups": tuple(str(group) for group in view.induced_slot(prop.name, definition.name).in_subset),
+            **_annotations(view.induced_slot(prop.name, definition.name)),
+        }))
+        for definition in definitions for prop in definition.properties
     )
     rows += tuple(
         RegistryRow("enum_definition", str(name), canonical_bytes(json_dumper.to_dict(enum)))
