@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
-from pydantic import BaseModel, ConfigDict, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 ENV_PREFIX = "CORPUS_"
@@ -64,6 +64,15 @@ class GpuSettings(_Section):
     mode: Literal["auto", "co-resident", "exclusive"] = "auto"
 
 
+class AnalyticsSettings(_Section):
+    """Execution resources only; arithmetic policy belongs to the release profile."""
+
+    threads: int = Field(default=4, ge=1)
+    memory_limit: str = "2GB"
+    scratch_path: Path = Path("build/tmp/analytics")
+    adbc_driver_path: Path | None = None
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix=ENV_PREFIX,
@@ -76,6 +85,7 @@ class Settings(BaseSettings):
     paths: PathSettings = PathSettings()
     llm: LlmSettings = LlmSettings()
     gpu: GpuSettings = GpuSettings()
+    analytics: AnalyticsSettings = AnalyticsSettings()
 
     @classmethod
     def settings_customise_sources(
