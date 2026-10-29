@@ -13,6 +13,8 @@ def upgrade() -> None:
     owner = conn.dialect.identifier_preparer.quote(conn.exec_driver_sql("SELECT current_user").scalar_one())
     conn.exec_driver_sql(Path(__file__).with_name("semantic_0030_source_frames.sql").read_text(),
                         execution_options={"no_parameters": True})
+    conn.exec_driver_sql(Path(__file__).with_name("semantic_0030_admission.sql").read_text(),
+                        execution_options={"no_parameters": True})
     conn.exec_driver_sql("SET LOCAL ROLE " + owner)
 
 
