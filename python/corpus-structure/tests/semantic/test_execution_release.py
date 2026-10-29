@@ -423,3 +423,32 @@ def test_native_empty_realization_cannot_rebind_interpretation(semantic_db_engin
         with pytest.raises(DBAPIError, match="binding is immutable"), conn.begin_nested():
             conn.execute(update(table("data.realization")).where(
                 table("data.realization").c.realization_id==realization).values(project_id=other_project))
+
+
+def test_native_constructor_admits_binary_rules_with_subtyped_range(
+    semantic_db_engine, semantic_writer_engine
+):
+    import yaml
+    from corpus_structure.semantic.publication import _admit_inference
+
+    domain = yaml.safe_load(_bundle().sources[0].content)
+    domain["slots"] = {
+        "edge": {"range": "Item", "inverse": "reverse", "transitive": True},
+        "reverse": {"range": "Item", "symmetric": True},
+        "broad": {"range": "Item"},
+        "narrow": {"range": "Child", "is_a": "broad"},
+    }
+    domain["classes"]["Item"]["slots"] = ["edge", "reverse", "broad", "narrow"]
+    domain["classes"]["Child"] = {"is_a": "Item"}
+    bundle = SourceBundle("domain", (SourceArtifact("domain", yaml.safe_dump(domain).encode()),))
+    dependencies = composed_dependencies(ResolvedDependencies())
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
+    _admit_inference(prepared)
+    with semantic_db_engine.begin() as conn:
+        releases.persist_release(conn, bundle, dependencies, profile, prepared)
+        project = _project(conn)
+    realization = str(uuid4())
+    with semantic_writer_engine.begin() as conn:
+        assert conn.scalar(text("SELECT data.initialize_source_project(:p,:r,:z)"),
+                           {"p": project, "r": prepared.release_id, "z": realization}) == realization
