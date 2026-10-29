@@ -157,7 +157,7 @@ _ALLOWED = {
         "inherits",
         "annotations",
     },
-    "permissible_values": _METADATA | {"text", "meaning", "annotations"},
+    "permissible_values": _METADATA | {"text", "meaning", "annotations", "in_subset"},
     "unique_keys": _METADATA | {"unique_key_slots"},
 }
 _ALLOWED["attributes"] = _ALLOWED["slots"]
@@ -633,7 +633,7 @@ def prepare_release(
     ]
 
     def boundary(name: str, model: Any) -> Any:
-        if classes[name].abstract:
+        if classes[name].abstract and "kind" in model.model_fields:
             concrete = [
                 models[n]
                 for n in view.class_descendants(name, reflexive=False)
@@ -749,6 +749,14 @@ def prepare_release(
         for child, parent in sorted(hierarchy)
     )
     rows += tuple(rule_products[key] for key in sorted(rule_products))
+    rows += tuple(
+        RegistryRow("prefix", str(name), canonical_bytes({"uri": str(prefix.prefix_reference)}))
+        for name, prefix in sorted(view.schema.prefixes.items())
+    )
+    rows += tuple(
+        RegistryRow("enum_definition", str(name), canonical_bytes(json_dumper.to_dict(enum)))
+        for name, enum in sorted(view.all_enums().items())
+    )
     rows += tuple(RegistryRow("enum", v.enum, canonical_bytes(asdict(v))) for v in vocabularies)
     return PreparedRelease(
         release_id,
