@@ -1,5 +1,4 @@
 # Status
-
 _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); work is on `main`._
 
 ## Increment and slice
@@ -17,8 +16,8 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
     parse and the MCP agent interface; the golden split and agreement; consolidation; the pool and its
     two engines.
   - **Partly built:** O2 (policy loader only), P3 (bulk writer only) and C2 (`serve/` core only).
-- **Process:** probes only for fundamental uncertainty (operator, 2026-10-28).
-- **PostgreSQL:** cluster `18/corpus` (port 5434, D3 §13); no backups (data regenerable).
+- **Process:** probes only for fundamental uncertainty (operator, 2026-10-28). PostgreSQL: cluster
+  `18/corpus` (port 5434, D3 §13), no backups.
 - **Decisions in force:** ADR-0010–0015, 0018–0023 accepted (0020 one model, 0021 authorities,
   0022 schema change, 0023 declared identity; 0016 and 0017 superseded).
 
