@@ -66,7 +66,6 @@ JOIN = r"(?:\s|\\[,;!]|\\[()\[\]])*?"
 OPTIONAL_DELIMITER = r"(?:(?:\s|\\[,;!])*?(?:\\[()\[\]]|\$\$?))?"
 _QUOTE_DELIMITER = regex.compile(r"\$\$|\$|\\[()\[\]]")
 _WORD_CHAR = regex.compile(r"\w")
-_PRIVATE_USE = 0xE000
 
 
 class Step(StrEnum):
@@ -309,14 +308,8 @@ class Cascade:
         hay = tokens(self.text[s.start : s.end], s.start)
         if not needle or not hay:
             return None
-        vocabulary: dict[str, int] = {}
-
-        def encode(seq: list[tuple[str, int, int]]) -> str:
-            return "".join(
-                chr(_PRIVATE_USE + vocabulary.setdefault(t[0], len(vocabulary))) for t in seq
-            )
-
-        q, h = encode(needle), encode(hay)
+        q = [token for token, _, _ in needle]
+        h = [token for token, _, _ in hay]
         window = fuzz.partial_ratio_alignment(q, h, score_cutoff=TOKEN_CUTOFF)
         if window is None:
             return None
