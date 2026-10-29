@@ -16,7 +16,8 @@ copy for an export.
 `timestamp[us, UTC]`, strings and enums `string`, `Bytes` binary); multivalued, a list of that. A
 slot ranged over a class travels as `arrow.json` text, as does `Json`: condition trees and nested
 values are recursive or carry the core shapes' forms and aliases, which only their JSON keeps
-(§3.5).
+(§3.5). So does a slot whose `any_of` alternatives include a class (`ClaimItem.object`: an entity
+or a value); its field carries `cs.any_of`, the alternatives, instead of `cs.class`.
 A class with one attribute that is `Json` or a keyed inlined collection stands for that value, a
 root (`TriggerMetrics`, `FrameEntries`): its record is `{<attribute>: <the value>}`. No Arrow
 extension type is used beyond the canonical `arrow.json`, which DuckDB reads as `JSON`.
@@ -145,9 +146,14 @@ def _payload_field(model: Model, cls: str, slot: Any) -> pa.Field:
     name, rng = str(slot.name), str(slot.range or view.schema.default_range)
     ann = ci_annotations(slot)
     meta: dict[str, str] = {}
-    if view.get_class(rng) is not None or rng == "Json" or ann.get("ci:null") == "json":
+    # a slot ranged over several alternatives (`any_of`), one of them a class, is a class value
+    alternatives = [str(x.range) for x in slot.any_of or () if x.range is not None]
+    classes = [r for r in alternatives if view.get_class(r) is not None]
+    if view.get_class(rng) is not None or classes or rng == "Json" or ann.get("ci:null") == "json":
         typ = JSON
-        if view.get_class(rng) is not None:
+        if classes:
+            meta["cs.any_of"] = " ".join(prefixed(model, r) for r in alternatives)
+        elif view.get_class(rng) is not None:
             meta["cs.class"] = prefixed(model, rng)
         if ann.get("ci:null") is not None:
             meta["cs.null"] = str(ann["ci:null"])

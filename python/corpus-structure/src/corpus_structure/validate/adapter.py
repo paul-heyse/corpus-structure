@@ -82,7 +82,7 @@ def candidates_from_batch(stored: StoredBatch, compiled: CompiledSchema) -> Keye
         unsupported.append({"id": d.pop("local_ref"), **d})
     return KeyedCandidateSet.model_validate(
         {
-            "rendition": stored.rendition,
+            "renditions": [stored.rendition],
             "entities": entities,
             "statements": statements,
             "references": references,

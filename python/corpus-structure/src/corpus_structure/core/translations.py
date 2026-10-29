@@ -54,9 +54,7 @@ class Translation:
     classes: tuple[ClassMap, ...]
 
 
-def completeness(
-    translation: Translation, slots: Callable[[str, str], Iterable[str]]
-) -> list[str]:
+def completeness(translation: Translation, slots: Callable[[str, str], Iterable[str]]) -> list[str]:
     """Every gap of a declaration: a source slot neither mapped nor declared omitted, a declared
     slot the source lacks, a target field that does not exist, and a target field no source slot
     fills and the translation does not introduce. `slots(class, form)` lists the model's slots of
@@ -134,7 +132,7 @@ T2 = Translation(
         ClassMap("Batch", C.KeyedCandidateSet,
                  {"unit_ref": Omitted("the unit is the holding record's (kb.observation); every "
                                       "item carries its own segments and spans"),
-                  "rendition": "rendition", "entities": "entities",
+                  "rendition": "renditions", "entities": "entities",
                   # an outside item becomes an ExternalReference node, never a statement
                   "statements": ("statements", "references"), "claims": "claims",
                   "alternatives": "alternatives", "unsupported": "unsupported"}),

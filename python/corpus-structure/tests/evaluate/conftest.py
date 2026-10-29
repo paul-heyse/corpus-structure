@@ -31,6 +31,7 @@ from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.evaluate.agreement import side_of
 from corpus_structure.evaluate.align import AlignmentContext, AlignmentSide
 from corpus_structure.evaluate.equivalence import ValueComparator
+from corpus_structure.evaluate.goldens import context_refs
 from corpus_structure.ingest.html import build_rendition
 from corpus_structure.ingest.profile import compile_profile, load_profile
 from corpus_structure.ingest.sentences import SentenceConfig
@@ -112,7 +113,13 @@ class Fixture:
         return parse(self.view, batch or self.batch, self.frame, statistics()[1]).stored
 
     def side(self, stored: StoredBatch | None = None, name: str = "") -> AlignmentSide:
-        return side_of(stored or self.stored(), self.view.content, [self.unit], name or self.name)
+        return side_of(
+            stored or self.stored(),
+            self.view.content,
+            [self.unit],
+            name or self.name,
+            context_refs(self.batch),
+        )
 
 
 @functools.cache

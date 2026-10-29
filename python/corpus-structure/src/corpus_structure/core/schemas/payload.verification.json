@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.verification.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/payload.verification.json",
   "$defs": {
     "JsonValue": {},
     "RuleSeverity": {
@@ -43,6 +43,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "A verifier's verdict on a claim.",
   "properties": {
     "claim_key": {
       "type": "string"

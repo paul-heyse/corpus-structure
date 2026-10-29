@@ -599,7 +599,7 @@ def test_the_keyed_candidate_set() -> None:
     from corpus_structure.core.candidates import UNKEYED, KeyedCandidateSet
 
     raw = {
-        "rendition": "ren:" + "1" * 32,
+        "renditions": ["ren:" + "1" * 32],
         "entities": [
             {"id": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
              "scope_segment": "seg:1", "symbol": "X"},
@@ -627,8 +627,11 @@ def test_the_keyed_candidate_set() -> None:
     for bad in ({"key": None}, {"key": "ent:abc"}, {"key": "stm:" + "a" * 32}, {"symbol": None}):
         with pytest.raises(ValidationError):  # typed states and keys of the kind, never null
             KeyedCandidateSet.model_validate({**raw, "entities": [raw["entities"][1] | bad]})
-    with pytest.raises(ValidationError, match="rendition"):
-        KeyedCandidateSet.model_validate({k: v for k, v in raw.items() if k != "rendition"})
+    with pytest.raises(ValidationError, match="renditions"):
+        KeyedCandidateSet.model_validate({k: v for k, v in raw.items() if k != "renditions"})
+    for bad in ([], ["ren:" + "2" * 32, "ren:" + "1" * 32], ["ren:" + "1" * 32] * 2):
+        with pytest.raises(ValidationError):  # at least one, sorted, no duplicates
+            KeyedCandidateSet.model_validate({**raw, "renditions": bad})
 
 
 def test_a_statement_outside_the_unit() -> None:
@@ -664,8 +667,12 @@ def test_a_statement_outside_the_unit() -> None:
         {"local_ref": "x", "kind": "k", "anchor": ""},
         {"local_ref": "x", "kind": "k", "anchor": ["outside"]},
         {"local_ref": "x", "kind": "theorem", "anchor": "outside"},  # no descriptor
-        {"local_ref": "x", "anchor": "outside", "kind": "theorem",   # and no kind
-         "descriptor": {"sentence": "s1", "quote": "q"}},
+        {
+            "local_ref": "x",
+            "anchor": "outside",
+            "kind": "theorem",  # and no kind
+            "descriptor": {"sentence": "s1", "quote": "q"},
+        },
         {"local_ref": "x", "anchor": "outside", "descriptor": {"sentence": "s1", "quote": ""}},
         {"local_ref": "x", "anchor": "outside", "descriptor": {"start": 1, "end": 4}},
     ]

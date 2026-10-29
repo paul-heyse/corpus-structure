@@ -227,6 +227,10 @@ SAMPLES: dict[str, tuple[Any, list[Any]]] = {
         ],
     ),
     "task_cost": (payloads.Cost, [{"wall_ms": 12}, {"wall_ms": 3, "tokens_in": 10}]),
+    "intervention_refs": (
+        payloads.InterventionRefs,
+        [{}, {"observations": [4, 9]}, {"golden_pass": 2}],
+    ),
     "policy_action": (
         payloads.PolicyAction,
         [
@@ -304,6 +308,36 @@ def test_shape_dumps_round_trip_through_the_arrow_projection(
         assert set(shape.model_fields) == set(schema.names), kind
 
 
+def test_an_any_of_class_slot_is_json_and_round_trips() -> None:
+    """`ClaimItem.object` is `any_of` an entity reference or a value: an `arrow.json` field naming
+    its alternatives, required as the slot is; stored claims of both shapes round-trip."""
+    from corpus_structure.core.batch import StoredClaim
+
+    m = model.load()
+    schema = ix.payload_schema(m, "ClaimItem", ix.installed().model_revision)
+    field = schema.field("object")
+    assert field.type == ix.JSON and not field.nullable
+    assert set((field.metadata or {})[b"cs.any_of"].decode().split()) >= {
+        "core:Entity",
+        "core:Value",
+    }
+    evidence = [{"start": 0, "end": 5, "role": "primary"}]
+    claims = [
+        StoredClaim.model_validate({"local_ref": "c1", "predicate": "stat:p", "subject": "X",
+                                    "object": {"ref": "N"}, "evidence": evidence}),
+        StoredClaim.model_validate({"local_ref": "c2", "predicate": "stat:p", "subject": "X",
+                                    "object": {"t": "formula", "latex": "a + b X"},
+                                    "evidence": evidence}),
+    ]  # fmt: skip
+    dumps = [c.model_dump(mode="json", by_alias=True) for c in claims]
+    records = [{k: v for k, v in d.items() if k in schema.names} for d in dumps]
+    table = ix.encode(schema, records)
+    assert [json.loads(t) for t in table.column("object").to_pylist()] == [
+        d["object"] for d in dumps
+    ]
+    assert ix.decode(table) == records
+
+
 def test_a_json_null_is_not_an_absent_value(projections: ix.Interchange) -> None:
     schema = projections.payload("record")
     table = ix.encode(
@@ -323,10 +357,10 @@ def test_a_required_field_given_null_is_refused(projections: ix.Interchange) -> 
 
 def test_a_never_slot_given_null_is_refused(tmp_path: Path) -> None:
     text = (MODEL / "system.yaml").read_text(encoding="utf-8")
-    old = "      gpu_ms: {range: integer, description: GPU time in milliseconds.}\n"
+    old = "      gpu_ms: {range: Offset, description: GPU time in milliseconds.}\n"
     assert text.count(old) == 1
     new = (
-        "      gpu_ms: {range: integer, description: GPU time in milliseconds., "
+        "      gpu_ms: {range: Offset, description: GPU time in milliseconds., "
         "annotations: {ci:null: never}}\n"
     )
     (tmp_path / "system.yaml").write_text(text.replace(old, new), encoding="utf-8")

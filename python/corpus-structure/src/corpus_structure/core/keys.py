@@ -262,6 +262,10 @@ class Drop:
                 return f"qualifier {ref} holds no typed value at {at}"
             case DropReason.MALFORMED_VALUE:
                 return f"{ref} holds a value with no canonical JSON at {'/'.join(self.path)}"
+            case DropReason.ORPHANED_PREMISE:  # consolidation's, after keying
+                return f"supposed claim {ref}: every claim it is a premise of was dropped"
+            case DropReason.MALFORMED_EVIDENCE:  # consolidation's, after keying
+                return f"stated claim {ref} has no primary evidence"
             case _:
                 assert_never(self.code)
 
@@ -1287,11 +1291,12 @@ def key_claims(
     cited; a resolved one stands as its statement. `members` (C1's) adds member keys, reusing each
     claim's parts; a member that cannot be keyed is in `dropped_members` with its `Drop`.
 
-    A candidate set of another rendition than `ctx`'s is refused (`ValueError`): an input error,
-    not a keying outcome."""
-    if candidates.rendition != ctx.rendition_key:
+    A candidate set on any rendition but exactly `ctx`'s one is refused (`ValueError`): an input
+    error, not a keying outcome."""
+    if candidates.renditions != (ctx.rendition_key,):
         raise ValueError(
-            f"the candidate set is on {candidates.rendition}, the context on {ctx.rendition_key}"
+            f"keying takes a set on exactly the context's rendition {ctx.rendition_key}; this one "
+            f"is on {', '.join(candidates.renditions)}"
         )
     keys = Keys(scheme=schema.key_scheme)
     kinds = _kinds(candidates)

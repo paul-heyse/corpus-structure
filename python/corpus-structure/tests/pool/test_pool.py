@@ -73,7 +73,9 @@ def test_every_relation_carries_the_run_cut_and_registry_ids(arrow_pool: SimpleN
     for name, table in pool.relations.items():
         m = meta(table)
         assert (m["cs.relation"], m["cs.run_id"], m["cs.cut_at"]) == (
-            name, "7", "2026-10-28T12:00:00+00:00"
+            name,
+            "7",
+            "2026-10-28T12:00:00+00:00",
         )
         assert m["cs.model_revision"] == interchange.installed().model_revision
     for name in (*contract.CANDIDATES, contract.BATCHES, "payload_claim_proposal"):
@@ -114,7 +116,9 @@ def test_candidates_lift_typed_fields_and_keep_the_stored_item(arrow_pool: Simpl
     ]  # fmt: skip
     entities = pool[contract.ENTITIES].select(["observation_id", "local_ref"]).to_pylist()
     assert [(e["observation_id"], e["local_ref"]) for e in entities] == [
-        (101, "N"), (101, "X"), (102, "N")
+        (101, "N"),
+        (101, "X"),
+        (102, "N"),
     ]
 
 
@@ -188,7 +192,7 @@ def test_t3_hydrates_one_candidate_set_per_proposal(arrow_pool: SimpleNamespace)
     assert sorted(hydrated) == [101, 102, 105]
     ren = "ren:" + "1" * 32
     expected = C.KeyedCandidateSet(
-        rendition=ren,
+        renditions=(ren,),
         entities=(
             C.CandidateEntity(id="N", type="stat:DistributionFamily", label="normal distribution",
                               scope=EntityScope.GLOBAL, aliases=("normally distributed",)),
@@ -217,7 +221,7 @@ def test_t3_hydrates_one_candidate_set_per_proposal(arrow_pool: SimpleNamespace)
         unsupported=(C.CandidateUnsupported(id="u1", start=61, end=70, reason="r", coarse=True),),
     )  # fmt: skip
     assert hydrated[101] == expected
-    assert hydrated[105] == C.KeyedCandidateSet(rendition=ren)
+    assert hydrated[105] == C.KeyedCandidateSet(renditions=(ren,))
     assert [e.label for e in hydrated[102].entities] == ["normal"]
     assert all(c.key is C.UNKEYED for c in hydrated[101].claims)
     assert hydrated[101].references[0].resolved_to is C.AWAITING
@@ -275,10 +279,12 @@ def test_fuse_unions_supports_and_evidence() -> None:
     ], schema=KEYED_CLAIMS)  # fmt: skip
     fused = PythonEngine().fuse(claims).to_pylist()
     assert [(r["key"], r["supports"], r["candidates"]) for r in fused] == [
-        ("k1", [4, 9], 3), ("k2", [5], 1)
+        ("k1", [4, 9], 3),
+        ("k2", [5], 1),
     ]
     assert json.loads(fused[0]["evidence"]) == [
-        {"end": 2, "role": "context", "start": 0}, {"end": 9, "role": "primary", "start": 3}
+        {"end": 2, "role": "context", "start": 0},
+        {"end": 9, "role": "primary", "start": 3},
     ]
     assert PythonEngine().fuse(shuffled(claims, 1)).equals(PythonEngine().fuse(claims))
 

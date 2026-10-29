@@ -104,14 +104,22 @@ def test_one_entry_resolves_relocates_or_stays_unresolved_with_its_code(index: L
     assert (ok.status, ok.code, ok.failure) == ("resolved", None, None)
     assert index.rendition.text(ok.segment) == "Suppose that X is normal."  # type: ignore[arg-type]
     # the locator names a unit, but exactly one sentence carries the recorded text: relocated
-    moved = resolve_entry("s3", FrameEntry(locator=f"{PAGE}#u2",
-                                           text="Suppose again that Y is normal."), index, by_text)
+    moved = resolve_entry(
+        "s3",
+        FrameEntry(locator=f"{PAGE}#u2", text="Suppose again that Y is normal."),
+        index,
+        by_text,
+    )
     assert (moved.status, moved.code) == ("relocated", Reason.NOT_A_SENTENCE)
     assert moved.locator == f"{PAGE}@sentence:Suppose again"
     assert moved.segment is not None and moved.segment.start == len("".join(SENTENCES[0])) + 4
     # the recorded text is on two sentences: never guessed
-    twice = resolve_entry("s4", FrameEntry(locator=f"{PAGE}@sentence:Then",
-                                           text="Then a + b X is normal."), index, by_text)
+    twice = resolve_entry(
+        "s4",
+        FrameEntry(locator=f"{PAGE}@sentence:Then", text="Then a + b X is normal."),
+        index,
+        by_text,
+    )
     assert (twice.status, twice.code, twice.segment) == ("unresolved", Reason.LOCATOR_REFUSED, None)
     assert twice.failure is not None and twice.failure.refusal == "several"
     absent = resolve_entry("s5", FrameEntry(locator=f"{PAGE}@sentence:Nothing", text="Nothing."),

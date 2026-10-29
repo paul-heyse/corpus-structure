@@ -17,7 +17,8 @@ from typing import Any
 
 from sqlalchemy import Connection, text
 
-from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
+from corpus_structure.core.db import repo
+from corpus_structure.core.evidence import RenditionContent
 from corpus_structure.core.method import (
     MeasurementView,
     ObservationView,
@@ -53,42 +54,10 @@ class DbReader:
         return [RunRendition(int(r[0]), str(r[1]), int(r[2]), str(r[3])) for r in rows]
 
     def content(self, rendition_id: int) -> RenditionContent:
-        ren = self.conn.execute(
-            text("SELECT canonical_text, macros FROM kb.rendition WHERE id = :r"),
-            {"r": rendition_id},
-        ).one()
-        rows = self.conn.execute(
-            text(
-                "SELECT id, parent_id, kind, start_offset, end_offset, attrs, parse_status, "
-                "parse_reason FROM kb.segment WHERE rendition_id = :r ORDER BY depth DESC, ordinal"
-            ),
-            {"r": rendition_id},
-        ).all()
-        children: dict[int | None, list[Segment]] = {}
-        root = None
-        for row in rows:  # deepest first, so children exist before their parents
-            segment = Segment(
-                kind=row.kind,
-                start=row.start_offset,
-                end=row.end_offset,
-                parse_status=row.parse_status,
-                parse_reason=row.parse_reason,
-                attrs=row.attrs,
-                children=tuple(children.pop(row.id, [])),
-            )
-            if row.parent_id is None:
-                root = segment
-            children.setdefault(row.parent_id, []).append(segment)
-        if root is None:
-            raise LookupError(f"rendition {rendition_id} has no segments")
-        macros = {k: MacroDef.model_validate(v) for k, v in (ren.macros or {}).items()}
-        return RenditionContent(canonical_text=ren.canonical_text, document=root, macros=macros)
+        return repo.read_rendition(self.conn, rendition_id)
 
     def segments(self, rendition_id: int) -> Mapping[str, int]:
-        rows = self.conn.execute(
-            text("SELECT key, id FROM kb.segment WHERE rendition_id = :r"), {"r": rendition_id}
-        )
-        return {str(k): int(i) for k, i in rows}
+        return repo.segment_ids(self.conn, rendition_id)
 
     def observations(
         self, rendition_id: int, method: str, kind: ObservationKind

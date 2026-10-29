@@ -346,6 +346,8 @@ def test_regenerating_reproduces_every_committed_file(loaded: model.Model, tmp_p
         "core/vocab.py", "core/_model/__init__.py", "core/_model/qualifiers.py",
         "core/_model/names.py", "core/_model/sql.py", "core/_model/validators.py",
         "core/_model/revision.py", "core/db/_tables.py",
+        # Stage B (P0-M-5)
+        "core/_model/types.py", "core/_model/shapes.py", "ingest/_shapes.py",
     } | {f"core/schemas/{name}.json" for name in schemas.SCHEMAS()}  # fmt: skip
     assert generate.drift(files) == []
     generate.write(files, tmp_path)

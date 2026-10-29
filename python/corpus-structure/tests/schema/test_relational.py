@@ -80,7 +80,7 @@ EXPECTED_FKS = {
     },
     "kb.entity_identity": {
         ("entity_id",): ("kb.entity", ("id",), "CASCADE"),
-        ("value_entity_id",): ("kb.entity", ("id",), None),
+        ("value_entity_id",): ("kb.entity", ("id",), "CASCADE"),  # P0-C-1: with either entity
     },
     "meta.statement_kind": {
         ("schema_version_id",): ("meta.schema_version", ("id",), "CASCADE"),

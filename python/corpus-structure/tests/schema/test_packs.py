@@ -574,7 +574,7 @@ def test_a_pack_modality_extends_claim_modality_with_its_own_properties(
     def key(modality: str, who: str) -> str:
         cands = KeyedCandidateSet.model_validate(
             {
-                "rendition": ctx.rendition_key,
+                "renditions": [ctx.rendition_key],
                 "entities": [
                     {"id": n, "type": "min:Gadget", "label": n, "scope": "global"}
                     for n in ("G", who)

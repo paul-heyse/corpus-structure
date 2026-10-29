@@ -182,7 +182,7 @@ def _claim(id_: str, predicate: str, subject: str, obj: dict[str, Any], **kw: An
 def _set(claims: list[dict[str, Any]], **kw: Any) -> KeyedCandidateSet:
     return KeyedCandidateSet.model_validate(
         {
-            "rendition": REN,
+            "renditions": [REN],
             "entities": _entities(),
             "claims": claims,
             "statements": [{"id": "st", "kind": "theorem", "anchor": ["seg:x"]}],
@@ -264,7 +264,7 @@ def test_views_are_served_from_one_index_linear_in_claims(stats: CompiledSchema)
             _claim(f"d{i}", "stat:has_distribution", f"X{i}", {"ref": f"F{i}"}),
         ]
     cs = KeyedCandidateSet.model_validate(
-        {"rendition": REN, "entities": entities, "claims": claims}
+        {"renditions": [REN], "entities": entities, "claims": claims}
     )
     views = build_views(cs, stats, "finalize")
     assert len(views) == 2 * n
@@ -364,3 +364,44 @@ def run():
     out = json.loads(result.stdout.strip().splitlines()[-1])
     assert out["math"] == []  # validate never imports the grammar (P0CL-14)
     assert out["seconds"] < 30.0  # the bound includes compiling the version in a cold process
+
+
+# --- Precomputed pool facts (P2's `views` step) --------------------------------------------------
+
+
+def _pool_facts(views: Any, names: list[str]) -> list[tuple[Any, ...]]:
+    return [(v.id, v.same_slot, v.alternative_of, *(getattr(v, n) for n in names)) for v in views]
+
+
+@pytest.mark.parametrize("engine_name", ["python", "duckdb"])
+def test_the_engines_facts_give_the_same_views_as_the_builders_own(
+    stats: CompiledSchema, engine_name: str
+) -> None:
+    from corpus_structure.pool.harness import engine as make_engine
+    from corpus_structure.validate.views import engine_facts
+
+    engine = make_engine(engine_name)  # type: ignore[arg-type]
+    names = list(stats.rules.claim.views)
+    sets = [
+        _set(
+            [
+                _claim("d", "stat:has_distribution", "X", {"ref": "F"}),
+                _claim("d2", "stat:has_distribution", "X", {"ref": "F"}),
+                _claim("hp", "stat:has_parameter", "F", {"ref": "P"}),
+                _claim("hp_st", "stat:has_parameter", "F", {"ref": "st"}),
+                _claim("e", "stat:has_distribution", "X", {"ref": "P"}, statement="st"),
+            ],
+            alternatives=[{"refs": ["d", "d2", "gone"], "reason": "either"}],
+        )
+    ]
+    for unit in support.V1_UNITS:
+        raw = support.stored_v1(unit, stats)
+        sets.append(candidates_from_batch(stored_model(stats, raw), stats))
+    for cs in sets:
+        own = build_views(cs, stats, "finalize")
+        facts = engine_facts(engine, cs, stats)
+        given = build_views(cs, stats, "finalize", facts=facts)
+        assert _pool_facts(given, names) == _pool_facts(own, names)
+    close = getattr(engine, "close", None)
+    if close is not None:
+        close()

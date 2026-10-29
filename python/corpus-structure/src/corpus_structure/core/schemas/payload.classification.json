@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.classification.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/payload.classification.json",
   "$defs": {
     "JsonValue": {},
     "LabelScore": {
       "additionalProperties": false,
+      "description": "A label with its score.",
       "properties": {
         "label": {
           "type": "string"
@@ -23,6 +24,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "A classification of a segment.",
   "properties": {
     "task": {
       "type": "string"

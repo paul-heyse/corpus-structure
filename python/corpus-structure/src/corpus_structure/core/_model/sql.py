@@ -97,6 +97,13 @@ SECTION_LABEL_IN: Final = in_list(SECTION_LABEL)
 CITABLE_SENTENCE: Final[tuple[str, ...]] = ("sentence",)
 CITABLE_SENTENCE_IN: Final = in_list(CITABLE_SENTENCE)
 
+# DropReason members with the property consolidation_drop.
+CONSOLIDATION_DROP: Final[tuple[str, ...]] = (
+    "orphaned_premise",
+    "malformed_evidence",
+)
+CONSOLIDATION_DROP_IN: Final = in_list(CONSOLIDATION_DROP)
+
 # ConfidenceState members with the property encoders_state.
 ENCODERS_STATE: Final[tuple[str, ...]] = (
     "supports",

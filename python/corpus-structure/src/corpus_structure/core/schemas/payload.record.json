@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.record.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/payload.record.json",
   "$defs": {
     "JsonValue": {},
     "RecordField": {
       "additionalProperties": false,
+      "description": "A field of a record.",
       "properties": {
         "start": {
           "minimum": 0,
@@ -33,6 +34,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "A record structure.",
   "properties": {
     "structure": {
       "type": "string"

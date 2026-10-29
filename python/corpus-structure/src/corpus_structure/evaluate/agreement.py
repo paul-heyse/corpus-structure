@@ -73,12 +73,11 @@ def side_of(
     content: RenditionContent,
     unit: Sequence[Segment],
     name: str,
-    context: frozenset[str] | None = None,
+    context: frozenset[str],
 ) -> AlignmentSide:
     """A stored batch as an alignment side: anchor keys as spans, the unit's sentences, and its
-    uncounted context items. `context` is the local refs E1 flags `context` on the golden items
-    (§3.3, D2 §10.2); without it (a pass not yet derived into items), the claims whose evidence lies
-    wholly outside the unit stand in."""
+    uncounted context items: the local refs E1 flags `context` (`goldens.context_refs`, §3.3,
+    D2 §10.2), read from the authored batch."""
     spans = {
         segment_key(stored.rendition, s.kind, s.start, s.end): (s.start, s.end)
         for s in content.document.walk()
@@ -97,12 +96,6 @@ def side_of(
         for s in content.document.walk()
         if s.kind is SegmentKind.SENTENCE and inside(s.start, s.end)
     )
-    if context is None:
-        context = frozenset(
-            c.local_ref
-            for c in stored.claims
-            if not any(inside(e.start, e.end) for e in c.evidence)
-        )
     return AlignmentSide(name, stored, anchors, sentences, context)
 
 
@@ -235,10 +228,12 @@ def unit_agreement(
     context: AlignmentContext,
 ) -> AgreementResult:
     """The agreement of one golden unit's two blind passes on its current rendition."""
+    from corpus_structure.evaluate.goldens import context_refs
+
     stored_a = parse(view, pass_a[0], pass_a[1], names).stored
     stored_b = parse(view, pass_b[0], pass_b[1], names).stored
-    side_a = side_of(stored_a, view.content, unit, "A")
-    side_b = side_of(stored_b, view.content, unit, "B")
+    side_a = side_of(stored_a, view.content, unit, "A", context_refs(pass_a[0]))
+    side_b = side_of(stored_b, view.content, unit, "B", context_refs(pass_b[0]))
     before = len(context.comparator.undecided)
     ab, ba = align(side_a, side_b, context), align(side_b, side_a, context)
     undecided = len(context.comparator.undecided) - before

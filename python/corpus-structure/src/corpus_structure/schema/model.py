@@ -142,9 +142,11 @@ VOCABULARY: Mapping[str, Declaration] = {
     "ci:key_role": _d("slot", "Stage A qualifier specs; KeySchema (F2d)", enum="KeyRole"),
     "ci:key_role_when": _d("slot", "Stage A qualifier specs; KeySchema (F2d)", pattern=_NAME),
     "ci:case": _d("slot attribute class", "Stage A qualifier specs; KeySchema", enum="CaseRule"),
-    "ci:form": _d("attribute", "interim mirror guard; Stage B", values="model stored consolidated"),
-    "ci:required_in": _d("attribute", "interim mirror guard; Stage B", values="model stored"),
-    "ci:stored_range": _d("slot", "Stage A qualifier specs; interim mirror guard", pattern=_NAME),
+    "ci:form": _d("attribute", "Stage B shapes", values="model stored consolidated"),
+    "ci:required_in": _d("attribute", "Stage B shapes", values="model stored"),
+    "ci:stored_range": _d(
+        "slot attribute", "Stage A qualifier specs; Stage B shapes", pattern=_NAME
+    ),
     "ci:invariant": _d("class", "Stage A validators; M2 CHECKs"),
     "ci:store": _d("class slot attribute", "Stage A specs; M2; M3", values="table nested edge"),
     "ci:payload": _d("class", "M4 payload-schema registry", pattern=r"^[a-z_]+$"),
@@ -156,6 +158,21 @@ VOCABULARY: Mapping[str, Declaration] = {
     "ci:generated": _d("attribute slot", "M2 MetaData compiler", values="insert_time"),
     "ci:sql_type": _d("type", "M2 MetaData compiler", pattern=r"^[a-z][a-z0-9_]*$"),
     "ci:same": _d("attribute slot", "M2 MetaData compiler; overlay index check", pattern=_NAME),
+    # Stage B's declarations (model and projections §3.3): what the generated Pydantic shapes need
+    # beyond native LinkML; `schema/stage_b.py` reads each
+    "ci:py_name": _d("class attribute slot", "Stage B shapes (class and union alias names)",
+                     pattern=_NAME),
+    "ci:py_type": _d("type class attribute slot", "Stage B shapes (a Python type expression)"),
+    "ci:py_default": _d("attribute slot", "Stage B shapes (a Python default expression)"),
+    "ci:validator": _d("class attribute slot", "Stage B shapes (hand-written validator hooks)"),
+    "ci:mixin": _d("class", "Stage B shapes (hand-written method classes)",
+                   pattern=r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"),
+    "ci:refers": _d("type attribute slot", "Stage B shapes (reference markers); keys (F2e); S2",
+                    pattern=r"^(sentence|(entity|statement|claim)( (entity|statement|claim))*)$"),
+    "ci:omit_default": _d("attribute slot", "Stage B shapes (defaults left out of dumps)",
+                          values="true"),
+    "ci:discriminator": _d("attribute slot", "Stage B shapes (a union told apart by one slot)",
+                           pattern=_NAME),
     # ADR-0023: a member property's subset definition names who reads the property
     "ci:consumer": _d("subset", "the declaration check (a member property's declared readers)"),
 }  # fmt: skip
@@ -476,8 +493,18 @@ def _check_value(
         props = {p for p, e in model.member_properties.items() if e == "ClaimModality"}
         if value not in props:
             return [f"{path}: ci:key_role_when {value!r} is not a ClaimModality member property"]
-    if tag == "ci:stored_range" and view.get_class(value) is None:
-        return [f"{path}: ci:stored_range {value!r} is not a class"]
+    if tag == "ci:stored_range" and view.get_class(value) is None and view.get_type(value) is None:
+        return [f"{path}: ci:stored_range {value!r} is not a class or a type"]
+    if tag in ("ci:py_type", "ci:py_default", "ci:validator"):
+        from corpus_structure.schema import stage_b  # it imports this module
+
+        try:
+            if tag == "ci:validator":
+                stage_b.parse_hooks(value)
+            else:
+                stage_b.python_expression(value)
+        except ValueError as error:
+            return [f"{path}: {error}"]
     if tag == "ci:required_in" and isinstance(element, SlotDefinition):
         form = ci_annotations(element).get("ci:form")
         if form is not None and form != value:

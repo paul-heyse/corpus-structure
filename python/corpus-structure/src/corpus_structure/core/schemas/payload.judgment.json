@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.judgment.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/payload.judgment.json",
   "$defs": {
     "JudgmentConfidence": {
       "description": "A judge's stated confidence. Lifecycle: static.",
@@ -25,7 +25,7 @@
     },
     "JudgmentTarget": {
       "additionalProperties": false,
-      "description": "What a judgment is about: an observation by its id's decimal text, or a claim or group by\nits key with that key's scheme (readers compare keys only within one scheme or through a\ncarry-over map; foundations §3.6).",
+      "description": "What a judgment is about: an observation by its id's decimal text, or a claim or group by its\nkey with that key's scheme (readers compare keys only within one scheme or through a carry-over\nmap; foundations §3.6).",
       "properties": {
         "kind": {
           "$ref": "#/$defs/JudgmentTargetKind"
@@ -57,6 +57,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "A decision under a guideline version.",
   "properties": {
     "target": {
       "$ref": "#/$defs/JudgmentTarget"

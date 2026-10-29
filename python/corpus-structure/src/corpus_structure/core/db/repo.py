@@ -12,6 +12,10 @@ JSON `null`.
   content_digest)`, its segments only when it is new (ids pre-allocated, one COPY), and the build
   row every time; a build that names another rendition for the same configuration and bytes is
   refused (`NondeterministicIngest`).
+- `read_rendition(conn, rendition_id)`: a rendition's content rebuilt from its stored row and
+  segments (canonical text, segment tree with attributes and parse status, macro table), and
+  `segment_ids(conn, rendition_id)`: its segment ids by key; the one read of stored renditions
+  (consolidation, the method reader).
 - `upsert_spans(conn, rendition_id, ranges)`: one `INSERT … SELECT … FROM unnest(…) ON CONFLICT DO
   NOTHING RETURNING`, the text cut from the canonical text and the smallest containing segment found
   in SQL; a range outside the text is refused before any write (`SpanOutOfText`, INV-10).
@@ -54,7 +58,13 @@ from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, REAL, REGCONFIG,
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from corpus_structure.core.db import metadata
-from corpus_structure.core.evidence import RenditionContent, Segment, content_digest, segment_key
+from corpus_structure.core.evidence import (
+    MacroDef,
+    RenditionContent,
+    Segment,
+    content_digest,
+    segment_key,
+)
 from corpus_structure.core.evidence import rendition_key as make_rendition_key
 from corpus_structure.core.payload_schemas import PayloadReaders, PayloadSchemaRow
 
@@ -336,6 +346,40 @@ FROM kb.span s JOIN unnest(CAST(:starts AS integer[]), CAST(:ends AS integer[]))
   ON s.start_offset = r.s AND s.end_offset = r.e
 WHERE s.rendition_id = :rendition
 """)
+
+
+def read_rendition(conn: Connection, rendition_id: int) -> RenditionContent:
+    """A rendition's content rebuilt from its stored row and segments (module doc)."""
+    ren, seg = T["kb.rendition"], T["kb.segment"]
+    row = conn.execute(
+        select(ren.c.canonical_text, ren.c.macros).where(ren.c.id == rendition_id)
+    ).one()
+    rows = conn.execute(
+        select(seg.c.id, seg.c.parent_id, seg.c.kind, seg.c.start_offset, seg.c.end_offset,
+               seg.c.attrs, seg.c.parse_status, seg.c.parse_reason)
+        .where(seg.c.rendition_id == rendition_id)
+        .order_by(seg.c.depth.desc(), seg.c.ordinal)
+    ).all()  # fmt: skip
+    children: dict[int | None, list[Segment]] = {}
+    root = None
+    for r in rows:  # deepest first, so children exist before their parents
+        segment = Segment(kind=r.kind, start=r.start_offset, end=r.end_offset,
+                          parse_status=r.parse_status, parse_reason=r.parse_reason,
+                          attrs=r.attrs, children=tuple(children.pop(r.id, [])))  # fmt: skip
+        if r.parent_id is None:
+            root = segment
+        children.setdefault(r.parent_id, []).append(segment)
+    if root is None:
+        raise LookupError(f"rendition {rendition_id} has no segments")
+    macros = {k: MacroDef.model_validate(v) for k, v in (row.macros or {}).items()}
+    return RenditionContent(canonical_text=row.canonical_text, document=root, macros=macros)
+
+
+def segment_ids(conn: Connection, rendition_id: int) -> dict[str, int]:
+    """A rendition's stored segment ids by segment key."""
+    seg = T["kb.segment"]
+    rows = conn.execute(select(seg.c.key, seg.c.id).where(seg.c.rendition_id == rendition_id))
+    return {str(k): int(i) for k, i in rows}
 
 
 def upsert_spans(

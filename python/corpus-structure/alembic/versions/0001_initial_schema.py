@@ -32,7 +32,7 @@ down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 # the model revision (content hash) this migration realizes (core/db/migrations.py)
-model_revision: str = "aec8922d939eb67fccf1d7774ecba6977b69c13e76f03c9f6de956efb9919074"
+model_revision: str = "3c67a242141418f0a0988c3669f92b0afebf92d939e19170a5f2ca52ad5a2af7"
 
 
 EXTENSION_ASSERTION = """
@@ -1423,7 +1423,10 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
-            ["value_entity_id"], ["kb.entity.id"], name=op.f("fk_entity_identity_value_entity_id")
+            ["value_entity_id"],
+            ["kb.entity.id"],
+            name=op.f("fk_entity_identity_value_entity_id"),
+            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("entity_id", "slot", name=op.f("pk_entity_identity")),
         schema="kb",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.scope.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/payload.scope.json",
   "$defs": {
     "BindKind": {
       "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
@@ -66,6 +66,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "A binding site and its scope (M13).",
   "properties": {
     "start": {
       "minimum": 0,

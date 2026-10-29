@@ -26,6 +26,17 @@ def _pattern(obj: object, name: str, pattern: str) -> None:
         raise ValueError(f"{name} {value!r} does not match {pattern!r}")
 
 
+def date_value(obj: object) -> None:
+    """DateValue: v ~
+    ^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$.
+    """
+    _pattern(
+        obj,
+        "v",
+        "^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$",
+    )
+
+
 def phrase_value(obj: object) -> None:
     """PhraseValue: ordered(start, end)."""
     invariants.ordered(obj, "start", "end")
@@ -98,6 +109,11 @@ def candidate_claim(obj: object) -> None:
 def candidate_unsupported(obj: object) -> None:
     """CandidateUnsupported: ordered(start, end)."""
     invariants.ordered(obj, "start", "end")
+
+
+def policy_action(obj: object) -> None:
+    """PolicyAction: method ~ ^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$."""
+    _pattern(obj, "method", "^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$")
 
 
 def span_payload(obj: object) -> None:
@@ -206,6 +222,7 @@ def citation_frame(obj: object) -> None:
 # Class -> its validator; class -> its declared invariants as written; class -> its
 # slots' patterns.
 VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = {
+    "DateValue": date_value,
     "PhraseValue": phrase_value,
     "SymbolBinding": symbol_binding,
     "PhraseNode": phrase_node,
@@ -218,6 +235,7 @@ VALIDATORS: Final[Mapping[str, Callable[[object], None]]] = {
     "CandidateEntity": candidate_entity,
     "CandidateClaim": candidate_claim,
     "CandidateUnsupported": candidate_unsupported,
+    "PolicyAction": policy_action,
     "SpanPayload": span_payload,
     "MentionPayload": mention_payload,
     "LabelledSpan": labelled_span,
@@ -299,6 +317,13 @@ INVARIANTS: Final[Mapping[str, tuple[str, ...]]] = {
     "CitationFrame": ("iff_absent(parent, version = 1)",),
 }
 PATTERNS: Final[Mapping[str, tuple[tuple[str, str], ...]]] = {
+    "DateValue": (
+        (
+            "v",
+            "^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$",
+        ),
+    ),
+    "PolicyAction": (("method", "^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$"),),
     "ClaimProposalPayload": (("schema_version", "^[0-9a-f]{64}$"),),
     "KbSegment": (("parse_reason", "\\S"),),
 }

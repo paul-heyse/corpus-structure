@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.attribute.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/payload.attribute.json",
   "$defs": {
     "JsonValue": {},
     "MentionRef": {
@@ -22,6 +22,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "An attribute of a mention.",
   "properties": {
     "mention_ref": {
       "$ref": "#/$defs/MentionRef"

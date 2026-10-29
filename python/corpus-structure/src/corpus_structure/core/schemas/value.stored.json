@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/value.stored.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/value.stored.json",
   "$defs": {
     "BindKind": {
       "description": "The kinds of symbol binding (D1 §6.1). Lifecycle: static.",
@@ -17,6 +17,7 @@
     },
     "BoolValue": {
       "additionalProperties": false,
+      "description": "A truth value.",
       "properties": {
         "t": {
           "const": "bool",
@@ -34,6 +35,7 @@
     },
     "DateValue": {
       "additionalProperties": false,
+      "description": "A date or date-time kept verbatim as ISO 8601.",
       "properties": {
         "t": {
           "const": "date",
@@ -52,6 +54,7 @@
     },
     "Formula": {
       "additionalProperties": false,
+      "description": "A formula as written, with its symbol bindings (D1 §6.1).",
       "properties": {
         "t": {
           "const": "formula",
@@ -178,6 +181,7 @@
     },
     "SetValue": {
       "additionalProperties": false,
+      "description": "A set written in LaTeX, such as \\R, (0, \\infty) or \\R \\setminus \\{0\\}.",
       "properties": {
         "t": {
           "const": "set",
@@ -207,7 +211,7 @@
     },
     "StoredEnumValue": {
       "additionalProperties": false,
-      "description": "The stored enum value: the enum by its prefixed name (`stat:ParameterRole`).",
+      "description": "A member of a schema enum: the enum by its local name when authored (`ParameterRole`), by its\nprefixed name when stored (`stat:ParameterRole`).",
       "properties": {
         "t": {
           "const": "enum",
@@ -230,6 +234,7 @@
     },
     "StoredPhrase": {
       "additionalProperties": false,
+      "description": "Text kept but not interpreted. The model-facing form names the sentence it lies in; the\nstored form adds the offsets the quote cascade located.",
       "properties": {
         "t": {
           "const": "phrase",
@@ -284,6 +289,7 @@
     },
     "TextValue": {
       "additionalProperties": false,
+      "description": "Free text that is the value itself.",
       "properties": {
         "t": {
           "const": "text",

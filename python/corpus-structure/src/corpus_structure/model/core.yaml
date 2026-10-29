@@ -4,9 +4,9 @@ title: Core schema
 description: >-
   The core module of the corpus-structure model (ADR-0020; D2 §6): the domain-independent D1
   shapes and vocabulary that every domain pack imports. It is the authority: core/vocab.py and
-  core/_model/ are generated from it (Stage A), and the hand-written Pydantic shapes are compared
-  with it by the interim mirror guard until Stage B generates them (P0-M-5). Native LinkML carries
-  every meaning it can; the remaining ci: annotations are scalar and listed in D2 §3.
+  core/_model/ are generated from it, the vocabulary and model facts by Stage A and the Pydantic
+  shapes by Stage B (P0-M-5). Native LinkML carries every meaning it can; the remaining ci:
+  annotations are scalar and listed in D2 §3.
 version: 0.3.0
 license: https://creativecommons.org/publicdomain/zero/1.0/
 prefixes:
@@ -36,33 +36,57 @@ types:
     typeof: string
     pattern: "^[sc][0-9]+$"
     description: A citation-frame sentence id, sN in the unit or cN in the standing context.
+    annotations: {ci:refers: sentence}
   Timestamp:
     typeof: datetime
     description: A point in time with time zone (timestamptz).
   EntityKey:
     typeof: Key
-    pattern: "^(?:ent|xrf):[0-9a-f]{32}$"
-    description: An entity's key (an ExternalReference's xrf key included).
+    pattern: "^ent:[0-9a-f]{32}$"
+    description: An entity's key (an ExternalReference's is a ReferenceKey).
   StatementKey:
     typeof: Key
-    pattern: "^(?:stm):[0-9a-f]{32}$"
+    pattern: "^stm:[0-9a-f]{32}$"
     description: A statement's key.
   ReferenceKey:
     typeof: Key
-    pattern: "^(?:xrf):[0-9a-f]{32}$"
+    pattern: "^xrf:[0-9a-f]{32}$"
     description: An ExternalReference's key.
   ClaimKey:
     typeof: Key
-    pattern: "^(?:clm):[0-9a-f]{32}$"
+    pattern: "^clm:[0-9a-f]{32}$"
     description: A claim's key.
   RenditionKey:
     typeof: Key
-    pattern: "^(?:ren):[0-9a-f]{32}$"
+    pattern: "^ren:[0-9a-f]{32}$"
     description: A rendition's key, the typed reference a stored batch and a candidate set carry.
   SegmentKey:
     typeof: Key
-    pattern: "^(?:seg):[0-9a-f]{32}$"
+    pattern: "^seg:[0-9a-f]{32}$"
     description: A segment's key on one rendition.
+  # Stage B's constrained strings and offsets (model and projections §3.3)
+  NonEmpty:
+    typeof: string
+    description: A string that is not empty (a local ref, an id, a quote, a selector).
+    annotations: {ci:py_type: "Annotated[str, Field(min_length=1)]"}
+  Offset:
+    typeof: integer
+    minimum_value: 0
+    description: A character offset or a count, never negative.
+  LocalName:
+    typeof: string
+    pattern: "^[A-Za-z_][A-Za-z0-9_]*$"
+    description: A schema element's local name, as the authored form writes it (ParameterRole).
+  PrefixedName:
+    typeof: string
+    pattern: "^[a-z][a-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$"
+    description: A schema element's prefixed name, as the stored form writes it (stat:ParameterRole).
+  MemberName:
+    typeof: string
+    pattern: "^[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?$"
+    description: >-
+      A member of a schema-version-scoped closed set: a core member by its name, a pack's by
+      <prefix>:<name> (S1's compiled models and S2's checks refuse what the version lacks).
 
 subsets:
   structural:
@@ -174,6 +198,52 @@ classes:
       Pydantic value union is discriminated on it.
     slots: [t]
 
+  TextValue:
+    is_a: Value
+    description: Free text that is the value itself.
+    slot_usage:
+      t: {equals_string: text}
+    attributes:
+      v: {required: true, description: The text.}
+
+  NumberValue:
+    is_a: Value
+    description: >-
+      A number as its D1 §6.2 canonical decimal; `unit` and `basis` as the source states them.
+    slot_usage:
+      t: {equals_string: number}
+    attributes:
+      v:
+        range: CanonicalDecimal
+        required: true
+        description: The canonical decimal string.
+        annotations: {ci:validator: core.shape_support:canonical_number}
+      unit: {description: "The unit as stated, or absent."}
+      basis: {description: "A reference basis the source states, such as gauge or absolute, or absent."}
+
+  BoolValue:
+    is_a: Value
+    description: A truth value.
+    slot_usage:
+      t: {equals_string: bool}
+    attributes:
+      v: {range: boolean, required: true, description: The truth value.}
+
+  EnumValue:
+    is_a: Value
+    description: >-
+      A member of a schema enum: the enum by its local name when authored (`ParameterRole`), by its
+      prefixed name when stored (`stat:ParameterRole`).
+    slot_usage:
+      t: {equals_string: enum}
+    attributes:
+      enum:
+        range: LocalName
+        required: true
+        description: "The enum's name: local when authored, prefixed when stored (X2-01)."
+        annotations: {ci:stored_range: PrefixedName}
+      v: {required: true, description: The permissible value.}
+
   Expression:
     is_a: Value
     abstract: true
@@ -189,6 +259,7 @@ classes:
         multivalued: true
         inlined: true
         description: The binding map, keyed by symbol in token form without backslash.
+        annotations: {ci:py_type: "dict[str, SymbolBinding]"}
       sympy:
         description: The normalized SymPy form; added by M11 during consolidation.
         annotations: {ci:form: consolidated}
@@ -205,44 +276,10 @@ classes:
 
   SetExpr:
     is_a: Expression
+    annotations: {ci:py_name: SetValue}
     description: A set written in LaTeX, such as \R, (0, \infty) or \R \setminus \{0\}.
     slot_usage:
       t: {equals_string: set}
-
-  TextValue:
-    is_a: Value
-    description: Free text that is the value itself.
-    slot_usage:
-      t: {equals_string: text}
-    attributes:
-      v: {required: true, description: The text.}
-
-  NumberValue:
-    is_a: Value
-    description: A number with its unit and basis as stated (D1 §6.2).
-    slot_usage:
-      t: {equals_string: number}
-    attributes:
-      v: {range: CanonicalDecimal, required: true, description: The canonical decimal string.}
-      unit: {description: "The unit as stated, or absent."}
-      basis: {description: "A reference basis the source states, such as gauge or absolute, or absent."}
-
-  BoolValue:
-    is_a: Value
-    description: A truth value.
-    slot_usage:
-      t: {equals_string: bool}
-    attributes:
-      v: {range: boolean, required: true, description: The truth value.}
-
-  EnumValue:
-    is_a: Value
-    description: A permissible value of a schema enum.
-    slot_usage:
-      t: {equals_string: enum}
-    attributes:
-      enum: {required: true, description: "The enum's name: local when authored, prefixed when stored (X2-01)."}
-      v: {required: true, description: The permissible value.}
 
   DateValue:
     is_a: Value
@@ -250,11 +287,15 @@ classes:
     slot_usage:
       t: {equals_string: date}
     attributes:
-      v: {required: true, description: The ISO 8601 string as written.}
+      v:
+        required: true
+        pattern: "^[0-9]{4}(-[0-9]{2}(-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})?)?)?)?$"
+        description: The ISO 8601 string as written.
 
   IntervalValue:
     is_a: Value
-    description: An interval of values; an absent bound is unbounded.
+    description: >-
+      An interval; an absent bound is unbounded.
     slot_usage:
       t: {equals_string: interval}
     attributes:
@@ -278,6 +319,7 @@ classes:
       t: {equals_string: phrase}
     annotations:
       ci:invariant: ordered(start, end)
+      ci:py_name: Phrase
     attributes:
       text: {required: true, description: The text as written.}
       sentence:
@@ -285,11 +327,11 @@ classes:
         description: The unit sentence (sN) or standing-context sentence (cN) holding the text.
         annotations: {ci:form: model}
       start:
-        range: integer
+        range: Offset
         description: Start offset in the rendition's canonical text.
         annotations: {ci:form: stored, ci:required_in: stored}
       end:
-        range: integer
+        range: Offset
         description: End offset in the rendition's canonical text.
         annotations: {ci:form: stored, ci:required_in: stored}
       coarse:
@@ -299,13 +341,13 @@ classes:
 
   EntityRef:
     description: >-
-      A reference to an entity: a batch local ref, or an entity key once stored. It is a position
-      type, not a value; a slot whose range is an entity class takes it.
+      The one entity-reference shape: a local ref in a batch, an entity key once stored.
     attributes:
-      ref: {required: true, description: The local ref or entity key.}
+      ref: {required: true, description: The local ref or entity key., annotations: {ci:refers: entity}}
 
   SymbolBinding:
-    description: How one symbol of a formula is bound (D1 §6.1); the kind decides its fields.
+    description: >-
+      How one symbol of a formula is bound (D1 §6.1); the kind decides which fields it has.
     annotations:
       ci:invariant: >-
         iff_present(entity, bind = variable|family_param);
@@ -313,8 +355,8 @@ classes:
         iff_present(param, bind = param_of|param_expr_of)
     attributes:
       bind: {range: BindKind, required: true, description: The binding kind.}
-      entity: {description: "variable, family_param: the entity's local ref (key once stored)."}
-      claim: {description: "param_of, param_expr_of: the claim's local ref (key once stored)."}
+      entity: {description: "variable, family_param: the entity's local ref (key once stored).", annotations: {ci:refers: entity}}
+      claim: {description: "param_of, param_expr_of: the claim's local ref (key once stored).", annotations: {ci:refers: claim}}
       param: {description: "param_of, param_expr_of: the entry of the claim's ci:param_map qualifier."}
 
   Condition:
@@ -326,6 +368,7 @@ classes:
 
   AndNode:
     is_a: Condition
+    annotations: {ci:py_name: And}
     description: All of the arguments hold.
     slot_usage:
       op: {equals_string: and}
@@ -334,6 +377,7 @@ classes:
 
   OrNode:
     is_a: Condition
+    annotations: {ci:py_name: Or}
     description: At least one of the arguments holds.
     slot_usage:
       op: {equals_string: or}
@@ -342,6 +386,7 @@ classes:
 
   NotNode:
     is_a: Condition
+    annotations: {ci:py_name: Not}
     description: The argument does not hold.
     slot_usage:
       op: {equals_string: not}
@@ -350,6 +395,7 @@ classes:
 
   ForallNode:
     is_a: Condition
+    annotations: {ci:py_name: Forall}
     description: The body holds for every value of the variable in the set.
     slot_usage:
       op: {equals_string: forall}
@@ -364,7 +410,7 @@ classes:
     slot_usage:
       op: {equals_string: claim}
     attributes:
-      ref: {required: true, description: The claim's local ref (key once stored).}
+      ref: {required: true, description: The claim's local ref (key once stored)., annotations: {ci:refers: claim}}
 
   MemberNode:
     is_a: Condition
@@ -393,11 +439,13 @@ classes:
     attributes:
       name: {required: true, description: The condition predicate's name.}
       args:
-        range: Value
+        any_of: [{range: Entity}, {range: Formula}]
         multivalued: true
         inlined: true
         required: true
+        minimum_cardinality: 1
         description: The arguments, entity references or formulas.
+        annotations: {ci:py_name: PredArg}
 
   PhraseNode:
     is_a: Condition
@@ -413,11 +461,11 @@ classes:
         description: The sentence holding the text.
         annotations: {ci:form: model}
       start:
-        range: integer
+        range: Offset
         description: Start offset in the rendition's canonical text.
         annotations: {ci:form: stored, ci:required_in: stored}
       end:
-        range: integer
+        range: Offset
         description: End offset in the rendition's canonical text.
         annotations: {ci:form: stored, ci:required_in: stored}
       coarse:
@@ -444,10 +492,11 @@ classes:
       value: {description: The entry's value.}
 
   StoredScope:
-    description: The stored scope qualifier, the extent and the segment it resolves to (D1 §5.2).
+    description: >-
+      The stored scope qualifier: the extent and the segment it resolves to on the rendition.
     attributes:
       extent: {range: ScopeExtent, required: true, description: How far the supposition reaches.}
-      segment: {required: true, description: The segment key it resolves to on the rendition.}
+      segment: {range: NonEmpty, required: true, description: The segment key it resolves to on the rendition.}
 
   # ---- batch items (D2 §7.3), one declaration per item with ci:form attributes ----
   Evidence:
@@ -462,14 +511,15 @@ classes:
         description: The cited sentence.
         annotations: {ci:form: model, ci:required_in: model}
       quote:
+        range: NonEmpty
         description: The quoted text inside the sentence.
         annotations: {ci:form: model, ci:required_in: model}
       start:
-        range: integer
+        range: Offset
         description: Start offset.
         annotations: {ci:form: stored, ci:required_in: stored}
       end:
-        range: integer
+        range: Offset
         description: End offset.
         annotations: {ci:form: stored, ci:required_in: stored}
       role: {range: EvidenceRole, required: true, description: The part the span plays.}
@@ -484,25 +534,31 @@ classes:
       One identity slot of an entity item, by the slot's name (local when authored, prefixed when
       stored), to the local ref of the entity it names or the literal it holds.
     slot_usage:
+      key: {annotations: {ci:stored_range: PrefixedName}}
       value: {required: true, description: "The entity's local ref or the literal, as written."}
 
   Qualifiers:
     description: >-
-      A claim's qualifiers: the core ones (local names when authored, core:<name> when stored) and,
-      as extra slots, the predicate's schema qualifiers, which S1's compiled models type per
-      predicate (by local name when authored, prefixed when stored).
+      A claim's qualifiers: the core ones (by local name when authored, as `core:<name>` when
+      stored) and the predicate's schema qualifiers (by local name when authored, by prefixed name
+      when stored), raw JSON until S1's compiled models type them.
+
+      Stored, the attributes keep the local names (`q.modality`); validation and dumps use the
+      prefixed ones.
     slots: [modality, polarity, hedge, attribution, conditions, scope, valid_time]
     extra_slots: {allowed: true}
+    annotations: {ci:validator: stored core.shape_support:prefixed_extras}
 
   EntityItem:
     description: An entity item of a batch (D2 §7.3).
     annotations:
+      ci:py_name: Entity
       # an extent and a scope segment only on a local entity; the segment is left out when the
       # extent resolves to none (reported, never guessed: agent interface §3.1)
       ci:invariant: "only_when(extent, scope = local); only_when(scope_segment, scope = local)"
     attributes:
-      local_ref: {required: true, description: The batch-local reference.}
-      type: {required: true, description: "The entity class: local name when authored, prefixed when stored."}
+      local_ref: {range: NonEmpty, required: true, description: The batch-local reference.}
+      type: {required: true, description: "The entity class: local name when authored, prefixed when stored.", annotations: {ci:stored_range: PrefixedName}}
       label: {required: true, description: The label as written.}
       scope: {range: EntityScope, required: true, description: Global or local (D1 §4.2).}
       extent: {range: EntityExtent, description: How far a local entity reaches.}
@@ -523,32 +579,41 @@ classes:
     description: >-
       A statement item of a batch: anchored by sentence ids or the unit when authored, by segment
       keys when stored. A statement outside the unit is an OutsideItem.
+    annotations: {ci:py_name: Statement}
     attributes:
-      local_ref: {required: true, description: The batch-local reference.}
+      local_ref: {range: NonEmpty, required: true, description: The batch-local reference.}
       kind: {range: StatementKind, required: true, description: The statement's kind.}
-      anchor: {required: true, multivalued: true, description: "Segment keys when stored; sentence ids, or the literal unit, when authored."}
+      anchor:
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        description: "Segment keys when stored; sentence ids, or the literal unit, when authored."
+        annotations: {ci:py_type: "model: Literal['unit'] | Annotated[tuple[SentenceId, ...], Field(min_length=1)]"}
 
   ReferenceDescriptor:
     description: >-
-      What an ExternalReference's citing text says (D1 §4.4, D2 §7.3): the citing sentence and the
-      quote that makes the reference when authored, the quote's located span when stored, and the
-      author's link target when the text gives one.
+      An external reference's citing text: when authored, the sentence and the quote that makes the
+      reference; when stored, the quote's located span (`coarse` when only its sentence was
+      located); and the author's link target when the text gives one (a D1 §3.4 locator or author
+      link target, as written).
     annotations:
       ci:invariant: ordered(start, end)
+      ci:py_name: Descriptor
     attributes:
       sentence:
         range: SentenceId
         description: The citing sentence (sN of the unit or cN of its standing context).
         annotations: {ci:form: model, ci:required_in: model}
       quote:
+        range: NonEmpty
         description: The quote that makes the reference, located by the quote cascade.
         annotations: {ci:form: model, ci:required_in: model}
       start:
-        range: integer
+        range: Offset
         description: Start offset of the located quote.
         annotations: {ci:form: stored, ci:required_in: stored}
       end:
-        range: integer
+        range: Offset
         description: End offset of the located quote.
         annotations: {ci:form: stored, ci:required_in: stored}
       coarse:
@@ -556,14 +621,15 @@ classes:
         description: The quote was not located exactly; the span is the whole cited sentence.
         annotations: {ci:form: stored}
       target:
+        range: NonEmpty
         description: The author's link target (a D1 §3.4 locator or author link target), as written.
 
   OutsideItem:
     description: >-
-      A statements[] item for a statement outside the unit (S4 V2): an ExternalReference node with
-      its descriptor and no kind (D1 §4.4, D2 §7.3).
+      A statement outside the unit (S4 V2): an `ExternalReference` node, with no kind.
+    annotations: {ci:py_name: Outside}
     attributes:
-      local_ref: {required: true, description: The batch-local reference.}
+      local_ref: {range: NonEmpty, required: true, description: The batch-local reference.}
       anchor: {required: true, equals_string: outside, description: The literal outside.}
       descriptor: {range: ReferenceDescriptor, required: true, inlined: true, description: The citing text.}
 
@@ -571,52 +637,62 @@ classes:
     description: A claim item of a batch (D2 §7.3).
     annotations:
       ci:invariant: "iff_present(derived_from, establishment = derived); iff_present(rule, establishment = derived)"
+      ci:py_name: Claim
     attributes:
-      local_ref: {required: true, description: The batch-local reference.}
-      predicate: {required: true, description: "The predicate: local when authored, prefixed when stored."}
-      subject: {required: true, description: "The subject's reference: an entity or a statement."}
-      statement: {description: The statement's reference.}
+      local_ref: {range: NonEmpty, required: true, description: The batch-local reference.}
+      predicate: {required: true, description: "The predicate: local when authored, prefixed when stored.", annotations: {ci:stored_range: PrefixedName}}
+      subject: {required: true, description: "The subject's reference: an entity or a statement.", annotations: {ci:refers: entity statement}}
+      statement: {description: The statement's reference., annotations: {ci:refers: statement}}
       statement_role: {range: StatementRole, description: The claim's role in its statement.}
-      object: {range: Value, required: true, description: An entity reference or a value.}
-      qualifiers: {range: Qualifiers, inlined: true, description: The core and schema qualifiers.}
-      evidence: {range: Evidence, multivalued: true, inlined_as_list: true, required: true, description: The evidence spans.}
       establishment:
         range: Establishment
         ifabsent: string(stated)
         description: How the claim was established (D5 §9); stated when absent.
+        annotations: {ci:omit_default: true}
       derived_from:
         multivalued: true
+        minimum_cardinality: 1
         description: The claims a derived claim was derived from (their references).
-      rule: {description: The derive rule that produced a derived claim.}
+        annotations: {ci:refers: claim, ci:py_default: MISSING}
+      rule: {range: NonEmpty, description: The derive rule that produced a derived claim.}
+      object:
+        any_of: [{range: Entity}, {range: Value}]
+        required: true
+        description: An entity reference or a value.
+        annotations: {ci:py_name: Object}
+      qualifiers: {range: Qualifiers, inlined: true, description: The core and schema qualifiers.}
+      evidence: {range: Evidence, multivalued: true, inlined_as_list: true, required: true, minimum_cardinality: 1, description: The evidence spans.}
 
   AlternativeItem:
     description: Items the author marks as alternatives of one another.
     attributes:
-      refs: {multivalued: true, required: true, description: The alternatives' local refs.}
+      refs: {multivalued: true, required: true, minimum_cardinality: 2, description: The alternatives' local refs., annotations: {ci:refers: claim}}
       reason: {required: true, description: Why they are alternatives.}
 
   UnsupportedItem:
     description: Text the schema cannot express (D1 §8.1).
     annotations:
       ci:invariant: ordered(start, end)
+      ci:py_name: Unsupported
     attributes:
-      local_ref: {required: true, description: The batch-local reference.}
-      reason: {required: true, description: Why it is unsupported.}
+      start:
+        range: Offset
+        description: Start offset.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      end:
+        range: Offset
+        description: End offset.
+        annotations: {ci:form: stored, ci:required_in: stored}
+      local_ref: {range: NonEmpty, required: true, description: The batch-local reference.}
       sentence:
         range: SentenceId
         description: The cited sentence.
         annotations: {ci:form: model, ci:required_in: model}
       quote:
+        range: NonEmpty
         description: The quoted text.
         annotations: {ci:form: model, ci:required_in: model}
-      start:
-        range: integer
-        description: Start offset.
-        annotations: {ci:form: stored, ci:required_in: stored}
-      end:
-        range: integer
-        description: End offset.
-        annotations: {ci:form: stored, ci:required_in: stored}
+      reason: {required: true, description: Why it is unsupported.}
       coarse:
         range: boolean
         description: The quote was not located exactly.
@@ -624,14 +700,22 @@ classes:
 
   Batch:
     description: A batch envelope in either form (D2 §7.3).
+    annotations:
+      ci:validator: core.shape_support:well_formed
+      ci:mixin: core.shape_support:BatchMethods
     attributes:
-      unit_ref: {required: true, description: The annotation unit's key.}
+      unit_ref: {range: NonEmpty, required: true, description: The annotation unit's key.}
       rendition:
-        range: Key
+        range: RenditionKey
         description: The rendition the stored batch is located on (its ren key).
         annotations: {ci:form: stored, ci:required_in: stored}
       entities: {range: EntityItem, multivalued: true, inlined_as_list: true, description: Entity items.}
-      statements: {range: StatementItem, multivalued: true, inlined_as_list: true, description: "Statement items, and OutsideItems for statements outside the unit."}
+      statements:
+        any_of: [{range: StatementItem}, {range: OutsideItem}]
+        multivalued: true
+        inlined_as_list: true
+        description: "Statement items, and OutsideItems for statements outside the unit."
+        annotations: {ci:py_name: StatementItem, ci:discriminator: anchor}
       claims: {range: ClaimItem, multivalued: true, inlined_as_list: true, description: Claim items.}
       alternatives: {range: AlternativeItem, multivalued: true, inlined_as_list: true, description: Alternative items.}
       unsupported: {range: UnsupportedItem, multivalued: true, inlined_as_list: true, description: Unsupported items.}
@@ -642,13 +726,13 @@ classes:
     annotations:
       ci:invariant: "only_when(extent, scope = local); only_when(scope_segment, scope = local)"
     attributes:
-      id: {required: true, description: "The local ref, or the key at finalize."}
+      id: {range: NonEmpty, required: true, description: "The local ref, or the key at finalize."}
       key: {any_of: [{range: EntityKey}, {range: Unkeyed}], ifabsent: string(unkeyed), description: "The key, or unkeyed at submission."}
-      type: {required: true, description: "The entity class by prefixed name."}
+      type: {range: PrefixedName, required: true, description: "The entity class by prefixed name."}
       label: {required: true, description: "The label as written."}
       scope: {range: EntityScope, required: true, description: "Global or local (D1 §4.2)."}
       extent: {range: EntityExtent, description: "How far a local entity reaches."}
-      scope_segment: {range: SegmentKey, description: "The segment a local entity is scoped to; absent when its extent resolved to none."}
+      scope_segment: {description: "The segment a local entity is scoped to; absent when its extent resolved to none."}
       symbol: {description: "The symbol a local entity is written as."}
       aliases: {multivalued: true, description: "Other names written for it."}
       identity: {range: IdentityValue, multivalued: true, inlined: true, description: "Identity slot to id or literal."}
@@ -656,17 +740,18 @@ classes:
   CandidateStatement:
     description: A statement of the keyed candidate set.
     attributes:
-      id: {required: true, description: "The local ref, or the key at finalize."}
+      id: {range: NonEmpty, required: true, description: "The local ref, or the key at finalize."}
       key: {any_of: [{range: StatementKey}, {range: Unkeyed}], ifabsent: string(unkeyed), description: "The key, or unkeyed at submission."}
       kind: {range: StatementKind, required: true, description: "The statement's kind."}
       anchor: {required: true, multivalued: true, minimum_cardinality: 1, description: "The anchor's segment keys."}
 
   CandidateReference:
     description: >-
-      An ExternalReference node of the keyed candidate set (D1 §4.4): its descriptor as stored, its
-      xrf key once keyed, and the statement consolidation resolved it to, or awaiting.
+      An `ExternalReference` node (D1 §4.4): its descriptor as stored, its `xrf` key once keyed, and
+      the statement consolidation resolved it to, or `AWAITING`. Claims name it where they cite it;
+      it is never dropped for being unresolved.
     attributes:
-      id: {required: true, description: "The local ref, or the key at finalize."}
+      id: {range: NonEmpty, required: true, description: "The local ref, or the key at finalize."}
       key: {any_of: [{range: ReferenceKey}, {range: Unkeyed}], ifabsent: string(unkeyed), description: "The key, or unkeyed at submission."}
       descriptor: {range: ReferenceDescriptor, required: true, inlined: true, description: "The citing text, as stored."}
       resolved_to: {any_of: [{range: StatementKey}, {range: Awaiting}], ifabsent: string(awaiting), description: "The resolved statement's key, or awaiting."}
@@ -676,42 +761,47 @@ classes:
     annotations:
       ci:invariant: "iff_present(derived_from, establishment = derived); iff_present(rule, establishment = derived)"
     attributes:
-      id: {required: true, description: "The local ref, or the key at finalize."}
+      id: {range: NonEmpty, required: true, description: "The local ref, or the key at finalize."}
       key: {any_of: [{range: ClaimKey}, {range: Unkeyed}], ifabsent: string(unkeyed), description: "The key, or unkeyed at submission."}
-      predicate: {required: true, description: "The predicate by prefixed name."}
-      subject: {required: true, description: "The subject's reference: an entity or a statement."}
-      object: {range: Value, required: true, description: "An entity reference or a value."}
+      predicate: {range: PrefixedName, required: true, description: "The predicate by prefixed name."}
+      subject: {required: true, description: "The subject's reference: an entity or a statement.", annotations: {ci:refers: entity statement}}
+      object: {any_of: [{range: Entity}, {range: Value}], required: true, description: "An entity reference or a value.", annotations: {ci:py_name: Object}}
       qualifiers: {range: Qualifiers, inlined: true, description: "The stored qualifiers."}
-      statement: {description: "The statement's reference."}
+      statement: {description: "The statement's reference.", annotations: {ci:refers: statement}}
       statement_role: {range: StatementRole, description: "The claim's role in its statement."}
-      establishment: {range: Establishment, ifabsent: string(stated), description: "How the claim was established; stated when absent."}
-      derived_from: {multivalued: true, minimum_cardinality: 1, description: "The claims a derived claim was derived from."}
-      rule: {description: "The derive rule that produced a derived claim."}
+      establishment: {range: Establishment, ifabsent: string(stated), description: "How the claim was established; stated when absent.", annotations: {ci:omit_default: true}}
+      derived_from: {multivalued: true, minimum_cardinality: 1, description: "The claims a derived claim was derived from.", annotations: {ci:refers: claim, ci:py_default: MISSING}}
+      rule: {range: NonEmpty, description: "The derive rule that produced a derived claim."}
       evidence: {range: Evidence, multivalued: true, inlined_as_list: true, description: "The stored evidence spans."}
 
   CandidateAlternative:
-    description: Claims the author marks as alternatives of one another (D5 §11, §8.2).
+    description: >-
+      Claims the author marks as alternatives of one another (D5 §11, §8.2 `alternative_of`).
     attributes:
-      refs: {multivalued: true, required: true, minimum_cardinality: 2, description: "The claims' references."}
+      refs: {multivalued: true, required: true, minimum_cardinality: 2, description: "The claims' references.", annotations: {ci:refers: claim}}
       reason: {required: true, description: "Why they are alternatives."}
 
   CandidateUnsupported:
-    description: Text the schema cannot express (D1 §8.1), which D5 §5.1 turns into a core:unschematized claim.
+    description: >-
+      Text the schema cannot express (D1 §8.1), which D5 §5.1 turns into a `core:unschematized`
+      claim.
     annotations:
       ci:invariant: ordered(start, end)
     attributes:
-      id: {required: true, description: "The local ref, or the key at finalize."}
-      start: {range: integer, required: true, description: "Start offset."}
-      end: {range: integer, required: true, description: "End offset."}
+      id: {range: NonEmpty, required: true, description: "The local ref, or the key at finalize."}
+      start: {range: Offset, required: true, description: "Start offset."}
+      end: {range: Offset, required: true, description: "End offset."}
       reason: {required: true, description: "Why it is unsupported."}
       coarse: {range: boolean, description: "The quote was not located exactly."}
 
   KeyedCandidateSet:
     description: >-
       The complete core claim set both rule call sites and keying read (D5 §8.2; TM §3): the
-      rendition it is on and every item of the batch, in stored form.
+      renditions it is on and every item, in stored form. A batch's set (and every set keying
+      reads) is on one rendition; consolidation's finalize set is on every rendition of the run.
+    annotations: {ci:validator: core.shape_support:well_formed_candidates}
     attributes:
-      rendition: {range: RenditionKey, required: true, description: "The rendition its offsets and segment keys are on."}
+      renditions: {range: RenditionKey, required: true, multivalued: true, minimum_cardinality: 1, description: "The renditions its offsets and segment keys are on, sorted and without duplicates: one for a batch's set and for keying, every rendition of the run at finalize."}
       entities: {range: CandidateEntity, multivalued: true, inlined_as_list: true, description: "Entities."}
       statements: {range: CandidateStatement, multivalued: true, inlined_as_list: true, description: "Statements."}
       references: {range: CandidateReference, multivalued: true, inlined_as_list: true, description: "ExternalReference nodes."}
@@ -738,12 +828,12 @@ slots:
     range: ClaimModality
     ifabsent: string(asserted)
     description: How the source holds the claim (D1 §5.2); asserted when absent.
-    annotations: {ci:role: qualifier, ci:key_role: identity}
+    annotations: {ci:role: qualifier, ci:key_role: identity, ci:py_type: MemberName, ci:omit_default: true}
   polarity:
     range: Polarity
     ifabsent: string(positive)
     description: Whether the claim is stated or denied; positive when absent.
-    annotations: {ci:role: qualifier, ci:key_role: identity}
+    annotations: {ci:role: qualifier, ci:key_role: identity, ci:omit_default: true}
   hedge:
     range: PhraseValue
     description: A hedging phrase the source attaches to the claim ("usually", "in some settings").
@@ -995,3 +1085,12 @@ enums:
     annotations: {ci:lifecycle: static}
     permissible_values:
       awaiting: {description: Not yet resolved.}
+  RefKind:
+    description: >-
+      What a reference position may name (F2e; R04): an entity (an ExternalReference included), a
+      statement or a claim; the position's ci:refers declares its kinds.
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      entity: {description: An entity; an ExternalReference node is one.}
+      statement: {description: A statement.}
+      claim: {description: "A claim; an ExternalReference may stand where a claim is named."}

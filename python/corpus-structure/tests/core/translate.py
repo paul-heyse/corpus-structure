@@ -33,7 +33,7 @@ def candidate_set(batch: StoredBatch) -> KeyedCandidateSet:
         else:
             statements.append(apply("StatementItem", st))
     return KeyedCandidateSet.model_validate({
-        "rendition": batch.rendition,
+        "renditions": [batch.rendition],
         "entities": [apply("EntityItem", e) for e in batch.entities],
         "statements": statements, "references": references,
         "claims": [apply("ClaimItem", c) for c in batch.claims],

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/intervention_refs.json",
+  "additionalProperties": false,
+  "description": "`ops.intervention.refs`: the ids an intervention names, by what they reference (D3 §6.3). An\nextract or adjudicate intervention names its observations (a claim_proposal or judgment); a\ndirection names nothing, its text being the body.",
+  "properties": {
+    "observations": {
+      "items": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "golden_pass": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "guideline_version": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "policy_version": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "experiment": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "type": "object"
+}

@@ -97,6 +97,7 @@ def _adapters() -> dict[str, TypeAdapter[Any]]:
         "trigger_metrics": payloads.TRIGGER_METRICS,
         "compiled_artifact": TypeAdapter(JsonValue),  # a compiled artifact's body: any JSON
         "run_options": TypeAdapter(options.RunOptions),
+        "intervention_refs": TypeAdapter(payloads.InterventionRefs),
         "parse_detail": TypeAdapter(ParseDetail),
     }
     for kind, model in payloads.PAYLOADS.items():

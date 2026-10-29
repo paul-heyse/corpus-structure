@@ -60,7 +60,14 @@ from corpus_structure.core.values import (
     StoredCondition,
     StoredValue,
 )
-from corpus_structure.core.vocab import CanonicalForm, CaseRule, DropReason, KeyRole, QualifierStore
+from corpus_structure.core.vocab import (
+    CONSOLIDATION_DROP,
+    CanonicalForm,
+    CaseRule,
+    DropReason,
+    KeyRole,
+    QualifierStore,
+)
 
 # the canonical form each value tag's range takes (TM §8), written out
 BY_TAG = {"text": CanonicalForm.TEXT_FORM, "number": CanonicalForm.NUMBER,
@@ -241,7 +248,7 @@ def test_a_seeded_unknown_operator_or_value_kind_is_refused_at_validation(form: 
     with pytest.raises(ValidationError):
         VALUE_ADAPTERS[form].validate_python({"t": "quantity", "v": "1"})
     with pytest.raises(ValidationError):  # nor can a stored claim carry one into keying
-        KeyedCandidateSet.model_validate({"rendition": "ren:" + "0" * 32, "claims": [{
+        KeyedCandidateSet.model_validate({"renditions": ["ren:" + "0" * 32], "claims": [{
             "id": "c1", "predicate": "stat:p", "subject": "X", "object": {"ref": "Y"},
             "qualifiers": {"core:conditions": xor},
         }]})  # fmt: skip
@@ -358,7 +365,7 @@ def key(ctx: KeyContext, entities: list[dict], statements: list[dict], claims: l
     base = {"predicate": "stat:p", "subject": "N", "object": {"ref": "N"},
             "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
     cands = KeyedCandidateSet.model_validate({
-        "rendition": ctx.rendition_key,
+        "renditions": [ctx.rendition_key],
         "entities": [{"id": "N", "type": "stat:T", "label": "normal", "scope": "global"},
                      *entities],
         "statements": statements,
@@ -384,8 +391,13 @@ def test_every_drop_reason_has_a_case_producing_it() -> None:
         {"id": "st", "kind": "theorem", "anchor": [sentence]},
         {"id": "gone", "kind": "theorem", "anchor": ["seg:" + "0" * 32]},
     ]
-    third = ctx.content.text(next(s for s in ctx.content.document.walk()
-                                  if s.kind is SegmentKind.SENTENCE and s.start > 30))
+    third = ctx.content.text(
+        next(
+            s
+            for s in ctx.content.document.walk()
+            if s.kind is SegmentKind.SENTENCE and s.start > 30
+        )
+    )
     start = ctx.content.canonical_text.index(third)
     references = [  # one cited inside `st`'s sentence; one in a sentence no statement anchors
         {"id": "xr", "descriptor": {"start": 8, "end": 9}},
@@ -414,7 +426,7 @@ def test_every_drop_reason_has_a_case_producing_it() -> None:
     base = {"predicate": "stat:p", "subject": "N", "object": {"ref": "N"},
             "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
     cands = KeyedCandidateSet.model_validate({
-        "rendition": ctx.rendition_key,
+        "renditions": [ctx.rendition_key],
         "entities": [{"id": "N", "type": "stat:T", "label": "normal", "scope": "global"},
                      *entities],
         "statements": statements,
@@ -442,10 +454,13 @@ def test_every_drop_reason_has_a_case_producing_it() -> None:
     assert set(out.claims) == {"c_ok", "c_cited"}  # an unresolved reference is no drop
     assert set(out.references) == {"xr"}
     # every code keying can drop with; parse's (A0) `unlocated_quote` is produced by
-    # `tests/llm/test_parse.py`
+    # `tests/llm/test_parse.py`, consolidation's (the model's `consolidation_drop` members) by
+    # `tests/consolidate/test_assemble.py`
     parse_codes = {DropReason.UNLOCATED_QUOTE}
-    assert {d.code for d in out.dropped.values()} == set(DropReason) - parse_codes
-    for code in parse_codes:  # their messages project the code too
+    assert {d.code for d in out.dropped.values()} == set(DropReason) - parse_codes - (
+        CONSOLIDATION_DROP
+    )
+    for code in parse_codes | CONSOLIDATION_DROP:  # their messages project the code too
         assert "p.q" in Drop(code, "p.q").message
     for drop in out.dropped.values():  # every code projects to a message naming its subject
         assert drop.ref in drop.message or drop.code is DropReason.CONDITION_CYCLE

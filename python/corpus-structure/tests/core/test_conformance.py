@@ -131,8 +131,17 @@ OBJECTS: dict[str, Any] = {  # one claim per range form of a claim object (TM §
 
 
 def candidates() -> KeyedCandidateSet:
-    claims = [{"id": cid, "predicate": "stat:p", "subject": "X", "object": obj,
-               "statement": "st1", "evidence": EVIDENCE} for cid, obj in OBJECTS.items()]
+    claims = [
+        {
+            "id": cid,
+            "predicate": "stat:p",
+            "subject": "X",
+            "object": obj,
+            "statement": "st1",
+            "evidence": EVIDENCE,
+        }
+        for cid, obj in OBJECTS.items()
+    ]
     claims += [
         {"id": "c_cond", "predicate": "stat:p", "subject": "X", "object": {"ref": "N"},
          "statement": "st1", "evidence": EVIDENCE,
@@ -149,7 +158,7 @@ def candidates() -> KeyedCandidateSet:
          "object": {"ref": "xr"}, "statement": "st2", "evidence": EVIDENCE},
     ]  # fmt: skip
     return KeyedCandidateSet.model_validate({
-        "rendition": CTX.rendition_key,
+        "renditions": [CTX.rendition_key],
         "entities": [
             {"id": "X", "type": "stat:RandomVariable", "label": "X", "symbol": "X",
              "scope": "local", "scope_segment": seg(SegmentKind.UNIT, 0)},

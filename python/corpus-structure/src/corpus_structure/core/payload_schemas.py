@@ -72,6 +72,7 @@ def default_readers() -> dict[str, Callable[[Any], Any]]:
         "golden_batch": payloads.GoldenBatchPayload.model_validate,
         "compiled_artifact": TypeAdapter(JsonValue).validate_python,
         "run_options": options.RunOptions.model_validate,
+        "intervention_refs": payloads.InterventionRefs.model_validate,
         "parse_detail": ParseDetail.model_validate,
     }
     return out

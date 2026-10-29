@@ -133,6 +133,6 @@ def hydrate(pool: Pool) -> tuple[Hydrated, ...]:
             fields[oid][name].append(translate(stored.model_validate(item)))
     renditions = batches.column("rendition").to_pylist()
     return tuple(
-        Hydrated(oid, C.KeyedCandidateSet(rendition=rendition, **fields[oid]))
+        Hydrated(oid, C.KeyedCandidateSet(renditions=(rendition,), **fields[oid]))
         for oid, rendition in zip(fields, renditions, strict=True)
     )

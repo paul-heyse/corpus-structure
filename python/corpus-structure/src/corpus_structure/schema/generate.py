@@ -27,7 +27,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from corpus_structure.schema import relational
+from corpus_structure.schema import relational, stage_b
 from corpus_structure.schema.model import (
     GENERATOR,
     Member,
@@ -541,6 +541,8 @@ def render(model: Model) -> dict[str, str]:
         "core/_model/sql.py": _sql(model),
         "core/_model/validators.py": _validators(model),
         "core/_model/revision.py": _revision(current),
+        # Stage B (P0-M-5): the Pydantic shapes; schema/stage_b.py renders them
+        **stage_b.render(model),
         # the relational projection (P0-M-2): schema/relational.py compiles and renders it
         "core/db/_tables.py": relational.render(
             relational.compile_metadata(model.system), current.label

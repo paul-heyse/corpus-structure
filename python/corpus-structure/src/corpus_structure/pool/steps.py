@@ -174,7 +174,10 @@ class ViewSpec:
 
 
 def view_inputs(
-    claims: pa.Table, entities: pa.Table, identity: pa.Table, alternatives: pa.Table,
+    claims: pa.Table,
+    entities: pa.Table,
+    identity: pa.Table,
+    alternatives: pa.Table,
     specs: Sequence[ViewSpec],
 ) -> tuple[pa.Table, pa.Table, pa.Table, pa.Table]:
     """The `views` inputs conformed, claim and entity ids unique, view names distinct and not the
@@ -205,7 +208,11 @@ class Engine(Protocol):
     def disagreements(self, meanings: pa.Table) -> pa.Table: ...
 
     def views(
-        self, claims: pa.Table, entities: pa.Table, identity: pa.Table, alternatives: pa.Table,
+        self,
+        claims: pa.Table,
+        entities: pa.Table,
+        identity: pa.Table,
+        alternatives: pa.Table,
         specs: Sequence[ViewSpec],
     ) -> pa.Table: ...
 
@@ -308,7 +315,11 @@ class PythonEngine:
         return pa.Table.from_pylist(rows, schema=DISAGREEMENTS)
 
     def views(
-        self, claims: pa.Table, entities: pa.Table, identity: pa.Table, alternatives: pa.Table,
+        self,
+        claims: pa.Table,
+        entities: pa.Table,
+        identity: pa.Table,
+        alternatives: pa.Table,
         specs: Sequence[ViewSpec],
     ) -> pa.Table:
         c_t, e_t, i_t, a_t = view_inputs(claims, entities, identity, alternatives, specs)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/parse_detail.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/parse_detail.json",
   "$defs": {
     "ExcludedElement": {
       "additionalProperties": false,
@@ -165,7 +165,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "An ingest build's diagnostics, never part of the rendition's content.",
+  "description": "An ingest build's diagnostics, never part of the rendition's content (D4 M01; D1 §3.2): kept\non `kb.rendition_build`, never on segments, so they are outside the rendition's content digest.",
   "properties": {
     "encoding": {
       "type": "string"

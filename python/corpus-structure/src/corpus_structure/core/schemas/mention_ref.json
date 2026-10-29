@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/mention_ref.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/mention_ref.json",
   "additionalProperties": false,
   "description": "A mention by its task and ordinal; the task is absent inside the same task.",
   "properties": {

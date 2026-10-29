@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.link.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/payload.link.json",
   "$defs": {
     "JsonValue": {},
     "MentionRef": {
@@ -22,6 +22,7 @@
     },
     "NewEntity": {
       "additionalProperties": false,
+      "description": "A new entity a link proposes.",
       "properties": {
         "type": {
           "type": "string"
@@ -38,7 +39,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "An entity-link candidate: the mention (M14) or the pair (M15), and the candidate entity's\nkey or the new entity it proposes, exactly one of each.",
+  "description": "An entity-link candidate: the mention (M14) or the pair (M15), and the candidate entity's key\nor the new entity it proposes, exactly one of each.",
   "properties": {
     "mention_ref": {
       "$ref": "#/$defs/MentionRef"

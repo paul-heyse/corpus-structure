@@ -1,9 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/payload.relation.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/payload.relation.json",
   "$defs": {
     "LabelledSpan": {
       "additionalProperties": false,
+      "description": "A labelled span of a relation.",
       "properties": {
         "start": {
           "minimum": 0,
@@ -26,6 +27,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "A relation between two spans.",
   "properties": {
     "label": {
       "type": "string"

@@ -286,7 +286,12 @@ SPECS = st.lists(st.builds(
     specs=SPECS,
 )  # fmt: skip
 def test_views_agree_on_generated_inputs(
-    duck: DuckDBEngine, claims: list, entities: set, keyed: bool, identity: list, groups: list,
+    duck: DuckDBEngine,
+    claims: list,
+    entities: set,
+    keyed: bool,
+    identity: list,
+    groups: list,
     specs: list,
 ) -> None:
     claim_rows = [

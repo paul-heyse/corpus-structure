@@ -284,7 +284,7 @@ def test_the_registry_holds_each_payload_class_at_its_version(
 ) -> None:
     entries = {e.class_: e for e in registry.payload_schema_entries(base, model.read_log())}
     assert registry.without_schema(base) == []
-    assert len(entries) == 21
+    assert len(entries) == 22
     mention = entries["sys:MentionPayload"]
     assert (mention.version, mention.parent_version, mention.compatibility_class) == (
         1,

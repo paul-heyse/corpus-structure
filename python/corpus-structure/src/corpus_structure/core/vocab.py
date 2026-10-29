@@ -245,6 +245,16 @@ class Awaiting(StrEnum):
     AWAITING = "awaiting"
 
 
+class RefKind(StrEnum):
+    """What a reference position may name (F2e; R04): an entity (an ExternalReference included), a
+    statement or a claim; the position's ci:refers declares its kinds. Lifecycle: static.
+    """
+
+    ENTITY = "entity"
+    STATEMENT = "statement"
+    CLAIM = "claim"
+
+
 class CompatibilityClass(StrEnum):
     """How a step carries data across revisions (ADR-0022; model and projections §3.6); the class
     decides the route. `initial` marks a payload schema's first version, which has no parent and no
@@ -598,6 +608,35 @@ class DropReason(StrEnum):
     MALFORMED_VALUE = "malformed_value"
     UNLOCATED_QUOTE = "unlocated_quote"
     UNRESOLVED_EXTENT = "unresolved_extent"
+    ORPHANED_PREMISE = "orphaned_premise"
+    MALFORMED_EVIDENCE = "malformed_evidence"
+
+
+class PassOutcome(StrEnum):
+    """What a consolidation pass counts beside its drops (`consolidate/report.py`, consolidation
+    §3.7); the PassReport counts by it. Lifecycle: static.
+    """
+
+    UNREADABLE_PROPOSAL = "unreadable_proposal"
+    LINKED = "linked"
+    LINK_AMBIGUOUS = "link_ambiguous"
+    REDERIVED = "rederived"
+    COARSE_EVIDENCE = "coarse_evidence"
+    REFERENCE_RESOLVED = "reference_resolved"
+    REFERENCE_UNRESOLVED = "reference_unresolved"
+    UNHINTED_STATEMENT_KIND = "unhinted_statement_kind"
+
+
+class ReferenceRefusal(StrEnum):
+    """Why consolidation left an ExternalReference unresolved (consolidation §3.3, RC11). Lifecycle:
+    static.
+    """
+
+    NO_TARGET = "no_target"
+    LOCATOR_SYNTAX = "locator_syntax"
+    OTHER_PAGE = "other_page"
+    LOCATOR_REFUSED = "locator_refused"
+    NO_STATEMENT = "no_statement"
 
 
 class FrameFailureReason(StrEnum):
@@ -990,6 +1029,12 @@ CITABLE_SENTENCE: Final[frozenset[SegmentKind]] = frozenset(
         SegmentKind.SENTENCE,
     }
 )
+CONSOLIDATION_DROP: Final[frozenset[DropReason]] = frozenset(
+    {
+        DropReason.ORPHANED_PREMISE,
+        DropReason.MALFORMED_EVIDENCE,
+    }
+)
 ENCODERS_STATE: Final[frozenset[ConfidenceState]] = frozenset(
     {
         ConfidenceState.SUPPORTS,
@@ -1067,6 +1112,7 @@ MEMBER_PROPERTIES: Final[Mapping[str, frozenset[StrEnum]]] = {
     "sentence_split": SENTENCE_SPLIT,
     "section_label": SECTION_LABEL,
     "citable_sentence": CITABLE_SENTENCE,
+    "consolidation_drop": CONSOLIDATION_DROP,
     "encoders_state": ENCODERS_STATE,
     "patterns_state": PATTERNS_STATE,
     "local_llm_state": LOCAL_LLM_STATE,
@@ -1095,6 +1141,7 @@ PROPERTY_OF: Final[Mapping[str, type[StrEnum]]] = {
     "sentence_split": SegmentKind,
     "section_label": SegmentKind,
     "citable_sentence": SegmentKind,
+    "consolidation_drop": DropReason,
     "encoders_state": ConfidenceState,
     "patterns_state": ConfidenceState,
     "local_llm_state": ConfidenceState,
@@ -1127,6 +1174,7 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     QualifierStore: Lifecycle.STATIC,
     Unkeyed: Lifecycle.STATIC,
     Awaiting: Lifecycle.STATIC,
+    RefKind: Lifecycle.STATIC,
     CompatibilityClass: Lifecycle.STATIC,
     ChangeKind: Lifecycle.STATIC,
     VersionState: Lifecycle.STATIC,
@@ -1159,6 +1207,8 @@ LIFECYCLE: Final[Mapping[type[StrEnum], Lifecycle]] = {
     AlignmentTier: Lifecycle.STATIC,
     ResultTier: Lifecycle.STATIC,
     DropReason: Lifecycle.STATIC,
+    PassOutcome: Lifecycle.STATIC,
+    ReferenceRefusal: Lifecycle.STATIC,
     FrameFailureReason: Lifecycle.STATIC,
     ConfidenceSource: Lifecycle.STATIC,
     Stage: Lifecycle.STATIC,

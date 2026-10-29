@@ -1,9 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/batch.stored.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/batch.stored.json",
   "$defs": {
     "AlternativeItem": {
       "additionalProperties": false,
+      "description": "Items the author marks as alternatives of one another.",
       "properties": {
         "refs": {
           "items": {
@@ -38,6 +39,7 @@
     },
     "BoolValue": {
       "additionalProperties": false,
+      "description": "A truth value.",
       "properties": {
         "t": {
           "const": "bool",
@@ -55,6 +57,7 @@
     },
     "ClaimNode": {
       "additionalProperties": false,
+      "description": "Another claim of the batch holds (a premise reference).",
       "properties": {
         "op": {
           "const": "claim",
@@ -73,6 +76,7 @@
     },
     "CmpNode": {
       "additionalProperties": false,
+      "description": "Two formulas compare by a relation.",
       "properties": {
         "op": {
           "const": "cmp",
@@ -98,6 +102,7 @@
     },
     "DateValue": {
       "additionalProperties": false,
+      "description": "A date or date-time kept verbatim as ISO 8601.",
       "properties": {
         "t": {
           "const": "date",
@@ -165,6 +170,7 @@
     },
     "Formula": {
       "additionalProperties": false,
+      "description": "A formula as written, with its symbol bindings (D1 §6.1).",
       "properties": {
         "t": {
           "const": "formula",
@@ -257,6 +263,7 @@
     "JsonValue": {},
     "MemberNode": {
       "additionalProperties": false,
+      "description": "A formula's value lies in a set.",
       "properties": {
         "op": {
           "const": "member",
@@ -321,6 +328,7 @@
     },
     "PredNode": {
       "additionalProperties": false,
+      "description": "A condition predicate of the schema (ConditionPredicate) holds of its arguments.",
       "properties": {
         "op": {
           "const": "pred",
@@ -374,6 +382,7 @@
     },
     "SetValue": {
       "additionalProperties": false,
+      "description": "A set written in LaTeX, such as \\R, (0, \\infty) or \\R \\setminus \\{0\\}.",
       "properties": {
         "t": {
           "const": "set",
@@ -414,6 +423,7 @@
     },
     "StoredAnd": {
       "additionalProperties": false,
+      "description": "All of the arguments hold.",
       "properties": {
         "op": {
           "const": "and",
@@ -434,6 +444,7 @@
     },
     "StoredClaim": {
       "additionalProperties": false,
+      "description": "A claim item of a batch (D2 §7.3).",
       "properties": {
         "local_ref": {
           "minLength": 1,
@@ -551,7 +562,7 @@
     },
     "StoredDescriptor": {
       "additionalProperties": false,
-      "description": "A stored external reference's citing text: the quote's located span (`coarse` when only its\nsentence was located) and the link target.",
+      "description": "An external reference's citing text: when authored, the sentence and the quote that makes the\nreference; when stored, the quote's located span (`coarse` when only its sentence was located);\nand the author's link target when the text gives one (a D1 §3.4 locator or author link target,\nas written).",
       "properties": {
         "start": {
           "minimum": 0,
@@ -577,6 +588,7 @@
     },
     "StoredEntity": {
       "additionalProperties": false,
+      "description": "An entity item of a batch (D2 §7.3).",
       "properties": {
         "local_ref": {
           "minLength": 1,
@@ -627,7 +639,7 @@
     },
     "StoredEnumValue": {
       "additionalProperties": false,
-      "description": "The stored enum value: the enum by its prefixed name (`stat:ParameterRole`).",
+      "description": "A member of a schema enum: the enum by its local name when authored (`ParameterRole`), by its\nprefixed name when stored (`stat:ParameterRole`).",
       "properties": {
         "t": {
           "const": "enum",
@@ -650,6 +662,7 @@
     },
     "StoredEvidence": {
       "additionalProperties": false,
+      "description": "One evidence span of a claim: authored by sentence id and quote, stored by offsets on the\nrendition.",
       "properties": {
         "start": {
           "minimum": 0,
@@ -675,6 +688,7 @@
     },
     "StoredForall": {
       "additionalProperties": false,
+      "description": "The body holds for every value of the variable in the set.",
       "properties": {
         "op": {
           "const": "forall",
@@ -700,6 +714,7 @@
     },
     "StoredNot": {
       "additionalProperties": false,
+      "description": "The argument does not hold.",
       "properties": {
         "op": {
           "const": "not",
@@ -717,6 +732,7 @@
     },
     "StoredOr": {
       "additionalProperties": false,
+      "description": "At least one of the arguments holds.",
       "properties": {
         "op": {
           "const": "or",
@@ -737,6 +753,7 @@
     },
     "StoredOutside": {
       "additionalProperties": false,
+      "description": "A statement outside the unit (S4 V2): an `ExternalReference` node, with no kind.",
       "properties": {
         "local_ref": {
           "minLength": 1,
@@ -759,6 +776,7 @@
     },
     "StoredPhrase": {
       "additionalProperties": false,
+      "description": "Text kept but not interpreted. The model-facing form names the sentence it lies in; the\nstored form adds the offsets the quote cascade located.",
       "properties": {
         "t": {
           "const": "phrase",
@@ -789,6 +807,7 @@
     },
     "StoredPhraseNode": {
       "additionalProperties": false,
+      "description": "A condition kept as text, not interpreted.",
       "properties": {
         "op": {
           "const": "phrase",
@@ -821,7 +840,7 @@
       "additionalProperties": {
         "$ref": "#/$defs/JsonValue"
       },
-      "description": "The stored qualifiers: the core ones as `core:<name>`, schema qualifiers by prefixed name.\n\nAttributes keep the local names (`q.modality`); validation and dumps use the prefixed ones.",
+      "description": "A claim's qualifiers: the core ones (by local name when authored, as `core:<name>` when\nstored) and the predicate's schema qualifiers (by local name when authored, by prefixed name\nwhen stored), raw JSON until S1's compiled models type them.\n\nStored, the attributes keep the local names (`q.modality`); validation and dumps use the\nprefixed ones.",
       "properties": {
         "core:modality": {
           "default": "asserted",
@@ -870,6 +889,7 @@
     },
     "StoredStatement": {
       "additionalProperties": false,
+      "description": "A statement item of a batch: anchored by sentence ids or the unit when authored, by segment\nkeys when stored. A statement outside the unit is an OutsideItem.",
       "properties": {
         "local_ref": {
           "minLength": 1,
@@ -905,6 +925,7 @@
     },
     "StoredUnsupported": {
       "additionalProperties": false,
+      "description": "Text the schema cannot express (D1 §8.1).",
       "properties": {
         "start": {
           "minimum": 0,
@@ -935,6 +956,7 @@
     },
     "StoredUnsupportedNode": {
       "additionalProperties": false,
+      "description": "A condition the schema cannot express, kept as text with the reason.",
       "properties": {
         "op": {
           "const": "unsupported",
@@ -1038,6 +1060,7 @@
     },
     "TextValue": {
       "additionalProperties": false,
+      "description": "Free text that is the value itself.",
       "properties": {
         "t": {
           "const": "text",
@@ -1055,6 +1078,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "A batch envelope in either form (D2 §7.3).",
   "properties": {
     "unit_ref": {
       "minLength": 1,

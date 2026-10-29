@@ -34,6 +34,8 @@ from decimal import Decimal
 from functools import cached_property
 from typing import Any, NamedTuple
 
+import pyarrow as pa
+
 from corpus_structure.core import tex
 from corpus_structure.core.candidates import (
     CandidateClaim,
@@ -44,6 +46,16 @@ from corpus_structure.core.candidates import (
 from corpus_structure.core.canonical import canonical_json
 from corpus_structure.core.translations import Omitted
 from corpus_structure.core.vocab import MathKind, ParseOutcome, StatementRole
+from corpus_structure.pool.steps import (
+    ALTERNATIVE_OF,
+    SAME_SLOT,
+    VIEW_ALTERNATIVES,
+    VIEW_CLAIMS,
+    VIEW_ENTITIES,
+    VIEW_IDENTITY,
+    Engine,
+    ViewSpec,
+)
 from corpus_structure.schema.tables import expand_applies_to
 
 if typing.TYPE_CHECKING:
@@ -72,6 +84,8 @@ class Reading(NamedTuple):
 
 
 type Readings = Mapping[tuple[str, ValuePath], Reading]
+# Precomputed pool facts (P2's `views` step): (claim id, attribute) -> the sorted distinct values.
+type ViewFacts = Mapping[tuple[str, str], tuple[str, ...]]
 OBJECT_PATH: ValuePath = ("object",)
 
 
@@ -303,6 +317,7 @@ class _Builder:
         compiled: CompiledSchema,
         site: str,
         readings: Readings | None,
+        facts: ViewFacts | None = None,
     ) -> None:
         if site not in SITES:
             raise ValueError(f"site {site!r} is not one of {SITES}")
@@ -310,6 +325,7 @@ class _Builder:
         self.compiled = compiled
         self.site = site
         self.readings = readings or {}
+        self.facts = facts
         lookup = compiled.lookup
         self.predicates = {p.prefixed: p for p in lookup.predicates.values()}
         self.qualifiers = {q.prefixed: q for q in lookup.qualifiers.values()}
@@ -434,7 +450,9 @@ class ClaimView:
             raise AttributeError(name)
         claim: CandidateClaim = self.__dict__["_c"]
         decl = b.compiled.rules.claim.views[name]
-        if claim.predicate in b.index.applies[name]:
+        if b.facts is not None:
+            value = b.facts.get((claim.id, name), ())
+        elif claim.predicate in b.index.applies[name]:
             value = b.index.view(name, _side(claim, decl["match"]["claim"]))
         else:
             value = ()
@@ -556,13 +574,17 @@ class ClaimView:
 
     @cached_property
     def same_slot(self) -> tuple[str, ...]:
+        if self._b.facts is not None:
+            return self._b.facts.get((self.id, SAME_SLOT), ())
         c = self._c
         statement = c.statement if isinstance(c.statement, str) else None
         group = self._b.index.slots.get((c.predicate, c.subject, statement), [])
-        return tuple(x for x in group if x != self.id)
+        return tuple(sorted(x for x in group if x != self.id))
 
     @cached_property
     def alternative_of(self) -> tuple[str, ...]:
+        if self._b.facts is not None:
+            return self._b.facts.get((self.id, ALTERNATIVE_OF), ())
         return tuple(sorted(self._b.index.alternatives.get(self.id, ())))
 
     @cached_property
@@ -603,9 +625,87 @@ def build_views(
     compiled: CompiledSchema,
     site: str,
     readings: Readings | None = None,
+    facts: ViewFacts | None = None,
 ) -> ClaimViews:
-    """One view per claim of the set, at `site` (module doc)."""
-    return _Builder(candidates, compiled, site, readings).build()
+    """One view per claim of the set, at `site` (module doc). `facts`, when given, are the pool
+    facts precomputed by P2's `views` step (`same_slot`, `alternative_of` and each `views:`
+    declaration, by claim id and attribute); otherwise the builder's own index computes them."""
+    return _Builder(candidates, compiled, site, readings, facts).build()
+
+
+# --- P2's `views` step: its inputs from a candidate set, its output as facts ------------------
+
+
+@dataclass(frozen=True)
+class ViewTables:
+    """The inputs of P2's `views` step (`pool/steps.py`) for one candidate set."""
+
+    claims: pa.Table
+    entities: pa.Table
+    identity: pa.Table
+    alternatives: pa.Table
+    specs: tuple[ViewSpec, ...]
+
+
+def view_tables(candidates: KeyedCandidateSet, compiled: CompiledSchema) -> ViewTables:
+    """P2's `views` inputs: every claim with its sides and statement, every entity of the set
+    (statements and `ExternalReference` nodes are no entity of a projection), their identity
+    slots, the alternative groups, and the version's compiled `views:` declarations."""
+    claims = [
+        {
+            "claim": c.id,
+            "predicate": c.predicate,
+            "subject": c.subject,
+            "object": _side(c, "object"),
+            "statement": c.statement if isinstance(c.statement, str) else None,
+        }
+        for c in candidates.claims
+    ]
+    entities = [
+        {
+            "entity": e.id,
+            "key": _key(e.key),
+            "type": e.type,
+            "label": e.label,
+            "symbol": e.symbol if isinstance(e.symbol, str) else None,
+        }
+        for e in candidates.entities
+    ]
+    identity = [
+        {"entity": e.id, "slot": slot, "value": value}
+        for e in candidates.entities
+        for slot, value in sorted(e.identity.items())
+    ]
+    alternatives = [
+        {"group": str(i), "claim": ref}
+        for i, group in enumerate(candidates.alternatives)
+        for ref in dict.fromkeys(group.refs)
+    ]
+    lookup = compiled.lookup
+    specs = tuple(
+        ViewSpec.from_declaration(name, decl, expand_applies_to(lookup, decl["applies_to"]))
+        for name, decl in compiled.rules.claim.views.items()
+    )
+    return ViewTables(
+        pa.Table.from_pylist(claims, schema=VIEW_CLAIMS),
+        pa.Table.from_pylist(entities, schema=VIEW_ENTITIES),
+        pa.Table.from_pylist(identity, schema=VIEW_IDENTITY),
+        pa.Table.from_pylist(alternatives, schema=VIEW_ALTERNATIVES),
+        specs,
+    )
+
+
+def view_facts(table: pa.Table) -> ViewFacts:
+    """P2's `views` output (`VIEW_FACTS`) as facts by (claim id, attribute)."""
+    return {(r["claim"], r["view"]): tuple(r["facts"]) for r in table.to_pylist()}
+
+
+def engine_facts(
+    engine: Engine, candidates: KeyedCandidateSet, compiled: CompiledSchema
+) -> ViewFacts:
+    """The pool facts of a candidate set computed by a P2 engine."""
+    t = view_tables(candidates, compiled)
+    return view_facts(engine.views(t.claims, t.entities, t.identity, t.alternatives, t.specs))
 
 
 # --- The T4 declaration (TM §7, DP-08) --------------------------------------------------------
@@ -630,7 +730,7 @@ T4: tuple[ViewMap, ...] = (
     ViewMap(
         "KeyedCandidateSet",
         {
-            "rendition": Omitted("one set is one rendition; no rule reads it"),
+            "renditions": Omitted("the set's renditions; no rule reads them"),
             "entities": ("subject", "object"),
             "references": ("subject", "object"),
             "statements": ("statement", "statement_kind", "statement_premises"),

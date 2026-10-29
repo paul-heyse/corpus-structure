@@ -32,7 +32,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import Connection, Engine, text
 
@@ -49,10 +49,24 @@ from corpus_structure.orchestrate import agent, context, queue, runs, tasks
 from corpus_structure.orchestrate.registry import RunConfigs
 
 
+class PassOutcome(Protocol):
+    """What the runner reads of a pass's report, structurally: consolidation returns its own
+    report type (it does not import `orchestrate`)."""
+
+    @property
+    def counts(self) -> Mapping[str, int]: ...
+
+    @property
+    def rule_counts(self) -> Mapping[str, int]: ...
+
+    @property
+    def consumed(self) -> tuple[int, ...]: ...
+
+
 @dataclass(frozen=True)
 class PassReport:
-    """What a consolidation pass returns: counts by code, M19's per-rule evaluated counts and the
-    propose tasks it consumed (D5 §1, §11)."""
+    """A minimal `PassOutcome` (stubs and tests): counts by code, M19's per-rule evaluated counts
+    and the propose tasks it consumed (D5 §1, §11)."""
 
     counts: Mapping[str, int] = field(default_factory=dict)
     rule_counts: Mapping[str, int] = field(default_factory=dict)
@@ -60,7 +74,7 @@ class PassReport:
 
 
 # (conn, run, pass name, the final M19 task at finalize) -> the pass's report
-PassRunner = Callable[[Connection, int, str, int | None], PassReport]
+PassRunner = Callable[[Connection, int, str, int | None], PassOutcome]
 # (conn, run, the evaluate.score task) -> its terminal status
 Evaluate = Callable[[Connection, int, int], TaskStatus]
 UnitSource = Callable[[Connection, Any, Any], Iterable[UnitRef]]

@@ -224,7 +224,7 @@ def test_the_candidate_set_carries_the_whole_stored_batch() -> None:
         "unsupported": [{"local_ref": "u1", **locate(ctx, "s3", "It holds"), "reason": "r"}],
     })  # fmt: skip
     cands = candidate_set(with_more)
-    assert cands.rendition == ctx.rendition_key
+    assert cands.renditions == (ctx.rendition_key,)
     assert [s.id for s in cands.statements] == ["st_cor"]
     assert [r.id for r in cands.references] == ["e_last"]  # the outside item, not lost
     assert cands.references[0].resolved_to is AWAITING and cands.references[0].key is UNKEYED
@@ -240,8 +240,13 @@ def test_the_candidate_set_carries_the_whole_stored_batch() -> None:
 def test_keying_refuses_a_context_of_another_rendition() -> None:
     ctx = context()
     other = KeyContext(document_key("statistics", PAGE, "4" * 64), rendition(), PAGE)
-    with pytest.raises(ValueError, match="the candidate set is on ren:"):
+    with pytest.raises(ValueError, match="exactly the context's rendition"):
         keyed(candidate_set(stored(ctx)), other)
+    two = candidate_set(stored(ctx)).model_copy(
+        update={"renditions": tuple(sorted({ctx.rendition_key, other.rendition_key}))}
+    )
+    with pytest.raises(ValueError, match="exactly the context's rendition"):
+        keyed(two, ctx)  # a run-wide set is never keyed
 
 
 # --- References typed by kind ------------------------------------------------------------------
@@ -271,7 +276,8 @@ def test_a_wrong_kind_reference_is_refused_with_its_code(claim, ref, expected, n
     ctx = context()
     cands = candidate_set(stored(ctx))
     wrong = CandidateClaim.model_validate(
-        {**cands.claims[0].model_dump(mode="json"), "id": "c_wrong", **claim})
+        {**cands.claims[0].model_dump(mode="json"), "id": "c_wrong", **claim}
+    )
     out = keyed(cands.model_copy(update={"claims": (*cands.claims, wrong)}), ctx)
     assert out.dropped == {"c_wrong": Drop(DropReason.WRONG_KIND_REFERENCE, ref, (expected, named))}
     assert "c_follows" in out.claims  # the well-typed claim keys as before
@@ -333,8 +339,9 @@ def test_an_unresolved_reference_stays_a_node_and_a_resolved_one_stands_as_its_s
     cands = candidate_set(stored(ctx))
     unresolved = keyed(cands, ctx)
     statement = "stm:" + "9" * 32  # the statement of the run consolidation resolved it to
-    resolved = cands.model_copy(update={"references": (
-        cands.references[0].model_copy(update={"resolved_to": statement}),)})
+    resolved = cands.model_copy(
+        update={"references": (cands.references[0].model_copy(update={"resolved_to": statement}),)}
+    )
     after = keyed(resolved, ctx)
     assert after.references == unresolved.references  # the node keeps its own key
     assert after.claims["c_follows"] != unresolved.claims["c_follows"]  # re-keyed (D1 §10.3)

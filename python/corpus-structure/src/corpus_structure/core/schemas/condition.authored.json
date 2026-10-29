@@ -1,9 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://corpus-structure.dev/schemas/aec8922d939e/condition.authored.json",
+  "$id": "https://corpus-structure.dev/schemas/3c67a2421414/condition.authored.json",
   "$defs": {
     "AuthoredAnd": {
       "additionalProperties": false,
+      "description": "All of the arguments hold.",
       "properties": {
         "op": {
           "const": "and",
@@ -73,6 +74,7 @@
     },
     "AuthoredForall": {
       "additionalProperties": false,
+      "description": "The body holds for every value of the variable in the set.",
       "properties": {
         "op": {
           "const": "forall",
@@ -98,6 +100,7 @@
     },
     "AuthoredNot": {
       "additionalProperties": false,
+      "description": "The argument does not hold.",
       "properties": {
         "op": {
           "const": "not",
@@ -115,6 +118,7 @@
     },
     "AuthoredOr": {
       "additionalProperties": false,
+      "description": "At least one of the arguments holds.",
       "properties": {
         "op": {
           "const": "or",
@@ -135,6 +139,7 @@
     },
     "AuthoredPhraseNode": {
       "additionalProperties": false,
+      "description": "A condition kept as text, not interpreted.",
       "properties": {
         "op": {
           "const": "phrase",
@@ -156,6 +161,7 @@
     },
     "AuthoredUnsupportedNode": {
       "additionalProperties": false,
+      "description": "A condition the schema cannot express, kept as text with the reason.",
       "properties": {
         "op": {
           "const": "unsupported",
@@ -194,6 +200,7 @@
     },
     "ClaimNode": {
       "additionalProperties": false,
+      "description": "Another claim of the batch holds (a premise reference).",
       "properties": {
         "op": {
           "const": "claim",
@@ -212,6 +219,7 @@
     },
     "CmpNode": {
       "additionalProperties": false,
+      "description": "Two formulas compare by a relation.",
       "properties": {
         "op": {
           "const": "cmp",
@@ -251,6 +259,7 @@
     },
     "Formula": {
       "additionalProperties": false,
+      "description": "A formula as written, with its symbol bindings (D1 §6.1).",
       "properties": {
         "t": {
           "const": "formula",
@@ -280,6 +289,7 @@
     },
     "MemberNode": {
       "additionalProperties": false,
+      "description": "A formula's value lies in a set.",
       "properties": {
         "op": {
           "const": "member",
@@ -311,6 +321,7 @@
     },
     "PredNode": {
       "additionalProperties": false,
+      "description": "A condition predicate of the schema (ConditionPredicate) holds of its arguments.",
       "properties": {
         "op": {
           "const": "pred",
@@ -355,6 +366,7 @@
     },
     "SetValue": {
       "additionalProperties": false,
+      "description": "A set written in LaTeX, such as \\R, (0, \\infty) or \\R \\setminus \\{0\\}.",
       "properties": {
         "t": {
           "const": "set",

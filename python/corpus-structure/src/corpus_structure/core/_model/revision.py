@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from typing import Final
 
 LABEL: Final = "0.3.0"
-CONTENT_HASH: Final = "aec8922d939eb67fccf1d7774ecba6977b69c13e76f03c9f6de956efb9919074"
+CONTENT_HASH: Final = "3c67a242141418f0a0988c3669f92b0afebf92d939e19170a5f2ca52ad5a2af7"
 KEY_SCHEME: Final = 1
 COMPILERS: Final[Mapping[str, str]] = {
     "corpus_structure.schema.generate": "1",

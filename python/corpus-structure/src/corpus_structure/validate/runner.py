@@ -123,6 +123,7 @@ class StoredOutcome:
     candidates: KeyedCandidateSet | None
     rules: RuleOutcome | None
     errors: Sequence[str] = field(default_factory=tuple)
+    batch: StoredBatch | None = None  # the accepted items, as stored (what a proposal records)
 
     @property
     def warnings(self) -> tuple[Finding, ...]:
@@ -149,7 +150,7 @@ def _refs(node: Any) -> set[str]:
     return out
 
 
-def _accepted(raw: dict[str, Any], report: BatchReport) -> tuple[dict[str, Any], list[Drop]]:
+def accepted_items(raw: dict[str, Any], report: BatchReport) -> tuple[dict[str, Any], list[Drop]]:
     """The batch without its rejected items and without the items that depend on one."""
     rejected = set(report.rejected_paths())
     drops: list[Drop] = []
@@ -211,7 +212,7 @@ def check_stored(
     )
     if not isinstance(raw, dict) or any(len(i.path) < 2 for i in report.issues):
         return StoredOutcome(report, (), None, None)  # the envelope itself is refused
-    accepted, drops = _accepted(raw, report)
+    accepted, drops = accepted_items(raw, report)
     try:
         batch = compiled.batches.validate(json.dumps(accepted), "stored")
     except ValidationError as error:  # never expected after the checks; reported, not raised
@@ -220,7 +221,9 @@ def check_stored(
         )
     candidates = candidates_from_batch(batch, compiled)
     views = build_views(candidates, compiled, "batch")
-    return StoredOutcome(report, tuple(drops), candidates, run_rules(views, compiled, "batch"))
+    return StoredOutcome(
+        report, tuple(drops), candidates, run_rules(views, compiled, "batch"), batch=batch
+    )
 
 
 # --- The method -------------------------------------------------------------------------------

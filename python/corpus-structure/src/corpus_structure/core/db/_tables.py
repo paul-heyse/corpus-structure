@@ -1329,7 +1329,7 @@ entity_identity = Table(
     Column("value_text", Text()),
     PrimaryKeyConstraint("entity_id", "slot"),
     ForeignKeyConstraint(["entity_id"], ["kb.entity.id"], ondelete="CASCADE"),
-    ForeignKeyConstraint(["value_entity_id"], ["kb.entity.id"]),
+    ForeignKeyConstraint(["value_entity_id"], ["kb.entity.id"], ondelete="CASCADE"),
     CheckConstraint(
         "(value_entity_id IS NULL) <> (value_text IS NULL)",
         name="ck_entity_identity_exactly_one_8a7bcd3e76",

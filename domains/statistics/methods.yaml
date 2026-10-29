@@ -1,6 +1,8 @@
 # The statistics pack's method configuration (D2 §12.1), phase 0 methods only.
-# Phase 1 configurations (llm.*, classify.segments, extract.gliner_*, resolve.concept_link,
-# consolidate.entities) and the M08 patterns and M22 cues join with their methods.
+# Only registered methods are configured (a configuration for an unregistered method is refused);
+# normalize.formula ({backend: lark}) joins when P0-I-2b registers M11. Phase 1 configurations
+# (llm.*, classify.segments, extract.gliner_*, resolve.concept_link, consolidate.entities) and the
+# M08 patterns and M22 cues join with their methods.
 version: 0.1.0
 
 math:
@@ -38,6 +40,12 @@ aliases:                                               # label normalization (D5
     - {match: '^(\w+) distributed$', replace: '\1'}    # "gamma distributed" → "gamma"
 
 configs:                                               # named configurations, referenced as <method>/<name>
+  consolidate.claims:                                  # aliases and math come from the sections above
+    default: {engine: duckdb, use_markup_hints: true}
+  validate.rules:                                      # the rule set is the run's compiled artifact
+    default: {}
+  evaluate.score:                                      # a stand-in until P0-E-2b
+    default: {}
   ingest.html:
     default: {source_profile: siegrist, sentences: segment.sentences/default}   # both resolved into the hash
   segment.sentences:
@@ -50,5 +58,3 @@ configs:                                               # named configurations, r
     adjudicate: {mode: adjudicate, packet_cap_chars: 9000, max_alternatives: 6}
     expectation: {mode: extract, role: expectation, examples: reference, hints: none, packet_cap_chars: 18000}
                                                        # golden-expectation runs (D7 §9); `role` keeps its digests apart from live tasks'
-  normalize.formula:
-    default: {backend: lark}

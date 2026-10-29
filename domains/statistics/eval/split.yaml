@@ -1,0 +1,17 @@
+# The statistics pack's page split and golden sampling values (D7 §3.1, D2 §2; evaluation
+# §3.1, §3.2), read by corpus_structure.evaluate.split.load_eval. Pages are relative to the
+# source profile's root.
+split:
+  seed: 0
+  reserved:                                          # the worked examples' pages (reference/E*): in no split; the
+    special/Weibull.html: worked examples E1-E3      # examples carry no citation frame to read them from
+  forced_dev:                                        # pages used to write or check guideline rules, with the reason
+    special/LocationScale.html: spike page (S0, S0-R2)
+    special/Normal.html: spike page (S0, S0-R2)
+    special/LogNormal.html: spike page (S0, S0-R2)
+    special/Gamma.html: spike page (S0, S0-R2)
+    special/Pareto.html: S0-R2 held-out page
+    special/ChiSquare.html: S0-R2 held-out page
+golden:
+  forced_slices: [trace, core12]                     # dev sets: the trace and core units, forced into the sample (P0CL-10)
+  sizes: {dev: 40, test: 40}

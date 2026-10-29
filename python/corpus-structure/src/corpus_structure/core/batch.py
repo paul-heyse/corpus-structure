@@ -21,417 +21,96 @@ them against a batch's items (RC19).
 
 `CoreQualifiers` keeps `modality` and `polarity` with defaults that dumps leave out (equal meaning,
 equal JSON) and that rule views see filled in; the other core qualifiers are absent by `MISSING`.
-The closed sets, the defaults, the core qualifier names and the span invariants come from the
-model (`vocab.py`, `_model/`; ADR-0020); the shape structure stays here until Stage B (P0-M-5).
-It accepts schema qualifiers as raw JSON; S1's per-predicate models subclass it with
-`extra="forbid"` and typed fields.
+The classes are generated from the model (`_model/shapes.py`, Stage B, P0-M-5; ADR-0020) with
+their closed sets, defaults, core qualifier names and invariants, and re-exported here beside the
+behaviour over them: the citation positions (`rewrite_citations`, `cited_sentences`). The
+citation frame is hand-written (`shape_support`). The qualifier sets accept schema qualifiers as
+raw JSON; S1's per-predicate models subclass them with `extra="forbid"` and typed fields.
 """
 
 from __future__ import annotations
 
 import functools
-import re
 import types
 import typing
-from collections.abc import Callable, Iterator
-from typing import Annotated, Any, Literal, Self
+from collections.abc import Callable
+from typing import Annotated, Any
 
-from pydantic import (
-    MISSING,
-    BaseModel,
-    ConfigDict,
-    Discriminator,
-    Field,
-    JsonValue,
-    RootModel,
-    Tag,
-    model_validator,
-)
+from pydantic import BaseModel
 
-from corpus_structure.core._model import names, validators
+from corpus_structure.core._model import names
 from corpus_structure.core._model.qualifiers import BY_NAME
-from corpus_structure.core.canonical import KEY_HEX_DIGITS
-from corpus_structure.core.values import (
+from corpus_structure.core._model.shapes import (
+    AlternativeItem,
+    AuthoredBatch,
+    AuthoredClaim,
+    AuthoredDescriptor,
+    AuthoredEntity,
+    AuthoredEvidence,
+    AuthoredOutside,
+    AuthoredQualifiers,
+    AuthoredStatement,
+    AuthoredStatementItem,
+    AuthoredUnsupported,
+    StoredBatch,
+    StoredClaim,
+    StoredDescriptor,
+    StoredEntity,
+    StoredEvidence,
+    StoredOutside,
+    StoredQualifiers,
+    StoredScope,
+    StoredStatement,
+    StoredStatementItem,
+    StoredUnsupported,
+    _statement_or_outside,
+)
+from corpus_structure.core._model.types import (
     CITATION,
     PREFIXED_NAME,
     SENTENCE_ID,
-    AuthoredCondition,
-    AuthoredObject,
-    AuthoredPhrase,
-    ClaimId,
-    CoreModel,
-    EntityRef,
-    IntervalValue,
-    Offset,
+    NonEmpty,
     PrefixedName,
-    SentenceId,
-    StatementId,
-    StoredCondition,
-    StoredObject,
-    StoredPhrase,
-    SubjectId,
-    refuse_m11_fields,
+    RenditionKey,
 )
-from corpus_structure.core.vocab import (
-    ClaimModality,
-    EntityExtent,
-    EntityScope,
-    Establishment,
-    EvidenceRole,
-    Polarity,
-    ScopeExtent,
-    StatementRole,
-)
+from corpus_structure.core.shape_support import CitationFrame, FrameEntry
+from corpus_structure.core.vocab import ClaimModality, Polarity
 
-LocalRef = Annotated[str, Field(min_length=1)]
-# A rendition by its `ren` key (D1 §10.1): the typed reference a stored batch and a keyed candidate
-# set carry (R04).
-RENDITION_KEY = rf"^ren:[0-9a-f]{{{KEY_HEX_DIGITS}}}$"
-RenditionKey = Annotated[str, Field(pattern=RENDITION_KEY)]
+__all__ = [
+    "CORE_PREFIX", "CORE_QUALIFIERS", "DEFAULT_MODALITY", "DEFAULT_POLARITY", "PREFIXED_NAME",
+    "SENTENCE_ID", "STORED_CORE_QUALIFIERS", "AlternativeItem", "AuthoredBatch", "AuthoredClaim",
+    "AuthoredDescriptor", "AuthoredEntity", "AuthoredEvidence", "AuthoredItem", "AuthoredOutside",
+    "AuthoredQualifiers", "AuthoredStatement", "AuthoredStatementItem", "AuthoredUnsupported",
+    "CitationFrame", "FrameEntry", "LocalRef", "PrefixedName", "RenditionKey", "StoredBatch",
+    "StoredClaim", "StoredDescriptor", "StoredEntity", "StoredEvidence", "StoredItem",
+    "StoredOutside", "StoredQualifiers", "StoredScope", "StoredStatement", "StoredStatementItem",
+    "StoredUnsupported", "_statement_or_outside", "cited_sentences", "rewrite_citations",
+]  # fmt: skip
 
+LocalRef = NonEmpty
 CORE_PREFIX = names.PREFIX
-_PREFIXED = re.compile(PREFIXED_NAME)
-
 DEFAULT_MODALITY: ClaimModality = BY_NAME[names.MODALITY].default
-# `ClaimModality` is schema-version-scoped: the generic shapes admit a pack's members (a local
-# name, or a prefixed one), and S1's per-version models and S2's checks refuse what the run's
-# schema version lacks; `ClaimModality` lists the core members.
-ModalityName = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*(:[a-z][a-z0-9_]*)?$")]
 DEFAULT_POLARITY: Polarity = BY_NAME[names.POLARITY].default
-
-
-def _is_default_modality(value: object) -> bool:
-    return value == DEFAULT_MODALITY
-
-
-def _is_default_polarity(value: object) -> bool:
-    return value == DEFAULT_POLARITY
-
-
-def _is_stated(value: object) -> bool:
-    return value == Establishment.STATED
-
-
-# --- Core qualifiers ---------------------------------------------------------------------------
-
-
-class _Qualifiers(CoreModel):
-    model_config = ConfigDict(frozen=True, extra="allow")
-    # schema qualifiers, raw JSON until S1 types them (Pydantic's typed-extras declaration)
-    __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
-
-    modality: ModalityName = Field(DEFAULT_MODALITY, exclude_if=_is_default_modality)
-    polarity: Polarity = Field(DEFAULT_POLARITY, exclude_if=_is_default_polarity)
-    attribution: EntityRef | MISSING = MISSING  # type: ignore[valid-type]
-    valid_time: IntervalValue | MISSING = MISSING  # type: ignore[valid-type]
-
-
-class StoredScope(CoreModel):
-    """The stored scope qualifier: the extent and the segment it resolves to on the rendition."""
-
-    extent: ScopeExtent
-    segment: str = Field(min_length=1)
-
-
-class AuthoredQualifiers(_Qualifiers):
-    hedge: AuthoredPhrase | MISSING = MISSING  # type: ignore[valid-type]
-    conditions: AuthoredCondition | MISSING = MISSING  # type: ignore[valid-type]
-    scope: ScopeExtent | MISSING = MISSING  # type: ignore[valid-type]
-
-
 CORE_QUALIFIERS = names.QUALIFIERS
 STORED_CORE_QUALIFIERS = names.STORED_QUALIFIERS
 
-
-def _core(name: str) -> str:
-    return f"{CORE_PREFIX}:{name}"
-
-
-class StoredQualifiers(CoreModel):
-    """The stored qualifiers: the core ones as `core:<name>`, schema qualifiers by prefixed name.
-
-    Attributes keep the local names (`q.modality`); validation and dumps use the prefixed ones."""
-
-    model_config = ConfigDict(
-        frozen=True,
-        extra="allow",
-        validate_by_alias=True,
-        validate_by_name=False,
-        serialize_by_alias=True,
-    )
-    # schema qualifiers, raw JSON until S1 types them (Pydantic's typed-extras declaration)
-    __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]
-
-    modality: ModalityName = Field(
-        DEFAULT_MODALITY, alias=_core("modality"), exclude_if=_is_default_modality
-    )
-    polarity: Polarity = Field(
-        DEFAULT_POLARITY, alias=_core("polarity"), exclude_if=_is_default_polarity
-    )
-    hedge: StoredPhrase | MISSING = Field(MISSING, alias=_core("hedge"))  # type: ignore[valid-type]
-    attribution: EntityRef | MISSING = Field(MISSING, alias=_core("attribution"))  # type: ignore[valid-type]
-    conditions: StoredCondition | MISSING = Field(MISSING, alias=_core("conditions"))  # type: ignore[valid-type]
-    scope: StoredScope | MISSING = Field(MISSING, alias=_core("scope"))  # type: ignore[valid-type]
-    valid_time: IntervalValue | MISSING = Field(MISSING, alias=_core("valid_time"))  # type: ignore[valid-type]
-
-    @model_validator(mode="after")
-    def _schema_qualifiers_prefixed(self) -> Self:
-        for name in self.__pydantic_extra__ or {}:
-            if not _PREFIXED.match(name):
-                raise ValueError(f"stored qualifier {name!r} is not a prefixed name")
-            if name.startswith(f"{CORE_PREFIX}:"):
-                raise ValueError(f"{name!r} is not a core qualifier")
-        return self
-
-
-# --- Evidence ----------------------------------------------------------------------------------
-
-
-class _Span(CoreModel):
-    start: Offset
-    end: Offset
-
-
-class AuthoredEvidence(CoreModel):
-    sentence: SentenceId
-    quote: str = Field(min_length=1)
-    role: EvidenceRole
-
-
-class StoredEvidence(_Span):
-    role: EvidenceRole
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
-
-    @model_validator(mode="after")
-    def _invariants(self) -> Self:
-        validators.evidence(self)
-        return self
-
-
-# --- Items -------------------------------------------------------------------------------------
-
-
-class _Entity(CoreModel):
-    local_ref: LocalRef
-    type: str
-    label: str
-    scope: EntityScope
-    extent: EntityExtent | MISSING = MISSING  # type: ignore[valid-type]
-    symbol: str | MISSING = MISSING  # type: ignore[valid-type]
-    aliases: tuple[str, ...] = ()
-    identity: dict[str, str] = Field(default_factory=dict)  # slot -> local ref or literal
-
-    @model_validator(mode="after")
-    def _only_local(self) -> Self:
-        validators.entity_item(self)  # extent, scope_segment: only on a local entity
-        return self
-
-
-class AuthoredEntity(_Entity):
-    pass
-
-
-class StoredEntity(_Entity):
-    type: PrefixedName  # type: ignore[assignment]
-    identity: dict[PrefixedName, str] = Field(default_factory=dict)  # type: ignore[assignment]
-    # absent on a local entity whose extent resolves to no segment (reported, never guessed)
-    scope_segment: str | MISSING = MISSING  # type: ignore[valid-type]
-
-
-class AuthoredStatement(CoreModel):
-    local_ref: LocalRef
-    kind: str
-    anchor: Literal["unit"] | Annotated[tuple[SentenceId, ...], Field(min_length=1)]
-
-
-class StoredStatement(CoreModel):
-    local_ref: LocalRef
-    kind: str
-    anchor: Annotated[tuple[str, ...], Field(min_length=1)]  # segment keys
-
-
-class AuthoredDescriptor(CoreModel):
-    """An authored external reference's citing text: the sentence and the quote that makes the
-    reference, and the author's link target when the text gives one (a D1 §3.4 locator or author
-    link target, as written)."""
-
-    sentence: SentenceId
-    quote: str = Field(min_length=1)
-    target: str | MISSING = Field(MISSING, min_length=1)  # type: ignore[valid-type]
-
-
-class StoredDescriptor(CoreModel):
-    """A stored external reference's citing text: the quote's located span (`coarse` when only its
-    sentence was located) and the link target."""
-
-    start: Offset
-    end: Offset
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
-    target: str | MISSING = Field(MISSING, min_length=1)  # type: ignore[valid-type]
-
-    @model_validator(mode="after")
-    def _invariants(self) -> Self:
-        validators.reference_descriptor(self)
-        return self
-
-
-class AuthoredOutside(CoreModel):
-    """A statement outside the unit (S4 V2): an `ExternalReference` node, with no kind."""
-
-    local_ref: LocalRef
-    anchor: Literal["outside"]
-    descriptor: AuthoredDescriptor
-
-
-class StoredOutside(CoreModel):
-    local_ref: LocalRef
-    anchor: Literal["outside"]
-    descriptor: StoredDescriptor
-
-
-def _statement_or_outside(raw: Any) -> str:
-    anchor = raw.get("anchor") if isinstance(raw, dict) else getattr(raw, "anchor", None)
-    return "outside" if anchor == "outside" else "statement"
-
-
-type AuthoredStatementItem = Annotated[
-    Annotated[AuthoredStatement, Tag("statement")] | Annotated[AuthoredOutside, Tag("outside")],
-    Discriminator(_statement_or_outside),
-]
-type StoredStatementItem = Annotated[
-    Annotated[StoredStatement, Tag("statement")] | Annotated[StoredOutside, Tag("outside")],
-    Discriminator(_statement_or_outside),
-]
-
-
-class _Claim(CoreModel):
-    local_ref: LocalRef
-    predicate: str
-    subject: SubjectId
-    statement: StatementId | MISSING = MISSING  # type: ignore[valid-type]
-    statement_role: StatementRole | MISSING = MISSING  # type: ignore[valid-type]
-    establishment: Establishment = Field(Establishment.STATED, exclude_if=_is_stated)
-    derived_from: Annotated[tuple[ClaimId, ...], Field(min_length=1)] | MISSING = MISSING  # type: ignore[valid-type]
-    rule: str | MISSING = Field(MISSING, min_length=1)  # type: ignore[valid-type]
-
-    @model_validator(mode="after")
-    def _derivation(self) -> Self:
-        validators.claim_item(self)  # derived_from and rule exactly when derived
-        return self
-
-
-class AuthoredClaim(_Claim):
-    object: AuthoredObject
-    qualifiers: AuthoredQualifiers = Field(default_factory=AuthoredQualifiers)
-    evidence: Annotated[tuple[AuthoredEvidence, ...], Field(min_length=1)]
-
-
-class StoredClaim(_Claim):
-    predicate: PrefixedName  # type: ignore[assignment]
-    object: StoredObject
-    qualifiers: StoredQualifiers = Field(default_factory=StoredQualifiers)
-    evidence: Annotated[tuple[StoredEvidence, ...], Field(min_length=1)]
-
-
-class AlternativeItem(CoreModel):
-    refs: Annotated[tuple[ClaimId, ...], Field(min_length=2)]
-    reason: str
-
-
-class AuthoredUnsupported(CoreModel):
-    local_ref: LocalRef
-    sentence: SentenceId
-    quote: str = Field(min_length=1)
-    reason: str
-
-
-class StoredUnsupported(_Span):
-    local_ref: LocalRef
-    reason: str
-    coarse: bool | MISSING = MISSING  # type: ignore[valid-type]
-
-    @model_validator(mode="after")
-    def _invariants(self) -> Self:
-        validators.unsupported_item(self)
-        return self
-
-
 # The item unions of each form: what a batch's item lists hold.
 type AuthoredItem = (
-    AuthoredEntity | AuthoredStatement | AuthoredOutside | AuthoredClaim | AlternativeItem
+    AuthoredEntity
+    | AuthoredStatement
+    | AuthoredOutside
+    | AuthoredClaim
+    | AlternativeItem
     | AuthoredUnsupported
 )
 type StoredItem = (
-    StoredEntity | StoredStatement | StoredOutside | StoredClaim | AlternativeItem
+    StoredEntity
+    | StoredStatement
+    | StoredOutside
+    | StoredClaim
+    | AlternativeItem
     | StoredUnsupported
 )
-
-
-# --- Envelopes ---------------------------------------------------------------------------------
-
-
-class _Batch(CoreModel):
-    unit_ref: str = Field(min_length=1)
-
-    def local_refs(self) -> Iterator[tuple[str, str]]:
-        """Each item's (kind, local ref), in batch order."""
-        for kind in ("entities", "statements", "claims", "unsupported"):
-            for item in getattr(self, kind):
-                yield kind, item.local_ref
-
-    @model_validator(mode="after")
-    def _well_formed(self) -> Self:
-        seen: dict[str, str] = {}
-        for kind, ref in self.local_refs():
-            if ref in seen:
-                raise ValueError(f"local ref {ref!r} is used by {seen[ref]} and {kind}")
-            seen[ref] = kind
-        m11 = refuse_m11_fields(self)
-        if m11:
-            raise ValueError(f"sympy and parse are set by M11 only, never in a batch: {m11}")
-        return self
-
-
-class AuthoredBatch(_Batch):
-    entities: tuple[AuthoredEntity, ...] = ()
-    statements: tuple[AuthoredStatementItem, ...] = ()
-    claims: tuple[AuthoredClaim, ...] = ()
-    alternatives: tuple[AlternativeItem, ...] = ()
-    unsupported: tuple[AuthoredUnsupported, ...] = ()
-
-
-class StoredBatch(_Batch):
-    rendition: RenditionKey
-    entities: tuple[StoredEntity, ...] = ()
-    statements: tuple[StoredStatementItem, ...] = ()
-    claims: tuple[StoredClaim, ...] = ()
-    alternatives: tuple[AlternativeItem, ...] = ()
-    unsupported: tuple[StoredUnsupported, ...] = ()
-
-
-# --- The citation frame ------------------------------------------------------------------------
-
-
-class FrameEntry(CoreModel):
-    """One cited sentence: its locator (D1 §3.4) and its canonical text."""
-
-    locator: str = Field(min_length=1)
-    text: str
-
-
-class CitationFrame(RootModel[dict[Annotated[str, Field(pattern=SENTENCE_ID)], FrameEntry]]):
-    """Maps each cited sentence id (`sN`, or `cN` of the standing context) to locator and text."""
-
-    model_config = ConfigDict(frozen=True, json_schema_extra={"additionalProperties": False})
-
-    def __getitem__(self, sentence: str) -> FrameEntry:
-        return self.root[sentence]
-
-    def __contains__(self, sentence: object) -> bool:
-        return sentence in self.root
-
-    def __iter__(self) -> Iterator[str]:  # type: ignore[override]
-        return iter(self.root)
 
 
 # --- Citation positions -----------------------------------------------------------------------

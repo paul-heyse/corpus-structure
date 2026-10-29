@@ -195,7 +195,11 @@ class DuckDBEngine:
         return self._run(_DISAGREEMENTS, DISAGREEMENTS, conform(meanings, MEANINGS))
 
     def views(
-        self, claims: pa.Table, entities: pa.Table, identity: pa.Table, alternatives: pa.Table,
+        self,
+        claims: pa.Table,
+        entities: pa.Table,
+        identity: pa.Table,
+        alternatives: pa.Table,
         specs: Sequence[ViewSpec],
     ) -> pa.Table:
         inputs = view_inputs(claims, entities, identity, alternatives, specs)

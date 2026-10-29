@@ -45,7 +45,12 @@ types:
   Json:
     typeof: string
     description: An opaque JSON document (jsonb) whose structure the model does not declare.
-    annotations: {ci:sql_type: jsonb}
+    annotations: {ci:sql_type: jsonb, ci:py_type: JsonValue}
+  Score:
+    typeof: Real
+    minimum_value: 0
+    maximum_value: 1
+    description: A score in [0, 1].
   TsConfig:
     typeof: string
     description: A text-search configuration name (regconfig).
@@ -86,6 +91,9 @@ subsets:
   author_markup_state:
     description: "Member property of ConfidenceState: a state of the author_markup source."
     annotations: {ci:consumer: "consolidation confidence states (D5 §6.2, §6.3); policy confidence block (D6 §7.1)"}
+  consolidation_drop:
+    description: "Member property of DropReason: a drop consolidation decides after keying, never keying or parse."
+    annotations: {ci:consumer: "consolidation's drops after keying (consolidate/assemble.py); keying's coverage test (tests/core/test_dispatch.py) covers the other members"}
 
 classes:
   # ---- nested classes of the JSONB columns (D3 §6) ----
@@ -103,14 +111,28 @@ classes:
       fresh: {multivalued: true, description: Methods whose tasks skip reuse.}
       configs: {range: Json, required: true, description: "The resolved configuration map, <method>/<name> to config hash (orchestration §3.2)."}
       method_configs: {range: Json, required: true, description: "Method to configuration name, for this run only."}
-  TaskCost:
-    description: A task's cost (ops.task.cost, D3 §6.3).
-    annotations: {ci:store: nested, ci:payload: task_cost}
+  InterventionRefs:
+    description: >-
+      `ops.intervention.refs`: the ids an intervention names, by what they reference (D3 §6.3). An
+      extract or adjudicate intervention names its observations (a claim_proposal or judgment); a
+      direction names nothing, its text being the body.
+    annotations: {ci:store: nested, ci:payload: intervention_refs}
     attributes:
-      wall_ms: {range: integer, required: true, description: Wall time in milliseconds; every task has one.}
-      gpu_ms: {range: integer, description: GPU time in milliseconds.}
-      tokens_in: {range: integer, description: Model input tokens.}
-      tokens_out: {range: integer, description: Model output tokens.}
+      observations: {range: Offset, multivalued: true, annotations: {ci:py_default: MISSING}, description: The observations it wrote (kb.observation ids).}
+      golden_pass: {range: Offset, description: The golden pass it wrote (eval.golden_pass id).}
+      schema_version: {range: Offset, description: The schema version it proposed (meta.schema_version id).}
+      guideline_version: {range: Offset, description: The guideline version it proposed (meta.guideline_version id).}
+      policy_version: {range: Offset, description: The policy version it proposed (ops.policy_version id).}
+      experiment: {range: Offset, description: The experiment it decided (ops.experiment id).}
+  TaskCost:
+    description: >-
+      `ops.task.cost`.
+    annotations: {ci:store: nested, ci:payload: task_cost, ci:py_name: Cost}
+    attributes:
+      wall_ms: {range: Offset, required: true, description: Wall time in milliseconds; every task has one.}
+      gpu_ms: {range: Offset, description: GPU time in milliseconds.}
+      tokens_in: {range: Offset, description: Model input tokens.}
+      tokens_out: {range: Offset, description: Model output tokens.}
       model: {description: The model that spent them.}
   TaskError:
     description: A failed task's detail, and an agent task's first rejected submission (D3 §4).
@@ -124,24 +146,28 @@ classes:
     attributes:
       values: {range: Json, description: Metric name to value., annotations: {ci:null: json}}
   PolicyAction:
-    description: A policy rule's action (ops.policy_rule.action, D3 §6.3).
+    description: >-
+      `ops.policy_rule.action`: a named configuration `<method>/<name>`, a limit, then.
     annotations: {ci:store: nested, ci:payload: policy_action}
     attributes:
-      method: {required: true, description: "A named configuration, <method>/<name>."}
-      limit: {range: integer, required: true, description: The most tasks the rule creates per iteration.}
+      method: {required: true, pattern: "^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$", description: "A named configuration, <method>/<name>."}
+      limit: {range: integer, minimum_value: 1, required: true, description: The most tasks the rule creates per iteration.}
       then: {range: PolicyThen, required: true, description: Whether the chain stops or continues.}
   InterventionTarget:
-    description: What an intervention acts on (ops.intervention.target, D3 §6.3).
+    description: >-
+      `ops.intervention.target`; a `promotion` targets the run it promotes. `ref` is the target's
+      key, or its id's decimal text for a target named by id (a run): the kind says which.
     annotations: {ci:store: nested, ci:payload: intervention_target}
     attributes:
       kind: {range: InterventionTargetKind, required: true, description: The target's kind.}
-      ref: {required: true, description: The target's key or id.}
+      ref: {range: NonEmpty, required: true, description: The target's key or id.}
   MentionRef:
-    description: A reference to a mention observation, within the task or in another task (D3 §6.3).
+    description: >-
+      A mention by its task and ordinal; the task is absent inside the same task.
     annotations: {ci:store: nested}
     attributes:
       task: {range: Id, description: The task holding it; absent for the same task.}
-      ordinal: {range: integer, required: true, description: Its ordinal in that task.}
+      ordinal: {range: Offset, required: true, description: Its ordinal in that task.}
   ClaimQualifiers:
     description: >-
       kb.claim.qualifiers: the core qualifiers stored nested (hedge, conditions, scope, valid_time)
@@ -171,7 +197,7 @@ classes:
       macros: {range: Json, description: Macro name to definition., annotations: {ci:null: json}}
   FrameEntries:
     description: A citation frame (D1 §10.3), each sentence id to its locator and canonical text.
-    annotations: {ci:store: nested, ci:payload: citation_frame}
+    annotations: {ci:store: nested, ci:payload: citation_frame, ci:py_type: CitationFrame}
     attributes:
       entries: {range: FrameEntry, multivalued: true, inlined: true, description: The cited sentences.}
   FrameEntry:
@@ -183,12 +209,11 @@ classes:
       text: {required: true, description: Its canonical text.}
   GoldenBatchPayload:
     description: >-
-      A golden pass's authored batch with one version of its citation frame (eval.golden_pass.batch
-      and eval.citation_frame.frame, D3 §7): the schema the pass's payload_schema_id names for
-      both, so a reader dispatches on the recorded schema and refuses an unknown one (DA-009).
+      A golden pass's authored batch with one version of its citation frame (`eval.golden_pass` and
+      `eval.citation_frame`, D3 §7): the shape the pass's `payload_schema_id` names for both.
     annotations: {ci:store: nested, ci:payload: golden_batch}
     attributes:
-      batch: {range: Batch, required: true, description: "The model-facing batch as authored (pass c: as adjudicated)."}
+      batch: {range: Batch, required: true, annotations: {ci:py_type: AuthoredBatch}, description: "The model-facing batch as authored (pass c: as adjudicated)."}
       citation_frame: {range: FrameEntries, required: true, description: One version of the pass's citation frame.}
 
   # ---- observation payloads (D3 §6.2), one class per kind ----
@@ -197,14 +222,14 @@ classes:
     description: A payload span in the rendition's canonical text.
     annotations: {ci:store: nested, ci:invariant: "ordered(start, end)"}
     attributes:
-      start: {range: integer, required: true, description: Start offset.}
-      end: {range: integer, required: true, description: End offset.}
+      start: {range: Offset, required: true, description: Start offset.}
+      end: {range: Offset, required: true, description: End offset.}
   LabelScore:
     description: A label with its score.
     annotations: {ci:store: nested}
     attributes:
       label: {required: true, description: The label.}
-      score: {range: Real, required: true, description: "The score in [0, 1]."}
+      score: {range: Score, required: true, description: "The score in [0, 1]."}
   GroupScore:
     is_a: LabelScore
     description: >-
@@ -214,12 +239,13 @@ classes:
     attributes:
       group: {identifier: true, description: The attribute group.}
   SynthesizedClaim:
-    description: The claim a block's containment states (the source profile's synthesize).
+    description: >-
+      The claim a block's containment states (the source profile's `details_kinds.synthesize`).
     annotations: {ci:store: nested}
     attributes:
-      predicate: {required: true, description: The prefixed predicate.}
-      object: {range: Value, required: true, description: The object.}
-      evidence: {range: Evidence, multivalued: true, required: true, inlined_as_list: true, description: The evidence.}
+      predicate: {range: PrefixedName, required: true, description: The prefixed predicate.}
+      object: {any_of: [{range: Entity}, {range: Value}], required: true, description: The object., annotations: {ci:py_name: Object}}
+      evidence: {range: Evidence, multivalued: true, required: true, minimum_cardinality: 1, inlined_as_list: true, description: The evidence.}
   AuthorMarkupPayload:
     description: Author markup on a segment (M01).
     annotations: {ci:store: nested, ci:payload: author_markup}
@@ -235,9 +261,9 @@ classes:
     attributes:
       label: {required: true, description: The class label.}
       text: {required: true, description: The mention text.}
-      attributes: {range: GroupScore, multivalued: true, inlined: true, description: Each attribute group to the label it chose and its score.}
-      math_ref: {range: Key, description: "The segment key of the math span a mention lies in (D4 M06, M09)."}
-      math: {range: Json, description: M09's decoration of a symbol occurrence., annotations: {ci:null: json}}
+      attributes: {range: GroupScore, multivalued: true, inlined: true, annotations: {ci:py_type: "dict[str, LabelScore]", ci:py_default: MISSING}, description: Each attribute group to the label it chose and its score.}
+      math_ref: {range: SegmentKey, description: "The segment key of the math span a mention lies in (D4 M06, M09)."}
+      math: {range: Json, description: M09's decoration of a symbol occurrence., annotations: {ci:null: json, ci:py_type: "dict[str, JsonValue]"}}
   LabelledSpan:
     is_a: SpanPayload
     description: A labelled span of a relation.
@@ -259,13 +285,13 @@ classes:
     annotations: {ci:store: nested}
     attributes:
       text: {required: true, description: The field text.}
-      score: {range: Real, required: true, description: The score.}
+      score: {range: Score, required: true, description: The score.}
   RecordPayload:
     description: A record structure.
     annotations: {ci:store: nested, ci:payload: record}
     attributes:
       structure: {required: true, description: The structure name.}
-      fields: {range: Json, required: true, description: Field name to its spans., annotations: {ci:null: json}}
+      fields: {range: Json, required: true, description: Field name to its spans., annotations: {ci:null: json, ci:py_type: "dict[str, tuple[RecordField, ...]]"}}
       anchor: {range: Json, description: The record's anchor., annotations: {ci:null: json}}
   AttributePayload:
     description: An attribute of a mention.
@@ -291,7 +317,8 @@ classes:
       math_kind: {range: MathKind, description: The typed start symbol that read the span.}
   MentionAt:
     is_a: SpanPayload
-    description: A mention reference with the mention's offsets.
+    description: >-
+      A mention ref with the mention's offsets, so a reused task's refs match by offsets.
     annotations: {ci:store: nested}
     attributes:
       mention_ref: {range: MentionRef, required: true, description: The mention.}
@@ -302,7 +329,7 @@ classes:
     attributes:
       mention_ref: {range: MentionRef, required: true, description: The mention.}
       binding_site: {range: MentionAt, required: true, description: The binding site.}
-      scope_segment: {required: true, description: The scope segment's key.}
+      scope_segment: {range: NonEmpty, required: true, description: The scope segment's key.}
       extent: {range: ScopeExtent, required: true, description: The extent.}
       binding: {range: BindKind, description: The binding kind.}
       reopens: {range: MentionAt, description: The site it reopens.}
@@ -313,15 +340,17 @@ classes:
       type: {required: true, description: The entity class.}
       label: {required: true, description: The label.}
   LinkPayload:
-    description: An entity-link candidate (M14, M15).
+    description: >-
+      An entity-link candidate: the mention (M14) or the pair (M15), and the candidate entity's key
+      or the new entity it proposes, exactly one of each.
     annotations: {ci:store: nested, ci:payload: link, ci:invariant: "exactly_one(mention_ref, pair); exactly_one(candidate, new)"}
     attributes:
       mention_ref: {range: MentionRef, description: The mention (M14).}
-      pair: {multivalued: true, description: The pair (M15).}
-      candidate: {description: The candidate entity's key.}
+      pair: {multivalued: true, minimum_cardinality: 2, maximum_cardinality: 2, annotations: {ci:py_default: MISSING}, description: The pair (M15).}
+      candidate: {range: NonEmpty, description: The candidate entity's key.}
       new: {range: NewEntity, description: The new entity the link proposes instead.}
-      score: {range: Real, required: true, description: The score.}
-      features: {range: Json, required: true, description: The features., annotations: {ci:null: json}}
+      score: {range: Score, required: true, description: The score.}
+      features: {range: Json, required: true, description: The features., annotations: {ci:null: json, ci:py_type: "dict[str, JsonValue]"}}
       rank: {range: integer, description: The rank.}
   RejectedItem:
     description: An item a submission rejected.
@@ -331,33 +360,34 @@ classes:
       reason: {required: true, description: Why.}
   ClaimProposalPayload:
     description: >-
-      A stored batch with its derivation: for authored proposals also the batch as written, its
-      frame and the quote cascade that located it; always the schema version that derived it (R06,
-      DA-009). Each claim carries its own establishment, derived_from and rule.
+      A stored batch with its derivation (R06, DA-009): the schema version whose compiled models
+      derived it, always; for authored proposals also the batch as written, its frame and the
+      version of the quote cascade that located it, the three together. A derived claim's
+      `derived_from` and `rule` are on the claim itself (M23).
     annotations:
       ci:store: nested
       ci:payload: claim_proposal
       ci:invariant: "together(authored, citation_frame, cascade_version)"
     attributes:
       batch: {range: Batch, required: true, description: The stored batch.}
-      authored: {range: Batch, description: The batch as authored.}
-      citation_frame: {range: FrameEntries, description: Its citation frame.}
-      rationale: {description: The rationale.}
-      rejected: {range: RejectedItem, multivalued: true, inlined_as_list: true, description: Rejected items.}
       schema_version:
         required: true
         pattern: "^[0-9a-f]{64}$"
         description: The schema-version hash (D2 §2) whose compiled models derived the stored batch.
-      cascade_version: {description: "The quote cascade's version that located an authored batch (D4 §4.3)."}
+      authored: {range: Batch, description: The batch as authored., annotations: {ci:py_type: AuthoredBatch}}
+      citation_frame: {range: FrameEntries, description: Its citation frame.}
+      cascade_version: {range: NonEmpty, description: "The quote cascade's version that located an authored batch (D4 §4.3)."}
+      rationale: {description: The rationale.}
+      rejected: {range: RejectedItem, multivalued: true, inlined_as_list: true, description: Rejected items., annotations: {ci:py_default: MISSING}}
   JudgmentTarget:
     description: >-
-      What a judgment is about: an observation by id, or a claim or group by key, with the key
-      scheme of that key (foundations §3.6: readers compare keys only within one scheme, or through
-      a carry-over map).
+      What a judgment is about: an observation by its id's decimal text, or a claim or group by its
+      key with that key's scheme (readers compare keys only within one scheme or through a
+      carry-over map; foundations §3.6).
     annotations: {ci:store: nested, ci:invariant: "iff_absent(key_scheme, kind = observation)"}
     attributes:
       kind: {range: JudgmentTargetKind, required: true, description: The target's kind.}
-      ref: {required: true, description: "The target's key, or an observation's id as decimal text."}
+      ref: {range: NonEmpty, required: true, description: "The target's key, or an observation's id as decimal text."}
       key_scheme: {range: integer, minimum_value: 1, description: The key scheme of a key-named target.}
   JudgmentPayload:
     description: A decision under a guideline version.
@@ -367,7 +397,7 @@ classes:
       decision: {range: JudgmentDecision, required: true, description: The decision.}
       rationale: {required: true, description: The rationale.}
       guideline_version: {required: true, description: The guideline version.}
-      chosen: {multivalued: true, description: The chosen members of a choose decision.}
+      chosen: {multivalued: true, annotations: {ci:py_default: MISSING}, description: The chosen members of a choose decision.}
       faithful: {range: boolean, description: Faithful to the source.}
       confidence: {range: JudgmentConfidence, description: The judge's confidence.}
   VerificationDetail:
@@ -381,18 +411,19 @@ classes:
     description: A verifier's verdict on a claim.
     annotations: {ci:store: nested, ci:payload: verification}
     attributes:
-      claim_key: {range: Key, required: true, description: The claim's key.}
+      claim_key: {required: true, description: The claim's key.}
       verifier: {required: true, description: The verifier.}
       verdict: {range: VerificationVerdict, required: true, description: The verdict.}
-      detail: {range: Json, description: The detail., annotations: {ci:null: json}}
+      detail: {range: Json, description: The detail., annotations: {ci:null: json, ci:py_type: "VerificationDetail | dict[str, JsonValue]"}}
       counterexample: {range: Json, description: A counterexample., annotations: {ci:null: json}}
 
   # ---- a build's diagnostics (kb.rendition_build.parse_detail; D4 M01) ----
   ParseDetail:
     description: >-
-      An ingest build's diagnostics (D4 M01; D1 §3.2), kept on kb.rendition_build and never on
-      segments, so they are outside the rendition's content digest.
-    annotations: {ci:store: nested, ci:payload: parse_detail}
+      An ingest build's diagnostics, never part of the rendition's content (D4 M01; D1 §3.2): kept
+      on `kb.rendition_build`, never on segments, so they are outside the rendition's content
+      digest.
+    annotations: {ci:store: nested, ci:payload: parse_detail, ci:mixin: core.shape_support:ParseDetailMethods}
     attributes:
       encoding: {description: The encoding html5lib detected.}
       parser_errors: {range: ParserError, multivalued: true, inlined_as_list: true, description: The parser's errors with their positions.}
@@ -418,9 +449,10 @@ classes:
     attributes:
       tag: {required: true, description: The element's tag.}
       classes: {multivalued: true, description: The element's classes.}
-      roles: {multivalued: true, required: true, description: The roles that claim it.}
+      roles: {multivalued: true, required: true, minimum_cardinality: 1, description: The roles that claim it.}
   ExcludedElement:
-    description: An element a profile exclusion rule removed (D4 M01).
+    description: >-
+      An element a profile exclusion rule removed (excluded text is recorded per rule).
     annotations: {ci:store: nested}
     attributes:
       rule: {required: true, description: The exclusion rule's name.}
@@ -428,14 +460,16 @@ classes:
       classes: {multivalued: true, description: The element's classes.}
       chars: {range: integer, required: true, description: The characters of its collapsed text.}
   MathAnomaly:
-    description: A delimiting anomaly outside any math span (D1 §3.1).
+    description: >-
+      A delimiting anomaly outside any math span (a stray closer).
     annotations: {ci:store: nested}
     attributes:
       kind: {required: true, description: "The anomaly: stray closer."}
       delimiter: {required: true, description: The delimiter.}
       context: {required: true, description: The text around it.}
   OrphanRun:
-    description: Text placed directly in a container, kept as an orphan paragraph (D1 §3.2).
+    description: >-
+      Text placed directly in a container, kept as an orphan paragraph.
     annotations: {ci:store: nested}
     attributes:
       container: {range: SegmentKind, required: true, description: The container's segment kind.}
@@ -451,96 +485,107 @@ classes:
   # ---- the source profile (RC12; D2 §12.1), typed against core vocabulary ----
   SourceProfile:
     description: >-
-      A source's HTML conventions and its place in the corpus (sources/<profile>.yaml; D2 §12.1,
-      D4 M01). Validated by ingest's profile model, kept equal to this class by the interim guard
-      once that model exists (P0-I-1a).
-    annotations: {ci:store: nested}
+      A source's HTML conventions and its place in the corpus (`sources/<profile>.yaml`; D2 §12.1,
+      D4 M01).
+    annotations:
+      ci:store: nested
+      ci:validator: ingest.profile_support:consistent
+      ci:mixin: ingest.profile_support:SourceProfileMethods
     attributes:
-      version: {required: true, description: The profile's version.}
-      root: {required: true, description: The source's directory under the corpus root.}
-      index: {range: CorpusIndex, description: The corpus index that ci project init reads.}
+      version: {range: NonEmpty, required: true, description: The profile's version.}
+      root: {range: NonEmpty, required: true, description: The source's directory under the corpus root., annotations: {ci:validator: ingest.profile_support:relative_root}}
+      index: {range: CorpusIndex, annotations: {ci:py_default: None}, description: The corpus index that ci project init reads.}
       language: {range: TsConfig, ifabsent: string(english), description: The segments' text-search configuration.}
-      applies_to: {required: true, description: The glob of the source's pages.}
-      encoding: {ifabsent: string(sniff), description: "sniff (WHATWG sniffing on the original bytes) or an explicit encoding label; a label is not implemented yet."}
-      exclude: {range: ExcludeRule, multivalued: true, inlined: true, description: "CSS selectors whose text is excluded, by rule name."}
-      title: {description: The title selector.}
-      sections: {multivalued: true, description: "Heading selectors that open sections, by level."}
+      applies_to: {range: NonEmpty, required: true, description: The glob of the source's pages.}
+      encoding: {range: NonEmpty, ifabsent: string(sniff), description: "sniff (WHATWG sniffing on the original bytes) or an explicit encoding label; a label is not implemented yet."}
+      exclude: {range: ExcludeRule, multivalued: true, inlined: true, annotations: {ci:py_default: '(ExcludeRule(name="scripts", selector="script, noscript"),)'}, description: "CSS selectors whose text is excluded, by rule name."}
+      title: {range: NonEmpty, ifabsent: string(h1), description: The title selector.}
+      sections: {range: NonEmpty, multivalued: true, annotations: {ci:py_default: '("h1", "h2", "h3", "h4", "h5", "h6")'}, description: "Heading selectors that open sections, by level."}
       section_source: {range: SectionSource, ifabsent: string(body), description: Where section headings come from; layout is not implemented yet.}
-      unit: {description: The annotation unit selector.}
-      layout: {multivalued: true, description: Selectors of tables used for layout (read as blocks); not implemented yet.}
+      unit: {range: NonEmpty, description: The annotation unit selector., annotations: {ci:py_default: None}}
+      layout: {range: NonEmpty, multivalued: true, description: Selectors of tables used for layout (read as blocks); not implemented yet.}
       block_hints: {range: BlockHint, multivalued: true, inlined: true, description: Statement-kind hints by block selector.}
       section_hints: {range: SectionHint, multivalued: true, inlined: true, description: Statement kinds of units under section titles.}
-      details_kinds: {range: DetailsKinds, description: Statement kinds of details blocks.}
+      details_kinds: {range: DetailsKinds, annotations: {ci:py_default: DetailsKinds(default=StatementKind.PROOF)}, description: Statement kinds of details blocks.}
       math: {range: MathSpec, description: Math delimiters and the page macro selector.}
-      references: {range: ReferenceSpec, description: Reference selectors and their rendering.}
+      references: {range: ReferenceSpec, annotations: {ci:py_default: None}, description: Reference selectors and their rendering.}
       render: {range: RenderSpec, description: Rendering rules.}
-      verbatim: {multivalued: true, description: Selectors whose whitespace is kept; not implemented yet.}
-      img_alt: {range: boolean, description: "Whether img[alt] text is rendered as text; true is not implemented yet."}
-      orphan_text: {range: SegmentKind, description: The kind of segment orphan text becomes.}
+      verbatim: {range: NonEmpty, multivalued: true, description: Selectors whose whitespace is kept; not implemented yet.}
+      img_alt: {range: boolean, annotations: {ci:py_default: None}, description: "Whether img[alt] text is rendered as text; true is not implemented yet."}
+      orphan_text: {range: SegmentKind, ifabsent: string(paragraph), description: The kind of segment orphan text becomes.}
   CorpusIndex:
     description: The corpus index of a source profile.
     annotations: {ci:store: nested}
     attributes:
-      file: {required: true, description: "The index file, relative to the corpus root."}
-      page: {required: true, description: The column holding the page.}
-      first_pass: {description: The column marking first-pass pages.}
+      file: {range: NonEmpty, required: true, description: "The index file, relative to the corpus root."}
+      page: {range: NonEmpty, required: true, description: The column holding the page.}
+      first_pass: {description: The column marking first-pass pages., annotations: {ci:py_default: None}}
   BlockHint:
     description: A statement-kind hint for blocks of one selector.
     annotations: {ci:store: nested}
     attributes:
-      selector: {identifier: true, description: The block selector.}
-      statement_kind: {range: StatementKind, required: true, description: The statement kind.}
-      claim_bearing: {range: boolean, description: "Whether such units state claims, overriding the kind."}
+      selector: {range: NonEmpty, identifier: true, description: The block selector.}
+      statement_kind: {range: StatementKind, required: true, description: The statement kind., annotations: {ci:py_type: "StatementKind | str", ci:validator: before ingest.profile_support:statement_kind}}
+      claim_bearing: {range: boolean, annotations: {ci:py_default: None}, description: "Whether such units state claims, overriding the kind."}
   SectionHint:
     description: The statement kind of units under a section title.
     annotations: {ci:store: nested}
     attributes:
-      title: {identifier: true, description: The section title.}
-      statement_kind: {range: StatementKind, required: true, description: The statement kind.}
+      title: {range: NonEmpty, identifier: true, description: The section title.}
+      statement_kind: {range: StatementKind, required: true, description: The statement kind., annotations: {ci:py_type: "StatementKind | str", ci:validator: before ingest.profile_support:statement_kind}}
   DetailsKinds:
     description: How details blocks become statements, and the claims their containment states.
-    annotations: {ci:store: nested}
+    annotations:
+      ci:store: nested
+      ci:validator: ingest.profile_support:one_entry_per_key
+      ci:mixin: ingest.profile_support:DetailsKindsMethods
     attributes:
-      default: {range: StatementKind, required: true, description: The default kind.}
-      inside_example_or_exercise: {range: StatementKind, description: The kind inside an example or exercise.}
+      default: {range: StatementKind, required: true, description: The default kind., annotations: {ci:py_type: "StatementKind | str", ci:validator: before ingest.profile_support:statement_kind}}
+      inside_example_or_exercise: {range: StatementKind, description: The kind inside an example or exercise., annotations: {ci:py_type: "StatementKind | str", ci:validator: before ingest.profile_support:statement_kind, ci:py_default: None}}
       by_summary: {range: SummaryKind, multivalued: true, inlined: true, description: Statement kinds by summary text.}
       synthesize: {range: SynthesisRule, multivalued: true, inlined: true, description: "Claims the containment states, by statement kind."}
   SynthesisRule:
     description: The claim a block's containment states (D5 §3.5).
     annotations: {ci:store: nested}
     attributes:
-      statement_kind: {identifier: true, range: StatementKind, description: The block's statement kind.}
-      predicate: {required: true, description: The prefixed predicate.}
+      statement_kind: {identifier: true, range: StatementKind, description: The block's statement kind., annotations: {ci:py_type: "StatementKind | str", ci:validator: before ingest.profile_support:statement_kind}}
+      predicate: {required: true, description: The prefixed predicate., annotations: {ci:validator: before ingest.profile_support:predicate}}
       object: {range: SynthesisObject, required: true, description: What the object is.}
       evidence: {range: SynthesisEvidence, required: true, description: What the evidence is.}
   SummaryKind:
     description: The statement kind of details blocks with one summary text.
     annotations: {ci:store: nested}
     attributes:
-      summary: {identifier: true, description: The summary text.}
-      statement_kind: {range: StatementKind, required: true, description: The statement kind.}
+      summary: {range: NonEmpty, identifier: true, description: The summary text.}
+      statement_kind: {range: StatementKind, required: true, description: The statement kind., annotations: {ci:py_type: "StatementKind | str", ci:validator: before ingest.profile_support:statement_kind}}
   ExcludeRule:
     description: A named exclusion rule; excluded text is recorded per rule (D4 M01).
     annotations: {ci:store: nested}
     attributes:
-      name: {identifier: true, description: The rule's name.}
-      selector: {required: true, description: The CSS selector.}
+      name: {range: NonEmpty, identifier: true, description: The rule's name.}
+      selector: {range: NonEmpty, required: true, description: The CSS selector.}
   MathSpec:
-    description: Math delimiters, bare display environments and the page macro source (D4 M01).
-    annotations: {ci:store: nested}
+    description: >-
+      Math delimiters, bare display environments and the page macro source (D4 M01 `math`).
+    annotations:
+      ci:store: nested
+      ci:validator: ingest.profile_support:delimiters
+      ci:mixin: ingest.profile_support:MathSpecMethods
     attributes:
-      inline: {multivalued: true, minimum_cardinality: 2, maximum_cardinality: 2, description: "The inline opener and closer."}
-      display: {multivalued: true, minimum_cardinality: 2, maximum_cardinality: 2, description: "The display opener and closer."}
+      inline: {multivalued: true, minimum_cardinality: 2, maximum_cardinality: 2, description: "The inline opener and closer.", annotations: {ci:py_type: "tuple[str, str] | None", ci:py_default: '("\\(", "\\)")'}}
+      display: {multivalued: true, minimum_cardinality: 2, maximum_cardinality: 2, description: "The display opener and closer.", annotations: {ci:py_type: "tuple[str, str] | None", ci:py_default: '("\\[", "\\]")'}}
       display_environments: {multivalued: true, description: Environments that are display math when bare.}
-      page_macros: {description: The selector of the page's macro source.}
+      page_macros: {range: NonEmpty, description: The selector of the page's macro source., annotations: {ci:py_default: None}}
   ReferenceSpec:
-    description: In-text reference links and their rendering (D1 §3.1).
+    description: >-
+      In-text reference links and their rendering (D1 §3.1; D4 M01 `references`).
     annotations: {ci:store: nested}
     attributes:
-      selector: {required: true, description: The reference link selector.}
+      selector: {range: NonEmpty, required: true, description: The reference link selector.}
       render: {range: ReferenceRender, ifabsent: string(browser), description: How an empty reference renders.}
   RenderSpec:
-    description: Rendering conventions for script- or style-produced text (D1 §3.1).
+    description: >-
+      Rendering conventions for script- or style-produced text (D4 M01 `render`).
     annotations: {ci:store: nested}
     attributes:
       q: {range: QuoteRender, ifabsent: string(bare), description: How q content renders.}
@@ -551,7 +596,7 @@ classes:
     description: The item markers of the lists one selector matches.
     annotations: {ci:store: nested}
     attributes:
-      selector: {identifier: true, description: The list selector.}
+      selector: {range: NonEmpty, identifier: true, description: The list selector.}
       style: {range: ListMarkerStyle, required: true, description: The marker style.}
 
   # ---- embeddings and the unit-feature vocabulary ----
@@ -2248,6 +2293,8 @@ classes:
       value_entity:
         range: KbEntity
         description: The value entity id.
+        annotations:
+          ci:on_delete: cascade
       value_text:
         description: canonical form under the slot's case policy
   Measurement:
@@ -3107,6 +3154,29 @@ enums:
       malformed_value: {description: "a value with no canonical JSON form (a lone surrogate, keys equal after NFC)"}
       unlocated_quote: {description: "parse (A0): a quote the cascade did not locate and whose cited sentence is not on the rendition, so it has no span; or a claim left without a placed evidence quote or phrase"}
       unresolved_extent: {description: "parse (A0): a scope qualifier's or local entity's extent that resolves to no segment on the rendition"}
+      orphaned_premise: {description: "consolidation: a supposed claim whose claims referencing it as a premise were all dropped (INV-06)", in_subset: [consolidation_drop]}
+      malformed_evidence: {description: "consolidation: a stated claim with no primary evidence (INV-01)", in_subset: [consolidation_drop]}
+  PassOutcome:
+    description: "What a consolidation pass counts beside its drops (`consolidate/report.py`, consolidation §3.7); the PassReport counts by it."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      unreadable_proposal: {description: "a claim_proposal with no stored form on the run's rendition of its document; its items are not read"}
+      linked: {description: "a global entity that took the key of the one reference-run entity whose alias matches its normalized label"}
+      link_ambiguous: {description: "a global entity whose normalized label matches aliases of several reference-run entities; it keeps its own key"}
+      rederived: {description: "a proposal located again on the run's rendition by parse (A0) from its authored batch and frame"}
+      coarse_evidence: {description: "a claim candidate with a coarse evidence span"}
+      reference_resolved: {description: "an ExternalReference whose link target anchors a statement of the run"}
+      reference_unresolved: {description: "an ExternalReference left unresolved, counted by its ReferenceRefusal"}
+      unhinted_statement_kind: {description: "a statement with no markup hint and no proposal kind, written as remark"}
+  ReferenceRefusal:
+    description: "Why consolidation left an ExternalReference unresolved (consolidation §3.3, RC11)."
+    annotations: {ci:lifecycle: static}
+    permissible_values:
+      no_target: {description: "the descriptor has no author link target"}
+      locator_syntax: {description: "the link target does not read as a locator"}
+      other_page: {description: "the target page is not one of the run's renditions"}
+      locator_refused: {description: "the locator selects no segment of the target page"}
+      no_statement: {description: "the segment it names anchors no statement of the run"}
   FrameFailureReason:
     description: "Why a citation-frame entry did not resolve or re-address (`core/frame.py`, D1 §10.3)."
     annotations: {ci:lifecycle: static}

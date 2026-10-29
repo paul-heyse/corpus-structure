@@ -272,7 +272,7 @@ def candidates(ctx: KeyContext, **claim: Any) -> KeyedCandidateSet:
             "evidence": [{"start": 0, "end": 5, "role": "primary"}]}  # fmt: skip
     claims = claim.pop("claims", [{"id": "c1", **base, "qualifiers": claim.pop("qualifiers", {})}])
     return KeyedCandidateSet.model_validate({
-        "rendition": ctx.rendition_key,
+        "renditions": [ctx.rendition_key],
         "entities": [
             {"id": "X", "type": "stat:RandomVariable", "label": "X", "scope": "local",
              "scope_segment": seg_key(ctx, unit), "symbol": "X"},
@@ -481,8 +481,7 @@ def entity_keys(entities: list[dict], schema: KeySchema = SCHEMA) -> dict[str, s
     for e in entities:
         if e.get("scope") == "local":
             e.setdefault("scope_segment", seg_key(ctx, unit))
-    cands = KeyedCandidateSet.model_validate({"rendition": ctx.rendition_key,
-                                              "entities": entities})
+    cands = KeyedCandidateSet.model_validate({"renditions": [ctx.rendition_key], "entities": entities})
     return key_claims(cands, ctx, schema, RULES).entities
 
 
@@ -548,8 +547,10 @@ def statement_keys(content: RenditionContent) -> dict[str, str]:
         for i, s in enumerate(sentences_of(content))
     ]
     return key_claims(
-        KeyedCandidateSet(rendition=ctx.rendition_key, statements=tuple(statements)), ctx,
-        SCHEMA, RULES,
+        KeyedCandidateSet(renditions=(ctx.rendition_key,), statements=tuple(statements)),
+        ctx,
+        SCHEMA,
+        RULES,
     ).statements
 
 
@@ -612,7 +613,7 @@ def t3(content: RenditionContent) -> tuple[KeyContext, KeyedCandidateSet]:
     in_r0 = member("b", "\\R \\setminus \\{0\\}")
     ev = [{"start": paragraph.start, "end": paragraph.end, "role": "primary"}]
     return ctx, KeyedCandidateSet.model_validate({
-        "rendition": ctx.rendition_key,
+        "renditions": [ctx.rendition_key],
         "entities": [
             {"id": "X", "type": "stat:RandomVariable", "label": "X", "symbol": "X",
              "scope": "local",
@@ -829,7 +830,7 @@ def test_a_statement_outside_every_unit_anchors_on_its_top_level_block() -> None
         ctx = context(content)
         st = CandidateStatement(id="s", kind="theorem", anchor=(seg_key(ctx, sentence),))
         anchor, ordinal = statement_anchor(st, ctx)
-        cands = KeyedCandidateSet(rendition=ctx.rendition_key, statements=(st,))
+        cands = KeyedCandidateSet(renditions=(ctx.rendition_key,), statements=(st,))
         keys = key_claims(cands, ctx, SCHEMA, RULES)
         return anchor, ordinal, keys.statements["s"]
 

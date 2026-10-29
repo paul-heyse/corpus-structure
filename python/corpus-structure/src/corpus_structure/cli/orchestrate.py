@@ -39,6 +39,7 @@ ENGINE: Callable[..., Any] = _open_engine
 
 
 def _phase0() -> dict[str, Any]:
+    from corpus_structure.consolidate import run_pass
     from corpus_structure.orchestrate import phase0
     from corpus_structure.schema.pack import DOMAINS
 
@@ -46,7 +47,7 @@ def _phase0() -> dict[str, Any]:
         "registry_for": phase0.registry,
         "graph": phase0.PHASE0,
         "domains": DOMAINS,
-        "run_pass": phase0.stub_pass,
+        "run_pass": run_pass,
         "evaluate": phase0.stub_evaluate,
     }
 

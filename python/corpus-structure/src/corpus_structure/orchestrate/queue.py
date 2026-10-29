@@ -10,7 +10,9 @@ and the method runs with no transaction open.
    and nothing is written;
 2. the task's rows: for `ingest.html` its rendition and build (`store_rendition`), the drafts'
    spans (`upsert_spans`), observations (`write_observations`, binary COPY with their registered
-   `payload_schema_id`) and measurements with `task_id`;
+   `payload_schema_id`) and measurements with `task_id`. A draft that names its segment by key in
+   its value (`value.segment`, as the author-markup drafts do, which cannot know the ids before
+   the rendition is stored) gets that segment's id on the stored rendition;
 3. the outcome, `cost`, `error` and `finished_at = clock_timestamp()`, fenced again. An ingest
    result carries its rendition beside no observations (`empty` by D4 §1 rule 2); its task is
    written `done`, the status `kb.run_rendition` admits (D3 §8).
@@ -140,6 +142,13 @@ def _payload_schema(conn: Connection, kind: str) -> int:
     return ids[kind]
 
 
+def _segment_named(payload: Any) -> str | None:
+    """The segment key an ingest draft names in its value (`value.segment`; author markup)."""
+    value = getattr(payload, "value", None)
+    named = value.get("segment") if isinstance(value, dict) else None
+    return named if isinstance(named, str) else None
+
+
 def _rows(conn: Connection, task: Any, result: UnitResult, ts_config: str) -> None:
     rendition_id = None
     if result.rendition is not None:  # ingest.html: the rendition and its build
@@ -160,6 +169,7 @@ def _rows(conn: Connection, task: Any, result: UnitResult, ts_config: str) -> No
             ),
         )
         rendition_id = stored.id
+    keys: dict[str, int] | None = None  # the stored rendition's segment ids, by key
     observations = []
     for ordinal, draft in enumerate(result.observations):
         ren = draft.rendition_id or rendition_id
@@ -168,6 +178,16 @@ def _rows(conn: Connection, task: Any, result: UnitResult, ts_config: str) -> No
             if ren is None:
                 raise ValueError(f"task {task.id}: a span draft names no rendition")
             span_id = repo.upsert_spans(conn, ren, [draft.span])[0]
+        segment_id = draft.segment_id
+        named = _segment_named(draft.payload)
+        if segment_id is None and named is not None and rendition_id is not None:
+            if keys is None:
+                keys = repo.segment_ids(conn, rendition_id)
+            if named not in keys:
+                raise ValueError(
+                    f"task {task.id}: a draft names segment {named}, not on its rendition"
+                )
+            segment_id = keys[named]
         observations.append(
             repo.ObservationRow(
                 ordinal,
@@ -175,7 +195,7 @@ def _rows(conn: Connection, task: Any, result: UnitResult, ts_config: str) -> No
                 draft.payload,
                 draft.outcome.value,
                 ren,
-                draft.segment_id,
+                segment_id,
                 span_id,
                 draft.score,
             )
