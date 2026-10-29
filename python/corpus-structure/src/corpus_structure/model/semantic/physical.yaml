@@ -773,6 +773,33 @@ classes:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
         {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"},
         {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
+  occurrence_context:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      occurrence_id: {range: string, required: true}
+      statement_entity_id: {range: string}
+      statement_role: {range: string}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [realization_id, release_id, occurrence_id]
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "statement_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}]'
+      ph:checks: '["statement_entity_id IS NOT NULL OR statement_role IS NOT NULL"]'
+  occurrence_evidence_role:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      occurrence_id: {range: string, required: true}
+      evidence_id: {range: string, required: true}
+      role: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [realization_id, release_id, occurrence_id, evidence_id]
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "occurrence_id", "evidence_id"], "target": "data.occurrence_evidence.realization_id,release_id,occurrence_id,evidence_id"}]'
   membership_support:
     in_subset:
     - data

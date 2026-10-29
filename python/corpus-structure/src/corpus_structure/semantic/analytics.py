@@ -60,6 +60,8 @@ SPINE = (
     "selection",
     "evidence",
     "occurrence_evidence",
+    "occurrence_context",
+    "occurrence_evidence_role",
     "derivation",
     "derivation_premise",
     "coverage",

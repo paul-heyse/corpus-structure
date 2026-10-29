@@ -107,6 +107,20 @@ class OccurrenceEvidenceRow:
 
 
 @dataclass(frozen=True)
+class OccurrenceContextRow:
+    occurrence_id: str
+    statement_entity_id: str | None = None
+    statement_role: str | None = None
+
+
+@dataclass(frozen=True)
+class OccurrenceEvidenceRoleRow:
+    occurrence_id: str
+    evidence_id: str
+    role: str
+
+
+@dataclass(frozen=True)
 class MembershipSupportRow:
     entity_id: str
     class_id: str
@@ -194,6 +208,8 @@ _ROW_TYPES = {
     "selection": SelectionRow,
     "evidence": EvidenceRow,
     "occurrence_evidence": OccurrenceEvidenceRow,
+    "occurrence_context": OccurrenceContextRow,
+    "occurrence_evidence_role": OccurrenceEvidenceRoleRow,
     "membership_support": MembershipSupportRow,
     "derivation": DerivationRow,
     "derivation_premise": DerivationPremiseRow,
@@ -234,6 +250,8 @@ class PublicationBatch:
     selection: tuple[SelectionRow, ...] = ()
     evidence: tuple[EvidenceRow, ...] = ()
     occurrence_evidence: tuple[OccurrenceEvidenceRow, ...] = ()
+    occurrence_context: tuple[OccurrenceContextRow, ...] = ()
+    occurrence_evidence_role: tuple[OccurrenceEvidenceRoleRow, ...] = ()
     membership_support: tuple[MembershipSupportRow, ...] = ()
     derivation: tuple[DerivationRow, ...] = ()
     derivation_premise: tuple[DerivationPremiseRow, ...] = ()
