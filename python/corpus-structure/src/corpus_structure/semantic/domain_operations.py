@@ -2272,7 +2272,7 @@ class ReleasedRulesPolicy:
                         VERSION,
                         outcome,
                         occurrence_id=c.occurrence_id,
-                        reason=reason,
+                        reason=reason if reason is not None else f"{tier} comparison: {outcome}",
                         uncertainty=reason if outcome == "undecided" else None,
                         counterpart_fact_id=other.fact_id,
                         counterpart_occurrence_id=other.occurrence_id,

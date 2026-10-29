@@ -932,7 +932,7 @@ classes:
         - coverage_id
     annotations:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-      ph:checks: '["outcome IN (''complete'',''partial'',''unanalysed'',''failed'')"]'
+      ph:checks: '["outcome IN (''complete'',''partial'',''unanalysed'',''failed'')", "source_outcome IS NULL OR source_outcome IN (''complete'',''partial'',''unknown'',''unsupported'',''failed'')", "source_outcome IS NULL OR outcome = CASE WHEN source_outcome IN (''unknown'',''unsupported'') THEN ''unanalysed'' ELSE source_outcome END"]'
   sql_admission:
     description: Derived authored-SQL admission tied to the frozen dependency and physical catalog.
     in_subset:
@@ -1748,12 +1748,8 @@ classes:
         - release_id
         - assessment_id
     annotations:
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "fact_id"], "target":
-        "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id",
-        "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"},
-        {"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-      ph:checks: '["(fact_id IS NULL) <> (occurrence_id IS NULL)", "confidence IS NULL
-        OR (confidence >= 0 AND confidence <= 1)"]'
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "counterpart_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "counterpart_occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "context_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
+      ph:checks: '["(fact_id IS NULL) <> (occurrence_id IS NULL)", "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", "(counterpart_fact_id IS NULL)=(counterpart_occurrence_id IS NULL)"]'
   task_result:
     in_subset:
     - ops
@@ -1924,7 +1920,8 @@ classes:
         - release_id
         - rule_id
     annotations:
-      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
+      ph:checks: '["scope IN (''shape'',''accepted_value'')"]'
 
   conditional_atom:
     in_subset:
@@ -1959,7 +1956,8 @@ classes:
         - branch
         - position
     annotations:
-      ph:foreign_keys: '[{"columns":["release_id","rule_id"],"target":"sem.conditional_rule.release_id,rule_id"}]'
+      ph:foreign_keys: '[{"columns": ["release_id", "rule_id"], "target": "sem.conditional_rule.release_id,rule_id"}]'
+      ph:checks: '["branch IN (''if'',''then'',''else'')", "position>=0", "presence IN (''present'',''absent'',''optional'')", "choices IS NULL OR choices=''null''::jsonb OR jsonb_typeof(choices)=''array''"]'
 
   completed_result:
     in_subset:
@@ -1993,8 +1991,11 @@ classes:
       primary_key:
         unique_key_slots:
         - run_id
+      unique_output:
+        unique_key_slots: [release_id, output_realization_id]
     annotations:
-      ph:foreign_keys: '[{"columns":["run_id"],"target":"ops.run.id"},{"columns":["release_id","output_realization_id"],"target":"data.realization.release_id,realization_id"},{"columns":["release_id","output_realization_id","batch_id"],"target":"data.batch.release_id,realization_id,batch_id"}]'
+      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns": ["release_id", "output_realization_id"], "target": "data.realization.release_id,realization_id"}, {"columns": ["release_id", "output_realization_id", "batch_id"], "target": "data.batch.release_id,realization_id,batch_id"}, {"columns": ["cut_id"], "target": "ops.input_cut.id"}]'
+      ph:checks: '[]'
 
   publication_intent:
     in_subset:
@@ -2013,7 +2014,8 @@ classes:
       primary_key:
         unique_key_slots: [release_id, realization_id, batch_id]
     annotations:
-      ph:foreign_keys: '[{"columns":["release_id","realization_id","batch_id"],"target":"data.batch.release_id,realization_id,batch_id"},{"columns":["source_release_id","source_realization_id"],"target":"data.realization.release_id,realization_id"}]'
+      ph:foreign_keys: '[{"columns": ["release_id", "realization_id", "batch_id"], "target": "data.batch.release_id,realization_id,batch_id"}, {"columns": ["source_release_id", "source_realization_id"], "target": "data.realization.release_id,realization_id"}]'
+      ph:checks: '["source_revision>=0", "source_capture_id<>'''' AND operation_id<>'''' AND projection_id<>''''"]'
 
   metric_definition:
     in_subset: [sem]
