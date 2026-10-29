@@ -589,9 +589,10 @@ class AnalysisScope:
     ) -> duckdb.DuckDBPyRelation:
         """Reuse declared source/match/head/attribute kernels on explicit native projections.
 
-        The caller supplies the existing operation shapes: claim ids are semantic fact ids;
-        statement is the canonical qualification key, and entity attributes/identity are
-        declared projections. Producing those domain projections belongs to the consumer.
+        The caller supplies explicit operation shapes: claim IDs identify the declared operation
+        subjects (facts or source occurrences), while the consumer retains their distinct
+        canonical fact/occurrence meaning. Statement, entity attributes and identity are
+        declared projections; canonical packet relations keep their compiled semantics.
         """
         from corpus_structure.pool.duckdb_engine import _APPLIES, _SPECS, _VIEWS
 
