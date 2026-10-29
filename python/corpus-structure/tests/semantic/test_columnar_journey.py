@@ -17,7 +17,7 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.analytics import AnalysisScope, load_packet
 from corpus_structure.semantic.arrow_publication import (
-    ArrowPublicationBatch,
+    SnapshotDerivedPublication,
     StaleAnalysisError,
     publish_arrow,
     stage_schema,
@@ -126,12 +126,12 @@ classes:
         assert len(result) == 1 and len(result[0]["supports"]) == 2
         raw = scope.declared_view(p).project("fact_id, true AS selected").to_arrow_table()
         selections = pa.Table.from_arrays(raw.columns, schema=stage_schema("selection"))
-    batch = ArrowPublicationBatch(
+    batch = SnapshotDerivedPublication(
         rid,
         z,
         "analysis",
         {"selection": selections},
-        expected_data_revision=packet.binding.data_revision,
+        source=packet.binding, operation_id="columnar_analysis", projection_id=packet.projection_id,
     )
     receipt = publish_arrow(semantic_writer_engine, batch)
     assert receipt.data_revision == 2
@@ -143,8 +143,9 @@ classes:
     with pytest.raises(StaleAnalysisError):
         publish_arrow(
             semantic_writer_engine,
-            ArrowPublicationBatch(
-                rid, z, "stale", {"selection": selections}, expected_data_revision=1
+            SnapshotDerivedPublication(
+                rid, z, "stale", {"selection": selections}, source=packet.binding,
+                operation_id="columnar_analysis", projection_id=packet.projection_id
             ),
         )
     with semantic_db_engine.connect() as conn:

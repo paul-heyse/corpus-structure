@@ -77,11 +77,11 @@ classes:
         import yaml
 
         declarations = yaml.safe_load((Path(__file__).parents[2] / "src/corpus_structure/model/semantic/metrics.yaml").read_bytes())
-        declarations["metrics"].append(dict(id="count",value_type="SourceFloatOrNull",subject_kind="run",detail_schema="SourceObject",description="Test method count"))
+        declarations["metrics"].append(dict(id="count",value_type="SourceNumberOrNull",subject_kind="run",detail_schema="SourceObject",description="Test method count"))
         dependencies = observation_dependencies(dependencies, yaml.safe_dump(declarations).encode())
     p = prepare_release(bundle, dependencies)
     with engine.begin() as c:
-        if archive:
+        if archive or observations:
             from corpus_structure.semantic.releases import persist_release
             from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 
@@ -96,12 +96,6 @@ classes:
                     manifest_bytes=b"{}",
                 )
             )
-        if not archive:
-            from corpus_structure.semantic.releases import _projection_rows
-
-            declared_metrics = _projection_rows(p)["metric_definition"]
-            if declared_metrics:
-                c.execute(insert(table("sem.metric_definition")), declared_metrics)
         c.execute(insert(table("data.project")).values(project_id="p"))
         c.execute(
             insert(table("data.realization")).values(

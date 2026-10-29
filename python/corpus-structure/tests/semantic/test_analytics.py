@@ -717,7 +717,9 @@ def test_constructor_retains_invalid_input_and_cleanup_failure(monkeypatch):
         AnalysisScope(replace(packet, relations={}))
     assert isinstance(failure.value.exceptions[0], ValueError)
     assert "complete normalized spine" in str(failure.value.exceptions[0])
-    assert "scratch cleanup failed" in str(failure.value.exceptions[1].exceptions[0])
+    cleanup = failure.value.exceptions[1]
+    assert isinstance(cleanup, BaseExceptionGroup)
+    assert "scratch cleanup failed" in str(cleanup.exceptions[0])
 
 
 def test_reader_adopts_native_relation_reader_and_releases_it():

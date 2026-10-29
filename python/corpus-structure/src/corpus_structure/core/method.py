@@ -340,6 +340,7 @@ class CoverageDraft:
     scope: str
     outcome: Literal["complete", "partial", "unknown", "unsupported", "failed"]
     reason: str | None = None
+    required_capability: str | None = None
 
     def __post_init__(self) -> None:
         if not self.family or not self.scope:

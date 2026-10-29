@@ -14,13 +14,16 @@ classes:
     attributes:
       kind: {equals_string: text}
       text: {required: true}
-  SourceInteger:
+  SourceMeasurementValue:
     is_a: SourceValue
+    abstract: true
+  SourceInteger:
+    is_a: SourceMeasurementValue
     attributes:
       kind: {equals_string: integer}
       integer: {range: integer, required: true}
   SourceFloat:
-    is_a: SourceValue
+    is_a: SourceMeasurementValue
     attributes:
       kind: {equals_string: float}
       hexadecimal: {required: true}
@@ -30,7 +33,7 @@ classes:
       kind: {equals_string: boolean}
       boolean: {range: boolean, required: true}
   SourceNull:
-    is_a: SourceValue
+    is_a: SourceMeasurementValue
     attributes:
       kind: {equals_string: "null"}
   SourceArray:
@@ -80,12 +83,12 @@ classes:
       scope_type: {range: SourceMeasurementScope, required: true}
       scope_id: {range: integer}
       scope_key: {}
-      value: {range: SourceValue, inlined: true, required: true}
+      value: {range: SourceMeasurementValue, inlined: true, required: true}
       detail: {range: SourceObject, inlined: true, required: true}
   SourceMetricDefinition:
     attributes:
       id: {required: true}
-      value_type: {required: true, equals_string: SourceFloatOrNull}
+      value_type: {required: true, equals_string: SourceNumberOrNull}
       subject_kind: {required: true, range: SourceMeasurementScope}
       detail_schema: {required: true, equals_string: SourceObject}
       description: {required: true}
@@ -110,7 +113,7 @@ classes:
       metric: {range: SourceMetricDefinition, required: true, inlined: true}
       subject: {range: SourceMeasurementSubject, required: true, inlined: true}
       producer: {range: SourceMeasurementProducer, required: true, inlined: true}
-      value: {range: SourceValue, required: true, inlined: true}
+      value: {range: SourceMeasurementValue, required: true, inlined: true}
       detail: {range: SourceObject, required: true, inlined: true}
   SourceObservationBatch:
     attributes:

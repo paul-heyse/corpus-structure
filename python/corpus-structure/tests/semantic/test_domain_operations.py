@@ -679,7 +679,10 @@ def test_native_scientific_comparison_preserves_facts_and_uncertainty(
             .all()
         )
         assert len(rows) == 2 and {r["outcome"] for r in rows} == {outcome}
-        assert all("other_fact_id" in r["reason"] for r in rows)
+        assert all(r["counterpart_fact_id"] and r["counterpart_occurrence_id"] for r in rows)
+        assert {r["occurrence_id"] for r in rows} == {r["counterpart_occurrence_id"] for r in rows}
+        assert all(r["context_value_id"] and r["comparison_tier"] for r in rows)
+        assert all(r["reason"] and not r["reason"].startswith('{"other_fact_id"') for r in rows)
         if outcome == "undecided":
             assert all(r["uncertainty"] for r in rows)
         assert (

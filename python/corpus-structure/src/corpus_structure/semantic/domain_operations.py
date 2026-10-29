@@ -199,7 +199,7 @@ def _completed_result(engine, cut_id, output, policy):
         if policy is not None and (
             policy.release_id != cut["release_id"] or policy.version != VERSION
         ):
-            raise DomainOperationRefused("finished result policy differs from its recorded binding")
+            raise DomainOperationRefused("finished result policy version differs from its recorded binding")
         observations = cut_observations(conn, cut_id)
         batch_id = _source_batch_id(cut["release_id"], output, observations)
         batches = table("data.batch")
@@ -1582,7 +1582,7 @@ def consolidate_cut(
         binding,
         compiled.projection_id,
         compiled.profile.digest,
-        cut_id=inputs.cut_id,
+        cut_id=str(inputs.cut_id),
         decision_universe="consolidation:" + policy.version,
         relations=MappingProxyType({}),
         scale=compiled.profile.scale,
@@ -2272,7 +2272,7 @@ class ReleasedRulesPolicy:
                         VERSION,
                         outcome,
                         occurrence_id=c.occurrence_id,
-                        reason=reason,
+                        reason=reason if reason is not None else f"{tier} comparison: {outcome}",
                         uncertainty=reason if outcome == "undecided" else None,
                         counterpart_fact_id=other.fact_id,
                         counterpart_occurrence_id=other.occurrence_id,

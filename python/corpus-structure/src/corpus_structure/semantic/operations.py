@@ -135,6 +135,8 @@ def record_method(
     values = dict(
         name=method.name,
         version=method.version,
+        unit_type=str(method.unit_type) if hasattr(method, "unit_type") else None,
+        configuration_schema_digest=sha256(canonical_bytes(method.Config.model_json_schema())).hexdigest() if hasattr(method, "Config") else None,
         family=str(method.family),
         tier=str(method.tier),
         confidence_source=str(method.confidence_source)
