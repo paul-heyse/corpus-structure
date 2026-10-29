@@ -1,0 +1,3 @@
+// S5-15 \E(X; A), \E[\E(X \mid \mathscr G); A]: an operator's argument restricted to an event
+op_semi: _cond_side ";" _cond_side
+%extend _op_args: op_semi

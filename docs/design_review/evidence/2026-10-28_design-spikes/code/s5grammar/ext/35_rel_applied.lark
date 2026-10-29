@@ -1,0 +1,4 @@
+// S5-35 P(U \ge t), P(X_1 + X_2 = 0), \bs 1(X \gt x), \bs{1}(N \ge n): a symbol or an indicator applied to
+// an event written as a relation or membership (an operator macro such as \P already takes one, S5-06/07)
+rel_applied: (_one_letter_symbol | styled) (L_PAREN | L_BRACKET) (_cond_item | cond_list) (R_PAREN | R_BRACKET)
+%extend _function: rel_applied

@@ -1,0 +1,3 @@
+// S5-14 \#(A), \#(S), \#: counting measure as an operator
+CMD_HASH: "\\#"
+%extend op_name: CMD_HASH

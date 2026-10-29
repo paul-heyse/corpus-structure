@@ -1,0 +1,6 @@
+// S5-12 \{0, 1\}^n, [0, 1]^2, (0, \infty)^2, \N_+^*, and B^c, \ms R^n in a set position
+set_power: (set_list | interval | set_group | set_builder) CARET (_expression_core | MUL)
+%extend set_atom: set_power
+%extend set_const: _set_name set_sign? CARET (MUL | CMD_ASTERISK)
+named_power: set_named CARET (_expression_core | MUL)
+%extend member: list_of_expressions (CMD_IN | CMD_NOTIN) named_power

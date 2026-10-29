@@ -1,0 +1,4 @@
+// S5-32 X \in r^{-1}(B), \sum_{x \in r^{-1}\{y\}}, r^{-1}(B) = \{x \in S: r(x) \in B\}: an inverse image
+// in a set position
+preimage: _one_letter_symbol CARET L_BRACE SUB DIGIT R_BRACE (L_PAREN (set_expr | _expression) R_PAREN | set_list | set_builder)
+%extend set_atom: preimage

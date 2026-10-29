@@ -1,0 +1,7 @@
+// S5-02 tuples: (X_1, X_2, \ldots, X_n), (\Omega, \ms F, \P), (x, y) \in S, (S, \ms S) = (\Omega, \ms F).
+// Only at value level (a formula, an equation side, a membership's element), never a factor, so
+// f(x, y) gains no product reading. A two-component tuple alone stays ambiguous with an interval.
+tuple: L_PAREN _tuple_item ("," _tuple_item)+ R_PAREN
+_tuple_item: _expression | op_name
+%extend formula: tuple | tuple EQUAL (tuple | _expression) | _expression EQUAL tuple
+%extend member: tuple (CMD_IN | CMD_NOTIN) set_expr

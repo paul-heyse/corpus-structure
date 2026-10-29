@@ -1,0 +1,2 @@
+// S5-10 \ms R_1, \mathscr S_i, \bs X_n: a styled symbol with a subscript
+%extend _sym_base: styled

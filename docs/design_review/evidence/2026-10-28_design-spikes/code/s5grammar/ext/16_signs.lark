@@ -1,0 +1,4 @@
+// S5-16 x^+, F(x^+), g_n^+, X^-, M_+(t), \chi_+: a sign as a superscript or subscript
+%extend _script_arg: ADD | SUB
+sign_power: _expression_func CARET (ADD | SUB)
+%extend _expression_power: sign_power

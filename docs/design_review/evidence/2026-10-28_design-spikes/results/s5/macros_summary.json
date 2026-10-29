@@ -1,0 +1,254 @@
+{
+ "pages": 78,
+ "definitions_by_command": {
+  "\\renewcommand": 22,
+  "\\newcommand": 630
+ },
+ "pages_where_spike_missed": {
+  "dist/Introduction.html": [
+   "\\P"
+  ],
+  "dist/Discrete.html": [
+   "\\P"
+  ],
+  "dist/Continuous.html": [
+   "\\P"
+  ],
+  "dist/Mixed.html": [
+   "\\P"
+  ],
+  "dist/Joint.html": [
+   "\\P"
+  ],
+  "dist/Conditional.html": [
+   "\\P"
+  ],
+  "dist/CDF.html": [
+   "\\P"
+  ],
+  "dist/Transformations.html": [
+   "\\P"
+  ],
+  "dist/Convergence.html": [
+   "\\P"
+  ],
+  "expect/Properties.html": [
+   "\\P"
+  ],
+  "expect/Properties2.html": [
+   "\\P"
+  ],
+  "expect/Variance.html": [
+   "\\P"
+  ],
+  "expect/Skew.html": [
+   "\\P"
+  ],
+  "expect/Covariance.html": [
+   "\\P"
+  ],
+  "expect/Generating.html": [
+   "\\P"
+  ],
+  "expect/Conditional.html": [
+   "\\P"
+  ],
+  "expect/Matrices.html": [
+   "\\P"
+  ],
+  "expect/Integral.html": [
+   "\\P"
+  ],
+  "expect/Conditional2.html": [
+   "\\P"
+  ],
+  "expect/Spaces.html": [
+   "\\P"
+  ],
+  "expect/Uniform.html": [
+   "\\P"
+  ],
+  "expect/Kernels.html": [
+   "\\P"
+  ]
+ },
+ "pages_where_spike_differs": {},
+ "pages_spike_only": {},
+ "pages_effective_table_differs": [],
+ "pages_parser_key_differs": [],
+ "notes": {
+  "dist/Introduction.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "dist/Discrete.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "dist/Continuous.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "dist/Mixed.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "dist/Joint.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "dist/Conditional.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "dist/CDF.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "dist/Transformations.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "dist/Convergence.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Properties.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Properties2.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Variance.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Skew.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Covariance.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Generating.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Conditional.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Matrices.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Integral.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Conditional2.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Spaces.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Uniform.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "expect/Kernels.html": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ]
+ },
+ "uses_from_fallback_spike_reader": {
+  "\\P": 803
+ },
+ "distinct_definitions": 28,
+ "distinct_names": 22,
+ "control_words_in_math": 132,
+ "by_source": {
+  "grammar": 96,
+  "rendition": 22,
+  "none": 14
+ },
+ "uses_by_source": {
+  "grammar": 35035,
+  "none": 590,
+  "rendition": 9465
+ },
+ "unmapped": [
+  [
+   "\\begin",
+   185,
+   48
+  ],
+  [
+   "\\end",
+   185,
+   48
+  ],
+  [
+   "\\mapsto",
+   159,
+   47
+  ],
+  [
+   "\\partial",
+   19,
+   4
+  ],
+  [
+   "\\bigcup",
+   15,
+   7
+  ],
+  [
+   "\\otimes",
+   8,
+   3
+  ],
+  [
+   "\\circ",
+   6,
+   3
+  ],
+  [
+   "\\asymp",
+   5,
+   1
+  ],
+  [
+   "\\bar",
+   2,
+   1
+  ],
+  [
+   "\\scr",
+   2,
+   1
+  ],
+  [
+   "\\iff",
+   1,
+   1
+  ],
+  [
+   "\\inty",
+   1,
+   1
+  ],
+  [
+   "\\middle",
+   1,
+   1
+  ],
+  [
+   "\\mod",
+   1,
+   1
+  ]
+ ],
+ "differing_bodies": [
+  [
+   "\\var",
+   "\\text{var} (55 pages); \\,\\text{var} (1 pages)"
+  ],
+  [
+   "\\kur",
+   "\\text{kurt} (35 pages); \\,\\text{kurt} (1 pages); \\text{kur} (1 pages)"
+  ],
+  [
+   "\\skw",
+   "\\text{skew} (36 pages); \\,\\text{skew} (1 pages)"
+  ],
+  [
+   "\\sgn",
+   "\\text{sgn} (2 pages); \\,\\text{sgn} (2 pages)"
+  ]
+ ],
+ "with_arguments": []
+}

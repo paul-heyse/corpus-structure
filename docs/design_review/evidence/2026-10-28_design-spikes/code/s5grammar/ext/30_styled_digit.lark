@@ -1,0 +1,3 @@
+// S5-30 \bs 1_A, \bs 1(x + y \in A): a styled digit (the indicator)
+%extend styled: (CMD_STYLE | GEN_STYLE) DIGIT
+%extend _sym_base: styled

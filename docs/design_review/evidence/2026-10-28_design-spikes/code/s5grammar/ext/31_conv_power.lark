@@ -1,0 +1,3 @@
+// S5-31 f^{*n}, P^{*n}: a convolution power
+conv_power: _expression_func CARET L_BRACE (MUL | CMD_ASTERISK) _expression R_BRACE
+%extend _expression_power: conv_power

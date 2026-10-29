@@ -1,0 +1,3 @@
+// S5-06 f(x \mid E), L(Y \mid X = x), g(x \mid X \in B): a symbol applied to a conditional argument
+cond_applied: _one_letter_symbol L_PAREN conditional R_PAREN
+%extend _function: cond_applied

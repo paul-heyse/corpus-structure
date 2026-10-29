@@ -1,0 +1,4 @@
+// S5-21 p = \P(X_i = 1) \in [0, 1], X = x \in (0, 1), \mu = \E(X) \in \R, n p_n \to r \in (0, \infty):
+// a chain of relations ending in a membership
+chain_member: _expression ((_rel_op | LIM_APPROACH_SYM) _expression)+ (CMD_IN | CMD_NOTIN) (set_expr | named_power)
+%extend relation: chain_member

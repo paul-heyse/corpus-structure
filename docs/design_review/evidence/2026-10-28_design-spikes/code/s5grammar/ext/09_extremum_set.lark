@@ -1,0 +1,3 @@
+// S5-09 \min\{X_1, X_2\}, \max\{n \in \N: T_n \le t\}, \inf\{x \in \R: F(x) \gt p\}: an extremum over a set
+extremum_set: (FUNC_SUPINF | FUNC_MAX | FUNC_MIN) (set_list | set_builder)
+%extend _expression_func: extremum_set

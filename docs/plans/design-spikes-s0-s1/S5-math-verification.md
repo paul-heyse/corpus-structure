@@ -1,6 +1,6 @@
 # S5 · Math parsing and verification: plan
 
-**Status: Proposed (2026-10-28).** Part of the [spike plan series](../design-spikes-s0-s1_2026-10-28.md),
+**Status: S5-A done (2026-10-28): records `s5.macros`, `s5.coverage`, `s5.keys-property`; the token form needs no change, so `core/tex.py` freezes as it stands; 87.6% of spans parse ok after 32 kept grammar extensions; 0 tree/token disagreements after three printer fixes. Remaining S5 steps proposed.** Part of the [spike plan series](../design-spikes-s0-s1_2026-10-28.md),
 which owns shared decisions (§3.5), the execution queue (row 29) and spike-execution findings. The
 question is the [S5 brief](../../design_review/evidence/2026-10-28_design-spikes/S5-math-parsing-and-verification.md)'s;
 this document says how each brief step now runs after the text-and-math research and the

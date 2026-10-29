@@ -1,0 +1,87 @@
+{
+ "seed": 20261028,
+ "variant": "extended",
+ "printer": "s5",
+ "token_layer": {
+  "rewrites": {
+   "braces|product|same": 28360,
+   "braces|spike|same": 28360,
+   "sizing|product|same": 10253,
+   "sizing|spike|same": 10253,
+   "spacing|product|same": 24012,
+   "spacing|spike|same": 24012,
+   "whitespace|product|same": 24012,
+   "whitespace|spike|same": 24012
+  },
+  "changed": [],
+  "changed_n": 0,
+  "separation": [
+   {
+    "a": "\\P",
+    "b": "\\Phi",
+    "spike_distinct": true,
+    "product_distinct": true
+   },
+   {
+    "a": "\\mu x",
+    "b": "\\mux",
+    "spike_distinct": true,
+    "product_distinct": true
+   },
+   {
+    "a": "a\\ b",
+    "b": "ab",
+    "spike_distinct": true,
+    "product_distinct": true
+   },
+   {
+    "a": "a\\ b",
+    "b": "a\\,b",
+    "spike_distinct": true,
+    "product_distinct": true
+   },
+   {
+    "a": "\\text{a b}",
+    "b": "\\text{ab}",
+    "spike_distinct": true,
+    "product_distinct": true
+   },
+   {
+    "a": "\\R",
+    "b": "\\Re",
+    "spike_distinct": true,
+    "product_distinct": true
+   }
+  ]
+ },
+ "grammar_layer": {
+  "sample": 3000,
+  "stats": {
+   "braces|agree": 2752,
+   "braces|not read": 190,
+   "sizing|agree": 1045,
+   "spacing|agree": 2477,
+   "spacing|not read": 5,
+   "whitespace|agree": 2475,
+   "whitespace|not read": 7
+  },
+  "disagreements": [],
+  "disagreements_n": 0
+ },
+ "generated_layer": {
+  "start": "any_value",
+  "examples": 3000,
+  "counts": {
+   "generated": 3000,
+   "read": 2837,
+   "agree": 2837,
+   "not read": 163
+  },
+  "disagreements": [],
+  "strict": {
+   "run": true,
+   "counterexample": null
+  },
+  "macro_table_page": "special/Normal.html"
+ }
+}

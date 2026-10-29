@@ -1,0 +1,5 @@
+// S5-28 C = [0, a), A = (-\infty, z], D_z = [0, z]: a set named by an interval with a bracket (a round pair
+// is a tuple equation, S5-02)
+_bracket_interval: L_BRACKET _expression "," _expression (R_PAREN | R_BRACKET) | L_PAREN _expression "," _expression R_BRACKET
+interval_eq: set_named EQUAL _bracket_interval
+%extend relation: interval_eq

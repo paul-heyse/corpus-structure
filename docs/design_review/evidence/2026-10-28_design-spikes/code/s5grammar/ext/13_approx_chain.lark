@@ -1,0 +1,2 @@
+// S5-13 \E(Z) = \frac{1280}{21} \approx 60.95: \approx, \sim, \equiv in a chain of relations
+%extend _rel_op: CMD_OTHER_REL

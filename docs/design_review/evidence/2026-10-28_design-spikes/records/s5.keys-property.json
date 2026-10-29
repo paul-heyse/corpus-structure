@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "id": "s5.keys-property",
+  "title": "Tree/token property (KEYS-01): the tree printer against D1 §6.2's token form, corpus, metamorphic and generated",
+  "group": "S5 Math parsing and verification",
+  "package": "S5-A",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Wherever the math grammar reads a span, does the tree printer equal the token form keys use (D1 §6.2, ADR-0012)? Each disagreement with its cause and a fix on the tree side; does the token form itself need to change?",
+  "answers": [
+    "KEYS-01",
+    "D1 §6.2",
+    "ADR-0012"
+  ],
+  "method": "Corpus layer: every span the baseline and the extended grammar read (s5.coverage runs), the spike printer (mathgrammar.printer.tree_canonical) and the S5 printer (code/s5grammar/printer.py, fixes T1-T3) against the token form of the spike's I-R2 printer and of the product's python/corpus-structure/src/corpus_structure/core/tex.py (imported read-only; sha256 0dea8e5cca9a139653e9bbf8c96352160c8b07f4ccc225f3749ec28655342fc5, last commit f1ba675). Metamorphic layer (code/s5_keys_property.py, seed 20261028): on all spans, the token form alone under inserted spacing commands, whitespace, sizing commands before bare delimiters and braces around single tokens, plus separation cases; on 3,000 sampled read spans, the same rewrites parsed and the tree compared. Generated layer: 3,000 strings from Hypothesis from_lark over the extended grammar (start any_value, printable ASCII, explicit strategies for GEN_SET/GEN_OP/GEN_STYLE from the Siegrist table), collected, then a strict @given run for shrinking.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync python code/s5_coverage.py --variant extended --reader tokenizer --printer s5",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync --with hypothesis==6.170.12 python code/s5_keys_property.py --variant extended --printer s5 --examples 3000 --grammar-sample 3000",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync python code/s5_report.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (S5-A)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s5/spans.jsonl",
+      "role": "math spans (s5.macros)",
+      "sha256": "326d749fce1562d3bfff984e45f8c452ac28a77bfa7626b9e09940a2980484aa"
+    },
+    {
+      "path": "results/s5/macro_tables.json",
+      "role": "page macro tables (s5.macros)",
+      "sha256": "677f5713290edd4f815cef4e8d22d48c4f546bb2925a59285f2758feb0102be9"
+    },
+    {
+      "path": "code/mathgrammar/printer.py",
+      "role": "I-R2 token form and spike tree printer (frozen)",
+      "sha256": "6970f5b3565a780d13d8a1608a2ff636699e8e174cd3238fb9c605d0eee43377"
+    },
+    {
+      "path": "code/s5grammar/printer.py",
+      "role": "S5 tree printer (T1 trimmed reading, T2 outer environment, T3 text-mode arguments)",
+      "sha256": "a3271a00978f6934634ad4f2733f0abdf2196284776b44782e884c74681acc81"
+    },
+    {
+      "path": "code/s5grammar/extension.lark",
+      "role": "extended grammar (s5.coverage)",
+      "sha256": "5c4d6ba38d423eb638de1dae64b0d667462b858aed05baf6e9e2086b6dacd95d"
+    },
+    {
+      "path": "code/s5_keys_property.py",
+      "role": "metamorphic and generated layers",
+      "sha256": "69121a7de99b22fd09b5e73571898046a1ba73b3b11e908c31c30765857205cf"
+    },
+    {
+      "path": "code/s5_report.py",
+      "role": "canonical.tsv",
+      "sha256": "aeb998ea3109f230e2baee737451f25ae1ee62fe6b0c686bcfe4b54a30a8222b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s5/canonical.tsv",
+      "role": "per span the extended grammar reads: token form, S5-printer tree form, agree; spike-printer form and cause where it differs",
+      "sha256": "d1d8ea7ba2f31bd9f829642ca426e6dd4826b388083cae7bf8829dffcaeae6bd"
+    },
+    {
+      "path": "results/s5/keys_property.json",
+      "role": "metamorphic and generated layers: counts, disagreements, strict run",
+      "sha256": "69d2daa35d236da8a15edd3e5bb029b4295445ae510547b0ce2fb93d4a6e04fa"
+    },
+    {
+      "path": "results/s5/keys_generated.tsv",
+      "role": "sample of generated strings with their forms",
+      "sha256": "3c126bea19bc8a8fd9f7ecb148a6ee967520c3e9fd1cf41a3502ed5bed8fb131"
+    }
+  ],
+  "depends_on": [
+    "s5.coverage",
+    "s5.macros",
+    "i-r2.token-form-parity"
+  ],
+  "results": [
+    {
+      "name": "token_forms_spike_vs_product",
+      "value": 28956,
+      "of": 28956,
+      "unit": null,
+      "note": "the I-R2 spike token form and core/tex.py agree on every first-pass span (extends i-r2.token-form-parity's 918 spike-page spans); 7 spans hold control spaces (agreeing); no corpus macro takes arguments and no span uses an outer alignat, so the two implementations' differing code for argument substitution and the column count is not exercised here"
+    },
+    {
+      "name": "baseline_disagreements_spike_printer",
+      "value": 6,
+      "of": 26135,
+      "unit": null,
+      "note": "all T1: a value read after api dropped trailing punctuation; the tree lacked it"
+    },
+    {
+      "name": "extended_disagreements_spike_printer",
+      "value": 109,
+      "of": 28370,
+      "unit": null,
+      "note": "T1 6, T2 67 (an align environment read whole keeps \\begin/\\end that rule 1 strips), T3 36 (spaces inside \\text{ as } dropped by the grammar's whitespace %ignore)"
+    },
+    {
+      "name": "extended_disagreements_s5_printer",
+      "value": 0,
+      "of": 28369,
+      "unit": null,
+      "note": "T1: append the dropped tail; T2: apply rule 1 to the leaf tokens; T3: print a text-mode command's braced argument from the source slice"
+    },
+    {
+      "name": "metamorphic_token_form_rewrites_changed",
+      "value": 0,
+      "of": 86637,
+      "unit": null,
+      "note": "spacing 24,012, whitespace 24,012, sizing 10,253, braces 28,360; spike and product; \\P/\\Phi, \\mu x/\\mux, a\\ b/ab, a\\ b/a\\,b, \\text{a b}/\\text{ab}, \\R/\\Re stay distinct"
+    },
+    {
+      "name": "metamorphic_grammar_rewrites_disagreeing",
+      "value": 0,
+      "of": 8749,
+      "unit": null,
+      "note": "rewrites of 3,000 sampled read spans that the grammar reads; 202 rewrites not read (190 brace-wrapped single tokens), which changes readability, never keys"
+    },
+    {
+      "name": "generated_disagreements_s5_printer",
+      "value": 0,
+      "of": 2837,
+      "unit": null,
+      "note": "3,000 from_lark strings, 2,837 read; strict run: no counterexample. With T3 limited to the cases rule, the first run found 29 (\\text{ AA}, \\mathrm{AA }: operator-name and \\mathrm arguments), which widened T3"
+    },
+    {
+      "name": "token_form_change_needed",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "every disagreement was fixed on the tree side"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "KEYS-01 holds: with three tree-printer fixes (T1 trimmed reading, T2 outer environment, T3 text-mode arguments from source) the tree printer equals D1 §6.2's token form on every one of the 28,369 spans the extended grammar reads, on 8,749 read metamorphic rewrites and on 2,837 read grammar-generated strings; the token form is unchanged by 86,637 rewrites D1 §6.2 says it must ignore. No token-form change is needed, so core/tex.py can freeze as it stands; the spike and product token forms agree on all 28,956 first-pass spans. The port carries the printer fixes into M11's tree printer and the two generated layers into the P0 property test.",
+  "consumed_by": [
+    "P0-F-2a",
+    "P0-I-2a",
+    "KEYS-01",
+    "S5-E"
+  ]
+}

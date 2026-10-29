@@ -1,0 +1,11 @@
+// S5-19 \begin{align} f(x) & = ... \\ & = ..., \quad x \in [0, \infty) \end{align} (also align*, aligned):
+// rows of a relation chain with one alignment point, optionally followed by a list of conditions.
+// The whole span is the environment, which the token form strips as an outer delimiter; the tree
+// printer applies the same rule to its leaves (T2).
+CMD_BEGIN_ALIGN: /\\begin\s*\{(?:align\*?|aligned)\}/
+CMD_END_ALIGN: /\\end\s*\{(?:align\*?|aligned)\}/
+align_env: CMD_BEGIN_ALIGN align_row (MATRIX_ROW_DELIM align_row)* MATRIX_ROW_DELIM? CMD_END_ALIGN
+align_row: _expression? MATRIX_COL_DELIM _rel_op _align_rest
+    | _expression _rel_op MATRIX_COL_DELIM _align_rest
+_align_rest: _expression (_rel_op _expression)* ("," _list_item)* ","?
+%extend any_value: align_env

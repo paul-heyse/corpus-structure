@@ -1,0 +1,6 @@
+// S5-25 (X_n: n \in \N_+), \left(a_n \theta^n: n \in \N\right), \{(x, y, z): 0 \le x \le y \le z \le 1\},
+// \{(1, 1), (1, 2), (2, 2)\}: indexed families and sets of tuples
+family: L_PAREN _expression COLON (_cond_item | cond_list) R_PAREN
+%extend formula: family
+%extend set_builder: L_BRACE_LITERAL tuple (COLON | BAR) _builder_cond R_BRACE_LITERAL
+%extend set_list: L_BRACE_LITERAL tuple ("," tuple)* R_BRACE_LITERAL

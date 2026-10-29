@@ -1,0 +1,12 @@
+// S5-18 \begin{cases} u, & 0 \lt u \lt 1 \\ 2 - u, & 1 \lt u \lt 2 \end{cases}: cases rows (value, condition),
+// with a condition that is a relation, a membership, a list of them or text (\text{otherwise}).
+// A text-mode argument is one terminal; the tree printer prints it from the source (T3).
+CMD_BEGIN_CASES: /\\begin\s*\{cases\}/
+CMD_END_CASES: /\\end\s*\{cases\}/
+CMD_TEXTMODE: /\\(?:text|mbox|textrm)(?![A-Za-z])/
+TEXT_BODY: /[^{}\s](?:[^{}]*[^{}\s])?/
+text_group: CMD_TEXTMODE L_BRACE TEXT_BODY? R_BRACE
+cases: CMD_BEGIN_CASES case_row (MATRIX_ROW_DELIM case_row)* MATRIX_ROW_DELIM? CMD_END_CASES
+case_row: _expression ","? MATRIX_COL_DELIM _case_cond ","? | _expression ","?
+_case_cond: _cond_item | cond_list | text_group | text_group (_cond_item | cond_list) | (_cond_item | cond_list) text_group
+%extend _expression_func: cases

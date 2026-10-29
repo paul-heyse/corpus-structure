@@ -1,0 +1,3 @@
+// S5-17 \ln x \bigg|_1^\infty, -x \ln x \biggm|_0^1: an evaluation bar (sizing dropped)
+eval_bar: _expression BAR (UNDERSCORE _expression_core CARET _expression_core | CARET _expression_core UNDERSCORE _expression_core)
+%extend _expression: eval_bar

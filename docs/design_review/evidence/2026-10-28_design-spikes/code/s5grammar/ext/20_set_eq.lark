@@ -1,0 +1,9 @@
+// S5-20 (S5-08 refined: 08 made R = S \times T ambiguous) \ms S = \{A \in \ms R^n: A \subseteq S\},
+// C_p \cap C_q = \emptyset, \{X = a\} = \{X \le a\} \setminus \{X \lt a\}, S = [0, 1]^3: an equation of sets
+// whose right side is a written-out set (a set operation only when an operand is written out)
+_set_written: set_list | set_builder | set_event | set_const | empty_set
+_set_rhs2: _set_written | set_minus | set_union | set_intersection | set_power
+    | set_written_product
+set_written_product: set_expr CMD_TIMES _set_written | _set_written CMD_TIMES set_atom
+set_eq: set_expr EQUAL _set_rhs2 | (set_minus | set_union | set_intersection | set_event | set_list | set_builder) EQUAL set_named
+%extend relation: set_eq

@@ -1,0 +1,3 @@
+// S5-04 f: S \to \R, F: \R \to [0, 1], u: \{0,1\}^n \to \{0, 1\}: a function's domain and codomain
+fn_signature: _expression COLON set_expr LIM_APPROACH_SYM set_expr
+%extend relation: fn_signature

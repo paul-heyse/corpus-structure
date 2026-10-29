@@ -1,0 +1,5 @@
+// S5-23 \P(E, X = x), \P(X \in A, E), \P[(X, Y) = (x, y)]: an operator's arguments mixing events and
+// conditions (expressions first, then conditions, or the reverse: one derivation each)
+mixed_list: _expression ("," _expression)* ("," _cond_item)+ | _cond_item ("," _cond_item)* ("," _expression)+
+tuple_rel: tuple EQUAL (tuple | _expression)
+%extend _op_args: mixed_list | tuple_rel

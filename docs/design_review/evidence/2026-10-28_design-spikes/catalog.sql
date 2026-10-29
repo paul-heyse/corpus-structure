@@ -151,3 +151,21 @@ SELECT * FROM read_csv('{{ folder }}/results/s4/sizes.tsv', delim = '\t', header
 -- Claim- and meaning-key agreement on the 70 aligned A/B pairs under the S0 variants and the revised statement key (S6-F).
 CREATE TABLE s6_keys AS
 SELECT * FROM read_csv('{{ folder }}/results/s6/keys.tsv', delim = '\t', header = true, all_varchar = true);
+
+-- ==== S5 ====
+-- S5-A grammar coverage per math span (results/s5/parse.tsv): status under the baseline grammar (V1 edited,
+-- V2 tokenizer reader, identical to the spike grammar) and under the extended grammar (S5 extensions).
+CREATE TABLE s5_parse AS
+SELECT * FROM read_csv('{{ folder }}/results/s5/parse.tsv', delim = '\t', header = true, quote = '', escape = '',
+                       all_varchar = true);
+
+CREATE VIEW s5_coverage AS
+SELECT 'baseline' AS grammar, kind, status_baseline AS status, count(*) AS spans FROM s5_parse GROUP BY ALL
+UNION ALL
+SELECT 'extended' AS grammar, kind, status, count(*) AS spans FROM s5_parse GROUP BY ALL;
+
+-- S5-A tree/token property per span the extended grammar reads (results/s5/canonical.tsv).
+CREATE TABLE s5_canonical AS
+SELECT * FROM read_csv('{{ folder }}/results/s5/canonical.tsv', delim = '\t', header = true, quote = '', escape = '',
+                       all_varchar = true);
+-- ==== end S5 ====

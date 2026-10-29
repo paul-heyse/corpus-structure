@@ -1,0 +1,3 @@
+// S5-11 \P_p(X = 1), \E_\theta(X): an operator with a subscript, applied
+op_applied_sub: op_name UNDERSCORE _script_arg (L_PAREN _op_args R_PAREN | L_BRACKET _op_args R_BRACKET)
+%extend _function: op_applied_sub

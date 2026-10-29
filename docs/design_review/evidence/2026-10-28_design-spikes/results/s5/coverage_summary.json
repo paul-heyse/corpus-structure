@@ -1,0 +1,109 @@
+{
+ "spans": 28956,
+ "v_table": [
+  {
+   "run": "spike.spike",
+   "ok": 23404,
+   "ambiguous": 2727,
+   "partial": 4,
+   "failed": 2821,
+   "identical_to_spike_spike": 28956
+  },
+  {
+   "run": "edited.spike",
+   "ok": 23404,
+   "ambiguous": 2727,
+   "partial": 4,
+   "failed": 2821,
+   "identical_to_spike_spike": 28956
+  },
+  {
+   "run": "edited.tokenizer",
+   "ok": 23404,
+   "ambiguous": 2727,
+   "partial": 4,
+   "failed": 2821,
+   "identical_to_spike_spike": 28956
+  },
+  {
+   "run": "edited-noovr.tokenizer",
+   "ok": 23404,
+   "ambiguous": 2727,
+   "partial": 4,
+   "failed": 2821,
+   "identical_to_spike_spike": 28956
+  }
+ ],
+ "baseline": {
+  "ok": 23404,
+  "ambiguous": 2727,
+  "partial": 4,
+  "failed": 2821
+ },
+ "extended": {
+  "ok": 25353,
+  "ambiguous": 3013,
+  "partial": 4,
+  "failed": 586
+ },
+ "kept": [
+  "01",
+  "02",
+  "03",
+  "04",
+  "05",
+  "06",
+  "07",
+  "09",
+  "10",
+  "11",
+  "12",
+  "13",
+  "14",
+  "15",
+  "16",
+  "17",
+  "20",
+  "21",
+  "22",
+  "24",
+  "25",
+  "26",
+  "18",
+  "19",
+  "27",
+  "28",
+  "29",
+  "30",
+  "31",
+  "33",
+  "34",
+  "35"
+ ],
+ "rejected": [
+  "08",
+  "23",
+  "32"
+ ],
+ "largest_remaining_construct": [
+  "punctuation-or-list: `,`",
+  94
+ ],
+ "property": {
+  "baseline_read": 26135,
+  "baseline_disagreements": 6,
+  "baseline_causes": {
+   "T1 trimmed reading": 6
+  },
+  "extended_read": 28370,
+  "extended_disagreements_spike_printer": 109,
+  "extended_causes_spike_printer": {
+   "T1 trimmed reading": 6,
+   "T3 text-mode argument": 36,
+   "T2 outer environment": 67
+  },
+  "extended_disagreements_s5_printer": 0,
+  "s5_printer_disagreements": [],
+  "token_forms_equal": 28956
+ }
+}

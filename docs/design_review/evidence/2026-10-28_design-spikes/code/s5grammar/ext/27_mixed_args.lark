@@ -1,0 +1,6 @@
+// S5-27 (S5-23 refined: 23 made \P(E, X \in A) ambiguous with the list-membership convention)
+// \P(E, X = x), \P(X \in A, E), \P[(X, Y) = (x, y)]: an operator's arguments mixing events and conditions;
+// a membership may lead but never follow the expressions (a, b \in S already reads as a list membership)
+mixed_list: _expression ("," _expression)* ("," _relation)+ | (_relation | member) ("," (_relation | member))* ("," _expression)+
+tuple_rel: tuple EQUAL (tuple | _expression)
+%extend _op_args: mixed_list | tuple_rel

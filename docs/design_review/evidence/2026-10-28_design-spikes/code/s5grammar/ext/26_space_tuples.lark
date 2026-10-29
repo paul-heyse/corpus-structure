@@ -1,0 +1,2 @@
+// S5-26 (\R^n, \ms R^n, \lambda^n), (S, \ms S, \mu): measure spaces with a set constant as a component
+%extend _tuple_item: set_const

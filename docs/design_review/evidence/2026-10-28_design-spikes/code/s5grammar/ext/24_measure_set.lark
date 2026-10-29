@@ -1,0 +1,5 @@
+// S5-24 \mu\{x \in S: f(x) \ne g(x)\}, \lambda^n\{x\}, P(-\infty, x], P_n(a, b]: a measure applied to a
+// written set (braces) or to a half-open interval
+measure_set: (_one_letter_symbol | superscript) (set_list | set_builder | set_event)
+halfopen_applied: _one_letter_symbol (L_PAREN _expression "," _expression R_BRACKET | L_BRACKET _expression "," _expression R_PAREN)
+%extend _function: measure_set | halfopen_applied

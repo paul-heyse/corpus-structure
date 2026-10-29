@@ -1,0 +1,61 @@
+latex	status	agree	tree	token
+\{(\N,\N)\}^\pi	ok	True	\{(\mathbb N,\mathbb N)\}^\pi	\{(\mathbb N,\mathbb N)\}^\pi
+\#	ok	True	\#	\#
+\cos\-	ok	True	\cos	\cos
+\{(\N,\N)\}^\pi\cap\{(\N,\N)\}^\pi	ok	True	\{(\mathbb N,\mathbb N)\}^\pi\cap\{(\mathbb N,\mathbb N)\}^\pi	\{(\mathbb N,\mathbb N)\}^\pi\cap\{(\mathbb N,\mathbb N)\}^\pi
+\cos\limits	ok	True	\cos	\cos
+\log	ok	True	\log	\log
+\pm	ok	True	\pm	\pm
+\log\*	ok	True	\log	\log
+\sin	ok	True	\sin	\sin
+\tan\,	ok	True	\tan	\tan
+\tan\,	ok	True	\tan	\tan
+\tan	ok	True	\tan	\tan
+\emptyset\quad\cap\N^-^\pi   \displaystyle	ok	True	\emptyset\cap\mathbb N^-^\pi	\emptyset\cap\mathbb N^-^\pi
+\emptyset\quad\cap\N^-^\pi  \displaystyle	ok	True	\emptyset\cap\mathbb N^-^\pi	\emptyset\cap\mathbb N^-^\pi
+\E	ok	True	\mathbb E	\mathbb E
+\tan\!	ok	True	\tan	\tan
+\tan\!	ok	True	\tan	\tan
+\ln\limits	ok	True	\ln	\ln
+\ln\limits	ok	True	\ln	\ln
+\ln	ok	True	\ln	\ln
+\log\qquad	ok	True	\log	\log
+\cov\displaystyle	ok	True	\text{cov}	\text{cov}
+(\cor\!\Bigm,\qquad\mathbb{C}^\ast   ,\vskip\kur)\in\varnothing\smallsetminus\mathbb{C}^\ast\*\mbox{f}\displaystyle	ok	True	(\text{cor},\mathbb C^\ast,\text{kurt})\in\varnothing\smallsetminus\mathbb C^\ast\mbox f	(\text{cor},\mathbb C^\ast,\text{kurt})\in\varnothing\smallsetminus\mathbb C^\ast\mbox f
+(\cor\!\Bigm,\qquad\mathbb{C}^\ast   ,\vskip\cor)\in\varnothing\smallsetminus\mathbb{C}^\ast\*\mbox{f}\displaystyle	ok	True	(\text{cor},\mathbb C^\ast,\text{cor})\in\varnothing\smallsetminus\mathbb C^\ast\mbox f	(\text{cor},\mathbb C^\ast,\text{cor})\in\varnothing\smallsetminus\mathbb C^\ast\mbox f
+(\cor\Bigm,\qquad\mathbb{C}^\ast   ,\vskip\cor)\in\varnothing\smallsetminus\mathbb{C}^\ast\*\mbox{f}\displaystyle	ok	True	(\text{cor},\mathbb C^\ast,\text{cor})\in\varnothing\smallsetminus\mathbb C^\ast\mbox f	(\text{cor},\mathbb C^\ast,\text{cor})\in\varnothing\smallsetminus\mathbb C^\ast\mbox f
+\mathrm{ZZc}\left	ok	True	\mathrm{ZZc}	\mathrm{ZZc}
+\operatorname{ZZc}\left	ok	True	\operatorname{ZZc}	\operatorname{ZZc}
+\mathbb{C}_+\biggr^\ast	ok	True	\mathbb C_+^\ast	\mathbb C_+^\ast
+\mathbb{C}_+\biggr^\ast	ok	True	\mathbb C_+^\ast	\mathbb C_+^\ast
+\tan\displaystyle	ok	True	\tan	\tan
+\#\right\/	ok	True	\#	\#
+\#\right\/	ok	True	\#	\#
+\#\=\/	ok	True	\#	\#
+\#\/\/	ok	True	\#	\#
+\exp	ok	True	\exp	\exp
+\ln\hfill	ok	True	\ln	\ln
+\cos	ok	True	\cos	\cos
+\cos\vcenter	ok	True	\cos	\cos
+\mp	ok	True	\mp	\mp
+\cos\left	ok	True	\cos	\cos
+\ln\displaystyle	ok	True	\ln	\ln
+\#\quad	ok	True	\#	\#
+\log\displaystyle	ok	True	\log	\log
+\log 	ok	True	\log	\log
+\cos\Bigl	ok	True	\cos	\cos
+\mathbb{X}	ok	True	\mathbb X	\mathbb X
+\log\limits	ok	True	\log	\log
+\log\limits	ok	True	\log	\log
+\cos\right	ok	True	\cos	\cos
+\mathbb\negthickspace{F}      	ok	True	\mathbb F	\mathbb F
+\mathbb\negthickspace{F}    	ok	True	\mathbb F	\mathbb F
+\mathbb\negthickspace{F} 	ok	True	\mathbb F	\mathbb F
+\mathbb\negthickspace{F}\negthickspace	ok	True	\mathbb F	\mathbb F
+\cos\thickspace	ok	True	\cos	\cos
+\cos\thickspace	ok	True	\cos	\cos
+\pm\Bigg\mathbf5\!_+\Bigg'\left                        \notin\psi\negthickspace	ok	True	\pm\mathbf5_+'\notin\psi	\pm\mathbf5_+'\notin\psi
+\log 	ok	True	\log	\log
+\ln\/	ok	True	\ln	\ln
+\boldsymbol\=w'\Biggl   \cup\N\.^\ast\big\vcenter\Biggm\cap\varnothing\right\right	ok	True	\boldsymbol w'\cup\mathbb N^\ast\cap\varnothing	\boldsymbol w'\cup\mathbb N^\ast\cap\varnothing
+\boldsymbol\=w'\Biggl   \cup\N\.^\ast\big\vcenter\Biggm\cap\varnothing\right	ok	True	\boldsymbol w'\cup\mathbb N^\ast\cap\varnothing	\boldsymbol w'\cup\mathbb N^\ast\cap\varnothing

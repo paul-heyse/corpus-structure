@@ -1,0 +1,2 @@
+// S5-01 X_\infty, F_\infty(x), x_\infty: \infty as a subscript
+%extend _script_arg: CMD_INFTY

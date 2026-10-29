@@ -1,0 +1,3999 @@
+{
+ "dist/Introduction.html": {
+  "page": "dist/Introduction.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:56722d703d582f923bed16ec81b24215",
+  "text_sha256": "60fde0680e1563434dba80e214a69350bd25daf34dbc4a08df4b767454029982",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\ms}{\\mathscr}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 209,
+  "spans_by_delimiting": {
+   "ok": 209
+  }
+ },
+ "dist/Discrete.html": {
+  "page": "dist/Discrete.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:c981321d1fc1850b6206062350b65666",
+  "text_sha256": "cda33017bdb864188f5e6bb59768a0ccc8f4116f4a22434760920b0ccef0ac96",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\ms}{\\mathscr}\\)\n"
+  ],
+  "math_anomalies": [
+   {
+    "pos": 38,
+    "kind": "stray closer",
+    "delim": "\\)"
+   }
+  ],
+  "spans": 986,
+  "spans_by_delimiting": {
+   "ok": 986
+  }
+ },
+ "dist/Continuous.html": {
+  "page": "dist/Continuous.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:e31e728e27d6fb45b0ee76891a8a1152",
+  "text_sha256": "78c232f67415a67bdb13cc0c99a8057dd12b116a5fc81f356ac046e7cbc1a777",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\renewcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\ms}{\\mathscr} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 873,
+  "spans_by_delimiting": {
+   "ok": 873
+  }
+ },
+ "dist/Mixed.html": {
+  "page": "dist/Mixed.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:f107d06996b088ef1fc33acfa4b810d6",
+  "text_sha256": "ad23a475910c4f78b08414340798b788c238b41d265b3972fc10bf60939c6849",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\ms}{\\mathscr}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 170,
+  "spans_by_delimiting": {
+   "ok": 170
+  }
+ },
+ "dist/Joint.html": {
+  "page": "dist/Joint.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:0a478cad086c87fc34abe786cd7f8225",
+  "text_sha256": "ec1aae58ae5bd60a448b5eb5f02cf31f620d33037b0d2a3677a36581c883bdae",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\renewcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\ms}{\\mathscr} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 1246,
+  "spans_by_delimiting": {
+   "ok": 1245,
+   "partial": 1
+  }
+ },
+ "dist/Conditional.html": {
+  "page": "dist/Conditional.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:51172502fa7d8930a6a2306119250d91",
+  "text_sha256": "0f16b82f79007fd52007319c89de6063e467133be99df2516b042f43d6400495",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\ms}{\\mathscr}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 1005,
+  "spans_by_delimiting": {
+   "ok": 1004,
+   "partial": 1
+  }
+ },
+ "dist/CDF.html": {
+  "page": "dist/CDF.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:8310a4f424478fbb9a9c5b48d3af6d98",
+  "text_sha256": "0510f2796ab7a29a5236ef2a39ef90471f88fcdeded1cee169017c7e1c60cc4e",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\renewcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\ms}{\\mathscr} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 693,
+  "spans_by_delimiting": {
+   "ok": 693
+  }
+ },
+ "dist/Transformations.html": {
+  "page": "dist/Transformations.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:36a53c93adc934878a2342ae79a90594",
+  "text_sha256": "b34f5b0657e5620645e18ca8aaa80d89c642d06c550456f3acbb063cb4d6a8bd",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\Z}{\\mathbb{Z}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\( \\newcommand{\\sgn}{\\text{sgn}} \\)\n\t\\(\\newcommand{\\ms}{\\mathscr}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 1091,
+  "spans_by_delimiting": {
+   "ok": 1091
+  }
+ },
+ "dist/Convergence.html": {
+  "page": "dist/Convergence.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:3b61f8f20573a8763e63217b42e17ab7",
+  "text_sha256": "d9ce9d5f79922836c76288be2de4ec6dde4ec4a7dae3f8f9018a10c1ecbccff7",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Q": {
+    "nargs": 0,
+    "body": "\\mathbb{Q}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\cl": {
+    "nargs": 0,
+    "body": "\\text{cl}"
+   },
+   "\\interior": {
+    "nargs": 0,
+    "body": "\\text{int}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\Q}{\\mathbb{Q}}\\)\n\t\\( \\newcommand{\\E}{\\mathbb{E}} \\)\n\t\\(\\newcommand{\\cl}{\\text{cl}}\\)\n\t\\(\\newcommand{\\interior}{\\text{int}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\ms}{\\mathscr}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 985,
+  "spans_by_delimiting": {
+   "ok": 984,
+   "partial": 1
+  }
+ },
+ "expect/Properties.html": {
+  "page": "expect/Properties.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:ad5a3d05afc8e57baac9a3930b8e5a8d",
+  "text_sha256": "e86e7a654f2807788baac5ab56cf704275d890ceb5a1259797754aac930bebd9",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 652,
+  "spans_by_delimiting": {
+   "ok": 652
+  }
+ },
+ "expect/Properties2.html": {
+  "page": "expect/Properties2.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:66bfebf5a9af080ee93783cb89af4ad6",
+  "text_sha256": "dd59c029881400d8d077638dc44a8073b07b906ebf3083f62d16ff9bff8982b9",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 256,
+  "spans_by_delimiting": {
+   "ok": 256
+  }
+ },
+ "expect/Variance.html": {
+  "page": "expect/Variance.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:97ba7f765acbcb4f719165155006be08",
+  "text_sha256": "23a3611626893267901b84b9e49185c55f5bd6c765dea1998a061c3d99803364",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\mse": {
+    "nargs": 0,
+    "body": "\\text{mse}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\mse}{\\text{mse}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 441,
+  "spans_by_delimiting": {
+   "ok": 441
+  }
+ },
+ "expect/Skew.html": {
+  "page": "expect/Skew.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:30d602aa1df7533dc9e38b5321a32563",
+  "text_sha256": "def2ec4087cb35e244454458ee69ca860e8caaa36fad317c1ae759ddc60c144f",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 309,
+  "spans_by_delimiting": {
+   "ok": 309
+  }
+ },
+ "expect/Covariance.html": {
+  "page": "expect/Covariance.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:3f91692cb329cbe5e41b480421ad2360",
+  "text_sha256": "2afc3c69d7a2b5c10c29ce4383e4b9050274af8f4702d83388c3e02bab38f5fe",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\mse": {
+    "nargs": 0,
+    "body": "\\text{mse}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\mse}{\\text{mse}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 702,
+  "spans_by_delimiting": {
+   "ok": 702
+  }
+ },
+ "expect/Generating.html": {
+  "page": "expect/Generating.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:09a2be95d5160ca6d97cb71ed821162b",
+  "text_sha256": "3ac2ad5b9b4092ad369c94b4a7c466ace52a9a8cc9a9452d04f7c20713d76453",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 711,
+  "spans_by_delimiting": {
+   "ok": 708,
+   "partial": 3
+  }
+ },
+ "expect/Conditional.html": {
+  "page": "expect/Conditional.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:a26fb7ae13de6e6cb9e9f754fab1c450",
+  "text_sha256": "943769202a20f2756fbee4ea74266d036b0cc54cacfbab203b579698df5bcbb8",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\mse": {
+    "nargs": 0,
+    "body": "\\text{MSE}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\mse}{\\text{MSE}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 761,
+  "spans_by_delimiting": {
+   "ok": 761
+  }
+ },
+ "expect/Matrices.html": {
+  "page": "expect/Matrices.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:fb1d08d1189c2df62828d646e575a08e",
+  "text_sha256": "8c49385a2aaa177ddb40a67f52d87ec3bb52bc288367aff5773e6c91e77d0b16",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\vc": {
+    "nargs": 0,
+    "body": "\\text{vc}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\vc}{\\text{vc}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 409,
+  "spans_by_delimiting": {
+   "ok": 409
+  }
+ },
+ "expect/Integral.html": {
+  "page": "expect/Integral.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:1149dd61d61aebfcb72c2fbd59b2bd88",
+  "text_sha256": "6049e2f41ffe76da64084a0f61ad0c5d27b5c375bdc8c43a43d4d9847dc95bfb",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 254,
+  "spans_by_delimiting": {
+   "ok": 254
+  }
+ },
+ "expect/Conditional2.html": {
+  "page": "expect/Conditional2.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:97800c758458b42722d268b70d686eaf",
+  "text_sha256": "a2937225623beb821de58c881b313412c0c420db0d5c209f16d2f504fdb643dc",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\mse": {
+    "nargs": 0,
+    "body": "\\text{MSE}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\mse}{\\text{MSE}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 588,
+  "spans_by_delimiting": {
+   "ok": 588
+  }
+ },
+ "expect/Spaces.html": {
+  "page": "expect/Spaces.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:4b8a14fa842ea332dabed5e6c947ff11",
+  "text_sha256": "813524d04eed11cb9d6aa5852c59778744719a649d8861cc2790f4285de3c1d9",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 582,
+  "spans_by_delimiting": {
+   "ok": 582
+  }
+ },
+ "expect/Uniform.html": {
+  "page": "expect/Uniform.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:ee00b81c3959d1ef0e748122e3e7ff2d",
+  "text_sha256": "e1f41b3da36d25170527a162540f9a6c10ae8ae945e2015386bef51c633070bf",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\ms}{\\mathscr}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 355,
+  "spans_by_delimiting": {
+   "ok": 355
+  }
+ },
+ "expect/Kernels.html": {
+  "page": "expect/Kernels.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:1e6cad051a46e61d833aa4e0301d2db0",
+  "text_sha256": "8d2befa60abe100d4d9242dd5ff563196ed3c9ca1e9ea1fb840c92d066eeaaff",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\renewcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 849,
+  "spans_by_delimiting": {
+   "ok": 849
+  }
+ },
+ "special/LocationScale.html": {
+  "page": "special/LocationScale.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+  "text_sha256": "6db36a75ef6f58d55bb41923e67b00db5b464c0b7a424bbc56788b23089cf4e2",
+  "source": "stored (results/s1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\(\\newcommand{\\ms}{\\mathscr}\\)\n"
+  ],
+  "math_anomalies": [],
+  "stored": {
+   "where": "results/s1",
+   "rendition_key": "ren:fd598f8c45ca1a3e905b5888a11c4cff",
+   "text_identical": true,
+   "math_spans_identical": true,
+   "macros_identical": true
+  },
+  "spans": 195,
+  "spans_by_delimiting": {
+   "ok": 195
+  }
+ },
+ "special/GeneralExponential.html": {
+  "page": "special/GeneralExponential.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:2b228d8eca45f50582c8d25b7ed7cb56",
+  "text_sha256": "f5972d4d7c10b4a5d6a60be251b1fce2e5d22fa06d0448c3e314a5cd29d25bed",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 112,
+  "spans_by_delimiting": {
+   "ok": 112
+  }
+ },
+ "special/Stable.html": {
+  "page": "special/Stable.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:c86ef03fc23280634005ca22a6ad050d",
+  "text_sha256": "8e900f2a919bd89ea0489ac72440f03b330d4ae5bf23dd8c85ae0ad0282cbfef",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\,\\text{sgn}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\(\\newcommand{\\sgn}{\\,\\text{sgn}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 384,
+  "spans_by_delimiting": {
+   "ok": 384
+  }
+ },
+ "special/Divisible.html": {
+  "page": "special/Divisible.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:9128d750f3564b1b52abae78ac329757",
+  "text_sha256": "1bfdfd4567d79d9ee00c34f6ff82c2712e559f83b8ae8935225620c295de73a1",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\,\\text{sgn}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\(\\newcommand{\\sgn}{\\,\\text{sgn}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 174,
+  "spans_by_delimiting": {
+   "ok": 174
+  }
+ },
+ "special/PowerSeries.html": {
+  "page": "special/PowerSeries.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:fd0e66f43c4c18138bf7edfc6e806fce",
+  "text_sha256": "4cade64afc4f29b6d3c8816e839eefa17ac8c0eb37866ebfaa1597dd34531b81",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 131,
+  "spans_by_delimiting": {
+   "ok": 131
+  }
+ },
+ "special/Normal.html": {
+  "page": "special/Normal.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+  "text_sha256": "0a83641e16cfe02ef72761205446c9e671cbf6af1c2dc935a34c95396dfc23b3",
+  "source": "stored (results/s1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "stored": {
+   "where": "results/s1",
+   "rendition_key": "ren:00eba99a1563ca56a25ab35fc9c51546",
+   "text_identical": true,
+   "math_spans_identical": true,
+   "macros_identical": true
+  },
+  "spans": 258,
+  "spans_by_delimiting": {
+   "ok": 258
+  }
+ },
+ "special/MultiNormal.html": {
+  "page": "special/MultiNormal.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:d5e27b3097e6754a4501bf436266e404",
+  "text_sha256": "e8bf74f6a40f8da5abfe24d860f11c75a3196e8829846d80e3a91edba5e11c63",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\vc": {
+    "nargs": 0,
+    "body": "\\text{vc}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\vc}{\\text{vc}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 633,
+  "spans_by_delimiting": {
+   "ok": 633
+  }
+ },
+ "special/Gamma.html": {
+  "page": "special/Gamma.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+  "text_sha256": "072fd22a372b40dffd6720c21a7f9a68b9f7d0fafe0ffe2db248eda28ac34a01",
+  "source": "stored (results/s1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "stored": {
+   "where": "results/s1",
+   "rendition_key": "ren:7b46012bf6e9cfa7a732d6386bb946c7",
+   "text_identical": true,
+   "math_spans_identical": true,
+   "macros_identical": true
+  },
+  "spans": 273,
+  "spans_by_delimiting": {
+   "ok": 273
+  }
+ },
+ "special/ChiSquare.html": {
+  "page": "special/ChiSquare.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:77c3a8c88f74974f3c555e3ed06fcbc4",
+  "text_sha256": "161574d9a02ccfed33b5d49980a2fa8c197947c398f23c6de2a02ae11654cca1",
+  "source": "stored (results/s0r2/s1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "stored": {
+   "where": "results/s0r2/s1",
+   "rendition_key": "ren:77c3a8c88f74974f3c555e3ed06fcbc4",
+   "text_identical": true,
+   "math_spans_identical": true,
+   "macros_identical": true
+  },
+  "spans": 377,
+  "spans_by_delimiting": {
+   "ok": 377
+  }
+ },
+ "special/Student.html": {
+  "page": "special/Student.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:d5803de1bf41725fc713c0709356a2a5",
+  "text_sha256": "9907008247aad114b6bc1bc0ffd2cb19fe3095431276433141c4cb35b575bc78",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 207,
+  "spans_by_delimiting": {
+   "ok": 207
+  }
+ },
+ "special/Fisher.html": {
+  "page": "special/Fisher.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:dd716a1c40419491dfa7ce5611d055e7",
+  "text_sha256": "99496f77c6f72d206deff284dcd9b20eb6b715b778c33043c718c5c5add54ed5",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 346,
+  "spans_by_delimiting": {
+   "ok": 346
+  }
+ },
+ "special/LogNormal.html": {
+  "page": "special/LogNormal.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+  "text_sha256": "4b92a9247b93302358024e5df9ca50d2cdcd6d51e5a79070b23ee1c9cd03bfc1",
+  "source": "stored (results/s1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "stored": {
+   "where": "results/s1",
+   "rendition_key": "ren:7f6eac9d027fefc8e40fa91f25e310a4",
+   "text_identical": true,
+   "math_spans_identical": true,
+   "macros_identical": true
+  },
+  "spans": 192,
+  "spans_by_delimiting": {
+   "ok": 192
+  }
+ },
+ "special/FoldedNormal.html": {
+  "page": "special/FoldedNormal.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:9961c57cbaf243667dd34b4790f3613b",
+  "text_sha256": "8d8aa6dc333df547f613ab41b32d6e84ddc84d795d049c30b9436366b7bbb737",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\Z}{\\mathbb{Z}} \\)\n\t\\( \\newcommand{ \\E}{\\mathbb{E}} \\)\n\t\\( \\newcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\var}{\\text{var}} \\)\n\t\\( \\newcommand{\\sd}{\\text{sd}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\sgn}{\\text{sgn}} \\)\n\t\\( \\newcommand{\\skw}{\\text{skew}} \\)\n\t\\( \\newcommand{\\kur}{\\text{kurt}} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 173,
+  "spans_by_delimiting": {
+   "ok": 173
+  }
+ },
+ "special/Rayleigh.html": {
+  "page": "special/Rayleigh.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:02e6774820d44cab69bcc84cc36b7344",
+  "text_sha256": "814920f4c72004c0cc2aba054baa925f1a258ad485d9ad1dec34457462fd1e8b",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 234,
+  "spans_by_delimiting": {
+   "ok": 234
+  }
+ },
+ "special/Maxwell.html": {
+  "page": "special/Maxwell.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:bbb41cb145812719c261b3c66890f38d",
+  "text_sha256": "e73b234149732e858425cdda9719591ff456535bc36c2c5b08d13fc1292d367c",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 152,
+  "spans_by_delimiting": {
+   "ok": 152
+  }
+ },
+ "special/Levy.html": {
+  "page": "special/Levy.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:315ce8bf1b553210eb66e65670ec651c",
+  "text_sha256": "3e72e449c10fac6985d0a8b4408b402def8fb05f88ee89d998617c1ce627961d",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\,\\text{sgn}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\sgn}{\\,\\text{sgn}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 149,
+  "spans_by_delimiting": {
+   "ok": 149
+  }
+ },
+ "special/Beta.html": {
+  "page": "special/Beta.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:672e4e1c221eaf845db9f23655426df4",
+  "text_sha256": "4a95ac516b26f7f03448951deee42353e042b7ceb274bfd4df2db88163d6f1e9",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 437,
+  "spans_by_delimiting": {
+   "ok": 437
+  }
+ },
+ "special/BetaPrime.html": {
+  "page": "special/BetaPrime.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:ade2eed706cf5d89d3b39e86feff0e31",
+  "text_sha256": "cfc2dd8f3507d5dced4f9528ef1e28d6a5b8572d0e8b77ec827c1fb23791d754",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 250,
+  "spans_by_delimiting": {
+   "ok": 250
+  }
+ },
+ "special/Arcsine.html": {
+  "page": "special/Arcsine.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:39391571f758b85ad65b54bb37f241d2",
+  "text_sha256": "0b010f1fc886a62d3ccbbcd1972491252c7d9d61562958cfc87f80c6095900ab",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 164,
+  "spans_by_delimiting": {
+   "ok": 164
+  }
+ },
+ "special/Uniform.html": {
+  "page": "special/Uniform.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:1254b72923fcee441a716bb4516ecf9f",
+  "text_sha256": "fd06881ed2c7d70c4ad5bd3911245ad3a45d572528910ba5bb482b886e23e4ff",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\ms}{\\mathscr} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 156,
+  "spans_by_delimiting": {
+   "ok": 156
+  }
+ },
+ "special/UniformContinuous.html": {
+  "page": "special/UniformContinuous.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:aa4ad38658f9d2c1990109cf41c999d8",
+  "text_sha256": "6355b2b2205f8ff1d77a7c8a3cc1bd9e77d569463e315a86f80110303033a843",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 205,
+  "spans_by_delimiting": {
+   "ok": 205
+  }
+ },
+ "special/UniformDiscrete.html": {
+  "page": "special/UniformDiscrete.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:5be7458512fa932673fccb5661f3a439",
+  "text_sha256": "6d5bea46d0b083c93ed9163cc7aab7067664880d245267ee7dee53c6d2f1288d",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\Z}{\\mathbb{Z}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 229,
+  "spans_by_delimiting": {
+   "ok": 229
+  }
+ },
+ "special/Semicircle.html": {
+  "page": "special/Semicircle.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:d086df5072291c134c0ee5afa91afbb7",
+  "text_sha256": "7683f6c10db7227516db21bc5098cc664a5e927ea644204957f70704d16beac7",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\Z}{\\mathbb{Z}} \\)\n\t\\( \\newcommand{ \\E}{\\mathbb{E}} \\)\n\t\\( \\newcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\var}{\\text{var}} \\)\n\t\\( \\newcommand{\\sd}{\\text{sd}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\sgn}{\\text{sgn}} \\)\n\t\\( \\newcommand{\\skw}{\\text{skew}} \\)\n\t\\( \\newcommand{\\kur}{\\text{kurt}} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 199,
+  "spans_by_delimiting": {
+   "ok": 199
+  }
+ },
+ "special/Triangle.html": {
+  "page": "special/Triangle.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:a2617f6da6f6bfd19bb6fd43c6107810",
+  "text_sha256": "61a68652de0bc8d57807064db2ded9a62c0b3f70f18d83825e52f89df2109dee",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\Z}{\\mathbb{Z}} \\)\n\t\\( \\newcommand{ \\E}{\\mathbb{E}} \\)\n\t\\( \\newcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\var}{\\text{var}} \\)\n\t\\( \\newcommand{\\sd}{\\text{sd}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\sgn}{\\text{sgn}} \\)\n\t\\( \\newcommand{\\skw}{\\text{skew}} \\)\n\t\\( \\newcommand{\\kur}{\\text{kurt}} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 352,
+  "spans_by_delimiting": {
+   "ok": 352
+  }
+ },
+ "special/IrwinHall.html": {
+  "page": "special/IrwinHall.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:76bc015677abf5af1f54493f20f2386d",
+  "text_sha256": "6d38b75c574c3d894f109600886e9a5d67a1b9902d4b12b3362629130aff0fb1",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\Z}{\\mathbb{Z}} \\)\n\t\\( \\newcommand{ \\E}{\\mathbb{E}} \\)\n\t\\( \\newcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\var}{\\text{var}} \\)\n\t\\( \\newcommand{\\sd}{\\text{sd}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\sgn}{\\text{sgn}} \\)\n\t\\( \\newcommand{\\skw}{\\text{skew}} \\)\n\t\\( \\newcommand{\\kur}{\\text{kurt}} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 192,
+  "spans_by_delimiting": {
+   "ok": 192
+  }
+ },
+ "special/UPower.html": {
+  "page": "special/UPower.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:d7aaa00b63afe0fb63add74a75e29467",
+  "text_sha256": "b8071be1f79539a502ed3abde3540f2c6d97cd4bbe9a1500ef579be0b9ddbc10",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 195,
+  "spans_by_delimiting": {
+   "ok": 195
+  }
+ },
+ "special/Sine.html": {
+  "page": "special/Sine.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:266baf6e0b1c4bc6b15367b2c3aeb180",
+  "text_sha256": "9f689b6e3492e6146349efcd2b89b39a36201ccf4a9dc2571b47bdacd2d95c9d",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 139,
+  "spans_by_delimiting": {
+   "ok": 139
+  }
+ },
+ "special/Laplace.html": {
+  "page": "special/Laplace.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:89e58393233af56a52b955483cad3878",
+  "text_sha256": "b5df266adc7752739580fafb954a8909d1b620ced7f0a2f6f40c4d33176bc5b6",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 206,
+  "spans_by_delimiting": {
+   "ok": 206
+  }
+ },
+ "special/Logistic.html": {
+  "page": "special/Logistic.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:b44c57106d762666ad297761a79f4129",
+  "text_sha256": "a45e0f088ff273267b576bf1b85794a7ded8dbac4c789ed171d77cd64a7f32a3",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 229,
+  "spans_by_delimiting": {
+   "ok": 229
+  }
+ },
+ "special/ExtremeValue.html": {
+  "page": "special/ExtremeValue.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:f00c85e0efa04e929a8173f0efb9c3c9",
+  "text_sha256": "476b62db0b61088f1bc166957afbd9a71a76ffd3ef8697e4f83149a720f2d88e",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 239,
+  "spans_by_delimiting": {
+   "ok": 239
+  }
+ },
+ "special/HyperbolicSecant.html": {
+  "page": "special/HyperbolicSecant.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:df534adbf58c5d31cd306ca0b3f9c7d0",
+  "text_sha256": "a635bd81b2b5d1763dc95d6fae7ae40cdf16ae4a8211994c133f7a2a0ab9ad03",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\sech": {
+    "nargs": 0,
+    "body": "\\text{sech}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\Z}{\\mathbb{Z}} \\)\n\t\\( \\newcommand{ \\E}{\\mathbb{E}} \\)\n\t\\( \\newcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\var}{\\text{var}} \\)\n\t\\( \\newcommand{\\sd}{\\text{sd}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\sgn}{\\text{sgn}} \\)\n\t\\( \\newcommand{\\skw}{\\text{skew}} \\)\n\t\\( \\newcommand{\\kur}{\\text{kurt}} \\)\n\t\\(\\newcommand{\\sech}{\\text{sech}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 150,
+  "spans_by_delimiting": {
+   "ok": 150
+  }
+ },
+ "special/Cauchy.html": {
+  "page": "special/Cauchy.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:239d32b1815f741ccd9187aa16797da2",
+  "text_sha256": "efafb9e3336dbb303a0add521d4825bc2fd234d659dbecf816ed2537f3844863",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\( \\newcommand{\\R}{\\mathbb{R}} \\)\n\t\\( \\newcommand{\\N}{\\mathbb{N}} \\)\n\t\\( \\newcommand{\\Z}{\\mathbb{Z}} \\)\n\t\\( \\newcommand{ \\E}{\\mathbb{E}} \\)\n\t\\( \\newcommand{\\P}{\\mathbb{P}} \\)\n\t\\( \\newcommand{\\var}{\\text{var}} \\)\n\t\\( \\newcommand{\\sd}{\\text{sd}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\sgn}{\\text{sgn}} \\)\n\t\\( \\newcommand{\\skw}{\\text{skew}} \\)\n\t\\( \\newcommand{\\kur}{\\text{kurt}} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 264,
+  "spans_by_delimiting": {
+   "ok": 264
+  }
+ },
+ "special/ExponentialLogarithmic.html": {
+  "page": "special/ExponentialLogarithmic.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:930bdfc6c631ef0f78e1dfd2fc6935a2",
+  "text_sha256": "053cf455849479998358f726a4d3c71f1f255eacaa84d37a09aa6722da8fc7f6",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\Li": {
+    "nargs": 0,
+    "body": "\\text{Li}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\( \\newcommand{\\Li}{\\text{Li}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n\t\\( \\newcommand{\\skw}{\\text{skew}} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 281,
+  "spans_by_delimiting": {
+   "ok": 281
+  }
+ },
+ "special/Gompertz.html": {
+  "page": "special/Gompertz.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:df5ecb66cf7dbffdfcd3a38a45a37b13",
+  "text_sha256": "38c68beb014f4b0e76cc62ebaf9a5a15b342b9a031571bbc1493ab0366c94692",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 263,
+  "spans_by_delimiting": {
+   "ok": 263
+  }
+ },
+ "special/LogLogistic.html": {
+  "page": "special/LogLogistic.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:53dc60954daf83cef3a94cf12c77cd70",
+  "text_sha256": "be49ac709ee9327dfbf829c54d86c438e781da85f8352c946393f3ffe71a485a",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\sinc": {
+    "nargs": 0,
+    "body": "\\text{sinc}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\sinc}{\\text{sinc}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 339,
+  "spans_by_delimiting": {
+   "ok": 339
+  }
+ },
+ "special/Pareto.html": {
+  "page": "special/Pareto.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+  "text_sha256": "7c4157e15a38718a9a899fcdd0b0425010c23dc54db884436ea5f5da3e6550d1",
+  "source": "stored (results/s0r2/s1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "stored": {
+   "where": "results/s0r2/s1",
+   "rendition_key": "ren:8034dc268d49d3451517c72014bb3f26",
+   "text_identical": true,
+   "math_spans_identical": true,
+   "macros_identical": true
+  },
+  "spans": 274,
+  "spans_by_delimiting": {
+   "ok": 274
+  }
+ },
+ "special/Wald.html": {
+  "page": "special/Wald.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:2affe5ac774483627f611d9e565a25df",
+  "text_sha256": "7d365c748c8d23aa5847e5033dd8be60e9497945e3ed03877f1de7e63fe28007",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\,\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\,\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\,\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\,\\text{var}}\\)\n\t\\(\\newcommand{\\skw}{\\,\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\,\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 256,
+  "spans_by_delimiting": {
+   "ok": 255,
+   "partial": 1
+  }
+ },
+ "special/Weibull.html": {
+  "page": "special/Weibull.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:23c561a51cc7f27328f422b829b1d52a",
+  "text_sha256": "9b4c5f6aefd4ebf9f7dc7efeb11d01401673fe23f980821c02e83b63bdb8ca5a",
+  "source": "stored (results/s0r2/s1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "stored": {
+   "where": "results/s0r2/s1",
+   "rendition_key": "ren:23c561a51cc7f27328f422b829b1d52a",
+   "text_identical": true,
+   "math_spans_identical": true,
+   "macros_identical": true
+  },
+  "spans": 334,
+  "spans_by_delimiting": {
+   "ok": 334
+  }
+ },
+ "special/Benford.html": {
+  "page": "special/Benford.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:28f2d453dd1528369f9931b9060fa437",
+  "text_sha256": "bff61c5343d6af8da0f94b41f2cdfed0a725d65d2ad1e20d816ffc4146c2045d",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\Z}{\\mathbb{Z}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\sd}{\\text{sd}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 225,
+  "spans_by_delimiting": {
+   "ok": 225
+  }
+ },
+ "special/Zeta.html": {
+  "page": "special/Zeta.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:4584739a88b51fb5bc1ae84ea5c7507e",
+  "text_sha256": "acb1b05b659d8a6887fc5e2110a418fc5fb8c6b89b0d4f709af03b92006d4ade",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\Li": {
+    "nargs": 0,
+    "body": "\\text{Li}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\skw}{\\text{skew}}\\)\n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\( \\newcommand{\\Li}{\\text{Li}} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 94,
+  "spans_by_delimiting": {
+   "ok": 94
+  }
+ },
+ "special/Logarithmic.html": {
+  "page": "special/Logarithmic.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:792eb99de529206e6a19d001197bc454",
+  "text_sha256": "edb2eaaab866bdb4ba1d0a149829715aafeeac3f4660836b0bb31c5c94f40b5e",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\( \\newcommand{\\var}{\\text{var}} \\)\n\t\\( \\newcommand{\\bs}{\\boldsymbol} \\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 64,
+  "spans_by_delimiting": {
+   "ok": 64
+  }
+ },
+ "bernoulli/Introduction.html": {
+  "page": "bernoulli/Introduction.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:3d145fefd593bf8f41d895ebc326175d",
+  "text_sha256": "2e1c8ce12169e09685058d8dcefc1b9e6fde46379a4a16d2e919bcc0c448f675",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 195,
+  "spans_by_delimiting": {
+   "ok": 195
+  }
+ },
+ "bernoulli/Binomial.html": {
+  "page": "bernoulli/Binomial.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:6ac2ce49d9d073a433582cdbdf7984f0",
+  "text_sha256": "f192be53af900d3a9d4a831c48ceac7c80392445d8c84cee9ab4b7ed8f8086d5",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 876,
+  "spans_by_delimiting": {
+   "ok": 876
+  }
+ },
+ "bernoulli/Geometric.html": {
+  "page": "bernoulli/Geometric.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:0bdf7ecbb2d8d1bd2ef24d040c421f4c",
+  "text_sha256": "009bb705a3cb4fc8509ab1e62949f4d113334a7a720f8b84460ddadf018be6a0",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 737,
+  "spans_by_delimiting": {
+   "ok": 737
+  }
+ },
+ "bernoulli/NegativeBinomial.html": {
+  "page": "bernoulli/NegativeBinomial.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:ccced8c57360f3d988bf928418692046",
+  "text_sha256": "39274a97bee027e9739f80bd93a706b64ac354b5c87b37b901fd1685f552aef7",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 582,
+  "spans_by_delimiting": {
+   "ok": 582
+  }
+ },
+ "bernoulli/Multinomial.html": {
+  "page": "bernoulli/Multinomial.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:240abf8c56e0118f20571cb4ed747597",
+  "text_sha256": "8cfaab8eda3699738fc4dd1e28338e75f5f2b51f5e365b08875951d7e9f2d395",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\cov}{\\text{cov}}\\) \n\t\\(\\newcommand{\\cor}{\\text{cor}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 98,
+  "spans_by_delimiting": {
+   "ok": 98
+  }
+ },
+ "bernoulli/Walk.html": {
+  "page": "bernoulli/Walk.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:a64bc5c5871a6b7e127d63b00a9fc494",
+  "text_sha256": "fc820d850c5b561ee6add648719cd129295396ded9538713180455dfc8b41234",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kur}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kur}}\\) \n"
+  ],
+  "math_anomalies": [
+   {
+    "pos": 1111,
+    "kind": "stray closer",
+    "delim": "\\]"
+   }
+  ],
+  "spans": 197,
+  "spans_by_delimiting": {
+   "ok": 196,
+   "partial": 1
+  }
+ },
+ "bernoulli/BetaBernoulli.html": {
+  "page": "bernoulli/BetaBernoulli.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:48832d909f41742ccde3291ed3761697",
+  "text_sha256": "a9c387729699cee5339e190ce0b069932c830bfeece1d7c729c803103272a0f0",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\)\n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\)\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\)\n\t\\(\\newcommand{\\cov}{\\text{cov}}\\)\n\t\\(\\newcommand{\\cor}{\\text{cor}}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 247,
+  "spans_by_delimiting": {
+   "ok": 247
+  }
+ },
+ "poisson/Introduction.html": {
+  "page": "poisson/Introduction.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:89e8b5a5f90aa6594995b97e2e516359",
+  "text_sha256": "f0627146eb66a8e462c075db283920909378dde50067c849def56025a7584798",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n"
+  ],
+  "math_anomalies": [],
+  "spans": 94,
+  "spans_by_delimiting": {
+   "ok": 94
+  }
+ },
+ "poisson/Exponential.html": {
+  "page": "poisson/Exponential.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:fbede813732265b48236cae963ab0edd",
+  "text_sha256": "d07077b56a33959598e634ce12436a22f3b991f6eedec2be472be6e94dc943fc",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [
+   {
+    "pos": 173,
+    "kind": "stray closer",
+    "delim": "\\)"
+   }
+  ],
+  "spans": 581,
+  "spans_by_delimiting": {
+   "ok": 581
+  }
+ },
+ "poisson/Gamma.html": {
+  "page": "poisson/Gamma.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:0fc4f563e2eb186597c93b3bde8762dc",
+  "text_sha256": "5b5c92705cbb50d602588b39c2f1d1a4949b3d3f6e5a7539160f168381f41285",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 254,
+  "spans_by_delimiting": {
+   "ok": 254
+  }
+ },
+ "poisson/Poisson.html": {
+  "page": "poisson/Poisson.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:9f72a801e7dbc8767521214759791a97",
+  "text_sha256": "e11b84c16b9e160d60a982800f6e35d7572b77ccc8a4dbbe612af2f13b9df24d",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 480,
+  "spans_by_delimiting": {
+   "ok": 480
+  }
+ },
+ "poisson/Splitting.html": {
+  "page": "poisson/Splitting.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:376d95f0896b810e6555694e17c53577",
+  "text_sha256": "4cfb6e062d57a14f142dd9aacc8949b70d84cbefee3dd8b34a00dd9024f50a2e",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 169,
+  "spans_by_delimiting": {
+   "ok": 169
+  }
+ },
+ "poisson/Nonhomogeneous.html": {
+  "page": "poisson/Nonhomogeneous.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:e3a3e1aa5c7c9ecfa5cc77c1d0fadac6",
+  "text_sha256": "5f535b455017b386a24b2ae3c495356f8a75c437465a1ed35b0c71d294ce3990",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 167,
+  "spans_by_delimiting": {
+   "ok": 167
+  }
+ },
+ "poisson/Compound.html": {
+  "page": "poisson/Compound.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:9eaba027d0b912321f853912ea6e1359",
+  "text_sha256": "268101591724f686cd8e2d950fce5eae61896ce2b0bce5be9d1d55b6df00291a",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 173,
+  "spans_by_delimiting": {
+   "ok": 173
+  }
+ },
+ "poisson/General.html": {
+  "page": "poisson/General.html",
+  "parser": "lxml",
+  "libxml2": "2.14.6",
+  "rendition_key": "ren:6f53c12fbc698bf2535c41ac4c1d1c06",
+  "text_sha256": "b2a402c108e61a8e0f9db29b104a66045feb6867b0412c45b6b7eb05d28a3073",
+  "source": "regenerated (s1_adapter.adapt, R1)",
+  "macros_spike_reader": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "latex_blocks": [
+   "\n\t\\(\\newcommand{\\P}{\\mathbb{P}}\\)\n\t\\(\\newcommand{\\E}{\\mathbb{E}}\\) \n\t\\(\\newcommand{\\R}{\\mathbb{R}}\\) \n\t\\(\\newcommand{\\N}{\\mathbb{N}}\\)\n\t\\(\\newcommand{\\bs}{\\boldsymbol}\\)\n\t\\(\\newcommand{\\var}{\\text{var}}\\) \n\t\\(\\newcommand{\\sd}{\\text{sd}}\\) \n\t\\(\\newcommand{\\skw}{\\text{skew}}\\) \n\t\\(\\newcommand{\\kur}{\\text{kurt}}\\) \n"
+  ],
+  "math_anomalies": [],
+  "spans": 253,
+  "spans_by_delimiting": {
+   "ok": 253
+  }
+ }
+}

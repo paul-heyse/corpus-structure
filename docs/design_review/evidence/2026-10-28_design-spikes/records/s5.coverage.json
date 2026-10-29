@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "id": "s5.coverage",
+  "title": "Math grammar coverage on all 28,956 first-pass spans (V1, V2) and the S5 grammar extensions",
+  "group": "S5 Math parsing and verification",
+  "package": "S5-A",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How much of the first pass does the one math grammar read with each rendition's macro table, before and after Lark edit_terminals (V1) and the tokenizer macro reader (V2), by failure and ambiguity category; which extensions gain spans without turning any ok span failed or ambiguous, and where do the remaining failures sit?",
+  "answers": [
+    "ADR-0009",
+    "D4 M11",
+    "D4 M09",
+    "D1 §3.1"
+  ],
+  "method": "code/s5_coverage.py parses every span under any_value in 30 single-threaded worker processes (parsers cached per macro classification; 2 s parse timer; the ambiguity resolver's SymPy conversions bounded at 1 s per reading, 4 s per value) with deterministic failure categories from the exception class, the TeX token at the error and the allowed set. Four baselines (spike grammar / edit_terminals / edit_terminals without the %override lines, x spike / tokenizer reader) are compared span by span. code/s5_extensions.py tries 35 candidate blocks (code/s5grammar/ext/) greedily over all spans: kept when they gain spans and turn no ok span failed or ambiguous and no read span failed (a read span already >= 1.5 s that then times out counts as a timing effect, reported per trial); the kept blocks are assembled into code/s5grammar/extension.lark. The frozen I-R2 mathgrammar is not edited. code/s5_report.py writes parse.tsv and coverage.md.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync python code/s5_coverage.py --variant spike --reader spike (and edited/spike, edited/tokenizer, edited-noovr/tokenizer)",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync python code/s5_extensions.py 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 20 21 22 23 24 25 26 18 19 27 28 29 30 31 32 33 34 35",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync python code/s5_coverage.py --variant extended --reader tokenizer [--printer s5]",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync python code/s5_report.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (S5-A)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "results/s5/spans.jsonl",
+      "role": "math spans (s5.macros)",
+      "sha256": "326d749fce1562d3bfff984e45f8c452ac28a77bfa7626b9e09940a2980484aa"
+    },
+    {
+      "path": "results/s5/macro_tables.json",
+      "role": "page macro tables (s5.macros)",
+      "sha256": "677f5713290edd4f815cef4e8d22d48c4f546bb2925a59285f2758feb0102be9"
+    },
+    {
+      "path": "results/s5/renditions.json",
+      "role": "spike reader tables (s5.macros)",
+      "sha256": "80600fdd3ae3be1a060fa98e90fe983cf9971e41d3fd30298773d61d501bf326"
+    },
+    {
+      "path": "code/mathgrammar",
+      "role": "I-R2 math grammar (frozen, unedited)",
+      "sha256": "9e5fee61fdc97c016f348b4ae4691294d3d18cd418f4b6b9065c2a12ff275492"
+    },
+    {
+      "path": "code/s5grammar/__init__.py",
+      "role": "grammar variants: edit_terminals, ordered_sets, block trials",
+      "sha256": "f2eb15bed6c222bc80a01bcea8897cab328afdc766d6612bd18e27146d749233"
+    },
+    {
+      "path": "code/s5grammar/ext",
+      "role": "candidate extension blocks",
+      "sha256": "1487467e582331b6d934244e00bae0e911161dd91fc621a7f900e0c3a6016146"
+    },
+    {
+      "path": "code/s5_coverage.py",
+      "role": "coverage runner",
+      "sha256": "44489e0f51658f1253561da3e3fed788fa729289bb42ce40e88f96aae5034e24"
+    },
+    {
+      "path": "code/s5_extensions.py",
+      "role": "greedy extension trials",
+      "sha256": "4972ee079fff25fba3227b7b2ad0eff20502df7a39dcc98ca5b3a5061ae33568"
+    },
+    {
+      "path": "code/s5_report.py",
+      "role": "parse.tsv, coverage.md",
+      "sha256": "aeb998ea3109f230e2baee737451f25ae1ee62fe6b0c686bcfe4b54a30a8222b"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "code/s5grammar/extension.lark",
+      "role": "the extended extension.lark (I-R2 extension + kept S5 blocks)",
+      "sha256": "5c4d6ba38d423eb638de1dae64b0d667462b858aed05baf6e9e2086b6dacd95d"
+    },
+    {
+      "path": "results/s5/parse.tsv",
+      "role": "per span: key, page, kind, offsets, delimiting status, baseline and extended status, detected kind, category or ambiguity cause, ms",
+      "sha256": "8f5810e6eedd4da38cb1de8e5236d6bf0822c8b65618e23ed46396c30f0e7165"
+    },
+    {
+      "path": "results/s5/coverage.md",
+      "role": "coverage by status and category before and after each extension; the 8 partial spans; timing",
+      "sha256": "e07ee02df9045208888bfeedae16b4d82c0220f3618edf382773adcbfac76212"
+    },
+    {
+      "path": "results/s5/coverage_summary.json",
+      "role": "summary",
+      "sha256": "304ff140c026e69295d8fcab616d50741b0f5f22bd32b566305fceae43a44bfd"
+    },
+    {
+      "path": "results/s5/extensions.json",
+      "role": "per trial: transitions, gains by construct, broken spans, timing-boundary spans",
+      "sha256": "72f7abecf602a0dc14a663959584def7e5f92903721e391a61cb5164b4a82e29"
+    },
+    {
+      "path": "results/s5/runs",
+      "role": "run summaries (the per-span run files are not kept; parse.tsv and canonical.tsv carry them)",
+      "sha256": "e8ed5f399da8da986ad5678fa19de27f5b2bd259d1316ab164bd74a50f3ca145"
+    }
+  ],
+  "depends_on": [
+    "s5.macros",
+    "i-r2.token-form-parity",
+    "e4.env-cpu"
+  ],
+  "results": [
+    {
+      "name": "baseline_ok",
+      "value": 23404,
+      "of": 28956,
+      "unit": null,
+      "note": "80.8%; ambiguous 2,727, partial 4, failed 2,821; read 26,135 (90.3%)"
+    },
+    {
+      "name": "v1_spans_changed",
+      "value": 0,
+      "of": 28956,
+      "unit": null,
+      "note": "edit_terminals (with or without the regex %override lines) changes no status, kind, category, note or printed tree: no corpus command extends a literal terminal's name (\\leftarrow, \\quadrant); earlier figures are not overstated on Siegrist"
+    },
+    {
+      "name": "v2_spans_changed",
+      "value": 0,
+      "of": 28956,
+      "unit": null,
+      "note": "the tokenizer reader adds \\P on 22 pages but no effective table changes (same fallback body)"
+    },
+    {
+      "name": "extension_blocks_kept",
+      "value": 32,
+      "of": 35,
+      "unit": null,
+      "note": "rejected: 08 (R = S \\times T ok -> ambiguous; refined as 20), 23 (\\P(E, X \\in A) ok -> ambiguous; refined as 27), 32 inverse images (8 ok spans broken)"
+    },
+    {
+      "name": "extended_ok",
+      "value": 25353,
+      "of": 28956,
+      "unit": null,
+      "note": "87.6%; ambiguous 3,013, partial 4, failed 586 (2.0%); read 28,370 (98.0%)"
+    },
+    {
+      "name": "largest_remaining_named_construct",
+      "value": 38,
+      "of": null,
+      "unit": "spans",
+      "note": "measure differentials d\\mu(x), K(x, dy), d(\\mu \\times \\nu); then inner products 27, text words 25, \\prime 21, multinomials 16; the stop criterion (about 50) is met"
+    },
+    {
+      "name": "parse_ms_median",
+      "value": "42 -> 85",
+      "of": null,
+      "unit": "ms",
+      "note": "baseline -> extended, uncached parses; p99 382 -> 859 ms"
+    },
+    {
+      "name": "resolver_unbounded_found",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "api._Resolver converts readings to SymPy outside the parse timer; Eq(...) evaluated an integral numerically for more than 11 minutes on the first run; bounded here, a port obligation"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "With the rendition macro tables the I-R2 grammar reads 90.3% of the first pass (80.8% ok); V1 and V2 change nothing on Siegrist. Thirty-two extension blocks (tuples, \\mapsto, signatures, conditional and set arguments, styled subscripts, set powers and equations, cases and align environments, prose connectives, among others) raise it to 98.0% read and 87.6% ok with no ok span lost; the remaining 586 failures spread over constructs of at most 38 spans. Coverage is a reported figure (plan §1): 87.6% ok is below the brief's 90% reading, so M11 types and converts fewer spans, while keys are unaffected (D1 §6.2). The port carries extension.lark, edit_terminals with ordered_sets=True, and one deadline over the whole read including the resolver.",
+  "consumed_by": [
+    "P0-I-2a",
+    "D4 M11",
+    "S5-E"
+  ]
+}

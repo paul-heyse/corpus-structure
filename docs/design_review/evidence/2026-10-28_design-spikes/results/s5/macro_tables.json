@@ -1,0 +1,4268 @@
+{
+ "dist/Introduction.html": {
+  "definitions": 5,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 4
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "dist/Discrete.html": {
+  "definitions": 5,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 4
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "dist/Continuous.html": {
+  "definitions": 5,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 4
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "dist/Mixed.html": {
+  "definitions": 4,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 3
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "dist/Joint.html": {
+  "definitions": 5,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 4
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "dist/Conditional.html": {
+  "definitions": 4,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 3
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "dist/CDF.html": {
+  "definitions": 5,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 4
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "dist/Transformations.html": {
+  "definitions": 7,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 6
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "dist/Convergence.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Q": {
+    "nargs": 0,
+    "body": "\\mathbb{Q}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\cl": {
+    "nargs": 0,
+    "body": "\\text{cl}"
+   },
+   "\\interior": {
+    "nargs": 0,
+    "body": "\\text{int}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "36f2102106fbe083",
+  "classification_key_spike": "36f2102106fbe083",
+  "full_key_new": "2ea0ff03a8c932a1",
+  "full_key_spike": "2ea0ff03a8c932a1"
+ },
+ "expect/Properties.html": {
+  "definitions": 5,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 4
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Properties2.html": {
+  "definitions": 5,
+  "by_command": {
+   "\\renewcommand": 1,
+   "\\newcommand": 4
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Variance.html": {
+  "definitions": 7,
+  "by_command": {
+   "\\newcommand": 6,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\mse": {
+    "nargs": 0,
+    "body": "\\text{mse}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Skew.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 7,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Covariance.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 9,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\mse": {
+    "nargs": 0,
+    "body": "\\text{mse}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Generating.html": {
+  "definitions": 6,
+  "by_command": {
+   "\\newcommand": 5,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Conditional.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 9,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\mse": {
+    "nargs": 0,
+    "body": "\\text{MSE}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "21836f29a5c5271b",
+  "classification_key_spike": "21836f29a5c5271b",
+  "full_key_new": "cf0f27ad345052cc",
+  "full_key_spike": "cf0f27ad345052cc"
+ },
+ "expect/Matrices.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 8,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\vc": {
+    "nargs": 0,
+    "body": "\\text{vc}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "6ae74b6f9c67c35f",
+  "classification_key_spike": "6ae74b6f9c67c35f",
+  "full_key_new": "e185663b434e79d2",
+  "full_key_spike": "e185663b434e79d2"
+ },
+ "expect/Integral.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 8,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Conditional2.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 9,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\mse": {
+    "nargs": 0,
+    "body": "\\text{MSE}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "21836f29a5c5271b",
+  "classification_key_spike": "21836f29a5c5271b",
+  "full_key_new": "cf0f27ad345052cc",
+  "full_key_spike": "cf0f27ad345052cc"
+ },
+ "expect/Spaces.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 7,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Uniform.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 9,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "expect/Kernels.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 8,
+   "\\renewcommand": 1
+  },
+  "other_definers": {},
+  "notes": [
+   "\\P \\renewcommand without a prior definition on the page"
+  ],
+  "table": {
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   }
+  },
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/LocationScale.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/GeneralExponential.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Stable.html": {
+  "definitions": 12,
+  "by_command": {
+   "\\newcommand": 12
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\,\\text{sgn}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "0601e144a6b22b62",
+  "full_key_spike": "0601e144a6b22b62"
+ },
+ "special/Divisible.html": {
+  "definitions": 12,
+  "by_command": {
+   "\\newcommand": 12
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\,\\text{sgn}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "0601e144a6b22b62",
+  "full_key_spike": "0601e144a6b22b62"
+ },
+ "special/PowerSeries.html": {
+  "definitions": 6,
+  "by_command": {
+   "\\newcommand": 6
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Normal.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/MultiNormal.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\vc": {
+    "nargs": 0,
+    "body": "\\text{vc}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "6ae74b6f9c67c35f",
+  "classification_key_spike": "6ae74b6f9c67c35f",
+  "full_key_new": "e185663b434e79d2",
+  "full_key_spike": "e185663b434e79d2"
+ },
+ "special/Gamma.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/ChiSquare.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Student.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Fisher.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/LogNormal.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/FoldedNormal.html": {
+  "definitions": 11,
+  "by_command": {
+   "\\newcommand": 11
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Rayleigh.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Maxwell.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Levy.html": {
+  "definitions": 5,
+  "by_command": {
+   "\\newcommand": 5
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\,\\text{sgn}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "0601e144a6b22b62",
+  "full_key_spike": "0601e144a6b22b62"
+ },
+ "special/Beta.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/BetaPrime.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Arcsine.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Uniform.html": {
+  "definitions": 6,
+  "by_command": {
+   "\\newcommand": 6
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\ms": {
+    "nargs": 0,
+    "body": "\\mathscr"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/UniformContinuous.html": {
+  "definitions": 11,
+  "by_command": {
+   "\\newcommand": 11
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/UniformDiscrete.html": {
+  "definitions": 11,
+  "by_command": {
+   "\\newcommand": 11
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Semicircle.html": {
+  "definitions": 11,
+  "by_command": {
+   "\\newcommand": 11
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Triangle.html": {
+  "definitions": 11,
+  "by_command": {
+   "\\newcommand": 11
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/IrwinHall.html": {
+  "definitions": 11,
+  "by_command": {
+   "\\newcommand": 11
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/UPower.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Sine.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Laplace.html": {
+  "definitions": 11,
+  "by_command": {
+   "\\newcommand": 11
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Logistic.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/ExtremeValue.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/HyperbolicSecant.html": {
+  "definitions": 12,
+  "by_command": {
+   "\\newcommand": 12
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\sech": {
+    "nargs": 0,
+    "body": "\\text{sech}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "fd47b3ef17da3d1b",
+  "classification_key_spike": "fd47b3ef17da3d1b",
+  "full_key_new": "6ce7be0ef09f582e",
+  "full_key_spike": "6ce7be0ef09f582e"
+ },
+ "special/Cauchy.html": {
+  "definitions": 11,
+  "by_command": {
+   "\\newcommand": 11
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\sgn": {
+    "nargs": 0,
+    "body": "\\text{sgn}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/ExponentialLogarithmic.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\Li": {
+    "nargs": 0,
+    "body": "\\text{Li}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "8586e73b2ff67075",
+  "classification_key_spike": "8586e73b2ff67075",
+  "full_key_new": "6832d6a51b1743cc",
+  "full_key_spike": "6832d6a51b1743cc"
+ },
+ "special/Gompertz.html": {
+  "definitions": 6,
+  "by_command": {
+   "\\newcommand": 6
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/LogLogistic.html": {
+  "definitions": 7,
+  "by_command": {
+   "\\newcommand": 7
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\sinc": {
+    "nargs": 0,
+    "body": "\\text{sinc}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "84387121e2bd15e3",
+  "classification_key_spike": "84387121e2bd15e3",
+  "full_key_new": "e4498fe3d90c632f",
+  "full_key_spike": "e4498fe3d90c632f"
+ },
+ "special/Pareto.html": {
+  "definitions": 7,
+  "by_command": {
+   "\\newcommand": 7
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Wald.html": {
+  "definitions": 7,
+  "by_command": {
+   "\\newcommand": 7
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\,\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\,\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\,\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "379a51a813b4d9ed",
+  "full_key_spike": "379a51a813b4d9ed"
+ },
+ "special/Weibull.html": {
+  "definitions": 10,
+  "by_command": {
+   "\\newcommand": 10
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Benford.html": {
+  "definitions": 7,
+  "by_command": {
+   "\\newcommand": 7
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\Z": {
+    "nargs": 0,
+    "body": "\\mathbb{Z}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "special/Zeta.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\Li": {
+    "nargs": 0,
+    "body": "\\text{Li}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "8586e73b2ff67075",
+  "classification_key_spike": "8586e73b2ff67075",
+  "full_key_new": "6832d6a51b1743cc",
+  "full_key_spike": "6832d6a51b1743cc"
+ },
+ "special/Logarithmic.html": {
+  "definitions": 6,
+  "by_command": {
+   "\\newcommand": 6
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "bernoulli/Introduction.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "bernoulli/Binomial.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "bernoulli/Geometric.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "bernoulli/NegativeBinomial.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "bernoulli/Multinomial.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "bernoulli/Walk.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kur}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "53978753ce011352",
+  "classification_key_spike": "53978753ce011352",
+  "full_key_new": "64ffb669136d5c6f",
+  "full_key_spike": "64ffb669136d5c6f"
+ },
+ "bernoulli/BetaBernoulli.html": {
+  "definitions": 8,
+  "by_command": {
+   "\\newcommand": 8
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\cov": {
+    "nargs": 0,
+    "body": "\\text{cov}"
+   },
+   "\\cor": {
+    "nargs": 0,
+    "body": "\\text{cor}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "poisson/Introduction.html": {
+  "definitions": 2,
+  "by_command": {
+   "\\newcommand": 2
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "poisson/Exponential.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "poisson/Gamma.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "poisson/Poisson.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "poisson/Splitting.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "poisson/Nonhomogeneous.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "poisson/Compound.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ },
+ "poisson/General.html": {
+  "definitions": 9,
+  "by_command": {
+   "\\newcommand": 9
+  },
+  "other_definers": {},
+  "notes": [],
+  "table": {
+   "\\P": {
+    "nargs": 0,
+    "body": "\\mathbb{P}"
+   },
+   "\\E": {
+    "nargs": 0,
+    "body": "\\mathbb{E}"
+   },
+   "\\R": {
+    "nargs": 0,
+    "body": "\\mathbb{R}"
+   },
+   "\\N": {
+    "nargs": 0,
+    "body": "\\mathbb{N}"
+   },
+   "\\bs": {
+    "nargs": 0,
+    "body": "\\boldsymbol"
+   },
+   "\\var": {
+    "nargs": 0,
+    "body": "\\text{var}"
+   },
+   "\\sd": {
+    "nargs": 0,
+    "body": "\\text{sd}"
+   },
+   "\\skw": {
+    "nargs": 0,
+    "body": "\\text{skew}"
+   },
+   "\\kur": {
+    "nargs": 0,
+    "body": "\\text{kurt}"
+   }
+  },
+  "spike_missed": {},
+  "spike_differs": [],
+  "spike_only": [],
+  "effective_differs": false,
+  "effective_diff": [],
+  "classification_key_new": "e5b04d0cba3f13ac",
+  "classification_key_spike": "e5b04d0cba3f13ac",
+  "full_key_new": "311397e6f6758a9f",
+  "full_key_spike": "311397e6f6758a9f"
+ }
+}

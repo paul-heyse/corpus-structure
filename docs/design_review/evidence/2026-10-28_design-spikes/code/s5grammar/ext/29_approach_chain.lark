@@ -1,0 +1,2 @@
+// S5-29 (1 - n p_n / n)^n \to e^{-r}, a_n = b_n \to 0: \to in a chain of relations
+%extend _rel_op: LIM_APPROACH_SYM

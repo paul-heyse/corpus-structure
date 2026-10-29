@@ -1,0 +1,5 @@
+// S5-08 \ms S = \{A \in \ms R^n: A \subseteq S\}, C_p \cap C_q = \emptyset, \{X = a\} = \{X \le a\} \setminus \{X \lt a\}:
+// an equation of sets, one side not a lone symbol or interval
+_set_rhs: set_list | set_builder | set_event | set_const | empty_set | set_minus | set_union | set_intersection | set_product
+set_eq: set_expr EQUAL _set_rhs | _set_rhs EQUAL set_named
+%extend relation: set_eq

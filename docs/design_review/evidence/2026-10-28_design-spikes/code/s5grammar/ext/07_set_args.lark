@@ -1,0 +1,8 @@
+// S5-07 P(\{x\}), \P(\{X = x\} \cap E), P(\{x\} \mid D), \P(A \cap B): a set (not a lone symbol or interval)
+// as the argument of an operator or of a symbol
+_set_arg: set_list | set_builder | set_event | set_const | empty_set | set_minus | set_union | set_intersection | set_product
+%extend _op_args: _set_arg
+%extend _cond_side: _set_arg
+set_applied: _one_letter_symbol L_PAREN _set_arg R_PAREN
+    | _one_letter_symbol L_PAREN _set_arg BAR _cond_side R_PAREN
+%extend _function: set_applied

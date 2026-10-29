@@ -1,0 +1,2 @@
+// S5-33 (x, y) \mapsto f(x) g(y), (x, z) \mapsto (x, z - x): a map of tuples
+%extend maps_to: tuple CMD_MAPSTO (_expression | eq | tuple) | _expression CMD_MAPSTO tuple

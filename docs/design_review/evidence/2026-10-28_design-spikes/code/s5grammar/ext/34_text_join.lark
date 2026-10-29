@@ -1,0 +1,7 @@
+// S5-34 x_i \text{ for all } i \in \N_+, X_n \to X \text{ as } n \to \infty, \P(X_n \text{ does not converge to } X):
+// values joined by a prose connective (a text-mode argument, S5-18), as a whole value, an operator's argument
+// or a set-builder condition
+text_join: _list_item (text_group _list_item)+ | _list_item text_group
+%extend any_value: text_join
+%extend _op_args: text_join
+%extend _builder_cond: text_join

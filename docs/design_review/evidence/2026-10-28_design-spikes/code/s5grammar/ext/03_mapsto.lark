@@ -1,0 +1,4 @@
+// S5-03 x \mapsto f(x), A \mapsto \P(A \mid E): a map written by its rule (parse; no SymPy value)
+CMD_MAPSTO: /\\mapsto(?![A-Za-z])/
+maps_to: _expression CMD_MAPSTO (_expression | eq)
+%extend relation: maps_to

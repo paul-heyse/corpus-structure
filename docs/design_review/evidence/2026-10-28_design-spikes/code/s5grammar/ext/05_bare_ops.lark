@@ -1,0 +1,3 @@
+// S5-05 \P, \E, \var, \pm, \ln alone: an operator named, not applied (a whole value only)
+op_alone: op_name | CMD_PM | FUNC_LN | FUNC_LOG | FUNC_EXP | FUNC_SIN | FUNC_COS | FUNC_TAN
+%extend any_value: op_alone

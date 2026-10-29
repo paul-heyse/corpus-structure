@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "id": "s5.macros",
+  "title": "Macro tables of the 78 first-pass pages, read on the shared TeX tokenizer (V2)",
+  "group": "S5 Math parsing and verification",
+  "package": "S5-A",
+  "finalized": "2026-10-28",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which macros do the math spans of the 78 first-pass pages use, from the rendition's own table or the D2 §12.1 fallback, with which bodies; what does a reader on the token form's TeX tokenizer (\\newcommand, \\renewcommand, \\providecommand, \\DeclareMathOperator) read that the spike's pylatexenc reader missed, page by page?",
+  "answers": [
+    "D4 M01",
+    "HTML-06",
+    "D1 §6.2"
+  ],
+  "method": "code/s5_spans.py regenerates the 78 pages with s1_adapter.adapt under the S1 configuration (contract R1, parser lxml recorded; the stored seven compared and taken as they stand) and keeps every div.latex block; code/s5_macros.py reads the definitions with mathgrammar.printer.tex_tokens (TeX's rules: name, optional [n], optional default, body as TeX reads arguments; \\newcommand of a defined name kept first, \\renewcommand replaces, \\providecommand only when undefined), compares with the spike reader per page, builds each effective table (page over the D2 §12.1 fallback) and counts every control word of every math span by source.",
+  "commands": [
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync python code/s5_spans.py",
+    "UV_PROJECT_ENVIRONMENT=$REPO/build/spike-venv uv run --project . --no-sync python code/s5_macros.py"
+  ],
+  "agents": [
+    {
+      "role": "executor (S5-A)",
+      "model": "Claude Opus 5.5",
+      "brief": null,
+      "separation": null
+    }
+  ],
+  "inputs": [
+    {
+      "path": "code/s5_spans.py",
+      "role": "span inventory and latex blocks",
+      "sha256": "372883c52425f6b5b273f8540f01d365c00be513e96f94b518831e269c81c624"
+    },
+    {
+      "path": "code/s5_macros.py",
+      "role": "tokenizer macro reader",
+      "sha256": "b29d850217598f3edf22bb70c04f317b3649241c9aeab18d671bb04e58d9064c"
+    },
+    {
+      "path": "code/s1_adapter.py",
+      "role": "adapter (R1) and the spike reader",
+      "sha256": "f0e067aa123a5d0b11f7cb21dfe0ebc3546cf0e554fde899688e5f57f70a0480"
+    },
+    {
+      "path": "code/mathgrammar/printer.py",
+      "role": "TeX tokenizer (I-R2, frozen)",
+      "sha256": "6970f5b3565a780d13d8a1608a2ff636699e8e174cd3238fb9c605d0eee43377"
+    },
+    {
+      "path": "code/instruments/values.py",
+      "role": "D2 §12.1 fallback map",
+      "sha256": "7180b468afbace986566a8450e48d886eaa09552fd93dc28aab95eca0d0ba600"
+    },
+    {
+      "path": "results/s1/renditions.json",
+      "role": "stored renditions (four spike pages)",
+      "sha256": "aa75c9c0af1039f5360bc81639cd63de6b1a5c2c68d9a7b4a4b89fe83c60a884"
+    },
+    {
+      "path": "results/s0r2/s1/renditions.json",
+      "role": "stored renditions (three S0-R2 pages)",
+      "sha256": "ec35423d6e4404f1abb0bbbe4d7beebc38b9613fcdefc4ac46b83d418c777185"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/s5/spans.jsonl",
+      "role": "every math span: page, segment key, offsets, kind, delimiting status, LaTeX",
+      "sha256": "326d749fce1562d3bfff984e45f8c452ac28a77bfa7626b9e09940a2980484aa"
+    },
+    {
+      "path": "results/s5/renditions.json",
+      "role": "per page: rendition key, parser, libxml2, spike reader table, div.latex sources, stored-page identity",
+      "sha256": "80600fdd3ae3be1a060fa98e90fe983cf9971e41d3fd30298773d61d501bf326"
+    },
+    {
+      "path": "results/s5/macro_tables.json",
+      "role": "per page: tokenizer reader table, what the spike reader missed, effective-table and parser-key comparison",
+      "sha256": "677f5713290edd4f815cef4e8d22d48c4f546bb2925a59285f2758feb0102be9"
+    },
+    {
+      "path": "results/s5/macros.tsv",
+      "role": "every control word in math: count, pages, source, expansion, differing bodies",
+      "sha256": "d73b16fdb39c4a5742f351ccc51be67752d51dd1c7c21126588b2efceb23409e"
+    },
+    {
+      "path": "results/s5/macros_summary.json",
+      "role": "summary",
+      "sha256": "cf04bc41c7c90d237bf6e72a107816cb8a070d16c11aa8ac2537236a2d63efb1"
+    }
+  ],
+  "depends_on": [
+    "s1.corpus",
+    "s1.adapter",
+    "e4.env-cpu"
+  ],
+  "results": [
+    {
+      "name": "math_spans",
+      "value": 28956,
+      "of": null,
+      "unit": null,
+      "note": "28,948 delimited ok, 8 partial; equal to s1.corpus; the stored seven pages regenerate identically (text, math spans, macros)"
+    },
+    {
+      "name": "definitions",
+      "value": 652,
+      "of": null,
+      "unit": null,
+      "note": "630 \\newcommand, 22 \\renewcommand; no \\providecommand, \\DeclareMathOperator, \\def or \\let; no macro takes arguments"
+    },
+    {
+      "name": "pages_where_spike_reader_missed_a_definition",
+      "value": 22,
+      "of": 78,
+      "unit": null,
+      "note": "all \\renewcommand{\\P}{\\mathbb{P}} (\\P is a LaTeX built-in, so \\renewcommand is the right definer); 803 \\P uses took the fallback under the spike reader"
+    },
+    {
+      "name": "pages_whose_effective_table_differs",
+      "value": 0,
+      "of": 78,
+      "unit": null,
+      "note": "the fallback's \\P body is the same; parser classification keys identical too"
+    },
+    {
+      "name": "distinct_definitions",
+      "value": 28,
+      "of": null,
+      "unit": null,
+      "note": "22 names"
+    },
+    {
+      "name": "names_with_differing_bodies",
+      "value": 4,
+      "of": null,
+      "unit": null,
+      "note": "\\var, \\kur, \\skw, \\sgn: a leading \\, on some pages; \\kur as \\text{kur} on one"
+    },
+    {
+      "name": "control_words_in_math",
+      "value": 132,
+      "of": null,
+      "unit": null,
+      "note": "96 read by the grammar (35,035 uses), 22 from the rendition table (9,465 uses), 0 from the fallback under the tokenizer reader, 14 unmapped (590 uses)"
+    },
+    {
+      "name": "unmapped_control_words",
+      "value": "\\begin \\end (185 each), \\mapsto 159, \\partial 19, \\bigcup 15, \\otimes 8, \\circ 6, \\asymp 5, \\bar 2, \\scr 2, \\iff 1, \\inty 1, \\middle 1, \\mod 1",
+      "of": null,
+      "unit": null,
+      "note": "uses; neither a macro nor matched by a terminal of the baseline grammar"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The tokenizer reader gives the spike reader's table on 56 pages and adds \\P on the 22 that define it by \\renewcommand; every macro used in math is defined on its own page, so the fallback map is never needed on Siegrist, and no key or parse changes on this corpus because the fallback body agrees. M01's reader is the tokenizer reader (D4 M01); the bodies that differ between pages (\\var, \\kur, \\skw, \\sgn) confirm per-rendition tables (HTML-06).",
+  "consumed_by": [
+    "P0-I-1a",
+    "S5-E"
+  ]
+}
