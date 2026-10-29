@@ -142,6 +142,24 @@ class EvidenceSourceRow:
 
 
 @dataclass(frozen=True)
+class EntityInputRow:
+    entity_id: str
+    input_realization_id: str
+    input_data_revision: int
+    input_entity_id: str
+    run_id: int
+
+
+@dataclass(frozen=True)
+class FactInputRow:
+    fact_id: str
+    input_realization_id: str
+    input_data_revision: int
+    input_fact_id: str
+    run_id: int
+
+
+@dataclass(frozen=True)
 class AssessmentRow:
     assessment_id: str
     operation_id: str
@@ -199,6 +217,8 @@ _ROW_TYPES = {
     "occurrence_establishment": OccurrenceEstablishmentRow,
     "evidence_source": EvidenceSourceRow,
     "assessment": AssessmentRow,
+    "entity_input": EntityInputRow,
+    "fact_input": FactInputRow,
 }
 _DIALECT = postgresql.dialect()
 STAGE_TYPES: dict[str, tuple[type, tuple[str, ...]]] = {
@@ -239,6 +259,8 @@ class PublicationBatch:
     occurrence_establishment: tuple[OccurrenceEstablishmentRow, ...] = ()
     evidence_source: tuple[EvidenceSourceRow, ...] = ()
     assessment: tuple[AssessmentRow, ...] = ()
+    entity_input: tuple[EntityInputRow, ...] = ()
+    fact_input: tuple[FactInputRow, ...] = ()
 
     def __post_init__(self) -> None:
         if any(

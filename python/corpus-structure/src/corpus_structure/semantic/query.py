@@ -171,12 +171,20 @@ class Derivation(_Envelope):
     premise_fact_ids: tuple[str, ...]
 
 
+class InputFactSupport(_Envelope):
+    input_realization_id: str
+    input_data_revision: int
+    input_fact_id: str
+    run_id: int
+
+
 class Explanation(_Envelope):
     binding: SnapshotBinding
     fact_id: str
     supports: tuple[OccurrenceSupport, ...]
     evidence: tuple[Evidence, ...]
     derivations: tuple[Derivation, ...]
+    input_supports: tuple[InputFactSupport, ...] = ()
     coverage: tuple[Coverage, ...]
 
 
@@ -655,7 +663,11 @@ class ReadSession:
             .order_by(p.c.position)
         ).mappings():
             premises[row["derivation_id"]].append(row["premise_fact_id"])
+        input_relation=table("data.fact_input")
+        input_supports=tuple(InputFactSupport(**{name:row[name] for name in InputFactSupport.model_fields})
+            for row in self.connection.execute(select(input_relation).where(_scope(self.binding,input_relation),input_relation.c.fact_id==fact_id)).mappings())
         return Explanation(
+            input_supports=input_supports,
             binding=self.binding,
             fact_id=fact_id,
             supports=tuple(

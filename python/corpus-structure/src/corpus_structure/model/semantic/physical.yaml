@@ -1775,3 +1775,61 @@ classes:
       ph:foreign_keys: '[{"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"},
         {"columns": ["release_id", "source_observation_key"], "target": "kb.observation.release_id,observation_key"}]'
       ph:checks: '["position >= 0", "role <> ''''"]'
+  entity_input:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        required: true
+      release_id:
+        required: true
+      entity_id:
+        required: true
+      input_realization_id:
+        required: true
+      input_data_revision:
+        range: integer
+        required: true
+      input_entity_id:
+        required: true
+      run_id:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - entity_id
+    annotations:
+      ph:foreign_keys: '[{"columns":["realization_id","release_id","entity_id"],"target":"data.entity.realization_id,release_id,entity_id"},{"columns":["input_realization_id","release_id","input_entity_id"],"target":"data.entity.realization_id,release_id,entity_id"},{"columns":["run_id"],"target":"ops.run.id"}]'
+      ph:checks: '["input_data_revision >= 0", "realization_id <> input_realization_id"]'
+  fact_input:
+    in_subset:
+    - data
+    attributes:
+      realization_id:
+        required: true
+      release_id:
+        required: true
+      fact_id:
+        required: true
+      input_realization_id:
+        required: true
+      input_data_revision:
+        range: integer
+        required: true
+      input_fact_id:
+        required: true
+      run_id:
+        range: integer
+        required: true
+    unique_keys:
+      primary_key:
+        unique_key_slots:
+        - realization_id
+        - release_id
+        - fact_id
+    annotations:
+      ph:foreign_keys: '[{"columns":["realization_id","release_id","fact_id"],"target":"data.fact.realization_id,release_id,fact_id"},{"columns":["input_realization_id","release_id","input_fact_id"],"target":"data.fact.realization_id,release_id,fact_id"},{"columns":["run_id"],"target":"ops.run.id"}]'
+      ph:checks: '["input_data_revision >= 0", "realization_id <> input_realization_id"]'
