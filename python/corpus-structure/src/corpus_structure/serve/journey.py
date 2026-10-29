@@ -207,7 +207,7 @@ def serve_query(
             if run == PROMOTED
             else check_finished(conn, int(run))
         )
-    ctx = QueryContext(run_id, conn)
+    ctx = QueryContext(run_id, conn, row_batch=min(max_rows + 1,64) if max_rows is not None and max_rows > 0 else 64)
     for bound in (max_rows, max_chars):
         if bound is not None and bound <= 0:
             raise QueryRefused("page bounds must be positive")

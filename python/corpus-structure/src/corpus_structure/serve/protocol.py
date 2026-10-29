@@ -44,6 +44,7 @@ class QueryContext:
 
     run_id: int
     conn: Connection
+    row_batch: int = 64
 
     @cached_property
     def reader(self) -> Any:
