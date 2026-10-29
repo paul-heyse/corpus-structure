@@ -131,14 +131,19 @@ def _reference(prepared,range_name,value,entities,claims=None):
         for prop in definition.properties:
             if prop.name not in model.model_fields_set:continue
             member=getattr(model,prop.name)
-            claim_ref=(definition.name=='ClaimCondition' or 'ClaimCondition' in definition.ancestors) and prop.name=='ref'
-            claim_ref=claim_ref or (any(name in {'ParameterOfBinding','ParameterExpressionOfBinding'} for name in (definition.name,*definition.ancestors)) and prop.name=='claim')
+            claim_ref=prop.reference_role=='fact'
             def lower(item):
                 if claim_ref:return (claims or {}).get(item,item)
                 if prop.range not in definitions:return _plain(item)
                 if not prop.inlined:return entities.get(item,item)
                 return visit(item) if isinstance(item,BaseModel) else _plain(item)
-            if prop.collection_key:result[prop.name]={key:lower(item) for key,item in member.items()}
+            if prop.collection_key:
+                rewritten={}
+                for item in member.values():
+                    entry=lower(item);key=entry[prop.collection_key]
+                    if key in rewritten and rewritten[key]!=entry:raise DomainOperationRefused('reference resolution collides distinct keyed members')
+                    rewritten[key]=entry
+                result[prop.name]=rewritten
             elif prop.multivalued:result[prop.name]=[lower(item) for item in member]
             else:result[prop.name]=lower(member)
         return result
@@ -172,8 +177,7 @@ def _claim_references(prepared,range_name,value):
         for prop in definition.properties:
             if prop.name not in model.model_fields_set:continue
             member=getattr(model,prop.name)
-            is_ref=(definition.name=='ClaimCondition' or 'ClaimCondition' in definition.ancestors) and prop.name=='ref'
-            is_ref=is_ref or (any(name in {'ParameterOfBinding','ParameterExpressionOfBinding'} for name in (definition.name,*definition.ancestors)) and prop.name=='claim')
+            is_ref=prop.reference_role=='fact'
             if is_ref:found.add(member)
             elif prop.inlined and prop.range in definitions:
                 values=member.values() if prop.collection_key else member if prop.multivalued else (member,)
@@ -204,7 +208,11 @@ def _property_value(prepared,definition,prop,value,mapping,claims=None):
         return _reference(prepared,prop.range,value,mapping,claims)
     native_range=native_constraints(prepared)[definition.iri,prop.iri]['native_range']
     if prop.range in {v.enum for v in prepared.vocabularies}:native_range='string'
-    return scalar_projection(value,native_range)
+    projected=scalar_projection(value,native_range)
+    if prop.reference_role=='fact' and claims is not None:
+        if projected not in claims:raise DomainOperationRefused('unavailable source claim reference')
+        return claims[projected]
+    return projected
 
 
 def _known_input(conn,prepared,job,observations):
@@ -495,7 +503,15 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
         occurrence_refs={ref:occurrence_key(prepared.release_id,output,source,'claims/'+str(i)) for ref,(i,c) in source_claims.items()}
         qclass=next(p.range for p in by_name['AgentClaim'].properties if p.name=='qualification')
         qualification_class=qclass
-        dependencies={ref:_claim_references(prepared,'Value',claim['object'])|_claim_references(prepared,qclass,claim['qualification']) for ref,(i,claim) in source_claims.items()}
+        def dependencies_of(claim):
+            refs=_claim_references(prepared,'Value',claim['object'])|_claim_references(prepared,qclass,claim['qualification'])
+            subject=mapping.get(claim['subject'],claim['subject'])
+            if subject in metadata:
+                definition=definitions[metadata[subject]['class_iri']]
+                prop=next((p for p in definition.properties if p.iri==claim['predicate']),None)
+                if prop is not None and prop.reference_role=='fact':refs.add(claim['object']['text'])
+            return refs
+        dependencies={ref:dependencies_of(claim) for ref,(i,claim) in source_claims.items()}
         from graphlib import TopologicalSorter,CycleError
         topology=TopologicalSorter({ref:refs&source_claims.keys() for ref,refs in dependencies.items()})
         try:topology.prepare()
@@ -559,7 +575,7 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
                 prop=next(p for p in definition.properties if p.iri==attribute['predicate'])
                 value=_property_value(prepared,definition,prop,bind_expression_context(attribute['value'],macros),{**mapping,**statement_ids},claim_refs)
                 items.append(replace(qitem,subject=subject,class_name=definition.name,property_name=prop.name,
-                    object=value,item=f'entities/{local}/attributes/{index}',evidence=evidence))
+                    object=value,item=f'entities/{local}/attributes/{index}',evidence=evidence,qualification={'modality':'asserted','polarity':True},qualification_class='Qualification'))
         for claim,item in claim_rows:
             statement=statements.get(claim.get('statement'))
             if statement is not None:
@@ -568,7 +584,7 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
                 if statement['kind'] in prepared.enum_members('StatementKind'):props['statement_kind']=statement['kind']
                 for name,value in props.items():
                     items.append(replace(item,subject=sid,class_name='SourceStatement',property_name=name,
-                        object=value,item='statements/'+claim['statement']+'/'+name))
+                        object=value,item='statements/'+claim['statement']+'/'+name,qualification={'modality':'asserted','polarity':True},qualification_class='Qualification'))
             fid=_source_fact_id(prepared,output,item)
             prop=next(p for p in by_name[item.class_name].properties if p.name==item.property_name)
             alternatives=tuple(a['id'] for a in payload.get('alternatives',()) if claim['id'] in a['members'])
@@ -587,6 +603,12 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
     batch=assemble(prepared,output,batch_id,tuple(items))
     from .publication import EntityInputRow,FactInputRow,EntityRow
     used={e.entity_id for e in batch.entity}&known.keys()
+    pending=set(used)
+    while pending:
+        identity=pending.pop()
+        for original,prop,value,qualification,qclass in known[identity]['input_facts']:
+            refs=({value} if prop.range in by_name and not prop.inlined else _entity_references(prepared,prop.range,value))|_entity_references(prepared,qclass,qualification)
+            for ref in refs&known.keys()-used:used.add(ref);pending.add(ref)
     # Carry admitted input metadata as facts with explicit native lineage, never as
     # new source occurrences or as assertions attributed to the current report.
     input_items=[];input_fact_links=[]
@@ -713,6 +735,7 @@ def _comparison_value(raw):
     if kind=='entity':return V.EntityRef(ref=raw['target'])
     if kind in {'formula','set','expression'}:
         if raw.get('language')!='latex':raise DomainOperationRefused('scientific expression language has no comparator')
+        if len({b['symbol'] for b in raw.get('bindings',())})!=len(raw.get('bindings',())):raise DomainOperationRefused('duplicate source symbol bindings are not a functional map')
         bindings={b['symbol']:V.SymbolBinding.model_validate({'bind':b['kind'],**{k:b[k] for k in ('entity','claim') if k in b},**({'param':b['parameter']} if 'parameter' in b else {})}) for b in raw.get('bindings',())}
         if kind=='set' or raw.get('form')=='set':return V.SetValue(t='set',latex=raw['expression'],symbols=bindings)
         return V.Formula(t='formula',latex=raw['expression'],symbols=bindings)
