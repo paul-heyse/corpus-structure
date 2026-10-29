@@ -285,6 +285,12 @@ classes:
         inlined: true
       normal_form: {}
       parse_outcome: {}
+      macro_context:
+        range: ExpressionMacro
+        multivalued: true
+        inlined: true
+        description: Source-bound definitions needed to interpret this expression;
+          supplied by source projection.
   MissingValue:
     is_a: Value
     attributes:
@@ -421,6 +427,37 @@ classes:
         equals_string: float
       number:
         range: float
+        required: true
+  ExpressionMacro:
+    abstract: true
+    attributes:
+      kind:
+        required: true
+      name:
+        identifier: true
+      body:
+        required: true
+  PlainExpressionMacro:
+    is_a: ExpressionMacro
+    attributes:
+      kind:
+        equals_string: plain
+      nargs:
+        range: integer
+        required: true
+        minimum_value: 0
+        maximum_value: 9
+  OptionalExpressionMacro:
+    is_a: ExpressionMacro
+    attributes:
+      kind:
+        equals_string: optional
+      nargs:
+        range: integer
+        required: true
+        minimum_value: 1
+        maximum_value: 9
+      default:
         required: true
 enums:
   ExpressionForm:

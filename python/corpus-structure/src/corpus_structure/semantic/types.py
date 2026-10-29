@@ -169,7 +169,7 @@ class PreparedRelease:
         )
 
     def entity_keys(
-        self, class_name: str, realization: str, values: dict[str, object]
+        self, class_name: str, realization: str, values: dict[str, object], *, include_identifier: bool = True
     ) -> tuple[str, ...]:
         """Canonical candidate keys for each declared unique group; not entity resolution."""
         from .identity import _meaning, canonical_bytes
@@ -178,6 +178,8 @@ class PreparedRelease:
         props = {p.name: p for p in definition.properties}
         out = []
         for group in definition.identity_groups:
+            if not include_identifier and group == definition.identity_slots:
+                continue
             pairs = []
             for name in group:
                 if name not in values:
