@@ -29,6 +29,10 @@ def test_statistics_domain_retains_predicates_identity_and_structured_qualifiers
     role = next(json.loads(r.body) for r in prepared.registry_rows if r.kind == 'operation_property' and r.name == 'RandomVariable/has_distribution')
     assert role['cs:role'] == 'predicate'
     assert role['cs:functional'].lower() == 'true'
+    assert all(p.multivalued for row in prepared.registry_rows if row.kind == 'operation_property'
+               and (metadata := json.loads(row.body)).get('cs:role') == 'predicate'
+               for d in definitions.values() if d.name == metadata['class']
+               for p in d.properties if p.iri == metadata['property'])
     assert role['groups'] == ['distribution']
     assert definitions['FamilyParameter'].identity_groups == (('id',), ('family','canonical_name'))
     assert definitions['RandomVariable'].identity_groups == (('id',), ('symbol','scope_locator'))

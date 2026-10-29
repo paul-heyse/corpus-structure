@@ -9,12 +9,12 @@ imports:
 - semantic_core
 classes:
   Formula:
-    is_a: ExpressionValue
+    is_a: MathematicalExpression
     attributes:
       kind:
         equals_string: formula
   SetExpr:
-    is_a: ExpressionValue
+    is_a: MathematicalExpression
     attributes:
       kind:
         equals_string: set
@@ -50,6 +50,7 @@ classes:
     - member_of_construction
     annotations:
       cs:scope: global
+      cs:case: casefold
       cs:extract: mention
   FamilyConstruction:
     is_a: Entity
@@ -63,6 +64,7 @@ classes:
     - construction_formula
     annotations:
       cs:scope: global
+      cs:case: casefold
       cs:extract: mention
   FamilyParameter:
     is_a: Entity
@@ -88,6 +90,7 @@ classes:
         - canonical_name
     annotations:
       cs:scope: global
+      cs:case: casefold
       cs:extract: mention
   RandomVariable:
     is_a: Entity
@@ -124,6 +127,7 @@ classes:
     - definition_formula
     annotations:
       cs:scope: global
+      cs:case: casefold
       cs:extract: mention
   Distributed:
     description: Things that have a distribution and its characteristics.
@@ -239,6 +243,7 @@ slots:
     description: The random variable has a distribution in the family, optionally
       with stated parameter values. "X is normally distributed with mean μ and variance
       σ²".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -253,9 +258,11 @@ slots:
     range: Formula
     description: The random variable is defined by a formula in other variables. "let
       X = a + b Z".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:extract: llm
     inlined: true
     in_subset:
@@ -263,6 +270,7 @@ slots:
   takes_values_in:
     range: SetExpr
     description: The random variable's values lie in the set. "with values in ℝ".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -272,6 +280,7 @@ slots:
     range: FamilyParameter
     description: A family or construction has this parameter. "with shape parameter
       k and scale parameter b".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -282,6 +291,7 @@ slots:
     range: ParameterRole
     description: The parameter plays this role, stated when it differs from its canonical
       name. "σ is the shape parameter".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -291,6 +301,7 @@ slots:
   parameter_domain:
     range: SetExpr
     description: The set of the parameter's allowed values. "b ∈ (0, ∞)".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -303,6 +314,7 @@ slots:
     range: FamilyParameter
     description: Two parameter names denote the same parameter of the family. "the
       location and scale parameters are also the mean and standard deviation, respectively".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -313,6 +325,7 @@ slots:
     range: Formula
     description: The parameter equals a formula in the family's other parameters.
       "e^μ is the scale parameter".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -325,6 +338,7 @@ slots:
     description: The family is the special case of another family or construction
       obtained under parameter constraints. "The exponential distribution is the gamma
       distribution with k = 1".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -337,6 +351,7 @@ slots:
     range: DistributionFamily
     description: Variables in this family arise by transforming a variable of the
       other family. "X = e^Y has the lognormal distribution".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -349,6 +364,7 @@ slots:
   limit_of:
     range: DistributionFamily
     description: The family is a limit of the other under a stated limiting operation.
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -359,6 +375,7 @@ slots:
     description: The family is the construction applied to a base. "The general normal
       distribution is the location-scale family associated with the standard normal
       distribution".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
@@ -369,9 +386,11 @@ slots:
     range: Formula
     description: The formula generating members of the construction, without the variable
       it defines. "X = a + b Z" gives a + b Z.
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:qualifiers: base_variable param_symbols
       cs:extract: llm
     inlined: true
@@ -382,61 +401,75 @@ slots:
     range: SetExpr
     description: The support of the distribution, the set of values with positive
       density or mass. "on (0, ∞)".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:extract: llm
     inlined: true
   pdf:
     range: Formula
     description: The probability density (or mass) function, with its argument domain
       as a condition.
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:extract: llm
     inlined: true
   cdf:
     range: Formula
     description: The cumulative distribution function, with its argument domain as
       a condition.
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:extract: llm
     inlined: true
   mgf:
     range: Formula
     description: The moment generating function, with the set of arguments where it
       is finite as a condition.
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:extract: llm
     inlined: true
   mean_value:
     range: Formula
     description: The mean (expected value) as a formula. "E(X) = μ".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:extract: llm
     inlined: true
   variance_value:
     range: Formula
     description: The variance as a formula. "var(X) = σ²".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:extract: llm
     inlined: true
   definition_formula:
     range: Formula
     description: The formula defining the concept. "the standard score is (X - μ)
       / σ".
+    multivalued: true
     annotations:
       cs:constraint_scope: accepted_value
       cs:role: predicate
+      cs:functional: true
       cs:extract: llm
     inlined: true
     in_subset:

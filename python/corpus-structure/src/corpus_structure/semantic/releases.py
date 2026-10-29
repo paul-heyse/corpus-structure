@@ -32,6 +32,7 @@ _LIBRARIES = (
     "linkml-runtime",
     "pydantic",
     "rdflib",
+    "pyoxigraph",
     "pyshacl",
     "oaklib",
     "linkml-term-validator",
