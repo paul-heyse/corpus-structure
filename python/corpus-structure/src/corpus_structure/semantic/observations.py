@@ -210,6 +210,7 @@ def bind_result(
                     "scope": item.scope,
                     "outcome": item.outcome,
                     **({"reason": item.reason} if item.reason is not None else {}),
+                    **({"required_capability": item.required_capability} if item.required_capability is not None else {}),
                 }
                 for item in result.coverage
             ),

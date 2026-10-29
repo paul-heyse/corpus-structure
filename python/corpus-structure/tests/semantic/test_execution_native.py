@@ -113,3 +113,20 @@ def test_protected_release_and_reclaim_preserve_held_progress(semantic_db_engine
         assert second["error"]["semantic_proposal_first_result"]["attempt"]==1
     with pytest.raises(OperationConflict),semantic_writer_engine.begin() as conn:
         renew_claim(conn,task_id=task,attempt=first["attempt"],holder="first")
+
+
+def test_method_version_binds_unit_and_configuration_schema(semantic_writer_engine):
+    from types import SimpleNamespace
+    from pydantic import BaseModel
+    from corpus_structure.semantic.operations import OperationConflict, record_method
+
+    class Config(BaseModel):
+        enabled: bool = True
+
+    method = SimpleNamespace(name="contract-unit", version="1", family="profile", tier="cpu",
+                             confidence_source=None, unit_type="span", Config=Config)
+    with semantic_writer_engine.begin() as conn:
+        record_method(conn, method, "default", {}, "method-config")
+    method.unit_type = "segment"
+    with semantic_writer_engine.begin() as conn, pytest.raises(OperationConflict):
+        record_method(conn, method, "default", {}, "method-config")
