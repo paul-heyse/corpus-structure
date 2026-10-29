@@ -81,6 +81,7 @@ def approved_implementations() -> Mapping[str, Any]:
             "locate": proposals.locate_proposal,
             "assemble": consolidation.assemble,
             "evaluate": domain_operations.consolidate_cut,
+            "resolve_identity": domain_operations._entity_mappings,
             "scientific_policy": domain_operations.ReleasedRulesPolicy.evaluate,
             "derive": inference.derive,
             "publish_inference": inference.publish_inference,

@@ -274,6 +274,12 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
+**Accepted target refinement (2026-10-29).** Typed evidence-backed identity exclusions constrain
+existing key/label resolution and protected publication. Exclusions retain their scoped source and
+input lineage; mandatory-key conflicts refuse atomically. D5 owns the detailed contract.
+
+> Decision: ADR-0028
+
 **Accepted operation target (2026-10-29).** Producers and domain operations consume one pinned
 release and resolved dependencies. Semantic scope, normalized rule declarations and operation
 boundaries are derived products; runtime settings cannot rebind an existing operation.
