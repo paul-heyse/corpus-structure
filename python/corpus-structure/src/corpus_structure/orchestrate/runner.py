@@ -95,6 +95,7 @@ class Graph:
     pass_config: str = "consolidate.claims/default"
     m19_config: str = "validate.rules/default"
     evaluate_config: str = "evaluate.score/default"
+    policy_propose: bool = False
 
     def for_kind(self, kind: RunKind) -> Graph:
         if kind == RunKind.INGEST:
@@ -158,7 +159,11 @@ class Runner:
             for stage, steps in graph.stages:
                 for step in steps:
                     self.step(run_id, stage, step)
-        except RunFailed as error:
+            if graph.policy_propose:
+                from corpus_structure.orchestrate.routing import propose
+                with self.engine.begin() as conn:
+                    propose(conn, run_id, self.registry)
+        except (RunFailed, ValueError) as error:
             with self.engine.begin() as conn:
                 runs.fail_run(conn, run_id, str(error))
             return RunStatus.FAILED

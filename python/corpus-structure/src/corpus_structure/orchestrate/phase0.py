@@ -62,7 +62,8 @@ PHASE0 = Graph(
             (Step(f"{M09}/default", upstream=(M01,)), Step(f"{M11}/default", upstream=(M01,))),
         ),
         (Stage.SCOPE, (Step(f"{M13}/default", upstream=(M09, M11)),)),
-    )
+    ),
+    policy_propose=True,
 )
 
 
