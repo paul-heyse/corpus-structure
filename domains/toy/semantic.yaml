@@ -17,7 +17,19 @@ classes:
     annotations: {cs:scope: global, cs:extract: mention}
   Asset:
     is_a: Entity
+    slots: [inspection]
     annotations: {cs:scope: global, cs:extract: mention}
+  InspectionDetails:
+    attributes:
+      condition: {required: true}
+      measured_quantity: {range: QuantityValue, inlined: true, required: true}
+  InspectionValue:
+    is_a: Value
+    attributes:
+      kind: {equals_string: inspection}
+      inspector: {range: Organization, required: true}
+      custodian: {range: Organization, required: true}
+      details: {range: InspectionDetails, inlined: true, required: true}
   Source:
     is_a: Entity
     annotations: {cs:scope: global, cs:extract: mention}
@@ -35,6 +47,12 @@ slots:
   owns:
     domain: Organization
     range: Asset
+    multivalued: true
+    annotations: {cs:constraint_scope: accepted_value, cs:role: predicate, cs:extract: llm}
+  inspection:
+    domain: Asset
+    range: InspectionValue
+    inlined: true
     multivalued: true
     annotations: {cs:constraint_scope: accepted_value, cs:role: predicate, cs:extract: llm}
 enums:
