@@ -84,11 +84,12 @@ def record_method(conn:Connection, method:Any, name:str, params:Mapping[str,Any]
 
 def create_task(conn:Connection, *,run_id:int,config_id:int,stage:str,unit_type:str,
                 input_hash:str,unit_id:int|None=None,unit_key:str|None=None,
-                packet_hash:str|None=None,agent:bool=False,fresh:bool=False)->int:
+                packet_hash:str|None=None,agent:bool=False,fresh:bool=False,
+                trigger:Mapping[str,Any]|None=None,skip_reason:str|None=None)->int:
     r=table('ops.run'); run=conn.execute(select(r).where(r.c.id==run_id).with_for_update(read=True)).mappings().one()
     if run['sealed'] or run['status'] not in {'created','running'}:raise OperationConflict('run no longer accepts tasks')
     t=table('ops.task'); old_run=r.alias('origin_run')
-    twin=None if fresh else conn.execute(select(t.c.id).join(old_run,t.c.run_id==old_run.c.id).where(
+    twin=None if fresh or skip_reason is not None else conn.execute(select(t.c.id).join(old_run,t.c.run_id==old_run.c.id).where(
         t.c.method_config_id==config_id,t.c.input_hash==input_hash,t.c.status.in_(['done','empty']),
         t.c.unit_type==unit_type,t.c.unit_id.is_not_distinct_from(unit_id),t.c.unit_key.is_not_distinct_from(unit_key),t.c.packet_hash.is_not_distinct_from(packet_hash),
         old_run.c.project_id==run['project_id'],
@@ -98,9 +99,10 @@ def create_task(conn:Connection, *,run_id:int,config_id:int,stage:str,unit_type:
     task_id=conn.execute(insert(t).values(run_id=run_id,release_id=run['release_id'],
         stage=stage,unit_type=unit_type,unit_id=unit_id,unit_key=unit_key,method_config_id=config_id,
         input_hash=input_hash,packet_hash=packet_hash,reused_task_id=twin,
-        status='reused' if twin is not None else ('awaiting_agent' if agent else 'pending'),
+        **({'trigger':dict(trigger)} if trigger is not None else {}),reason=skip_reason,
+        status='skipped' if skip_reason is not None else 'reused' if twin is not None else ('awaiting_agent' if agent else 'pending'),
         attempt=0,cost={},priority=0,created_at=func.clock_timestamp(),
-        finished_at=func.clock_timestamp() if twin is not None else None).returning(t.c.id)).scalar_one()
+        finished_at=func.clock_timestamp() if twin is not None or skip_reason is not None else None).returning(t.c.id)).scalar_one()
     if twin is not None:
         build=table('ops.rendition_build');rr=table('ops.run_rendition')
         for item in conn.execute(select(build.c.document_id,build.c.rendition_id).where(build.c.task_id==twin)):
