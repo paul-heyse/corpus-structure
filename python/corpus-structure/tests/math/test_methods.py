@@ -46,6 +46,7 @@ def full_run(engine: Engine, tmp: Path, **explicit: Any) -> int:
         run_pass=phase0.stub_pass,
         evaluate=phase0.stub_evaluate,
         kind=RunKind.FULL,
+        scope="spike-pages",
         explicit=explicit or None,
         domains=DOMAINS,
         method_settings=MethodSettings(data_dir=tmp, model_cache=tmp),
