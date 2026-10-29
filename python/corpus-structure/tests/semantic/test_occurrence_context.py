@@ -18,12 +18,17 @@ from corpus_structure.semantic.query import QuerySpec, read_session
 from .test_domain_operations import fixture, locate_proposal
 
 
-def _source(admin, writer, path, monkeypatch):
+def _source(admin, writer, path, monkeypatch, *, outside=False):
     # Author distinct per-occurrence context in the actual immutable source report. The
     # native writer and proposal adapter are unchanged and both validate these inputs.
     locate = locate_proposal
 
     def author(prepared, raw, frame):
+        raw["entities"][0]["reference"] = {
+            "description": "source-declared unresolved person",
+            "source_uri": "external.html",
+            "locator": "#person",
+        }
         raw["claims"][0]["evidence"].append(
             {"sentence": "s1", "quote": "Alice is here.", "role": "supporting"}
         )
@@ -32,6 +37,9 @@ def _source(admin, writer, path, monkeypatch):
             {"sentence": "s1", "quote": "Alice is here.", "role": "condition"},
             {"sentence": "s1", "quote": "Alice is here.", "role": "primary"},
         ]
+        if outside:
+            raw["claims"][0].pop("statement")
+            raw["claims"][0].pop("statement_role")
         return locate(prepared, raw, frame)
 
     monkeypatch.setattr(fixture.__module__ + ".locate_proposal", author)
@@ -51,6 +59,13 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
         claims = [row for row in result.rows if row.item in {"claims/0", "claims/1"}]
         assert len(claims) == 2 and len({row.fact_id for row in claims}) == 1
         by_item = {row.item: row for row in claims}
+        declarations = claims[0].subject.source_declarations
+        assert len(declarations) == 1 and declarations[0].local_id == "person"
+        assert declarations[0].observation_key == claims[0].source
+        assert declarations[0].reference is not None
+        assert declarations[0].reference.description == "source-declared unresolved person"
+        assert declarations[0].reference.source_uri == "external.html"
+        assert declarations[0].reference.locator == "#person"
         first_context, second_context = by_item["claims/0"].context, by_item["claims/1"].context
         assert first_context is not None and second_context is not None
         assert first_context.statement_role == "conclusion"
@@ -75,9 +90,12 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
             assert evidence.source.run_id == run
             assert evidence.source.payload_definition == "AgentStoredBatch"
             assert evidence.source.observation_key == claims[0].source
-            assert evidence.source.payload["statements"][0]["anchor"] == "page#one"
-            assert evidence.source.payload["claims"][1]["statement_role"] == "premise"
             assert evidence.source.span_id is not None
+        assert len(explanation.source_observations) == 1
+        report = explanation.source_observations[0]
+        assert report.observation_key == claims[0].source
+        assert report.payload["statements"][0]["anchor"] == "page#one"
+        assert report.payload["claims"][1]["statement_role"] == "premise"
         # The statement entity links retain their independently declared anchors/kinds.
         statement_class = session.class_handle("SourceStatement")
         statements = session.query(
@@ -97,6 +115,9 @@ def test_occurrences_keep_statement_and_citation_roles_in_query_explain(
         ("citation", "occurrence citation role differs"),
         ("omit_context", "occurrence statement context differs"),
         ("omit_citation_role", "occurrence citation role differs"),
+        ("omit_citation_edge", "occurrence citation role differs"),
+        ("source_local_id", "entity source local id is outside source declarations"),
+        ("source_class", "entity source class is incompatible"),
     ],
 )
 def test_native_publication_refuses_fabricated_or_omitted_context(
@@ -136,8 +157,22 @@ def test_native_publication_refuses_fabricated_or_omitted_context(
         )
     elif damage == "omit_context":
         batch = replace(batch, occurrence_context=())
-    else:
+    elif damage == "omit_citation_role":
         batch = replace(batch, occurrence_evidence_role=())
+    elif damage == "omit_citation_edge":
+        batch = replace(batch, occurrence_evidence=(), occurrence_evidence_role=())
+    elif damage == "source_local_id":
+        row = batch.entity_source[0]
+        batch = replace(
+            batch, entity_source=(replace(row, local_id="not-declared"), *batch.entity_source[1:])
+        )
+    else:
+        row = batch.entity_source[0]
+        statement = batch.occurrence_context[0].statement_entity_id
+        assert statement is not None
+        batch = replace(
+            batch, entity_source=(replace(row, entity_id=statement), *batch.entity_source[1:])
+        )
     with (
         pytest.raises(DBAPIError, match=message),
         semantic_writer_engine.connect().execution_options(isolation_level="SERIALIZABLE") as conn,
@@ -182,3 +217,37 @@ def test_arrow_native_transport_preserves_occurrence_context(
         conn.execute(text("SELECT data.begin_evaluation(:cut,:out)"), {"cut": cut, "out": "arrow"})
         receipt = publish_arrow_on_connection(conn, arrow)
         assert receipt.data_revision == 1
+
+
+def test_absent_statement_context_remains_unknown(
+    semantic_db_engine, semantic_writer_engine, semantic_reader_engine, tmp_path, monkeypatch
+):
+    _, _, cut = _source(
+        semantic_db_engine,
+        semantic_writer_engine,
+        tmp_path / "source.html",
+        monkeypatch,
+        outside=True,
+    )
+    consolidate_cut(semantic_writer_engine, cut, "outside")
+    with read_session(semantic_reader_engine, "outside") as session:
+        cls = session.class_handle("Person")
+        result = session.query(QuerySpec(cls, session.property_handle(cls, "name")))
+        by_item = {row.item: row for row in result.rows}
+        assert by_item["claims/0"].context is None
+        assert by_item["claims/1"].context is not None
+        assert by_item["claims/1"].context.statement_role == "premise"
+
+
+def test_entity_source_reader_visibility(semantic_db_engine, semantic_reader_engine):
+    with semantic_db_engine.connect() as conn:
+        assert (
+            conn.scalar(
+                text(
+                    "SELECT has_table_privilege('corpus_sem_reader','data.entity_source','SELECT')"
+                )
+            )
+            is True
+        )
+    with semantic_reader_engine.connect() as conn:
+        assert conn.execute(select(table("data.entity_source"))).all() == []

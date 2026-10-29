@@ -88,9 +88,23 @@ class Membership(_Envelope):
     establishment: str
 
 
+class DeclaredReference(_Envelope):
+    description: str
+    source_uri: str | None = None
+    locator: str | None = None
+
+
+class EntitySourceReference(_Envelope):
+    observation_id: int
+    observation_key: str
+    local_id: str
+    reference: DeclaredReference | None = None
+
+
 class EntityReference(_Envelope):
     entity_id: str
     memberships: tuple[Membership, ...]
+    source_declarations: tuple[EntitySourceReference, ...] = ()
 
 
 class ValueRole(_Envelope):
@@ -168,8 +182,13 @@ class SourceCustody(_Envelope):
     span_id: int | None
     payload_definition: str
     kind: str
-    payload: dict[str, Any]
     input_observation_keys: tuple[str, ...]
+
+
+class SourceObservationReport(_Envelope):
+    observation_id: int
+    observation_key: str
+    payload: dict[str, Any]
 
 
 class Evidence(_Envelope):
@@ -213,6 +232,7 @@ class Explanation(_Envelope):
     evidence: tuple[Evidence, ...]
     derivations: tuple[Derivation, ...]
     input_supports: tuple[InputFactSupport, ...] = ()
+    source_observations: tuple[SourceObservationReport, ...] = ()
     coverage: tuple[Coverage, ...]
 
 
@@ -439,8 +459,49 @@ class ReadSession:
                 items.append(
                     Membership(class_iri=row["class_id"], establishment=row["establishment"])
                 )
+        source, observation = table("data.entity_source"), table("kb.observation")
+        # Project only the exact declaration's small reference field, not the full report.
+        from sqlalchemy import func, literal_column
+
+        declaration = (
+            func.jsonb_array_elements(observation.c.payload["entities"])
+            .table_valued("value")
+            .lateral()
+        )
+        source_declarations: dict[str, list[EntitySourceReference]] = defaultdict(list)
+        for row in self.connection.execute(
+            select(
+                source.c.entity_id,
+                source.c.observation_id,
+                observation.c.observation_key,
+                source.c.local_id,
+                declaration.c.value.op("->")(literal_column("'reference'")).label("reference"),
+            )
+            .select_from(
+                source.join(observation, source.c.observation_id == observation.c.id).join(
+                    declaration,
+                    declaration.c.value.op("->>")(literal_column("'id'")) == source.c.local_id,
+                )
+            )
+            .where(_scope(self.binding, source), source.c.entity_id.in_(ids))
+            .order_by(source.c.entity_id, observation.c.observation_key, source.c.local_id)
+        ).mappings():
+            source_declarations[row["entity_id"]].append(
+                EntitySourceReference(
+                    observation_id=row["observation_id"],
+                    observation_key=row["observation_key"],
+                    local_id=row["local_id"],
+                    reference=DeclaredReference.model_validate(row["reference"], strict=True)
+                    if row["reference"] is not None
+                    else None,
+                )
+            )
         return {
-            identity: EntityReference(entity_id=identity, memberships=tuple(items))
+            identity: EntityReference(
+                entity_id=identity,
+                memberships=tuple(items),
+                source_declarations=tuple(source_declarations[identity]),
+            )
             for identity, items in memberships.items()
         }
 
@@ -607,7 +668,6 @@ class ReadSession:
                     observation.c.task_id,
                     observation.c.payload_definition,
                     observation.c.kind,
-                    observation.c.payload,
                     task.c.run_id,
                 )
                 .select_from(
@@ -637,7 +697,6 @@ class ReadSession:
                 span_id=row["span_id"],
                 payload_definition=row["payload_definition"],
                 kind=row["kind"],
-                payload=row["payload"],
                 input_observation_keys=tuple(dependencies[row["id"]]),
             )
             for row in receipts
@@ -765,6 +824,19 @@ class ReadSession:
                 **{k: row[k] for k in Evidence.model_fields if k != "source"}
             )
         custody = self._source_custody(tuple(evidence))
+        observation = table("kb.observation")
+        source_observations = tuple(
+            SourceObservationReport(
+                observation_id=row["id"],
+                observation_key=row["observation_key"],
+                payload=row["payload"],
+            )
+            for row in self.connection.execute(
+                select(observation.c.id, observation.c.observation_key, observation.c.payload)
+                .where(observation.c.id.in_({source.observation_id for source in custody.values()}))
+                .order_by(observation.c.observation_key)
+            ).mappings()
+        )
         evidence = {
             key: value.model_copy(update={"source": custody.get(key)})
             for key, value in evidence.items()
@@ -819,6 +891,7 @@ class ReadSession:
                 for row in supports
             ),
             evidence=tuple(evidence.values()),
+            source_observations=source_observations,
             derivations=tuple(
                 Derivation(
                     derivation_id=row["derivation_id"],
