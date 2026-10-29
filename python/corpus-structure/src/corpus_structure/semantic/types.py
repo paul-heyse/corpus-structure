@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from hashlib import sha256
-from typing import Annotated, Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, TypeAdapter
 
@@ -194,7 +194,9 @@ class PreparedRelease:
             result[name] = value
         return fact_key(self.release_id, realization, subject, predicate, object_, result)
 
-    def property_adapter(self, class_name: str, property_name: str) -> TypeAdapter[Any]:
+    def property_adapter(
+        self, class_name: str, property_name: str, *, item: bool = False
+    ) -> TypeAdapter[Any]:
         """Strict output boundary derived from the prepared field, including its constraints."""
         for name, adapter in self._adapters:
             if name == class_name:
@@ -202,7 +204,8 @@ class PreparedRelease:
                 if not isinstance(model, type) or not issubclass(model, BaseModel):
                     raise TypeError("prepared class adapter has no model")
                 field = model.model_fields[property_name]
-                return TypeAdapter(Annotated[field.annotation, *field.metadata])
+                annotation = get_args(field.annotation)[0] if item else field.rebuild_annotation()
+                return TypeAdapter(annotation)
         raise KeyError(class_name)
 
     def validate_python(self, class_name: str, data: object) -> BaseModel:

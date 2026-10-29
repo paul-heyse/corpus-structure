@@ -7,11 +7,12 @@ provide historical reads. SQL selections and strict output adaptation are one op
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 from collections import defaultdict
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from hashlib import sha256
@@ -19,7 +20,7 @@ from typing import Any, Literal, Protocol
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import Connection, Engine, Select, and_, exists, select, text
+from sqlalchemy import Connection, Engine, Select, and_, exists, select
 from sqlalchemy.sql.elements import ColumnElement
 
 from .identity import canonical_bytes
@@ -207,31 +208,39 @@ def read_session(
     the project's active pointer is deliberately not consulted.
     """
     engine = store if isinstance(store, Engine) else store.engine
-    with engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn:
-        with conn.begin():
-            conn.exec_driver_sql("SET TRANSACTION READ ONLY")
-            realization = table("data.realization")
-            row = conn.execute(
-                select(realization.c.release_id, realization.c.data_revision).where(
-                    realization.c.realization_id == realization_id
-                )
-            ).one_or_none()
-            if row is None:
-                raise KeyError(realization_id)
-            if release_id is not None and row.release_id != release_id:
-                raise WrongRelease("release selector differs from realization binding")
-            binding = SnapshotBinding(row.release_id, realization_id, row.data_revision, str(uuid4()))
-            yield ReadSession(conn, binding, load_release(conn, binding.release_id))
+    with (
+        engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
+        conn.begin(),
+    ):
+        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        realization = table("data.realization")
+        row = conn.execute(
+            select(realization.c.release_id, realization.c.data_revision).where(
+                realization.c.realization_id == realization_id
+            )
+        ).one_or_none()
+        if row is None:
+            raise KeyError(realization_id)
+        if release_id is not None and row.release_id != release_id:
+            raise WrongRelease("release selector differs from realization binding")
+        binding = SnapshotBinding(row.release_id, realization_id, row.data_revision, str(uuid4()))
+        yield ReadSession(conn, binding, load_release(conn, binding.release_id))
 
 
+@dataclass(frozen=True)
 class ReadSession:
     """A scoped snapshot owner. Use only within ``read_session``."""
 
-    def __init__(self, connection: Connection, binding: SnapshotBinding, prepared: PreparedRelease):
-        self.connection = connection
-        self.binding = binding
-        self.prepared = prepared
-        self._property_adapters: dict[tuple[str, str], Any] = {}
+    connection: Connection
+    binding: SnapshotBinding
+    prepared: PreparedRelease
+    _property_adapters: dict[tuple[str, str], Any] = field(
+        default_factory=dict, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        if self.binding.release_id != self.prepared.release_id:
+            raise WrongRelease("prepared release differs from snapshot binding")
 
     def class_handle(self, name_or_iri: str) -> ClassHandle:
         definition = next(
@@ -244,7 +253,10 @@ class ReadSession:
     def _class(self, handle: ClassHandle) -> ClassDefinition:
         if handle.release_id != self.binding.release_id:
             raise WrongRelease("class handle differs from snapshot release")
-        return next(d for d in self.prepared.definitions if d.iri == handle.iri)
+        definition = next((d for d in self.prepared.definitions if d.iri == handle.iri), None)
+        if definition is None:
+            raise KeyError(handle.iri)
+        return definition
 
     def property_handle(self, cls: ClassHandle, name_or_iri: str) -> PropertyHandle:
         definition = self._class(cls)
@@ -260,7 +272,10 @@ class ReadSession:
             raise WrongRelease("property handle differs from snapshot release")
         if handle.class_iri != cls.iri:
             raise ValueError("property handle belongs to another class")
-        return cls, next(p for p in cls.properties if p.iri == handle.iri)
+        prop = next((p for p in cls.properties if p.iri == handle.iri), None)
+        if prop is None:
+            raise KeyError(handle.iri)
+        return cls, prop
 
     def _selection(self, spec: QuerySpec, after: str | None) -> Select:
         """Core expression construction remains visible to PostgreSQL's optimizer."""
@@ -268,33 +283,48 @@ class ReadSession:
         m, h = table("data.membership"), table("sem.class_hierarchy")
         membership = exists(
             select(1).where(
-                _scope(self.binding, m), m.c.entity_id == f.c.subject_id,
+                _scope(self.binding, m),
+                m.c.entity_id == f.c.subject_id,
                 (m.c.class_id == spec.class_handle.iri)
-                | exists(select(1).where(
-                    h.c.release_id == self.binding.release_id,
-                    h.c.class_id == m.c.class_id, h.c.ancestor_id == spec.class_handle.iri,
-                )),
+                | exists(
+                    select(1).where(
+                        h.c.release_id == self.binding.release_id,
+                        h.c.class_id == m.c.class_id,
+                        h.c.ancestor_id == spec.class_handle.iri,
+                    )
+                ),
             )
         )
         if spec.projection == "occurrence":
             source = f.join(o, and_(_same_scope(f, o), f.c.fact_id == o.c.fact_id))
             columns = [
-                f.c.fact_id, f.c.subject_id, f.c.property_id,
+                f.c.fact_id,
+                f.c.subject_id,
+                f.c.property_id,
                 o.c.report_object_value_id.label("object_value_id"),
                 o.c.report_qualification_value_id.label("qualification_value_id"),
-                o.c.occurrence_id, o.c.source, o.c.item,
+                o.c.occurrence_id,
+                o.c.source,
+                o.c.item,
             ]
             key = o.c.occurrence_id
         else:
             source, columns, key = f, list(f.c), f.c.fact_id
-        stmt = select(*columns).select_from(source).where(
-            _scope(self.binding, f), f.c.property_id == spec.property_handle.iri, membership
+        stmt = (
+            select(*columns)
+            .select_from(source)
+            .where(_scope(self.binding, f), f.c.property_id == spec.property_handle.iri, membership)
         )
         if spec.projection == "accepted":
             selected = table("data.selection")
-            stmt = stmt.where(exists(select(1).where(
-                _scope(self.binding, selected), selected.c.fact_id == f.c.fact_id,
-            )))
+            stmt = stmt.where(
+                exists(
+                    select(1).where(
+                        _scope(self.binding, selected),
+                        selected.c.fact_id == f.c.fact_id,
+                    )
+                )
+            )
         if spec.subject_ids:
             stmt = stmt.where(f.c.subject_id.in_(spec.subject_ids))
         if after is not None:
@@ -302,9 +332,15 @@ class ReadSession:
         return stmt.order_by(key.collate("C")).limit(spec.page_size + 1)
 
     def _fingerprint(self, spec: QuerySpec) -> str:
-        return sha256(canonical_bytes({
-            "format": "semantic-query-1", "spec": asdict(spec), "ordering": "identity:C:asc",
-        })).hexdigest()
+        return sha256(
+            canonical_bytes(
+                {
+                    "format": "semantic-query-1",
+                    "spec": asdict(spec),
+                    "ordering": "identity:C:asc",
+                }
+            )
+        ).hexdigest()
 
     def _after(self, spec: QuerySpec, token: str | None) -> str | None:
         if token is None:
@@ -318,56 +354,105 @@ class ReadSession:
             if value["realization"] != self.binding.realization_id:
                 raise ValueError("continuation differs from realization")
             if value["query"] != self._fingerprint(spec) or type(value["after"]) is not str:
-                raise ValueError("continuation differs from query parameters/projection/order/profile")
-            if type(value["revision"]) is not int or value["revision"] != self.binding.data_revision:
+                raise ValueError(
+                    "continuation differs from query parameters/projection/order/profile"
+                )
+            if (
+                type(value["revision"]) is not int
+                or value["revision"] != self.binding.data_revision
+            ):
                 raise StaleSnapshot("data changed; restart query in a new snapshot")
             return value["after"]
-        except (KeyError, json.JSONDecodeError, UnicodeError) as exc:
+        except (KeyError, json.JSONDecodeError, UnicodeError, binascii.Error, TypeError) as exc:
             raise ValueError("invalid continuation") from exc
 
     def _token(self, spec: QuerySpec, after: str) -> str:
-        return base64.urlsafe_b64encode(canonical_bytes({
-            "release": self.binding.release_id, "realization": self.binding.realization_id,
-            "revision": self.binding.data_revision, "query": self._fingerprint(spec), "after": after,
-        })).decode()
+        return base64.urlsafe_b64encode(
+            canonical_bytes(
+                {
+                    "release": self.binding.release_id,
+                    "realization": self.binding.realization_id,
+                    "revision": self.binding.data_revision,
+                    "query": self._fingerprint(spec),
+                    "after": after,
+                }
+            )
+        ).decode()
 
     def _entities(self, ids: set[str]) -> dict[str, EntityReference]:
         if not ids:
             return {}
         e, m = table("data.entity"), table("data.membership")
-        rows = self.connection.execute(select(
-            e.c.entity_id, m.c.class_id, m.c.establishment,
-        ).select_from(e.outerjoin(m, and_(_same_scope(e, m), e.c.entity_id == m.c.entity_id))).where(
-            _scope(self.binding, e), e.c.entity_id.in_(ids),
-        ).order_by(e.c.entity_id, m.c.class_id)).mappings()
+        rows = self.connection.execute(
+            select(
+                e.c.entity_id,
+                m.c.class_id,
+                m.c.establishment,
+            )
+            .select_from(e.outerjoin(m, and_(_same_scope(e, m), e.c.entity_id == m.c.entity_id)))
+            .where(
+                _scope(self.binding, e),
+                e.c.entity_id.in_(ids),
+            )
+            .order_by(e.c.entity_id, m.c.class_id)
+        ).mappings()
         memberships: dict[str, list[Membership]] = defaultdict(list)
         for row in rows:
             items = memberships[row["entity_id"]]
             if row["class_id"] is not None:
-                items.append(Membership(class_iri=row["class_id"], establishment=row["establishment"]))
-        return {identity: EntityReference(entity_id=identity, memberships=tuple(items))
-                for identity, items in memberships.items()}
+                items.append(
+                    Membership(class_iri=row["class_id"], establishment=row["establishment"])
+                )
+        return {
+            identity: EntityReference(entity_id=identity, memberships=tuple(items))
+            for identity, items in memberships.items()
+        }
 
-    def _values(self, roots: set[str], subjects: set[str]) -> tuple[dict[str, Any], tuple[ValueNode, ...], dict[str, EntityReference]]:
+    def _values(
+        self, roots: set[str], subjects: set[str]
+    ) -> tuple[dict[str, Any], tuple[ValueNode, ...], dict[str, EntityReference]]:
         """One recursive set traversal, two bulk reads; no per-row database queries."""
         v, r = table("data.typed_value"), table("data.value_role")
         if not roots:
             return {}, (), self._entities(subjects)
-        closure = select(v.c.value_id).where(
-            _scope(self.binding, v), v.c.value_id.in_(roots),
-        ).cte("value_closure", recursive=True)
-        closure = closure.union(select(r.c.child_value_id).join(
-            closure, r.c.parent_value_id == closure.c.value_id,
-        ).where(_scope(self.binding, r)))
-        records = {row["value_id"]: row for row in self.connection.execute(
-            select(v).where(_scope(self.binding, v), v.c.value_id.in_(select(closure.c.value_id)))
-        ).mappings()}
+        closure = (
+            select(v.c.value_id)
+            .where(
+                _scope(self.binding, v),
+                v.c.value_id.in_(roots),
+            )
+            .cte("value_closure", recursive=True)
+        )
+        closure = closure.union(
+            select(r.c.child_value_id)
+            .join(
+                closure,
+                r.c.parent_value_id == closure.c.value_id,
+            )
+            .where(_scope(self.binding, r))
+        )
+        records = {
+            row["value_id"]: row
+            for row in self.connection.execute(
+                select(v).where(
+                    _scope(self.binding, v), v.c.value_id.in_(select(closure.c.value_id))
+                )
+            ).mappings()
+        }
         roles: dict[str, list[Any]] = defaultdict(list)
-        for row in self.connection.execute(select(r).where(
-            _scope(self.binding, r), r.c.parent_value_id.in_(records),
-        ).order_by(r.c.role, r.c.position)).mappings():
+        for row in self.connection.execute(
+            select(r)
+            .where(
+                _scope(self.binding, r),
+                r.c.parent_value_id.in_(records),
+            )
+            .order_by(r.c.role, r.c.position)
+        ).mappings():
             roles[row["parent_value_id"]].append(row)
-        entities = self._entities(subjects | {row["entity_id"] for row in records.values() if row["entity_id"] is not None})
+        entities = self._entities(
+            subjects
+            | {row["entity_id"] for row in records.values() if row["entity_id"] is not None}
+        )
         decoded: dict[str, Any] = {}
         visiting: set[str] = set()
 
@@ -407,14 +492,25 @@ class ReadSession:
 
         for identity in records:
             decode(identity)
-        nodes = tuple(ValueNode(
-            value_id=identity, kind=row["kind"],
-            lexical=row["decimal_lexical"] if row["decimal_lexical"] is not None else row["text_value"],
-            datatype=row["datatype"], language=row["language"],
-            entity=entities.get(row["entity_id"]),
-            roles=tuple(ValueRole(role=c["role"], position=c["position"], child_value_id=c["child_value_id"])
-                        for c in roles[identity]),
-        ) for identity, row in sorted(records.items()))
+        nodes = tuple(
+            ValueNode(
+                value_id=identity,
+                kind=row["kind"],
+                lexical=row["decimal_lexical"]
+                if row["decimal_lexical"] is not None
+                else row["text_value"],
+                datatype=row["datatype"],
+                language=row["language"],
+                entity=entities.get(row["entity_id"]),
+                roles=tuple(
+                    ValueRole(
+                        role=c["role"], position=c["position"], child_value_id=c["child_value_id"]
+                    )
+                    for c in roles[identity]
+                ),
+            )
+            for identity, row in sorted(records.items())
+        )
         return decoded, nodes, entities
 
     def coverage(self, family: str | None = None, scope: str | None = None) -> tuple[Coverage, ...]:
@@ -424,63 +520,160 @@ class ReadSession:
             stmt = stmt.where(relation.c.family == family)
         if scope is not None:
             stmt = stmt.where(relation.c.scope == scope)
-        return tuple(Coverage(**{key: row[key] for key in Coverage.model_fields})
-                     for row in self.connection.execute(stmt.order_by(relation.c.coverage_id)).mappings())
+        return tuple(
+            Coverage(**{key: row[key] for key in Coverage.model_fields})
+            for row in self.connection.execute(stmt.order_by(relation.c.coverage_id)).mappings()
+        )
 
     def query(self, spec: QuerySpec, *, continuation: str | None = None) -> QueryResult:
         cls, prop = self._property(spec)
         after = self._after(spec, continuation)
         rows = self.connection.execute(self._selection(spec, after)).mappings().all()
-        more, rows = len(rows) > spec.page_size, rows[:spec.page_size]
-        roots = {row[key] for row in rows for key in ("object_value_id", "qualification_value_id") if row[key] is not None}
+        more, rows = len(rows) > spec.page_size, rows[: spec.page_size]
+        roots = {
+            row[key]
+            for row in rows
+            for key in ("object_value_id", "qualification_value_id")
+            if row[key] is not None
+        }
         decoded, nodes, entities = self._values(roots, {row["subject_id"] for row in rows})
         key = (cls.name, prop.name)
         if key not in self._property_adapters:
-            self._property_adapters[key] = self.prepared.property_adapter(*key)
+            self._property_adapters[key] = self.prepared.property_adapter(
+                *key, item=prop.multivalued
+            )
         adapter = self._property_adapters[key]
-        output = tuple(QueryRow(
-            fact_id=row["fact_id"], subject=entities[row["subject_id"]], property_iri=prop.iri,
-            object_value_id=row["object_value_id"], object=adapter.validate_python(decoded[row["object_value_id"]], strict=True),
-            qualification_value_id=row["qualification_value_id"],
-            qualification=None if row["qualification_value_id"] is None else self.prepared.validate_python("Qualification", decoded[row["qualification_value_id"]]),
-            occurrence_id=row.get("occurrence_id"), source=row.get("source"), item=row.get("item"),
-        ) for row in rows)
+        output = tuple(
+            QueryRow(
+                fact_id=row["fact_id"],
+                subject=entities[row["subject_id"]],
+                property_iri=prop.iri,
+                object_value_id=row["object_value_id"],
+                object=adapter.validate_python(decoded[row["object_value_id"]], strict=True),
+                qualification_value_id=row["qualification_value_id"],
+                qualification=None
+                if row["qualification_value_id"] is None
+                else self.prepared.validate_python(
+                    "Qualification", decoded[row["qualification_value_id"]]
+                ),
+                occurrence_id=row.get("occurrence_id"),
+                source=row.get("source"),
+                item=row.get("item"),
+            )
+            for row in rows
+        )
         coverage = self.coverage(prop.iri, spec.coverage_scope)
         complete_coverage = bool(coverage) and all(c.outcome == "complete" for c in coverage)
         token = None
         if more:
-            token = self._token(spec, rows[-1]["occurrence_id" if spec.projection == "occurrence" else "fact_id"])
-        return QueryResult(binding=self.binding, projection=spec.projection, rows=output, values=nodes,
-                           coverage=coverage, knowledge="observed" if output else "absent" if complete_coverage else "unknown",
-                           continuation=token, complete=not more)
+            token = self._token(
+                spec, rows[-1]["occurrence_id" if spec.projection == "occurrence" else "fact_id"]
+            )
+        return QueryResult(
+            binding=self.binding,
+            projection=spec.projection,
+            rows=output,
+            values=nodes,
+            coverage=coverage,
+            knowledge="observed" if output else "absent" if complete_coverage else "unknown",
+            continuation=token,
+            complete=not more,
+        )
 
     def explain(self, fact_id: str) -> Explanation:
         """Support and derivation references from this session's same MVCC snapshot."""
         f = table("data.fact")
-        if self.connection.scalar(select(f.c.fact_id).where(_scope(self.binding, f), f.c.fact_id == fact_id)) is None:
+        if (
+            self.connection.scalar(
+                select(f.c.fact_id).where(_scope(self.binding, f), f.c.fact_id == fact_id)
+            )
+            is None
+        ):
             raise KeyError(fact_id)
-        s, o, oe, e = (table("data." + n) for n in ("support", "occurrence", "occurrence_evidence", "evidence"))
-        supports = self.connection.execute(select(o).select_from(s.join(o, and_(
-            _same_scope(s, o), s.c.occurrence_id == o.c.occurrence_id,
-        ))).where(_scope(self.binding, s), s.c.fact_id == fact_id).order_by(o.c.occurrence_id)).mappings().all()
+        s, o, oe, e = (
+            table("data." + n) for n in ("support", "occurrence", "occurrence_evidence", "evidence")
+        )
+        supports = (
+            self.connection.execute(
+                select(o)
+                .select_from(
+                    s.join(
+                        o,
+                        and_(
+                            _same_scope(s, o),
+                            s.c.occurrence_id == o.c.occurrence_id,
+                        ),
+                    )
+                )
+                .where(_scope(self.binding, s), s.c.fact_id == fact_id)
+                .order_by(o.c.occurrence_id)
+            )
+            .mappings()
+            .all()
+        )
         links: dict[str, list[str]] = defaultdict(list)
         evidence: dict[str, Evidence] = {}
-        for row in self.connection.execute(select(oe.c.occurrence_id, *e.c).select_from(oe.join(e, and_(
-            _same_scope(oe, e), oe.c.evidence_id == e.c.evidence_id,
-        ))).where(_scope(self.binding, oe), oe.c.occurrence_id.in_([r["occurrence_id"] for r in supports])).order_by(oe.c.evidence_id)).mappings():
+        for row in self.connection.execute(
+            select(oe.c.occurrence_id, *e.c)
+            .select_from(
+                oe.join(
+                    e,
+                    and_(
+                        _same_scope(oe, e),
+                        oe.c.evidence_id == e.c.evidence_id,
+                    ),
+                )
+            )
+            .where(
+                _scope(self.binding, oe),
+                oe.c.occurrence_id.in_([r["occurrence_id"] for r in supports]),
+            )
+            .order_by(oe.c.evidence_id)
+        ).mappings():
             links[row["occurrence_id"]].append(row["evidence_id"])
             evidence[row["evidence_id"]] = Evidence(**{k: row[k] for k in Evidence.model_fields})
         d, p = table("data.derivation"), table("data.derivation_premise")
-        derivations = self.connection.execute(select(d).where(
-            _scope(self.binding, d), d.c.conclusion_fact_id == fact_id,
-        ).order_by(d.c.derivation_id)).mappings().all()
+        derivations = (
+            self.connection.execute(
+                select(d)
+                .where(
+                    _scope(self.binding, d),
+                    d.c.conclusion_fact_id == fact_id,
+                )
+                .order_by(d.c.derivation_id)
+            )
+            .mappings()
+            .all()
+        )
         premises: dict[str, list[str]] = defaultdict(list)
-        for row in self.connection.execute(select(p).where(
-            _scope(self.binding, p), p.c.derivation_id.in_([r["derivation_id"] for r in derivations]),
-        ).order_by(p.c.position)).mappings():
+        for row in self.connection.execute(
+            select(p)
+            .where(
+                _scope(self.binding, p),
+                p.c.derivation_id.in_([r["derivation_id"] for r in derivations]),
+            )
+            .order_by(p.c.position)
+        ).mappings():
             premises[row["derivation_id"]].append(row["premise_fact_id"])
-        return Explanation(binding=self.binding, fact_id=fact_id,
-            supports=tuple(OccurrenceSupport(**{k: row[k] for k in OccurrenceSupport.model_fields if k != "evidence_ids"}, evidence_ids=tuple(links[row["occurrence_id"]])) for row in supports),
+        return Explanation(
+            binding=self.binding,
+            fact_id=fact_id,
+            supports=tuple(
+                OccurrenceSupport(
+                    **{k: row[k] for k in OccurrenceSupport.model_fields if k != "evidence_ids"},
+                    evidence_ids=tuple(links[row["occurrence_id"]]),
+                )
+                for row in supports
+            ),
             evidence=tuple(evidence.values()),
-            derivations=tuple(Derivation(derivation_id=row["derivation_id"], rule=row["rule"], rule_version=row["rule_version"], premise_fact_ids=tuple(premises[row["derivation_id"]])) for row in derivations),
-            coverage=self.coverage())
+            derivations=tuple(
+                Derivation(
+                    derivation_id=row["derivation_id"],
+                    rule=row["rule"],
+                    rule_version=row["rule_version"],
+                    premise_fact_ids=tuple(premises[row["derivation_id"]]),
+                )
+                for row in derivations
+            ),
+            coverage=self.coverage(),
+        )
