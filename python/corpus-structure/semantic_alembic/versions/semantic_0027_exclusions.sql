@@ -80,6 +80,37 @@ BEGIN
        AND rr.input_entity_id=prior.right_entity_id AND rr.entity_id=x.right_entity_id
      WHERE prior.release_id=r AND prior.observation_id=x.observation_id AND prior.local_id=x.local_id)))
  THEN RAISE EXCEPTION 'identity exclusion endpoint assignment differs' USING ERRCODE='23514'; END IF;
+
+ IF EXISTS(SELECT FROM data.identity_exclusion x WHERE x.release_id=r AND x.realization_id=z AND NOT (
+   EXISTS(SELECT FROM ops.run job JOIN ops.input_cut cut ON cut.run_id=job.id AND cut.final
+     JOIN ops.cut_task ct ON ct.cut_id=cut.id JOIN kb.observation o ON o.task_id=ct.origin_task_id
+     WHERE job.release_id=r AND job.result_realization_id=z AND o.id=x.observation_id) OR
+   EXISTS(SELECT FROM data.identity_exclusion prior
+     JOIN data.entity_input l ON l.release_id=r AND l.realization_id=z AND l.input_realization_id=prior.realization_id AND l.input_entity_id=prior.left_entity_id AND l.entity_id=x.left_entity_id
+     JOIN data.entity_input rr ON rr.release_id=r AND rr.realization_id=z AND rr.input_realization_id=prior.realization_id AND rr.input_entity_id=prior.right_entity_id AND rr.entity_id=x.right_entity_id
+     WHERE prior.release_id=r AND prior.observation_id=x.observation_id AND prior.local_id=x.local_id)))
+ THEN RAISE EXCEPTION 'identity exclusion source outside effective cut or input binding' USING ERRCODE='23514'; END IF;
+ IF EXISTS(WITH expected AS (
+   SELECT x.exclusion_id,(e->>'start')::bigint start_offset,(e->>'end')::bigint end_offset,e->>'role' role,count(*) n
+   FROM data.identity_exclusion x JOIN kb.observation o ON o.release_id=r AND o.id=x.observation_id
+   CROSS JOIN LATERAL jsonb_array_elements(coalesce(o.payload->'identity_exclusions','[]')) d
+   CROSS JOIN LATERAL jsonb_array_elements(d->'evidence') e
+   WHERE x.release_id=r AND x.realization_id=z AND d->>'id'=x.local_id AND e->>'outcome'='located'
+   GROUP BY x.exclusion_id,e->>'start',e->>'end',e->>'role'
+ ), actual AS (
+   SELECT x.exclusion_id,span.start_offset,span.end_offset,ev.locator::jsonb->>'role' role,count(*) n
+   FROM data.identity_exclusion x JOIN data.identity_exclusion_evidence xe USING(release_id,realization_id,exclusion_id)
+   JOIN data.evidence_source es USING(release_id,realization_id,evidence_id)
+   JOIN data.evidence ev USING(release_id,realization_id,evidence_id) JOIN kb.span span ON span.id=es.span_id
+   WHERE x.release_id=r AND x.realization_id=z AND es.observation_id=x.observation_id
+   GROUP BY x.exclusion_id,span.start_offset,span.end_offset,ev.locator::jsonb->>'role'
+ ) SELECT FROM ((SELECT * FROM expected EXCEPT SELECT * FROM actual)
+   UNION ALL (SELECT * FROM actual EXCEPT SELECT * FROM expected)) mismatch)
+ THEN RAISE EXCEPTION 'identity exclusion evidence differs from source citations' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM data.identity_exclusion_evidence xe JOIN data.identity_exclusion x USING(release_id,realization_id,exclusion_id)
+   LEFT JOIN data.evidence_source es USING(release_id,realization_id,evidence_id)
+   WHERE xe.release_id=r AND xe.realization_id=z AND es.observation_id IS DISTINCT FROM x.observation_id)
+ THEN RAISE EXCEPTION 'identity exclusion evidence outside source observation' USING ERRCODE='23514'; END IF;
 END $fn$;
 ALTER FUNCTION data.validate_identity_exclusions(text,text) OWNER TO corpus_sem_publisher;
 REVOKE ALL ON FUNCTION data.validate_identity_exclusions(text,text) FROM PUBLIC;
@@ -136,4 +167,48 @@ END $fn$;
 ALTER FUNCTION data.finish_evaluation(bigint,text,text) OWNER TO corpus_sem_publisher;
 REVOKE ALL ON FUNCTION data.finish_evaluation(bigint,text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION data.finish_evaluation(bigint,text,text) TO corpus_sem_writer;
+
+CREATE OR REPLACE FUNCTION data.check_evidence_source() RETURNS trigger LANGUAGE plpgsql
+SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE observation kb.observation; ev data.evidence; span kb.span; method_name text;
+ operation_version text; uri text; matched boolean; synthesis jsonb;
+BEGIN
+ SELECT * INTO STRICT observation FROM kb.observation WHERE id=NEW.observation_id;
+ IF observation.release_id<>NEW.release_id OR observation.rendition_id IS DISTINCT FROM NEW.rendition_id THEN
+  RAISE EXCEPTION 'evidence source differs from bound observation'; END IF;
+ SELECT m.name,m.version,d.source_uri INTO STRICT method_name,operation_version,uri
+  FROM ops.task t JOIN ops.method_config c ON c.id=t.method_config_id
+  JOIN ops.method m ON m.id=c.method_id JOIN kb.rendition r ON r.id=NEW.rendition_id
+  JOIN kb.document d ON d.id=r.document_id WHERE t.id=observation.task_id;
+ SELECT * INTO STRICT ev FROM data.evidence WHERE evidence_id=NEW.evidence_id
+  AND release_id=NEW.release_id AND realization_id=NEW.realization_id;
+ IF ev.source_uri<>uri OR ev.provider<>method_name OR ev.operation_version<>operation_version THEN
+  RAISE EXCEPTION 'evidence provider/source differs from bound observation'; END IF;
+ IF NEW.span_id IS NULL THEN
+  IF observation.span_id IS NOT NULL THEN RAISE EXCEPTION 'evidence omitted bound source span'; END IF;
+  RETURN NEW;
+ END IF;
+ IF observation.span_id IS NOT NULL THEN
+  IF observation.span_id<>NEW.span_id THEN RAISE EXCEPTION 'evidence span differs from bound observation'; END IF;
+  RETURN NEW;
+ END IF;
+ SELECT * INTO STRICT span FROM kb.span WHERE id=NEW.span_id AND rendition_id=NEW.rendition_id;
+ matched:=false;
+ IF observation.payload_definition='AgentStoredBatch' THEN
+  SELECT EXISTS(SELECT FROM jsonb_array_elements(
+      COALESCE(observation.payload->'claims','[]'::jsonb)||COALESCE(observation.payload->'unsupported','[]'::jsonb)||COALESCE(observation.payload->'identity_exclusions','[]'::jsonb)) item
+      CROSS JOIN LATERAL jsonb_array_elements(item->'evidence') citation
+      WHERE citation->>'outcome'='located' AND (citation->>'start')::bigint=span.start_offset
+       AND (citation->>'end')::bigint=span.end_offset) INTO matched;
+ ELSIF observation.payload_definition='SourceObservation' AND observation.kind='author_markup' THEN
+  synthesis:=data.report_field(observation.payload->'payload','synthesize');
+  SELECT EXISTS(SELECT FROM jsonb_array_elements(data.report_field(synthesis,'evidence')->'items') citation
+    WHERE (data.report_field(citation,'start')->>'integer')::bigint=span.start_offset
+      AND (data.report_field(citation,'end')->>'integer')::bigint=span.end_offset) INTO matched;
+ END IF;
+ IF NOT matched THEN RAISE EXCEPTION 'evidence span is not a located citation in bound source report'; END IF;
+ RETURN NEW;
+END $fn$;
+ALTER FUNCTION data.check_evidence_source() OWNER TO corpus_sem_publisher;
+REVOKE ALL ON FUNCTION data.check_evidence_source() FROM PUBLIC;
 
