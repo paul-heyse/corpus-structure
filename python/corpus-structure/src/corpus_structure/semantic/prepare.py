@@ -815,7 +815,7 @@ def prepare_release(
         for name, enum in sorted(view.all_enums().items())
     )
     rows += tuple(RegistryRow("enum", v.enum, canonical_bytes(asdict(v))) for v in vocabularies)
-    return PreparedRelease(
+    prepared = PreparedRelease(
         release_id,
         manifest,
         tuple(definitions),
@@ -827,3 +827,14 @@ def prepare_release(
         tuple(diagnostics),
         adapters,
     )
+
+    # Admission must not archive an operation artifact whose required rules cannot execute.
+    # The policy constructor compiles only immutable release products and performs no I/O.
+    if any(artifact.kind == "operation/domain-rules.yaml" for artifact in prepared.artifacts):
+        from .domain_operations import RULE_INPUT, ReleasedRulesPolicy
+
+        try:
+            ReleasedRulesPolicy(prepared)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            _fail("domain_rules", RULE_INPUT, str(exc), "unsupported")
+    return prepared
