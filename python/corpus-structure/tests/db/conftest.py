@@ -34,10 +34,8 @@ def ins(conn: Connection, table: str, **values: Any) -> int:
 def payload_schema_rows(conn: Connection, revision_id: int) -> dict[str, int]:
     """The registry's rows for the installed model revision, and test rows for opaque payloads."""
     out = {}
-    for entry in registry.payload_schema_entries(model.load()):
-        out[entry.kind] = ins(
-            conn, "meta.payload_schema", model_revision_id=revision_id, **entry.row()
-        )
+    registry._ensure_model_revision(conn, model.load())
+    out.update(registry._ensure_payload_schemas(conn, model.load(), revision_id))
     for kind in OPAQUE:  # no payload class declares these yet (M4's reported gap)
         out[kind] = ins(
             conn,

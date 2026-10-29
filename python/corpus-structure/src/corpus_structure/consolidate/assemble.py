@@ -48,7 +48,7 @@ from pydantic import MISSING
 
 from corpus_structure.consolidate.report import Tally
 from corpus_structure.core._model.names import LOCAL_TO_PREFIXED
-from corpus_structure.core.batch import AuthoredBatch, CitationFrame, StoredBatch
+from corpus_structure.core.batch import AuthoredBatch, CitationFrame, StoredBatch, StoredDescriptor
 from corpus_structure.core.candidates import (
     AWAITING,
     CandidateClaim,
@@ -171,7 +171,7 @@ class EntityRow:
     scope_segment_id: int | None = None
     kind: str | None = None
     resolved_to: str | None = None  # a statement key, for a resolved ExternalReference
-    descriptor: dict[str, Any] | None = None  # an ExternalReference's, as stored
+    descriptor: StoredDescriptor | None = None  # an ExternalReference's, as stored
     aliases: set[tuple[str, str, str]] = field(default_factory=set)  # alias, normalized, kind
     anchors: set[int] = field(default_factory=set)
     mentions: set[int] = field(default_factory=set)
@@ -669,7 +669,11 @@ def assemble(pool: contract.Pool, inputs: Inputs, engine: Engine, tally: Tally) 
     linkable = []
     for p in proposals:
         for e in p.cs.entities:
-            if e.scope is EntityScope.GLOBAL and e.id in p.keys.entities:
+            if (
+                e.scope is EntityScope.GLOBAL
+                and e.id in p.keys.entities
+                and not schema.identity_keys.get(e.type)
+            ):
                 case = _schema_case(inputs, e.type)
                 linkable.append(
                     {
@@ -942,7 +946,7 @@ def _entities(
                 key, REFERENCE, quote, EntityScope.LOCAL.value, p.page.segment_id(anchor)
             )
             row.resolved_to = None if r.resolved_to is AWAITING else str(r.resolved_to)
-            row.descriptor = d.model_dump(mode="json")
+            row.descriptor = d
             row.mentions.add(p.observation_id)
             row.aliases.add((quote, text_form(quote), AliasKind.LABEL.value))
             knowledge.entities[key] = row

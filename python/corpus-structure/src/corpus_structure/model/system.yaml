@@ -8,7 +8,7 @@ description: >-
   agent_reuse by_unit. System classes are tables unless ci:store says otherwise; their table is the
   snake case of the class name (or the native local_names sql entry) in the schema their subset
   names; a single-valued class-ranged attribute is a foreign key column named <attribute>_id.
-version: 0.3.0
+version: 0.4.0
 license: https://creativecommons.org/publicdomain/zero/1.0/
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -151,7 +151,7 @@ classes:
     annotations: {ci:store: nested, ci:payload: policy_action}
     attributes:
       method: {required: true, pattern: "^[a-z][a-z0-9_.]*/[A-Za-z0-9_.-]+$", description: "A named configuration, <method>/<name>."}
-      limit: {range: integer, minimum_value: 1, required: true, description: The most tasks the rule creates per iteration.}
+      limit: {range: integer, minimum_value: 1, description: The most tasks the rule creates per iteration; absent means no rule-specific cap.}
       then: {range: PolicyThen, required: true, description: Whether the chain stops or continues.}
   InterventionTarget:
     description: >-
@@ -1929,6 +1929,9 @@ classes:
       confidence:
         range: Real
         description: The confidence.
+      reference_descriptor:
+        range: ReferenceDescriptor
+        description: The external reference descriptor in stored form; offsets are on the run rendition of scope_segment. Absent for other entity types and historical rows without a recorded descriptor.
   EntityAlias:
     in_subset:
     - kb

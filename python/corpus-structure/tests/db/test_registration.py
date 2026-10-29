@@ -291,5 +291,21 @@ def test_concurrent_ensure_leaves_one_row_per_identity(committing_db: Engine) ->
             "SELECT count(*) - count(DISTINCT (schema_version_id, compiler, "
             "compiler_version, kind)) FROM meta.compiled_artifact",
         ).scalar_one()
-    assert c["meta.schema_version"] == 1 and c["meta.model_revision"] == 1
+    assert c["meta.schema_version"] == 1 and c["meta.model_revision"] == 2
     assert c["meta.compiled_artifact"] == 6 and duplicates == 0
+
+
+def test_fresh_registry_preserves_payload_parent_artifacts(db: Connection) -> None:
+    import pyarrow as pa
+
+    registry.ensure(db, project(db), [MINIMAL], "human:test")
+    rows = sql(db, "SELECT p.id, p.version, p.parent_id, p.arrow_schema, r.label "
+               "FROM meta.payload_schema p JOIN meta.model_revision r "
+               "ON r.id = p.model_revision_id "
+               "WHERE p.kind = 'policy_action' ORDER BY p.version").all()
+    assert len(rows) == 2
+    old, new = rows
+    assert (old[1], old[2], old[4]) == (1, None, "0.3.0")
+    assert (new[1], new[2], new[4]) == (2, old[0], "0.4.0")
+    assert pa.ipc.read_schema(pa.BufferReader(old[3])).field("limit").nullable is False
+    assert pa.ipc.read_schema(pa.BufferReader(new[3])).field("limit").nullable is True

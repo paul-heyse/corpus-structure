@@ -11,3 +11,58 @@
     linkml-runtime: 1.12.1
   parent: null
   change_record: null
+- label: 0.4.0
+  content_hash: eceef3291d1f4e84fffaef165547425644c47c8784cf9323b4c6ca5c5e4c1cdb
+  key_scheme: 1
+  compilers:
+    corpus_structure.schema.generate: '1'
+    corpus_structure.schema.interchange: '1'
+    corpus_structure.schema.relational: '2'
+    linkml-runtime: 1.12.1
+  parent: a59196c4a894dbfaf400567a6d9e9ac9ed991580745ea48bfda1c11be1274d03
+  change_record:
+    from_revision: a59196c4a894dbfaf400567a6d9e9ac9ed991580745ea48bfda1c11be1274d03
+    to_revision: eceef3291d1f4e84fffaef165547425644c47c8784cf9323b4c6ca5c5e4c1cdb
+    changes:
+    - element: core
+      change: changed
+      aspect: version
+      compatibility_class: descriptive
+      reason: Preserve external-reference descriptors through materialization and permit uncapped policy
+        actions (C2-01, O2-01).
+      authorized_by: operator-approved consolidation and queries execution plan, 2026-10-29
+      decision: null
+      upcaster: null
+    - element: sys:KbEntity.reference_descriptor
+      change: added
+      aspect: null
+      compatibility_class: relational-additive
+      reason: Preserve external-reference descriptors through materialization and permit uncapped policy
+        actions (C2-01, O2-01).
+      authorized_by: operator-approved consolidation and queries execution plan, 2026-10-29
+      decision: null
+      upcaster: null
+    - element: sys:PolicyAction.limit
+      change: changed
+      aspect: description
+      compatibility_class: descriptive
+      reason: Preserve external-reference descriptors through materialization and permit uncapped policy
+        actions (C2-01, O2-01).
+      authorized_by: operator-approved consolidation and queries execution plan, 2026-10-29
+      decision: null
+      upcaster: null
+    - element: sys:PolicyAction.limit
+      change: changed
+      aspect: required
+      compatibility_class: nested-additive
+      reason: Preserve external-reference descriptors through materialization and permit uncapped policy
+        actions (C2-01, O2-01).
+      authorized_by: operator-approved consolidation and queries execution plan, 2026-10-29
+      decision: null
+      upcaster: absent
+    name_map: {}
+    alembic_revision: '0002'
+    key_consequences: null
+    judgment_carry_over: null
+    compiled_artifacts: []
+    source_profiles: []
