@@ -312,6 +312,27 @@ def stored_scopes(
     return out
 
 
+def stored_bound_scopes(content:RenditionContent,mentions,scopes,macros)->list[ScopeView]:
+    """Match bound reports by stable source identity, preserving parallel same-span readings."""
+    from corpus_structure.core.method import StableObservationReading
+    by_key={}
+    for row in mentions:
+        if not isinstance(row,StableObservationReading):raise ValueError('bound scope inputs require stable source reports')
+        if row.observation_key in by_key:raise ValueError('duplicate source observation identity')
+        by_key[row.observation_key]=row.payload
+    out=[]
+    for row in scopes:
+        if not isinstance(row,StableObservationReading):raise ValueError('bound scope input is not release-bound')
+        refs=[ref for ref in row.input_refs if ref.role=='mention']
+        if len(refs)!=1 or refs[0].observation_key not in by_key:
+            raise ValueError('bound scope lacks its exact source mention')
+        mention=by_key[refs[0].observation_key]
+        if (mention['start'],mention['end'])!=(row.payload['start'],row.payload['end']):
+            raise ValueError('bound mention coordinates differ from scope source')
+        out.extend(stored_scopes(content,[mention],[row.payload],macros))
+    return out
+
+
 def context_from_stored(
     content: RenditionContent,
     page: str,
@@ -412,14 +433,13 @@ def unit_inputs(
     index = LocatorIndex(content, page)
     unit = (index.resolve(unit_key),)
     macros = tex.effective_macros(content.macros, pack_macros)
-    mentions = [
-        o.payload
-        for o in reader.observations(rendition_id, MENTION_METHOD, ObservationKind.MENTION)
-    ]
-    scopes = [
-        o.payload for o in reader.observations(rendition_id, SCOPE_METHOD, ObservationKind.SCOPE)
-    ]
-    views = stored_scopes(content, mentions, scopes, macros)
+    from corpus_structure.core.method import StableObservationReading
+    mention_rows=list(reader.observations(rendition_id,MENTION_METHOD,ObservationKind.MENTION))
+    scope_rows=list(reader.observations(rendition_id,SCOPE_METHOD,ObservationKind.SCOPE))
+    if any(isinstance(row,StableObservationReading) for row in (*mention_rows,*scope_rows)):
+        views=stored_bound_scopes(content,mention_rows,scope_rows,macros)
+    else:
+        views=stored_scopes(content,[row.payload for row in mention_rows],[row.payload for row in scope_rows],macros)
     context = tuple(context_from_stored(content, page, unit, views))
     known: tuple[KnownEntity, ...] | None
     if golden:

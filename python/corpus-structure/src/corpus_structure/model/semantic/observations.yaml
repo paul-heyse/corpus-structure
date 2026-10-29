@@ -48,6 +48,10 @@ classes:
     attributes:
       kind: {equals_string: object}
       fields: {range: SourceField, multivalued: true, inlined: true}
+  SourceObservationReference:
+    attributes:
+      observation_key: {required: true}
+      role: {required: true}
   SourceObservation:
     description: An immutable source report, not an admitted knowledge assertion.
     attributes:
@@ -58,6 +62,7 @@ classes:
       score: {range: SourceFloat, inlined: true}
       confidence_source: {}
       payload: {range: SourceObject, inlined: true, required: true}
+      inputs: {range: SourceObservationReference, inlined: true, multivalued: true}
       rendition_id: {range: integer}
       segment_id: {range: integer}
       span_start: {range: integer, minimum_value: 0}
@@ -68,9 +73,18 @@ classes:
       scope: {required: true}
       outcome: {range: SourceCoverageOutcome, required: true}
       reason: {}
+  SourceMeasurement:
+    attributes:
+      metric: {required: true}
+      scope_type: {required: true}
+      scope_id: {range: integer}
+      scope_key: {}
+      value: {range: SourceValue, inlined: true, required: true}
+      detail: {range: SourceObject, inlined: true, required: true}
   SourceObservationBatch:
     attributes:
       release_id: {required: true}
+      invocation_key: {required: true}
       source: {required: true}
       method: {required: true}
       operation_version: {required: true}
@@ -83,6 +97,7 @@ classes:
       parse_detail: {range: SourceObject, inlined: true}
       observations: {range: SourceObservation, multivalued: true, inlined: true}
       coverage: {range: SourceCoverage, multivalued: true, inlined: true}
+      measurements: {range: SourceMeasurement, multivalued: true, inlined: true}
 enums:
   SourceCoverageOutcome:
     permissible_values:

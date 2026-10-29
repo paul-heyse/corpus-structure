@@ -87,7 +87,9 @@ classes:
             project_id="mcp",
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
-            options={},
+            options={'agent_configs':{'extract':{
+                'model':'declared-automated-agent','mode':'extract','max_units':1,'packet_cap_chars':18000,
+            }}},
             code_commit="native-mcp",
             guideline="Extract only what the source states.",
         )
