@@ -7,9 +7,9 @@ from corpus_structure.semantic.domain_operations import _cut_input
 from corpus_structure.semantic.publication import publish_on_connection
 from .test_identity_exclusions import exclusion_result
 
-@pytest.mark.parametrize('attack', ['omit', 'collapse', 'raw_reference', 'reason', 'missing_citation', 'extra_citation', 'identity', 'locator'])
+@pytest.mark.parametrize('attack', ['omit', 'collapse', 'raw_reference', 'reason', 'missing_citation', 'extra_citation', 'identity', 'locator', 'attribute_source'])
 def test_native_exclusion_publication_refuses_tampering(semantic_db_engine, semantic_writer_engine, tmp_path, attack):
-    prepared,run,cut,_ = exclusion_result(semantic_db_engine,semantic_writer_engine,tmp_path,finalize=False,citations=2)
+    prepared,run,cut,_ = exclusion_result(semantic_db_engine,semantic_writer_engine,tmp_path,finalize=False,citations=2,local_ids=("p_", "q"))
     inputs=_cut_input(semantic_writer_engine,cut,'excluded-result')
     batch=inputs.batch
     row=batch.identity_exclusion[0]
@@ -22,8 +22,26 @@ def test_native_exclusion_publication_refuses_tampering(semantic_db_engine, sema
         'extra_citation':'evidence differs from source citations',
         'identity':'identity differs',
         'locator':'evidence differs from source citations',
+        'attribute_source':'occurrence citation is outside bound source claim',
     }[attack]
-    if attack=='omit': batch=replace(batch,identity_exclusion=(),identity_exclusion_evidence=())
+    if attack=='attribute_source':
+        from dataclasses import fields
+        from corpus_structure.semantic.identity import occurrence_key
+        old=next(o for o in batch.occurrence if o.item.startswith('entities/p_/attributes/'))
+        item=old.item.replace('entities/p_/','entities/px/')
+        new_id=occurrence_key(batch.release_id,batch.realization_id,old.source,item)
+        updates={}
+        from corpus_structure.semantic.publication import STAGE_TYPES
+        for name in STAGE_TYPES:
+            rows=[]
+            for current in getattr(batch,name):
+                changes={f.name:new_id for f in fields(current) if f.name=='occurrence_id' and getattr(current,f.name)==old.occurrence_id}
+                if name=='occurrence' and current.occurrence_id==old.occurrence_id:
+                    changes['item']=item
+                rows.append(replace(current,**changes) if changes else current)
+            updates[name]=tuple(rows)
+        batch=replace(batch,**updates)
+    elif attack=='omit': batch=replace(batch,identity_exclusion=(),identity_exclusion_evidence=())
     elif attack=='collapse': batch=replace(batch,identity_exclusion=(replace(row,right_entity_id=row.left_entity_id),))
     elif attack=='raw_reference': batch=replace(batch,identity_exclusion=(replace(row,left_ref='invented'),))
     elif attack=='reason': batch=replace(batch,identity_exclusion=(replace(row,reason='forged'),))
@@ -64,3 +82,13 @@ def test_native_exclusion_publication_refuses_tampering(semantic_db_engine, sema
 def test_restricted_writer_cannot_mutate_exclusions(semantic_writer_engine,statement):
     with pytest.raises(DBAPIError,match='permission denied'),semantic_writer_engine.begin() as conn:
         conn.execute(text(statement))
+
+
+def test_literal_wildcard_characters_in_source_ids_remain_valid(
+    semantic_db_engine, semantic_writer_engine, tmp_path
+):
+    _prepared, _run, _cut, result = exclusion_result(
+        semantic_db_engine, semantic_writer_engine, tmp_path, local_ids=("p_", "q%")
+    )
+    assert result is not None
+    assert result.realization_id == "excluded-result"
