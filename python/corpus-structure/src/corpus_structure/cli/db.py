@@ -93,10 +93,16 @@ def _create(admin: Any, name: str, template: str) -> bool:
 
 
 def _migrate(engine: Any, name: str, created: bool) -> DbReport:
-    from corpus_structure.core._model.revision import CONTENT_HASH
-    from corpus_structure.core.db import migrations
+    from sqlalchemy import text
+
+    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+    from corpus_structure.semantic import migrations
 
     with engine.begin() as conn:
+        legacy = conn.execute(text("SELECT to_regclass('meta.project') IS NOT NULL OR "
+                                   "to_regclass('public.alembic_version') IS NOT NULL")).scalar_one()
+        if legacy:
+            raise DbRefused("legacy database refused: bootstrap a fresh owned semantic database")
         applied = migrations.upgrade(conn)
         current = migrations.current_revision(conn)
     return DbReport(
@@ -104,7 +110,7 @@ def _migrate(engine: Any, name: str, created: bool) -> DbReport:
         created=created,
         revision=current,
         head=migrations.head_revision(),
-        model_revision=CONTENT_HASH,
+        model_revision=PHYSICAL_MODEL_ID,
         applied=[str(a["revision"]) for a in applied],
     )
 
@@ -115,7 +121,13 @@ def _run(ctx: typer.Context, json_: bool, create: bool) -> None:
     from corpus_structure.core.db.extensions import ExtensionVersionMismatch
 
     settings = state(ctx).settings()
-    admin, engine, name = _engines(settings.database.sqlalchemy_url)
+    from sqlalchemy.engine import make_url
+
+    runtime_url = make_url(settings.database.sqlalchemy_url)
+    maintenance = make_url(settings.database.maintenance_url).set(
+        drivername="postgresql+psycopg", database=runtime_url.database
+    )
+    admin, engine, name = _engines(maintenance.render_as_string(hide_password=False))
     try:
         created = _create(admin, name, settings.database.template) if create else False
         report = _migrate(engine, name, created)
@@ -140,7 +152,7 @@ def init(ctx: typer.Context, json_: JsonOpt = False) -> None:
 
 @db_app.command("migrate")
 def migrate(ctx: typer.Context, json_: JsonOpt = False) -> None:
-    """Upgrade the existing database to head."""
+    """Upgrade a semantic database; refuse the retired legacy history."""
     _run(ctx, json_, create=False)
 
 
