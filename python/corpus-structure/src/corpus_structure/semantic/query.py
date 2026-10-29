@@ -1,0 +1,486 @@
+"""Release-derived Core queries inside one actual PostgreSQL read snapshot.
+
+Continuation starts a new snapshot and refuses a changed data revision. It does not
+provide historical reads. SQL selections and strict output adaptation are one operation.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+from collections import defaultdict
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
+from datetime import date, datetime
+from decimal import Decimal
+from hashlib import sha256
+from typing import Any, Literal, Protocol
+from uuid import uuid4
+
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import Connection, Engine, Select, and_, exists, select, text
+from sqlalchemy.sql.elements import ColumnElement
+
+from .identity import canonical_bytes
+from .metadata import table
+from .releases import load_release
+from .types import ClassDefinition, PreparedRelease, PropertyDefinition
+
+
+class StaleSnapshot(ValueError):
+    """The live realization revision no longer matches a continuation."""
+
+
+class WrongRelease(ValueError):
+    """A handle or selector belongs to another semantic release."""
+
+
+@dataclass(frozen=True)
+class SnapshotBinding:
+    release_id: str
+    realization_id: str
+    data_revision: int
+    capture_id: str
+
+
+@dataclass(frozen=True)
+class ClassHandle:
+    release_id: str
+    iri: str
+
+
+@dataclass(frozen=True)
+class PropertyHandle:
+    release_id: str
+    class_iri: str
+    iri: str
+
+
+@dataclass(frozen=True)
+class QuerySpec:
+    class_handle: ClassHandle
+    property_handle: PropertyHandle
+    projection: Literal["occurrence", "fact", "accepted"] = "occurrence"
+    subject_ids: tuple[str, ...] = ()
+    page_size: int = 100
+    arithmetic_profile: Literal["exact"] = "exact"
+    coverage_scope: str = "*"
+
+    def __post_init__(self) -> None:
+        if self.projection not in {"occurrence", "fact", "accepted"}:
+            raise ValueError("unsupported projection")
+        if not 1 <= self.page_size <= 10000:
+            raise ValueError("page_size must be between 1 and 10000")
+        if self.arithmetic_profile != "exact":
+            raise ValueError("unsupported arithmetic profile")
+        if type(self.subject_ids) is not tuple or any(type(s) is not str for s in self.subject_ids):
+            raise TypeError("subject_ids must be a tuple of strings")
+
+
+class _Envelope(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+
+class Membership(_Envelope):
+    class_iri: str
+    establishment: str
+
+
+class EntityReference(_Envelope):
+    entity_id: str
+    memberships: tuple[Membership, ...]
+
+
+class ValueRole(_Envelope):
+    role: str
+    position: int
+    child_value_id: str
+
+
+class ValueNode(_Envelope):
+    """Lossless physical receipt beside the release-validated semantic output.
+
+    A missing optional field is absent from the record mapping. A null is an actual
+    node. Missingness/quantity/interval records retain their declared kind/roles.
+    """
+
+    value_id: str
+    kind: str
+    lexical: str | None = None
+    datatype: str | None = None
+    language: str | None = None
+    entity: EntityReference | None = None
+    roles: tuple[ValueRole, ...] = ()
+
+
+class QueryRow(_Envelope):
+    fact_id: str
+    subject: EntityReference
+    property_iri: str
+    object_value_id: str
+    object: Any
+    qualification_value_id: str | None
+    qualification: BaseModel | None
+    occurrence_id: str | None = None
+    source: str | None = None
+    item: str | None = None
+
+
+class Coverage(_Envelope):
+    coverage_id: str
+    family: str
+    scope: str
+    outcome: Literal["complete", "partial", "unanalysed", "failed"]
+    reason: str | None
+
+
+class QueryResult(_Envelope):
+    binding: SnapshotBinding
+    projection: Literal["occurrence", "fact", "accepted"]
+    rows: tuple[QueryRow, ...]
+    values: tuple[ValueNode, ...]
+    coverage: tuple[Coverage, ...]
+    knowledge: Literal["observed", "unknown", "absent"]
+    continuation: str | None
+    complete: bool
+
+
+class Evidence(_Envelope):
+    evidence_id: str
+    source_uri: str
+    locator: str
+    provider: str
+    operation_version: str
+
+
+class OccurrenceSupport(_Envelope):
+    occurrence_id: str
+    source: str
+    item: str
+    report_object_value_id: str
+    report_qualification_value_id: str | None
+    evidence_ids: tuple[str, ...]
+
+
+class Derivation(_Envelope):
+    derivation_id: str
+    rule: str
+    rule_version: str
+    premise_fact_ids: tuple[str, ...]
+
+
+class Explanation(_Envelope):
+    binding: SnapshotBinding
+    fact_id: str
+    supports: tuple[OccurrenceSupport, ...]
+    evidence: tuple[Evidence, ...]
+    derivations: tuple[Derivation, ...]
+    coverage: tuple[Coverage, ...]
+
+
+class _Store(Protocol):
+    engine: Engine
+
+
+def _scope(binding: SnapshotBinding, relation: Any) -> ColumnElement[bool]:
+    return and_(
+        relation.c.release_id == binding.release_id,
+        relation.c.realization_id == binding.realization_id,
+    )
+
+
+def _same_scope(left: Any, right: Any) -> ColumnElement[bool]:
+    return and_(
+        left.c.release_id == right.c.release_id,
+        left.c.realization_id == right.c.realization_id,
+    )
+
+
+@contextmanager
+def read_session(
+    store: Engine | _Store, realization_id: str, release_id: str | None = None
+) -> Iterator[ReadSession]:
+    """Own a fresh REPEATABLE READ, read-only connection, binding exactly once.
+
+    The optional release selector must equal the realization's immutable binding;
+    the project's active pointer is deliberately not consulted.
+    """
+    engine = store if isinstance(store, Engine) else store.engine
+    with engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn:
+        with conn.begin():
+            conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+            realization = table("data.realization")
+            row = conn.execute(
+                select(realization.c.release_id, realization.c.data_revision).where(
+                    realization.c.realization_id == realization_id
+                )
+            ).one_or_none()
+            if row is None:
+                raise KeyError(realization_id)
+            if release_id is not None and row.release_id != release_id:
+                raise WrongRelease("release selector differs from realization binding")
+            binding = SnapshotBinding(row.release_id, realization_id, row.data_revision, str(uuid4()))
+            yield ReadSession(conn, binding, load_release(conn, binding.release_id))
+
+
+class ReadSession:
+    """A scoped snapshot owner. Use only within ``read_session``."""
+
+    def __init__(self, connection: Connection, binding: SnapshotBinding, prepared: PreparedRelease):
+        self.connection = connection
+        self.binding = binding
+        self.prepared = prepared
+        self._property_adapters: dict[tuple[str, str], Any] = {}
+
+    def class_handle(self, name_or_iri: str) -> ClassHandle:
+        definition = next(
+            (d for d in self.prepared.definitions if name_or_iri in {d.name, d.iri}), None
+        )
+        if definition is None:
+            raise KeyError(name_or_iri)
+        return ClassHandle(self.binding.release_id, definition.iri)
+
+    def _class(self, handle: ClassHandle) -> ClassDefinition:
+        if handle.release_id != self.binding.release_id:
+            raise WrongRelease("class handle differs from snapshot release")
+        return next(d for d in self.prepared.definitions if d.iri == handle.iri)
+
+    def property_handle(self, cls: ClassHandle, name_or_iri: str) -> PropertyHandle:
+        definition = self._class(cls)
+        prop = next((p for p in definition.properties if name_or_iri in {p.name, p.iri}), None)
+        if prop is None:
+            raise KeyError(name_or_iri)
+        return PropertyHandle(self.binding.release_id, cls.iri, prop.iri)
+
+    def _property(self, spec: QuerySpec) -> tuple[ClassDefinition, PropertyDefinition]:
+        cls = self._class(spec.class_handle)
+        handle = spec.property_handle
+        if handle.release_id != self.binding.release_id:
+            raise WrongRelease("property handle differs from snapshot release")
+        if handle.class_iri != cls.iri:
+            raise ValueError("property handle belongs to another class")
+        return cls, next(p for p in cls.properties if p.iri == handle.iri)
+
+    def _selection(self, spec: QuerySpec, after: str | None) -> Select:
+        """Core expression construction remains visible to PostgreSQL's optimizer."""
+        f, o = table("data.fact"), table("data.occurrence")
+        m, h = table("data.membership"), table("sem.class_hierarchy")
+        membership = exists(
+            select(1).where(
+                _scope(self.binding, m), m.c.entity_id == f.c.subject_id,
+                (m.c.class_id == spec.class_handle.iri)
+                | exists(select(1).where(
+                    h.c.release_id == self.binding.release_id,
+                    h.c.class_id == m.c.class_id, h.c.ancestor_id == spec.class_handle.iri,
+                )),
+            )
+        )
+        if spec.projection == "occurrence":
+            source = f.join(o, and_(_same_scope(f, o), f.c.fact_id == o.c.fact_id))
+            columns = [
+                f.c.fact_id, f.c.subject_id, f.c.property_id,
+                o.c.report_object_value_id.label("object_value_id"),
+                o.c.report_qualification_value_id.label("qualification_value_id"),
+                o.c.occurrence_id, o.c.source, o.c.item,
+            ]
+            key = o.c.occurrence_id
+        else:
+            source, columns, key = f, list(f.c), f.c.fact_id
+        stmt = select(*columns).select_from(source).where(
+            _scope(self.binding, f), f.c.property_id == spec.property_handle.iri, membership
+        )
+        if spec.projection == "accepted":
+            selected = table("data.selection")
+            stmt = stmt.where(exists(select(1).where(
+                _scope(self.binding, selected), selected.c.fact_id == f.c.fact_id,
+            )))
+        if spec.subject_ids:
+            stmt = stmt.where(f.c.subject_id.in_(spec.subject_ids))
+        if after is not None:
+            stmt = stmt.where(key.collate("C") > after)
+        return stmt.order_by(key.collate("C")).limit(spec.page_size + 1)
+
+    def _fingerprint(self, spec: QuerySpec) -> str:
+        return sha256(canonical_bytes({
+            "format": "semantic-query-1", "spec": asdict(spec), "ordering": "identity:C:asc",
+        })).hexdigest()
+
+    def _after(self, spec: QuerySpec, token: str | None) -> str | None:
+        if token is None:
+            return None
+        try:
+            value = json.loads(base64.urlsafe_b64decode(token.encode()))
+            if set(value) != {"release", "realization", "revision", "query", "after"}:
+                raise ValueError("unexpected continuation fields")
+            if value["release"] != self.binding.release_id:
+                raise WrongRelease("continuation differs from snapshot release")
+            if value["realization"] != self.binding.realization_id:
+                raise ValueError("continuation differs from realization")
+            if value["query"] != self._fingerprint(spec) or type(value["after"]) is not str:
+                raise ValueError("continuation differs from query parameters/projection/order/profile")
+            if type(value["revision"]) is not int or value["revision"] != self.binding.data_revision:
+                raise StaleSnapshot("data changed; restart query in a new snapshot")
+            return value["after"]
+        except (KeyError, json.JSONDecodeError, UnicodeError) as exc:
+            raise ValueError("invalid continuation") from exc
+
+    def _token(self, spec: QuerySpec, after: str) -> str:
+        return base64.urlsafe_b64encode(canonical_bytes({
+            "release": self.binding.release_id, "realization": self.binding.realization_id,
+            "revision": self.binding.data_revision, "query": self._fingerprint(spec), "after": after,
+        })).decode()
+
+    def _entities(self, ids: set[str]) -> dict[str, EntityReference]:
+        if not ids:
+            return {}
+        e, m = table("data.entity"), table("data.membership")
+        rows = self.connection.execute(select(
+            e.c.entity_id, m.c.class_id, m.c.establishment,
+        ).select_from(e.outerjoin(m, and_(_same_scope(e, m), e.c.entity_id == m.c.entity_id))).where(
+            _scope(self.binding, e), e.c.entity_id.in_(ids),
+        ).order_by(e.c.entity_id, m.c.class_id)).mappings()
+        memberships: dict[str, list[Membership]] = defaultdict(list)
+        for row in rows:
+            items = memberships[row["entity_id"]]
+            if row["class_id"] is not None:
+                items.append(Membership(class_iri=row["class_id"], establishment=row["establishment"]))
+        return {identity: EntityReference(entity_id=identity, memberships=tuple(items))
+                for identity, items in memberships.items()}
+
+    def _values(self, roots: set[str], subjects: set[str]) -> tuple[dict[str, Any], tuple[ValueNode, ...], dict[str, EntityReference]]:
+        """One recursive set traversal, two bulk reads; no per-row database queries."""
+        v, r = table("data.typed_value"), table("data.value_role")
+        if not roots:
+            return {}, (), self._entities(subjects)
+        closure = select(v.c.value_id).where(
+            _scope(self.binding, v), v.c.value_id.in_(roots),
+        ).cte("value_closure", recursive=True)
+        closure = closure.union(select(r.c.child_value_id).join(
+            closure, r.c.parent_value_id == closure.c.value_id,
+        ).where(_scope(self.binding, r)))
+        records = {row["value_id"]: row for row in self.connection.execute(
+            select(v).where(_scope(self.binding, v), v.c.value_id.in_(select(closure.c.value_id)))
+        ).mappings()}
+        roles: dict[str, list[Any]] = defaultdict(list)
+        for row in self.connection.execute(select(r).where(
+            _scope(self.binding, r), r.c.parent_value_id.in_(records),
+        ).order_by(r.c.role, r.c.position)).mappings():
+            roles[row["parent_value_id"]].append(row)
+        entities = self._entities(subjects | {row["entity_id"] for row in records.values() if row["entity_id"] is not None})
+        decoded: dict[str, Any] = {}
+        visiting: set[str] = set()
+
+        def decode(identity: str) -> Any:
+            if identity in decoded:
+                return decoded[identity]
+            if identity in visiting:
+                raise ValueError("cyclic value graph")
+            visiting.add(identity)
+            row, children = records[identity], roles[identity]
+            kind, lexical = row["kind"], row["text_value"]
+            if kind in {"string", "entity"}:
+                value = row["entity_id"] if kind == "entity" else lexical
+            elif kind == "integer":
+                value = int(lexical)
+            elif kind in {"decimal", "number"}:
+                value = Decimal(row["decimal_lexical"])
+            elif kind == "float":
+                value = float.fromhex(lexical)
+            elif kind == "date":
+                value = date.fromisoformat(lexical)
+            elif kind == "datetime":
+                value = datetime.fromisoformat(lexical)
+            elif kind == "boolean":
+                value = row["boolean_value"]
+            elif kind == "null":
+                value = None
+            elif kind == "sequence":
+                value = tuple(decode(child["child_value_id"]) for child in children)
+            elif kind in {"record", "mapping"}:
+                value = {child["role"]: decode(child["child_value_id"]) for child in children}
+            else:
+                raise ValueError(f"unsupported admitted value kind {kind}")
+            decoded[identity] = value
+            visiting.remove(identity)
+            return value
+
+        for identity in records:
+            decode(identity)
+        nodes = tuple(ValueNode(
+            value_id=identity, kind=row["kind"],
+            lexical=row["decimal_lexical"] if row["decimal_lexical"] is not None else row["text_value"],
+            datatype=row["datatype"], language=row["language"],
+            entity=entities.get(row["entity_id"]),
+            roles=tuple(ValueRole(role=c["role"], position=c["position"], child_value_id=c["child_value_id"])
+                        for c in roles[identity]),
+        ) for identity, row in sorted(records.items()))
+        return decoded, nodes, entities
+
+    def coverage(self, family: str | None = None, scope: str | None = None) -> tuple[Coverage, ...]:
+        relation = table("data.coverage")
+        stmt = select(relation).where(_scope(self.binding, relation))
+        if family is not None:
+            stmt = stmt.where(relation.c.family == family)
+        if scope is not None:
+            stmt = stmt.where(relation.c.scope == scope)
+        return tuple(Coverage(**{key: row[key] for key in Coverage.model_fields})
+                     for row in self.connection.execute(stmt.order_by(relation.c.coverage_id)).mappings())
+
+    def query(self, spec: QuerySpec, *, continuation: str | None = None) -> QueryResult:
+        cls, prop = self._property(spec)
+        after = self._after(spec, continuation)
+        rows = self.connection.execute(self._selection(spec, after)).mappings().all()
+        more, rows = len(rows) > spec.page_size, rows[:spec.page_size]
+        roots = {row[key] for row in rows for key in ("object_value_id", "qualification_value_id") if row[key] is not None}
+        decoded, nodes, entities = self._values(roots, {row["subject_id"] for row in rows})
+        key = (cls.name, prop.name)
+        if key not in self._property_adapters:
+            self._property_adapters[key] = self.prepared.property_adapter(*key)
+        adapter = self._property_adapters[key]
+        output = tuple(QueryRow(
+            fact_id=row["fact_id"], subject=entities[row["subject_id"]], property_iri=prop.iri,
+            object_value_id=row["object_value_id"], object=adapter.validate_python(decoded[row["object_value_id"]], strict=True),
+            qualification_value_id=row["qualification_value_id"],
+            qualification=None if row["qualification_value_id"] is None else self.prepared.validate_python("Qualification", decoded[row["qualification_value_id"]]),
+            occurrence_id=row.get("occurrence_id"), source=row.get("source"), item=row.get("item"),
+        ) for row in rows)
+        coverage = self.coverage(prop.iri, spec.coverage_scope)
+        complete_coverage = bool(coverage) and all(c.outcome == "complete" for c in coverage)
+        token = None
+        if more:
+            token = self._token(spec, rows[-1]["occurrence_id" if spec.projection == "occurrence" else "fact_id"])
+        return QueryResult(binding=self.binding, projection=spec.projection, rows=output, values=nodes,
+                           coverage=coverage, knowledge="observed" if output else "absent" if complete_coverage else "unknown",
+                           continuation=token, complete=not more)
+
+    def explain(self, fact_id: str) -> Explanation:
+        """Support and derivation references from this session's same MVCC snapshot."""
+        f = table("data.fact")
+        if self.connection.scalar(select(f.c.fact_id).where(_scope(self.binding, f), f.c.fact_id == fact_id)) is None:
+            raise KeyError(fact_id)
+        s, o, oe, e = (table("data." + n) for n in ("support", "occurrence", "occurrence_evidence", "evidence"))
+        supports = self.connection.execute(select(o).select_from(s.join(o, and_(
+            _same_scope(s, o), s.c.occurrence_id == o.c.occurrence_id,
+        ))).where(_scope(self.binding, s), s.c.fact_id == fact_id).order_by(o.c.occurrence_id)).mappings().all()
+        links: dict[str, list[str]] = defaultdict(list)
+        evidence: dict[str, Evidence] = {}
+        for row in self.connection.execute(select(oe.c.occurrence_id, *e.c).select_from(oe.join(e, and_(
+            _same_scope(oe, e), oe.c.evidence_id == e.c.evidence_id,
+        ))).where(_scope(self.binding, oe), oe.c.occurrence_id.in_([r["occurrence_id"] for r in supports])).order_by(oe.c.evidence_id)).mappings():
+            links[row["occurrence_id"]].append(row["evidence_id"])
+            evidence[row["evidence_id"]] = Evidence(**{k: row[k] for k in Evidence.model_fields})
+        d, p = table("data.derivation"), table("data.derivation_premise")
+        derivations = self.connection.execute(select(d).where(
+            _scope(self.binding, d), d.c.conclusion_fact_id == fact_id,
+        ).order_by(d.c.derivation_id)).mappings().all()
+        premises: dict[str, list[str]] = defaultdict(list)
+        for row in self.connection.execute(select(p).where(
+            _scope(self.binding, p), p.c.derivation_id.in_([r["derivation_id"] for r in derivations]),
+        ).order_by(p.c.position)).mappings():
+            premises[row["derivation_id"]].append(row["premise_fact_id"])
+        return Explanation(binding=self.binding, fact_id=fact_id,
+            supports=tuple(OccurrenceSupport(**{k: row[k] for k in OccurrenceSupport.model_fields if k != "evidence_ids"}, evidence_ids=tuple(links[row["occurrence_id"]])) for row in supports),
+            evidence=tuple(evidence.values()),
+            derivations=tuple(Derivation(derivation_id=row["derivation_id"], rule=row["rule"], rule_version=row["rule_version"], premise_fact_ids=tuple(premises[row["derivation_id"]])) for row in derivations),
+            coverage=self.coverage())
