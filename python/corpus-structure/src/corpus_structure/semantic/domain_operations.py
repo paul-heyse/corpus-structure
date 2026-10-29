@@ -1372,6 +1372,38 @@ def _project_cut(
                 if target in metadata:
                     evidence_by_entity.setdefault(target, tuple(located))
                     item_by_entity.setdefault(target, item)
+        # An eligible operational exclusion also names its local endpoint declarations. Reuse
+        # the same source-attribute lowering as ordinary claims, including required entity id.
+        for exclusion in payload.get("identity_exclusions", ()):
+            if not _eligible_exclusion(exclusion):
+                continue
+            located = []
+            for ordinal, citation in enumerate(exclusion["evidence"]):
+                if citation.get("outcome") != "located":
+                    continue
+                start, end = citation["start"], citation["end"]
+                if not 0 <= start < end <= len(descriptor["text"]):
+                    raise DomainOperationRefused("identity evidence lies outside rendition")
+                eid = "evidence:" + sha256(canonical_bytes([
+                    source, "identity_exclusions", exclusion["id"], ordinal, citation])).hexdigest()
+                located.append(EvidenceRow(eid, descriptor["source_uri"],
+                    canonical_bytes({"locator": citation["locator"], "start": start,
+                                     "end": end, "role": citation["role"]}).decode(),
+                    descriptor["provider"], descriptor["version"]))
+                source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
+            for endpoint in (exclusion["left"], exclusion["right"]):
+                if endpoint["kind"] != "local":
+                    continue
+                subject = mapping[endpoint["target"]]
+                if metadata[subject].get("representable") is False:
+                    continue
+                entity = next(e for e in payload["entities"] if e["id"] == endpoint["target"])
+                definition = definitions[entity["class_iri"]]
+                evidence_by_entity.setdefault(subject, tuple(located))
+                item_by_entity.setdefault(subject, SourceItem(
+                    subject, definition.name, "id", entity["id"],
+                    {"modality": "asserted", "polarity": True}, source,
+                    "identity_exclusions/" + exclusion["id"], "stated", tuple(located)))
         # Source-declared entity fields use the actual qualified source assertion that names them.
         for local, e in ((e["id"], e) for e in payload.get("entities", ())):
             subject = mapping[local]
