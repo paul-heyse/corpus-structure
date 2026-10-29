@@ -87,7 +87,13 @@ class Reader:
                 key = (definition.name,prop.name)
                 if key not in self._adapters: self._adapters[key] = self.prepared.property_adapter(*key,item=prop.multivalued)
                 value = self._adapters[key].validate_python(decoded[row["object_value_id"]],strict=True)
-                qualification = None if row["qualification_value_id"] is None else self.prepared.validate_python("Qualification",decoded[row["qualification_value_id"]])
+                qualification = None
+                if row["qualification_value_id"] is not None:
+                    qnode = next(node for node in nodes if node.value_id == row["qualification_value_id"])
+                    qdefinition = next((d for d in self.prepared.definitions if d.iri == qnode.datatype),None)
+                    if qdefinition is None: raise ValueError("qualification has no archived declared datatype")
+                    self.prepared.qualification_definition(qdefinition.name)
+                    qualification = self.prepared.validate_python(qdefinition.name,decoded[row["qualification_value_id"]])
                 occurrence = row.get("occurrence_id")
                 fact = QueryRow(fact_id=row["fact_id"],subject=entities[row["subject_id"]],property_iri=row["property_id"],object_value_id=row["object_value_id"],object=value,qualification_value_id=row["qualification_value_id"],qualification=qualification,occurrence_id=occurrence,source=row.get("source"),item=row.get("item"),context=contexts.get(occurrence),citation_roles=citations.get(occurrence,()))
                 # Preserve the exact reachable value graph, including scale/lexical forms.

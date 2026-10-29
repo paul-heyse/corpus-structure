@@ -111,6 +111,7 @@ def serve_query(
     p = query.params.model_validate(dict(params or {}))
     dumped: dict[str, JsonValue] = p.model_dump(mode="json")
     position: JsonValue = None
+    body: dict[str, Any] | None = None
     if page_token is not None:
         body = decode_token(page_token)
         if body["query"] != query.name:
@@ -142,7 +143,7 @@ def serve_query(
         projection=projection,
     )
     binding = ctx.session.binding
-    if page_token is not None:
+    if body is not None:
         if any(body[k] != v for k, v in {"release": binding.release_id, "realization": binding.realization_id, "revision": binding.data_revision, "projection": projection, "arithmetic": "exact"}.items()):
             raise StaleToken("stale token: semantic snapshot or projection differs")
     for bound in (max_rows, max_chars):

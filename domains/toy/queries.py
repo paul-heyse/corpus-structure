@@ -18,7 +18,7 @@ class OwnershipRow(BaseModel):
     claim:ClaimAnswer
     interval:dict[str,JsonValue]|None
     applicability:Literal["established","not_applicable","unknown"]
-def applicability(interval: dict[str, JsonValue] | None, at: Date) -> str:
+def applicability(interval: dict[str, JsonValue] | None, at: Date) -> Literal["established", "not_applicable", "unknown"]:
     """Partial or symbolic dates remain unknown; omitted interval bounds are unbounded."""
     if interval is None:
         return "unknown"
