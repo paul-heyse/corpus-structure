@@ -311,8 +311,6 @@ classes:
         range: ExpressionBinding
         multivalued: true
         inlined: true
-      normal_form: {}
-      parse_outcome: {}
       macro_context:
         range: ExpressionMacro
         multivalued: true
