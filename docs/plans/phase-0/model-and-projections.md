@@ -205,6 +205,20 @@ byte. A hand edit fails.
 
 ### 3.3 Stage B, or its fallback (M5)
 
+**As built (P0-M-5, 2026-10-29).** Stage B is a direct emitter over `SchemaView` (`schema/stage_b.py`),
+informed by probe Q-1. Q-1's `PydanticGenerator` subclass overrode class collection, class and slot
+generation and range resolution, and did the form expansion over `SchemaView` itself, keeping only the
+template pipeline; hosting the emitter in the generator would tie the build to linkml's generator
+internals for no rule it needs. It writes `core/_model/types.py` (constrained types, `CoreModel`,
+reference markers), `core/_model/shapes.py` (the core shapes, unions and `PAYLOADS`) and
+`ingest/_shapes.py` (the source-profile classes, so `core` never imports `ingest`). Behaviour the
+generated classes call lives in `core/shape_support.py` and `ingest/profile_support.py`;
+`CitationFrame`, `FrameEntry` and the canonical-decimal validator stay hand-written. The hand modules
+re-export the generated classes and keep behaviour. The interim mirror guard is retired;
+`tests/schema/test_stage_b.py` tests the emitter's declarations. Open: `RunOptions` generated too, and
+one-pass generation after a shape-changing edit (in progress).
+
+
 Probe **Q-1** decided the variant (`p0q.stage-b`, Tested 2026-10-28): **Stage B through a `PydanticGenerator`
 subclass.** It reproduced every named feature, the four union aliases exactly, 35 of 45 classes structurally,
 and agreed with the hand models on all 300 validations of S4's 135 batches. M5 carries the residue:
