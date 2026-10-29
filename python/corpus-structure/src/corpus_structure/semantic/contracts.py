@@ -34,6 +34,8 @@ def approved_implementations() -> Mapping[str, Any]:
     from types import MappingProxyType
 
     from corpus_structure.orchestrate import project, semantic
+    from corpus_structure.evaluate import semantic as references
+    from . import runtime
 
     from . import (
         analytics,
@@ -95,6 +97,13 @@ def approved_implementations() -> Mapping[str, Any]:
             "analysis": analytics.AnalysisScope,
             "analysis_close": analytics.AnalysisScope.close,
             "publish_arrow": arrow_publication.publish_arrow,
+            "reference_set": references.create_reference_set,
+            "reference_pass": references.record_pass,
+            "reference_items": references.ensure_items,
+            "reference_frame": references.relocate_frame,
+            "reference_grade": references.reference_evaluate,
+            "reference_split": references.split_documents,
+            "select_result": runtime.select_completed_result,
         }
     )
 
@@ -291,6 +300,9 @@ _APPROVED_NATIVE_GUARDS = {
     "execution_run": ("ops.guard_execution_run()", "1"),
     "conditional_kernel": ("data.validate_conditions(text,text)", "1"),
     "completed_result": ("data.finish_evaluation(bigint,text,text)", "1"),
+    "reference_pass": ("eval.record_reference_pass(bigint,text,text,bytea,jsonb)", "1"),
+    "reference_grade": ("eval.record_reference_evaluation(text,bigint,bigint,jsonb,jsonb)", "1"),
+    "selected_result": ("data.select_project_result(text,bigint,bigint)", "1"),
 }
 
 
@@ -336,7 +348,8 @@ def trusted_execution_inputs() -> ExecutionModelInputs:
     return ExecutionModelInputs(
         SourceBundle(
             "contracts",
-            (SourceArtifact("contracts", root.joinpath("contracts.yaml").read_bytes()),),
+            (SourceArtifact("contracts", root.joinpath("contracts.yaml").read_bytes()),
+             SourceArtifact("semantic_reference", root.joinpath("reference.yaml").read_bytes())),
         ),
         SourceArtifact("execution-model.yaml", root.joinpath("execution-model.yaml").read_bytes()),
     )
