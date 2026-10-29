@@ -75,6 +75,9 @@ def start_run(
     settings: Any = None,
     domains: Path | None = None,
     method_settings: Any = None,
+    slice: str | None = None,
+    scope: str | None = None,
+    corpus: str | None = None,
 ) -> RunReport:
     """Create the run and run it to its end (module doc)."""
     from corpus_structure.schema.pack import DOMAINS
@@ -95,6 +98,29 @@ def start_run(
         ]
         if not documents:
             raise CommandError("the project has no documents")
+        from corpus_structure.orchestrate.slices import record
+        corpus_record, scope_record = record(conn, pid, pack, slice=slice, scope=scope, corpus=corpus)
+        if slice:
+            kind = RunKind.SLICE
+        explicit = dict(explicit or {})
+        if scope_record is not None:
+            explicit['scope'] = scope_record
+        if graph.policy_propose and phase == 0 and kind == RunKind.FULL and scope_record is None:
+            raise CommandError('phase 0 full run requires a scope')
+        selected_keys = set(corpus_record['documents'])
+        documents = [d for d in documents if d[0] in selected_keys]
+        debug_slice_id = None
+        if slice:
+            import yaml
+            from corpus_structure.core.db import metadata
+            from sqlalchemy.dialects.postgresql import insert
+            declarations = yaml.safe_load((pack / 'slices.yaml').read_text())
+            declarations = declarations.get('slices', declarations)
+            table = metadata.tables['ops.debug_slice']
+            stmt = insert(table).values(project_id=pid, name=slice, selector=declarations[slice])
+            debug_slice_id = conn.execute(stmt.on_conflict_do_update(
+                index_elements=['project_id', 'name'], set_={'selector': stmt.excluded.selector}
+            ).returning(table.c.id)).scalar_one()
         created = runs.create_run(
             conn,
             project_id=pid,
@@ -102,6 +128,8 @@ def start_run(
             versions=versions,
             registry=registry,
             documents=documents,
+            corpus=corpus_record,
+            debug_slice_id=debug_slice_id,
             phase=phase,
             explicit=explicit,
             settings=settings,

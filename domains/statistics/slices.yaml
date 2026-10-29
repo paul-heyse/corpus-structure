@@ -1,0 +1,33 @@
+# Copied verbatim from docs/design/D2-schema-and-guidelines.md §12.2 on 2026-10-28.
+version: 0.1.0
+# Locators (D6 §8): page | page#unit-id | page@u:<text prefix> (a unit) | page@p:<text prefix>
+# (a paragraph outside units). Pages are relative to siegrist_random/random/. Prefixes match the
+# start of the segment's canonical text with whitespace collapsed; each locator must resolve to
+# exactly one segment.
+slices:
+  trace:
+    - 'special/LocationScale.html@p:As usual, our starting point'             # T1 lead-in
+    - 'special/LocationScale.html#dfn1'                                        # T1
+    - 'special/Normal.html@p:Suppose again that \( X \) has the normal distribution with location parameter'   # T2
+    - 'special/Normal.html#rel1'                                               # T3
+    - 'special/LogNormal.html#dfn'                                             # T4
+  core12:
+    - {include: trace}
+    - 'special/Normal.html#rel2'                                               # U5
+    - 'special/Normal.html@p:Recall that in general, if \(X\) is a random variable with mean'   # U6
+    - "special/Normal.html@p:In some settings, it's convenient to consider a constant"          # U7
+    - 'special/Normal.html@u:A metal rod is designed'                          # U8
+    - 'special/LogNormal.html@u:Suppose that \(n \in \N_+\) and that'          # U9
+    - 'special/Gamma.html#dfn4'                                                # U10
+    - 'special/Gamma.html#rel2'                                                # U11
+    - 'special/Gamma.html#mom1'                                                # U12
+  spike-pages:
+    - special/LocationScale.html
+    - special/Normal.html
+    - special/LogNormal.html
+    - special/Gamma.html
+  first-pass:
+    - {index: first_pass}                                                      # pages with first_pass = yes in the corpus index
+  phase0-golden:
+    - {pages: [core12]}
+    - {golden_set: p0}

@@ -32,6 +32,7 @@ from pydantic import BaseModel
 from sqlalchemy import Connection, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from corpus_structure.core.canonical import digest
 from corpus_structure.core.db import metadata, repo
 from corpus_structure.core.evidence import document_key
 from corpus_structure.orchestrate.registry import MethodRegistry, RegistryError
@@ -135,7 +136,9 @@ def ensure_pack_versions(
         )
         created += ["guideline_version"] if new else []
     policies = pack_root / "policies.yaml"
-    source = policies.read_text(encoding="utf-8") if policies.exists() else ""
+    source = policies.read_text(encoding="utf-8") if policies.exists() else "version: '0'\n"
+    from corpus_structure.orchestrate.policy import parse_policy
+    policy_data = parse_policy(source)
     label = re.search(r"(?m)^version:\s*['\"]?([^'\"\s]+)", source)
     policy_id, new = _version_row(
         conn,
@@ -143,7 +146,7 @@ def ensure_pack_versions(
         {
             "project_id": project_id,
             "label": label.group(1) if label else "0",
-            "content_hash": sha256_text(source),
+            "content_hash": digest(policy_data.model_dump(mode="json")),
             "source": source,
             "created_by": created_by,
         },

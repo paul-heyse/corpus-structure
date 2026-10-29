@@ -238,6 +238,7 @@ def create_run(
     explicit: Mapping[str, Any] | None = None,
     settings: Any = None,
     parent_run_id: int | None = None,
+    debug_slice_id: int | None = None,
     commit: str | None = None,
 ) -> CreatedRun:
     """Create the run (module doc); `documents` are the corpus's (document key, content hash)."""
@@ -271,7 +272,7 @@ def create_run(
             "kind": kind.value,
             "phase": phase,
             "options": report.options.model_dump(mode="json"),
-            "debug_slice": None,
+            "debug_slice": debug_slice_id,
             "corpus_hash": corpus_hash(documents, ingest),
             "model_revision": versions.model_revision_id,
             "schema_version": versions.schema_version_id,
