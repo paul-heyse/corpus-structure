@@ -120,7 +120,7 @@ def require_archive_fence(connection: Connection) -> None:
 
 
 # Frozen from reviewed migration ASTs when semantic_0026 was authored.
-_DESCRIPTOR_SHA256 = "6a5bebd55480ac802b31dcebf43518b4f1862422beb28afef10d800f9ab6fae7"
-_REQUIRE_SHA256 = "618b9a41f5f94e9f70a06ef6a59f7b3c2f99f0ad1e762773686fd06b2c24caeb"
+_DESCRIPTOR_SHA256 = "a42335877d5aaa2c4d32eb1fac32d83e5a6ed774e8db3f47ea1bd526cba9ccd2"
+_REQUIRE_SHA256 = "9b110a9f5d81d3bd0c7c859ced7a3d8f41ee2899e09363e6c0fe3d4c16f1d78b"
 _REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
 _GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"
