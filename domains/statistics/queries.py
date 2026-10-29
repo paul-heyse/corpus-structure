@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import Any
 from itertools import batched
+import json
 from pydantic import BaseModel, JsonValue
 from sqlalchemy import and_, exists, literal, or_, select
 from corpus_structure.semantic.query import _same_scope
@@ -62,7 +63,7 @@ class FamiliesWhere(Query):
                 if p.value is not None:
                     cls=next(d for d in ctx.compiled.definitions if d.iri in {m.class_iri for m in row.fact.subject.memberships} and any(x.iri == row.fact.property_iri for x in d.properties))
                     prop=next(x for x in cls.properties if x.iri == row.fact.property_iri)
-                    expected=ctx.compiled.property_adapter(cls.name,prop.name,item=prop.multivalued).validate_python(p.value)
+                    expected=ctx.compiled.property_adapter(cls.name,prop.name,item=prop.multivalued).validate_json(json.dumps(p.model_dump(mode="json")["value"]),strict=True)
                     if expected != row.fact.object: continue
                 family=family_by_subject.get(row.fact.subject.entity_id)
                 if family is not None: yield Positioned(FamilyAnswer(family=family,claim=row),row.fact.occurrence_id or row.fact.fact_id)

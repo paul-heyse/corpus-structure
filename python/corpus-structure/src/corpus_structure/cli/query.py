@@ -21,7 +21,7 @@ from corpus_structure.serve.registry import QueryRegistryError, build_registry
 def refusal(json: bool):
     try:
         yield
-    except (QueryRefused, QueryRegistryError, ValidationError, ValueError, LookupError) as e:
+    except (QueryRefused, QueryRegistryError, ValidationError, ValueError, LookupError, OSError) as e:
         if json:
             typer.echo(jsonlib.dumps({"error": {"code": type(e).__name__, "message": str(e)}}))
         else:
@@ -46,9 +46,16 @@ def context(conn: Any, project: str | None, run: str) -> tuple[str, int, Any]:
 def render_query(result: Any) -> Table:
     table=Table("semantic identity","property / class","value",title=f"run {result.run_id}: {result.query} ({result.projection})")
     for row in result.rows:
-        fact=row.get("fact",{})
+        fact=row.get("fact") or row.get("claim",{}).get("fact") or row.get("conclusion",{}).get("fact") or {}
         entity=row.get("entity",{})
-        table.add_row(str(fact.get("fact_id",entity.get("entity_id",row.get("coverage_id","")))),str(fact.get("property_iri","")),str(fact.get("object",row.get("text",""))))
+        evidence=row.get("evidence",{})
+        identity=fact.get("fact_id") or entity.get("entity_id") or evidence.get("evidence_id") or row.get("locator") or row.get("coverage_id","")
+        relation=fact.get("property_iri") or ", ".join(m["class_iri"] for m in entity.get("memberships",())) or row.get("family","")
+        value=fact.get("object",evidence.get("locator",row.get("text",row.get("outcome",""))))
+        if "claims" in row and "depth" in row:
+            identity=" → ".join(claim["fact"]["fact_id"] for claim in row["claims"])
+            value=f"{row['depth']} relations"
+        table.add_row(str(identity),str(relation),str(value))
     if not result.coverage or any(c.outcome != "complete" for c in result.coverage):
         table.caption="Coverage is incomplete or unknown; inspect --json for source outcomes."
     if result.next_page_token: table.caption=(table.caption or "")+" Next page: "+result.next_page_token
@@ -87,7 +94,7 @@ def query(
             from corpus_structure.serve.journey import decode_token
 
             selected = str(decode_token(page_token)["run"]) if page_token else run
-            pid, _, registry = context(conn, project or settings.runtime.default_project, selected)
+            pid, _, registry = context(conn, project or (settings.runtime.default_project if selected == "promoted" else None), selected)
             result = serve_query(
                 conn,
                 registry,

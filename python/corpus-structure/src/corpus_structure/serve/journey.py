@@ -37,6 +37,8 @@ def select_run(conn: Connection, project_id: str, run: int | str = PROMOTED) -> 
     return run_id
 
 def bind_session(conn: Connection, run_id: int) -> ReadSession:
+    if conn.get_isolation_level() != "REPEATABLE READ" or conn.exec_driver_sql("SHOW transaction_read_only").scalar_one() != "on":
+        raise QueryRefused("serving requires a read-only REPEATABLE READ transaction")
     check_finished(conn, run_id)
     completed, realization = table("ops.completed_result"), table("data.realization")
     row = conn.execute(select(completed.c.release_id, completed.c.output_realization_id, realization.c.data_revision).join(realization, realization.c.realization_id == completed.c.output_realization_id).where(completed.c.run_id == run_id)).one()
@@ -110,6 +112,8 @@ def serve_query(
     query = registry[name]
     p = query.params.model_validate(dict(params or {}))
     dumped: dict[str, JsonValue] = p.model_dump(mode="json")
+    if projection == "accepted" and (getattr(p,"include_candidates",False) or getattr(p,"status",None) == "candidate"):
+        projection = "fact"
     position: JsonValue = None
     body: dict[str, Any] | None = None
     if page_token is not None:
@@ -176,14 +180,13 @@ def serve_query(
     try:
         found = next(iterator, None)
         while found is not None:
-            following = next(iterator, None)
             if max_rows is not None and len(rows) >= max_rows:
                 return response(True, cursor)
-            item = found.row.model_dump(mode="json")
+            following = next(iterator, None)
+            item = found.row.model_dump(mode="json", serialize_as_any=True)
             rows.append(item)
             # Reserve the continuation envelope too, even for a last row.
-            candidate = response(following is not None, found.position)
-            if max_chars is not None and len(candidate.model_dump_json()) > max_chars:
+            if max_chars is not None and len(response(following is not None, found.position).model_dump_json()) > max_chars:
                 rows.pop()
                 if not rows:
                     raise QueryRefused(

@@ -60,7 +60,7 @@ class Statement(Query):
     name,params,result = "statement",StatementParams,StatementAnswer
     def rows(self,ctx,p,after=None):
         context,o,f = T["occurrence_context"],T["occurrence"],T["fact"]
-        stmt = select(context.c.statement_entity_id).where(ctx.reader.scope(context),context.c.statement_entity_id.is_not(None)).distinct()
+        stmt = select(context.c.statement_entity_id.collate("C")).where(ctx.reader.scope(context),context.c.statement_entity_id.is_not(None)).distinct()
         if p.key: stmt=stmt.where(context.c.statement_entity_id == p.key)
         if p.locator:
             e,oe = T["evidence"],T["occurrence_evidence"]

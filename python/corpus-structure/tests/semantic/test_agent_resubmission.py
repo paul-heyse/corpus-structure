@@ -43,7 +43,7 @@ from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import persist_release
 
 
-def source_task(admin, engine, path, *, composed=False, identity_keyed=False, global_names=False):
+def source_task(admin, engine, path, *, composed=False, identity_keyed=False, global_names=False, domain=None):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
         "id": "https://example.org/resubmit",
@@ -114,7 +114,7 @@ def source_task(admin, engine, path, *, composed=False, identity_keyed=False, gl
             project_id="resubmit",
             binding=OperationBinding(prepared.release_id, "input", 0, b"{}"),
             kind="full",
-            options={"agent_configs": {"extract": config}},
+            options={"agent_configs": {"extract": config}, **({"domain": domain} if domain is not None else {})},
             code_commit="test",
         )
         document = register_document(
