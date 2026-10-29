@@ -16,7 +16,7 @@ def export(ctx:typer.Context, out:Annotated[Path,typer.Option("--out")], format:
         with open_runtime_engine(settings,application_name="ci-export",purpose="read") as engine:
             with engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn, conn.begin():
                 conn.exec_driver_sql("SET TRANSACTION READ ONLY")
-                _,rid,_=context(conn,project or settings.runtime.default_project,run)
+                _,rid,_=context(conn,project or (settings.runtime.default_project if run == "promoted" else None),run)
                 session=bind_session(conn,rid)
                 # The ADBC reader imports this exact native transaction snapshot.
                 uri=connection_settings(settings,"read").database.url

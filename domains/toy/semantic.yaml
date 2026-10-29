@@ -33,8 +33,14 @@ classes:
   Source:
     is_a: Entity
     annotations: {cs:scope: global, cs:extract: mention}
+  ToySourceStatement:
+    is_a: SourceStatement
+    slot_usage:
+      statement_kind: {range: ToyStatementKind}
   ToyQualification:
     is_a: Qualification
+    slot_usage:
+      modality: {range: ToyModality}
     attributes:
       share:
         range: NumberValue
@@ -59,9 +65,9 @@ enums:
   ToyStatementKind:
     inherits: [StatementKind]
     permissible_values:
-      clause: {in_subset: [claim_bearing]}
-      notice: {}
+      toy:clause: {in_subset: [claim_bearing]}
+      toy:notice: {}
   ToyModality:
     inherits: [ClaimModality]
     permissible_values:
-      reported: {in_subset: [attribution_identifying]}
+      toy:reported: {in_subset: [attribution_identifying]}

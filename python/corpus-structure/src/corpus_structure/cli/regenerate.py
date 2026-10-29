@@ -53,6 +53,10 @@ def regenerate(
 
     settings = state(ctx).settings()
     project = project or settings.runtime.default_project
+    from corpus_structure.semantic.types import PreparedRelease
+
+    prepared: PreparedRelease | None = None
+    source_id: str | None = None
     try:
         if Path(domain).name != domain:
             raise ValueError("domain must name a declared pack")
@@ -65,6 +69,7 @@ def regenerate(
                     persist_release(conn, bundle, deps, profile, prepared)
         with open_runtime_engine(settings, "ci-regenerate") as engine:
             if resume_run is None:
+                assert prepared is not None and source_id is not None
                 with engine.begin() as conn:
                     init_bound_project(conn, domain=domain, corpus=corpus.resolve(), name=project,
                                        release_id=prepared.release_id, realization_id=source_id)
@@ -82,6 +87,7 @@ def regenerate(
                         raise OperationConflict("resume run has another project")
                     prepared = load_release(conn, row["release_id"])
                     source_id = row["input_realization_id"]
+            assert prepared is not None and source_id is not None
             stderr_console().print(f"semantic run {run_id}; resume with --resume-run {run_id}")
             if not automated:
                 emit(RegenerationReport(project=project, release_id=prepared.release_id,

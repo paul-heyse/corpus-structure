@@ -32,7 +32,7 @@ def export_packet(packet: CapturedPacket, destination: Path, *, format: Literal[
             relation=packet.relations[name]
             metadata=relation.schema.metadata or {}
             expected={"release":packet.binding.release_id,"realization":packet.binding.realization_id,"data_revision":str(packet.binding.data_revision),"capture":packet.binding.capture_id,"projection":packet.projection_id,"profile":packet.profile_digest,"relation":name}
-            if any(metadata.get(("cs."+k).encode()) != str(v).encode() for k,v in expected.items()): raise ValueError(f"relation {name} has no matching captured provenance")
+            if any(metadata.get(("cs."+k).encode()) != v.encode() for k,v in expected.items()): raise ValueError(f"relation {name} has no matching captured provenance")
             path=root/(name+"."+format)
             if format == "parquet": pq.write_table(relation,path,store_schema=True)
             else:

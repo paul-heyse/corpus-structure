@@ -70,3 +70,17 @@ def test_peer_maintenance_clears_writer_credentials_and_keeps_target():
     assert selected.username is None and selected.password is None
     assert (selected.host, selected.port, selected.database) == ("runtime.example", 5440, "owned_temporary")
     assert selected.query == {"sslmode": "require"}
+
+
+def test_query_credentials_cannot_override_selected_purpose_credentials():
+    settings = Settings(database={
+        "url": "postgresql://corpus_sem_writer:writer@runtime.example:5440/owned_temporary?user=other&password=other-secret&passfile=/unrelated/credentials&sslmode=require",
+        "maintenance_url": "postgresql:///ignored_target",
+    })
+    purposes: tuple[Purpose, ...] = ("read", "evaluate", "maintenance")
+    for purpose in purposes:
+        selected = make_url(connection_settings(settings, purpose).database.url)
+        assert selected.query == {"sslmode": "require"}
+        assert selected.database == "owned_temporary" and selected.host == "runtime.example"
+        assert selected.username == {"read": "corpus_sem_reader", "evaluate": "corpus_sem_evaluator", "maintenance": None}[purpose]
+    assert connection_settings(settings, "write").database.url == settings.database.url

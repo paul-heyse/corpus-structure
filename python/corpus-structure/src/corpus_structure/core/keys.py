@@ -90,6 +90,7 @@ from corpus_structure.core.values import (
     AuthoredOr,
     AuthoredPhrase,
     AuthoredPhraseNode,
+    AuthoredUnsupportedNode,
     AuthoredValue,
     BoolValue,
     ClaimNode,
@@ -112,6 +113,7 @@ from corpus_structure.core.values import (
     StoredOr,
     StoredPhrase,
     StoredPhraseNode,
+    StoredUnsupportedNode,
     StoredValue,
     SymbolBinding,
     TextValue,
@@ -434,7 +436,7 @@ def _parts(node: Condition) -> tuple[tuple[Condition, ...], tuple[EntityRef | Va
             return (), (lhs, rhs)
         case PredNode(args=pred_args):
             return (), pred_args
-        case AuthoredPhraseNode() | StoredPhraseNode():  # `unsupported` leaves included
+        case AuthoredPhraseNode() | StoredPhraseNode() | AuthoredUnsupportedNode() | StoredUnsupportedNode():
             return (), ()
         case _:
             assert_never(node)
@@ -529,7 +531,7 @@ def _canonical_node(
                 return None
             return {"op": "forall", "var": symbol_form(var, macros), "set": value(set_),
                     "body": inner}  # fmt: skip
-        case AuthoredPhraseNode(op=op, text=text) | StoredPhraseNode(op=op, text=text):
+        case AuthoredPhraseNode(op=op, text=text) | StoredPhraseNode(op=op, text=text) | AuthoredUnsupportedNode(op=op, text=text) | StoredUnsupportedNode(op=op, text=text):
             return {"op": op, "text": text_form(text)}
         case _:
             assert_never(n)
@@ -567,7 +569,7 @@ def expressions(value: EntityRef | Value | Condition) -> Iterator[Formula | SetV
         case (
             AuthoredAnd() | AuthoredOr() | AuthoredNot() | AuthoredForall() | StoredAnd()
             | StoredOr() | StoredNot() | StoredForall() | ClaimNode() | MemberNode() | CmpNode()
-            | PredNode() | AuthoredPhraseNode() | StoredPhraseNode()
+            | PredNode() | AuthoredPhraseNode() | StoredPhraseNode() | AuthoredUnsupportedNode() | StoredUnsupportedNode()
         ):  # fmt: skip
             for node in condition_nodes(value):
                 for v in _parts(node)[1]:
@@ -688,7 +690,7 @@ def canonical_qualifier(
         case CanonicalForm.MEMBER:
             if not isinstance(value, str):
                 raise KeyingError(DropReason.MALFORMED_QUALIFIER, name, path)
-            return str(value)  # the bare member value
+            return str.__str__(value)  # normalize member string subclasses
         case CanonicalForm.ENTITY_KEY:
             if isinstance(value, dict):
                 try:
@@ -1323,7 +1325,7 @@ def key_claims(
             continue
         keys.references[reference.id] = own
         resolved = reference.resolved_to
-        stands_for[reference.id] = own if resolved is AWAITING else str(resolved)
+        stands_for[reference.id] = own if resolved is AWAITING else str.__str__(resolved)
     resolver = Resolver(
         kinds,
         {"entity": keys.entities, "statement": keys.statements, "reference": stands_for,

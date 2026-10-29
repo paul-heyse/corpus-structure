@@ -1,0 +1,98 @@
+versions: {'linkml': '1.12.1', 'linkml-runtime': '1.12.1', 'curies': '0.15.5', 'pyoxigraph': '0.5.13'}
+
+=== P1 importmap: in-memory composition, fallback and duplicates ===
+imports_closure: ['mod_a', 'https://example.org/b', 'root']
+filesystem/network fallback calls: []
+importmap dicts unchanged by loading: True
+duplicate class Thing: winner description (no refusal): 'duplicate in b'
+Other class_uri via get_uri (unmerged): 'https://example.org/b/Other'
+Thing from_schema: 'https://example.org/b'
+after merge: Thing kept from: None
+after merge + new view: get_uri('Other'): 'https://example.org/root/Other'
+missing import closure: RAISED FileNotFoundError: probe blocked filesystem/network load of not_supplied.yaml
+missing import fallback calls: ['not_supplied.yaml']
+linkml:types closure with empty importmap: RAISED FileNotFoundError: probe blocked filesystem/network load of /home/paul/corpus-structure/.venv/lib/python3.14/site-packages/linkml_runtime/linkml_model/model/schema/types.yaml
+linkml:types fallback calls (installed metamodel path): ['/home/paul/corpus-structure/.venv/lib/python3.14/site-packages/linkml_runtime/linkml_model/model/schema/types.yaml']
+
+=== P2 ReferenceValidator: dangling and duplicate references ===
+results for dangling ref:missing + duplicate id ref:a: []
+
+=== P3 type_ancestors / induced_type / materialize_derived_schema vs conjunction ===
+type_ancestors(ShortCode): ['ShortCode', 'Code', 'string']
+type_ancestors(Looser): ['Looser', 'Small', 'Pos', 'integer']
+induced_type(ShortCode).pattern: '^.{1,3}$'
+induced_type(Looser) min/max: (-5, 10)
+induced_slot(n, Holder) min/max: (None, 20)
+induced_slot(code, Holder).pattern: '^S'
+derived type Looser min/max: (-5, None)
+derived type ShortCode pattern: '^.{1,3}$'
+derived Holder.n min/max: (-5, 20)
+derived Holder.code pattern: '^.{1,3}$'
+materialize_derived_schema left source unchanged: True
+type_ancestors(ShortCode) with undeclared 'string': RAISED ValueError: No such type: "string"
+
+=== P4 induction mutates asserted schema (domain_of) ===
+asserted domain_of before induction: []
+asserted domain_of after class_induced_slots(A): ['A', 'B']
+schema handed to JsonSchemaGenerator unchanged: False
+domain_of after generator: ['A', 'B']
+metamodel_version after generator: '1.12.0'
+
+=== P5 structured (nested) annotation values ===
+list value: {'ph:foreign_keys': ('list', "[{'columns': ['a'], 'target': 't.c'}]"), 'round_trip_class_annotations': {'ph:foreign_keys': {'tag': 'ph:foreign_keys', 'value': [{'columns': ['a'], 'target': 't.c'}]}}}
+  (last stage reached: json_dumper.dumps(schema))
+explicit value wrapper with mapping: {'ph:check': ('JsonObj', "JsonObj(name='c1', sql='a > 0')"), 'round_trip_class_annotations': {'ph:check': {'tag': 'ph:check', 'value': {'name': 'c1', 'sql': 'a > 0'}}}}
+  (last stage reached: json_dumper.dumps(schema))
+bare mapping value: RAISED TypeError: Annotation.__init__() got an unexpected keyword argument 'name'
+  (last stage reached: yaml_loader.load)
+nested annotations: {'ph:index': ('str', 'ix_a'), 'ph:index/nested': {'ph:unique': True}, 'round_trip_class_annotations': {'ph:index': {'tag': 'ph:index', 'value': 'ix_a', 'annotations': {'ph:unique': {'tag': 'ph:unique', 'value': True}}}}}
+  (last stage reached: json_dumper.dumps(schema))
+
+=== P6 curies Converter vs archived-prefix expansion/compaction ===
+expand 'ex:a' project: 'https://example.org/a'
+expand 'ex:a' curies.expand(strict): 'https://example.org/a'
+expand 'ex:a' curies.expand_or_standardize(strict): 'https://example.org/a'
+expand 'exs:b' project: 'https://example.org/sub/b'
+expand 'exs:b' curies.expand(strict): 'https://example.org/sub/b'
+expand 'exs:b' curies.expand_or_standardize(strict): 'https://example.org/sub/b'
+expand 'ex:sub/b' project: 'https://example.org/sub/b'
+expand 'ex:sub/b' curies.expand(strict): 'https://example.org/sub/b'
+expand 'ex:sub/b' curies.expand_or_standardize(strict): 'https://example.org/sub/b'
+expand 'ns:frag' project: 'https://ns.org/x#frag'
+expand 'ns:frag' curies.expand(strict): 'https://ns.org/x#frag'
+expand 'ns:frag' curies.expand_or_standardize(strict): 'https://ns.org/x#frag'
+expand 'ex:' project: 'https://example.org/'
+expand 'ex:' curies.expand(strict): 'https://example.org/'
+expand 'ex:' curies.expand_or_standardize(strict): 'https://example.org/'
+expand 'missing:a' project: RAISED KeyError: 'missing:a'
+expand 'missing:a' curies.expand(strict): RAISED ExpansionError: missing:a
+expand 'missing:a' curies.expand_or_standardize(strict): RAISED ExpansionError: missing:a
+expand 'nocolon' project: RAISED KeyError: 'nocolon'
+expand 'nocolon' curies.expand(strict): RAISED NoCURIEDelimiterError: nocolon does not appear to be a CURIE - missing a delimiter
+expand 'nocolon' curies.expand_or_standardize(strict): RAISED ExpansionError: nocolon
+expand 'https://other.org/z' project: 'https://other.org/z'
+expand 'https://other.org/z' curies.expand(strict): RAISED ExpansionError: https://other.org/z
+expand 'https://other.org/z' curies.expand_or_standardize(strict): RAISED ExpansionError: https://other.org/z
+expand 'urn:x:y' project: 'urn:x:y'
+expand 'urn:x:y' curies.expand(strict): RAISED ExpansionError: urn:x:y
+expand 'urn:x:y' curies.expand_or_standardize(strict): RAISED ExpansionError: urn:x:y
+expand 'file:/tmp/x' project: RAISED KeyError: 'file:/tmp/x'
+expand 'file:/tmp/x' curies.expand(strict): RAISED ExpansionError: file:/tmp/x
+expand 'file:/tmp/x' curies.expand_or_standardize(strict): RAISED ExpansionError: file:/tmp/x
+compact 'https://example.org/sub/b' project: 'exs:b'
+compact 'https://example.org/sub/b' curies.compress(passthrough): 'exs:b'
+compact 'https://example.org/a' project: 'ex:a'
+compact 'https://example.org/a' curies.compress(passthrough): 'ex:a'
+compact 'https://example.org/' project: 'ex:'
+compact 'https://example.org/' curies.compress(passthrough): 'ex:'
+compact 'https://ns.org/x#frag' project: 'ns:frag'
+compact 'https://ns.org/x#frag' curies.compress(passthrough): 'ns:frag'
+compact 'https://unknown.org/q' project: 'https://unknown.org/q'
+compact 'https://unknown.org/q' curies.compress(passthrough): 'https://unknown.org/q'
+duplicate URI prefixes strict: RAISED DuplicateURIPrefixes: Duplicate URI prefixes:
+
+https://dup.org/:
+	prefix='d1' uri_prefix='https://dup.org/' prefix_synonyms=[] uri_prefix_synonyms=[] pattern=None
+	prefix='d2' uri_prefix='https://dup.org/' prefix_synonyms=
+duplicate URI prefixes non-strict compress: 'd2:z'
+project tie-break for same: (16, 'd2:z')

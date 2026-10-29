@@ -25,6 +25,10 @@ dev = [
     "types-regex==2026.9.29.20261017",
     "linkml==1.12.1",
     "cssselect==1.6.0",
+    "types-pyyaml==6.0.12.20260906",
+    "types-jsonschema==4.26.0.20261006",
+    "scipy-stubs==1.18.1.1",
+    "types-html5lib==1.1.11.20260518",
 ]
 
 [tool.uv]

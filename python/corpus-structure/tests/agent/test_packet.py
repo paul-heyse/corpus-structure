@@ -16,12 +16,12 @@ import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, Never
 
 import pytest
 
 from corpus_structure.core.payloads import MentionPayload, ScopePayload
-from corpus_structure.core.vocab import SegmentKind
+from corpus_structure.core.vocab import ObservationKind, SegmentKind
 from corpus_structure.methods.llm import packet as P
 from corpus_structure.methods.llm import parts as parts_
 from corpus_structure.methods.math.context import standing_context
@@ -295,6 +295,24 @@ class FakeReader:
         body: Any = {"$id": "x", "title": "schema"} if artifact_hash == "b" * 64 else "# Reference"
         return json.dumps(body).encode()
 
+    def renditions(self) -> Never:
+        raise AssertionError("the prompt digest must not read renditions")
+
+    def content(self, rendition_id: int) -> Never:
+        raise AssertionError("the prompt digest must not read source content")
+
+    def segments(self, rendition_id: int) -> Never:
+        raise AssertionError("the prompt digest must not read segments")
+
+    def observations(self, rendition_id: int, method: str, kind: ObservationKind) -> Never:
+        raise AssertionError("the prompt digest must not read observations")
+
+    def measurements(self, method: str, metric: str) -> Never:
+        raise AssertionError("the prompt digest must not read measurements")
+
+    def connection(self) -> Never:
+        raise AssertionError("the prompt digest must not open a connection")
+
 
 def test_a_prompt_part_change_gives_a_new_digest_and_identical_inputs_the_same(
     monkeypatch: pytest.MonkeyPatch,
@@ -318,8 +336,8 @@ def test_a_prompt_part_change_gives_a_new_digest_and_identical_inputs_the_same(
             policy_version_id=None,
             key_scheme=1,
             options={"agent_reuse": "full"},
-            reader=cast(Any, FakeReader(guideline)),
-        )  # type: ignore[arg-type]
+            reader=FakeReader(guideline),
+        )  
         unit = UnitView(UnitRef(TaskUnitType.SEGMENT, 1, "u"), view, rendition_id=1)
         from corpus_structure.core.canonical import canonical_json
 

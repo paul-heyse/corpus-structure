@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Literal
 
@@ -40,7 +40,9 @@ def connection_settings(settings: Settings, purpose: Purpose = "write") -> Setti
     # password when the maintenance credentials intentionally use local peer authentication.
     url = URL.create(
         "postgresql", username=credentials.username, password=credentials.password,
-        host=source.host, port=source.port, database=source.database, query=source.query,
+        host=source.host, port=source.port, database=source.database,
+        query={key: value for key, value in source.query.items()
+               if key not in {"user", "password", "passfile"}},
     ).render_as_string(hide_password=False)
     return settings.model_copy(update={"database": database.model_copy(update={"url": url})})
 
@@ -53,7 +55,7 @@ def open_runtime_engine(
     purpose: Purpose = "write",
     timeout: float = 30.0,
     max_size: int = 4,
-) -> Iterator[Engine]:
+) -> Generator[Engine]:
     """One psycopg pool; SQLAlchemy uses the store's NullPool adapter."""
     from corpus_structure.core.db.store import open_store
 

@@ -9,7 +9,7 @@ tests replace: the store opener and the graph with its pass and evaluation.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Any
@@ -28,7 +28,7 @@ run_app = typer.Typer(help="Start or cancel a run.", invoke_without_command=True
 
 
 @contextmanager
-def _open_engine(settings: Any, timeout: float = 30.0) -> Iterator[Any]:
+def _open_engine(settings: Any, timeout: float = 30.0) -> Generator[Any, None, None]:
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with open_runtime_engine(settings, timeout=timeout) as engine:
@@ -53,7 +53,7 @@ PHASE0: Callable[[], dict[str, Any]] = _phase0
 
 
 @contextmanager
-def _refusals() -> Iterator[None]:
+def _refusals() -> Generator[None, None, None]:
     from corpus_structure.orchestrate import commands, project, registry, runs
     from corpus_structure.orchestrate.policy import PolicyError
     from corpus_structure.orchestrate.slices import SliceError

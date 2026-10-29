@@ -1,0 +1,76 @@
+{
+  "duckdb": "2.0.0",
+  "pyarrow": "26.0.0",
+  "q1_query_scoped_result": [
+    [
+      10
+    ]
+  ],
+  "q1_query_reread": [
+    [
+      10
+    ]
+  ],
+  "q1_catalog_unchanged": true,
+  "q1_name_leaks_after_call": false,
+  "q1_lookup_error": "CatalogException",
+  "q2_macro_result": [
+    [
+      2,
+      "b",
+      20
+    ],
+    [
+      3,
+      "c",
+      30
+    ]
+  ],
+  "q2_macro_reread": [
+    [
+      2,
+      "b",
+      20
+    ],
+    [
+      3,
+      "c",
+      30
+    ]
+  ],
+  "q2_macro_bind_ok": true,
+  "q2b_view_via_macro": [
+    [
+      2,
+      "b",
+      20
+    ],
+    [
+      3,
+      "c",
+      30
+    ]
+  ],
+  "q3_duckdb_kv": [
+    [
+      "cs_release",
+      "release:abc"
+    ],
+    [
+      "cs_revision",
+      "7"
+    ]
+  ],
+  "q3_pyarrow_kv": [
+    [
+      "cs_release",
+      "release:abc"
+    ],
+    [
+      "cs_revision",
+      "7"
+    ]
+  ],
+  "q4_schema_metadata_after_roundtrip": null,
+  "q4_field_metadata_after_roundtrip": null
+}

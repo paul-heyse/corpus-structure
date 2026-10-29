@@ -644,7 +644,10 @@ def test_ci_schema_compile_prints_the_artifacts(cli, tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     out = json.loads(result.stdout)
-    assert out["packs"] == ["statistics"] and len(out["artifacts"]) == 6
-    assert (tmp_path / "annotator_reference.reference.md").exists()
+    assert out["packs"] == ["statistics"] and out["release_id"].startswith("release:")
+    assert out["execution_model_id"] is not None and out["artifacts"]
+    assert (tmp_path / "manifest.json").exists()
+    assert (tmp_path / "sources").is_dir()
+    assert len(list(tmp_path.glob("*.artifact"))) == len(out["artifacts"])
     refused = cli("schema", "compile", "--domains", str(tmp_path), "--domain", "nothere")
-    assert refused.exit_code == 1 and "no pack schema" in refused.stderr
+    assert refused.exit_code == 1 and "semantic.yaml" in refused.stderr

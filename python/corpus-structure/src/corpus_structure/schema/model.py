@@ -256,7 +256,7 @@ class EnumExpansionError(ValueError):
 def _members_of(enum_name: str, pvs: Mapping[str, Any]) -> list[Member]:
     return [
         Member(
-            str(text),
+            str.__str__(text),
             pv.description,
             tuple(str(p) for p in pv.in_subset or ()),
             enum_name,

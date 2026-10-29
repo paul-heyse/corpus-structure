@@ -34,7 +34,7 @@ def build(w: SimpleNamespace, config: int | None = None) -> repo.Build:
 
 
 def count(db: Connection, table: str) -> int:
-    return int(db.execute(select(func.count()).select_from(T[table])).scalar_one())
+    return db.execute(select(func.count()).select_from(T[table])).scalar_one()
 
 
 def test_identical_content_is_one_rendition_with_one_set_of_segments(

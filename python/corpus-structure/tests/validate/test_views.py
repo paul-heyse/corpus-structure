@@ -97,7 +97,8 @@ def test_math_delimiters_are_normalized_and_the_latex_kept(stats: CompiledSchema
     c["object"]["latex"] = "\\(" + c["object"]["latex"] + "\\)"
     cs = candidates_from_batch(stored_model(stats, raw), stats)
     claim = next(c for c in cs.claims if c.id == "c_aX_def")
-    assert claim.object.latex  # type: ignore[union-attr] == "a + b X"
+    assert isinstance(claim.object, V.Formula)
+    assert claim.object.latex   == "a + b X"
 
 
 # --- T4 completeness ----------------------------------------------------------------------------
@@ -375,12 +376,12 @@ def _pool_facts(views: Any, names: list[str]) -> list[tuple[Any, ...]]:
 
 @pytest.mark.parametrize("engine_name", ["python", "duckdb"])
 def test_the_engines_facts_give_the_same_views_as_the_builders_own(
-    stats: CompiledSchema, engine_name: str
+    stats: CompiledSchema, engine_name: typing.Literal["python", "duckdb"]
 ) -> None:
     from corpus_structure.pool.harness import engine as make_engine
     from corpus_structure.validate.views import engine_facts
 
-    engine = make_engine(engine_name)  # type: ignore[arg-type]
+    engine = make_engine(engine_name)  
     names = list(stats.rules.claim.views)
     sets = [
         _set(

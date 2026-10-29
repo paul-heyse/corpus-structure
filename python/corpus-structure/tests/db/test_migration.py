@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import shutil
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -31,7 +31,7 @@ _n = iter(range(9201, 9300))
 
 
 @contextmanager
-def clone(db_server: Any) -> Iterator[Engine]:
+def clone(db_server: Any) -> Generator[Engine, None, None]:
     name = f"ci_test_{os.getpid()}_{next(_n)}"
     db_server.create(name, db_server.template)
     engine = create_engine(db_server.url_of(name), poolclass=NullPool)

@@ -1,0 +1,24 @@
+pyarrow 26.0.0
+decimal128(38, 13): cases 140 wrong 0 refused 0 first=None
+decimal128(38, 18): cases 165 wrong 0 refused 0 first=None
+decimal128(38, 20): cases 147 wrong 0 refused 0 first=None
+decimal128(38, 25): cases 102 wrong 0 refused 0 first=None
+decimal128(38, 28): cases 75 wrong 0 refused 0 first=None
+decimal128(38, 30): cases 57 wrong 0 refused 0 first=None
+decimal128(38, 32): cases 39 wrong 0 refused 0 first=None
+decimal128(38, 35): cases 12 wrong 0 refused 0 first=None
+decimal128(38, 38): cases 0 wrong 0 refused 0 first=None
+decimal256(76, 13): cases 368 wrong 0 refused 0 first=None
+decimal256(76, 18): cases 507 wrong 0 refused 0 first=None
+decimal256(76, 20): cases 489 wrong 0 refused 0 first=None
+decimal256(76, 25): cases 444 wrong 0 refused 0 first=None
+decimal256(76, 28): cases 417 wrong 0 refused 0 first=None
+decimal256(76, 30): cases 399 wrong 0 refused 0 first=None
+decimal256(76, 32): cases 381 wrong 213 refused 0 first=('99999999999999999999.9999999999995', '100000000000000000000.000000000000', '99999999999999999999.99999999999900000000000000000000')
+decimal256(76, 35): cases 354 wrong 0 refused 0 first=None
+decimal256(76, 38): cases 327 wrong 0 refused 0 first=None
+decimal256(76, 39): cases 318 wrong 150 refused 0 first=('99999999999999999999.9999999999995', '100000000000000000000.000000000000', '99999999999999999999.999999999999000000000000000000000000000')
+decimal256(76, 40): cases 309 wrong 141 refused 0 first=('99999999999999999999.9999999999995', '100000000000000000000.000000000000', '99999999999999999999.9999999999980000000000000000000000000000')
+decimal256(76, 45): cases 264 wrong 0 refused 0 first=None
+decimal256(76, 50): cases 219 wrong 51 refused 0 first=('99999999999999999999.9999999999995', '100000000000000000000.000000000000', '99999999999999999999.99999999999800000000000000000000000000000000000000')
+decimal256(76, 60): cases 129 wrong 0 refused 0 first=None

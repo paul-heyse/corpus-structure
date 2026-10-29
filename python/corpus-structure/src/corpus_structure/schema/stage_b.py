@@ -485,14 +485,11 @@ class FieldSource:
     name: str
     type: str
     default: str | None  # the right-hand side, or None when required
-    ignore: str | None = None  # the type: ignore code
 
     def line(self) -> str:
         text = f"    {self.name}: {self.type}"
         if self.default is not None:
             text += f" = {self.default}"
-        if self.ignore:
-            text += f"  # type: ignore[{self.ignore}]"
         return text
 
 
@@ -754,11 +751,11 @@ class Emitter:
         self.use("pydantic", "Field")
         default = fs.default
         if default is None:
-            return FieldSource(fs.name, fs.type, f'Field(alias="{alias}")', fs.ignore)
+            return FieldSource(fs.name, fs.type, f'Field(alias="{alias}")')
         if default.startswith("Field(") and default.endswith(")"):
             inner = default[len("Field(") : -1]
-            return FieldSource(fs.name, fs.type, f'Field({inner}, alias="{alias}")', fs.ignore)
-        return FieldSource(fs.name, fs.type, f'Field({default}, alias="{alias}")', fs.ignore)
+            return FieldSource(fs.name, fs.type, f'Field({inner}, alias="{alias}")')
+        return FieldSource(fs.name, fs.type, f'Field({default}, alias="{alias}")')
 
     def reference(self, refers: str) -> str:
         kinds = refers.split()
@@ -790,7 +787,7 @@ class Emitter:
             if default == "None":
                 return FieldSource(name, f"{text} | None", "None")
             if default == "MISSING":
-                return FieldSource(name, f"{text} | MISSING", "MISSING", "valid-type")
+                return FieldSource(name, f"{text} | MISSING", "MISSING")
             return FieldSource(name, text, default)
         if slot.ifabsent:
             value = self.ifabsent(str(slot.ifabsent), ranges)
@@ -812,7 +809,7 @@ class Emitter:
             self.use("pydantic", "Field")
             return FieldSource(name, text, f"Field(default_factory={plan.name(rng, form)})")
         self.use("pydantic", "MISSING")
-        return FieldSource(name, f"{text} | MISSING", "MISSING", "valid-type")
+        return FieldSource(name, f"{text} | MISSING", "MISSING")
 
     def ifabsent(self, text: str, ranges: list[str]) -> str:
         m = re.fullmatch(r"(string|int|integer|float|boolean)\((.*)\)", text)
@@ -856,6 +853,14 @@ class Emitter:
             return
         cls = plan.cls(origin)
         parent = str(cls.is_a) if cls.is_a and plan.emitted_parent(str(cls.is_a)) else None
+        if parent is not None:
+            parent_slots = {str(slot.name): slot for slot in plan.slots(parent, form)}
+            # LinkML slot_usage can replace a concrete discriminator. Such shapes are siblings
+            # in the Python discriminated union: incompatible literal fields cannot inherit.
+            if any(slot.equals_string is not None and parent_slots[str(slot.name)].equals_string is not None
+                   and slot.equals_string != parent_slots[str(slot.name)].equals_string
+                   for slot in plan.slots(origin, form) if str(slot.name) in parent_slots):
+                parent = None
         parent_name = plan.name(parent, form) if parent else None
         bases = []
         mixin = plan.ann(cls, "ci:mixin")
@@ -893,11 +898,15 @@ class Emitter:
             self.use("pydantic", "ConfigDict")
             body.append(f"    model_config = ConfigDict({', '.join(config)})")
         if extra:
-            self.use("pydantic", "JsonValue")
-            body.append("    # schema qualifiers, raw JSON until S1 types them (typed extras)")
-            body.append(
-                "    __pydantic_extra__: dict[str, JsonValue]  # type: ignore[bad-override]"
-            )
+            self.use("typing", "Any")
+            self.use("pydantic", "GetCoreSchemaHandler")
+            self.use("pydantic_core", "CoreSchema")
+            self.use("corpus_structure.core.json_extras", "json_extras_schema")
+            body.extend([
+                "    @classmethod",
+                "    def __get_pydantic_core_schema__(cls, source: Any, handler: GetCoreSchemaHandler) -> CoreSchema:",
+                "        return json_extras_schema(source, handler)",
+            ])
         consolidated = [str(a) for a, s in (cls.attributes or {}).items()
                         if ci_annotations(s).get("ci:form") == "consolidated"]  # fmt: skip
         if consolidated:
@@ -918,8 +927,6 @@ class Emitter:
             own[fs.name] = (fs.type, fs.default)
             if inherited.get(fs.name) == (fs.type, fs.default):
                 continue
-            if fs.name in inherited and fs.ignore is None:
-                fs.ignore = "assignment"
             body.append(fs.line())
         self.fields[name] = own
         validator = self.validator_name(origin)
@@ -1151,7 +1158,7 @@ def _payloads(plan: Plan, em: Emitter) -> list[str]:
     for name in plan.system_classes:
         kind = ci_annotations(plan.cls(name)).get("ci:payload")
         if kind in kinds:
-            by_kind[str(kind)] = plan.name(name, "stored")
+            by_kind[kind] = plan.name(name, "stored")
     from corpus_structure.schema.generate import member_name
 
     em.use("corpus_structure.core.vocab", "ObservationKind")

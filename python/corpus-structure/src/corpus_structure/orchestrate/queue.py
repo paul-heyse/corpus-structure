@@ -124,7 +124,7 @@ def renew(conn: Connection, held: Mapping[int, int], lease: timedelta = WORKER_L
         ),
         {"ids": list(held), "attempts": list(held.values()), "lease": f"{lease.total_seconds()} s"},
     )
-    return int(done.rowcount)
+    return done.rowcount
 
 
 def _fence(conn: Connection, task_id: int, attempt: int) -> Any:

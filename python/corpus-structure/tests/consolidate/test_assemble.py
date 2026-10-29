@@ -21,6 +21,7 @@ from corpus_structure.consolidate.assemble import REFERENCE, STATEMENT, Knowledg
 from corpus_structure.consolidate.report import PassOutcome, Tally
 from corpus_structure.consolidate.write import InvariantViolation, check_invariants
 from corpus_structure.core.batch import AuthoredBatch, CitationFrame, StoredBatch
+from corpus_structure.core.values import EntityRef
 from corpus_structure.methods.llm.parse import parse
 from corpus_structure.pool.duckdb_engine import DuckDBEngine
 from corpus_structure.pool.steps import PythonEngine
@@ -254,7 +255,8 @@ def test_an_external_reference_resolves_by_link_target_and_rekeys(world: SimpleN
     follows = next(
         r for r in unresolved.claims.values() if r.claim.predicate == "core:follows_from"
     )
-    assert follows.claim.object.ref == xrf  # type: ignore[union-attr]
+    assert isinstance(follows.claim.object, EntityRef)
+    assert follows.claim.object.ref == xrf  
 
     def linked(raw: dict) -> None:
         item = next(s for s in raw["statements"] if s.get("anchor") == "outside")
@@ -272,7 +274,8 @@ def test_an_external_reference_resolves_by_link_target_and_rekeys(world: SimpleN
     statement = k.entities[xrf2].resolved_to
     assert statement is not None and k.entities[statement].type == STATEMENT
     rekeyed = next(r for r in k.claims.values() if r.claim.predicate == "core:follows_from")
-    assert rekeyed.claim.object.ref == statement  # type: ignore[union-attr]
+    assert isinstance(rekeyed.claim.object, EntityRef)
+    assert rekeyed.claim.object.ref == statement  
     assert rekeyed.key != follows.key
 
 

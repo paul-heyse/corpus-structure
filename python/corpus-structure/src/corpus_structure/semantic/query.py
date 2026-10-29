@@ -10,7 +10,7 @@ import base64
 import binascii
 import json
 from collections import defaultdict
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
@@ -19,7 +19,7 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, SerializeAsAny
 from sqlalchemy import Connection, Engine, Select, and_, exists, literal, select
 from sqlalchemy.sql import CompoundSelect
 from sqlalchemy.sql.elements import ColumnElement
@@ -151,7 +151,7 @@ class QueryRow(_Envelope):
     object_value_id: str
     object: Any
     qualification_value_id: str | None
-    qualification: BaseModel | None
+    qualification: SerializeAsAny[BaseModel] | None
     occurrence_id: str | None = None
     source: str | None = None
     item: str | None = None
@@ -319,7 +319,7 @@ def _same_scope(left: Any, right: Any) -> ColumnElement[bool]:
 @contextmanager
 def read_session(
     store: Engine | _Store, realization_id: str, release_id: str | None = None
-) -> Iterator[ReadSession]:
+) -> Generator[ReadSession, None, None]:
     """Own a fresh REPEATABLE READ, read-only connection, binding exactly once.
 
     The optional release selector must equal the realization's immutable binding;

@@ -124,38 +124,6 @@ def ingest_stub(**kw: Any) -> Stub:
     )
 
 
-def setup_project(
-    db: Any,
-    tmp_path: Path,
-    methods: Sequence[Any] | None = None,
-    pack_methods: dict[str, Any] | None = None,
-    sources: Path | None = None,
-) -> SimpleNamespace:
-    """A project over the trace pages: its pack, registry, versions and documents."""
-    from sqlalchemy import text
-
-    from corpus_structure.orchestrate import project
-
-    pack = write_pack(tmp_path / "domains", pack_methods)
-    methods_file = load_methods(pack / "methods.yaml")
-    registry = MethodRegistry(methods or [ingest_stub()], methods_file, sources)
-    report = project.init_project(
-        db, domain="minimal", corpus=CORPUS, registry=registry, domains=pack.parent
-    )
-    versions = project.ensure_pack_versions(db, report.project_id, pack, "human:test")
-    rows = db.execute(
-        text("SELECT key, content_hash FROM kb.document WHERE project_id = :p ORDER BY key"),
-        {"p": report.project_id},
-    )
-    return SimpleNamespace(
-        pack=pack,
-        registry=registry,
-        project_id=report.project_id,
-        versions=versions,
-        documents=[tuple(r) for r in rows],
-    )
-
-
 @pytest.fixture
 def orch() -> SimpleNamespace:
     return SimpleNamespace(
@@ -169,5 +137,4 @@ def orch() -> SimpleNamespace:
         MINIMAL=MINIMAL,
         MethodRegistry=MethodRegistry,
         load_methods=load_methods,
-        setup_project=setup_project,
     )

@@ -1,0 +1,84 @@
+{
+  "unit_ref": "inspection.html#inspection",
+  "entities": [
+    {
+      "id": "expected-asset",
+      "class_iri": "https://corpus-structure.dev/domains/toy/Asset",
+      "label": "P-17"
+    },
+    {
+      "id": "expected-inspector",
+      "class_iri": "https://corpus-structure.dev/domains/toy/Organization",
+      "label": "Boreal",
+      "attributes": [
+        {
+          "predicate": "https://corpus-structure.dev/domains/toy/registry_id",
+          "value": {
+            "kind": "text",
+            "text": "ORG-202"
+          }
+        }
+      ]
+    },
+    {
+      "id": "expected-custodian",
+      "class_iri": "https://corpus-structure.dev/domains/toy/Organization",
+      "label": "Acme",
+      "attributes": [
+        {
+          "predicate": "https://corpus-structure.dev/domains/toy/registry_id",
+          "value": {
+            "kind": "text",
+            "text": "ORG-101"
+          }
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "id": "expected-inspection",
+      "subject": "expected-asset",
+      "predicate": "https://corpus-structure.dev/domains/toy/inspection",
+      "object": {
+        "kind": "inspection",
+        "inspector": "expected-inspector",
+        "custodian": "expected-custodian",
+        "details": {
+          "condition": "intact",
+          "measured_quantity": {
+            "kind": "quantity",
+            "number": "12.3400",
+            "unit": "kg",
+            "basis": "dry-mass"
+          }
+        }
+      },
+      "qualification": {
+        "modality": "asserted",
+        "polarity": true,
+        "valid_time": {
+          "kind": "validity_interval",
+          "start": {
+            "kind": "partial_date",
+            "lexical": "2020-07-01"
+          },
+          "end": {
+            "kind": "partial_date",
+            "lexical": "2020-07-01"
+          },
+          "start_incl": true,
+          "end_incl": true
+        }
+      },
+      "establishment": "stated",
+      "evidence": [
+        {
+          "sentence": "expected-inspection-sentence",
+          "quote": "The vessel was intact and its measured cargo quantity was exactly 12.3400 kg, on a dry-mass basis.",
+          "role": "primary"
+        }
+      ]
+    }
+  ]
+}

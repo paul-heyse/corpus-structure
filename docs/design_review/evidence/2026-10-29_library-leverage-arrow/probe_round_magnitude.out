@@ -1,0 +1,6 @@
+pyarrow 26.0.0
+decimal256(76,13): first discrepancy (int_digits, total_digits, mode, input_roundtrip_ok, expected, arrow) = (63, 76, 'half_to_even', True, '1000000000000000000000000000000000000000000000000000000000000000.000000000000', 'ArrowInvalid')
+decimal256(76,30): first discrepancy (int_digits, total_digits, mode, input_roundtrip_ok, expected, arrow) = (46, 76, 'half_to_even', True, '10000000000000000000000000000000000000000000000.000000000000', 'ArrowInvalid')
+decimal256(76,40): first discrepancy (int_digits, total_digits, mode, input_roundtrip_ok, expected, arrow) = (20, 60, 'half_to_even', True, '100000000000000000000.000000000000', '99999999999999999999.9999999999980000000000000000000000000000')
+decimal256(76,50): first discrepancy (int_digits, total_digits, mode, input_roundtrip_ok, expected, arrow) = (20, 70, 'half_to_even', True, '100000000000000000000.000000000000', '99999999999999999999.99999999999800000000000000000000000000000000000000')
+decimal128(38,13) carry cases 1..25 integer digits, discrepancies: 1

@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any
 
-import yaml
-from sqlalchemy import Connection, text
 
 from corpus_structure.core.canonical import digest
 from corpus_structure.core.locators import LocatorIndex, parse
@@ -21,7 +18,6 @@ def expand(
     selectors: Mapping[str, Any],
     name: str,
     documents: Sequence[Mapping[str, Any]],
-    golden: Any = None,
     stack: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
     if name in stack:
@@ -38,12 +34,12 @@ def expand(
         elif isinstance(entry, dict) and len(entry) == 1:
             key, value = next(iter(entry.items()))
             if key == "include":
-                out.update(expand(selectors, value, documents, golden, (*stack, name)))
+                out.update(expand(selectors, value, documents, (*stack, name)))
             elif key == "pages":
                 for child in value:
                     out.update(
                         parse(x).page
-                        for x in expand(selectors, child, documents, golden, (*stack, name))
+                        for x in expand(selectors, child, documents, (*stack, name))
                     )
             elif key == "index":
                 out.update(
@@ -52,45 +48,12 @@ def expand(
                     if str(d["meta"].get(value, "")).lower() not in ("", "0", "false", "no")
                 )
             elif key == "golden_set":
-                if golden is None:
-                    raise SliceError("golden_set selectors require SP-08 semantic evaluation sets")
-                out.update(golden(value))
+                raise SliceError("held-out reference sets cannot select extraction source units; use explicit source locators")
             else:
                 raise SliceError(f"slice {name}: unsupported selector {entry!r}")
         else:
             raise SliceError(f"slice {name}: invalid selector {entry!r}")
     return tuple(sorted(out))
-
-
-def record(
-    conn: Connection,
-    project_id: int,
-    pack: Path,
-    *,
-    slice: str | None,
-    scope: str | None,
-    corpus: str | None,
-) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    docs: list[Mapping[str, Any]] = [
-        dict(r)
-        for r in conn.execute(
-            text(
-                "SELECT id, key, content_hash, meta FROM kb.document WHERE "
-                "project_id=:p ORDER BY key"
-            ),
-            {"p": project_id},
-        ).mappings()
-    ]
-    path = pack / "slices.yaml"
-    data = yaml.safe_load(path.read_text()) if path.exists() else {}
-    selectors = data.get("slices", data) if isinstance(data, dict) else {}
-
-    def gold(label: str) -> Any:
-        from corpus_structure.evaluate.sets import golden_units
-
-        return golden_units(conn, project_id, label).keys
-
-    return records(docs, selectors, slice=slice, scope=scope, corpus=corpus, golden=gold)
 
 
 def records(
@@ -100,13 +63,12 @@ def records(
     slice: str | None,
     scope: str | None,
     corpus: str | None,
-    golden: Any = None,
 ):
-    """Resolve one immutable source selection; semantic runs omit the legacy golden provider."""
+    """Resolve immutable source selection without access to held-out references."""
 
     def chosen(name: str | None) -> tuple[str, ...]:
         return (
-            expand(selectors, name, docs, golden)
+            expand(selectors, name, docs)
             if name
             else tuple(sorted(str(d["meta"]["page"]) for d in docs))
         )

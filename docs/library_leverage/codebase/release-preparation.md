@@ -99,6 +99,8 @@ ordered import list, and `SchemaBuilder` for the agent module.
 [CBO-021](#cbo-021) (SchemaView import seeding);
 [DTA-008](../../design_review/test-audit/support-structure.md#dta-008).
 
+**Library assessment (2026-10-29).** Premise updated. `semantic/regeneration.py:prepare_pack` (`2c00ab9`, after this baseline) now composes releases, still by nesting wrapper roots. LinkML importmap composition fits with conditions: the library never refuses duplicates or missing imports, and relabels URIs after a merge ([LOP-X006](../assessment-patterns.md#lop-x006); [linkml](../libraries/linkml/README.md#applicability-cbo-002)).
+
 <a id="cbo-003"></a>
 
 ## CBO-003 — Every read session rebuilds and re-verifies the immutable release
@@ -163,6 +165,8 @@ keyed by release id and content digest, a digest-keyed in-process reuse scope, a
 1. Which reload checks are needed once per release and process, and which on every session?
 2. Does any SP-08 consumer need the OWL, SHACL or per-class JSON Schema artifacts?
 
+**Library assessment (2026-10-29).** A native verification record is sound only if `sem.*` rows become trigger-enforced immutable; today the owner can mutate them ([postgresql](../libraries/postgresql/README.md#applicability-cbo-003)). Shared-`$defs` schemas fit as a capability ([pydantic](../libraries/pydantic/README.md#applicability-cbo-003)).
+
 <a id="cbo-009"></a>
 
 ## CBO-009 — Identity dependency sets are hand-chosen, duplicated and have drifted
@@ -213,6 +217,8 @@ set; declaring and pinning pyoxigraph ([PyOxigraph](../../libraries/PyOxigraph.m
 1. Which libraries actually change prepared bytes or run outputs?
 2. What is the intended operator route when a library bump strands the active release: re-prepare
    under SP-09, or a recorded hold?
+
+**Library assessment (2026-10-29).** Determinants classified: bytes (linkml, linkml-runtime, rdflib, pyoxigraph, pydantic, PyYAML), acceptance only (jsonschema, cattrs, rule-engine, pyshacl) and vocabulary snapshots (oaklib, term-validator, pronto). Pronto is missing from the set ([linkml](../libraries/linkml/README.md#applicability-cbo-009)).
 
 <a id="cbo-013"></a>
 
@@ -282,6 +288,8 @@ for a `Converter` built from archived prefix rows (no overview page).
 
 **Related.** [CBO-016](consumers-and-operations.md#cbo-016) (instance traversal).
 
+**Library assessment (2026-10-29).** **Correctness gap found.** `property_adapter` builds `TypeAdapter(annotation)` without model config, so with `strict=True` it accepts NaN and infinity that the generated models refuse (probe; source verified). Derived indices must live on the `PreparedRelease` root, because definitions are archived through `asdict` despite `compare=False`. Native range cannot come from Pydantic annotations ([pydantic](../libraries/pydantic/README.md#applicability-cbo-013), [linkml](../libraries/linkml/README.md#applicability-cbo-013), [curies](../libraries/curies/README.md#applicability-cbo-013)).
+
 <a id="cbo-017"></a>
 
 ## CBO-017 — The execution catalog is a second structural form with hand-written reference integrity
@@ -329,6 +337,8 @@ releases. [linkml](../../libraries/linkml.md),
    would also serve SP-08 domain inputs.
 2. Could the static product dataclasses be generated from `contracts.yaml`?
 
+**Library assessment (2026-10-29).** `ReferenceValidator` checks neither dangling nor duplicate references (probe), so it is ruled out for integrity. cattrs fills `= ()` defaults, so `_collection_defaults` could go ([linkml](../libraries/linkml/README.md#applicability-cbo-017), [cattrs](../libraries/cattrs/README.md#applicability-cbo-017)).
+
 <a id="cbo-021"></a>
 
 ## CBO-021 — The compiler works against SchemaView's lifecycle
@@ -370,6 +380,8 @@ shares the importmap lead.
 **Question for library research.** Can one derived, read-only schema built once per preparation
 serve all three consumers, given that the generators take a `SchemaDefinition`?
 
+**Library assessment (2026-10-29).** Generators also mutate the `SchemaDefinition` they are given, and `imports_closure` injects `from_schema`. `materialize_derived_schema()` is ruled out: it loses conjunctive constraints and resolves imports ambiently on an unmerged view ([linkml](../libraries/linkml/README.md#applicability-cbo-021)).
+
 <a id="cbo-024"></a>
 
 ## CBO-024 — The ontology path works around enum composition order and reparses ontologies
@@ -390,3 +402,5 @@ serve all three consumers, given that the generators take a `SchemaDefinition`?
 
 **Question for library research.** Does a newer linkml-term-validator compose `minus` over the full
 union, and can OAK adapters be built from in-memory bytes?
+
+**Library assessment (2026-10-29).** linkml-term-validator 0.4.5 is still the latest release, so the hand composition remains necessary ([oaklib](../libraries/oaklib/README.md#applicability-cbo-024)).

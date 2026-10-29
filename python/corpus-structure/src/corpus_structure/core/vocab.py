@@ -439,7 +439,6 @@ class ObservationKind(StrEnum):
     SCOPE = "scope"
     LINK = "link"
     CLAIM_PROPOSAL = "claim_proposal"
-    SEMANTIC_PROPOSAL_REFUSED = "semantic_proposal_refused"
     JUDGMENT = "judgment"
     VERIFICATION = "verification"
 

@@ -18,9 +18,16 @@ Strengths that bound these opportunities:
 - **Analytics.**
   - `pg_export_snapshot` plus a read-only ADBC import is sound, and literal binding is justified
     because COPY takes no parameters.
-  - The decimal (HALF_EVEN) and float-hex boundaries in analytics are explicit policies. Arrow
-    refuses to rescale and DuckDB rounds ties differently, so these per-row loops are not
-    opportunities.
+  - The decimal (HALF_EVEN) and float-hex boundaries in analytics are explicit policies, so these
+    per-row loops are not opportunities. The original reason given, "Arrow refuses to rescale",
+    was incomplete and was corrected on 2026-10-29 by the
+    [library assessment](../libraries/pyarrow/README.md#applicability-cbo-015). `pc.round` does
+    round decimals, but:
+    - only within a bounded intermediate scale;
+    - its errors fail the whole array;
+    - pyarrow 26 decimal256 rounding returns wrong values on carry patterns.
+
+    Separately, DuckDB rounds ties differently, and Arrow cannot parse hex floats.
 - **Authored SQL** is admitted through a pglast visitor allowlist plus catalog checks under the
   restricted reader.
 - **Store.** One psycopg-pool owner is lent to SQLAlchemy through `NullPool`. Claims use
@@ -91,6 +98,8 @@ but unused), LOP-10 (structure as JSON in annotations), [LOP-X001](../assessment
 2. Can `CreateTable`/autogenerate emit the next frozen revision for review?
 3. Does linkml-runtime 1.12 load nested annotation values?
 
+**Library assessment (2026-10-29).** Premise corrected. Functions, triggers and grants do not need `include_object`, because Alembic never reflects them, so `command.check` proves table structure only. Partial-index predicates and views are further blind spots, and whether the check is clean at head is unsettled. SQLAlchemy `CreateTable` is the deterministic emitter ([alembic](../libraries/alembic/README.md#applicability-cbo-008)).
+
 <a id="cbo-014"></a>
 
 ## CBO-014 — The protected transport routine is copied by hand into each revision; its generator is stale
@@ -136,6 +145,8 @@ Adding one staged relation touches:
 1. Can one repository-owned generator, fed by MetaData and `STAGE_TYPES`, emit the next frozen
    transport file and the row types?
 2. Which per-relation differences are intended?
+
+**Library assessment (2026-10-29).** `STAGE_TYPES` already derives column types from MetaData. `CreateTable` reproduced the frozen 0027 `CREATE TABLE` text exactly (probe) ([sqlalchemy](../libraries/sqlalchemy/README.md#applicability-cbo-014)).
 
 <a id="cbo-015"></a>
 
@@ -184,6 +195,8 @@ of Python against native implementations; it is already a root dev dependency.
 2. Can native parity be tested generatively, with pinned independent vectors to catch coordinated
    changes?
 
+**Library assessment (2026-10-29).** Per-row Arrow loops are confirmed required, for corrected reasons: bounded intermediate scale, carry overflow and whole-array errors. pyarrow 26 decimal256 `pc.round` also returns wrong values on carry patterns. Hypothesis differential parity against native functions fits with conditions ([pyarrow](../libraries/pyarrow/README.md#applicability-cbo-015), [hypothesis](../libraries/hypothesis/README.md#applicability-cbo-015)).
+
 <a id="cbo-018"></a>
 
 ## CBO-018 — DuckDB composition renames relations by regex and imports private legacy kernels
@@ -212,6 +225,8 @@ grows.
 
 **Question for library research.** Which DuckDB binding mechanism gives scoped names without
 rewriting SQL text, and where should these kernels live before `pool` is retired?
+
+**Library assessment (2026-10-29).** DuckDB 2.0 `relation.query` (call-scoped name) and temporary table macros with `query_table` parameters bind per-operation inputs without rewriting SQL text (probe) ([duckdb](../libraries/duckdb/README.md#applicability-cbo-018)).
 
 <a id="cbo-019"></a>
 
@@ -251,6 +266,8 @@ publication, or delta-only checks with statement-level triggers and transition t
 1. Does any admitted meaning depend on mutable state?
 2. Would a persisted key serve inference, capture and SP-08 conflict grouping together?
 
+**Library assessment (2026-10-29).** Generated columns are ruled out. The staged `pg_temp.sp_*` relations already are the delta, so transition-table triggers are unnecessary. The decisive premise is that `sem.*` rows read by qualified meaning are not trigger-enforced immutable ([postgresql](../libraries/postgresql/README.md#applicability-cbo-019)).
+
 <a id="cbo-022"></a>
 
 ## CBO-022 — Inference runs a naive fixed point
@@ -280,6 +297,8 @@ kinds must hold.
 [linkml-datalog](../../libraries/linkml-datalog.md) only as the deferred trigger.
 
 **Question for library research.** Does a delta-driven loop keep identical conclusions and proofs?
+
+**Library assessment (2026-10-29).** A semi-naive delta-table loop reaches the same least fixpoint, with identical conclusions and proofs. A single `WITH RECURSIVE` is ruled out, because the transitive rule is a non-linear self-join ([postgresql](../libraries/postgresql/README.md#applicability-cbo-022)).
 
 ## Minor observations (not standalone opportunities)
 

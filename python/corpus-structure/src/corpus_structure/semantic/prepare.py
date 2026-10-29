@@ -391,7 +391,7 @@ def _bounds(view: SchemaView, rng: str) -> tuple[list[Decimal], list[Decimal], l
         if getattr(typ, "maximum_value", None) is not None:
             high.append(Decimal(str(typ.maximum_value)))
         if typ.pattern:
-            patterns.append(str(typ.pattern))
+            patterns.append(typ.pattern)
         rng = str(typ.typeof or typ.base or "string")
     return low, high, patterns
 
@@ -537,10 +537,10 @@ def preview_schema(
     classes = tuple(
         ClassPreview(
             str(name),
-            str(view.get_uri(cls, expand=True)),
+            view.get_uri(cls, expand=True),
             tuple(sorted(str(parent) for parent in view.class_ancestors(name, reflexive=False))),
             tuple(
-                PropertyPreview(str(slot.name), str(view.get_uri(slot, expand=True)))
+                PropertyPreview(str(slot.name), view.get_uri(slot, expand=True), str(slot.range or "string"))
                 for slot in view.class_induced_slots(name)
             ),
             bool(cls.abstract),
@@ -698,7 +698,7 @@ def _prepare_release_uncached(
             if slot.maximum_value is not None:
                 high.append(Decimal(str(slot.maximum_value)))
             if slot.pattern:
-                patterns.append(str(slot.pattern))
+                patterns.append(slot.pattern)
             if low and high and max(low) > min(high):
                 _fail("incompatible_bounds", f"{name}/{sn}", "minimum exceeds maximum")
             collection_key = None
@@ -710,7 +710,7 @@ def _prepare_release_uncached(
                     collection_key = identifiers[0]
             prop = PropertyDefinition(
                 sn,
-                str(view.get_uri(slot, expand=True)),
+                view.get_uri(slot, expand=True),
                 rng,
                 bool(slot.required or slot.identifier or (slot.minimum_cardinality or 0) > 0),
                 bool(slot.multivalued),
@@ -718,7 +718,7 @@ def _prepare_release_uncached(
                 slot.maximum_cardinality,
                 str(max(low)) if low else None,
                 str(min(high)) if high else None,
-                str(slot.pattern) if slot.pattern else None,
+                slot.pattern if slot.pattern else None,
                 bool(slot.inlined or slot.inlined_as_list),
                 scope,
                 str(slot.inverse) if slot.inverse else None,
@@ -727,7 +727,7 @@ def _prepare_release_uncached(
                 ann.get("cs:case", "preserve"),
                 ann.get("cs:key_role", "meaning"),
                 tuple(patterns),
-                str(slot.equals_string) if slot.equals_string is not None else None,
+                slot.equals_string if slot.equals_string is not None else None,
                 collection_key,
                 reference_role,
             )
@@ -783,7 +783,7 @@ def _prepare_release_uncached(
                     default=...
                     if (slot.identifier or (scope == "shape" and prop.required))
                     else MISSING,
-                    alias=str(slot.alias or sn),
+                    alias=slot.alias or sn,
                 ),
             )
         keys = tuple(str(s.name) for s in view.class_induced_slots(name) if s.identifier)
@@ -797,7 +797,7 @@ def _prepare_release_uncached(
         definitions.append(
             ClassDefinition(
                 name,
-                str(view.get_uri(cls, expand=True)),
+                view.get_uri(cls, expand=True),
                 tuple(sorted(str(x) for x in view.class_ancestors(name, reflexive=False))),
                 tuple(slots),
                 keys,
@@ -983,13 +983,13 @@ def _prepare_release_uncached(
                 for ancestor in view.slot_ancestors(prop.name, reflexive=False):
                     parent = view.get_slot(ancestor)
                     if parent is not None:
-                        hierarchy.add((prop.iri, str(view.get_uri(parent, expand=True))))
+                        hierarchy.add((prop.iri, view.get_uri(parent, expand=True)))
             candidates: list[tuple[str, str | None]] = []
             if prop.inverse:
                 inverse = view.get_slot(prop.inverse)
                 if inverse is None:
                     _fail("inverse_property", prop.name, "inverse names an undeclared slot")
-                candidates.append(("inverse", str(view.get_uri(inverse, expand=True))))
+                candidates.append(("inverse", view.get_uri(inverse, expand=True)))
             if prop.symmetric:
                 candidates.append(("symmetric", None))
             if prop.transitive:
@@ -1032,7 +1032,7 @@ def _prepare_release_uncached(
     if schema is None:
         _fail("schema", bundle.root, "schema is unavailable")
     rows += tuple(
-        RegistryRow("prefix", str(name), canonical_bytes({"uri": str(prefix.prefix_reference)}))
+        RegistryRow("prefix", name, canonical_bytes({"uri": str(prefix.prefix_reference)}))
         for name, prefix in sorted(cast(dict[str, Any], schema.prefixes or {}).items())
     )
     rows += tuple(

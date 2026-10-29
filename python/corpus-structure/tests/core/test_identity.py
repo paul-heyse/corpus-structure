@@ -29,6 +29,7 @@ from corpus_structure.core.frame import FrameFailure
 from corpus_structure.core.keys import (
     Drop,
     KeyContext,
+    KeyingError,
     Keys,
     KeySchema,
     LabelRules,
@@ -139,9 +140,9 @@ def test_canonical_form_follows_the_declared_range_not_the_shape() -> None:
         ({"t": "quantity", "v": "1"}, C.TOKEN_FORM),
         ("x", C.MAP),
     ]:
-        with pytest.raises(Exception) as caught:
+        with pytest.raises(KeyingError) as caught:
             canon(value, canonical, "stat:Params")
-        assert caught.value.drop == Drop(DropReason.MALFORMED_QUALIFIER, "stat:q")  # type: ignore[attr-defined]
+        assert caught.value.drop == Drop(DropReason.MALFORMED_QUALIFIER, "stat:q")  
 
 
 def test_relations_are_the_models() -> None:
@@ -331,7 +332,8 @@ def test_an_earlier_sentence_inserted_in_an_anchor_shifts_only_that_anchors_late
 
 def two_units(sentences: list[str]) -> RenditionContent:
     """Units u1 and u2 of one paragraph each, split at the "|" entry."""
-    text, blocks = "", []
+    text: str = ""
+    blocks = []
     groups: list[list[str]] = [[]]
     for s in sentences:
         if s == "|":
@@ -432,7 +434,7 @@ def test_the_schema_refuses_malformed_specifications() -> None:
     with pytest.raises(ValidationError, match="drops core members"):
         KeySchema(modality_properties={"attribution_identifying": frozenset({"reported"})})
     with pytest.raises(ValidationError):
-        KeySchema(key_scheme=0)  # type: ignore[bad-argument-type]
+        KeySchema.model_validate({"key_scheme": 0})  
 
 
 def test_every_frame_failure_reason_has_a_message() -> None:

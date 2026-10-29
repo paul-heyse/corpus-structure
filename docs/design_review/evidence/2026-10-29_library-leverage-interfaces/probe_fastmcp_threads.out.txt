@@ -1,0 +1,23 @@
+{
+  "fastmcp": "4.1.3",
+  "loop_thread": {
+    "thread": "MainThread",
+    "is_main": true
+  },
+  "sync_default": {
+    "thread": "AnyIO worker thread",
+    "is_main": false,
+    "deadline": "OffMainThread"
+  },
+  "sync_inline": {
+    "thread": "MainThread",
+    "is_main": true,
+    "deadline": "Expired"
+  },
+  "async_tool": {
+    "thread": "MainThread",
+    "is_main": true,
+    "deadline": "Expired"
+  },
+  "inline_plus_timeout": "rejected: ValueError"
+}

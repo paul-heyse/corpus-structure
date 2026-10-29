@@ -1,0 +1,65 @@
+pyarrow 26.0.0
+DIFFER decimal128(38, 38) half_to_even                                      0.9999999999995 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) half_to_even                                     -0.9999999999995 expected=-1.000000000000 arrow=ArrowInvalid: Rounded value -1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) half_to_even                                      0.9999999999996 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) half_towards_infinity                             0.9999999999995 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) half_towards_infinity                            -0.9999999999995 expected=-1.000000000000 arrow=ArrowInvalid: Rounded value -1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) half_towards_infinity                             0.9999999999996 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) half_towards_zero                                 0.9999999999996 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) towards_infinity                                  0.9999999999995 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) towards_infinity                                 -0.9999999999995 expected=-1.000000000000 arrow=ArrowInvalid: Rounded value -1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) towards_infinity                                  0.9999999999996 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) towards_infinity                                  0.9999999999994 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) up                                                0.9999999999995 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) up                                                0.9999999999996 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) up                                                0.9999999999994 expected=1.000000000000 arrow=ArrowInvalid: Rounded value 1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 38) down                                             -0.9999999999995 expected=-1.000000000000 arrow=ArrowInvalid: Rounded value -1.00000000000000000000000000000000000000 does not fit in precision of decimal128(38, 38)
+DIFFER decimal128(38, 39) half_to_even                                      0.0000000000015 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) half_to_even                                      0.0000000000025 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) half_towards_infinity                             0.0000000000015 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) half_towards_infinity                             0.0000000000025 expected=3E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) half_towards_zero                                 0.0000000000015 expected=1E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) half_towards_zero                                 0.0000000000025 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) towards_infinity                                  0.0000000000015 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) towards_infinity                                  0.0000000000025 expected=3E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) towards_zero                                      0.0000000000015 expected=1E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) towards_zero                                      0.0000000000025 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) up                                                0.0000000000015 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) up                                                0.0000000000025 expected=3E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) down                                              0.0000000000015 expected=1E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 39) down                                              0.0000000000025 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) half_to_even                                      0.0000000000015 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) half_to_even                                      0.0000000000025 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) half_towards_infinity                             0.0000000000015 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) half_towards_infinity                             0.0000000000025 expected=3E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) half_towards_zero                                 0.0000000000015 expected=1E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) half_towards_zero                                 0.0000000000025 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) towards_infinity                                  0.0000000000015 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) towards_infinity                                  0.0000000000025 expected=3E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) towards_zero                                      0.0000000000015 expected=1E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) towards_zero                                      0.0000000000025 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) up                                                0.0000000000015 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) up                                                0.0000000000025 expected=3E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) down                                              0.0000000000015 expected=1E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal128(38, 40) down                                              0.0000000000025 expected=2E-12 arrow=InvalidOperation: [<class 'decimal.ConversionSyntax'>]
+DIFFER decimal256(76, 39) half_to_even             99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.999999999999000000000000000000000000000
+DIFFER decimal256(76, 39) half_towards_infinity    99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.999999999999000000000000000000000000000
+DIFFER decimal256(76, 39) towards_infinity         99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.999999999999000000000000000000000000000
+DIFFER decimal256(76, 39) towards_zero             99999999999999999999999999.9999999999995 expected=99999999999999999999999999.999999999999 arrow=99999999999999999999999999.999999999998000000000000000000000000000
+DIFFER decimal256(76, 39) up                       99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.999999999999000000000000000000000000000
+DIFFER decimal256(76, 39) down                     99999999999999999999999999.9999999999995 expected=99999999999999999999999999.999999999999 arrow=99999999999999999999999999.999999999998000000000000000000000000000
+DIFFER decimal256(76, 40) half_to_even             99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.9999999999980000000000000000000000000000
+DIFFER decimal256(76, 40) half_towards_infinity    99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.9999999999980000000000000000000000000000
+DIFFER decimal256(76, 40) half_towards_zero        99999999999999999999999999.9999999999995 expected=99999999999999999999999999.999999999999 arrow=99999999999999999999999999.9999999999980000000000000000000000000000
+DIFFER decimal256(76, 40) towards_infinity         99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.9999999999980000000000000000000000000000
+DIFFER decimal256(76, 40) towards_zero             99999999999999999999999999.9999999999995 expected=99999999999999999999999999.999999999999 arrow=99999999999999999999999999.9999999999970000000000000000000000000000
+DIFFER decimal256(76, 40) up                       99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.9999999999980000000000000000000000000000
+DIFFER decimal256(76, 40) down                     99999999999999999999999999.9999999999995 expected=99999999999999999999999999.999999999999 arrow=99999999999999999999999999.9999999999970000000000000000000000000000
+DIFFER decimal256(76, 50) half_to_even             99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.99999999999800000000000000000000000000000000000000
+DIFFER decimal256(76, 50) half_towards_infinity    99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.99999999999800000000000000000000000000000000000000
+DIFFER decimal256(76, 50) half_towards_zero        99999999999999999999999999.9999999999995 expected=99999999999999999999999999.999999999999 arrow=99999999999999999999999999.99999999999800000000000000000000000000000000000000
+DIFFER decimal256(76, 50) towards_infinity         99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.99999999999800000000000000000000000000000000000000
+DIFFER decimal256(76, 50) towards_zero             99999999999999999999999999.9999999999995 expected=99999999999999999999999999.999999999999 arrow=99999999999999999999999999.99999999999700000000000000000000000000000000000000
+DIFFER decimal256(76, 50) up                       99999999999999999999999999.9999999999995 expected=100000000000000000000000000.000000000000 arrow=99999999999999999999999999.99999999999800000000000000000000000000000000000000
+DIFFER decimal256(76, 50) down                     99999999999999999999999999.9999999999995 expected=99999999999999999999999999.999999999999 arrow=99999999999999999999999999.99999999999700000000000000000000000000000000000000
+cases=903 differ=63
