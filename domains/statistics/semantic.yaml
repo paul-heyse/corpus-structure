@@ -33,6 +33,7 @@ classes:
     attributes:
       key:
         required: true
+        identifier: true
       value: {}
   DistributionFamily:
     is_a: Entity
@@ -161,6 +162,7 @@ classes:
           which the special case holds (k = 1).
         annotations:
           cs:role: qualifier
+        inlined: true
       transform:
         range: Formula
         description: The transformation, as a formula in the base variable. "e^Y".

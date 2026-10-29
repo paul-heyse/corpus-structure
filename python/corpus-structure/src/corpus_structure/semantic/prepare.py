@@ -49,6 +49,7 @@ from .types import (
 _LITERAL: Any = Literal
 _ANNOTATED: Any = Annotated
 _TUPLE: Any = tuple
+_DICT: Any = dict
 
 _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 _UNSUPPORTED = frozenset(
@@ -300,6 +301,15 @@ def _annotations(element: Any) -> dict[str, str]:
     return {str(k): str(getattr(v, "value", v)) for k, v in items if str(k) in _SAFE_ANNOTATIONS}
 
 
+def _keyed_members(key: str):
+    def validate(value: dict[str, Any]) -> dict[str, Any]:
+        for name, member in value.items():
+            if getattr(member, key) != name:
+                raise ValueError("inlined collection key differs from its member identifier")
+        return value
+    return validate
+
+
 def _bounds(view: SchemaView, rng: str) -> tuple[list[Decimal], list[Decimal], list[str]]:
     low, high, patterns = [], [], []
     seen: set[str] = set()
@@ -507,6 +517,11 @@ def prepare_release(
                 patterns.append(str(slot.pattern))
             if low and high and max(low) > min(high):
                 _fail("incompatible_bounds", f"{name}/{sn}", "minimum exceeds maximum")
+            collection_key = None
+            if slot.multivalued and slot.inlined and not slot.inlined_as_list and rng in classes:
+                identifiers = [str(field.name) for field in view.class_induced_slots(rng) if field.identifier]
+                if len(identifiers) == 1:
+                    collection_key = identifiers[0]
             prop = PropertyDefinition(
                 sn,
                 str(view.get_uri(slot, expand=True)),
@@ -527,6 +542,7 @@ def prepare_release(
                 ann.get("cs:key_role", "meaning"),
                 tuple(patterns),
                 str(slot.equals_string) if slot.equals_string is not None else None,
+                collection_key,
             )
             slots.append(prop)
             if rng in classes:
@@ -562,7 +578,9 @@ def prepare_release(
             if limits:
                 annotation = _ANNOTATED[annotation, Field(**limits)]
             if prop.multivalued:
-                annotation = _TUPLE[annotation, ...]
+                annotation = _DICT[str, annotation] if collection_key else _TUPLE[annotation, ...]
+                if collection_key:
+                    annotation = _ANNOTATED[annotation, AfterValidator(_keyed_members(collection_key))]
                 limits = {}
                 if scope == "shape" and prop.minimum_cardinality is not None:
                     limits["min_length"] = prop.minimum_cardinality
@@ -600,7 +618,7 @@ def prepare_release(
         )
         try:
             models[name] = create_model(
-                name, __config__=ConfigDict(frozen=True, extra="forbid", strict=True), **fields
+                name, __config__=ConfigDict(frozen=True, extra="forbid", strict=True, allow_inf_nan=False), **fields
             )
         except Exception as exc:
             _fail("boundary", name, str(exc))
@@ -728,7 +746,7 @@ def prepare_release(
                     parent = view.get_slot(ancestor)
                     if parent is not None:
                         hierarchy.add((prop.iri, str(view.get_uri(parent, expand=True))))
-            candidates = []
+            candidates: list[tuple[str, str | None]] = []
             if prop.inverse:
                 inverse = view.get_slot(prop.inverse)
                 if inverse is None:
@@ -763,14 +781,17 @@ def prepare_release(
         for child, parent in sorted(hierarchy)
     )
     rows += tuple(rule_products[key] for key in sorted(rule_products))
+    schema = view.schema
+    if schema is None:
+        _fail("schema", bundle.root, "schema is unavailable")
     rows += tuple(
         RegistryRow("prefix", str(name), canonical_bytes({"uri": str(prefix.prefix_reference)}))
-        for name, prefix in sorted(view.schema.prefixes.items())
+        for name, prefix in sorted(cast(dict[str, Any], schema.prefixes or {}).items())
     )
     rows += tuple(
         RegistryRow("operation_property", f"{definition.name}/{prop.name}", canonical_bytes({
             "class": definition.name, "property": prop.iri, "name": prop.name,
-            "groups": tuple(str(group) for group in view.induced_slot(prop.name, definition.name).in_subset),
+            "groups": tuple(str(group) for group in (view.induced_slot(prop.name, definition.name).in_subset or ())),
             **_annotations(view.induced_slot(prop.name, definition.name)),
         }))
         for definition in definitions for prop in definition.properties
