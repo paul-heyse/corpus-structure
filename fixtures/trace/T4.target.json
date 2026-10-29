@@ -56,26 +56,6 @@
     "scope": "global"
    },
    {
-    "local_ref": "N.mean",
-    "type": "FamilyParameter",
-    "label": "mean",
-    "scope": "global",
-    "identity": {
-     "family": "N",
-     "canonical_name": "mean"
-    }
-   },
-   {
-    "local_ref": "N.sd",
-    "type": "FamilyParameter",
-    "label": "standard deviation",
-    "scope": "global",
-    "identity": {
-     "family": "N",
-     "canonical_name": "standard_deviation"
-    }
-   },
-   {
     "local_ref": "LN.mu",
     "type": "FamilyParameter",
     "label": "\\mu",
@@ -670,7 +650,14 @@
     },
     "predicate": "identical_parameter",
     "object": {
-     "ref": "N.sd"
+     "kind": "entity",
+     "type": "FamilyParameter",
+     "identity": {
+      "family": {
+       "ref": "N"
+      },
+      "canonical_name": "standard_deviation"
+     }
     }
    }
   },

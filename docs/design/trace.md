@@ -50,7 +50,8 @@ Unit `dfn1` (`<p class="dfn">`):
 > given distribution of \(Z\). Specifically, \(a\) is the location parameter and \(b\) the scale
 > parameter.
 
-**Segments.** `document` → `section` (page body) → `paragraph` (lead-in); `unit` `dfn1` →
+**Segments.** `document` → `section` (General Theory, h3) → `paragraph` (lead-in);
+its Definition subsection (h4) contains `unit` `dfn1` →
 `paragraph` (attrs: `class=dfn`, `dfn` term "location-scale family"); `math_inline` × 7;
 `sentence` × 3 in `dfn1`.
 
@@ -60,7 +61,7 @@ Unit `dfn1` (`<p class="dfn">`):
 |---|---|---|---|
 | S0 | `Statement` (kind `assumption`) | local: lead-in paragraph | — |
 | S1 | `Statement` (kind `definition`) | local: unit `dfn1` | — |
-| Z | `RandomVariable` | local: section | symbol `Z` |
+| Z | `RandomVariable` | local: General Theory; redeclared separately in Definition | symbol `Z` |
 | X | `RandomVariable` | local: S1 | symbol `X` |
 | LSF | `FamilyConstruction` | global | "location-scale family" |
 | LSF.loc | `FamilyParameter` (identity: LSF, `location`) | global | "location parameter" |
@@ -145,7 +146,6 @@ followed by a `<details>` proof beginning "The MGF of \(a + b X\) is …".
 | X | `RandomVariable` | local: S1 | symbol `X` |
 | Y | `RandomVariable` | local: S1 | expression `a + b X` |
 | N | `DistributionFamily` | global | as T2 |
-| N.mean, N.var | `FamilyParameter` (N, `mean` / `variance`) | global | "mean", "variance" |
 
 **Claims.**
 
@@ -200,7 +200,6 @@ and the unit's second paragraph (part of `div.unit#dfn`; S0 found the trace had 
 | Y, X, Z, W | `RandomVariable` | local: S1 | symbols `Y`, `X`, `Z`, `W` |
 | N | `DistributionFamily` | global | as T2 |
 | LN | `DistributionFamily` | global | "lognormal distribution" |
-| N.mean, N.sd | `FamilyParameter` | global | as T2 |
 | LN.mu, LN.sigma | `FamilyParameter` (LN, canonical name `mu` / `sigma`: no role named in the definition) | global | symbols `\mu`, `\sigma` |
 | LN.scale | `FamilyParameter` (LN, `scale`) | global | "scale parameter" |
 | SN, SLN | `DistributionFamily` | global | "standard normal distribution", "standard lognormal distribution" |

@@ -124,21 +124,20 @@ Repository policy fails rather than skips, so these are not written yet. They ar
 | Targets and the trace units' `fixtures/s0` batches, derived on the production rendition and keyed, have equal key sets over the phase 0 targets; no fixture claim matches a `must_not` pattern; every difference is explained and resolved | P0-A-0, P0-I-1a, key scheme 1 (P0-F-2e) |
 | The `fixtures/s0` batches validate against the compiled schema | P0-S-1 (its own acceptance) |
 
-### Known differences for the agreement check
+### Source-grounded agreement decisions (2026-10-29)
 
-Found by a structural comparison while authoring (2026-10-28), before any keying; each needs a
-fixture correction or a trace.md correction from the design owner:
+F3-02 is reconciled for the deterministic trace journey:
 
-- **T1's two `Z` declarations may not key alike.** A0's conversion rule (agent interface §3.1:
-  `section` → the smallest section containing the entity's earliest evidence) resolves the
-  lead-in's `Z` to *General Theory* (h3) and the `#dfn1` file's `Z`, whose earliest evidence is
-  `s4`, to *Definition* (h4). The spike, with T1 as one unit, stored *General Theory* for both.
-- **T3's `Y`** has no symbol here (trace.md and D5 §3.4: the symbol is the one the source
-  introduces, and it introduces none); the v1 batch gives `symbol: "a + b X"`.
-- **Unreferenced parameter entities.** trace.md lists `N.mean` and `N.var` for T3 and `N.mean` and
-  `N.sd` for T4; no claim of those units references them and the v1 batches do not declare them.
-- **Labels that are probably not key-bearing** (parameters key by family and canonical name):
-  T2's parameter labels ("location parameter" against v1's "location parameter of the normal
-  distribution"), T4's `LN.mu`/`LN.sigma` (`\mu`/`\sigma` against `mu`/`sigma`).
-- **Evidence** (not key-bearing): T1's C7 and C8 cite `s6` as primary and the restriction span of
-  `s4` as `condition`, following trace.md's Evidence line; v1 cites the restriction as primary.
+- The lead-in's `Z` is scoped to General Theory; the definition's redeclaration is scoped to its
+  Definition subsection. They are distinct local entities (F3-01), and the trace describes both.
+- T3's source introduces the expression `a + b X` without assigning it a named symbol. The s0
+  fixture removes the invented symbol, retaining the expression as its label; provenance names
+  this correction. The original v1 evidence is unchanged.
+- T3's `N.mean`/`N.var` and T4's `N.mean`/`N.sd` are not declared by their source claims. They are
+  removed from positive targets; the forbidden T4 identity is expressed as an entity pattern.
+- Parameter labels are surfaces; family plus canonical name governs identity. Different labels
+  therefore preserve the same entity keys.
+- T1 C7/C8 have independent valid evidence choices in the source. Acceptance checks their cited
+  source text and locations rather than requiring identical choice of evidence between authors.
+- T1's lead-in unsupported items are separate coverage information, outside the trace's positive
+  claim list. They remain subject to the generic unsupported-query acceptance.

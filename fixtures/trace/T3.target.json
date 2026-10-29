@@ -31,26 +31,6 @@
      "normal",
      "normally distributed"
     ]
-   },
-   {
-    "local_ref": "N.mean",
-    "type": "FamilyParameter",
-    "label": "mean",
-    "scope": "global",
-    "identity": {
-     "family": "N",
-     "canonical_name": "mean"
-    }
-   },
-   {
-    "local_ref": "N.var",
-    "type": "FamilyParameter",
-    "label": "variance",
-    "scope": "global",
-    "identity": {
-     "family": "N",
-     "canonical_name": "variance"
-    }
    }
   ],
   "statements": [

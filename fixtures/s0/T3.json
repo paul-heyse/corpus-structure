@@ -36,7 +36,6 @@
     "label": "a + b X",
     "scope": "local",
     "extent": "statement",
-    "symbol": "a + b X",
     "aliases": [],
     "identity": {}
    },
@@ -319,6 +318,10 @@
    {
     "item": "c_aX_def",
     "decision": "§10.7 rule 2: a formula claim keeps the restrictions stated with it on its own symbols (a ∈ ℝ, b ∈ ℝ ∖ {0}); added after the v1 passes were scored, found by comparing pass SV"
+   },
+   {
+    "item": "aX",
+    "decision": "F3-02: the source introduces an expression without a named symbol; retain a + b X as label, not symbol (D5 §3.4)."
    }
   ],
   "migrations": []

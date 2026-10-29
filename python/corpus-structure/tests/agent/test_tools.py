@@ -331,16 +331,22 @@ def test_an_identical_m13_rerun_leaves_m24_tasks_reused(
 # --- The harness ------------------------------------------------------------------------------
 
 
-def test_the_harness_maps_by_locator_then_text_and_stops_on_a_misfit() -> None:
+def test_the_harness_requires_equal_locator_and_text() -> None:
     served = [
         {"id": "s1", "locator": "p.html@sentence:Let X", "text": "Let X be normal."},
         {"id": "s2", "locator": "p.html@sentence:Then Y holds", "text": "Then Y holds."},
     ]
     frame = {
         "s1": {"locator": "p.html@sentence:Let X", "text": "Let X be normal."},
-        "s4": {"locator": "p.html@sentence:Then", "text": "Then Y holds."},  # shorter locator
+        "s4": {"locator": "p.html@sentence:Then Y holds", "text": "Then Y holds."},
     }
     assert map_ids("p.html#u", frame, served) == {"s1": "s1", "s4": "s2"}
+    for wrong in (
+        {"locator": "p.html@sentence:Then", "text": "Then Y holds."},
+        {"locator": "p.html@sentence:Then Y holds", "text": "Edited text."},
+    ):
+        with pytest.raises(HarnessError, match="s4"):
+            map_ids("p.html#u", {"s4": wrong}, served)
     with pytest.raises(HarnessError, match="s9"):
         map_ids(
             "p.html#u", {"s9": {"locator": "p.html@sentence:Nowhere", "text": "Nowhere."}}, served
