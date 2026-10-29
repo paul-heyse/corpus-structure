@@ -222,3 +222,17 @@ partial at the statement/conditional seams. Raw read return/error correspondence
 within CA-04's finite result accounting. The realization audit explains these boundaries.
 Iterative Core fixed-point inference is a justified equivalent realization of the planned recursive
 closure; it preserves finite identity, qualified eligibility and compact direct proofs.
+
+## Improvement integration (2026-10-29)
+
+**Planned amendment; no new implementation or qualification claim.** Use resolved statement/reference and constraint-placement products in all current producers and consolidation. Extract shared scientific evidence with explicit unchanged consumer policies, move the typed rule view before retirement, and filter known-input evidence only after complete identity resolution. No human grading, regrading or implicit numeric-equivalence policy change.
+
+Additional packages SP-I01/SP-I03/SP-I05/SP-I06/SP-I07 are defined in
+[model-execution closure](model-execution-closure.md),
+[release/consumer consolidation](release-and-consumer-consolidation.md) and
+[qualification infrastructure](qualification-infrastructure.md). The
+[coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+owns their queue, selection and dependencies. Earlier target/checkpoint prose retains its
+historical binding until the scheduled successor decisions and implementation establish the
+amendment. CA IDs and scoped passing receipts remain unchanged; the new package definitions
+supply corrective work rather than another mutable findings ledger.

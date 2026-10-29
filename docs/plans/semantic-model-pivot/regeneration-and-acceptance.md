@@ -162,3 +162,17 @@ This audit launched no provider or product/native test campaign. A read-only Pos
 confirmed semantic_0030, selected finished runs 1/2 and unfinished run 3 without changing state.
 Existing typing (zero errors/warnings/suppressions) and scoped tests keep their original credit;
 no repeat was triggered by lint. Documentation maintenance/publication is recorded separately.
+
+## Improvement integration (2026-10-29)
+
+**Planned amendment; no new implementation or qualification claim.** Do not select newly regenerated outputs until effective contracts, enforcing native products, immutable closure, restricted admission, compatible boundary recipes and required old-answer access work together. Incorporate session-template and reporting support while keeping cold bootstrap/revision/provider obligations. Retire only superseded current routes after useful algorithms migrate; original SP-10 still owns final qualification.
+
+Additional packages SP-I01–SP-I09 are defined in
+[model-execution closure](model-execution-closure.md),
+[release/consumer consolidation](release-and-consumer-consolidation.md) and
+[qualification infrastructure](qualification-infrastructure.md). The
+[coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+owns their queue, selection and dependencies. Earlier target/checkpoint prose retains its
+historical binding until the scheduled successor decisions and implementation establish the
+amendment. CA IDs and scoped passing receipts remain unchanged; the new package definitions
+supply corrective work rather than another mutable findings ledger.

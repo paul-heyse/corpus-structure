@@ -139,3 +139,17 @@ capabilities at selected baseline `5ba9a5c`; D8's inspection tools are future Pr
 The audit checked baseline source rather than converting unfinished legacy targets into SP-08
 obligations. Existing CLI/API query/explain/reference routes were migrated. Separate
 `ReferenceEvaluation` and completed knowledge output are the accepted ADR-0030 distinction.
+
+## Improvement integration (2026-10-29)
+
+**Planned amendment; no new implementation or qualification claim.** Consolidate public selection/hydration and read-only snapshot binding, required-universe coverage, exact-or-refuse predicates and reference traversal. Keep serving policy/continuations distinct and reference validation bound to its own release. Preserve completed results while opening changes, and use typed refusal/DBAPI classification rather than relabeling faults.
+
+Additional packages SP-I04/SP-I05/SP-I06/SP-I07 are defined in
+[model-execution closure](model-execution-closure.md),
+[release/consumer consolidation](release-and-consumer-consolidation.md) and
+[qualification infrastructure](qualification-infrastructure.md). The
+[coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+owns their queue, selection and dependencies. Earlier target/checkpoint prose retains its
+historical binding until the scheduled successor decisions and implementation establish the
+amendment. CA IDs and scoped passing receipts remain unchanged; the new package definitions
+supply corrective work rather than another mutable findings ledger.

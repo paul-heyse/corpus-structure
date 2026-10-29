@@ -205,3 +205,17 @@ release constraints; these are **partial overall** because of CA-01/CA-02, while
 transaction and generic enforcement mechanisms retain scoped credit. No handwritten-kernel
 exception is accepted. Forward native changes remain required; the evidence-only 0031 draft is
 not an active migration or accepted correction.
+
+## Improvement integration (2026-10-29)
+
+**Planned amendment; no new implementation or qualification claim.** Retain one shared physical model and transaction/COPY owner. Add retained DDL/view/transport/edge/descriptor authoring, forward same-head reconciliation, finalized intrinsic meaning closure, separate deployment admission and restricted admission credentials. Protected inference workspace replaces generic writer TEMP. Remove only discharged redundant meaning checks; cumulative constraints remain.
+
+Additional packages SP-I02/SP-I03 are defined in
+[model-execution closure](model-execution-closure.md),
+[release/consumer consolidation](release-and-consumer-consolidation.md) and
+[qualification infrastructure](qualification-infrastructure.md). The
+[coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+owns their queue, selection and dependencies. Earlier target/checkpoint prose retains its
+historical binding until the scheduled successor decisions and implementation establish the
+amendment. CA IDs and scoped passing receipts remain unchanged; the new package definitions
+supply corrective work rather than another mutable findings ledger.

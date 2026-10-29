@@ -1,6 +1,6 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** Completion-audited at `ad4593f` (2026-10-29), including all partial/open scope.
+**Status:** Improvement integration planned in §14; production remains partial. Completion-audited at `ad4593f` (2026-10-29), including all partial/open scope.
 The foundation and many scoped mechanisms are implemented; complete model governance and the
 series are **not complete**. Current package states, findings, deviations and next work are in
 §13. Earlier receipts retain their original scope and are not whole-series qualification.
@@ -109,6 +109,9 @@ is introduced.
 The two completeness documents own added work; existing documents retain baseline mechanisms and later-package responsibilities, with linked amendments. Architectural authorities remain DESIGN/D-documents and accepted ADRs. Supporting documents own package design and local evidence. This coordinator alone owns current package state, the executable queue and series disposition. Short summaries elsewhere are not additional status ledgers. Shared model declarations, generated metadata and manifests have one writer per integrated slice; logical independence does not authorize concurrent edits to those surfaces.
 
 ## 5. Dependencies and execution queue
+
+The additional SP-I01–SP-I09 route and current improvement priorities are in §14. Original IDs
+and dependency meanings below remain; added working products supply their remaining closure.
 
 Current package closure is determined by §13, including partial original and completeness scope.
 Earlier SP-00–SP-05 receipts establish their stated profiles, not every current binding or consumer.
@@ -753,3 +756,151 @@ and profile/settings accounting (CA-07/08/09/11), then finish the affected fresh
 required final qualification (CA-10). This audit does not authorize those repairs. No earlier
 phase-0 finding is transferred or closed. The coordinator's current conclusion is **partial
 implementation, incomplete qualification, bounded benefits; no disconnected exceptions accepted**.
+
+
+## 14. Improvement integration (2026-10-29)
+
+**Planned; no implementation progress claimed.** Consume
+[improvement review I01–I11](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md)
+at `1f66fd4`, reconciled with authoring baseline `8578710` (product `ad4593f`). The newly committed
+broader diagnostic account is separately owned; this integration does not silently adopt its
+additional findings or refresh it. Review CBO premises corrected by that review remain corrected.
+
+Target 100% domain-model governance with zero disconnected behavior. Preserve authored semantic
+scope, independent occurrence/fact identity, exact values, qualified evidence/uncertainty, protected
+PostgreSQL transactions, immutable completed output, automatic grading and scoped evidence.
+Ordinary code remains appropriate when it effectively realizes its model contract; no callback,
+fingerprint, diagnostic or unsupported-profile label substitutes for missing behavioral connection.
+
+### Accepted planning decisions and rule routes
+
+The operator explicitly selected all three recommended options on 2026-10-29. These are target
+choices accepted for planning; execution must establish the successor authority before depending
+on them. Accepted ADRs are immutable. No production deployment follows from this document update.
+
+| Decision | Accepted consequence | Required route / dependent work |
+|---|---|---|
+| PR-01 release opening/verification and determinants | Open supported runtime products from immutable archives; verify fully at persist/replay, activation, run start and explicit request; distinguish byte identity from runtime validator/deployment compatibility | Successor to ADR-0025 reload policy and relevant ADR-0024/D1/D2/D3/D8 clauses before SP-I04 dispatch/cutover. Complete recipes and required old answers must remain usable. |
+| PR-02 restricted release admission | Dedicated non-owner admission login and controlled complete archive/finalization/activation operations; migration credentials outside ordinary regeneration | ADR-0025/0030 and D3/D9 authority reconciliation before SP-I03 admission. No broad sem DML, publisher membership or reference privilege; deployment-specific admission remains separately modeled. |
+| PR-03 native fixture equivalence | Fresh per-test clones of session-migrated template with ACL/settings replay and independent posture checks; cold bootstrap/revision tests retained | Amend owning PostgreSQL/acceptance interpretation and test-support contract before SP-I08 fixture adoption. This does not replace required native commits/principals/races. |
+
+Preserve current per-consumer scientific evidence→decision mappings during extraction; a later
+numeric policy change is not accepted here. Preserve lossless representation/identity while
+specifying lexical meaning; intentional lexical/identity normalization needs its own decision.
+Retain no-generic-writer-TEMP through protected fixed inference workspace. If a necessary broader
+privilege/rule change emerges, obtain the explicit decision before dependent work. B3's automated
+extractor conflict is scheduled successor-decision work, not silently repaired prose.
+
+### Added document ownership and package route
+
+Three new documents own added integrated work; the original eight retain their contract meanings,
+original package IDs and dated evidence. There is one coordinator queue/disposition owner.
+Original packages do not become complete merely because additional remediation is planned.
+
+| Package | Owning document / responsibility | Working input and readiness / closure contribution |
+|---|---|---|
+| SP-I01 | [Model execution](semantic-model-pivot/model-execution-closure.md#SP-I01): effective bindings, scoped constraints, real phases/results/enforcement and graph contracts | Existing SP-C products; normalization usable early, admission waits for actual native consumers. Supplies CA-01/02/04/05/06/11 corrections. |
+| SP-I02 | [Model execution](semantic-model-pivot/model-execution-closure.md#SP-I02): retained native authoring, correspondence and forward physical reconciliation | SP-I01 finite products + physical MetaData. DDL/views/transport/edges/descriptors have one derivation route, deployed in new frozen revisions. |
+| SP-I03 | [Model execution](semantic-model-pivot/model-execution-closure.md#SP-I03): immutable meaning, restricted admission, purposes/workspace and native codec | PR-02 and SP-I01/02 products. Must enforce meaning closure and cumulative checks before their consumers remove redundant work. |
+| SP-I04 | [Release/consumers](semantic-model-pivot/release-and-consumer-consolidation.md#SP-I04): acquisition/composition/open/verify/index/transition | PR-01, complete SP-I01 recipe; SP-I03 protection before dropping coherence checks. Required compiler-10 access works before new cutover. |
+| SP-I05 | [Release/consumers](semantic-model-pivot/release-and-consumer-consolidation.md#SP-I05): public reads, required-universe coverage, visitor and refusals | SP-I01 descriptors; SP-I04 index when ready. Independent predicate/finite-float/coverage fixes need not await full archive transition. |
+| SP-I06 | [Release/consumers](semantic-model-pivot/release-and-consumer-consolidation.md#SP-I06): scientific evidence and semantic rule views | SP-I01 result contracts and exact codec; preserve explicit current policies. Working migrated consumers precede legacy math/value retirement. |
+| SP-I07 | [Release/consumers](semantic-model-pivot/release-and-consumer-consolidation.md#SP-I07): analytical bindings, used-input/evidence closure and retirement | Working references/projections and full identity candidate universe; post-resolution carrying preserves required closure. Optional optimizations stay triggered. |
+| SP-I08 | [Qualification](semantic-model-pivot/qualification-infrastructure.md#SP-I08): session native preparation and posture | PR-03 and actual role/workspace contract from SP-I03; cold fixture/consumer contract preparation can proceed earlier. |
+| SP-I09 | [Qualification](semantic-model-pivot/qualification-infrastructure.md#SP-I09): streamed outcome/watchdog/required-union accounting | Existing test route, independent of product corrections. Supplies actionable final qualification, not a substitute for real native/provider tests. |
+
+All nine packages are **planned**. Semantic definitions, generated declarations and manifests retain
+one writer per integrated slice; logical readiness does not imply safe parallel edits. One root
+author/integrator reconciles shared changes. Focused source/library/design advice is used only
+for actual open contracts, not a fixed recurring role sequence or another broad audit.
+
+### Recommendation and opportunity selection
+
+Review recommendations are selected for planning with the conditions below. Retain judgments
+carry their concrete adjustments; optional candidates remain explicitly deferred, not missing
+mandatory installation. CA current disposition remains §13; these references supply execution
+ownership/closure work without copying the audit into a new ledger.
+
+| Improvement | Additional packages / original obligations | Selection and closure meaning |
+|---|---|---|
+| [I01](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I01) | SP-I01/02/03; SP-01/C01–C05/06–08; CA-01/02/04/05/06/11 | Required effective model consumption and actual enforcing boundary; no schema-only closure. |
+| [I02](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I02) | SP-I02; SP-02/03/C03/09/10; CA-01/06/07 | Retained emitter, forward reconciliation and independent transition/effect expectations. |
+| [I03](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I03) | SP-I03/07; SP-03/07; CA-06 | Meaning-closure immutability prerequisite; remove only discharged meaning checks, preserve cumulative checks and required input closure. |
+| [I04](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I04) | SP-I04; SP-01/C02/08/09; CA-06/08 | PR-01 selected; exact recipe/runtime compatibility, controlled determinant transition and working old-answer access. |
+| [I05](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I05) | SP-I05; SP-04/C05/08; CA-03/04 | One public interpretation/snapshot route, exact predicates and required-universe coverage; no future MCP tool expansion. |
+| [I06](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I06) | SP-I06; SP-C04/07/08; CA-04/07 | Shared evidence kernel and semantic rule view; current consumer policies preserved, changes separately decided. |
+| [I07](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I07) | SP-I01/03/05; SP-C02/C04/08; CA-01/02/04 | One reference-position/value meaning, finite fields, independent codec/native vectors and archived-reference interpretation. |
+| [I08](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I08) | SP-I07; SP-05/C05/07/08; CA-07 | Native relation binding/ownership selected. Delta inference, streaming, additional exports/backends remain conditional. |
+| [I09](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I09) | SP-I03/05; SP-03/08/09; CA-08 | PR-02 restricted admission, actual principal checks, explicit purpose/shared target. Sequential pools retained. |
+| [I10](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I10) | SP-I08; SP-10; CA-09/10 | PR-03 clone equivalence and actual privilege/cleanup posture; cold migration/upgrade controls retained. |
+| [I11](../plan_improvement_reviews/semantic-model-pivot_2026-10-29.md#I11) | SP-I09; SP-10; CA-09/10 | Report stream/watchdog and honest required-scope classification. Required skip cannot pass; optional inapplicability is distinct. |
+
+| CBO | Planned disposition / work owner |
+|---|---|
+| CBO-001 | SP-I05 public selection/hydration, exact object predicates, coverage and bounded explanation. |
+| CBO-002 | SP-I04 explicit acquisition/pure composition; preserve already normalized input order. |
+| CBO-003 | SP-I04 open/verify under PR-01, complete recipe and old-answer prerequisite. |
+| CBO-004 | SP-I03 restricted purpose/principals; retain sequential pools. Withdrawn first-persist SET ROLE hazard stays withdrawn. |
+| CBO-005 | SP-I06 semantic rule view/accessor migration and deliberate view-version transition. |
+| CBO-006 | SP-I06 shared scientific evidence; preserve explicit per-consumer policies. |
+| CBO-007 | Retain physical PyArrow export/shared opener, SP-I05/07; new export demands remain triggered. |
+| CBO-008 | SP-I02 Core-derived forward reconciliation and bounded Alembic/native checks; lowering relocation follows real retirement need. |
+| CBO-009 | SP-I04 determinant ownership, runtime validation compatibility and SymPy dependencies; exact dependency moves only on actual use. |
+| CBO-010 | SP-I08 session template/ACL/settings replay, bare/revision fixtures and cleanup owner. |
+| CBO-011 | SP-I09 streamed worker/node/phase outcomes and watchdog; no collection-order or all-skips=blocked inference. |
+| CBO-012 | SP-I05 domain refusal/DBAPI outcome adapters after actual phase/enforcer contracts. |
+| CBO-013 | SP-I01/04/05 finite-float fields and non-identity root index; adapters built for consumers. |
+| CBO-014 | SP-I02 native emitter/views/descriptor and obsolete deployment-helper retirement. |
+| CBO-015 | SP-I03 codec specification, native differential plus independent vectors; no silent lexical normalization. |
+| CBO-016 | SP-I01/05 effective position classifier/validated visitor; explicit collision/sequence policy. |
+| CBO-017 | Retain frozen cattrs products; SP-I01 actual result/enforcement use. Tuple defaults are subordinate simplification. |
+| CBO-018 | SP-I07 semantic set kernels/native bindings before deleting useful old scaffolding. |
+| CBO-019 | SP-I03 closure-level immutability then discharged-check removal; cumulative validations remain. |
+| CBO-020 | SP-I07 set-oriented complete candidates and minimal post-resolution evidence carrying. Narrow recursive input scope needs equivalence. |
+| CBO-021 | Retain seeded offline SchemaView/induction/generator isolation, SP-I01/04; do not substitute lossy materialized-derived schema. |
+| CBO-022 | Deferred SP-I07 trigger: relevant repeated-join workload after correctness; preserve conclusions and final proof policy. |
+| CBO-023 | Retain main-thread grammar deadline. Revisit process machinery only for an accepted concurrent grammar consumer. |
+| CBO-024 | Retain pinned local ontology workaround. New term-validator/backend consumer or changed release triggers reassessment, not automatic dependency adoption. |
+| CBO-025 | SP-I05 one explicit read-only opener/binders, SP-I03 shared purpose/target; preserve ADBC snapshot lifecycle. |
+
+CA-01→SP-I01/02/03; CA-02→SP-I01; CA-03→SP-I05; CA-04→SP-I01/05/06;
+CA-05→SP-I01; CA-06→SP-I01/02/03/04; CA-07→SP-I02/06/07 and original SP-09;
+CA-08→SP-00 decision work + SP-I03/04; CA-09→SP-I08/09 and original SP-06;
+CA-10→SP-I08/09 + affected original packages and final SP-10;
+CA-11→SP-I01 profile decision with original SP-00/C02. All remain open until actual closure.
+Original and completeness review O-identities retain their distinct mappings in §§6/10.
+
+### Execution reasoning and acceptance
+
+Prioritize behavioral correctness (bindings, conditionals, result/enforcement, graph attribution,
+coverage, exact predicates and finite values) and shared scientific interpretation first. Settle
+common products before dependent adapters, but do not impose whole-document barriers. Retained
+native generation/reconciliation and meaning protection precede cheaper open and validation
+removal. Establish template/reporting support before expanding expensive native parity checks.
+
+Bundle the compiler/archive/rule-view/native/principal transition so fresh regeneration is done
+once for a coherent capability. Required old query/explanation/export must still work with their
+original IDs/dependencies and native read behavior before and after new activation. Selection
+occurs only after complete output; failure preserves the existing answer. Original run 3 continuation
+keeps task/packet/cut identity; completed results and reference grades are not reinterpreted.
+
+Acceptance examples in the new packages extend the original required union: public malformed/
+narrowed binding admission, submitted/unselected/selected constraint placement, every real result
+alternative/enforcer, global versus missing-member coverage, graph-contract/closure attribution,
+finalized-release and value-child insertion, prior/fresh physical migration, actual restricted
+principals/workspaces, codec vectors, scientific policy tiers, used-input evidence, lifetime/
+cancellation, clone ACLs and interrupted qualification. Independent expected cases remain alongside
+model-derived parity checks. No proof ledger, generic rule engine or mandatory benchmark is added.
+
+SP-09 still owns actual final source/provider regeneration/current entrypoints/retirement;
+SP-10 still owns complete functional/native/provider/nonfunctional qualification. New support or
+publication checks do not replace either. Preserve dated passing type/test evidence and failed/
+interrupted records. Lint/format-only work does not trigger or invalidate functional/type checks.
+Quantitative performance/quality benefits are unmeasured unless existing scoped receipts say
+otherwise. Optional optimization, new providers, general historical migration/upcasters and
+unrelated phase-0 features are not silently selected.
+
+Document authoring uses the review's API/pin research and focused foundation advice against actual
+archive/admission/inference code. No product/native/provider tests, dependency moves, migrations
+or runtime cutover are performed by this revision. Publication/maintenance results are recorded
+in STATUS. Plan selection is not implementation evidence; all added packages remain planned.

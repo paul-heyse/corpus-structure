@@ -537,3 +537,10 @@ Documentation maintenance/publication is reported in STATUS, not as product qual
 This review gives a coherent candidate amendment set and closure cases. It does not complete
 CA obligations, change scheduled scope/progress or adopt earlier library recommendations. Plan
 revision is separately instructed; current finding disposition remains with the coordinator.
+
+## Planning consumer
+
+The operator selected the recommendations for integration through
+[coordinator §14](../plans/semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+on 2026-10-29. That plan owns current scheduling/disposition, including conditional and retained
+choices. This review remains source evidence and does not claim implementation or qualification.

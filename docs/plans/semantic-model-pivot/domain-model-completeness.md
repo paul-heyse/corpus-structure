@@ -300,3 +300,17 @@ are implemented for exact preservation/reconstruction. Other operation accounts 
 realization and consumer sections. cattrs is a strict frozen-product adapter; LinkML/Pydantic
 remain semantic/ingress owners. attrs/msgspec, linkml-map, alternate graph stores and
 LinkML-Datalog remain reasoned candidate/deferred choices, not missing dependencies.
+
+## Improvement integration (2026-10-29)
+
+**Planned amendment; no new implementation or qualification claim.** Contract products must govern actual result constructors, validation placement, enforcing composition and projection attribution. Name/hash correspondence alone does not close admission. Normalize once, archive effective products and derive finite native consumers. New product compatibility and compiler-10 preservation are explicit transition prerequisites.
+
+Additional packages SP-I01/SP-I02/SP-I04 are defined in
+[model-execution closure](model-execution-closure.md),
+[release/consumer consolidation](release-and-consumer-consolidation.md) and
+[qualification infrastructure](qualification-infrastructure.md). The
+[coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+owns their queue, selection and dependencies. Earlier target/checkpoint prose retains its
+historical binding until the scheduled successor decisions and implementation establish the
+amendment. CA IDs and scoped passing receipts remain unchanged; the new package definitions
+supply corrective work rather than another mutable findings ledger.

@@ -131,3 +131,17 @@ by an implementation name. Archive/reload/activation responsibilities are assess
 PostgreSQL owner. Candidate libraries are not installation obligations; the finite declared
 profile and its unsupported diagnostics remain explicit. No quality or whole-stack performance
 claim is established by this static audit.
+
+## Improvement integration (2026-10-29)
+
+**Planned amendment; no new implementation or qualification claim.** Resolved bindings, scoped validation and runtime boundary products now follow the added execution contracts. The accepted open/verify transition replaces full per-read recompilation only after successor decision work, complete recipe/runtime compatibility and required old-answer access. Ontology and identity guarantees remain; no source/accepted constraint scope is silently changed.
+
+Additional packages SP-I01/SP-I04 are defined in
+[model-execution closure](model-execution-closure.md),
+[release/consumer consolidation](release-and-consumer-consolidation.md) and
+[qualification infrastructure](qualification-infrastructure.md). The
+[coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+owns their queue, selection and dependencies. Earlier target/checkpoint prose retains its
+historical binding until the scheduled successor decisions and implementation establish the
+amendment. CA IDs and scoped passing receipts remain unchanged; the new package definitions
+supply corrective work rather than another mutable findings ledger.

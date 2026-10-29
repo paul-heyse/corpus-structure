@@ -330,3 +330,17 @@ interpreter. Their behavior was traced beyond `owner:symbol` declarations:
 No disconnected-behavior exception is accepted. Current safeguards and independent tests remain
 useful; CA-06 carries the model-centered detection/remediation work without prescribing the later
 CLI/code-generation mechanism or adding a universal behavior interpreter.
+
+## Improvement integration (2026-10-29)
+
+**Planned amendment; no new implementation or qualification claim.** Migrate actual source/session/native enforcing boundaries with the corrected contracts. Preserve readiness, protocol, hold, scientific and transaction dimensions. Resolve graph contracts before closure/SHACL. Keep qualified source/proof authorization, immutable replay and borrowed/detached lifetimes while consolidating surviving algorithms and native bindings.
+
+Additional packages SP-I01/SP-I02/SP-I03/SP-I06/SP-I07 are defined in
+[model-execution closure](model-execution-closure.md),
+[release/consumer consolidation](release-and-consumer-consolidation.md) and
+[qualification infrastructure](qualification-infrastructure.md). The
+[coordinator §14](../semantic-model-pivot_2026-10-29.md#14-improvement-integration-2026-10-29)
+owns their queue, selection and dependencies. Earlier target/checkpoint prose retains its
+historical binding until the scheduled successor decisions and implementation establish the
+amendment. CA IDs and scoped passing receipts remain unchanged; the new package definitions
+supply corrective work rather than another mutable findings ledger.
