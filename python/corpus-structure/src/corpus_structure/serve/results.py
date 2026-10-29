@@ -22,6 +22,7 @@ class EntityAnswer(Answer):
     label:str
     kind:str|None=None
     identity:dict[str,JsonValue]=Field(default_factory=dict)
+    statement_ordinal:int|None=None
     scope:EntityScope
     scope_locator:str|None=None
     locator:str|None=None
@@ -89,6 +90,7 @@ class FamilyAnswer(Answer):
 
 class StatementAnswer(Answer):
     key:str
+    ordinal:int|None=None
     statement:EntityAnswer
     claims:list[ClaimAnswer]
     proofs:list[ClaimAnswer]=Field(default_factory=list)

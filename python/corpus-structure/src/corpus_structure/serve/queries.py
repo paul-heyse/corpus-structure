@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 from pydantic import BaseModel, ConfigDict, JsonValue
-from sqlalchemy import select, or_, text, false, tuple_
+from sqlalchemy import select, or_, text, false, tuple_, func
 from corpus_structure.core.db import metadata
 from corpus_structure.core.vocab import SEARCH_BLOCK
 from corpus_structure.serve.protocol import Positioned, QueryContext, Scope
@@ -86,11 +86,14 @@ class Statement(Query):
         if not value: raise QueryRefused('statement needs key or locator')
         ids,_=ctx.reader.resolve_statement(value)
         e,s=T['kb.entity'],T['kb.segment']
-        stmt=select(e.c.id,e.c.key,s.c.start_offset).join(s,s.c.id==e.c.scope_segment_id).where(e.c.run_id==ctx.run_id,e.c.id.in_(ids))
+        missing=e.c.statement_ordinal.is_(None)
+        ordinal=func.coalesce(e.c.statement_ordinal,0)
+        order=(s.c.start_offset,missing,ordinal,e.c.key)
+        stmt=select(e.c.id,e.c.key,s.c.start_offset,e.c.statement_ordinal).join(s,s.c.id==e.c.scope_segment_id).where(e.c.run_id==ctx.run_id,e.c.id.in_(ids))
         if after is not None:
-            if not isinstance(after,list) or len(after)!=2: raise QueryRefused('invalid statement cursor')
-            stmt=stmt.where(tuple_(s.c.start_offset,e.c.key)>tuple_(*after))
-        with ctx.conn.execute(stmt.order_by(s.c.start_offset,e.c.key).execution_options(yield_per=32)) as result:
+            if not isinstance(after,list) or len(after)!=4: raise QueryRefused('invalid statement cursor')
+            stmt=stmt.where(tuple_(*order)>tuple_(*after))
+        with ctx.conn.execute(stmt.order_by(*order).execution_options(yield_per=32)) as result:
             for batch in result.mappings().partitions(32):
                 anchors=list(batch)
                 ctx.reader.prime_entities({r['id'] for r in anchors})
@@ -105,7 +108,7 @@ class Statement(Query):
                     ranks={'premise':0,'definiens':1,'restriction':2,'conclusion':3}
                     body.sort(key=lambda x:(ranks.get(x['role'],4),x['key']))
                     proof=[x for x in proofs if isinstance(x['object'],dict) and x['object'].get('key')==r['key']]
-                    yield Positioned(StatementAnswer(key=r['key'],statement=ctx.reader.entity(r['id']),claims=body,proofs=proof),[r['start_offset'],r['key']])
+                    yield Positioned(StatementAnswer(key=r['key'],ordinal=r['statement_ordinal'],statement=ctx.reader.entity(r['id']),claims=body,proofs=proof),[r['start_offset'],r['statement_ordinal'] is None,r['statement_ordinal'] or 0,r['key']])
     def scope(self,ctx:QueryContext,p:StatementParams)->Scope:
         return ctx.reader.statement_scope(p.key or p.locator or '')
 

@@ -426,3 +426,25 @@ def test_query_conditional_uses_typed_condition_leaves(db,t3,op):
     ctx.reader.__dict__['compiled']=compile_schema([load_pack(DOMAINS/'statistics')])
     row=next(ctx.reader.claims(key='clm:C3',include_candidates=True,include_suppositions=True,with_premises=False))
     assert row['conditional'] is True
+
+
+def test_statement_query_orders_same_anchor_by_recorded_ordinal(db,t3,world):
+    from sqlalchemy import insert,select
+    from corpus_structure.core.db import metadata
+    from corpus_structure.serve.protocol import QueryContext
+    from corpus_structure.serve.queries import Statement,StatementParams
+    from corpus_structure.schema.compile import compile_schema
+    from corpus_structure.schema.pack import DOMAINS,load_pack
+    e=metadata.tables['kb.entity']
+    anchor=db.execute(select(e.c.scope_segment_id).where(e.c.id==t3.entities.rel1)).scalar_one()
+    db.execute(e.update().where(e.c.id==t3.entities.rel1).values(statement_ordinal=1))
+    db.execute(insert(e).values(run_id=t3_run(db),schema_version_id=world.schema_version,key='stm:zzz-first-ordinal',type='core:Statement',label='Independent earlier statement',scope='local',scope_segment_id=anchor,kind='theorem',statement_ordinal=0))
+    ctx=QueryContext(t3_run(db),db)
+    ctx.reader.__dict__['compiled']=compile_schema([load_pack(DOMAINS/'statistics')])
+    page=ctx.reader.index(t3.ren)[0].page
+    p=StatementParams(locator=page+'#rel1',include_suppositions=True,include_candidates=True)
+    rows=list(Statement().rows(ctx,p))
+    assert rows[0].row.key=='stm:zzz-first-ordinal' and rows[0].row.ordinal==0
+    continued=list(Statement().rows(ctx,p,after=rows[0].position))
+    assert continued[0].row.ordinal==1
+    assert all(r.row.key!='stm:zzz-first-ordinal' for r in continued)
