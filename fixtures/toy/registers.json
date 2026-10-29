@@ -1,0 +1,83 @@
+{
+  "unit_key": "registers.html#registers",
+  "batch": {
+    "unit_ref": "registers.html#registers",
+    "statements": [
+      {
+        "local_ref": "s",
+        "kind": "clause",
+        "anchor": [
+          "s1"
+        ]
+      }
+    ],
+    "entities": [
+      {
+        "local_ref": "asset",
+        "type": "Asset",
+        "label": "P-17",
+        "scope": "global"
+      },
+      {
+        "local_ref": "upper",
+        "type": "Organization",
+        "label": "Acme",
+        "scope": "global",
+        "identity": {
+          "registry_id": "ORG-202"
+        }
+      },
+      {
+        "local_ref": "lower",
+        "type": "Organization",
+        "label": "Acme",
+        "scope": "global",
+        "identity": {
+          "registry_id": "org-101"
+        }
+      }
+    ],
+    "claims": [
+      {
+        "local_ref": "upperowns",
+        "predicate": "owns",
+        "subject": "upper",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-202) and Acme (org-101) each own P-17.",
+            "role": "primary"
+          }
+        ]
+      },
+      {
+        "local_ref": "lowerowns",
+        "predicate": "owns",
+        "subject": "lower",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-202) and Acme (org-101) each own P-17.",
+            "role": "primary"
+          }
+        ]
+      }
+    ]
+  },
+  "frame": {
+    "s1": {
+      "locator": "registers.html@sentence:Acme",
+      "text": "Acme (ORG-202) and Acme (org-101) each own P-17."
+    }
+  }
+}

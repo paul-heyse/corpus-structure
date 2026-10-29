@@ -1,0 +1,21 @@
+views:
+  asset_owners:
+    description: Owners named by claims about the same asset, including this claim's owner.
+    applies_to: toy:owns
+    source: toy:owns
+    match: {source: object, claim: object}
+    project: subject.key
+rules:
+  - id: toy.other_owners
+    applies_to: toy:owns
+    severity: warning
+    at: [finalize]
+    description: Warn when the asset has another named owner; never reject ownership evidence.
+    check: "$all([owner == claim.subject.key for owner in claim.asset_owners])"
+guideline:
+  - id: toy.owner_present
+    applies_to: toy:owns
+    description: Ownership needs a named subject.
+    check: "claim.subject != null"
+tables: {}
+derive: []

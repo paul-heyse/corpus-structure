@@ -1,0 +1,10 @@
+version: 0.1.0
+root: toy
+index: {file: ../index.tsv, page: path, first_pass: first_pass}
+language: english
+applies_to: toy/*.html
+title: h1
+sections: [h1]
+block_hints:
+  p.clause: {statement_kind: 'toy:clause'}
+  p.notice: {statement_kind: 'toy:notice'}

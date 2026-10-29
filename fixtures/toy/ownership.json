@@ -1,0 +1,277 @@
+{
+  "unit_key": "ownership.html#ownership",
+  "batch": {
+    "unit_ref": "ownership.html#ownership",
+    "statements": [
+      {
+        "local_ref": "s",
+        "kind": "clause",
+        "anchor": [
+          "s1"
+        ]
+      }
+    ],
+    "entities": [
+      {
+        "local_ref": "asset",
+        "type": "Asset",
+        "label": "P-17",
+        "scope": "global",
+        "identity": {}
+      },
+      {
+        "local_ref": "org",
+        "type": "Organization",
+        "label": "Acme",
+        "scope": "global",
+        "identity": {
+          "registry_id": "ORG-101"
+        }
+      },
+      {
+        "local_ref": "alpha",
+        "type": "Source",
+        "label": "Alpha",
+        "scope": "global",
+        "identity": {}
+      },
+      {
+        "local_ref": "beta",
+        "type": "Source",
+        "label": "Beta",
+        "scope": "global",
+        "identity": {}
+      }
+    ],
+    "claims": [
+      {
+        "local_ref": "year2020",
+        "predicate": "owns",
+        "subject": "org",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "qualifiers": {
+          "valid_time": {
+            "t": "interval",
+            "start": {
+              "t": "date",
+              "v": "2020-01-01"
+            },
+            "end": {
+              "t": "date",
+              "v": "2020-12-31"
+            },
+            "start_incl": true,
+            "end_incl": true
+          }
+        },
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
+            "role": "primary"
+          }
+        ]
+      },
+      {
+        "local_ref": "year2022",
+        "predicate": "owns",
+        "subject": "org",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "qualifiers": {
+          "valid_time": {
+            "t": "interval",
+            "start": {
+              "t": "date",
+              "v": "2022-01-01"
+            },
+            "end": {
+              "t": "date",
+              "v": "2022-12-31"
+            },
+            "start_incl": true,
+            "end_incl": true
+          }
+        },
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
+            "role": "primary"
+          }
+        ]
+      },
+      {
+        "local_ref": "filingF1",
+        "predicate": "owns",
+        "subject": "org",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "qualifiers": {
+          "filing_ref": "F1",
+          "valid_time": {
+            "t": "interval",
+            "start": {
+              "t": "date",
+              "v": "2021-01-01"
+            },
+            "end": {
+              "t": "date",
+              "v": "2021-12-31"
+            },
+            "start_incl": true,
+            "end_incl": true
+          }
+        },
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
+            "role": "primary"
+          }
+        ]
+      },
+      {
+        "local_ref": "filingF2",
+        "predicate": "owns",
+        "subject": "org",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "qualifiers": {
+          "filing_ref": "F2",
+          "valid_time": {
+            "t": "interval",
+            "start": {
+              "t": "date",
+              "v": "2021-01-01"
+            },
+            "end": {
+              "t": "date",
+              "v": "2021-12-31"
+            },
+            "start_incl": true,
+            "end_incl": true
+          }
+        },
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
+            "role": "primary"
+          }
+        ]
+      },
+      {
+        "local_ref": "share0.5",
+        "predicate": "owns",
+        "subject": "org",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "qualifiers": {
+          "share": {
+            "t": "number",
+            "v": "0.5"
+          }
+        },
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
+            "role": "primary"
+          }
+        ]
+      },
+      {
+        "local_ref": "share0.8",
+        "predicate": "owns",
+        "subject": "org",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "qualifiers": {
+          "share": {
+            "t": "number",
+            "v": "0.8"
+          }
+        },
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
+            "role": "primary"
+          }
+        ]
+      },
+      {
+        "local_ref": "reportalpha",
+        "predicate": "owns",
+        "subject": "org",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "qualifiers": {
+          "modality": "reported",
+          "attribution": {
+            "ref": "alpha"
+          }
+        },
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
+            "role": "primary"
+          }
+        ]
+      },
+      {
+        "local_ref": "reportbeta",
+        "predicate": "owns",
+        "subject": "org",
+        "object": {
+          "ref": "asset"
+        },
+        "statement": "s",
+        "statement_role": "conclusion",
+        "qualifiers": {
+          "modality": "reported",
+          "attribution": {
+            "ref": "beta"
+          }
+        },
+        "evidence": [
+          {
+            "sentence": "s1",
+            "quote": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta.",
+            "role": "primary"
+          }
+        ]
+      }
+    ]
+  },
+  "frame": {
+    "s1": {
+      "locator": "ownership.html@sentence:Acme",
+      "text": "Acme (ORG-101) owns P-17 in 2020 and 2022, files F1 and F2 for 2021, records shares 0.5 and 0.8, and is reported by Alpha and Beta."
+    }
+  }
+}

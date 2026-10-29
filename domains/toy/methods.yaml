@@ -1,0 +1,19 @@
+version: 0.1.0
+math: {macros: {}, constants: []}
+binders: {sentence_initial: [let], clause: [], reopen: [], section_wide: []}
+aliases: {articles: [], head_words: {}, rewrites: []}
+configs:
+  consolidate.claims:
+    default: {engine: duckdb, use_markup_hints: true}
+  validate.rules:
+    default: {}
+  evaluate.score:
+    default: {}
+  ingest.html:
+    default: {source_profile: toy, sentences: segment.sentences/default}
+  segment.sentences:
+    default: {model: en_core_web_sm, variant: math_as_word, exclude: [ner, lemmatizer]}
+  agent.opus:
+    extract: {mode: extract, hints: none, packet_cap_chars: 18000}
+  normalize.formula:
+    default: {backend: lark}

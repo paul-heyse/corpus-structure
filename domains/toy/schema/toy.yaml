@@ -1,0 +1,60 @@
+id: https://corpus-structure.dev/domains/toy
+name: toy
+title: Ownership demonstration
+description: A second domain with declared organization identity and temporal ownership.
+version: 0.1.0
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ci: https://corpus-structure.dev/ci/
+  toy: https://corpus-structure.dev/domains/toy/
+  core: https://corpus-structure.dev/core/
+default_prefix: toy
+default_range: string
+imports: [linkml:types, core]
+classes:
+  Organization:
+    is_a: Entity
+    description: An organization identified by its case-sensitive registry ID, not its trading name.
+    slots: [registry_id]
+    slot_usage:
+      registry_id: {required: true}
+    unique_keys:
+      identity: {unique_key_slots: [registry_id]}
+    annotations: {ci:scope: global, ci:extract: mention}
+  Asset:
+    is_a: Entity
+    description: A named asset.
+    annotations: {ci:scope: global, ci:extract: mention}
+  Source:
+    is_a: Entity
+    description: A cited reporting source.
+    annotations: {ci:scope: global, ci:extract: mention}
+slots:
+  registry_id:
+    description: The registry identifier exactly as written.
+    annotations: {ci:case: preserve}
+  owns:
+    domain: Organization
+    range: Asset
+    description: The organization owns the asset during any stated validity interval.
+    annotations: {ci:role: predicate, ci:extract: llm, ci:qualifiers: share filing_ref}
+  share:
+    range: NumberValue
+    inlined: true
+    description: The stated ownership fraction; disagreement retains alternatives.
+    annotations: {ci:role: qualifier, ci:key_role: meaning}
+  filing_ref:
+    description: A filing reference that does not change the ownership fact.
+    annotations: {ci:role: qualifier, ci:key_role: inert}
+enums:
+  ToyStatementKind:
+    description: Ownership clauses and informational notices.
+    inherits: [StatementKind]
+    permissible_values:
+      clause: {description: A claim-bearing ownership clause., in_subset: [claim_bearing]}
+      notice: {description: An informational notice.}
+  ToyModality:
+    description: Reports that identify their cited attribution.
+    inherits: [ClaimModality]
+    permissible_values:
+      reported: {description: Reported by an identified source., in_subset: [attribution_identifying]}

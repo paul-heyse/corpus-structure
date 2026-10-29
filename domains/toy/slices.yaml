@@ -1,0 +1,4 @@
+version: 0.1.0
+slices:
+  toy: [ownership.html, registers.html]
+  one_owner: [ownership.html]
