@@ -2,7 +2,35 @@
 version: execution-1
 required_capabilities:
 - execution.lifecycle.v1
+- execution.identity_exclusions.v1
 concepts:
+- id: IdentityExclusion
+  family: knowledge
+  scope: realization
+  meaning: Evidence-backed operational exclusion between scoped identity endpoints;
+    not an ordinary negative fact
+  identity: release/realization + source observation key + source exclusion id; reasons
+    and evidence remain provenance
+  attributes:
+  - name: reason
+    range: text
+    required: true
+    multivalued: false
+  relationships:
+  - identity_exclusion_endpoints
+  - identity_exclusion_evidence
+- id: IdentityResolutionConflict
+  family: execution
+  scope: run
+  meaning: Structured atomic refusal when mandatory identity equivalence contradicts
+    an eligible exclusion
+  identity: bound cut and conflicting source exclusions
+  attributes:
+  - name: code
+    range: text
+    required: true
+    multivalued: false
+  relationships: []
 - id: SourceArtifact
   family: interpretation
   scope: global
@@ -2036,6 +2064,62 @@ concepts:
     multivalued: false
   relationships: []
 relationships:
+- id: identity_exclusion_endpoints
+  kind: association
+  direction: directed
+  endpoints:
+  - role: exclusion
+    concept: IdentityExclusion
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: endpoint
+    concept: Entity
+    minimum: 2
+    ordered: false
+    unresolved: false
+  cardinality_scope: per source exclusion within the bound release/realization
+  identity_kind: ordered_roles
+  identity_roles:
+  - exclusion
+  - endpoint
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - identity_exclusions
+- id: identity_exclusion_evidence
+  kind: association
+  direction: directed
+  endpoints:
+  - role: exclusion
+    concept: IdentityExclusion
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: citation
+    concept: Evidence
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per source exclusion within the bound release/realization
+  identity_kind: ordered_roles
+  identity_roles:
+  - exclusion
+  - citation
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - identity_exclusions
 - id: bundle_contains
   kind: ownership
   direction: directed
@@ -3701,6 +3785,19 @@ relationships:
   invariants:
   - projection_fidelity
 invariants:
+- id: identity_exclusions
+  meaning: Eligible source exclusions retain exact evidence and endpoints; no admitted
+    mapping collapses excluded endpoints or omits a required exclusion
+  subjects:
+  - IdentityExclusion
+  - Entity
+  relationships:
+  - identity_exclusion_endpoints
+  - identity_exclusion_evidence
+  scope: relational
+  failure_code: identity.exclusion_conflict
+  implementation: publish
+  required_capability: execution.identity_exclusions.v1
 - id: qualified_reference
   meaning: Persisted scoped references retain release and realization; no global local-key joins
   subjects:
@@ -4011,6 +4108,32 @@ invariants:
   implementation: publish
   required_capability: execution.lifecycle.v1
 operations:
+- id: resolve_identity
+  inputs:
+  - SourceObservation
+  - IdentityExclusion
+  - Entity
+  results:
+  - Entity
+  - IdentityResolutionConflict
+  applicability:
+  - identity_exclusions
+  universe: Effective cut declarations and participating bound input entities
+  effects:
+  - preserve_identity_exclusions
+  outcomes:
+  - applied
+  - conflict
+  outcome_domain: transaction
+  dependencies:
+  - semantic_release
+  - execution_model
+  - input_binding
+  - implementation_version
+  precision: Exact declared identity keys; no fuzzy equivalence
+  implementation: resolve_identity
+  transitions: []
+  projections: []
 - id: prepare
   inputs: &id001
   - SourceBundle
@@ -5160,6 +5283,25 @@ operations:
   projections:
   - graph_validation
 implementations:
+- id: resolve_identity
+  owner: semantic.domain_operations
+  symbol: _entity_mappings
+  version: '2'
+  placement: python
+  input_concepts:
+  - SourceObservation
+  - IdentityExclusion
+  - Entity
+  result_concepts:
+  - Entity
+  - IdentityResolutionConflict
+  features:
+  - typed_bound_inputs
+  - explicit_outcomes
+  effects:
+  - preserve_identity_exclusions
+  required_capabilities:
+  - execution.identity_exclusions.v1
 - id: prepare
   owner: semantic.prepare
   symbol: prepare_release
@@ -5756,12 +5898,15 @@ projections:
   implementation: query
 - id: explanation
   sources:
+  - IdentityExclusion
   - Explanation
   - SemanticFact
   - AssertionOccurrence
   - Assessment
   - Derivation
   relationships:
+  - identity_exclusion_endpoints
+  - identity_exclusion_evidence
   - query_explanation
   - fact_support
   - occurrence_evidence
@@ -5782,11 +5927,14 @@ projections:
   implementation: explain
 - id: captured
   sources:
+  - IdentityExclusion
   - CapturedPacket
   - SnapshotBinding
   - ProjectionProfile
   - ArithmeticProfile
   relationships:
+  - identity_exclusion_endpoints
+  - identity_exclusion_evidence
   - captured_projection
   universe: One repeatable PostgreSQL snapshot and full declared computation universe
   preserves:
@@ -5804,10 +5952,13 @@ projections:
   implementation: capture
 - id: candidate
   sources:
+  - IdentityExclusion
   - CandidateInput
   - InputCut
   - Assessment
   relationships:
+  - identity_exclusion_endpoints
+  - identity_exclusion_evidence
   - candidate_projection
   universe: Cut-bound private source/decision candidates; no database snapshot claim
   preserves:
