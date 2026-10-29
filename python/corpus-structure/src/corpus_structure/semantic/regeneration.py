@@ -22,7 +22,53 @@ from .types import (
 
 def prepare_pack(pack: Path) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
     """Acquire one explicit semantic pack without legacy compilation or reference discovery."""
-    pack = pack.resolve()
+    return prepare_packs((pack,))
+
+
+def prepare_packs(packs: tuple[Path, ...]) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
+    """Compose explicitly selected packs; reference files never enter acquired dependencies."""
+    if not packs:
+        raise ValueError("at least one semantic pack is required")
+    packs = tuple(sorted({pack.resolve() for pack in packs}))
+    if len(packs) > 1:
+        acquired = [prepare_pack(pack) for pack in packs]
+        sources: dict[str, SourceArtifact] = {}
+        artifacts: dict[str, SourceArtifact] = {}
+        qualifiers = []
+        for pack, (bundle, deps, _, _) in zip(packs, acquired, strict=True):
+            for source in bundle.sources:
+                if source.name in {"agent", "agent-root", "observations", "observation-root", "analytics", "analytical-root"}:
+                    continue
+                previous = sources.setdefault(source.name, source)
+                if previous != source:
+                    raise ValueError(f"packs disagree on semantic module {source.name}")
+            declaration = yaml.safe_load((pack / "semantic.yaml").read_bytes())
+            qualifiers.extend(name for name, definition in declaration.get("classes", {}).items()
+                              if definition.get("is_a") == "Qualification")
+            # Operation configuration is pack-scoped in a composed schema, not a merged executable graph.
+            for artifact in deps.artifacts:
+                if artifact.name.startswith(("execution/", "operation/analytical")):
+                    continue
+                artifact = SourceArtifact(f"pack/{pack.name}/{artifact.name}", artifact.content)
+                artifacts[artifact.name] = artifact
+        root = {
+            "id": "https://corpus-structure.dev/semantic/composed-pack", "name": "composed_pack",
+            "prefixes": {"cs": "https://corpus-structure.dev/semantic/"}, "default_prefix": "cs",
+            "imports": list(sources),
+        }
+        qualification = "Qualification"
+        if qualifiers:
+            qualification = "ComposedQualification"
+            root["classes"] = {qualification: {"is_a": "Qualification", "mixins": qualifiers}}
+        bundle = SourceBundle("composed_pack", (*sources.values(), SourceArtifact("composed_pack", yaml.safe_dump(root).encode())))
+        deps = ResolvedDependencies(tuple(artifacts.values()))
+        bundle = proposal_inputs(bundle, deps, qualification_class=qualification)
+        bundle, deps = prepare_source_inputs(bundle, deps)
+        bundle, deps = analytical_inputs(bundle, deps)
+        deps = composed_dependencies(deps)
+        profile = PreparationProfile(version="semantic-2")
+        return bundle, deps, profile, prepare_release(bundle, deps, profile)
+    pack = packs[0]
     source = pack / "semantic.yaml"
     if not source.is_file():
         raise ValueError(f"semantic declaration missing: {source}")
@@ -44,6 +90,14 @@ def prepare_pack(pack: Path) -> tuple[SourceBundle, ResolvedDependencies, Prepar
     artifacts = tuple(SourceArtifact("operation/" + filename, (pack / filename).read_bytes())
                       for filename in ("methods.yaml", "guideline.md", "queries.py", "policies.yaml", "slices.yaml")
                       if (pack / filename).is_file())
+    from corpus_structure.ingest.profile import SOURCES_DIR
+    from corpus_structure.orchestrate.phase0 import registry as method_registry
+
+    registry = method_registry(pack)
+    profiles = {profile for method, config in registry.named()
+                for _, profile in registry.profiles(method, config)}
+    artifacts += tuple(SourceArtifact(f"source-profile/{name}.yaml", (SOURCES_DIR / f"{name}.yaml").read_bytes())
+                       for name in sorted(profiles))
     deps = ResolvedDependencies((*deps.artifacts, *artifacts), deps.vocabularies, deps.ontology_sources)
     qualifiers = [key for key, definition in document.get("classes", {}).items()
                   if definition.get("is_a") == "Qualification"]
