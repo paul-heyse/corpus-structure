@@ -49,9 +49,9 @@ chains:
    do: {method: agent.opus/extract, limit: 1, then: continue}
  - key: duplicate
    when: "true"
-   do: {method: agent.opus/extract, then: stop}
+   do: {method: agent.opus/extract_alias, then: stop}
 ''')
-    registry=MethodRegistry((*METHODS,*MATH,AgentOpus()),MethodsFile(sections={'math':{'macros':{},'constants':[]},'binders':{'sentence_initial':['let'],'clause':[],'reopen':[],'section_wide':[]}},configs={'ingest.html':{'default':{'source_profile':'test'}},'segment.sentences':{'default':{}},'profile.segments':{'default':{}},'agent.opus':{'extract':{}}}),sources=sources)
+    registry=MethodRegistry((*METHODS,*MATH,AgentOpus()),MethodsFile(sections={'math':{'macros':{},'constants':[]},'binders':{'sentence_initial':['let'],'clause':[],'reopen':[],'section_wide':[]}},configs={'ingest.html':{'default':{'source_profile':'test'}},'segment.sentences':{'default':{}},'profile.segments':{'default':{}},'agent.opus':{'extract':{},'extract_alias':{}}}),sources=sources)
     e=semantic_writer_engine
     @contextmanager
     def engine(_,**kwargs):yield e
