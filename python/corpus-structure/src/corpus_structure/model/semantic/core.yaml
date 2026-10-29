@@ -4,169 +4,428 @@ prefixes:
   cs: https://corpus-structure.dev/semantic/
   xsd: http://www.w3.org/2001/XMLSchema#
   prov: http://www.w3.org/ns/prov#
+  core: https://corpus-structure.dev/core/
 default_prefix: cs
 default_range: string
 types:
-  string: {base: str, uri: xsd:string}
-  decimal: {base: Decimal, uri: xsd:decimal}
-  boolean: {base: bool, uri: xsd:boolean}
-  integer: {base: int, uri: xsd:integer}
-  datetime: {base: datetime, uri: xsd:dateTime}
+  string:
+    base: str
+    uri: xsd:string
+  decimal:
+    base: Decimal
+    uri: xsd:decimal
+  boolean:
+    base: bool
+    uri: xsd:boolean
+  integer:
+    base: int
+    uri: xsd:integer
+  datetime:
+    base: datetime
+    uri: xsd:dateTime
+  date:
+    base: date
+    uri: xsd:date
 classes:
   Value:
     abstract: true
     attributes:
-      kind: {required: true}
+      kind:
+        required: true
   TextValue:
     is_a: Value
     attributes:
-      kind: {equals_string: text}
-      text: {required: true}
+      kind:
+        equals_string: text
+      text:
+        required: true
   NumberValue:
     is_a: Value
     attributes:
-      kind: {equals_string: number}
-      number: {range: decimal, required: true}
+      kind:
+        equals_string: number
+      number:
+        range: decimal
+        required: true
   QuantityValue:
     is_a: Value
     attributes:
-      kind: {equals_string: quantity}
-      number: {range: decimal, required: true}
-      unit: {required: true}
+      kind:
+        equals_string: quantity
+      number:
+        range: decimal
+        required: true
+      unit:
+        required: true
   EntityValue:
     is_a: Value
     attributes:
-      kind: {equals_string: entity}
-      target: {range: Entity, required: true}
+      kind:
+        equals_string: entity
+      target:
+        range: Entity
+        required: true
   CollectionValue:
     is_a: Value
     attributes:
-      kind: {equals_string: collection}
-      members: {range: Value, multivalued: true, inlined: true, required: true}
+      kind:
+        equals_string: collection
+      members:
+        range: Value
+        multivalued: true
+        inlined: true
+        required: true
   RoleBinding:
     attributes:
-      role: {required: true}
-      ordinal: {range: integer, minimum_value: 0, required: true}
-      value: {range: Value, inlined: true, required: true}
+      role:
+        required: true
+      ordinal:
+        range: integer
+        minimum_value: 0
+        required: true
+      value:
+        range: Value
+        inlined: true
+        required: true
   RecordValue:
     is_a: Value
     attributes:
-      kind: {equals_string: record}
-      roles: {range: RoleBinding, multivalued: true, inlined: true, required: true}
+      kind:
+        equals_string: record
+      roles:
+        range: RoleBinding
+        multivalued: true
+        inlined: true
+        required: true
   Entity:
     attributes:
-      id: {identifier: true}
+      id:
+        identifier: true
   SemanticScope:
     attributes:
-      extent: {range: ScopeExtent, required: true}
-      locator: {required: true}
+      extent:
+        range: ScopeExtent
+        required: true
+      locator:
+        required: true
   Qualification:
     attributes:
-      modality: {required: true}
-      polarity: {range: boolean, required: true}
+      modality:
+        required: true
+      polarity:
+        range: boolean
+        required: true
       attribution: {}
-      scope: {range: SemanticScope, inlined: true}
-      condition: {range: Condition, inlined: true}
-      valid_from: {range: datetime}
-      valid_until: {range: datetime}
+      scope:
+        range: SemanticScope
+        inlined: true
+      condition:
+        range: Condition
+        inlined: true
+      valid_from:
+        range: datetime
+      valid_until:
+        range: datetime
   AssertionOccurrence:
     attributes:
-      id: {identifier: true}
-      subject: {range: Entity, required: true}
-      predicate: {required: true}
-      object: {range: Value, inlined: true, required: true}
-      qualification: {range: Qualification, inlined: true, required: true}
-      source: {required: true}
-      item: {required: true}
-      establishment: {range: Establishment, required: true}
+      id:
+        identifier: true
+      subject:
+        range: Entity
+        required: true
+      predicate:
+        required: true
+      object:
+        range: Value
+        inlined: true
+        required: true
+      qualification:
+        range: Qualification
+        inlined: true
+        required: true
+      source:
+        required: true
+      item:
+        required: true
+      establishment:
+        range: Establishment
+        required: true
   SemanticFact:
     attributes:
-      id: {identifier: true}
-      subject: {range: Entity, required: true}
-      predicate: {required: true}
-      object: {range: Value, inlined: true, required: true}
-      qualification: {range: Qualification, inlined: true, required: true}
+      id:
+        identifier: true
+      subject:
+        range: Entity
+        required: true
+      predicate:
+        required: true
+      object:
+        range: Value
+        inlined: true
+        required: true
+      qualification:
+        range: Qualification
+        inlined: true
+        required: true
   IntervalValue:
     is_a: Value
     attributes:
-      kind: {equals_string: interval}
-      lower: {range: NumberValue, inlined: true}
-      upper: {range: NumberValue, inlined: true}
-      lower_closed: {range: boolean, required: true}
-      upper_closed: {range: boolean, required: true}
+      kind:
+        equals_string: interval
+      lower:
+        range: NumberValue
+        inlined: true
+      upper:
+        range: NumberValue
+        inlined: true
+      lower_closed:
+        range: boolean
+        required: true
+      upper_closed:
+        range: boolean
+        required: true
+  BooleanValue:
+    is_a: Value
+    attributes:
+      kind:
+        equals_string: boolean
+      boolean:
+        range: boolean
+        required: true
+  DateValue:
+    is_a: Value
+    attributes:
+      kind:
+        equals_string: date
+      date:
+        range: date
+        required: true
+  InstantValue:
+    is_a: Value
+    attributes:
+      kind:
+        equals_string: instant
+      instant:
+        range: datetime
+        required: true
+  ExpressionBinding:
+    abstract: true
+    attributes:
+      kind:
+        required: true
+      symbol:
+        required: true
+  VariableBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind:
+        equals_string: variable
+      entity:
+        range: Entity
+        required: true
+  FamilyParameterBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind:
+        equals_string: family_param
+      entity:
+        range: Entity
+        required: true
+  ParameterOfBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind:
+        equals_string: param_of
+      claim:
+        required: true
+      parameter:
+        required: true
+  ParameterExpressionOfBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind:
+        equals_string: param_expr_of
+      claim:
+        required: true
+      parameter:
+        required: true
+  FreeBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind:
+        equals_string: free
+  ConstantBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind:
+        equals_string: constant
+  UnresolvedBinding:
+    is_a: ExpressionBinding
+    attributes:
+      kind:
+        equals_string: unresolved
   ExpressionValue:
     is_a: Value
     attributes:
-      kind: {equals_string: expression}
-      language: {required: true}
-      expression: {required: true}
+      kind:
+        equals_string: expression
+      language:
+        required: true
+      expression:
+        required: true
+      form:
+        range: ExpressionForm
+      bindings:
+        range: ExpressionBinding
+        multivalued: true
+        inlined: true
+      normal_form: {}
+      parse_outcome: {}
   MissingValue:
     is_a: Value
     attributes:
-      kind: {equals_string: missing}
-      reason: {range: MissingReason, required: true}
+      kind:
+        equals_string: missing
+      reason:
+        range: MissingReason
+        required: true
   ClassMembership:
     attributes:
-      entity: {range: Entity, required: true}
-      class_iri: {required: true}
-      establishment: {required: true}
-      supports: {multivalued: true, required: true}
+      entity:
+        range: Entity
+        required: true
+      class_iri:
+        required: true
+      establishment:
+        required: true
+      supports:
+        multivalued: true
+        required: true
   Evidence:
     class_uri: prov:Entity
     attributes:
-      id: {identifier: true}
-      source_uri: {required: true}
-      locator: {required: true}
-      provider: {required: true}
-      operation_version: {required: true}
+      id:
+        identifier: true
+      source_uri:
+        required: true
+      locator:
+        required: true
+      provider:
+        required: true
+      operation_version:
+        required: true
   Coverage:
     attributes:
-      family: {required: true}
-      scope: {required: true}
-      outcome: {range: CoverageOutcome, required: true}
+      family:
+        required: true
+      scope:
+        required: true
+      outcome:
+        range: CoverageOutcome
+        required: true
       reason: {}
   Condition:
     abstract: true
     attributes:
-      kind: {required: true}
+      kind:
+        required: true
   AtomicCondition:
     is_a: Condition
     attributes:
-      kind: {equals_string: atomic}
-      predicate: {required: true}
-      arguments: {range: Value, inlined: true, multivalued: true, required: true}
+      kind:
+        equals_string: atomic
+      predicate:
+        required: true
+      arguments:
+        range: Value
+        inlined: true
+        multivalued: true
+        required: true
   AllCondition:
     is_a: Condition
     attributes:
-      kind: {equals_string: all}
-      terms: {range: Condition, inlined: true, multivalued: true, required: true}
+      kind:
+        equals_string: all
+      terms:
+        range: Condition
+        inlined: true
+        multivalued: true
+        required: true
   AnyCondition:
     is_a: Condition
     attributes:
-      kind: {equals_string: any}
-      terms: {range: Condition, inlined: true, multivalued: true, required: true}
+      kind:
+        equals_string: any
+      terms:
+        range: Condition
+        inlined: true
+        multivalued: true
+        required: true
   NotCondition:
     is_a: Condition
     attributes:
-      kind: {equals_string: not}
-      term: {range: Condition, inlined: true, required: true}
+      kind:
+        equals_string: not
+      term:
+        range: Condition
+        inlined: true
+        required: true
   EscapeCondition:
     is_a: Condition
     attributes:
-      kind: {equals_string: escape}
-      text: {required: true}
-      reason: {required: true}
+      kind:
+        equals_string: escape
+      text:
+        required: true
+      reason:
+        required: true
   Derivation:
     attributes:
-      conclusion: {range: SemanticFact, required: true}
-      rule: {required: true}
-      rule_version: {required: true}
-      premises: {range: SemanticFact, multivalued: true, required: true}
+      conclusion:
+        range: SemanticFact
+        required: true
+      rule:
+        required: true
+      rule_version:
+        required: true
+      premises:
+        range: SemanticFact
+        multivalued: true
+        required: true
+  SourceStatement:
+    is_a: Entity
+    description: A source statement anchored in the rendition; relations are independent
+      source occurrences.
+    attributes:
+      statement_kind:
+        range: StatementKind
+        required: true
+      locator:
+        required: true
+      proves:
+        range: SourceStatement
+        multivalued: true
+        slot_uri: core:proves
+        annotations:
+          cs:constraint_scope: accepted_value
 enums:
+  ExpressionForm:
+    permissible_values:
+      formula: {}
+      set: {}
+      relation: {}
+      membership: {}
+      list: {}
   ScopeExtent:
-    permissible_values: {statement: {}, section: {}, document: {}}
+    permissible_values:
+      statement: {}
+      section: {}
+      document: {}
   Establishment:
-    permissible_values: {stated: {}, derived: {}, agent_asserted: {}}
+    permissible_values:
+      stated: {}
+      derived: {}
+      agent_asserted: {}
   MissingReason:
     permissible_values:
       absent: {}
@@ -179,3 +438,58 @@ enums:
       partial: {}
       unanalysed: {}
       failed: {}
+  StatementKind:
+    description: What the source calls a statement (D1 §4.3).
+    permissible_values:
+      definition:
+        description: Stipulates what a term means.
+        in_subset:
+        - claim_bearing
+      theorem:
+        description: A stated result.
+        in_subset:
+        - claim_bearing
+      proposition:
+        description: A stated result.
+        in_subset:
+        - claim_bearing
+      lemma:
+        description: A stated auxiliary result.
+        in_subset:
+        - claim_bearing
+      corollary:
+        description: A result stated to follow from another.
+        in_subset:
+        - claim_bearing
+      proof:
+        description: A proof of another statement.
+      example:
+        description: A worked example with setup values.
+        in_subset:
+        - claim_bearing
+      exercise:
+        description: An exercise with setup values and an asked quantity.
+        in_subset:
+        - claim_bearing
+      solution:
+        description: A solution of an exercise.
+      remark:
+        description: A remark; explicit claims only.
+        in_subset:
+        - claim_bearing
+      convention:
+        description: A convention the source adopts.
+        in_subset:
+        - claim_bearing
+      notation:
+        description: A notation the source introduces.
+        in_subset:
+        - claim_bearing
+      assumption:
+        description: A statement whose only content is a supposition (a context premise).
+        in_subset:
+        - claim_bearing
+      narrative:
+        description: Narrative text between units that states claims.
+        in_subset:
+        - claim_bearing
