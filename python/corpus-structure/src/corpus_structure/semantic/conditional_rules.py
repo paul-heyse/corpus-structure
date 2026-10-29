@@ -16,6 +16,7 @@ from linkml_runtime.linkml_model import ClassDefinition, SlotDefinition
 from linkml_runtime.linkml_model.meta import AnonymousClassExpression, ClassRule
 from linkml_runtime.utils.schemaview import SchemaView
 from pydantic import model_validator
+from pydantic_core import PydanticCustomError
 
 from .types import Diagnostic, PreparationError
 
@@ -236,7 +237,12 @@ def conditional_model_namespace(fragment: dict[str, Any]) -> dict[str, Any]:
         }
         error = next(validator.iter_errors(values), None)
         if error is not None:
-            raise ValueError(f"conditional rule failed: {error.message}")
+            raise PydanticCustomError(
+                "conditional_rule", "conditional rule failed: {message}",
+                {"message": error.message, "keyword": error.validator,
+                 "instance_path": list(error.absolute_path),
+                 "schema_path": list(error.absolute_schema_path)},
+            )
         return model
 
     @classmethod
@@ -249,3 +255,74 @@ def conditional_model_namespace(fragment: dict[str, Any]) -> dict[str, Any]:
         "_validate_conditional_rules": model_validator(mode="after")(validate_rules),
         "__get_pydantic_json_schema__": json_schema,
     }
+
+
+def compile_native_conditionals(
+    view: SchemaView, fragments: dict[str, dict[str, Any]], scope: str
+) -> list[dict[str, Any]]:
+    """Lower only the admitted generator grammar to fixed native registry data."""
+    from hashlib import sha256
+
+    from .identity import canonical_bytes
+
+    result: list[dict[str, Any]] = []
+    for name, fragment in sorted(fragments.items()):
+        aliases = {
+            str(slot.alias or slot.name): str(slot.name)
+            for slot in view.class_induced_slots(name)
+        }
+
+        def atoms(expression: dict[str, Any]) -> list[dict[str, Any]]:
+            if not isinstance(expression, dict) or set(expression) - {
+                "required", "properties", "not", "allOf"
+            }:
+                _refuse(name, "unsupported generated conditional expression")
+            rows: list[dict[str, Any]] = []
+
+            def atom(alias: str, presence: str, choices=None):
+                if alias not in aliases:
+                    _refuse(name, f"unresolved conditional alias {alias}")
+                rows.append({"property": aliases[alias], "presence": presence, "choices": choices})
+
+            for alias in expression.get("required", []):
+                atom(alias, "present")
+            for alias, constraint in expression.get("properties", {}).items():
+                if constraint == {}:
+                    continue
+                if set(constraint) == {"const"} and isinstance(constraint["const"], str):
+                    choices = [constraint["const"]]
+                elif set(constraint) == {"enum"} and isinstance(constraint["enum"], list):
+                    choices = constraint["enum"]
+                    if not choices or any(not isinstance(v, str) for v in choices):
+                        _refuse(name, "native choices must be nonempty strings")
+                else:
+                    _refuse(name, "unsupported generated property condition")
+                atom(alias, "optional", choices)
+            if "not" in expression:
+                negated = expression["not"]
+                if not isinstance(negated, dict) or set(negated) != {"required"} or len(negated["required"]) != 1:
+                    _refuse(name, "unsupported generated negation")
+                atom(negated["required"][0], "absent")
+            for child in expression.get("allOf", []):
+                rows.extend(atoms(child))
+            return rows
+
+        def rules(node):
+            if set(node) == {"allOf"}:
+                for child in node["allOf"]:
+                    yield from rules(child)
+            elif set(node) <= {"if", "then", "else"} and "if" in node:
+                yield node
+            else:
+                _refuse(name, "unsupported generated rule composition")
+
+        cls = view.get_class(name)
+        assert cls is not None
+        for index, rule in enumerate(rules(fragment)):
+            result.append({
+                "class_id": str(view.get_uri(cls, expand=True)),
+                "rule_id": sha256(canonical_bytes([name, index, rule])).hexdigest(),
+                "scope": scope,
+                "branches": {branch: atoms(rule.get(branch, {})) for branch in ("if", "then", "else")},
+            })
+    return result

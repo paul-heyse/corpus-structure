@@ -32,6 +32,7 @@ from pydantic import (
 from .conditional_rules import (
     CONDITIONAL_RULE_OPTIONS,
     compile_conditional_rules,
+    compile_native_conditionals,
     conditional_model_namespace,
     inspect_rule_declarations,
 )
@@ -420,6 +421,7 @@ _LIBRARIES = (
     "valuesets",
     "pyoxigraph",
     "jsonschema",
+    "cattrs",
 )
 
 
@@ -838,6 +840,7 @@ def _prepare_release_uncached(
         artifacts.extend(
             (
                 PreparedArtifact("conditional_rules.json", canonical_bytes(rule_fragments)),
+                PreparedArtifact("conditional_rules_native.json", canonical_bytes(compile_native_conditionals(view, rule_fragments, profile.constraint_scope))),
                 PreparedArtifact(
                     "conditional_rule_options.json", canonical_bytes(CONDITIONAL_RULE_OPTIONS)
                 ),

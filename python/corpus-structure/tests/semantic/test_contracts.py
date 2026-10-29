@@ -324,3 +324,32 @@ def test_exact_explicit_bytes_identity_and_immutable_products(inputs, products, 
         catalog=replace(catalog_changed.catalog, content=catalog_changed.catalog.content + b"\n"),
     )
     assert compile_execution_model(explicit).model_id != products.model_id
+
+
+def test_product_conversion_preserves_declared_collections_and_optional_endpoints():
+    from corpus_structure.semantic.contracts import (
+        EndpointRole,
+        StateDimension,
+        _PRODUCT_CONVERTER,
+    )
+
+    dimension = _PRODUCT_CONVERTER.structure({"id": "owner", "values": ["absent", "current"]}, StateDimension)
+    assert dimension == StateDimension("owner", ("absent", "current"))
+    endpoint = _PRODUCT_CONVERTER.structure(
+        {"role": "subject", "concept": "Fact", "minimum": 1, "ordered": False, "unresolved": False},
+        EndpointRole,
+    )
+    assert endpoint.maximum is None
+    assert endpoint.unresolved_concept is None
+    assert _PRODUCT_CONVERTER.unstructure(dimension) == {"id": "owner", "values": ["absent", "current"]}
+
+
+@pytest.mark.parametrize("value", ["1", True, 1.0])
+def test_product_conversion_never_coerces_integer_fields(value):
+    from corpus_structure.semantic.contracts import EndpointRole, _PRODUCT_CONVERTER
+
+    with pytest.raises(ExceptionGroup):
+        _PRODUCT_CONVERTER.structure(
+            {"role": "subject", "concept": "Fact", "minimum": value, "ordered": False, "unresolved": False},
+            EndpointRole,
+        )
