@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, fields
 from decimal import Decimal, localcontext
 from pathlib import Path
 
@@ -54,8 +54,9 @@ def test_two_prepared_releases_remain_independent():
     with pytest.raises(ValidationError):
         second.validate_json("Thing", '{"id":"A"}')
     assert first.release_id == prepare_release(bundle()).release_id
-    with pytest.raises(FrozenInstanceError):
-        first.release_id = "bad"
+    for field in fields(first):
+        with pytest.raises(FrozenInstanceError):
+            setattr(first, field.name, getattr(first, field.name))
 
 
 def test_raw_bytes_and_ordered_manifest():
@@ -76,7 +77,7 @@ def test_strict_optional_is_absent_not_null_and_exact_decimal():
     row = release.validate_json(
         "Thing", '{"id":"A","amount":"123456789012345678901234567890.012345"}'
     )
-    assert row.amount == Decimal("123456789012345678901234567890.012345")
+    assert row.model_dump()["amount"] == Decimal("123456789012345678901234567890.012345")
 
 
 @pytest.mark.parametrize(
@@ -162,7 +163,7 @@ def test_target_values_recursive_roles_and_metadata():
             }
         ),
     )
-    assert value.value.roles[0].value.target == "entity:1"
+    assert value.model_dump()["value"]["roles"][0]["value"]["target"] == "entity:1"
     assert {a.kind for a in release.artifacts} >= {"owl", "shacl", "definitions.json"}
     assert {r.kind for r in release.registry_rows} >= {
         "class",
@@ -256,7 +257,7 @@ def test_typed_condition_and_qualified_fact_identity():
             }
         ),
     )
-    assert row.condition.term.arguments[0].target == "entity:1"
+    assert row.model_dump()["condition"]["term"]["arguments"][0]["target"] == "entity:1"
     positive = release.fact_identity("d", "s", "p", 1, {"polarity": True})
     assert positive != release.fact_identity("d", "s", "p", 1, {"polarity": False})
 
