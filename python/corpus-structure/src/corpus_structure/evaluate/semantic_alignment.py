@@ -16,6 +16,7 @@ import sympy
 from scipy.optimize import linear_sum_assignment
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import ClassDefinition,PreparedArtifact,RegistryRow
+from .semantic_values import record_definition,entity_reference,rewrite_references
 
 class AlignmentModel(Protocol):
     """The immutable release projections consumed by the pure alignment algorithm."""
@@ -107,7 +108,7 @@ def _math_read(value):
             except (ValueError,TypeError,NotImplementedError):pass
     return None,'expression grammar did not produce a mathematical value'
 
-def equivalent(a,b,entity_map,claim_map=None,*,conditions=None):
+def equivalent(a,b,entity_map,claim_map=None,*,conditions=None,model:AlignmentModel|None=None,range_name:str|None=None):
     """Canonical typed values, aligned references, commutative condition trees and math.
 
     Numeric probes only run after successful grammar interpretation; unequal probes disprove,
@@ -115,6 +116,8 @@ def equivalent(a,b,entity_map,claim_map=None,*,conditions=None):
     """
     claim_map={} if claim_map is None else claim_map
     if isinstance(a,Mapping) and isinstance(b,Mapping):
+        definition=record_definition(model.definitions,range_name,a) if model else None
+        props={p.name:p for p in definition.properties} if definition else {}
         ka,kb=a.get('kind'),b.get('kind')
         if ka!=kb:return ValueDecision(False,'canonical','different semantic value kinds')
         if ka=='entity':return ValueDecision(entity_map.get(a['target'])==b['target'],'reference')
@@ -130,8 +133,11 @@ def equivalent(a,b,entity_map,claim_map=None,*,conditions=None):
                 if isinstance(bindings,dict):bindings=bindings.values()
                 for item in bindings:
                     item=dict(item)
-                    if left and 'entity' in item:item['entity']=entity_map.get(item['entity'],'unresolved:'+item['entity'])
-                    if left and 'claim' in item:item['claim']=claim_map.get(item['claim'],'unresolved:'+item['claim'])
+                    if left and model:
+                        item=rewrite_references(model.definitions,'ExpressionBinding',item,entity_map,claim_map)
+                    elif left:
+                        if 'entity' in item:item['entity']=entity_map.get(item['entity'],'unresolved:'+item['entity'])
+                        if 'claim' in item:item['claim']=claim_map.get(item['claim'],'unresolved:'+item['claim'])
                     result.append(item)
                 return sorted(result,key=canonical_bytes)
             if binding_meaning(a,True)!=binding_meaning(b,False):return ValueDecision(False,'undecided','expression bindings differ or remain unresolved')
@@ -173,20 +179,30 @@ def equivalent(a,b,entity_map,claim_map=None,*,conditions=None):
         if ka in {'all','any'}:
             aa,bb=a.get('terms',()),b.get('terms',())
             if len(aa)!=len(bb):return ValueDecision(False,'canonical')
-            decisions=[[equivalent(x,y,entity_map,claim_map) for y in bb] for x in aa]
+            decisions=[[equivalent(x,y,entity_map,claim_map,model=model,range_name=props["terms"].range if "terms" in props else None) for y in bb] for x in aa]
             matched=_assignment(np.array([[float(v.equal) for v in row] for row in decisions]))
             if len(matched)==len(aa):return ValueDecision(True,'condition')
             return ValueDecision(False,'undecided' if any(v.outcome=='undecided' for row in decisions for v in row) else 'condition')
         if set(a)!=set(b):return ValueDecision(False,'canonical','different qualification/value fields')
         decisions=[]
         for key in a:
-            if key in {'attribution','entity'} and isinstance(a[key],str) and isinstance(b[key],str):
-                decisions.append(ValueDecision(entity_map.get(a[key])==b[key],'reference'))
-            else:decisions.append(equivalent(a[key],b[key],entity_map,claim_map))
+            prop=props.get(key)
+            def compare_member(left,right):
+                if prop and prop.reference_role=='fact':return ValueDecision(left in claim_map and claim_map[left]==right,'reference')
+                if prop and model and entity_reference(model.definitions,prop):return ValueDecision(left in entity_map and entity_map[left]==right,'reference')
+                if prop and prop.case_policy=='casefold' and isinstance(left,str) and isinstance(right,str):return ValueDecision(left.casefold()==right.casefold(),'canonical')
+                return equivalent(left,right,entity_map,claim_map,model=model,range_name=prop.range if prop and prop.inlined else None)
+            if prop and prop.collection_key:
+                if set(a[key])!=set(b[key]):decisions.append(ValueDecision(False,'canonical'))
+                else:decisions.extend(compare_member(a[key][k],b[key][k]) for k in a[key])
+            elif prop and prop.multivalued:
+                if len(a[key])!=len(b[key]):decisions.append(ValueDecision(False,'canonical'))
+                else:decisions.extend(compare_member(x,y) for x,y in zip(a[key],b[key],strict=True))
+            else:decisions.append(compare_member(a[key],b[key]))
         return ValueDecision(all(d.equal for d in decisions),'undecided' if any(d.outcome=='undecided' for d in decisions) else 'canonical')
     if isinstance(a,(list,tuple)) and isinstance(b,(list,tuple)):
         if len(a)!=len(b):return ValueDecision(False,'canonical')
-        ds=[equivalent(x,y,entity_map,claim_map) for x,y in zip(a,b,strict=True)]
+        ds=[equivalent(x,y,entity_map,claim_map,model=model,range_name=range_name) for x,y in zip(a,b,strict=True)]
         return ValueDecision(all(d.equal for d in ds),'undecided' if any(d.outcome=='undecided' for d in ds) else 'canonical')
     return ValueDecision(type(a)==type(b) and a==b,'canonical')
 
@@ -234,6 +250,15 @@ def _entity_pairs(ref,pred,prepared,out):
             if known_a and known_b:
                 if known_a==known_b:weights[i,j]=1;bases[i,j]='known_identity'
                 continue
+            declaration=definitions.get(a['class_iri'])
+            if declaration:
+                aa,bb=attributes(a),attributes(b)
+                props_by_name={p.name:p for p in declaration.properties}
+                incompatible=False
+                for group in declaration.identity_groups:
+                    if group==('id',) or not all(props_by_name[n].iri in aa and props_by_name[n].iri in bb for n in group):continue
+                    if all(not entity_reference(prepared.definitions,props_by_name[n]) for n in group) and not all(equivalent(aa[props_by_name[n].iri],bb[props_by_name[n].iri],{},model=prepared,range_name='Value').equal for n in group):incompatible=True
+                if incompatible:continue
             if a['class_iri']=='__statement__':
                 spans_a=ref.anchors.get(a['id'],());spans_b=pred.anchors.get(b['id'],())
                 ratio=max((_overlap(x,y)/max(1,max(x[1],y[1])-min(x[0],y[0])) for x in spans_a for y in spans_b),default=0)
@@ -327,10 +352,10 @@ def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:AlignmentModel)->
         for i,r in enumerate(rr):
             for j,p in enumerate(pp):
                 if emap.get(r['subject'])!=p['subject'] or r['predicate']!=p['predicate']:continue
-                value=equivalent(r['object'],p['object'],emap,claim_map,conditions=r.get('qualification',{}).get('condition'))
+                value=equivalent(r['object'],p['object'],emap,claim_map,conditions=r.get('qualification',{}).get('condition'),model=prepared,range_name='Value')
                 if value.outcome=='undecided':undecided.append({'reference':r['id'],'prediction':p['id'],'reason':value.reason or 'value comparison undecided'})
                 if not value.equal:continue
-                qual=equivalent(qualified_meaning(r.get('qualification',{})),qualified_meaning(p.get('qualification',{})),emap,claim_map)
+                qual=equivalent(qualified_meaning(r.get('qualification',{})),qualified_meaning(p.get('qualification',{})),emap,claim_map,model=prepared,range_name=qualification_name)
                 same_statement=(not r.get('statement') and not p.get('statement')) or bool(r.get('statement') and p.get('statement') and emap.get(r['statement'])==p['statement'])
                 full=qual.equal and same_statement and r.get('statement_role')==p.get('statement_role')
                 same_sentence=bool({e['locator'] for e in r.get('evidence',()) if e.get('outcome')=='located' and e.get('locator')} & {e['locator'] for e in p.get('evidence',()) if e.get('outcome')=='located' and e.get('locator')})

@@ -19,6 +19,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import load_release
 from corpus_structure.semantic.proposals import ProposalFrame,locate_proposal
 from .semantic_alignment import SemanticSide,TierCounts,align_semantic
+from .semantic_values import rewrite_references,entity_references
 
 class ReferenceError(ValueError):
     """A reference is incomplete, stale or belongs to another immutable binding."""
@@ -73,15 +74,62 @@ def _source_units(conn,run_id):
       WHERE c.run_id=:run AND o.payload_definition='AgentStoredBatch'
         AND o.payload->>'unit_ref' IS NOT NULL ORDER BY unit_key,o.rendition_id'''),{'run':run_id}).mappings().all()
 
-def create_reference_set(conn:Connection,*,project_id:str,source_run_id:int,label:str,split:str='dev',size:int|None=None,seed:int=0,guideline:str|None=None,forced:Sequence[str]=())->dict[str,Any]:
+def evaluation_config(conn:Connection,release_id:str):
+    """Only the exact archived policy is authoritative; installed pack files are never read."""
+    import yaml
+    from .split import EvalConfig
+    content=conn.scalar(select(table('sem.input').c.content).where(table('sem.input').c.release_id==release_id,table('sem.input').c.input_kind=='dependency',table('sem.input').c.input_name=='operation/evaluation-split.yaml'))
+    return EvalConfig() if content is None else EvalConfig.model_validate(yaml.safe_load(bytes(content)) or {})
+
+def _forced_slice_units(conn,release_id,pool,names):
+    import yaml
+    from corpus_structure.core.evidence import RenditionContent
+    from corpus_structure.core.locators import LocatorIndex
+    from corpus_structure.core.locators import parse as parse_locator
+    if not names:return ()
+    content=conn.scalar(select(table('sem.input').c.content).where(table('sem.input').c.release_id==release_id,table('sem.input').c.input_kind=='dependency',table('sem.input').c.input_name=='operation/slices.yaml'))
+    if content is None:raise ReferenceError('forced reference slices require an archived slices declaration')
+    declarations=(yaml.safe_load(bytes(content)) or {}).get('slices',{})
+    def expand(name,ancestors=()):
+        if name in ancestors:raise ReferenceError('cyclic forced reference slice')
+        if name not in declarations:raise ReferenceError(f'unknown archived forced reference slice {name}')
+        for entry in declarations[name]:
+            if isinstance(entry,str):yield entry
+            elif isinstance(entry,dict) and set(entry)=={'include'}:yield from expand(entry['include'],(*ancestors,name))
+            else:raise ReferenceError('forced reference slices require explicit source locators or includes')
+    by_page={};indexes={}
+    for unit in pool:by_page.setdefault(parse_locator(unit['unit_key']).page,[]).append(unit)
+    forced=set()
+    for name in names:
+        for locator in expand(name):
+            parsed=parse_locator(locator);matched=[]
+            for unit in by_page.get(parsed.page,()):
+                rid=unit['rendition_id']
+                if rid not in indexes:
+                    raw=conn.scalar(select(table('kb.rendition').c.content).where(table('kb.rendition').c.id==rid))
+                    indexes[rid]=LocatorIndex(RenditionContent.model_validate(raw),parsed.page)
+                try:
+                    expected=indexes[rid].resolve(locator);candidate=indexes[rid].resolve(unit['unit_key'])
+                except (ValueError,KeyError,LookupError):continue
+                if (expected.start,expected.end)==(candidate.start,candidate.end):matched.append(unit['unit_key'])
+            if len(set(matched))!=1:raise ReferenceError(f'forced reference locator is absent or ambiguous in the completed source pool: {locator}')
+            forced.update(matched)
+    return tuple(sorted(forced))
+
+def create_reference_set(conn:Connection,*,project_id:str,source_run_id:int,label:str,split:str='dev',size:int|None=None,seed:int|None=None,guideline:str|None=None,forced:Sequence[str]=())->dict[str,Any]:
     from .sampling import PoolUnit,sample
     result=_completed(conn,source_run_id,project_id)
     release=load_release(conn,result['release_id'])
+    config=evaluation_config(conn,release.release_id)
+    split_documents(conn,project_id,config.split,release_id=release.release_id)
     pool=_source_units(conn,source_run_id)
     assigned={row.source_uri:row.split for row in conn.execute(select(table('eval.document_split')).where(table('eval.document_split').c.project_id==project_id))}
     pool=[u for u in pool if assigned.get(u['source_uri'])==split]
     if not pool:raise ReferenceError('no completed source units in the requested document split; assign document splits first')
-    sampled=sample([PoolUnit(u['unit_key'],'source',0,rendition_id=u['rendition_id']) for u in pool],len(pool) if size is None else size,seed,forced)
+    forced=tuple(sorted(set(forced)|set(_forced_slice_units(conn,release.release_id,pool,config.golden.forced_slices if split=='dev' else ()))))
+    requested_size=config.golden.sizes[split] if size is None else size
+    if requested_size<=0:raise ReferenceError('reference sample size must be positive')
+    sampled=sample([PoolUnit(u['unit_key'],'source',0,rendition_id=u['rendition_id']) for u in pool],requested_size,config.split.seed if seed is None else seed,forced)
     if guideline is None:
         guideline=conn.scalar(select(table('ops.run').c.guideline).where(table('ops.run').c.id==source_run_id)) or 'independent-reference-v1'
     identity=_call(conn,'SELECT eval.create_reference_set(:p,:r,:run,:label,:split,:g,CAST(:sampling AS jsonb))',p=project_id,r=release.release_id,run=source_run_id,label=label,split=split,g=guideline,sampling=_json(sampled.sampling)).scalar_one()
@@ -172,39 +220,32 @@ def golden_set_status(conn:Connection,set_id:int)->dict[str,Any]:
         counts['adjudicated' if passes['C'] else 'double_passed' if passes['A'] and passes['B'] else 'draft']+=1
     return {'set_id':set_id,'units':len(units),'status':dict(counts)}
 
-def split_documents(conn:Connection,project_id:str,config=None,seed:int|None=None)->dict[str,Any]:
+def split_documents(conn:Connection,project_id:str,config=None,seed:int|None=None,*,release_id:str|None=None)->dict[str,Any]:
     from .split import SplitConfig,SplitDocument,Assignment,assign
     from corpus_structure.core.vocab import DocumentSplit
-    config=SplitConfig() if config is None else config
-    d=table('kb.document');docs=[SplitDocument(r.id,r.source_uri,None) for r in conn.execute(select(d).where(d.c.project_id==project_id))]
+    if config is None:
+        release_id=release_id or conn.scalar(select(table('data.project').c.active_release_id).where(table('data.project').c.project_id==project_id))
+        if release_id is None:raise ReferenceError('split assignment requires an active admitted release or explicit archived evaluation policy')
+        config=evaluation_config(conn,release_id).split
+    d=table('kb.document');docs=[SplitDocument(r.id,r.source_uri,str(r.meta['chapter']) if r.meta.get('chapter') is not None else None) for r in conn.execute(select(d).where(d.c.project_id==project_id))]
     previous={r.source_uri:r.split for r in conn.execute(select(table('eval.document_split')).where(table('eval.document_split').c.project_id==project_id))}
     existing={d.id:Assignment(d.id,DocumentSplit(previous[d.source_uri]),'persisted',None) for d in docs if d.source_uri in previous}
     new=assign(docs,config,existing,seed)
-    for row in new:_call(conn,'SELECT eval.assign_document_split(:p,:u,:s)',p=project_id,u=next(d.source_uri for d in docs if d.id==row.document_id),s=row.split.value)
-    totals=Counter(previous.values());totals.update(row.split.value for row in new)
-    return {'project_id':project_id,'seed':config.seed if seed is None else seed,'added':dict(Counter(r.split.value for r in new)),'total':dict(totals)}
+    by_id={d.id:d.source_uri for d in docs}
+    fresh={by_id[row.document_id]:row for row in new}
+    for uri,row in fresh.items():_call(conn,'SELECT eval.assign_document_split(:p,:u,:s)',p=project_id,u=uri,s=row.split.value)
+    totals=Counter({**previous,**{uri:row.split.value for uri,row in fresh.items()}}.values())
+    return {'project_id':project_id,'seed':config.seed if seed is None else seed,'added':dict(Counter(r.split.value for r in fresh.values())),'total':dict(totals)}
 
-def _external_ids(batch):
+def _external_ids(prepared,batch):
     declared={item['id'] for family in ('entities','statements') for item in batch.get(family,())}
-    refs={c['subject'] for c in batch.get('claims',())}
-    def visit(value):
-        if isinstance(value,dict):
-            if value.get('kind')=='entity':refs.add(value['target'])
-            if value.get('kind') in {'variable','family_param'}:refs.add(value['entity'])
-            for child in value.values():visit(child)
-        elif isinstance(value,(list,tuple)):
-            for child in value:visit(child)
-    for claim in batch.get('claims',()):
-        if claim.get('qualification',{}).get('attribution'):refs.add(claim['qualification']['attribution'])
-        visit(claim)
-    return refs-declared
+    return (entity_references(prepared.definitions,'AgentStoredBatch',batch)|{c['subject'] for c in batch.get('claims',())})-declared
 
-def _reference_side(conn,unit,stored):
-    # record_pass admitted these external endpoints against the reference source result.
-    known={identity:identity for identity in _external_ids(stored.batch)}
+def _reference_side(conn,unit,stored,prepared):
+    known={identity:identity for identity in _external_ids(prepared,stored.batch)}
     return SemanticSide(unit['unit_key'],stored.batch,frozenset(unit['context']),known_ids=known)
 
-def _prediction(conn,completed,unit):
+def _prediction(conn,completed,unit,prepared):
     """Admitted completed source occurrences, not raw task reports or selected-pointer guesses."""
     observations=conn.execute(text('''SELECT DISTINCT o.id,o.payload,o.observation_key FROM kb.observation o
       JOIN data.occurrence x ON x.source=o.observation_key AND x.release_id=o.release_id
@@ -220,28 +261,34 @@ def _prediction(conn,completed,unit):
         source=observation['payload'];prefix=str(observation['id'])+'/'
         # Source-local identifiers are scoped before combining independent extraction reports.
         ids={item['id']:mappings.get((observation['id'],item['id']),prefix+item['id']) for family in ('entities','statements','claims','unsupported') for item in source.get(family,())}
-        def rewrite(value:object)->object:
-            if isinstance(value,dict):return rewrite_record(value)
-            if isinstance(value,list):return [rewrite(v) for v in value]
-            return value
-        def rewrite_record(record:Mapping[str,Any])->dict[str,Any]:
-            return {k:(ids.get(v,v) if k in {'target','subject','statement','attribution','entity','ref','claim'} and isinstance(v,str) else rewrite(v)) for k,v in record.items()}
+        rewritten=rewrite_references(prepared.definitions,'AgentStoredBatch',source,ids,ids)
         for family in ('entities','statements'):
-            for item in source.get(family,()):
-                value=rewrite_record(item);value['id']=ids[item['id']]
+            for item in rewritten.get(family,()):
+                value=dict(item);value['id']=ids[item['id']]
                 if not any(v['id']==value['id'] for v in batch[family]):batch[family].append(value)
                 if (observation['id'],item['id']) in mappings:known[value['id']]=mappings[observation['id'],item['id']]
-        for index,claim in enumerate(source.get('claims',())):
+        for index,claim in enumerate(rewritten.get('claims',())):
             fact=admitted.get((observation['observation_key'],'claims/'+str(index)))
             if fact is None:continue
-            c=rewrite_record(copy.deepcopy(claim));c['id']=ids[claim['id']]
+            c=copy.deepcopy(claim);c['id']=ids[claim['id']];c['subject']=ids.get(c['subject'],c['subject'])
+            if c.get('statement'):c['statement']=ids.get(c['statement'],c['statement'])
             if fact in seen:
                 old=next(v for v in batch['claims'] if v['_fact_id']==fact)
                 old['evidence'].extend(e for e in c.get('evidence',()) if e not in old['evidence'])
                 continue
             seen.add(fact);c['_fact_id']=fact;batch['claims'].append(c)
+        for alternative in rewritten.get('alternatives',()):
+            members=[ids[m] for m in alternative['members'] if m in ids and any(c['id']==ids[m] for c in batch['claims'])]
+            if len(members)>1:batch['alternatives'].append({**alternative,'id':prefix+alternative['id'],'members':members})
+    fact_to_claim={c['_fact_id']:c['id'] for c in batch['claims']}
+    native_groups={}
+    members=table('data.alternative_member')
+    for group,fact in conn.execute(select(members.c.group_id,members.c.fact_id).where(members.c.realization_id==completed['output_realization_id'],members.c.release_id==completed['release_id'],members.c.fact_id.in_(fact_to_claim))):
+        native_groups.setdefault(group,[]).append(fact_to_claim[fact])
+    for group,claims in native_groups.items():
+        if len(set(claims))>1:batch['alternatives'].append({'id':group,'members':sorted(set(claims))})
     for c in batch['claims']:c.pop('_fact_id',None)
-    known.update((identity,identity) for identity in _external_ids(batch))
+    known.update((identity,identity) for identity in _external_ids(prepared,batch))
     return SemanticSide(unit['unit_key'],batch,known_ids=known)
 
 def agreement(conn:Connection,unit_id:int)->dict[str,Any]:
@@ -250,7 +297,7 @@ def agreement(conn:Connection,unit_id:int)->dict[str,Any]:
     a,b=ensure_items(conn,passes['A'][-1]),ensure_items(conn,passes['B'][-1]);unit=_unit(conn,unit_id)
     if a.rendition_id!=b.rendition_id or a.rendition_digest!=b.rendition_digest:raise ReferenceError('agreement requires the same source rendition')
     prepared=load_release(conn,unit['release_id']);ctx=frozenset(unit['context'])
-    return {'unit_id':unit_id,'pass_a':a.id,'pass_b':b.id,'a_to_b':align_semantic(_reference_side(conn,unit,a),_reference_side(conn,unit,b),prepared).as_dict(),'b_to_a':align_semantic(_reference_side(conn,unit,b),_reference_side(conn,unit,a),prepared).as_dict()}
+    return {'unit_id':unit_id,'pass_a':a.id,'pass_b':b.id,'a_to_b':align_semantic(_reference_side(conn,unit,a,prepared),_reference_side(conn,unit,b,prepared),prepared).as_dict(),'b_to_a':align_semantic(_reference_side(conn,unit,b,prepared),_reference_side(conn,unit,a,prepared),prepared).as_dict()}
 
 def reference_evaluate(conn:Connection,*,project_id:str,run_id:int,set_id:int)->ReferenceReport:
     completed=_completed(conn,run_id,project_id)
@@ -268,7 +315,7 @@ def reference_evaluate(conn:Connection,*,project_id:str,run_id:int,set_id:int)->
         if rendition!=reference.rendition_digest:raise ReferenceError('reference citation frame is stale')
         if (reference.rendition_id,unit['unit_key']) not in targets:raise ReferenceError('reference citation frame is not present in the completed target source cut')
         bound_unit={**unit,'rendition_id':reference.rendition_id}
-        reports.append(align_semantic(_reference_side(conn,unit,reference),_prediction(conn,completed,bound_unit),prepared).as_dict())
+        reports.append(align_semantic(_reference_side(conn,unit,reference,prepared),_prediction(conn,completed,bound_unit,prepared),prepared).as_dict())
     tiers={k:TierCounts(sum(u['tiers'][k]['reference'] for u in reports),sum(u['tiers'][k]['prediction'] for u in reports),sum(u['tiers'][k]['matched'] for u in reports)).as_dict() for k in ('core','full','evidence')}
     coverage=[dict(row) for row in conn.execute(select(table('data.coverage')).where(table('data.coverage').c.realization_id==completed['output_realization_id'],table('data.coverage').c.release_id==completed['release_id'])).mappings()]
     result={'release_id':completed['release_id'],'output_realization_id':completed['output_realization_id'],'family':'agent_claims','grain':'distinct_fact_per_source_unit','tiers':tiers,'units':reports,'coverage':coverage,'reference_units_scored':len(reports)}
