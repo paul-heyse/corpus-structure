@@ -155,7 +155,7 @@ class Find(Query):
                     stmt=stmt.where(or_(score>last_score,(score==last_score)&(s.c.key>last_key)))
                 # Native top-k keeps the BM25 access path visible; include the entire boundary
                 # tie before ordering by key, so ties never skip a logical hit.
-                ranked=stmt.order_by(score).fetch(128,with_ties=True).subquery()
+                ranked=stmt.order_by(score).fetch(ctx.row_batch,with_ties=True).subquery()
                 count=0
                 with ctx.conn.execute(select(ranked).order_by(ranked.c.score,ranked.c.key).execution_options(yield_per=32),{'query':p.text}) as result:
                     for r in result.mappings():
@@ -164,7 +164,7 @@ class Find(Query):
                         last_score,last_key=float(r['score']),str(r['key'])
                         cursor:JsonValue=[0,str(last_score),last_key]
                         yield Positioned(FindAnswer.model_validate({'key':r['key'],'score':r['score'],'locator':loc}),cursor)
-                if count<128:break
+                if count<ctx.row_batch:break
         for entity in ctx.entities(label=p.text):
             if alias_after is None or entity['key'] > alias_after:
                 yield Positioned(FindAnswer.model_validate({'key':entity['key'],'score':0.0,'entity':entity}),[1,'0.0',entity['key']])

@@ -40,8 +40,10 @@ class Count:
     def __init__(self, version: str = "1", units: tuple[str, ...] = ()) -> None:
         self.version = version
         self.units = units
+        self.row_batches: list[int] = []
 
     def rows(self, ctx: QueryContext, p: CountParams, after=None) -> Iterator[Positioned]:
+        self.row_batches.append(ctx.row_batch)
         for i in range(0 if after is None else after + 1, p.n):
             yield Positioned(CountRow(i=i, run=ctx.run_id), i)
 
@@ -206,3 +208,11 @@ def test_serialized_response_character_bound_counts_envelope(db,world,helpers):
         assert len(page.model_dump_json())<=bound
         found+=page.rows
     assert [r['i'] for r in found]==list(range(5))
+
+
+def test_page_demand_reaches_query_context(db,world,helpers):
+    run=finished_run(db,world,helpers)
+    query=Count()
+    page=serve_query(db,build_registry([query]),'count',{'n':5},run=run,max_rows=2)
+    assert query.row_batches==[3]
+    assert [r['i'] for r in page.rows]==[0,1]

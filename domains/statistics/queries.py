@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Any
 from pydantic import JsonValue
-from sqlalchemy import select,or_,literal,exists
+from sqlalchemy import select,or_,literal,exists,union
 from corpus_structure.serve.protocol import QueryContext,Positioned
 from corpus_structure.serve.queries import Query,Params,Row,T
 from corpus_structure.serve.results import TransformationAnswer,RelationAnswer,FamilyAnswer
@@ -28,11 +28,13 @@ def ids(ctx:QueryContext,value:str)->list[int]:
 def profile(ctx:QueryContext,p:Params,subjects:list[int])->Any:
     c,i=T['kb.claim'],T['kb.entity_identity']
     parameters=select(i.c.entity_id).where(i.c.slot=='stat:family',i.c.value_entity_id.in_(subjects))
-    choices=[c.c.subject_id.in_(subjects),c.c.subject_id.in_(parameters),(c.c.predicate=='stat:member_of_construction') & c.c.object_entity_id.in_(subjects)]
+    e=T['kb.entity']
+    subjects_and_parameters=select(e.c.id).where(e.c.id.in_(subjects)).union(parameters)
+    sources=[select(c.c.id).where(c.c.run_id==ctx.run_id,c.c.subject_id.in_(subjects_and_parameters)),select(c.c.id).where(c.c.run_id==ctx.run_id,c.c.predicate=='stat:member_of_construction',c.c.object_entity_id.in_(subjects))]
     if p.include_suppositions:
         premise=ctx.compiled.lookup.version_sets['ClaimModality'].property('premise_forming')
-        choices.append(c.c.modality.in_(premise) & or_(c.c.subject_id.in_(subjects),c.c.object_entity_id.in_(subjects)))
-    return ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(or_(*choices))
+        sources.append(select(c.c.id).where(c.c.run_id==ctx.run_id,c.c.modality.in_(premise),c.c.object_entity_id.in_(subjects)))
+    return ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(c.c.id.in_(union(*sources)))
 
 class FamilyProfile(Query):
     name,params='family_profile',Family
@@ -86,7 +88,8 @@ class Transformations(Query):
         c,cr,er=T['kb.claim'],T['kb.claim_ref'],T['kb.claim_entity_ref']
         family=ids(ctx,p.family)
         premise=c.alias('premise')
-        premise_ids=select(premise.c.id).where(premise.c.run_id==ctx.run_id,premise.c.predicate=='stat:has_distribution',or_(premise.c.object_entity_id.in_(family),premise.c.id.in_(select(er.c.claim_id).where(er.c.entity_id.in_(family)))))
+        candidate_premises=select(premise.c.id).where(premise.c.run_id==ctx.run_id,premise.c.object_entity_id.in_(family)).union(select(er.c.claim_id).where(er.c.run_id==ctx.run_id,er.c.entity_id.in_(family)))
+        premise_ids=select(premise.c.id).where(premise.c.run_id==ctx.run_id,premise.c.predicate=='stat:has_distribution',premise.c.id.in_(candidate_premises))
         conclusions=select(cr.c.claim_id).where(cr.c.kind=='condition_premise',cr.c.target_claim_id.in_(premise_ids))
         definition=c.alias('definition')
         stmt=ctx.reader.claim_statement(include_candidates=p.include_candidates,include_suppositions=p.include_suppositions).where(c.c.predicate=='stat:has_distribution',c.c.id.in_(conclusions),exists(select(definition.c.id).where(definition.c.run_id==ctx.run_id,definition.c.statement_id==c.c.statement_id,definition.c.subject_id==c.c.subject_id,definition.c.statement_role=='definiens')))
