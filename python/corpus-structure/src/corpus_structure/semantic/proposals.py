@@ -416,6 +416,13 @@ def locate_proposal(
 
 
 @dataclass(frozen=True)
+class KnownProposalEntity:
+    entity_id: str
+    label: str
+    aliases: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ProposalPacket:
     release_id: str
     frame: ProposalFrame
@@ -423,6 +430,8 @@ class ProposalPacket:
     guideline: str
     configuration: bytes
     known_classes: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    known_entities: tuple[KnownProposalEntity, ...] = ()
+    bootstrap_terms: tuple[str, ...] = ()
     macros: tuple[tuple[str, MacroDef], ...] = ()
 
     @property
@@ -447,6 +456,8 @@ class ProposalPacket:
                     self.guideline,
                     self.configuration.decode(),
                     self.known_classes,
+                    [asdict(entity) for entity in self.known_entities],
+                    self.bootstrap_terms,
                     [(name, macro.model_dump(mode="json")) for name, macro in self.macros],
                 ]
             )
@@ -470,6 +481,8 @@ class ProposalPacket:
                         for sentence in self.frame.sentences
                     ],
                     "known_classes": dict(self.known_classes),
+                    "known_entities": [{"entity_id":entity.entity_id,"label":entity.label,"aliases":entity.aliases} for entity in self.known_entities],
+                    "bootstrap_terms": self.bootstrap_terms,
                     "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
                 }
             ).decode(),
@@ -492,6 +505,8 @@ def proposal_packet(
     guideline: str,
     configuration: Mapping[str, Any],
     known_classes: Mapping[str, tuple[str, ...]] | None = None,
+    known_entities: tuple[KnownProposalEntity, ...] = (),
+    bootstrap_terms: tuple[str, ...] = (),
     macros: Mapping[str, MacroDef] | None = None,
 ) -> ProposalPacket:
     """Bind all model-facing parts and their complete source frame before queuing agent work."""
@@ -506,5 +521,7 @@ def proposal_packet(
         guideline,
         canonical_bytes(dict(configuration)),
         tuple(sorted((known_classes or {}).items())),
+        tuple(sorted(known_entities,key=lambda entity:entity.entity_id)),
+        bootstrap_terms,
         tuple(sorted((macros or {}).items())),
     )

@@ -57,6 +57,7 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine,semantic
         assert complete_task(c,task_id=task,attempt=claim['attempt'],holder='worker',prepared=p,observations=observations)==ids
         pending=create_task(c,run_id=run,config_id=config,stage='ingest',unit_type='run',input_hash='late')
         later=claim_tasks(c,run_id=run,config_id=config,holder='late')[0]
+        c.execute(table('ops.task').update().where(table('ops.task').c.id==pending).values(status='cancelled'))
         cut=seal_cut(c,run,'final',final=True)
         assert seal_cut(c,run,'final',final=True)==cut
         rows=cut_observations(c,cut)
@@ -106,7 +107,7 @@ def test_source_rendition_fidelity_and_original_change(semantic_db_engine,semant
 
 def test_recognizer_terminal_source_boundary_and_coverage(semantic_db_engine,semantic_writer_engine):
     from pydantic import BaseModel
-    from corpus_structure.core.method import UnitRef,UnitResult,ObservationDraft,CoverageDraft
+    from corpus_structure.core.method import UnitRef,UnitResult,ObservationDraft,CoverageDraft,MeasurementDraft
     from corpus_structure.core.vocab import TaskUnitType,ObservationOutcome,ObservationKind
     from corpus_structure.semantic.operations import complete_unit_result
     from corpus_structure.semantic.observations import source_python
@@ -120,7 +121,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(semantic_db_engine,sem
         task=create_task(c,run_id=run,config_id=cfg,stage='ingest',unit_type='run',unit_key='unit:1',input_hash='same')
         claimed=claim_tasks(c,run_id=run,config_id=cfg,holder='worker')[0]
     draft=ObservationDraft(kind=ObservationKind.AUTHOR_MARKUP,payload=Payload(text='exact'),payload_class=Payload,payload_version='1')
-    result=UnitResult(ref=UnitRef(TaskUnitType.RUN,unit_key='unit:1'),outcome=ObservationOutcome.PRODUCED,observations=(draft,draft),coverage=(CoverageDraft(family='parse',scope='unit:1',outcome='partial',reason='unsupported tail'),))
+    result=UnitResult(ref=UnitRef(TaskUnitType.RUN,unit_key='unit:1'),outcome=ObservationOutcome.PRODUCED,observations=(draft,draft),coverage=(CoverageDraft(family='parse',scope='unit:1',outcome='partial',reason='unsupported tail'),),measurements=(MeasurementDraft(metric='count',scope_type='run',value=2),))
     with e.begin() as c:
         ids=complete_unit_result(c,task_id=task,attempt=claimed['attempt'],holder='worker',prepared=p,result=result,method=method,configuration_hash='config',source='file:source')
         assert len(ids)==2
@@ -129,6 +130,12 @@ def test_recognizer_terminal_source_boundary_and_coverage(semantic_db_engine,sem
         rows=c.execute(select(table('kb.observation'))).mappings().all()
         assert [source_python(r['payload']['payload']) for r in rows]==[{'text':'exact'},{'text':'exact'}]
         assert len({r['observation_key'] for r in rows})==2
+        assert complete_unit_result(c,task_id=task,attempt=claimed['attempt'],holder='worker',prepared=p,result=result,method=method,configuration_hash='config',source='file:source')==ids
+        assert len(c.execute(select(table('ops.measurement'))).all())==1
+    from dataclasses import replace
+    changed=replace(result,measurements=(MeasurementDraft(metric='count',scope_type='run',value=3),))
+    with pytest.raises(OperationConflict):
+        with e.begin() as c:complete_unit_result(c,task_id=task,attempt=claimed['attempt'],holder='worker',prepared=p,result=changed,method=method,configuration_hash='config',source='file:source')
 
 
 @pytest.mark.parametrize('body',["A paragraph with two sentences. Another sentence.",r"Let \(x\) be a variable."])
@@ -166,6 +173,19 @@ def test_current_ingest_and_profile_graph_on_semantic_storage(semantic_db_engine
         statuses=c.execute(select(table('ops.task').c.status).where(table('ops.task').c.run_id==replay.run_id)).scalars().all()
         assert statuses==['reused']*5
         assert [r['observation_key'] for r in cut_observations(c,report.cut_id)]==[r['observation_key'] for r in cut_observations(c,replay.cut_id)]
+    fresh_run=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path),fresh=('ingest.html','profile.segments'))
+    with e.connect() as c:
+        t=table('ops.task');m=table('ops.method');cfg=table('ops.method_config')
+        states=dict(c.execute(select(m.c.name,t.c.status).join_from(t,cfg,t.c.method_config_id==cfg.c.id).join(m,cfg.c.method_id==m.c.id).where(t.c.run_id==fresh_run.run_id)).all())
+        assert states['ingest.html']=='empty' and states['profile.segments']=='empty'
+        assert states['extract.math']=='reused' and states['normalize.formula']=='reused' and states['resolve.symbol_scope']=='reused'
+        assert len(c.execute(select(table('ops.rendition_build'))).all())==2
+        assert len(c.execute(select(table('kb.rendition'))).all())==1
+        assert len(c.execute(select(table('ops.measurement')).where(table('ops.measurement').c.run_id==fresh_run.run_id)).all())>0
+    changed_policy=run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path),policy_source="version: 'changed'\nchains: {}\n")
+    with e.connect() as c:
+        states=c.execute(select(table('ops.task').c.status).where(table('ops.task').c.run_id==changed_policy.run_id)).scalars().all()
+        assert len(states)==5 and 'reused' not in states
     raw.write_text('changed after registered input')
     with pytest.raises(OperationConflict,match='original content changed'):
         run_source_methods(e,project_id='p',prepared=p,binding=OperationBinding(p.release_id,'z',0,b'{}'),registry=registry,graph=graph,method_settings=MethodSettings(data_dir=tmp_path,model_cache=tmp_path))
@@ -318,3 +338,19 @@ def test_native_cancel_drains_claims_and_blocks_late_completion(semantic_db_engi
     with e.connect() as c:
         assert c.execute(select(table('ops.task').c.status)).scalar_one()=='cancelled'
         assert not c.execute(select(table('kb.observation'))).first()
+
+
+def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(semantic_db_engine,semantic_writer_engine):
+    p=setup(semantic_db_engine);e=semantic_writer_engine
+    t=table('ops.task')
+    with e.begin() as c:
+        run=create_run(c,project_id='p',binding=OperationBinding(p.release_id,'z',0,b'{}'),kind='full',options={},code_commit='test')
+        cfg=record_method(c,SimpleNamespace(name='read',version='1',family='ingest',tier='deterministic',confidence_source=None),'default',{},'cfg')
+        task=create_task(c,run_id=run,config_id=cfg,stage='read',unit_type='run',input_hash='input')
+        first=claim_tasks(c,run_id=run,config_id=cfg,holder='first')[0]
+        c.execute(t.update().where(t.c.id==task).values(lease_until=text("clock_timestamp()-interval '1 second'")))
+        second=claim_tasks(c,run_id=run,config_id=cfg,holder='second')[0]
+        assert second['attempt']==first['attempt']+1 and second['invocation_key']==first['invocation_key']
+    with pytest.raises(OperationConflict):
+        with e.begin() as c:complete_task(c,task_id=task,attempt=first['attempt'],holder='first',prepared=p,observations=[],outcome='empty')
+    with e.begin() as c:complete_task(c,task_id=task,attempt=second['attempt'],holder='second',prepared=p,observations=[],outcome='empty')
