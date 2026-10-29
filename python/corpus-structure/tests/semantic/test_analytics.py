@@ -754,3 +754,20 @@ def test_cleanup_cancellation_remains_primary_after_body_failure(monkeypatch):
     assert attempted == ["cancelled", "other"]
     assert isinstance(failure.value.__cause__, ValueError)
     assert not Path(scope._scratch.name).exists()
+
+
+def test_scope_closes_connections_created_by_borrowed_cursor():
+    import duckdb
+
+    scope = AnalysisScope(empty_packet(prepared_inputs()[2]))
+    temporary = scope.connection.cursor()
+    temporary.close()
+    assert scope.connection.sql("SELECT 1").fetchall() == [(1,)]
+    cursor = scope.connection.cursor()
+    native = cursor._native
+    assert cursor.sql("SELECT 42").fetchall() == [(42,)]
+    scope.close()
+    with pytest.raises(duckdb.ConnectionException, match="closed"):
+        native.sql("SELECT 42")
+    with pytest.raises(RuntimeError, match="scope is closed"):
+        cursor.sql("SELECT 42")

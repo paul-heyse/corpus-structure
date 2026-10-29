@@ -29,14 +29,14 @@ def test_actual_cli_source_scope_agent_unknown_limit_and_cancel(
     )
     from corpus_structure.semantic.analytical_profile import analytical_inputs
     from corpus_structure.semantic.domain_operations import domain_rule_inputs
-    from corpus_structure.semantic.observations import observation_inputs
+    from corpus_structure.semantic.observations import prepare_source_inputs
     from corpus_structure.semantic.proposals import proposal_inputs
     from corpus_structure.semantic.releases import persist_release
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []")
-    bundle = observation_inputs(proposal_inputs(bundle, deps))
+    bundle, deps = prepare_source_inputs(proposal_inputs(bundle, deps), deps)
     bundle, deps = analytical_inputs(bundle, deps)
     prepared = prepare_release(bundle, deps)
     with semantic_db_engine.begin() as conn:

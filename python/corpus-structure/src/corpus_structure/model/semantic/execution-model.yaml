@@ -3975,7 +3975,7 @@ invariants:
   failure_code: execution.projection_fidelity
   implementation: projection
 - id: analysis_lifetime
-  meaning: Scope owns borrowed resources; detached materialized values survive close; all teardowns attempted
+  meaning: Any number of borrowed and detached results may coexist. Borrowed use requires an open owning scope and live resource. Materialization creates a detached value without changing other borrowed handles. Detached values survive scope close; every owned teardown is attempted.
   subjects:
   - AnalysisScope
   - BorrowedResult
@@ -5022,12 +5022,8 @@ operations:
   precision: Exact authored/canonical values; no implicit rounding
   implementation: analysis_close
   transitions:
-  - analysis_close_captured_none
-  - analysis_close_captured_borrowed
-  - analysis_close_captured_detached
-  - analysis_close_candidate_none
-  - analysis_close_candidate_borrowed
-  - analysis_close_candidate_detached
+  - analysis_close_captured
+  - analysis_close_candidate
   projections: []
 - id: publish_arrow
   inputs: &id108
@@ -6464,135 +6460,41 @@ lifecycles:
     values:
     - open
     - closed
-  - id: result_lifetime
-    values:
-    - none
-    - borrowed
-    - detached
-    - invalidated
   states:
-  - id: captured_open_none
+  - id: captured_open
     values:
     - dimension: input_kind
       value: captured
     - dimension: scope_lifetime
       value: open
-    - dimension: result_lifetime
-      value: none
     terminal: false
-  - id: captured_open_borrowed
-    values:
-    - dimension: input_kind
-      value: captured
-    - dimension: scope_lifetime
-      value: open
-    - dimension: result_lifetime
-      value: borrowed
-    terminal: false
-  - id: captured_open_detached
-    values:
-    - dimension: input_kind
-      value: captured
-    - dimension: scope_lifetime
-      value: open
-    - dimension: result_lifetime
-      value: detached
-    terminal: false
-  - id: captured_closed_none
+  - id: captured_closed
     values:
     - dimension: input_kind
       value: captured
     - dimension: scope_lifetime
       value: closed
-    - dimension: result_lifetime
-      value: none
     terminal: true
-  - id: captured_closed_detached
-    values:
-    - dimension: input_kind
-      value: captured
-    - dimension: scope_lifetime
-      value: closed
-    - dimension: result_lifetime
-      value: detached
-    terminal: true
-  - id: captured_closed_invalidated
-    values:
-    - dimension: input_kind
-      value: captured
-    - dimension: scope_lifetime
-      value: closed
-    - dimension: result_lifetime
-      value: invalidated
-    terminal: true
-  - id: candidate_open_none
+  - id: candidate_open
     values:
     - dimension: input_kind
       value: candidate
     - dimension: scope_lifetime
       value: open
-    - dimension: result_lifetime
-      value: none
     terminal: false
-  - id: candidate_open_borrowed
-    values:
-    - dimension: input_kind
-      value: candidate
-    - dimension: scope_lifetime
-      value: open
-    - dimension: result_lifetime
-      value: borrowed
-    terminal: false
-  - id: candidate_open_detached
-    values:
-    - dimension: input_kind
-      value: candidate
-    - dimension: scope_lifetime
-      value: open
-    - dimension: result_lifetime
-      value: detached
-    terminal: false
-  - id: candidate_closed_none
+  - id: candidate_closed
     values:
     - dimension: input_kind
       value: candidate
     - dimension: scope_lifetime
       value: closed
-    - dimension: result_lifetime
-      value: none
-    terminal: true
-  - id: candidate_closed_detached
-    values:
-    - dimension: input_kind
-      value: candidate
-    - dimension: scope_lifetime
-      value: closed
-    - dimension: result_lifetime
-      value: detached
-    terminal: true
-  - id: candidate_closed_invalidated
-    values:
-    - dimension: input_kind
-      value: candidate
-    - dimension: scope_lifetime
-      value: closed
-    - dimension: result_lifetime
-      value: invalidated
     terminal: true
   initial_states:
-  - captured_open_none
-  - captured_open_borrowed
-  - captured_open_detached
-  - candidate_open_none
-  - candidate_open_borrowed
-  - candidate_open_detached
+  - captured_open
+  - candidate_open
   transitions:
-  - analysis_close_captured_none
-  - analysis_close_captured_borrowed
-  - analysis_close_captured_detached
-  - analysis_close_candidate_none
-  - analysis_close_candidate_borrowed
-  - analysis_close_candidate_detached
+  - analysis_close_captured
+  - analysis_close_candidate
   invariants:
   - analysis_lifetime
   - projection_fidelity
@@ -6910,120 +6812,6 @@ transitions:
   - completed_result
   effects: []
   outcomes: *id113
-- id: analysis_close_captured_none
-  lifecycle: analysis
-  operation: close_analysis
-  from_states:
-  - captured_open_none
-  to_states:
-  - captured_closed_none
-  immutable_bindings:
-  - input_binding
-  - projection
-  - scope_identity
-  invariants:
-  - analysis_lifetime
-  effects:
-  - release_owned_resources
-  - preserve_existing_detached_values
-  outcomes:
-  - closed
-  - invalid
-- id: analysis_close_captured_borrowed
-  lifecycle: analysis
-  operation: close_analysis
-  from_states:
-  - captured_open_borrowed
-  to_states:
-  - captured_closed_invalidated
-  immutable_bindings:
-  - input_binding
-  - projection
-  - scope_identity
-  invariants:
-  - analysis_lifetime
-  effects:
-  - release_owned_resources
-  - preserve_existing_detached_values
-  outcomes:
-  - closed
-  - invalid
-- id: analysis_close_captured_detached
-  lifecycle: analysis
-  operation: close_analysis
-  from_states:
-  - captured_open_detached
-  to_states:
-  - captured_closed_detached
-  immutable_bindings:
-  - input_binding
-  - projection
-  - scope_identity
-  invariants:
-  - analysis_lifetime
-  effects:
-  - release_owned_resources
-  - preserve_existing_detached_values
-  outcomes:
-  - closed
-  - invalid
-- id: analysis_close_candidate_none
-  lifecycle: analysis
-  operation: close_analysis
-  from_states:
-  - candidate_open_none
-  to_states:
-  - candidate_closed_none
-  immutable_bindings:
-  - input_binding
-  - projection
-  - scope_identity
-  invariants:
-  - analysis_lifetime
-  effects:
-  - release_owned_resources
-  - preserve_existing_detached_values
-  outcomes:
-  - closed
-  - invalid
-- id: analysis_close_candidate_borrowed
-  lifecycle: analysis
-  operation: close_analysis
-  from_states:
-  - candidate_open_borrowed
-  to_states:
-  - candidate_closed_invalidated
-  immutable_bindings:
-  - input_binding
-  - projection
-  - scope_identity
-  invariants:
-  - analysis_lifetime
-  effects:
-  - release_owned_resources
-  - preserve_existing_detached_values
-  outcomes:
-  - closed
-  - invalid
-- id: analysis_close_candidate_detached
-  lifecycle: analysis
-  operation: close_analysis
-  from_states:
-  - candidate_open_detached
-  to_states:
-  - candidate_closed_detached
-  immutable_bindings:
-  - input_binding
-  - projection
-  - scope_identity
-  invariants:
-  - analysis_lifetime
-  effects:
-  - release_owned_resources
-  - preserve_existing_detached_values
-  outcomes:
-  - closed
-  - invalid
 - id: task_renew_claim
   lifecycle: task
   operation: renew_claim
@@ -7123,6 +6911,46 @@ transitions:
   - applied
   - replay
   - conflict
+- id: analysis_close_captured
+  lifecycle: analysis
+  operation: close_analysis
+  from_states:
+  - captured_open
+  to_states:
+  - captured_closed
+  immutable_bindings:
+  - input_binding
+  - projection
+  - scope_identity
+  invariants:
+  - analysis_lifetime
+  effects:
+  - release_owned_resources
+  - invalidate_borrowed_handles
+  - preserve_independently_detached_values
+  outcomes:
+  - closed
+  - invalid
+- id: analysis_close_candidate
+  lifecycle: analysis
+  operation: close_analysis
+  from_states:
+  - candidate_open
+  to_states:
+  - candidate_closed
+  immutable_bindings:
+  - input_binding
+  - projection
+  - scope_identity
+  invariants:
+  - analysis_lifetime
+  effects:
+  - release_owned_resources
+  - invalidate_borrowed_handles
+  - preserve_independently_detached_values
+  outcomes:
+  - closed
+  - invalid
 outcome_domains:
 - id: preparation
   authority: code

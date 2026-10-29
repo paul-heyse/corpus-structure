@@ -3,12 +3,8 @@
 CREATE FUNCTION ops.execution_edge(lifecycle text,prior text,result text) RETURNS boolean
 LANGUAGE sql IMMUTABLE PARALLEL SAFE SET search_path=pg_catalog,pg_temp AS $fn$
  SELECT EXISTS(SELECT 1 FROM (VALUES
-('analysis','candidate_open_borrowed','candidate_closed_invalidated'),
-('analysis','candidate_open_detached','candidate_closed_detached'),
-('analysis','candidate_open_none','candidate_closed_none'),
-('analysis','captured_open_borrowed','captured_closed_invalidated'),
-('analysis','captured_open_detached','captured_closed_detached'),
-('analysis','captured_open_none','captured_closed_none'),
+('analysis','candidate_open','candidate_closed'),
+('analysis','captured_open','captured_closed'),
 ('evaluation_result','private','completed'),
 ('realization','writable','completed'),
 ('run','consolidating','cancelled_sealed'),
