@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import warnings
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +29,7 @@ from linkml_runtime.linkml_model import (
     TypeDefinition,
 )
 from linkml_runtime.utils.schemaview import SchemaView
+from linkml_runtime.utils.rdf_canonicalize import RDFCanonicalizationWarning, canonicalize_rdf_graph
 from linkml_term_validator.plugins import (
     BindingValidationPlugin,
     DynamicEnumPlugin,
@@ -36,7 +38,6 @@ from linkml_term_validator.plugins import (
 from oaklib import get_adapter
 from pyshacl import validate
 from rdflib import Graph, Literal, Namespace, URIRef
-from rdflib.compare import to_canonical_graph
 from rdflib.namespace import RDF
 
 CS = Namespace("https://corpus-structure.dev/semantic/")
@@ -88,9 +89,13 @@ def _schema(view: SchemaView) -> SchemaDefinition:
 
 
 def canonical_graph_bytes(graph: Graph) -> bytes:
-    """Canonicalize blank nodes, then sort triples without changing assertion identity."""
-    canonical = to_canonical_graph(graph)
-    return ("".join(sorted(f"{s.n3()} {p.n3()} {o.n3()} .\n" for s, p, o in canonical))).encode()
+    """Use LinkML's native RDFC-1.0 path for deterministic RDF 1.1 serialization."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RDFCanonicalizationWarning)
+        try:
+            return canonicalize_rdf_graph(graph, output_format="nt").encode()
+        except RDFCanonicalizationWarning as exc:
+            raise OntologyError("RDF canonicalization requires standard absolute-IRI RDF") from exc
 
 
 _INTEGRITY_FIELDS = (

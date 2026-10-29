@@ -82,3 +82,23 @@ def test_copied_input_qualification_keeps_exact_fact_reference_lineage(semantic_
         assert receipt.data_revision == 1
         assert len(conn.execute(select(table('data.fact_input')).where(table('data.fact_input').c.realization_id == 'out')).all()) == 2
         assert not conn.execute(select(table('data.occurrence')).where(table('data.occurrence').c.realization_id == 'out')).first()
+        conn.execute(text('SELECT data.finish_evaluation(:cut,:output,:batch)'), {'cut': cut, 'output': 'out', 'batch': copied.batch_id})
+    # A later append to the original input does not erase the verified fact meaning carried
+    # by the first evaluated result. A second generation follows its explicit lineage.
+    from corpus_structure.semantic.publication import PublicationBatch
+    publish_batch(semantic_writer_engine, PublicationBatch(prepared.release_id, 'z', 'advance-original'))
+    with semantic_writer_engine.begin() as conn:
+        second_run = create_run(conn, project_id='p', binding=OperationBinding(prepared.release_id, 'out', 1, b'{}'),
+                                kind='full', options={}, code_commit='test')
+        second_cut = seal_cut(conn, second_run, 'final', final=True)
+    repeated = assemble(prepared, 'out2', 'copied-again', (identity, label))
+    previous_ids = {f.property_id: f.fact_id for f in copied.fact}
+    repeated = replace(repeated, occurrence=(), occurrence_establishment=(), occurrence_evidence=(), support=(),
+                       selection=tuple(SelectionRow(f.fact_id) for f in repeated.fact),
+                       entity_input=(EntityInputRow('thing', 'out', 1, 'thing', second_run),),
+                       fact_input=tuple(FactInputRow(f.fact_id, 'out', 1, previous_ids[f.property_id], second_run) for f in repeated.fact))
+    with semantic_writer_engine.connect().execution_options(isolation_level='SERIALIZABLE') as conn, conn.begin():
+        conn.execute(text('SELECT data.begin_evaluation(:cut,:output)'), {'cut': second_cut, 'output': 'out2'})
+        assert publish_on_connection(conn, repeated).data_revision == 1
+        conn.execute(text('SELECT data.finish_evaluation(:cut,:output,:batch)'), {'cut': second_cut, 'output': 'out2', 'batch': repeated.batch_id})
+        assert not conn.execute(select(table('data.occurrence')).where(table('data.occurrence').c.realization_id == 'out2')).first()

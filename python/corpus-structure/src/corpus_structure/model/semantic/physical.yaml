@@ -1856,3 +1856,30 @@ classes:
         unique_key_slots: [realization_id, release_id, observation_id, local_id]
     annotations:
       ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
+  alternative_group:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      group_id: {range: string, required: true}
+      reason: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      operation_version: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [realization_id, release_id, group_id]
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
+      ph:checks: '["length(operation_id) > 0", "length(operation_version) > 0"]'
+  alternative_member:
+    in_subset: [data]
+    attributes:
+      realization_id: {range: string, required: true}
+      release_id: {range: string, required: true}
+      group_id: {range: string, required: true}
+      fact_id: {range: string, required: true}
+    unique_keys:
+      primary_key:
+        unique_key_slots: [realization_id, release_id, group_id, fact_id]
+    annotations:
+      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "group_id"], "target": "data.alternative_group.realization_id,release_id,group_id"}, {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
