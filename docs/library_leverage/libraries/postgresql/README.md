@@ -105,6 +105,15 @@ TEMPLATE` does not copy database-level grants. A per-test clone of a migrated he
 therefore silently give TEMP back to every role, the reader included. Staging relies on
 `pg_temp.sp_*`, so TEMP is part of the ADR-0025 security posture.
 
+**Probe-confirmed (comparative review, 2026-10-29).** The clone of a migrated template has
+`datacl NULL`, so the reader and evaluator gain TEMP. A generic `aclexplode` replay restored a set
+equal to the template's ([evidence](../../../design_review/evidence/2026-10-29_library-leverage-review-probes/README.md)).
+
+**Note.** The writer's TEMP grant in revision 0007 is deliberate ("Inference owns private temporary
+work"), but ADR-0025's text says the writer has no generic temporary-table creation. A replay
+reproduces whatever the template holds, so the discrepancy carries over. It belongs to the ADR-0025
+owner, not to the clone mechanism.
+
 **Every template route must replay the database ACL after each clone.** Two ways to do that:
 - read the template's `pg_database.datacl` (for example with `aclexplode`) and apply the same
   grants to the clone;

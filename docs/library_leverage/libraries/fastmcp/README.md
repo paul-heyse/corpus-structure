@@ -40,6 +40,16 @@ JSON-RPC error rather than an `isError` result (probe).
 - Refusals that a tool deliberately returns as typed results must not be raised.
 - With `mask_error_details=True`, unhandled messages are masked.
 
+**Comparative review refinement (2026-10-29): prefer a decorator for expected refusals.**
+- The core layer logs the traceback *before* middleware runs. Middleware can translate the result,
+  but it cannot suppress that log.
+- A `functools.wraps` refusal decorator applied beneath `@mcp.tool` catches refusals inside the tool
+  function, so nothing reaches the logger.
+- A scratch check on 4.1.3 with the in-process `Client` showed that the decorator keeps `Context`
+  injection and the advertised input schema, and returns `isError` with the plain message.
+- Applying the decorator through a local tool-registration wrapper covers new tools by construction.
+- Middleware remains a reasonable backstop for unexpected errors.
+
 <a id="fastmcp-response-size-backstop"></a>
 
 ### `fastmcp/response-size-backstop`

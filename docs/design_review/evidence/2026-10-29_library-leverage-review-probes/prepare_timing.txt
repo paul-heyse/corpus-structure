@@ -1,0 +1,8 @@
+# 2026-10-29T15:32:11-04:00 host=paul-X870-AORUS-ELITE-WIFI7 python=Python 3.14.10 git=0350a7a
+acquire+prepare 3.66
+import 1.2 cold prepare_release 2.18 {'_view_and_vocabularies': 0.23, 'build_graph_artifacts': 1.03, 'execution_model_from_dependencies': 0.68, 'compile_conditional_rules': 0.0}
+second uncached 1.22 {'execution_model_from_dependencies': 0.0, '_view_and_vocabularies': 0.04, 'compile_conditional_rules': 0.0, 'build_graph_artifacts': 0.89}
+import 1.19 cold prepare_release 2.45 {'_view_and_vocabularies': 0.27, 'build_graph_artifacts': 1.12, 'execution_model_from_dependencies': 0.78, 'compile_conditional_rules': 0.0}
+second uncached 1.32 {'execution_model_from_dependencies': 0.0, '_view_and_vocabularies': 0.04, 'compile_conditional_rules': 0.0, 'build_graph_artifacts': 0.96}
+import 1.32 cold prepare_release 2.29 {'_view_and_vocabularies': 0.23, 'build_graph_artifacts': 1.08, 'execution_model_from_dependencies': 0.71, 'compile_conditional_rules': 0.0}
+second uncached 1.23 {'execution_model_from_dependencies': 0.0, '_view_and_vocabularies': 0.04, 'compile_conditional_rules': 0.0, 'build_graph_artifacts': 0.9}

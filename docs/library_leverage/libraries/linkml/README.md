@@ -173,6 +173,14 @@ deterministic order.
 **Mismatch.** importmap takes dicts, while URI materialization operates on loaded objects. The
 current `schema_map` seeding avoids a second coercion.
 
+**Comparative review correction (2026-10-29): importmap is not decisive for composition.**
+- An import that is absent from the map falls back to ordinary resolution without complaint
+  ([LOP-X006](../../assessment-patterns.md#lop-x006)).
+- It never refuses duplicates.
+- Both pre-checks therefore remain, and the root alone removes little.
+- The review prefers to separate acquisition from a pure composer over the existing seeding
+  ([review](../../reviews/release-lifecycle.md#cbo-002)).
+
 **Agent module.** `SchemaBuilder` adds little over the three targeted dict edits, and switching to
 it would change archived bytes.
 
@@ -233,7 +241,12 @@ That pass would also serve SP-08 domain inputs.
 preparation) and pyshacl.
 
 **Libraries that shape vocabulary snapshots:** oaklib, linkml-term-validator and pronto/fastobo.
-**Pronto is missing from the current set.**
+
+**Comparative review correction (2026-10-29): pronto need not be added.**
+- Resolved vocabulary members are already in the identity manifest, and supplied snapshots must
+  match them. A change in any vocabulary library's output is therefore caught by content.
+- So vocabulary libraries are redundant as identity determinants.
+- The review tiers the set by effect ([review](../../reviews/release-lifecycle.md#cbo-009)).
 
 **Deriving the set.**
 - `importlib.metadata.version` and `packages_distributions()` can enumerate the candidates.

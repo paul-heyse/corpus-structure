@@ -25,7 +25,10 @@
 - Tables, excluding views.
 - Columns, types and nullability.
 - Server defaults, when `compare_server_default` is set. On PostgreSQL these are evaluated on the
-  live connection.
+  live connection. A *volatile* default such as `gen_random_uuid()::text` therefore differs on every
+  evaluation and reports a false `modify_default`. Alembic's own source comments on this limitation,
+  and the comparative review's probe observed it at head (2026-10-29). A `compare_server_default`
+  callable can treat that default as equal.
 - Primary keys, foreign keys and unique constraints.
 - Indexes: uniqueness and expressions, with a heuristic cleanup of expressions.
 - Named CHECKs, by name only, through `alembic.ext.checkconstraint_byname`.

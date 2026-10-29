@@ -43,6 +43,13 @@ config.
 **Semantic condition (probe-observed).** A bare float `TypeAdapter` accepts NaN and inf, even with
 `strict=True` per call. Per-call strict covers strictness only.
 
+**Comparative review additions (2026-10-29; scratch-checked on 2.14.1).**
+- **A per-field fix.** Putting the constraint on the field type itself, as
+  `Annotated[float, Field(allow_inf_nan=False)]`, makes extracted adapters refuse NaN and inf. The
+  generated JSON Schema does not change.
+- **NaN serializes as null.** By default (`ser_json_inf_nan='null'`), Pydantic writes NaN to JSON as
+  `null`. A NaN that passes validation is therefore emitted as null rather than refused.
+
 <a id="pydantic-presence-preserving-dump"></a>
 
 ### `pydantic/presence-preserving-dump`
@@ -149,7 +156,10 @@ must emit the native range from its own type walk.
 - Its docstring promises a "strict output boundary … including its constraints".
 - Downstream identity code refuses non-finite floats later, as a `ValueError`.
 - The query read path's cached adapter shares the gap.
-- No production path reaching it was established.
+- No production path reaching it was established at the assessment baseline. **Update
+  (comparative review, 2026-10-29):** the serving Reader (`serve/read.py`) now builds field adapters
+  through `property_adapter`, so the gap sits on the serving boundary. The review recommends the
+  per-field annotation fix ([review](../../reviews/release-lifecycle.md#cbo-013)).
 
 **Unsettled.** Whether per-field adapters should be built eagerly or memoized lazily per release
 (unmeasured).

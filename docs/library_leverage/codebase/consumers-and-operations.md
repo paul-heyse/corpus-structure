@@ -105,6 +105,8 @@ wire validation and JSON Schema. [fastmcp](../../libraries/fastmcp.md): `Respons
 
 **Library assessment (2026-10-29).** Core fits with conditions ([applicability](../libraries/sqlalchemy/README.md#applicability-cbo-001)). Three exact-lowering gaps were not recorded above: floats stored as hex text, decimals with `NULL` `numeric_value` beyond NUMERIC bounds, and the reader lacking EXECUTE on native value functions. `_values`/`_entities` use expanding `.in_()` ([LOP-X005](../assessment-patterns.md#lop-x005)). Concurrent SP-08 commit `7cfd7f8` added `serve/read.py` and migrated serving; refresh this premise before review.
 
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Partially realized.* `serve/read.py` `Reader` composes Core predicates over `typed_value`/`value_role`, with a recursive reference closure, casefold label lookup and batched values per keyset page. `serve/journey.py` binds tokens to the snapshot and projection, refuses stale tokens, and enforces `max_rows`/`max_chars`. `ci query`, `ci explain` and `ci export` bind through `bind_session` (`7cfd7f8`, `87c0b35`). Still open: the Reader imports private `_scope`/`_same_scope` and calls `session._values`, `_entities` and `_occurrence_contexts`; explain still handles one fact per call; MCP has no read tools; `ReadSession.query`/`QuerySpec` and their token scheme now have no production caller. So two read APIs and two token schemes remain.
+
 <a id="cbo-005"></a>
 
 ## CBO-005 — The released rule policy evaluates semantic candidates through the retiring rule environment
@@ -212,6 +214,8 @@ privileges.
 
 **Library assessment (2026-10-29).** `model_copy(update=…)` in the comparison path writes without validation. Gold isolation by privileges is being implemented concurrently (`4de601c`) ([applicability](../libraries/postgresql/README.md#applicability-cbo-006)).
 
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Premise changed.* Evaluation no longer translates into legacy types. It now has its own kernel, `evaluate/semantic_alignment.equivalent`, which re-implements the canonical/symbolic/numeric/undecided tiers, seeded probes and grammar reads. Domain decisions still use the legacy-typed `ValueComparator` and its private `_constraints`, so there are now **two equivalence kernels**. `evaluate/sets.py` is a re-export shim, and the legacy `align.py`/`agreement.py` have only test consumers. Evaluation also rebuilds predictions from raw `kb.observation` payloads with text SQL (`evaluate/semantic.py:248-292`); this may be deliberate.
+
 <a id="cbo-007"></a>
 
 ## CBO-007 — Exports and analytical capture cannot be composed from the application store
@@ -263,6 +267,8 @@ metadata. [adbc-driver-postgresql](../../libraries/adbc-driver-postgresql.md).
 
 **Library assessment (2026-10-29).** Premise corrected. Settings already held the libpq URL and driver path, and since `3d97504` `connection_settings(settings, "read")` derives the reader URL. Concurrent SP-08 commit `7cfd7f8` added `ci export` using that route plus pyarrow `write_table(store_schema=True)`. DuckDB drops Arrow metadata, so a DuckDB export must restate identity as `KV_METADATA` ([duckdb](../libraries/duckdb/README.md#applicability-cbo-007), [pyarrow](../libraries/pyarrow/README.md#applicability-cbo-007), [adbc](../libraries/adbc-driver-postgresql/README.md#applicability-cbo-007)).
 
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Partially realized.* `ci export` calls `load_packet` with the reader connection, and `serve/export.py` writes a full-spine Parquet or JSONL export: per-relation `cs.*` checks, `store_schema=True`, a sha256 manifest and an atomic rename. Still open: only full-`SPINE` export is supported (no subset pushdown); `capture_packet` has no production caller; `AnalysisScope` ignores `AnalyticsSettings`.
+
 <a id="cbo-012"></a>
 
 ## CBO-012 — Refusal mapping and MCP conventions are re-decided per surface
@@ -308,6 +314,8 @@ middleware; providers and tool transforms for schemas bound to a release.
 
 **Library assessment (2026-10-29).** Premise partly stale at `3d97504`: `intervene/server.py` now delegates to the semantic server, the legacy response backstop and `DBAPIError` mapping no longer exist, and a new `record_direction` tool has no refusal mapping. The built-in `ErrorHandlingMiddleware` would turn every tool error into a protocol error; a custom middleware or decorator fits ([fastmcp](../libraries/fastmcp/README.md#applicability-cbo-012)).
 
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Premise changed in part.* CLI refusal mapping is now grouped by family, but seven sites still handle database errors inconsistently: `golden` catches `DBAPIError` and `regenerate` does not. The MCP server still repeats try/except in five of seven tools, has no response backstop, and leaves `record_direction` unmapped.
+
 <a id="cbo-016"></a>
 
 ## CBO-016 — Release-typed instance traversal is reimplemented per consumer
@@ -350,6 +358,8 @@ traversal. A descriptor visitor exposed by the prepared release
 serve all consumers?
 
 **Library assessment (2026-10-29).** `model_dump(exclude_unset=True)` equals `_native` exactly on compiler output (probe); the walkers' policy stays owned. `conditional_rules.validate_rules` is a further shallow projection site ([pydantic](../libraries/pydantic/README.md#applicability-cbo-016)).
+
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Unchanged; recurred.* `evaluate/semantic_values.py` (`0207e1b`) adds another descriptor-driven walker (`record_definition`, `rewrite_references`, `entity_references`) parallel to the domain walkers. `_known_input`'s key-name `refs()` is still present.
 
 <a id="cbo-020"></a>
 
@@ -417,3 +427,32 @@ grammar. Bounded parse time is a real protection.
 paths would run the grammar off the main thread?
 
 **Library assessment (2026-10-29).** Settled by probe: default synchronous FastMCP tools run on a worker thread (`OffMainThread`), while `async def` or `run_in_thread=False` tools run on the main thread under `ci mcp serve` ([fastmcp](../libraries/fastmcp/README.md#applicability-cbo-023)).
+
+<a id="cbo-025"></a>
+
+## CBO-025 — Read-only snapshot opening is repeated across seven sites
+
+**Label:** current; accepted planned (SP-08 consumers). **Altitude:** function, repeated.
+**Added:** 2026-10-29 by the comparative review's premise refresh, at `c13fbb0`.
+
+**Operation and consumer.** Open a REPEATABLE READ, read-only snapshot for queries, explanation,
+export capture (ADBC snapshot import), domain reads and authored-SQL admission.
+
+**Current mechanism.** REPEATABLE READ plus a hand-written `SET TRANSACTION READ ONLY` appears at:
+- `semantic/query.py:330-333`;
+- `semantic/domain_operations.py:210-213` and `:687-690`;
+- `semantic/authored_sql.py:192`;
+- `cli/query.py:92-93`, `cli/explain.py:27-28` and `cli/export.py:17-18`.
+
+`serve/journey.py:40` re-checks it. The CLI modules do not reuse `read_session`, because that binds by
+realization while the CLI binds by selected run.
+
+**Why it matters.** ADBC snapshot import and token binding depend on exactly these transaction
+semantics, and each new consumer copies the opening.
+
+**Patterns.** LOP-09, LOP-03.
+
+**Research leads.** SQLAlchemy `postgresql_readonly`/`isolation_level` execution options
+([sqlalchemy](../libraries/sqlalchemy/README.md#sqlalchemy-transaction-characteristics)).
+
+**Comparative review correction (2026-10-29).** There are six openers, not seven. `authored_sql.py` is a read-only catalog admission at default isolation, so it is excluded ([review](../reviews/consumer-read-boundary.md#cbo-025)).

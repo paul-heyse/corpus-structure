@@ -101,6 +101,8 @@ ordered import list, and `SchemaBuilder` for the agent module.
 
 **Library assessment (2026-10-29).** Premise updated. `semantic/regeneration.py:prepare_pack` (`2c00ab9`, after this baseline) now composes releases, still by nesting wrapper roots. LinkML importmap composition fits with conditions: the library never refuses duplicates or missing imports, and relabels URIs after a merge ([LOP-X006](../assessment-patterns.md#lop-x006); [linkml](../libraries/linkml/README.md#applicability-cbo-002)).
 
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Partially realized.* `semantic/regeneration.prepare_pack(s)` is a product composer used by `ci regenerate` and `ci schema`. It refuses packs that disagree and namespaces multi-pack artifacts. Still open: composition still nests wrapper roots; `observations.py` calls the private `prepare._view`; 32 test files compose releases themselves ([DTA-005](../../design_review/test-audit/support-structure.md#dta-005)); acquisition reads implicit local defaults (the core rules path, `SOURCES_DIR` and the phase0 registry).
+
 <a id="cbo-003"></a>
 
 ## CBO-003 — Every read session rebuilds and re-verifies the immutable release
@@ -166,6 +168,8 @@ keyed by release id and content digest, a digest-keyed in-process reuse scope, a
 2. Does any SP-08 consumer need the OWL, SHACL or per-class JSON Schema artifacts?
 
 **Library assessment (2026-10-29).** A native verification record is sound only if `sem.*` rows become trigger-enforced immutable; today the owner can mutate them ([postgresql](../libraries/postgresql/README.md#applicability-cbo-003)). Shared-`$defs` schemas fit as a capability ([pydantic](../libraries/pydantic/README.md#applicability-cbo-003)).
+
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Unchanged; more callers.* Serving (`serve/journey.py`) and evaluation (`evaluate/semantic.py`, five sites) also call `load_release` per session.
 
 <a id="cbo-009"></a>
 
@@ -289,6 +293,8 @@ for a `Converter` built from archived prefix rows (no overview page).
 **Related.** [CBO-016](consumers-and-operations.md#cbo-016) (instance traversal).
 
 **Library assessment (2026-10-29).** **Correctness gap found.** `property_adapter` builds `TypeAdapter(annotation)` without model config, so with `strict=True` it accepts NaN and infinity that the generated models refuse (probe; source verified). Derived indices must live on the `PreparedRelease` root, because definitions are archived through `asdict` despite `compare=False`. Native range cannot come from Pydantic annotations ([pydantic](../libraries/pydantic/README.md#applicability-cbo-013), [linkml](../libraries/linkml/README.md#applicability-cbo-013), [curies](../libraries/curies/README.md#applicability-cbo-013)).
+
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Unchanged; more sites.* The NaN/inf gap (`types.py:304`) now sits on the serving output boundary (`serve/read.py:89-90`). A third `compact` appears in `semantic_alignment.py`, and the Reader scans definitions per row.
 
 <a id="cbo-017"></a>
 

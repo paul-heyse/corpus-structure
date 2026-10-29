@@ -89,6 +89,13 @@ non-underscore slots, matched private `GetAttributeExpression._object_type` in e
 plain access, `&.` access and comprehension variables. It still depends on the private module and
 needs an OBJECT guard.
 
+**Comparative review refinement (2026-10-29).** In the installed 5.1.0 source,
+`ExpressionBase.result_type` carries a docstring: "The data type of the result of successful
+evaluation". A scratch probe matched it to `_object_type` across five access forms. The attribute is
+documented, but it lives in a module upstream marks private. This narrows the negative result
+without overturning it: the route reads a documented attribute of a private module, and a
+regression test over the pack's rules guards it.
+
 **Search scope.** The installed package was grepped for walk, visitor and children; the 5.1.0
 `ast/__init__` exports and the Context7 docs were checked.
 

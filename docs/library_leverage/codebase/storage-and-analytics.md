@@ -100,6 +100,8 @@ but unused), LOP-10 (structure as JSON in annotations), [LOP-X001](../assessment
 
 **Library assessment (2026-10-29).** Premise corrected. Functions, triggers and grants do not need `include_object`, because Alembic never reflects them, so `command.check` proves table structure only. Partial-index predicates and views are further blind spots, and whether the check is clean at head is unsettled. SQLAlchemy `CreateTable` is the deterministic emitter ([alembic](../libraries/alembic/README.md#applicability-cbo-008)).
 
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Unchanged; settled by probe.* At head `semantic_0029`, Alembic's configured `command.check` is **not clean**. It reports 49 differences: 24 remove/add constraint pairs, mostly CHECK/UNIQUE constraints that the frozen SQL names differently from MetaData's naming convention, plus one server-default divergence ([evidence](../../design_review/evidence/2026-10-29_library-leverage-review-probes/README.md)). There are now 29 revisions and 150 `ph:` annotations.
+
 <a id="cbo-014"></a>
 
 ## CBO-014 — The protected transport routine is copied by hand into each revision; its generator is stale
@@ -147,6 +149,8 @@ Adding one staged relation touches:
 2. Which per-relation differences are intended?
 
 **Library assessment (2026-10-29).** `STAGE_TYPES` already derives column types from MetaData. `CreateTable` reproduced the frozen 0027 `CREATE TABLE` text exactly (probe) ([sqlalchemy](../libraries/sqlalchemy/README.md#applicability-cbo-014)).
+
+**Comparative review correction (2026-10-29).** The generator is not stale. Rendered with the current `STAGE_TYPES`, it produces every per-relation line of the head transport verbatim. The head differs only by the function name (renamed in 0023), relation order and a missing `end_stage` template. The real gap is the missing authoring route ([review](../reviews/native-integrity-and-execution.md#cbo-014)).
 
 <a id="cbo-015"></a>
 

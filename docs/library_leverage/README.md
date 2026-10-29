@@ -44,9 +44,16 @@ source `d739b88`, consuming codebase publication `d739b88`). It covers:
 - an applicability conclusion for every CBO;
 - additional patterns LOP-X005–X007 and refinements to LOP-X001–X004.
 
-The [comparative review](reviews/README.md) collection remains unassessed. Record inspected
-baselines and limits rather than treating empty collections as assessed, and add patterns only when
-a framing is genuinely missing.
+The [comparative review](reviews/README.md) collection has its first account (2026-10-29). It
+consumes codebase publication `d739b88` (premises refreshed through `c13fbb0`, adding CBO-025) and
+library publication `4c6d7f6`, with reviewers finishing at source `0350a7a`. It holds:
+- a recommendation for each of CBO-001 to CBO-025;
+- the recommendations' interactions and prerequisite order;
+- unsettled decisions, defects found and rule impacts for existing decision routes;
+- additional patterns LOP-X008–X011 and refinements to LOP-X001, X002, X006 and X007.
+
+Record inspected baselines and limits rather than treating empty collections as assessed, and add
+patterns only when a framing is genuinely missing.
 
 The shared [vocabulary](references/shared-language.md) and
 [collection-writing guidance](references/collection-writing.md) support all three skills. Keep

@@ -83,6 +83,8 @@ framework is needed.
 
 **Library assessment (2026-10-29).** The publisher is `NOLOGIN`, so it is not a connection principal. Since `3d97504`, `connection_settings(settings, purpose)` derives write/read/evaluate/maintenance URLs. `NullConnectionPool` behind SQLAlchemy is ruled out at psycopg-pool 3.3.3 ([psycopg](../libraries/psycopg/README.md#applicability-cbo-004), [pydantic-settings](../libraries/pydantic-settings/README.md#applicability-cbo-004)).
 
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Partially realized (most of it).* Delivered: `ci regenerate` (prepare → persist under maintenance credentials → init → run → extract → finalize → activate and select in one CAS transaction, with `--resume-run`); `ci db init/migrate` on semantic migrations; MCP through `open_runtime_engine`; and `connection_settings(settings, purpose)`, which keeps one endpoint and swaps credentials per purpose (`d167c21`). Still open: role derivation is hard-coded; tests choose principals with `url.set(username=…)`; `regenerate` lets `DBAPIError` escape; role provisioning is a separate script; the single-pool interpretation is unresolved.
+
 <a id="cbo-010"></a>
 
 ## CBO-010 — Native test databases have no reusable migrated template or revision-pair route
@@ -132,6 +134,8 @@ The consumers are developers, the SP-08 consumer tests and the SP-10 qualificati
 2. Can its template key include the full revision directory and role state?
 
 **Library assessment (2026-10-29).** **Premise failure.** `CREATE DATABASE … TEMPLATE` does not copy database-level grants. Revisions 0003 and 0007 revoke `TEMP` from `PUBLIC` at that level, so a cloned head template would re-grant TEMP to every role. Any template route must replay the database ACL after cloning ([LOP-X007](../assessment-patterns.md#lop-x007)). The template key must also cover the role inventory: a fourth role exists, and revisions now number 28 ([postgresql](../libraries/postgresql/README.md#applicability-cbo-010)).
+
+**Premise refresh (2026-10-29, at `c13fbb0`).** *Unchanged; premise confirmed by probe.* A clone of a migrated template has `datacl` `NULL`, so the reader and evaluator gain TEMP. A generic `aclexplode` replay restores the identical set ([evidence](../../design_review/evidence/2026-10-29_library-leverage-review-probes/README.md)). Revisions now number 29, and the fixture checks only three of the four roles.
 
 <a id="cbo-011"></a>
 

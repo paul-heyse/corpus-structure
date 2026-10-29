@@ -23,6 +23,8 @@ change.
 | Date | 2026-10-29 |
 | Criteria | framework edition 0.2; base patterns LOP-01–LOP-12 edition 0.2; [additional patterns](../assessment-patterns.md) LOP-X001–X004, created by this pass; design standard core 3.3 with heuristics, used for judging substantial shapes |
 | Kind | First audit; there is no preceding account |
+| Comparative review | 2026-10-29: a [recommendation for every CBO](../reviews/README.md#index). Premise corrections are recorded there (CBO-002, 005, 009, 011, 012, 014, 025) and in the library accounts; they are not repeated per entry here |
+| Premise refresh | 2026-10-29, at `c13fbb0`, by the comparative review's refresh step (`leverage-codebase-audit` refresh mode). No opportunity is resolved. CBO-001, 002, 004, 006, 007 and 012 are partially realized or have changed premises, after concurrent SP-08 commits `2c00ab9…c13fbb0`; several others grew in footprint. CBO-025 was added. Dated "Premise refresh" notes on each entry record the changes. Untouched passages keep their earlier evidence dates |
 | Publishing commit | The commit that adds this account, distinct from the source baseline |
 
 ## Scope
@@ -175,7 +177,7 @@ This is a reading aid for timing, not a schedule. The
 
 | Boundary | Opportunities whose value is highest before or during it | Why then |
 |---|---|---|
-| **Before SP-08 builds consumers** | CBO-001, CBO-003, CBO-007, CBO-012, CBO-013, CBO-016, CBO-023 | Each new consumer otherwise copies selection, continuation, decoding, refusal mapping and release lookups, or pays per-session reload. These are cheapest to settle before the surfaces exist |
+| **Before SP-08 builds consumers** | CBO-001, CBO-003, CBO-007, CBO-012, CBO-013, CBO-016, CBO-023, CBO-025 | Each new consumer otherwise copies selection, continuation, decoding, refusal mapping and release lookups, or pays per-session reload. These are cheapest to settle before the surfaces exist |
 | **Before SP-09 retires and cuts over** | CBO-002, CBO-004, CBO-005, CBO-006, CBO-008 (lowering), CBO-009, CBO-018 | Surviving code still depends on retiring modules. The command path, composer and principal model must exist. Identity sets change release ids, and regeneration is the cheapest moment to accept that |
 | **For the SP-10 union** | CBO-008 (drift), CBO-010, CBO-011, CBO-014, CBO-015 | Controlled-revision evidence, outcome classification, a cheap native harness and conformance of the mirrored codec are what assembled qualification rests on |
 | **Independent of timing** | CBO-017, CBO-019, CBO-020, CBO-021, CBO-022, CBO-024 | Local improvements whose value does not depend on a pivot boundary |
@@ -210,6 +212,7 @@ This is a reading aid for timing, not a schedule. The
 | [CBO-022](storage-and-analytics.md#cbo-022) | Inference runs a naive fixed point | current | LOP-01, LOP-04 | storage |
 | [CBO-023](consumers-and-operations.md#cbo-023) | Math deadline confines comparison and decisions to the main thread | current | LOP-08 | consumers |
 | [CBO-024](release-preparation.md#cbo-024) | Ontology path works around enum composition order and reparses ontologies | current (tests only) | LOP-11, LOP-07 | preparation |
+| [CBO-025](consumers-and-operations.md#cbo-025) | Read-only snapshot opening is repeated across seven sites | current / accepted planned | LOP-09, LOP-03 | consumers |
 
 IDs are ordered by value for the pivot's remaining work at this baseline. They are stable and are
 never reused.

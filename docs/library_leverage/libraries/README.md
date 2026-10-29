@@ -158,7 +158,9 @@ Each conclusion is one of *fits*, *fits with conditions*, *ruled out for this co
 ## Questions for comparative review
 
 These are the most consequential questions for
-[`leverage-opportunity-review`](../reviews/README.md). Each library page lists its own.
+[`leverage-opportunity-review`](../reviews/README.md). Each library page lists its own. The first
+comparative review (2026-10-29) answers them in its [synthesis](../reviews/README.md#synthesis) and
+[unsettled decisions](../reviews/README.md#unsettled).
 
 1. **`sem.*` immutability (CBO-003, CBO-019).** Should `sem.*` and admitted value rows become
    immutable, enforced by triggers? That single premise decides whether a verification record or a

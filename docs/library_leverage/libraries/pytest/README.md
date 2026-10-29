@@ -33,6 +33,20 @@ deliberate passing, skipping, failing and hanging cases
   intact. It uses `SIGALRM`, so it conflicts with any code under test that also uses `SIGALRM`.
 - The `thread` method calls `_exit(1)` and writes no JUnit file.
 
+**Comparative review correction (2026-10-29).** The `signal` method does more than conflict with
+code under test that runs its own `SIGALRM` deadline. If that code ends its deadline with
+`setitimer(ITIMER_REAL, 0)`, the reset cancels pytest-timeout's outer timer. The test then runs with
+no timeout at all, silently. This comes from reading the deadline code; it was not probed with
+pytest-timeout installed.
+
+**Streaming alternative (pytest-reportlog, from upstream source; not installed).**
+- `--report-log=<path>` writes one JSON line per `TestReport` and `CollectReport`, flushes after each
+  write, and ends with a `SessionFinish` record.
+- Combined with faulthandler-exit, a hang keeps every completed outcome and the collection manifest.
+  If the hang is in the call phase, it also keeps the hung item's setup record.
+- A missing `SessionFinish` marks an interrupted run.
+- This removes the limit that a missing JUnit file loses every outcome.
+
 **What remains with the caller:**
 - Mapping outcomes to a qualification vocabulary.
 - Treating a missing report as a failure.
@@ -57,6 +71,8 @@ deliberate passing, skipping, failing and hanging cases
   - A credible complete option is faulthandler-exit plus a route that treats a missing JUnit file as
     `failed`, naming the hung test from the traceback dump.
   - Narrower per-test bounds would need a wrapper that runs each test in its own process.
+  - **Comparative review (2026-10-29):** prefers pytest-reportlog streaming plus faulthandler-exit
+    over the missing-JUnit rule ([review](../../reviews/engineering-workflows.md#cbo-011)).
 - **Hypothesis replay.** See [hypothesis](../hypothesis/README.md#applicability-cbo-011).
 - **Not assessed here.** Nextest's `--no-tests=pass` is outside these libraries.
 

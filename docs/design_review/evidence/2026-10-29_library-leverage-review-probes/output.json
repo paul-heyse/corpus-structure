@@ -1,0 +1,411 @@
+{
+  "head": "semantic_0029",
+  "current": "semantic_0029",
+  "q1_check": "diffs",
+  "q1_diff_count": 49,
+  "q1_diffs": [
+    {
+      "op": "remove_constraint",
+      "name": "alternative_group_operation_id_check",
+      "table": "data.alternative_group",
+      "sqltext": "length(operation_id) > 0",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "alternative_group_operation_version_check",
+      "table": "data.alternative_group",
+      "sqltext": "length(operation_version) > 0",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_alternative_group_physical_367a3f1b91",
+      "table": "data.alternative_group",
+      "sqltext": "length(operation_version) > 0",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_alternative_group_physical_81a8ed4461",
+      "table": "data.alternative_group",
+      "sqltext": "length(operation_id) > 0",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "assessment_counterpart_pair",
+      "table": "data.assessment",
+      "sqltext": "(counterpart_fact_id IS NULL) = (counterpart_occurrence_id IS NULL)",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_assessment_physical_ba2418d4d2",
+      "table": "data.assessment",
+      "sqltext": "(counterpart_fact_id IS NULL)=(counterpart_occurrence_id IS NULL)",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "coverage_source_domain",
+      "table": "data.coverage",
+      "sqltext": "source_outcome IS NULL OR (source_outcome = ANY (ARRAY['complete'::text, 'partial'::text, 'unknown'::text, 'unsupported'::text, 'failed'::text]))",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "coverage_translation",
+      "table": "data.coverage",
+      "sqltext": "source_outcome IS NULL OR outcome =\nCASE\n    WHEN source_outcome = ANY (ARRAY['unknown'::text, 'unsupported'::text]) THEN 'unanalysed'::text\n    ELSE source_outcome\nEND",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_coverage_physical_76460b9b2b",
+      "table": "data.coverage",
+      "sqltext": "source_outcome IS NULL OR outcome = CASE WHEN source_outcome IN ('unknown','unsupported') THEN 'unanalysed' ELSE source_outcome END",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_coverage_physical_e6acac26e8",
+      "table": "data.coverage",
+      "sqltext": "source_outcome IS NULL OR source_outcome IN ('complete','partial','unknown','unsupported','failed')",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "entity_source_realization_id_release_id_observation_id_loca_key",
+      "table": "data.entity_source",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "uq_entity_source_realization_id_release_id_observation_id_local_id",
+      "table": "data.entity_source",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "occurrence_context_check",
+      "table": "data.occurrence_context",
+      "sqltext": "statement_entity_id IS NOT NULL OR statement_role IS NOT NULL",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_occurrence_context_physical_e32eb26213",
+      "table": "data.occurrence_context",
+      "sqltext": "statement_entity_id IS NOT NULL OR statement_role IS NOT NULL",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "publication_intent_check",
+      "table": "data.publication_intent",
+      "sqltext": "source_capture_id <> ''::text AND operation_id <> ''::text AND projection_id <> ''::text",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "publication_intent_source_revision_check",
+      "table": "data.publication_intent",
+      "sqltext": "source_revision >= 0",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_publication_intent_physical_0ed0eed26f",
+      "table": "data.publication_intent",
+      "sqltext": "source_revision>=0",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_publication_intent_physical_55ae0caf21",
+      "table": "data.publication_intent",
+      "sqltext": "source_capture_id<>'' AND operation_id<>'' AND projection_id<>''",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "ck_document_split_physical_23de252598",
+      "table": "eval.document_split",
+      "sqltext": "split = ANY (ARRAY['dev'::text, 'test'::text, 'reserved'::text])",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_document_split_physical_a319d8e82e",
+      "table": "eval.document_split",
+      "sqltext": "split IN ('dev','test','reserved')",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "uq_observation_bound",
+      "table": "kb.observation",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "uq_observation_source_identity",
+      "table": "kb.observation",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "uq_observation_release_id_id",
+      "table": "kb.observation",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "uq_observation_release_id_observation_key",
+      "table": "kb.observation",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "observation_input_position_check",
+      "table": "kb.observation_input",
+      "sqltext": "\"position\" >= 0",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "observation_input_role_check",
+      "table": "kb.observation_input",
+      "sqltext": "role <> ''::text",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_observation_input_physical_08d176bdbd",
+      "table": "kb.observation_input",
+      "sqltext": "role <> ''",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_observation_input_physical_9039b28f88",
+      "table": "kb.observation_input",
+      "sqltext": "position >= 0",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "completed_result_release_id_output_realization_id_key",
+      "table": "ops.completed_result",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "uq_completed_result_release_id_output_realization_id",
+      "table": "ops.completed_result",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "measurement_source_row",
+      "table": "ops.measurement",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "uq_measurement_task_id_source_position",
+      "table": "ops.measurement",
+      "sqltext": null,
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "measurement_source_position",
+      "table": "ops.measurement",
+      "sqltext": "source_position IS NULL OR source_position >= 0",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_measurement_physical_a0486ccc73",
+      "table": "ops.measurement",
+      "sqltext": "source_position IS NULL OR source_position >= 0",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "method_configuration_digest",
+      "table": "ops.method",
+      "sqltext": "configuration_schema_digest IS NULL OR configuration_schema_digest ~ '^[0-9a-f]{64}$'::text",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_method_physical_95ee0996a8",
+      "table": "ops.method",
+      "sqltext": "configuration_schema_digest IS NULL OR configuration_schema_digest ~ '^[0-9a-f]{64}$'",
+      "detail": []
+    },
+    [
+      {
+        "op": "modify_default",
+        "name": null,
+        "table": null,
+        "sqltext": null,
+        "detail": [
+          "ops",
+          "task",
+          "invocation_key",
+          "{'existing_nullable': False, 'existing_type': TEXT(), 'existing_comment': None}"
+        ]
+      }
+    ],
+    {
+      "op": "remove_constraint",
+      "name": "ck_task_invocation_key",
+      "table": "ops.task",
+      "sqltext": "invocation_key <> ''::text",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_task_physical_8afd8b30fe",
+      "table": "ops.task",
+      "sqltext": "invocation_key <> ''",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "conditional_atom_branch_check",
+      "table": "sem.conditional_atom",
+      "sqltext": "branch = ANY (ARRAY['if'::text, 'then'::text, 'else'::text])",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "conditional_atom_choices_check",
+      "table": "sem.conditional_atom",
+      "sqltext": "choices IS NULL OR choices = 'null'::jsonb OR jsonb_typeof(choices) = 'array'::text",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "conditional_atom_position_check",
+      "table": "sem.conditional_atom",
+      "sqltext": "\"position\" >= 0",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "conditional_atom_presence_check",
+      "table": "sem.conditional_atom",
+      "sqltext": "presence = ANY (ARRAY['present'::text, 'absent'::text, 'optional'::text])",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_conditional_atom_physical_7349b348ce",
+      "table": "sem.conditional_atom",
+      "sqltext": "branch IN ('if','then','else')",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_conditional_atom_physical_80eec7c0dc",
+      "table": "sem.conditional_atom",
+      "sqltext": "position>=0",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_conditional_atom_physical_84f8e0b15f",
+      "table": "sem.conditional_atom",
+      "sqltext": "choices IS NULL OR choices='null'::jsonb OR jsonb_typeof(choices)='array'",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_conditional_atom_physical_9beafb7d1a",
+      "table": "sem.conditional_atom",
+      "sqltext": "presence IN ('present','absent','optional')",
+      "detail": []
+    },
+    {
+      "op": "remove_constraint",
+      "name": "conditional_rule_scope_check",
+      "table": "sem.conditional_rule",
+      "sqltext": "scope = ANY (ARRAY['shape'::text, 'accepted_value'::text])",
+      "detail": []
+    },
+    {
+      "op": "add_constraint",
+      "name": "ck_conditional_rule_physical_e64beec5ee",
+      "table": "sem.conditional_rule",
+      "sqltext": "scope IN ('shape','accepted_value')",
+      "detail": []
+    }
+  ],
+  "q2_template": {
+    "datacl": "{=c/paul,paul=CTc/paul,corpus_sem_publisher=T/paul,corpus_sem_writer=T/paul}",
+    "temp": {
+      "corpus_sem_publisher": true,
+      "corpus_sem_writer": true,
+      "corpus_sem_reader": false,
+      "corpus_sem_evaluator": false
+    }
+  },
+  "q2_template_objects": {
+    "reader_insert_data_entity": false,
+    "reader_select_data_entity": true,
+    "writer_execute_begin_stage": true
+  },
+  "q2_clone_before_replay": {
+    "datacl": null,
+    "temp": {
+      "corpus_sem_publisher": true,
+      "corpus_sem_writer": true,
+      "corpus_sem_reader": true,
+      "corpus_sem_evaluator": true
+    }
+  },
+  "q2_clone_objects": {
+    "reader_insert_data_entity": false,
+    "reader_select_data_entity": true,
+    "writer_execute_begin_stage": true
+  },
+  "q2_replayed_grants": [
+    [
+      "PUBLIC",
+      "CONNECT"
+    ],
+    [
+      "corpus_sem_publisher",
+      "TEMPORARY"
+    ],
+    [
+      "corpus_sem_writer",
+      "TEMPORARY"
+    ]
+  ],
+  "q2_clone_after_replay": {
+    "datacl": "{paul=CTc/paul,=c/paul,corpus_sem_publisher=T/paul,corpus_sem_writer=T/paul}",
+    "temp": {
+      "corpus_sem_publisher": true,
+      "corpus_sem_writer": true,
+      "corpus_sem_reader": false,
+      "corpus_sem_evaluator": false
+    }
+  },
+  "q2_datacl_set_equal_after_replay": true,
+  "residue": 0
+}
