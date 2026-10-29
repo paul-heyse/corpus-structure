@@ -2,6 +2,27 @@
 
 **Status:** SP-04 implemented within the scoped boundary below; SP-08 planned. **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O05 and consumes SP-01 meanings, SP-03 publication and SP-05/SP-07 outputs as needed.
 
+## Completeness extension (planned)
+
+The implemented SP-04 profile remains intact. [SP-C04](domain-model-realization.md#SP-C04) adds typed
+decision/outcome relationships to current explanation; [SP-C05](domain-model-realization.md#SP-C05)
+adds named projection/provenance/lifetime contracts. [SP-C01/SP-C02](domain-model-completeness.md)
+own their shared definitions and boundary products. New work is tracked only in
+[coordinator §10](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration).
+
+Already-transitioned query/explain and source CLI/MCP primitives adopt these contracts with the
+SP-C package that changes them. They expose typed subject/counterpart/context, source/input lineage,
+rule/operation identity and explicit uncertainty without interpreting reason text or confusing
+protocol completion with accepted knowledge. Snapshot handles/continuations and evidence closure
+remain governed by the actual declared projection and binding.
+
+SP-08 migrates the remaining surface against those working contracts: relevant SP-C03 lifecycle
+results, SP-C04 assessments/coverage/proofs, SP-C05 projections/analytical results, and SP-C02
+admission closure. Consumer design can begin against agreed definitions; integrated acceptance
+requires the actual enforcing/admitted implementation. Do not duplicate or defer existing-caller
+adoption to a later inventory phase, and do not add a generic introspection service merely to
+publish internal mechanics.
+
 ## Current execution contract (2026-10-29)
 
 SP-04 execution starts at `903a2ff`. [ADR-0026](../../adr/0026-columnar-semantic-operations.md)
@@ -33,7 +54,7 @@ Resolve output types through the release-derived Pydantic/TypeAdapter boundary; 
 <a id="SP-08"></a>
 ## SP-08 — Complete current consumer migration
 
-**Input:** SP-04; SP-07 only for consumers requiring consolidation/derived output; SP-05 for actual exports and analytical evaluation. **Owner:** serving/agent/CLI/evaluation integration.
+**Input:** SP-04; SP-07 for consolidation/derived consumers; relevant SP-C03–SP-C05 working products and SP-C02 admission closure; SP-05 for exports/analytical evaluation. **Owner:** serving/agent/CLI/evaluation integration.
 
 Migrate all affected current `serve/protocol.py`, `registry.py`, `read.py`, `queries.py`, `journey.py`, `explain.py`, domain query implementations, CLI query/explain/schema/db/export commands and MCP tools. Inventory concrete entry points at execution start, including any dirty source legitimately adopted then. A representative query passing does not discharge the remaining surface. Replace hard-coded old table/key interpretation with semantic query primitives while retaining justified domain-specific algorithms and indexed access paths.
 

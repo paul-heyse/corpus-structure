@@ -1,10 +1,36 @@
 # Domain operations and producer integration
 
-**Status:** In progress · **Created:** 2026-10-29 · **Proposed.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Consumes O04/O05 and the [semantic binding](semantic-model-and-releases.md), [publisher](postgresql-and-publication.md) and [Arrow kernels](interchange-and-analytics.md).
+**Status:** Implementation closed out at operator request; scoped Tested profile, package qualification open · **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Consumes O04/O05 and the [semantic binding](semantic-model-and-releases.md), [publisher](postgresql-and-publication.md) and [Arrow kernels](interchange-and-analytics.md).
+
+## Completeness extension (planned)
+
+The implemented SP-06/SP-07 profile and passing checks below remain intact. The new model work is
+[SP-C01/SP-C02](domain-model-completeness.md); [SP-C03/SP-C04](domain-model-realization.md) own its
+lifecycle and domain realization. [SP-C05](domain-model-realization.md#SP-C05) owns shared projection
+and candidate-input contracts. Current state and qualified completeness-review opportunities
+remain solely in [coordinator §10](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration).
+
+Migrate already-transitioned method/orchestration/task/agent entry points with SP-C03, including
+claim/reclaim, held progress, completion, cut sealing, cancellation and immutable result replay.
+source_ready and held remain response/submission outcomes, not interchangeable run/task states.
+Current native fences remain the implementation foundation.
+
+SP-C04 connects typed source/protocol/coverage/scientific outcomes, assessment subjects and
+counterparts, selection and inference. Unknown/unsupported source coverage maps to semantic
+unanalysed with the original reason/code; a done task may retain refused content without implying
+accepted facts. Retain exact math context/constants, conditions, source multiplicity, known-input
+lineage, compact alternative groups and positive source-grounded proof eligibility. Reason text
+must not remain the sole machine-readable assessment relationship.
+
+Adopt those contracts in existing source-to-cut-to-publication-to-explanation consumers within
+the SP-C packages; SP-08 owns only the remaining consumer migration. SP-C04's pure policy work can
+use SP-C02 contract products; its publication journey requires SP-C03 and admission closure.
+Additional completeness work neither establishes nor erases SP-06/SP-07's enclosing obligations.
+Grading/adjudication stay automated; no prior result is regraded.
 
 ## Current execution contract (2026-10-29)
 
-**In progress; not package completion.** Execution began at `1ce2c19` under
+**Stopped at operator request; not package completion.** Execution began at `1ce2c19` under
 [ADR-0027](../../adr/0027-bound-domain-operations.md). Runs pin interpretation, source/configuration
 and operation dependencies. Source preparation, recorded agent work and final domain publication
 are distinct capabilities; a `source_ready` response does not establish finished consolidation.
@@ -28,10 +54,54 @@ backends and LinkML-Datalog remain deferred. Source reports and canonical instan
 Keyed LinkML collections remain maps rather than acquiring ordered-list meaning. Scope and source
 macro environments remain explicit, and scientific assessments do not become proposition identity.
 
-Complete scope still requires connected current producers, source task/cut protection, declared
-identity and domain rules, protected source-to-output publication and focused native acceptance.
-The coordinator owns package state; receipts and exact remaining obligations will be reconciled
-against the assembled implementation rather than inferred from individual worker completion.
+### Implemented profile and closeout boundary (2026-10-29)
+
+**Implemented; scoped Tested.** Explicit semantic run creation, CLI/MCP extraction, all five
+current deterministic methods and automated two-submission agent work use immutable release,
+source/configuration and input-realization bindings. First uncertain submission is durably held; a second
+unclean/invalid submission finishes with its typed source report and explicit coverage rather
+than fabricated valid facts. Retry, fresh invocation, cut sealing, cancellation and reuse are
+fenced in native PostgreSQL. A changed meaning-bearing configuration cannot reuse old work.
+
+Proposal boundaries derive from the release, including exact decimals, keyed collections,
+typed nested references, source macros and qualifications. Strict YAML loading refuses duplicate
+keys. Source observation/occurrence identity remains separate from semantic fact identity.
+Declared keys and verified known-input lineage preserve references across generations without
+copying old source occurrences. Invalid locators, source/context substitution, bare selected
+facts, stale attempts and appends to completed outputs refuse at native boundaries.
+
+Consolidation lowers through the shared fact/value implementation. Released rule-engine rules,
+numerical/symbolic comparisons and frozen source math contexts produce explicit decisions;
+undecided results and unsupported scientific restrictions remain visible. Authored alternatives
+and independent conflicts retain compact groups and assessments. Actual statistics declarations
+preserve conditional PDFs and multiple relation targets; functional constraints apply to genuine
+function-valued properties rather than collapsing every relation to one target.
+
+Qualified positive inference uses the supported relational profile, finite semantic conclusion
+identity, compact direct premise links and grounded native proof validation. Source publication
+and proof publication commit atomically. Completed evaluation replay returns the exact receipt,
+including after an input realization advances. Query/explain exposes source, premise, group and
+assessment details; this does not establish all later SP-08 consumer journeys.
+
+Compiler **6** includes native LinkML/PyOxigraph RDF canonicalization. Lightweight schema preview
+and an eight-entry pure-preparation cache remove repeated unused graph work; exact archive and
+relational validation still run on reload. The [execution-fit receipt](../../design_review/evidence/2026-10-29_sp06-execution-fit/README.md)
+measured the same test body at 98.381 s before and 2.686 s after repair. This is a scoped local
+measurement, not a broader performance or capacity claim.
+
+Type checking passed with zero errors, and targeted tests passed. Completed receipts include
+76 method/math-coverage/validation cases, 86 preparation/proposal/archive/ontology cases,
+7 merged-query/orchestration cases, and focused native lineage, proof, science and cancellation
+controls. Coordinator §9 records the completed checks. These results remain passing after lint
+maintenance; lint cleanup is separate and does not require another type/test run. Failed intermediate fixtures and implementation checks
+were corrected and rerun; they do not count as passing receipts. No human grading was introduced,
+and no prior automated model-quality result was regraded.
+
+**Remaining:** reconcile the complete SP-06/SP-07 obligation union against the final assembled
+source before claiming package completion; focused receipts do not establish that union. SP-08
+consumer migration, SP-09 clean regeneration/default cutover and SP-10 assembled qualification
+remain open. No operational deployment or legacy default selection changed. Work is stopped at
+the operator's requested boundary; a comprehensive follow-up must start from this checkpoint.
 
 ## Contracts and current footprint
 

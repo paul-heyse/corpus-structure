@@ -2,6 +2,32 @@
 
 **Status:** Implemented; scoped acceptance passed (2026-10-29) · **Created:** 2026-10-29 · **Target accepted by ADR-0024; implementation evidence is bounded below.** [Coordinator](../semantic-model-pivot_2026-10-29.md) owns package state and shared scope. Consumes review O01/O02/O04; supplies every other supporting plan.
 
+## Completeness extension (planned)
+
+The implemented SP-00/SP-01 profile and its receipts remain the baseline. Added work is owned by
+[SP-C01/SP-C02](domain-model-completeness.md), selected from the
+[completeness review](../../functional_reviews/semantic-domain-model-completeness_2026-10-29.md).
+The [coordinator §10](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
+owns its state and qualified opportunity dispositions.
+
+SP-C01 adds the connected logical concepts/relationships and lifecycle, operation, invariant and
+projection contracts. Trusted execution definitions are code-versioned; domain meanings/policy
+remain release-authored. Their composed binding names compatible revisions and implementations.
+Persisted references/identities retain release and realization scope; group reasons do not enter
+alternative-group identity. Specialized algorithms remain owned ordinary functions.
+
+SP-C02 extends current normalization, strict Pydantic boundaries, prepared products, exact archives
+and activation. Contract products become usable before the corresponding native/graph enforcement
+is finished; required invariant admission/activation waits for that actual implementation. Compiler
+changes receive a new identity/profile, never reinterpret existing archived compiler-6 products.
+Supported LinkML conditional rules need an actually faithful enforcing route, not merely successful
+JSON Schema/SHACL generation. The bounded lowering investigation and completion criteria live in
+SP-C02; do not duplicate another capability register here.
+
+SP-C03–SP-C05 adopt these products in current operations. This extension does not reopen or erase
+the existing SP-01 receipt, install candidate libraries, change current defaults or authorize
+historical upcasters.
+
 ## Target and foundation
 
 Replace installed-model-only interpretation with an admitted immutable semantic binding. Reuse `schema/model.py`, `pack.py`, `lookup.py`, `batches.py` and `registry.py`, but eliminate their assumption that every runtime must interpret a release through the newest installed model. A prepared binding carries normalized definitions, validators, query mappings and exact dependencies; it need not create a new service or framework.

@@ -2,6 +2,31 @@
 
 **Status:** Implemented within the native profile below; final integrated checks recorded by the [coordinator](../semantic-model-pivot_2026-10-29.md). **Created:** 2026-10-29. Consumes O03 and the [semantic contracts](semantic-model-and-releases.md). Supplies native persistence, publication and relational access to later consumers.
 
+## Completeness extension (planned)
+
+Existing SP-02/SP-03 metadata, archive, privilege and publisher receipts remain intact. New logical
+contracts are owned by [SP-C01/SP-C02](domain-model-completeness.md); their native lifecycle and
+publication realization is [SP-C03](domain-model-realization.md#SP-C03). The
+[coordinator §10](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
+owns additional package state.
+
+Native enforcement must consume the complete allowed-transition and relational/invariant
+contracts for every supported writer. Preserve guarded Core DML/RETURNING, run/task locking,
+attempt ownership, exact reuse binding, final cuts, source/proof authorization, SERIALIZABLE
+publication and exact receipt replay. Preflight cannot become another independently maintained
+predicate or authorize an operation the native boundary would refuse.
+
+Deploy changed trusted structures/guards through new frozen Alembic revisions; never edit the
+existing deployed history. Logical relationship meaning belongs to SP-C01; physical naming,
+access paths and grants remain here. Dynamic domain declarations still create registry data,
+not per-class DDL or user-authored privileged routines. Required native implementations supply
+SP-C02 admission closure; a prepared adapter alone is not an activating prerequisite.
+
+[SP-C05](domain-model-realization.md#SP-C05) supplies explicit append versus snapshot-derived
+publication intent. The latter requires its source revision and returns recompute-required if
+stale. Both preserve this publisher and its single retry/transaction owner. No deployment,
+activation or database disposal is authorized by this plan revision.
+
 ## Implemented contracts and limits (2026-10-29)
 
 **Implemented/Tested, bounded package scope.** [ADR-0025](../../adr/0025-semantic-publication.md)

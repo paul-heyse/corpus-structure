@@ -1,13 +1,15 @@
 # Plans
 
-Plans live here, named `<topic>_<YYYY-MM-DD>.md`. Three plans are active, each owning its own scope
-(operator decision, 2026-10-28):
+Plans live here, named `<topic>_<YYYY-MM-DD>.md`. The plans below own distinct scopes. The
+original three ownership boundaries follow the operator decision of 2026-10-28; the dedicated
+semantic pivot series was added on 2026-10-29:
 
 | Plan | Owns |
 |---|---|
 | [design-phase](design-phase_2026-10-28.md) | Design findings and the disposition of OPEN items; the design queue |
 | [design-spikes series](design-spikes-s0-s1_2026-10-28.md) | Spike execution, spike evidence and its findings |
 | [phase 0 series](phase-0_2026-10-28.md) | The production build of phase 0 and its findings |
+| [semantic-model pivot](semantic-model-pivot_2026-10-29.md) | Semantic pivot packages, completeness extensions and their dependencies; existing phase-0 finding ownership is preserved |
 
 The [phases 1–5 roadmap](roadmap-phases-1-5_2026-10-28.md) is not an execution plan: it says what
 each later phase adds and what decides it, until its detailed plan is written. Cross-references

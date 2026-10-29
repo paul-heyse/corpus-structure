@@ -2,6 +2,31 @@
 
 **Status:** SP-05 implemented within the scoped boundary below. **Created:** 2026-10-29. [Coordinator](../semantic-model-pivot_2026-10-29.md) owns state. Realizes O06; supplies SP-07 consolidation and SP-08 exports/evaluation. Depends on [semantic contracts](semantic-model-and-releases.md) and [PostgreSQL/Core](postgresql-and-publication.md).
 
+## Completeness extension (planned)
+
+The scoped SP-05 implementation and receipts below remain the baseline. Added work is owned by
+[SP-C05](domain-model-realization.md#SP-C05), using [SP-C01/SP-C02](domain-model-completeness.md)
+projection contracts and SP-C03 protected effects. The
+[coordinator §10](../semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
+owns its state and completeness-review dispositions.
+
+Name the source universe, relation kinds, context, multiplicity/order, precision, omission,
+completeness and lifetime of each normalized relation. Distinguish a captured PostgreSQL packet
+from cut/candidate input using the same AnalysisScope; copied schema metadata cannot establish
+capture provenance. Separate scope-borrowed readers/relations from detached materialized results.
+Keep idempotent cleanup that attempts every owned resource and settles failures/cancellation.
+
+Replace implicit publication intent with append versus snapshot-derived contracts. A derived
+result requires its exact source binding/revision and operation/projection identity; stale input
+requires recomputation. Preserve one captured snapshot, existing ADBC/Core cooperation and
+protected pgpq COPY on the existing caller-owned transaction.
+
+Retain the admitted DECIMAL(38,scale) HALF_EVEN policy, explicit rounding/overflow and exact original
+lexical values. Neither Arrow decimal256 nor Oxigraph literal transport widens that contract.
+SP-C05 owns bounded graph/mapping candidates and their decision conditions; a new backend is not
+necessary to deliver these analytical distinctions. Existing current consumers adopt the new
+input/result contracts within SP-C05; SP-08 later consumes them for exports/evaluation.
+
 ## Current execution contract (2026-10-29)
 
 SP-05 starts at `903a2ff`, under [ADR-0026](../../adr/0026-columnar-semantic-operations.md).

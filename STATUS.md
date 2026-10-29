@@ -3,54 +3,46 @@ _Updated 2026-10-29 under the [handoff skill](.claude/skills/handoff/SKILL.md); 
 
 ## Current checkpoint
 
-- **Functional review completed; Proposed target, 2026-10-29.** The
-  [domain-model review](docs/functional_reviews/semantic-domain-model-completeness_2026-10-29.md)
-  and [target](docs/functional_reviews/semantic-domain-model-completeness_2026-10-29_target-model.md)
-  cover schemas, relations, composed state, transitions and operations in transitioned code.
-  Production execution remains stopped; no cleanup, deployment or feature work resumed.
-- SP-00–SP-05 retain their scoped implementation receipts. SP-06/SP-07 have an implemented,
-  scoped-tested profile; package completion and assembled qualification remain open. The
-  [coordinator §9](docs/plans/semantic-model-pivot_2026-10-29.md#9-sp-06sp-07-closeout-checkpoint-2026-10-29)
-  owns exact completed checks and stop boundaries; the
-  [domain-operations plan](docs/plans/semantic-model-pivot/domain-operations.md) owns delivered scope.
-- ADR-0027 and D1/D2/D5/D6 describe frozen release/source/configuration binding, deterministic
-  producers, automated two-submission agent work, source/fact separation, known-input lineage,
-  scientific decisions and grounded qualified inference. No human grading or prior-result regrade.
-- Compiler 6 uses native RDF canonicalization, lightweight preview and bounded pure preparation
-  reuse. The [scoped timing receipt](docs/design_review/evidence/2026-10-29_sp06-execution-fit/README.md)
-  records the same native statistics test body at 98.381 s before and 2.686 s after the repair.
-- All five sibling worktrees were integrated and deleted. `git worktree list` shows only this
-  main checkout; branch references remain. Workers are stopped. Latest committed integration:
-  `80fe11b`. Uncommitted formatting/lint corrections from the interrupted cleanup are preserved.
+- **Completeness plan integration authored; Proposed, 2026-10-29.**
+  [Coordinator §10](docs/plans/semantic-model-pivot_2026-10-29.md#10-domain-model-completeness-integration)
+  owns SP-C01–SP-C05 state, dependencies and completeness-review O01–O07 dispositions.
+- New [model/contracts plan](docs/plans/semantic-model-pivot/domain-model-completeness.md) owns
+  SP-C01/SP-C02; [realization plan](docs/plans/semantic-model-pivot/domain-model-realization.md)
+  owns SP-C03–SP-C05. The six existing package plans now link their required additions and
+  SP-08–SP-10 adoption/acceptance. No production implementation or deployment resumed.
+- Input [review](docs/functional_reviews/semantic-domain-model-completeness_2026-10-29.md) and
+  [target](docs/functional_reviews/semantic-domain-model-completeness_2026-10-29_target-model.md)
+  were consumed at `dcc5e0b`; the current dirty source was preserved.
+- SP-00–SP-05 retain scoped implementation/pass receipts. SP-06/SP-07 retain their implemented,
+  scoped-tested profile and enclosing open obligations. Additional completeness work does not
+  invalidate them. [Coordinator §9](docs/plans/semantic-model-pivot_2026-10-29.md#9-sp-06sp-07-closeout-checkpoint-2026-10-29)
+  owns prior closeout receipts; [domain operations](docs/plans/semantic-model-pivot/domain-operations.md)
+  owns delivered behavior. ADR-0024–0027 remain the accepted baseline.
+- All five sibling worktrees were integrated/deleted; only the main checkout remains. Existing
+  uncommitted formatting/lint corrections remain preserved. No worker is implementing code.
 
-## Last completed checks (2026-10-29)
+## Checks and evidence (2026-10-29)
 
-- **passed:** 76 method/math/validation cases and 86 preparation/proposal/archive/ontology cases;
-  focused native lineage, inference, source, scientific and publication controls retain their
-  original scopes. The coordinator records the boundaries; these are not full-package receipts.
-- **passed:** `uv run --no-sync pytest` merged-query/orchestration selection in coordinator §9:
-  7 cases.
-- **passed:** `uv run --no-sync pyrefly check --summary=none`, 0 errors.
-- These completed type and test results remain passing. Subsequent lint maintenance does not
-  invalidate them or create a requirement to repeat them.
-- **passed:** `just ready`; `just turn-end` (formatting/index command only).
-- **failed:** latest completed whole-project `uv run --no-sync ruff check --output-format=concise`.
-  Corrections overlapped that report; no final-tree lint-clean claim. Cleanup stopped.
-- `just test-all` and `just hygiene` remain the later SP-10 assembled-series scope; their absence
-  does not change the passing type and targeted-test results above. Remaining lint cleanup is
-  separate from functional verification.
-- Lint-only changes must not trigger follow-on type checking or testing (operator direction).
-- Review evidence is static source inspection and Context7/primary/installed library research;
-  product tests, type checks, probes and benchmarks were not rerun for this documentation work.
-- **passed (2026-10-29):** `just docs-check`, 224 canonical pages, no publication/link errors.
+- **passed, retained:** 76 method/math/validation cases, 86 preparation/proposal/archive/ontology
+  cases, 7 merged query/orchestration cases and focused native lineage/proof/source/science controls.
+- **passed, retained:** `uv run --no-sync pyrefly check --summary=none`, 0 errors.
+  These existing type/test results remain passing; lint-only changes do not require repeats.
+- **passed, retained:** `just ready`; `just turn-end` (formatting/index command only).
+- **failed, retained:** latest whole-project `uv run --no-sync ruff check --output-format=concise`;
+  corrections overlapped its report. Remaining lint cleanup is separate from functional verification.
+- Product tests, typing, probes, benchmarks, installations and migrations were **not_run for plan
+  authoring**; this does not change the retained passing receipts above.
+- **passed:** `just docs-check`, 226 canonical pages and no publication/link errors for the
+  integrated plan documents. This is documentation validation, not new product qualification.
 
-## Remaining boundary
+## Next boundary
 
-- SP-06/SP-07 full obligation reconciliation and qualification remain open; SP-08–SP-10 remain
-  planned. Existing findings remain owned by [phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition).
+- Next implementation capability is SP-C01 if execution is separately authorized. SP-C02 has
+  contract-products and admission-closure milestones; the latter waits for actual enforcement.
+  SP-C03–SP-C05 adopt contracts in transitioned callers, then SP-08–SP-10 consume them.
+- Existing findings remain owned by [phase 0 §11](docs/plans/phase-0_2026-10-28.md#11-findings-disposition).
 - Dedicated `cs_semantic_20261029_0f70052` on `18/corpus:5434` remains at `semantic_0005` with its
-  original compiler-2 release. Source includes migrations through `0021`; no operational deploy,
-  regeneration, default runtime cutover or paused phase-0 run restart occurred.
-- The review recommends a LinkML-centered composed model with typed behavioral contracts and
-  existing Core/native enforcement. Its O01–O07 are proposals; accepted plans/decisions are unchanged.
-  Adoption and implementation planning are separate next work. No production work is running.
+  original compiler-2 release. Source includes compiler 6/migrations through `0021`; no operational
+  deploy, regeneration, default cutover, prior-result regrade or paused-run restart occurred.
+- Required complete-scope qualification remains SP-10. Lint-only maintenance must not trigger
+  follow-on type checking/tests. Production work is stopped at this documentation checkpoint.

@@ -1,19 +1,28 @@
 # Semantic-model pivot — series coordinator
 
-**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 are in progress; SP-08–SP-10 remain planned. **Created:** 2026-10-29.
-**Claim strength:** ADR-0024/ADR-0025/ADR-0026 accept the target. Implemented/Tested claims are bounded to SP-00–SP-05; consumer cutover and assembled qualification remain open.
+**Status:** SP-00–SP-05 implemented within their declared supported profiles; scoped acceptance below. SP-06/SP-07 implementation is closed out at operator request with scoped tests; package qualification remains open. SP-C01–SP-C05 are planned completeness extensions; SP-08–SP-10 remain planned with updated dependencies. **Created:** 2026-10-29 · **Revised:** 2026-10-29.
+**Claim strength:** ADR-0024–ADR-0027 govern the accepted baseline. The completeness extension is selected for planning and remains Proposed. Implemented/Tested claims are bounded to the declared package profiles and receipts; consumer cutover and assembled qualification remain open.
 
 ## 1. Scope, authority and baseline
 
 Implement the whole target in the [functional review](../functional_reviews/semantic-postgresql-model_2026-10-29.md) and [target model](../functional_reviews/semantic-postgresql-model_2026-10-29_target-model.md), consumed at `5ba9a5c`. Select O01–O06 together. The result is one executable semantic model governing dynamic classes, attributes and relationships, required ontology dependencies, PostgreSQL authority, and every affected current consumer.
 
-This is a dedicated new series. Existing plan scopes/statuses are unchanged. Their findings retain their current owners, especially [phase 0 §11](phase-0_2026-10-28.md#11-findings-disposition). This series owns only its pivot packages and new pivot issues; it does not copy old findings, certify their closure, or silently absorb unfinished phase 0 features. Replacement of current consumers and capabilities necessary to demonstrate the new target are in scope. Unrelated provider additions and product features are not.
+This is the dedicated pivot series. Plans outside this series keep their scopes/statuses. Their findings retain their current owners, especially [phase 0 §11](phase-0_2026-10-28.md#11-findings-disposition). This series owns only its pivot packages and new pivot issues; it does not copy old findings, certify their closure, or silently absorb unfinished phase 0 features. Replacement of current consumers and capabilities necessary to demonstrate the new target are in scope. Unrelated provider additions and product features are not.
 
 Foundation execution began from `cea3f73`; its scoped implementation source is `7474f7a` (2026-10-29).
 The selected legacy core/system model and generated physical metadata remain byte-identical to
 that starting selection. Supplied documents and prior dirty work were already committed at
-execution start. Pending sibling worktrees from the paused task were not integrated. Refresh
-source/context before SP-02; do not infer capability from stale old plan headers.
+execution start. Those are foundation-era facts, not the current execution baseline. The originally
+pending sibling worktrees were subsequently integrated during closeout (§9). Current planning
+consumes `dcc5e0b` plus the preserved working tree; inspect changed source/context before execution.
+
+The [completeness review](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md)
+and [target model](../functional_reviews/semantic-domain-model-completeness_2026-10-29_target-model.md)
+at `dcc5e0b` add O01–O07 selected for planning by the operator's 2026-10-29 instruction.
+They strengthen already-transitioned behavior; §10 owns their current disposition. The original
+review's O01–O06 retain their distinct identities in §6. Existing receipts stay passing and scoped.
+The current source baseline includes preserved uncommitted work; no production work was performed
+when creating this plan extension.
 
 Use the [architecture map](../design/README.md) and owning D1–D8 sections for current contracts, then the approved decision work below for replacements. Core 3.3, efficient-architecture heuristics and profile 1.4 selected by `standard.toml` govern design; their test-assessment companion governs evidence design. This focused foundation assessment does not initiate a broad diagnostic audit. Apply existing review cadence at changed architectural boundaries.
 
@@ -29,6 +38,26 @@ Each item was **accepted for planning, 2026-10-29**, through explicit confirmati
 | Review RC04 | New interchange/query bindings and required internal ontology/RDF validation | SP-00: D7/D8, §1.2, ADR-0021 route |
 
 Use superseding ADRs where accepted decisions change; accepted ADR text is immutable. Make actual owner amendments with those decisions during execution. Additional material rule changes require their own explicit decision; these four are not permission to change unrelated architecture.
+
+### Completeness refinements and decision routes
+
+The operator selected the completeness review for plan integration, not automatic production
+execution or amendment of accepted ADRs. Static comparison with ADR-0024–0027 and DESIGN §B1/§B2/
+§B4/§B5 found no required rule replacement. These impacts refine the accepted goals:
+
+| Completeness-review §7 impact | Planned interpretation and route |
+|---|---|
+| Complete logical/execution model composition | SP-C01/SP-C02 define trusted code-versioned execution contracts and compatible domain releases; retain one composed authority and update D1/D2/D6 during implementation |
+| Shared guards and stricter allowed transitions | SP-C03 realizes existing validity/fencing requirements with shared definitions and new frozen migrations; preserve D3/D5/D6 authority |
+| Typed analytical input/publication dependencies | SP-C05 makes source snapshots and intent explicit without changing ADR-0026 arithmetic, snapshot or publication guarantees |
+| Richer internal graph validation | SP-C02/SP-C05 extend faithfully enforced profiles; retain PostgreSQL transaction authority and qualified assertions |
+
+Accepted ADRs remain immutable. Execution records clarifications at their architectural owners;
+a genuine change to accepted meaning requires the existing confirmation/ADR route before dependent
+work. In particular, domain-replaceable privileged lifecycles, weakened native enforcement,
+changed decimal/snapshot guarantees, silently accepted required semantics or different inference
+premise authorization are not approved by this planning selection. A current compiler refusal
+is a supported-profile limit, not an operator rule requiring reconfirmation merely to extend it.
 
 ## 3. Combined target and foundation assessment
 
@@ -51,10 +80,20 @@ Pydantic is the release-derived validation/serialization bridge; Pydantic Settin
 
 Occurrence identity is source/publication occurrence identity, including repeated items from one source. A separately keyed semantic fact groups compatible occurrences; confidence and support aggregation do not erase source records. Inference deduplicates eligible semantic conclusions while preserving premise/support references. Identity derivation and qualification live in the semantic plan, not in independently chosen storage/query hash recipes.
 
+The completeness target adds typed logical relationship, state/transition, invariant, operation
+and projection contracts to the existing semantic foundation. Trusted execution definitions and
+release-authored domain policy compose through a versioned binding; ordinary domain functions
+remain owners of specialized algorithms. [Completeness §2](semantic-model-pivot/domain-model-completeness.md#2-foundation-assessment-and-selected-design)
+records the focused foundation assessment and selected realization. Current source/native protections
+are reused, not discarded or assumed absent. No generic workflow engine or second graph authority
+is introduced.
+
 ## 4. Documents and contract ownership
 
 | Document | Owns |
 |---|---|
+| [Complete model and contracts](semantic-model-pivot/domain-model-completeness.md) | Added connected definitions, ownership, SP-C01/SP-C02 compiler/admission and compatibility contracts |
+| [Complete model realization](semantic-model-pivot/domain-model-realization.md) | Added SP-C03–SP-C05 lifecycle/outcome/scientific/projection realization and current consumer adoption |
 | [Semantic model and releases](semantic-model-pivot/semantic-model-and-releases.md) | Meaning, identities, supported ontology/constraint profile, release preparation and binding |
 | [PostgreSQL and publication](semantic-model-pivot/postgresql-and-publication.md) | MetaData lowering, physical layout, Core execution, roles, transaction/COPY publisher |
 | [Domain operations](semantic-model-pivot/domain-operations.md) | Evidence/producers, orchestration bindings, resolution, consolidation, validation and inference |
@@ -62,7 +101,7 @@ Occurrence identity is source/publication occurrence identity, including repeate
 | [Queries and consumers](semantic-model-pivot/queries-and-consumers.md) | Semantic query handles, explain, agent/CLI/intervention contracts and evaluation |
 | [Regeneration and acceptance](semantic-model-pivot/regeneration-and-acceptance.md) | Fresh realization, retirement, native journeys and whole-series qualification |
 
-Supporting documents own package design and local evidence. This coordinator alone owns current package state, the executable queue and series disposition. Short summaries elsewhere are not additional status ledgers. Shared model declarations, generated metadata and manifests have one writer per integrated slice; logical independence does not authorize concurrent edits to those surfaces.
+The two completeness documents own added work; existing documents retain baseline mechanisms and later-package responsibilities, with linked amendments. Architectural authorities remain DESIGN/D-documents and accepted ADRs. Supporting documents own package design and local evidence. This coordinator alone owns current package state, the executable queue and series disposition. Short summaries elsewhere are not additional status ledgers. Shared model declarations, generated metadata and manifests have one writer per integrated slice; logical independence does not authorize concurrent edits to those surfaces.
 
 ## 5. Dependencies and execution queue
 
@@ -70,10 +109,10 @@ SP-00–SP-05 are implemented within their declared profiles. SP-02/SP-03 supply
 metadata, exact archived releases, generation-checked activation and protected native publication.
 Their [package owner](semantic-model-pivot/postgresql-and-publication.md) states capability/refusal
 boundaries. SP-04 supplies native semantic reads/explanations; SP-05 supplies the columnar
-foundation and existing set kernels. SP-06/SP-07 are in progress; SP-08–SP-10 remain planned. No assembled-series qualification is claimed. Stable IDs
+foundation and existing set kernels. SP-06/SP-07 implementation is closed out at operator request with scoped tests; package qualification remains open. SP-08–SP-10 remain planned. No assembled-series qualification is claimed. Stable IDs
 link to the supporting documents.
 
-| Package | Required working input | Delivered capability |
+| Package | Required working input | Capability (current state above and in §10) |
 |---|---|---|
 | [SP-00](semantic-model-pivot/semantic-model-and-releases.md#SP-00) | Confirmed RC01–RC04 and current owners | Architectural decisions, supported-profile contracts, exact library compatibility disposition |
 | [SP-01](semantic-model-pivot/semantic-model-and-releases.md#SP-01) | SP-00 | Typed semantic core and pure compiler/binding for local model, ontology and value sets |
@@ -83,20 +122,33 @@ link to the supporting documents.
 | [SP-05](semantic-model-pivot/interchange-and-analytics.md#SP-05) | SP-01; SP-02 for loader, SP-03 for publication integration | Lossless Arrow bindings, scoped snapshot loader and DuckDB kernels |
 | [SP-06](semantic-model-pivot/domain-operations.md#SP-06) | SP-03; SP-04 early journey | All existing evidence/proposal producers and orchestration use release/data bindings |
 | [SP-07](semantic-model-pivot/domain-operations.md#SP-07) | SP-06 and SP-05 | Consolidation/domain validation and qualified inference publish under the new model |
-| [SP-08](semantic-model-pivot/queries-and-consumers.md#SP-08) | SP-04 and required SP-07 outputs; SP-05 for exports | Full affected serving, agent, CLI, intervention and evaluation migration |
-| [SP-09](semantic-model-pivot/regeneration-and-acceptance.md#SP-09) | SP-05–SP-08 working integrations | Clean regeneration, retired old paths and operational cutover |
+| [SP-C01](semantic-model-pivot/domain-model-completeness.md#SP-C01) | Delivered foundations and completeness review target | Connected logical relations, composed states and owned operation/invariant contracts |
+| [SP-C02](semantic-model-pivot/domain-model-completeness.md#SP-C02) | SP-C01; admission closure additionally needs actual relevant SP-C03–SP-C05 enforcement | Normalized contract products, strict adapters, compatible exact archives and required invariant admission |
+| [SP-C03](semantic-model-pivot/domain-model-realization.md#SP-C03) | SP-C02 contract products and delivered native/source mechanisms | Model-governed lifecycle, all-writer guards and protected atomic effects |
+| [SP-C04](semantic-model-pivot/domain-model-realization.md#SP-C04) | SP-C02 contract products; SP-C03 for integrated publication | Typed outcomes, assessments, scientific and qualified inference behavior |
+| [SP-C05](semantic-model-pivot/domain-model-realization.md#SP-C05) | SP-C02 contract products, SP-04/SP-05, relevant SP-C04; SP-C03 for publication | Faithful graph/read/analytical projections, provenance and lifetimes |
+| [SP-08](semantic-model-pivot/queries-and-consumers.md#SP-08) | SP-04 and required SP-07 outputs; relevant SP-C03–SP-C05 working products and SP-C02 admission closure; SP-05 for exports | Full affected serving, agent, CLI, intervention and evaluation migration |
+| [SP-09](semantic-model-pivot/regeneration-and-acceptance.md#SP-09) | SP-05–SP-08 plus SP-C01–SP-C05 working integrations | Clean regeneration, retired old paths and operational cutover |
 | [SP-10](semantic-model-pivot/regeneration-and-acceptance.md#SP-10) | SP-09 final functional source | Required native evidence union and integrated qualification |
 
-Useful route: SP-00 → SP-01 → SP-02 → SP-03 → SP-04, then SP-05/SP-06 where independently ready, followed by their consumers. Designing a consumer can begin from agreed contracts; claiming its integration requires the working prerequisite. SP-05 does not block the first PostgreSQL write/read journey. SP-08 queries unrelated to derived facts need not wait for all SP-07 inference. These are capability dependencies, not whole-document barriers or fixed worker lanes.
+The delivered foundations remain the working baseline. The current extension route is SP-C01 →
+SP-C02 contract products → SP-C03/SP-C04/SP-C05 as their actual prerequisites become available.
+SP-C02 admission closure then requires the relevant enforcing implementations. This is not a
+whole-package dependency cycle: normalization/adapters can be usable before a new constraint is
+activatable, and activation cannot claim an unenforced required invariant.
 
-SP-06 is next: bind existing producers and orchestration to the working semantic publication/read
-contracts. SP-07 then supplies business projections and qualified domain/inference operations;
-SP-08 migrates the current consumer surface using those outputs and SP-05. No automatic restart
-of the paused phase 0 run follows from this implementation.
+Current migrated callers adopt contracts within their SP-C package. SP-08 migrates the remaining
+surface using those products, SP-09 performs regeneration/cutover and SP-10 owns assembled
+qualification. Consumer design can begin from settled contracts; integrated claims require working
+prerequisites. No automatic restart of the paused phase-0 run or production implementation follows
+from this document revision.
 
 ## 6. Opportunity coverage and completion
 
-| Review opportunity | Scheduled realization and closure boundary |
+The following rows refer to the **original semantic-PostgreSQL review**, not the completeness review.
+Completeness-review disposition is solely in §10.
+
+| Original-review opportunity | Scheduled realization and closure boundary |
 |---|---|
 | O01 | SP-01/SP-02 release admission; SP-04 and SP-08 demonstrate dynamic definitions actually reach consumers |
 | O02 | SP-01 ontology/value-set scope; SP-06 extraction and SP-07 inference consume the same binding |
@@ -107,7 +159,7 @@ of the paused phase 0 run follows from this implementation.
 
 Completion requires the declared current consumer union, regenerated statistics and a transfer fixture, evidence-backed answers, independent evaluation, refusal/error/concurrency cases and retirement of superseded production paths. A passing representative slice does not complete the enclosing migration. Detailed scenarios and command timing are owned by the acceptance plan.
 
-The architecture minimizes per-domain DDL, per-item crossings and repeated preparation. It retains real costs: recursive values add joins, global constraints need sufficient scope, and high-degree closures may expand substantially. Prefer selective Core predicates and set operations before hydration; do not equate a small page with bounded execution. No speed/capacity claim, benchmark campaign, runtime cost model or new alignment lint follows from this series.
+The architecture minimizes per-domain DDL, per-item crossings and repeated preparation. It retains real costs: recursive values add joins, global constraints need sufficient scope, and high-degree closures may expand substantially. Prefer selective Core predicates and set operations before hydration; do not equate a small page with bounded execution. No speed/capacity claim, benchmark campaign, runtime cost model or new alignment lint follows from this series. Completeness additionally requires the implemented obligations in §10 and the expanded SP-09/SP-10 scenarios; prior passing profiles are not erased by these added requirements.
 
 ## 7. Scope exclusions and bounded uncertainties
 
@@ -240,6 +292,111 @@ historical database or default runtime selection was changed. Driver manifest di
 not qualification: the explicit dbc path above was exercised, with no fallback.
 
 Implementation worktrees were removed after clean-state and patch-equivalence checks; branches
-remain. Paused phase-0 worktrees are preserved. No owned `cs_sem_test_*` databases remain.
-Next is SP-06 producer/orchestration binding, followed by SP-07/SP-08 integration and SP-09/SP-10
-regeneration, retirement and assembled acceptance. Existing phase-0 findings retain their owner.
+remain. Those paused phase-0 worktrees were subsequently integrated and removed at closeout (§9). No owned `cs_sem_test_*` databases remain.
+The current stop boundary and remaining SP-06/SP-07 qualification are in §9. Existing phase-0
+findings retain their owner.
+
+## 9. SP-06/SP-07 closeout checkpoint (2026-10-29)
+
+**Implemented; scoped Tested, not package completion. Work stopped at the operator's request.**
+The [domain-operations owner](semantic-model-pivot/domain-operations.md#current-execution-contract-2026-10-29)
+records delivered mechanisms, refusal boundaries and remaining qualification. ADR-0027 and D1,
+D2, D5, D6 carry the architectural contract. Compiler 6 and migrations `semantic_0006`–`0021`
+are source implementation; the existing operational bootstrap database remains on `0005` and
+its original compiler-2 release. No deploy, default cutover, prior-result regrade or paused
+phase-0 run restart occurred.
+
+All three implementation branches were cherry-picked and reconciled on main, then ancestry
+merged without reintroducing superseded intermediate code. Both retained phase-0 branches were
+merged, resolving overlaps in favor of current semantic selection and the corrected scoped
+parameter mappings. Their original evidence folders are preserved with their original scope.
+All five worktrees were removed after clean-state checks; only the main checkout remains.
+Branch references remain as recovery pointers. Workers have stopped.
+
+The [measured execution-fit repair](../design_review/evidence/2026-10-29_sp06-execution-fit/README.md)
+separates the old 98.381 s test-body bottleneck from the repaired 2.686 s result. Native graph
+canonicalization, preview-only binding and bounded pure-preparation reuse preserve artifact
+integrity and avoid repeated graph preparation. This is one local test, not assembled performance.
+
+Type checking and targeted tests completed successfully. Their passing results remain valid;
+subsequent lint maintenance does not invalidate them or require a repeat. Completed scoped
+receipts include 76 method/math/validation controls and 86 preparation/proposal/archive/ontology
+controls, alongside the merged-branch regression selection below. Lint cleanup remains separate.
+The operator subsequently directed documentation-only closeout.
+
+| Command | Actual outcome and boundary |
+|---|---|
+| `uv run --no-sync pytest python/corpus-structure/tests/db/test_queries.py::test_parameter_mapping_excludes_other_members_of_requested_construction python/corpus-structure/tests/orchestrate/test_slices.py python/corpus-structure/tests/orchestrate/test_complete.py --tb=short` | `passed`: 7 merged-branch regression controls |
+| `uv run --no-sync pyrefly check --summary=none` | `passed`: 0 errors |
+| `just ready` | `passed`: declared tools/environment |
+| `just turn-end` | `passed`: ADR index and formatting command; does not imply a clean lint result |
+| `uv run --no-sync ruff check --output-format=concise` | `failed`: last completed whole-project report had 45 findings; worker corrections overlapped that report, so it is not a final-tree count. Cleanup stopped; no subsequent whole-project lint receipt |
+
+The working tree retains uncommitted formatting/lint corrections from the interrupted cleanup.
+The passing type and test receipts above remain the verification record. The latest committed
+integration is `80fe11b`; all worktree contributions are already integrated. Remaining lint
+cleanup is open, not a reason to run another type/test campaign. The operator explicitly directs that lint-only
+changes must not trigger follow-on type checking or testing. No owned check/test processes remain.
+
+`just test-all` and `just hygiene`: **not_run** within this package closeout; SP-10 owns complete
+assembled qualification. This pre-existing series boundary does not negate the passing type and
+targeted-test results. SP-06/SP-07 package completion remains open
+until their full required obligation union has been reconciled and qualified on the final source.
+SP-08–SP-10 remain planned; existing finding dispositions remain with phase 0 §11. This is the
+production closeout receipt. The subsequently authored completeness queue is in §10; it does not
+restart production work or turn lint maintenance into a reason to rerun passing type/tests.
+
+## 10. Domain-model completeness integration
+
+**Planned · Proposed, 2026-10-29.** Source review/target consumed at `dcc5e0b`. All seven
+completeness opportunities are selected for planning; none is claimed implemented or closed.
+This section is their single scheduled-disposition owner. The supporting plans contain design,
+packages and local evidence, not competing progress registers.
+
+| Item | Responsible component/package | Consequence and intended change | Disposition · dependency | Closure boundary |
+|---|---|---|---|---|
+| [Completeness O01](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O01) | Logical model/compiler; SP-C01/SP-C02 | Connected concepts and typed relationship semantics, including scoped identity/authorization | Open · definitions then working compiler products | Declared qualified/repeated/n-ary relationship reaches actual current enforcement and explanation through SP-C03–SP-C05 |
+| [Completeness O02](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O02) | Lifecycle; SP-C01/SP-C03 | Composed state, valid combinations and full allowed transitions | Open · trusted definitions and native realization | Existing scheduling/submission/cut/cancel/publication writers enforce the same contracts |
+| [Completeness O03](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O03) | Preparation/admission and native/domain guards; SP-C02/SP-C03/SP-C04 | Resolve owned operation/invariant implementations and refuse missing required enforcement | Open · contract products precede native/graph admission closure | Required semantics faithfully execute; unsupported lowering cannot silently admit |
+| [Completeness O04](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O04) | Source/domain outcomes; SP-C04 | Distinct typed outcomes, coverage translations and assessment subject/counterpart relations | Open · SP-C01/SP-C02 contracts, SP-C03 publication | Refused content, unknown coverage and undecided science retain distinct meanings in actual consumers |
+| [Completeness O05](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O05) | Projection/analytics; SP-C05 | Captured/candidate provenance, append/derived publication and resource contracts | Open · working projection products and relevant domain/native routes | Current query/Arrow/DuckDB/COPY paths preserve scope, precision and mandatory derived-result fences |
+| [Completeness O06](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O06) | Graph validation; SP-C02/SP-C05 | Rich relational constraints over qualified declared graph closure | Open · faithful enforcing route; backend optimization optional | Required relation constraints execute without collapsing occurrences/qualification or replacing native transaction authority |
+| [Completeness O07](../functional_reviews/semantic-domain-model-completeness_2026-10-29.md#O07) | Composed binding and current consumers; SP-C01–SP-C05, then SP-08–SP-10 | Compatible admission/evolution and observable operation/binding/refusal references | Open · all relevant current consumer adoption | Complete model governs transitioned behavior; later consumers, regeneration and assembled acceptance use those same contracts |
+
+### Current package queue
+
+| Package | Current state | Next capability/readiness boundary |
+|---|---|---|
+| SP-C01 | Planned | Author/load connected definitions and owned contracts; settle shared semantics first |
+| SP-C02 | Planned | Compile usable contract products, then close admission only with actual required enforcement |
+| SP-C03 | Planned | Connect native lifecycle/effects and migrated source/agent callers |
+| SP-C04 | Planned | Connect coverage/assessment/scientific/inference consumers; integrate against working native publication |
+| SP-C05 | Planned | Connect declared graph/read/analytical projections and their existing consumers |
+
+SP-C01 is the next implementation capability if execution is separately authorized. There is no
+production execution running. SP-06/SP-07 retain their prior implemented profile and outstanding
+enclosing obligations; SP-00–SP-05 retain scoped passing receipts. Additional completeness work
+is not a retrospective failure or an automatic rerun of those checks.
+
+### Investigation and coverage routing
+
+The [contract plan §4](semantic-model-pivot/domain-model-completeness.md#SP-C02)
+owns supported-rule lowering and compatibility design. The
+[realization plan §5](semantic-model-pivot/domain-model-realization.md#library-dispositions)
+owns graph/mapping/backend selection conditions and deferred triggers. These are package design
+questions; their status follows the owning SP-C package here.
+
+- Target §§1–3 definitions/authority/relationships → SP-C01/SP-C02, actual adoption SP-C03–SP-C05.
+- Target §§4–5 state/transitions/outcomes/operations → SP-C01 definitions, SP-C03/SP-C04 realization.
+- Target §6.1 preparation/constraint placement → SP-C02; actual native/graph routes SP-C03/SP-C05.
+- Target §6.2 PostgreSQL effects → SP-C03, retaining native source/proof publication with SP-C04.
+- Target §§6.3–6.4 graph/analytical semantics → SP-C05, with SP-C02 required invariant admission.
+- Target §7 evolution/consumers/delivery → all SP-C packages, SP-08 adoption and SP-09/SP-10 union.
+- Review §6 library mechanisms → selected existing stack in both new plans; direct PyOxigraph and
+  linkml-map are conditional investigations; Oxrdflib/linkml-datalog are deferred with explicit triggers.
+- Review §8 scenarios → package-local demonstrations plus the expanded SP-10 required union.
+
+This revision is documentation-only plan integration. Product checks, typing, probes, benchmarks,
+installations, migrations and cutover were not run. Documentation publication is recorded in STATUS;
+existing passing type/tests remain passing. No new finding ledger, alignment gate or proof system
+is introduced, and no phase-0 disposition is copied or closed.
