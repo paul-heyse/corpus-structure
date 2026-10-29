@@ -71,7 +71,7 @@ _UNSUPPORTED = frozenset(
         "slot_conditions",
     }
 )
-_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case", "cs:role", "cs:qualifiers", "cs:identity_qualifiers", "cs:param_map", "cs:extract", "cs:functional"})
+_SAFE_ANNOTATIONS = frozenset({"cs:constraint_scope", "cs:key_role", "cs:case", "cs:role", "cs:qualifiers", "cs:identity_qualifiers", "cs:param_map", "cs:extract", "cs:functional", "cs:scope"})
 _PRIMITIVES: dict[str, Any] = {
     "string": str,
     "integer": int,
@@ -180,7 +180,7 @@ def _inspect(value: Any, location: str) -> None:
             if key in _UNSUPPORTED and item:
                 _fail("unsupported_construct", child, f"{key} is outside semantic-1", "unsupported")
             if key == "annotations":
-                if item and parent not in {"slots", "attributes", "slot_usage"}:
+                if item and parent not in {"slots", "attributes", "slot_usage", "classes"}:
                     _fail(
                         "unsupported_annotation_placement",
                         child,
@@ -188,6 +188,8 @@ def _inspect(value: Any, location: str) -> None:
                         "unsupported",
                     )
                 for annotation in item or {}:
+                    if parent == "classes" and annotation not in {"cs:scope", "cs:case", "cs:extract"}:
+                        _fail("unsupported_annotation_placement", child, str(annotation), "unsupported")
                     if annotation not in _SAFE_ANNOTATIONS:
                         _fail("unsupported_annotation", child, str(annotation), "unsupported")
             _inspect(item, child)
@@ -445,6 +447,11 @@ def prepare_release(
     models: dict[str, Any] = {}
     for name in sorted(classes):
         cls = classes[name]
+        class_annotations = _annotations(cls)
+        if class_annotations.get("cs:scope") not in {None, "global", "local"}:
+            _fail("entity_scope", name, "unsupported entity scope", "unsupported")
+        if class_annotations.get("cs:case", "preserve") not in {"preserve", "casefold"}:
+            _fail("case_policy", name, "unsupported class case policy", "unsupported")
         slots: list[PropertyDefinition] = []
         fields: dict[str, Any] = {}
         for slot in view.class_induced_slots(name):
@@ -787,6 +794,13 @@ def prepare_release(
     rows += tuple(
         RegistryRow("prefix", str(name), canonical_bytes({"uri": str(prefix.prefix_reference)}))
         for name, prefix in sorted(cast(dict[str, Any], schema.prefixes or {}).items())
+    )
+    rows += tuple(
+        RegistryRow("operation_class", definition.name, canonical_bytes({
+            "class": definition.name, "iri": definition.iri,
+            **_annotations(view.get_class(definition.name)),
+        }))
+        for definition in definitions
     )
     rows += tuple(
         RegistryRow("operation_property", f"{definition.name}/{prop.name}", canonical_bytes({

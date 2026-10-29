@@ -31,6 +31,11 @@ def test_repeated_items_keep_occurrences_and_shared_fact_without_selecting_truth
     assert batch.selection==()
     assert len(batch.occurrence_establishment)==2
     assert len(batch.evidence)==1
+    agent=replace(item,item='agent',establishment='agent_asserted')
+    mixed=assemble(release,'realization','mixed',(item,agent))
+    assert mixed.content==assemble(release,'realization','mixed',(agent,item)).content
+    assert mixed.membership[0].establishment=='stated'
+    assert {row.establishment for row in mixed.occurrence_establishment}=={'stated','agent_asserted'}
     assert batch.content==assemble(release,'realization','batch',(replace(item,item='item:1'),item)).content
     with pytest.raises(ValueError,match='different content'):
         assemble(release,'realization','batch',(item,replace(item,object='changed')))
@@ -89,3 +94,30 @@ def test_assessment_confidence_stays_exact_through_arrow_and_native_receipts(sem
     assert publish_arrow(semantic_writer_engine,arrow) == publish_batch(semantic_writer_engine,assessment)
     with semantic_writer_engine.connect() as conn:
         assert conn.execute(select(table('data.assessment').c.confidence)).scalar_one() == Decimal('0.9500')
+
+
+def test_non_utc_instants_publish_with_equivalent_identity(semantic_db_engine,semantic_writer_engine):
+    from datetime import datetime, timezone, timedelta, UTC
+    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies
+    from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.publication import publish_batch
+    from corpus_structure.semantic.metadata import table
+    from sqlalchemy import insert, select
+    bundle=inputs()
+    body=yaml.safe_load(bundle.sources[0].content)
+    body['classes']['Thing']['attributes']['when']={'range':'datetime'}
+    bundle=SourceBundle(bundle.root,(SourceArtifact(bundle.sources[0].name,yaml.safe_dump(body).encode()),*bundle.sources[1:]))
+    release=prepare_release(bundle)
+    with semantic_db_engine.begin() as conn:
+        persist_release(conn,bundle,ResolvedDependencies(),PreparationProfile(),release)
+        conn.execute(insert(table('data.project')).values(project_id='p'))
+        conn.execute(insert(table('data.realization')).values(realization_id='z',project_id='p',release_id=release.release_id))
+    local=datetime(2026,10,29,12,tzinfo=timezone(timedelta(hours=2)))
+    item=SourceItem('subject','Thing','when',local,{'modality':'asserted','polarity':True},'source','local','stated',(EvidenceRow('ev','source','page#p','parser','1'),))
+    identity=replace(item,property_name='id',object='subject',item='identity')
+    batch=assemble(release,'z','time',(identity,item,replace(item,item='utc',object=local.astimezone(UTC))))
+    assert len([f for f in batch.fact if f.property_id.endswith('/when')])==1
+    publish_batch(semantic_writer_engine,batch)
+    with semantic_writer_engine.connect() as conn:
+        values=table('data.typed_value')
+        assert conn.execute(select(values.c.text_value).where(values.c.kind=='datetime')).scalar_one()=='2026-10-29T10:00:00+00:00'

@@ -47,7 +47,7 @@ def proposal_inputs(
     ):
         raise ValueError("agent operation needs an explicit Qualification class or subclass")
     module["classes"]["AgentClaim"]["attributes"]["qualification"]["range"] = qualification_class
-    entities = [d for d in candidate.definitions if d.name == "Entity" or "Entity" in d.ancestors]
+    entities = [d for d in candidate.definitions if not d.abstract and (d.name == "Entity" or "Entity" in d.ancestors)]
     if not entities:
         raise ValueError("agent proposals require a declared Entity hierarchy")
     predicates = {p.iri for definition in entities for p in definition.properties if p.name != "id"}
@@ -288,6 +288,8 @@ def _refuse_rounded_decimals(prepared: PreparedRelease, batch: Mapping[str, Any]
                         after["properties"][name],
                         f"{path}.{name}",
                     )
+                elif isinstance(before.get("additionalProperties"), Mapping) and isinstance(after.get("additionalProperties"), Mapping):
+                    visit(item, before["additionalProperties"], after["additionalProperties"], f"{path}[{name!r}]")
         elif isinstance(value, (tuple, list)) and "items" in before and "items" in after:
             for index, item in enumerate(value):
                 visit(item, before["items"], after["items"], f"{path}[{index}]")
@@ -355,6 +357,9 @@ def locate_proposal(
                             )
                 else:
                     check_nested(item)
+        elif isinstance(value, Mapping):
+            for item in value.values():
+                check_nested(item)
         elif isinstance(value, tuple):
             for item in value:
                 check_nested(item)

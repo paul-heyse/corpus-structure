@@ -48,6 +48,9 @@ classes:
     - transformation_of
     - limit_of
     - member_of_construction
+    annotations:
+      cs:scope: global
+      cs:extract: mention
   FamilyConstruction:
     is_a: Entity
     mixins:
@@ -58,6 +61,9 @@ classes:
       distribution family.
     slots:
     - construction_formula
+    annotations:
+      cs:scope: global
+      cs:extract: mention
   FamilyParameter:
     is_a: Entity
     description: A parameter of a distribution family or construction, such as the
@@ -80,6 +86,9 @@ classes:
         unique_key_slots:
         - family
         - canonical_name
+    annotations:
+      cs:scope: global
+      cs:extract: mention
   RandomVariable:
     is_a: Entity
     mixins:
@@ -102,6 +111,10 @@ classes:
         unique_key_slots:
         - symbol
         - scope_locator
+    annotations:
+      cs:scope: local
+      cs:extract: mention
+      cs:case: preserve
   Concept:
     is_a: Entity
     description: 'A defined mathematical term that is not a distribution family, construction
@@ -109,6 +122,9 @@ classes:
       function.'
     slots:
     - definition_formula
+    annotations:
+      cs:scope: global
+      cs:extract: mention
   Distributed:
     description: Things that have a distribution and its characteristics.
     is_a: Entity

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any
@@ -102,7 +102,7 @@ def assemble(
         elif isinstance(raw, float):
             row = ValueRow(key, 'float', text_value=raw.hex())
         elif isinstance(raw, datetime):
-            row = ValueRow(key, 'datetime', text_value=raw.isoformat())
+            row = ValueRow(key, 'datetime', text_value=raw.astimezone(UTC).isoformat())
         elif isinstance(raw, date):
             row = ValueRow(key, 'date', text_value=raw.isoformat())
         elif isinstance(raw, str):
@@ -138,7 +138,9 @@ def assemble(
         if occurrence_id in occurrences and occurrences[occurrence_id] != occurrence:
             raise ValueError('source item identity cannot bind different content')
         entities[item.subject] = EntityRow(item.subject)
-        memberships[item.subject, definition.iri] = MembershipRow(item.subject, definition.iri, item.establishment)
+        previous = memberships.get((item.subject, definition.iri))
+        membership_basis = 'stated' if item.establishment == 'stated' or (previous is not None and previous.establishment == 'stated') else 'agent_asserted'
+        memberships[item.subject, definition.iri] = MembershipRow(item.subject, definition.iri, membership_basis)
         facts[fact_id] = FactRow(fact_id, item.subject, prop.iri, object_id, qualification_id)
         occurrences[occurrence_id] = occurrence
         establishment = OccurrenceEstablishmentRow(occurrence_id, item.establishment)

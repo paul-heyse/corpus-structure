@@ -255,3 +255,12 @@ def test_binary_entity_relation_preserves_declared_unresolved_endpoint():
     raw["claims"][0]["object"]["target"] = "undeclared"
     with pytest.raises(ProposalRefused, match="membership"):
         locate_proposal(prepared(), raw, frame())
+
+
+def test_model_facing_entity_choices_exclude_abstract_classes():
+    core=Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml'
+    domain={'id':'https://example.org/x','name':'x','prefixes':{'ex':'https://example.org/'},'default_prefix':'ex','imports':['core'],
+            'classes':{'AbstractPerson':{'is_a':'Entity','abstract':True,'attributes':{'name':{}}},'Person':{'is_a':'AbstractPerson'}}}
+    release=prepare_release(proposal_inputs(SourceBundle('x',(SourceArtifact('core',core.read_bytes()),SourceArtifact('x',yaml.safe_dump(domain).encode())))))
+    assert 'https://example.org/AbstractPerson' not in release.enum_members('AgentClassIRI')
+    assert 'https://example.org/Person' in release.enum_members('AgentClassIRI')
