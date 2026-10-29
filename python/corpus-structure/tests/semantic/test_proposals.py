@@ -322,6 +322,12 @@ def test_identity_exclusions_locate_and_bind_endpoints():
 
 
 def test_identity_exclusions_require_composed_profile():
+    import json
+    from corpus_structure.semantic.proposals import proposal_packet
+    packet = proposal_packet(prepared(), frame(), guideline="test", configuration={})
+    assert "identity_exclusions" not in json.loads(packet.schema)["properties"]
+    composed_packet = proposal_packet(prepared(composed=True), frame(), guideline="test", configuration={})
+    assert "identity_exclusions" in json.loads(composed_packet.schema)["properties"]
     proposal = batch()
     proposal["identity_exclusions"] = [{
         "id": "different", "left": {"kind": "local", "target": "p"},
