@@ -1,0 +1,156 @@
+id: https://corpus-structure.dev/semantic/reference
+name: semantic_reference
+prefixes:
+  execution: https://corpus-structure.dev/execution/
+default_prefix: execution
+default_range: string
+classes:
+  ReferenceSet:
+    attributes:
+      project_id:
+        required: true
+        slot_uri: execution:ReferenceSet_project_id
+      release_id:
+        required: true
+        slot_uri: execution:ReferenceSet_release_id
+      source_run_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceSet_source_run_id
+      label:
+        required: true
+        slot_uri: execution:ReferenceSet_label
+      split:
+        range: ReferenceSplit
+        required: true
+        slot_uri: execution:ReferenceSet_split
+      guideline:
+        required: true
+        slot_uri: execution:ReferenceSet_guideline
+      sampling_json:
+        required: true
+        slot_uri: execution:ReferenceSet_sampling_json
+  ReferencePass:
+    attributes:
+      unit_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferencePass_unit_id
+      pass_kind:
+        range: ReferencePassKind
+        required: true
+        slot_uri: execution:ReferencePass_pass_kind
+      actor:
+        required: true
+        slot_uri: execution:ReferencePass_actor
+      authored_json:
+        required: true
+        slot_uri: execution:ReferencePass_authored_json
+      content_digest:
+        required: true
+        slot_uri: execution:ReferencePass_content_digest
+  ReferenceCitationFrame:
+    attributes:
+      pass_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceCitationFrame_pass_id
+      version:
+        range: integer
+        minimum_value: 1
+        required: true
+        slot_uri: execution:ReferenceCitationFrame_version
+      rendition_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceCitationFrame_rendition_id
+      rendition_digest:
+        required: true
+        slot_uri: execution:ReferenceCitationFrame_rendition_digest
+      frame_json:
+        required: true
+        slot_uri: execution:ReferenceCitationFrame_frame_json
+      parent_id:
+        range: integer
+        slot_uri: execution:ReferenceCitationFrame_parent_id
+  ReferenceItem:
+    attributes:
+      pass_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceItem_pass_id
+      frame_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceItem_frame_id
+      item_kind:
+        required: true
+        slot_uri: execution:ReferenceItem_item_kind
+      local_ref:
+        required: true
+        slot_uri: execution:ReferenceItem_local_ref
+      payload_json:
+        required: true
+        slot_uri: execution:ReferenceItem_payload_json
+  ReferenceEvaluation:
+    description: An independent-reference grade; never the completed knowledge output
+      EvaluationResult.
+    attributes:
+      project_id:
+        required: true
+        slot_uri: execution:ReferenceEvaluation_project_id
+      run_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceEvaluation_run_id
+      set_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceEvaluation_set_id
+      reference_snapshot_json:
+        required: true
+        slot_uri: execution:ReferenceEvaluation_reference_snapshot_json
+      result_json:
+        required: true
+        slot_uri: execution:ReferenceEvaluation_result_json
+      content_digest:
+        required: true
+        slot_uri: execution:ReferenceEvaluation_content_digest
+  ReferenceUnit:
+    attributes:
+      set_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceUnit_set_id
+      rendition_id:
+        range: integer
+        required: true
+        slot_uri: execution:ReferenceUnit_rendition_id
+      unit_key:
+        required: true
+        slot_uri: execution:ReferenceUnit_unit_key
+      context_json:
+        required: true
+        slot_uri: execution:ReferenceUnit_context_json
+  ReferenceDocumentSplit:
+    attributes:
+      project_id:
+        required: true
+        slot_uri: execution:ReferenceDocumentSplit_project_id
+      source_uri:
+        required: true
+        slot_uri: execution:ReferenceDocumentSplit_source_uri
+      split:
+        range: ReferenceSplit
+        required: true
+        slot_uri: execution:ReferenceDocumentSplit_split
+enums:
+  ReferenceSplit:
+    permissible_values:
+      dev: {}
+      test: {}
+  ReferencePassKind:
+    permissible_values:
+      A: {}
+      B: {}
+      C: {}

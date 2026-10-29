@@ -613,7 +613,7 @@ def _compile_physical(view: View) -> MetaData:
     }
     for name, cls in view.schema.classes.items():
         subsets = [str(s) for s in cls.in_subset]
-        if len(subsets) != 1 or subsets[0] not in {"sem", "data", "ops", "kb"}:
+        if len(subsets) != 1 or subsets[0] not in {"sem", "data", "ops", "kb", "eval"}:
             raise ModelError([f"{name}: physical table needs exactly one trusted physical subset"])
         columns = []
         for slot in view.class_induced_slots(name):
