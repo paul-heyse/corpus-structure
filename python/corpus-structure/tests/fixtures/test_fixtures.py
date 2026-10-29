@@ -158,7 +158,7 @@ def test_trace_segments_validate(name: str) -> None:
     assert dict(Counter(row.kind for row in record.segments)) == record.counts
     stated = record.trace_md["counts"]
     assert isinstance(stated, dict)
-    assert all(record.counts[kind] == n for kind, n in stated.items())  # type: ignore[index]
+    assert all(record.counts[kind] == n for kind, n in stated.items())  
     assert record.trace_md["kind"] == unit.kind.value
     assert record.source_uri == f"{support.CORPUS_ROOT}/{record.page}"
 

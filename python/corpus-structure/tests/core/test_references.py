@@ -24,7 +24,7 @@ import yaml
 from linkml_runtime.utils.schemaview import SchemaView
 
 from corpus_structure.core import translations as T
-from corpus_structure.core.batch import AuthoredBatch, AuthoredClaim, StoredBatch, StoredOutside
+from corpus_structure.core.batch import AuthoredBatch, AuthoredClaim, AuthoredOutside, StoredBatch, StoredOutside
 from corpus_structure.core.candidates import (
     AWAITING,
     UNKEYED,
@@ -306,7 +306,8 @@ def test_an_authored_descriptor_is_stored_with_its_span_and_keyed() -> None:
     assert isinstance(outside, StoredOutside)
     span = outside.descriptor
     assert ctx.content.canonical_text[span.start : span.end] == "the last result"
-    assert authored.statements[1].descriptor.sentence == "s2"  # type: ignore[union-attr]
+    assert isinstance(authored.statements[1], AuthoredOutside)
+    assert authored.statements[1].descriptor.sentence == "s2"  
     out = keyed(candidate_set(batch), ctx)
     assert out.references["e_last"].startswith("xrf:")
     assert out.dropped == {} and "c_follows" in out.claims  # cited, unresolved, never dropped

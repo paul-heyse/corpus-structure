@@ -406,6 +406,7 @@ def test_the_stored_form_names_schema_elements_by_prefixed_name(
 
 def test_stored_core_qualifiers_dump_by_prefixed_name() -> None:
     from corpus_structure.core.batch import STORED_CORE_QUALIFIERS, StoredQualifiers
+    from corpus_structure.core.values import EntityRef
 
     assert STORED_CORE_QUALIFIERS[0] == "core:modality" and len(STORED_CORE_QUALIFIERS) == 7
     mean = {"t": "formula", "latex": "x", "symbols": {}}
@@ -413,7 +414,8 @@ def test_stored_core_qualifiers_dump_by_prefixed_name() -> None:
            "core:scope": {"extent": "section", "segment": "seg:1"},
            "stat:param_values": {"mean": mean}}  # fmt: skip
     q = StoredQualifiers.model_validate(raw)
-    assert q.modality == "cited" and q.attribution.ref == "S"  # type: ignore[union-attr]
+    assert isinstance(q.attribution, EntityRef)
+    assert q.modality == "cited" and q.attribution.ref == "S"  
     assert q.model_dump(mode="json") == raw
     assert StoredQualifiers.model_validate({"core:modality": "asserted"}).model_dump() == {}
     authored = AuthoredQualifiers.model_validate({"modality": "cited"})  # local names, authored

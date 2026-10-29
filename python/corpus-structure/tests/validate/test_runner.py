@@ -381,4 +381,4 @@ def test_validate_rules_is_a_run_method_naming_the_rules_artifact() -> None:
     assert (method.name, method.family, method.unit_type) == ("validate.rules", "validate", "run")
     assert config_references(RulesConfig) == {("rules",): ArtifactRef("rules", "rules")}
     with pytest.raises(RuntimeError, match="finalize pass"):
-        method.run([], RulesConfig(), None)  # type: ignore[arg-type]
+        vars(RulesMethod)["run"](method, [], RulesConfig(), None)  

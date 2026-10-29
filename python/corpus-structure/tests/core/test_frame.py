@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from corpus_structure.core.batch import AuthoredBatch, CitationFrame, FrameEntry, cited_sentences
+from corpus_structure.core.batch import AuthoredBatch, AuthoredOutside, CitationFrame, FrameEntry, cited_sentences
+from corpus_structure.core.values import AuthoredPhrase, AuthoredPhraseNode
 from corpus_structure.core.evidence import RenditionContent, Segment, SegmentKind
 from corpus_structure.core.frame import (
     FrameRefused,
@@ -102,7 +103,8 @@ def test_one_entry_resolves_relocates_or_stays_unresolved_with_its_code(index: L
     by_text = sentences_by_text(index)
     ok = resolve_entry("s1", FRAME["s1"], index, by_text)
     assert (ok.status, ok.code, ok.failure) == ("resolved", None, None)
-    assert index.rendition.text(ok.segment) == "Suppose that X is normal."  # type: ignore[arg-type]
+    assert ok.segment is not None
+    assert index.rendition.text(ok.segment) == "Suppose that X is normal."  
     # the locator names a unit, but exactly one sentence carries the recorded text: relocated
     moved = resolve_entry(
         "s3",
@@ -162,10 +164,13 @@ def test_readdress_maps_every_sentence_id_by_locator_and_text() -> None:
     moved = readdress(batch(), FRAME, served)
     claim = moved.claims[0]
     assert moved.statements[0].anchor == ("s3", "s7")
-    assert moved.statements[1].descriptor.sentence == "s7"  # type: ignore[union-attr]
+    assert isinstance(moved.statements[1], AuthoredOutside)
+    assert moved.statements[1].descriptor.sentence == "s7"  
     assert claim.evidence[0].sentence == "s7"
-    assert claim.qualifiers.hedge.sentence == "c4"  # type: ignore[union-attr]
-    assert claim.qualifiers.conditions.sentence == "c4"  # type: ignore[union-attr]
+    assert isinstance(claim.qualifiers.hedge, AuthoredPhrase)
+    assert claim.qualifiers.hedge.sentence == "c4"  
+    assert isinstance(claim.qualifiers.conditions, AuthoredPhraseNode)
+    assert claim.qualifiers.conditions.sentence == "c4"  
     assert moved.unsupported[0].sentence == "s3"
     assert readdress(moved, served, FRAME) == batch()
 

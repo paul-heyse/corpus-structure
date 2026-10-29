@@ -228,4 +228,4 @@ def test_decimal_of_float_examples() -> None:
     assert decimal_of_float(-0.0) == "0"
     assert decimal_of_float(300.0) == "300"
     with pytest.raises(TypeError):
-        decimal_of_float(3)  # type: ignore[arg-type]
+        decimal_of_float(3)  
