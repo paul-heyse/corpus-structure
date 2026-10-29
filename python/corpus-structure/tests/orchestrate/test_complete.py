@@ -61,3 +61,16 @@ def test_wait_is_refused_without_leaving_a_run(committing_db: Any):
                           agent_mode=AgentMode.WAIT)
     with committing_db.connect() as conn:
         assert conn.execute(text('SELECT count(*) FROM ops.run')).scalar_one() == 0
+
+
+def test_default_corpus_uses_first_pass(committing_db: Any):
+    from corpus_structure.orchestrate.slices import record
+    pack = REPO / 'domains/statistics'
+    with committing_db.begin() as conn:
+        initialized = project.init_project(conn, domain='statistics', name='corpus-default',
+            corpus=REPO / 'fixtures/trace/corpus', registry=phase0.registry(pack))
+        reserved = conn.execute(text("SELECT id FROM kb.document WHERE project_id=:p ORDER BY id LIMIT 1"), {'p': initialized.project_id}).scalar_one()
+        conn.execute(text("UPDATE kb.document SET meta=jsonb_set(meta,'{first_pass}','\"no\"') WHERE id=:d"), {'d': reserved})
+        actual, _ = record(conn, initialized.project_id, pack, slice=None, scope=None, corpus=None)
+        assert actual['name'] == 'first-pass'
+        assert len(actual['documents']) == 3

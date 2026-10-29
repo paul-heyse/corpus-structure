@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+import hashlib
+import sys
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -51,11 +53,23 @@ def load_plugin(pack: Path) -> list[Any]:
     path = pack / PLUGIN
     if not path.exists():
         return []
-    spec = importlib.util.spec_from_file_location(f"corpus_pack_{pack.name}_queries", path)
+    identity = hashlib.sha256(str(path.resolve()).encode() + path.read_bytes()).hexdigest()[:20]
+    module_name = f"corpus_pack_{pack.name}_queries_{identity}"
+    if module_name in sys.modules:
+        queries = getattr(sys.modules[module_name], "QUERIES", None)
+        if not isinstance(queries, list | tuple):
+            raise QueryRegistryError([f"{path}: no QUERIES sequence"])
+        return list(queries)
+    spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         raise QueryRegistryError([f"{path}: cannot be imported"])
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(module_name, None)
+        raise
     queries = getattr(module, "QUERIES", None)
     if not isinstance(queries, list | tuple):
         raise QueryRegistryError([f"{path}: no QUERIES sequence"])

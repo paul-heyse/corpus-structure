@@ -18,7 +18,7 @@
   and one `kb.claim_entity_ref` per claim -> entity reference (an entity-ranged qualifier, a `pred`
   argument, a `variable` or `family_param` binding), each with the JSON pointer of the reference in
   the stored claim as its `path`. A reference to no row of the run (an unresolved
-  `ExternalReference` as a premise) has no edge row.
+  `ExternalReference` as a premise) is an entity edge retaining its premise or binding role.
 """
 
 from __future__ import annotations
@@ -252,6 +252,10 @@ def edges(knowledge: Knowledge) -> tuple[list[ClaimEdge], list[EntityEdge]]:
                         key, ClaimRefKind.CONDITION_PREMISE.value, _pointer(path), node["ref"]
                     )
                 )
+            elif node.get("op") == "claim" and node.get("ref") in knowledge.entities:
+                entities.append(EntityEdge(
+                    key, EntityRefRole.CONDITION_PREMISE.value, None, _pointer(path), node["ref"]
+                ))
             if node.get("op") == "pred":
                 for i, arg in enumerate(node.get("args", [])):
                     if isinstance(arg, dict) and arg.get("ref") in knowledge.entities:
@@ -273,6 +277,10 @@ def edges(knowledge: Knowledge) -> tuple[list[ClaimEdge], list[EntityEdge]]:
                 claims.append(
                     ClaimEdge(key, ClaimRefKind.BINDING_PARAM.value, _pointer(path), node["claim"])
                 )
+            elif bind in _BINDING_CLAIM and node.get("claim") in knowledge.entities:
+                entities.append(EntityEdge(
+                    key, EntityRefRole.BINDING_PARAM.value, None, _pointer(path), node["claim"]
+                ))
     return claims, entities
 
 

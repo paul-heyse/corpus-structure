@@ -176,6 +176,7 @@ class EntityRow:
     anchors: set[int] = field(default_factory=set)
     mentions: set[int] = field(default_factory=set)
     identity: dict[str, tuple[str | None, str | None]] = field(default_factory=dict)
+    statement_ordinal: int | None = None
 
 
 @dataclass
@@ -283,11 +284,13 @@ class Markup:
 def _markup(pool: contract.Pool, inputs: Inputs) -> dict[int, Markup]:
     out = {rid: Markup(page) for rid, page in inputs.pages.items()}
     for m in out.values():
+        units = {m.page.key_of(u.segment) for u in m.page.ctx.index.annotation_units().units}
         for segment in m.page.content.document.walk():
-            if segment.kind not in STATEMENT_ANCHOR:
-                continue
             key = m.page.key_of(segment)
-            m.statements[key] = CandidateStatement(id=key, kind=FALLBACK_KIND, anchor=(key,))
+            if segment.kind not in STATEMENT_ANCHOR and key not in units:
+                continue
+            kind = NARRATIVE if key in units and segment.kind not in STATEMENT_ANCHOR else FALLBACK_KIND
+            m.statements[key] = CandidateStatement(id=key, kind=kind, anchor=(key,))
             hint = segment.attrs.get("hint")
             if inputs.use_markup_hints and isinstance(hint, dict) and "statement_kind" in hint:
                 m.kinds[key] = str(hint["statement_kind"])
@@ -912,10 +915,11 @@ def _entities(
         else:
             kind = FALLBACK_KIND
             tally.count(PassOutcome.UNHINTED_STATEMENT_KIND)
-        anchor, _ = statement_anchor(statement, page.ctx)
+        anchor, ordinal = statement_anchor(statement, page.ctx)
         sid = page.segment_id(anchor)
         label = _statement_label(kind, anchor, page)
         row = EntityRow(key, STATEMENT, label, EntityScope.LOCAL.value, sid, kind)
+        row.statement_ordinal = ordinal
         row.anchors.add(sid)
         row.mentions |= mentions.get(key, set())
         knowledge.entities[key] = row
@@ -923,10 +927,11 @@ def _entities(
         for s in p.cs.statements:  # unschematized statements keyed in round 2
             if s.id in p.keys.statements and p.keys.statements[s.id] not in knowledge.entities:
                 k = p.keys.statements[s.id]
-                anchor, _ = statement_anchor(s, p.page.ctx)
+                anchor, ordinal = statement_anchor(s, p.page.ctx)
                 sid = p.page.segment_id(anchor)
                 label = _statement_label(s.kind, anchor, p.page)
                 row = EntityRow(k, STATEMENT, label, EntityScope.LOCAL.value, sid, s.kind)
+                row.statement_ordinal = ordinal
                 row.anchors.add(sid)
                 knowledge.entities[k] = row
             if s.id in p.keys.statements:

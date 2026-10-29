@@ -107,6 +107,7 @@ def write(
                 {},
                 e.descriptor.model_dump(mode="json") if e.descriptor is not None else None,
                 e.kind,
+                e.statement_ordinal,
                 eid.get(e.resolved_to) if e.resolved_to else None,
             )
         )
@@ -125,6 +126,7 @@ def write(
             "attrs",
             "reference_descriptor",
             "kind",
+            "statement_ordinal",
             "resolved_to_id",
         ),
         rows,

@@ -337,3 +337,21 @@ def test_a_prompt_part_change_gives_a_new_digest_and_identical_inputs_the_same(
     before = digest(GUIDELINE)
     monkeypatch.setattr(parts_, "prompt", edited)
     assert digest(GUIDELINE) != before  # a prompt part's change asks again
+
+
+def test_packet_cache_preserves_each_configurations_cap(agent: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> None:
+    from corpus_structure.methods.llm.agent_opus import AgentOpus, AgentOpusConfig
+
+    selected = units()["T2"]
+    content = agent.page_content(selected["page"])
+    segments = parts_of(content, selected)
+    context = standing_context(content, selected["page"], agent.analyse(content).scopes, segments)
+    def inputs(self: Any, unit: Any, cfg: Any) -> Any:
+        return SimpleNamespace(packet=lambda cap: P.render(content, selected["page"], "T2", segments, context, cap=cap))
+    monkeypatch.setattr(AgentOpus, "inputs", inputs)
+    method = AgentOpus()
+    unit = SimpleNamespace(rendition_id=1, ref=SimpleNamespace(unit_key="T2"), run=SimpleNamespace(run_id=1))
+    cfg = AgentOpusConfig()
+    method.packet(unit, cfg)
+    with pytest.raises(P.PacketTooLarge):
+        method.packet(unit, cfg.model_copy(update={"packet_cap_chars": 200}))

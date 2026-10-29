@@ -65,7 +65,8 @@ def record(conn: Connection, project_id: int, pack: Path, *, slice: str | None,
         raise SliceError('choose slice or scope, not both')
     scope_name = slice or scope
     scope_locs = chosen(scope_name) if scope_name else None
-    corpus_locs = chosen(slice or corpus)
+    corpus_name = slice or corpus or ('first-pass' if 'first-pass' in selectors else None)
+    corpus_locs = chosen(corpus_name)
     pages = {parse(x).page for x in corpus_locs}
     known = {str(d['meta']['page']) for d in docs}
     scope_pages = {parse(x).page for x in scope_locs or ()}
@@ -74,7 +75,7 @@ def record(conn: Connection, project_id: int, pack: Path, *, slice: str | None,
     unknown = pages - known
     if unknown:
         raise SliceError(f'unknown corpus pages: {sorted(unknown)}')
-    corpus_record = {'name': slice or corpus, 'locators': list(corpus_locs),
+    corpus_record = {'name': corpus_name, 'locators': list(corpus_locs),
                      'documents': [d['key'] for d in docs if d['meta']['page'] in pages],
                      'hash': digest(corpus_locs)}
     scope_record = None if scope_locs is None else {'name': scope_name, 'locators': list(scope_locs), 'hash': digest(scope_locs)}
