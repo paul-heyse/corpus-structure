@@ -203,6 +203,34 @@ class Evidence(_Envelope):
     source: SourceCustody | None = None
 
 
+class InputEntitySupport(_Envelope):
+    input_realization_id: str
+    input_data_revision: int
+    input_entity_id: str
+    run_id: int
+
+
+class IdentityEndpointReference(_Envelope):
+    kind: Literal["local", "known"]
+    target: str
+    entity: EntityReference
+    input_supports: tuple[InputEntitySupport, ...] = ()
+
+
+class IdentityExclusion(_Envelope):
+    exclusion_id: str
+    binding: SnapshotBinding
+    observation_id: int
+    observation_key: str
+    local_id: str
+    left: IdentityEndpointReference
+    right: IdentityEndpointReference
+    reason: str
+    operation_id: str
+    operation_version: str
+    evidence: tuple[Evidence, ...]
+
+
 class OccurrenceSupport(_Envelope):
     occurrence_id: str
     source: str
@@ -263,6 +291,7 @@ class Explanation(_Envelope):
     alternatives: tuple[AlternativeGroup, ...] = ()
     assessments: tuple[Assessment, ...] = ()
     coverage: tuple[Coverage, ...]
+    identity_exclusions: tuple[IdentityExclusion, ...] = ()
 
 
 class _Store(Protocol):
@@ -651,6 +680,113 @@ class ReadSession:
             for row in self.connection.execute(stmt.order_by(relation.c.coverage_id)).mappings()
         )
 
+    def identity_exclusions(self, entity_id: str | None = None) -> tuple[IdentityExclusion, ...]:
+        """Source-backed identity constraints from this session's exact snapshot.
+
+        Filtering selects constraints touching the entity, not one side of their required
+        endpoint/evidence closure. Separate source declarations of one pair remain separate.
+        """
+        return self._identity_exclusions(None if entity_id is None else (entity_id,))
+
+    def identity_exclusion_graph(self, entity_id: str | None = None):
+        """Qualified validation projection with the entire selected constraint closure."""
+        from .ontology import QualifiedGraphProjection, QualifiedGraphReference
+
+        records, nodes = [], {}
+        for row in self.identity_exclusions(entity_id):
+            records.append({
+                "id": row.exclusion_id,
+                "left": QualifiedGraphReference(row.left.entity.entity_id),
+                "right": QualifiedGraphReference(row.right.entity.entity_id),
+                "evidence": tuple(QualifiedGraphReference(e.evidence_id) for e in row.evidence),
+                "reason": row.reason,
+                "operation_id": row.operation_id,
+                "operation_version": row.operation_version,
+                "observation_key": row.observation_key,
+                "local_id": row.local_id,
+            })
+            for endpoint in (row.left, row.right):
+                nodes[endpoint.entity.entity_id] = {
+                    "kind": "entity", "memberships": tuple(
+                        m.model_dump(mode="python") for m in endpoint.entity.memberships
+                    ),
+                    "input_supports": tuple(s.model_dump(mode="python")
+                                            for s in endpoint.input_supports),
+                }
+            for evidence in row.evidence:
+                nodes[evidence.evidence_id] = {
+                    "kind": "evidence", "source_uri": evidence.source_uri,
+                    "locator": evidence.locator, "provider": evidence.provider,
+                    "operation_version": evidence.operation_version,
+                    "source": evidence.source.model_dump(mode="python")
+                    if evidence.source is not None else None,
+                }
+        return QualifiedGraphProjection(
+            self.binding.release_id, self.binding.realization_id, self.binding.data_revision,
+            "qualified-identity-exclusions", (), nodes, {}, tuple(records),
+        )
+
+    def _identity_exclusions(
+        self, entity_ids: tuple[str, ...] | None
+    ) -> tuple[IdentityExclusion, ...]:
+        if entity_ids == ():
+            return ()
+        relation, observation = table("data.identity_exclusion"), table("kb.observation")
+        stmt = select(relation, observation.c.observation_key).join(
+            observation,
+            and_(observation.c.release_id == relation.c.release_id,
+                 observation.c.id == relation.c.observation_id),
+        ).where(_scope(self.binding, relation))
+        if entity_ids is not None:
+            stmt = stmt.where(
+                relation.c.left_entity_id.in_(entity_ids) | relation.c.right_entity_id.in_(entity_ids)
+            )
+        rows = self.connection.execute(stmt.order_by(relation.c.exclusion_id)).mappings().all()
+        if not rows:
+            return ()
+        entities = self._entities(
+            {row[key] for row in rows for key in ("left_entity_id", "right_entity_id")}
+        )
+        inputs = table("data.entity_input")
+        input_supports: dict[str, list[InputEntitySupport]] = defaultdict(list)
+        for row in self.connection.execute(
+            select(inputs).where(_scope(self.binding, inputs), inputs.c.entity_id.in_(entities))
+            .order_by(inputs.c.entity_id, inputs.c.input_realization_id,
+                      inputs.c.input_data_revision, inputs.c.input_entity_id)
+        ).mappings():
+            input_supports[row["entity_id"]].append(InputEntitySupport(
+                **{key: row[key] for key in InputEntitySupport.model_fields}
+            ))
+        link, evidence = table("data.identity_exclusion_evidence"), table("data.evidence")
+        evidence_rows = self.connection.execute(
+            select(link.c.exclusion_id, evidence).join(
+                evidence, and_(_same_scope(link, evidence),
+                               link.c.evidence_id == evidence.c.evidence_id)
+            ).where(_scope(self.binding, link),
+                    link.c.exclusion_id.in_([row["exclusion_id"] for row in rows]))
+            .order_by(link.c.exclusion_id, link.c.evidence_id)
+        ).mappings().all()
+        custody = self._source_custody(tuple({row["evidence_id"] for row in evidence_rows}))
+        by_exclusion: dict[str, list[Evidence]] = defaultdict(list)
+        for row in evidence_rows:
+            by_exclusion[row["exclusion_id"]].append(Evidence(
+                **{key: row[key] for key in Evidence.model_fields if key != "source"},
+                source=custody.get(row["evidence_id"]),
+            ))
+        return tuple(IdentityExclusion(
+            exclusion_id=row["exclusion_id"], binding=self.binding,
+            observation_id=row["observation_id"], observation_key=row["observation_key"],
+            local_id=row["local_id"], reason=row["reason"], operation_id=row["operation_id"],
+            operation_version=row["operation_version"],
+            left=IdentityEndpointReference(kind=row["left_kind"], target=row["left_ref"],
+                                           entity=entities[row["left_entity_id"]],
+                                           input_supports=tuple(input_supports[row["left_entity_id"]])),
+            right=IdentityEndpointReference(kind=row["right_kind"], target=row["right_ref"],
+                                            entity=entities[row["right_entity_id"]],
+                                            input_supports=tuple(input_supports[row["right_entity_id"]])),
+            evidence=tuple(by_exclusion[row["exclusion_id"]]),
+        ) for row in rows)
+
     def measurements(self, metric: str | None = None) -> tuple[BaseModel, ...]:
         """Read FK-validated measurements and their exact source values from the final cut."""
         from .metrics import metric_definitions
@@ -907,12 +1043,10 @@ class ReadSession:
     def explain(self, fact_id: str) -> Explanation:
         """Support and derivation references from this session's same MVCC snapshot."""
         f = table("data.fact")
-        if (
-            self.connection.scalar(
-                select(f.c.fact_id).where(_scope(self.binding, f), f.c.fact_id == fact_id)
-            )
-            is None
-        ):
+        fact = self.connection.execute(
+            select(f).where(_scope(self.binding, f), f.c.fact_id == fact_id)
+        ).mappings().one_or_none()
+        if fact is None:
             raise KeyError(fact_id)
         s, o, oe, e = (
             table("data." + n) for n in ("support", "occurrence", "occurrence_evidence", "evidence")
@@ -1050,7 +1184,22 @@ class ReadSession:
                 .order_by(assessment.c.assessment_id)
             ).mappings()
         )
+        value_relation, roles = table("data.typed_value"), table("data.value_role")
+        roots = (fact["object_value_id"], fact["qualification_value_id"])
+        closure = select(value_relation.c.value_id).where(
+            _scope(self.binding, value_relation), value_relation.c.value_id.in_(roots)
+        ).cte("exclusion_value_closure", recursive=True)
+        closure = closure.union(select(roles.c.child_value_id).join(
+            closure, roles.c.parent_value_id == closure.c.value_id
+        ).where(_scope(self.binding, roles)))
+        referenced_entities = {fact["subject_id"]} | set(self.connection.scalars(
+            select(value_relation.c.entity_id).where(
+                _scope(self.binding, value_relation), value_relation.c.value_id.in_(select(closure)),
+                value_relation.c.kind == "entity",
+            )
+        ))
         return Explanation(
+            identity_exclusions=self._identity_exclusions(tuple(sorted(referenced_entities))),
             alternatives=tuple(
                 AlternativeGroup(
                     **{
