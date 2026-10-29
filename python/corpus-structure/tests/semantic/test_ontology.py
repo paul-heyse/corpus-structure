@@ -434,3 +434,38 @@ def test_profile_default_scope_is_applied_to_graph_projection():
     shapes = Graph().parse(data=artifacts["shacl"], format="nt")
     assert not list(shapes.objects(None, SH.maxCount))
     assert not list(shapes.objects(None, SH.minCount))
+
+
+def test_qualified_projection_exposes_structured_paths_and_required_closure():
+    from corpus_structure.semantic.ontology import QualifiedGraphProjection
+
+    occurrence = {"id": "urn:occ:1", "subject": "urn:entity:1", "predicate": "urn:p",
+                  "object": "value", "condition": {"roles": ["same", "same"]}}
+    projection = QualifiedGraphProjection("r", "z", 3, "qualified-validation", (occurrence,),
+        {"urn:proof:1": {"kind": "direct", "premises": [URIRef("urn:occ:1")]}},
+        {"urn:occ:1": ("urn:proof:1",)})
+    graph = projection.graph()
+    assert (URIRef("urn:occ:1"), CS.requiredNode, URIRef("urn:proof:1")) in graph
+    condition = graph.value(URIRef("urn:occ:1"), CS.conditionNode)
+    roles = graph.value(condition, CS.roles)
+    members = set(graph.objects(roles, CS.member))
+    assert len(members) == 2
+    assert {int(graph.value(member, CS.position)) for member in members} == {0, 1}
+    assert {str(graph.value(member, CS.value)) for member in members} == {"same"}
+    from dataclasses import replace
+    with pytest.raises(OntologyError, match="missing required related node"):
+        replace(projection, related_nodes={}).graph()
+
+
+def test_projected_validation_uses_nested_qualified_path():
+    from corpus_structure.semantic.ontology import QualifiedGraphProjection, validate_projected_graph
+
+    row = {"id": "urn:occ:1", "subject": "urn:s", "predicate": "urn:p", "object": "v",
+           "condition": {"count": "invalid"}}
+    projection = QualifiedGraphProjection("r", "z", 0, "graph-validation", (row,), {}, {})
+    shapes = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix cs: <https://corpus-structure.dev/semantic/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+<urn:shape> a sh:NodeShape; sh:targetClass cs:Record;
+ sh:property [sh:path cs:count; sh:datatype xsd:integer] .''', format="turtle")
+    assert not validate_projected_graph(projection, shapes).conforms

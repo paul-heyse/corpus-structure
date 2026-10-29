@@ -6770,3 +6770,25 @@ outcome_translations:
   target: failed
   retained_meaning: Typed source failure and affected scope
   invariant: coverage_lowering
+
+native_guards:
+- id: execution_edge
+  symbol: ops.execution_edge
+  version: '1'
+  invariants: [immutable_binding, terminal_result]
+- id: execution_task
+  symbol: ops.guard_execution_task
+  version: '1'
+  invariants: [attempt_fence, terminal_result, reuse_origin]
+- id: execution_run
+  symbol: ops.guard_execution_run
+  version: '1'
+  invariants: [final_cut_barrier, immutable_binding]
+- id: conditional_kernel
+  symbol: data.validate_conditions
+  version: '1'
+  invariants: []
+- id: completed_result
+  symbol: data.finish_evaluation
+  version: '1'
+  invariants: [completed_result, writable_output, exact_replay]
