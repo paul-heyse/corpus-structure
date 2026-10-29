@@ -2064,62 +2064,6 @@ concepts:
     multivalued: false
   relationships: []
 relationships:
-- id: identity_exclusion_endpoints
-  kind: association
-  direction: directed
-  endpoints:
-  - role: exclusion
-    concept: IdentityExclusion
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: endpoint
-    concept: Entity
-    minimum: 2
-    ordered: false
-    unresolved: false
-  cardinality_scope: per source exclusion within the bound release/realization
-  identity_kind: ordered_roles
-  identity_roles:
-  - exclusion
-  - endpoint
-  identity_context:
-  - release
-  - realization
-  qualifications: []
-  multiplicity: set
-  reference_scope: same_realization
-  invariants:
-  - identity_exclusions
-- id: identity_exclusion_evidence
-  kind: association
-  direction: directed
-  endpoints:
-  - role: exclusion
-    concept: IdentityExclusion
-    minimum: 1
-    maximum: 1
-    ordered: false
-    unresolved: false
-  - role: citation
-    concept: Evidence
-    minimum: 1
-    ordered: false
-    unresolved: false
-  cardinality_scope: per source exclusion within the bound release/realization
-  identity_kind: ordered_roles
-  identity_roles:
-  - exclusion
-  - citation
-  identity_context:
-  - release
-  - realization
-  qualifications: []
-  multiplicity: set
-  reference_scope: same_realization
-  invariants:
-  - identity_exclusions
 - id: bundle_contains
   kind: ownership
   direction: directed
@@ -3784,6 +3728,62 @@ relationships:
   reference_scope: same_realization
   invariants:
   - projection_fidelity
+- id: identity_exclusion_endpoints
+  kind: association
+  direction: directed
+  endpoints:
+  - role: exclusion
+    concept: IdentityExclusion
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: endpoint
+    concept: Entity
+    minimum: 2
+    ordered: false
+    unresolved: false
+  cardinality_scope: per source exclusion within the bound release/realization
+  identity_kind: ordered_roles
+  identity_roles:
+  - exclusion
+  - endpoint
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - identity_exclusions
+- id: identity_exclusion_evidence
+  kind: association
+  direction: directed
+  endpoints:
+  - role: exclusion
+    concept: IdentityExclusion
+    minimum: 1
+    maximum: 1
+    ordered: false
+    unresolved: false
+  - role: citation
+    concept: Evidence
+    minimum: 1
+    ordered: false
+    unresolved: false
+  cardinality_scope: per source exclusion within the bound release/realization
+  identity_kind: ordered_roles
+  identity_roles:
+  - exclusion
+  - citation
+  identity_context:
+  - release
+  - realization
+  qualifications: []
+  multiplicity: set
+  reference_scope: same_realization
+  invariants:
+  - identity_exclusions
 invariants:
 - id: identity_exclusions
   meaning: Eligible source exclusions retain exact evidence and endpoints; no admitted
