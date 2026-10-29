@@ -22,7 +22,7 @@ PHYSICAL_MODEL_ID = "physical:" + sha256(PHYSICAL_MODEL.read_bytes()).hexdigest(
 metadata = compile_metadata(SchemaView(str(PHYSICAL_MODEL)), target="semantic")
 metadata.info["physical_model_id"] = PHYSICAL_MODEL_ID
 tables = MappingProxyType(dict(metadata.tables))
-SCHEMAS = frozenset({"sem", "data"})
+SCHEMAS = frozenset({"sem", "data", "ops", "kb"})
 _DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
 
 
