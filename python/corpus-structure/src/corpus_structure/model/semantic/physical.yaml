@@ -2342,3 +2342,32 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}]'
       ph:checks: '["split IN (''dev'',''test'',''reserved'')"]'
+
+  source_frame:
+    in_subset: [ops]
+    attributes:
+      task_id: {range: integer, required: true}
+      packet_hash: {range: string, required: true}
+      unit_ref: {range: string, required: true}
+      unit_locator: {range: string, required: true}
+      rendition_id: {range: integer, required: true}
+      unit_segment_id: {range: integer, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id]}
+      source_identity: {unique_key_slots: [task_id, rendition_id]}
+    annotations:
+      ph:foreign_keys: '[{"columns":["task_id"],"target":"ops.task.id"},{"columns":["rendition_id","unit_segment_id"],"target":"kb.segment.rendition_id,id"}]'
+      ph:checks: '["packet_hash <> ''''", "unit_ref <> ''''", "unit_locator <> ''''"]'
+  source_frame_sentence:
+    in_subset: [ops]
+    attributes:
+      task_id: {range: integer, required: true}
+      sentence_id: {range: string, required: true}
+      rendition_id: {range: integer, required: true}
+      segment_id: {range: integer, required: true}
+      locator: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [task_id, sentence_id]}
+    annotations:
+      ph:foreign_keys: '[{"columns":["task_id","rendition_id"],"target":"ops.source_frame.task_id,rendition_id"},{"columns":["rendition_id","segment_id"],"target":"kb.segment.rendition_id,id"}]'
+      ph:checks: '["sentence_id <> ''''", "locator <> ''''"]'

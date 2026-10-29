@@ -714,6 +714,7 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
             conn.execute(
                 select(
                     o.c.id,
+                    t.c.unit_key,
                     effective.label("rendition_id"),
                     method.c.name.label("provider"),
                     method.c.version,
@@ -749,6 +750,7 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
             )
         ).mappings():
             renditions[row["id"]] = row
+        reports_by_id = {row["id"]: row for row in observations}
         for source in source_rows:
             rid = source["rendition_id"]
             if rid is None:
@@ -759,7 +761,7 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
                     "reused proposal is not located on this run selected rendition"
                 )
             ren = renditions[rid]
-            descriptors[source["id"]] = {
+            descriptor = {
                 "rendition_id": rid,
                 "source_uri": ren["source_uri"],
                 "text": ren["canonical_text"],
@@ -770,6 +772,17 @@ def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
                 "page": ren["meta"].get("page", ren["source_uri"]),
                 "math": source["params"].get("math"),
             }
+            descriptors[source["id"]] = descriptor
+            report = reports_by_id[source["id"]]
+            if report["payload_definition"] == "AgentStoredBatch" and report["payload"].get("statements"):
+                from .source_frames import load_source_frame
+
+                from .proposals import ProposalFrame
+
+                frame_table = table("ops.source_frame")
+                has_frame = conn.execute(select(frame_table.c.task_id).where(frame_table.c.task_id == report["task_id"])).scalar_one_or_none()
+                descriptor["frame"] = (load_source_frame(conn, report["task_id"]) if has_frame is not None
+                                       else ProposalFrame(report["payload"]["unit_ref"], descriptor["text"], ()))
         tasks = (
             conn.execute(select(table("ops.task")).where(table("ops.task").c.run_id == job["id"]))
             .mappings()
@@ -1219,14 +1232,28 @@ def _project_cut(
             continue
         source = observation["observation_key"]
         mapping = entity_mappings[observation["id"]]
-        statements = {s["id"]: s for s in payload.get("statements", ())}
+        statements = {s["id"]: dict(s) for s in payload.get("statements", ())}
         from .source_projection import statement_identity
+        from .proposals import statement_anchor
+        from corpus_structure.core.evidence import RenditionContent
+        from corpus_structure.core.locators import LocatorIndex
 
+        if statements:
+            content = RenditionContent.model_validate(descriptor["content"])
+            source_index = LocatorIndex(content, descriptor["page"])
+            for statement in statements.values():
+                if statement["kind"] != "outside":
+                    statement["anchor"] = statement_anchor(
+                        statement["anchor"], descriptor["frame"], index=source_index
+                    )
+                else:
+                    coverage_row("statement", source + "/" + statement["id"], "partial",
+                                 "explicit unresolved external statement reference")
         statement_ids = {
             ref: statement_identity(
                 prepared.release_id, output, descriptor["rendition_key"], statement["anchor"]
             )
-            for ref, statement in statements.items()
+            for ref, statement in statements.items() if statement["kind"] != "outside"
         }
         # Source local refs stay distinct until a declared identity operation authorizes a merge.
         # This substrate never treats a fuzzy label or ontology mapping as identity.
@@ -1548,7 +1575,7 @@ def _project_cut(
                 )
         for claim, item in claim_rows:
             statement = statements.get(claim.get("statement"))
-            if statement is not None:
+            if statement is not None and statement["kind"] != "outside":
                 sid = statement_ids[claim["statement"]]
                 props = {"id": sid, "locator": statement["anchor"]}
                 from .statement_types import statement_definition, statement_kinds

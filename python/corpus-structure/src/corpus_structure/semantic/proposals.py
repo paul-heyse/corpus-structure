@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -17,7 +17,9 @@ from typing import Any
 import yaml
 from pydantic import BaseModel
 
-from corpus_structure.core.evidence import MacroDef
+from corpus_structure.core.evidence import MacroDef, RenditionContent
+from corpus_structure.core.locators import LocatorIndex
+from corpus_structure.methods.llm.packet import SentenceEntry
 from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Step
 from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 
@@ -117,6 +119,42 @@ class ProposalFrame:
             for sentence in self.sentences
         ):
             raise ValueError("proposal sentence lies outside canonical source text")
+
+
+def source_frame(unit_ref: str, content: RenditionContent, page: str,
+                 sentences: Sequence[SentenceEntry]) -> ProposalFrame:
+    """Project the served sentence identities from the immutable source rendition."""
+    index = LocatorIndex(content, page)
+    located = []
+    for sentence in sentences:
+        segment = index.resolve(sentence.locator)
+        if content.canonical_text[segment.start:segment.end] != sentence.text:
+            raise ProposalRefused("packet sentence differs from source frame")
+        located.append(ProposalSentence(sentence.id, sentence.locator, segment.start, segment.end))
+    return ProposalFrame(unit_ref, content.canonical_text, tuple(located))
+
+
+def statement_anchor(anchor: str, frame: ProposalFrame, *, index: LocatorIndex | None = None) -> str:
+    """Resolve a local handle through its frame, never through another packet's namespace.
+
+    A source report may use its declared unit or supplied canonical sentence locators. The
+    consolidation boundary can additionally resolve an explicit source locator on the exact
+    rendition; unsupported strings never become located statement identities.
+    """
+    sentences = {sentence.id: sentence.locator for sentence in frame.sentences}
+    known = {frame.unit_ref, *sentences.values()}
+    if anchor in sentences:
+        anchor = sentences[anchor]
+    elif anchor not in known and index is None:
+        raise ProposalRefused("statement anchor is not declared by the bound source frame")
+    if anchor not in known and anchor not in sentences and anchor[:1] in {"s", "c"} and anchor[1:].isdigit():
+        raise ProposalRefused("local statement handle is not declared by the bound source frame")
+    if index is not None:
+        try:
+            return str(index.generate(index.resolve(anchor)))
+        except (ValueError, LookupError) as error:
+            raise ProposalRefused("statement anchor is not located on its bound rendition") from error
+    return anchor
 
 
 @dataclass(frozen=True)
@@ -406,6 +444,9 @@ def locate_proposal(
 
     check_nested(authored)
     stored = copy.deepcopy(raw)
+    for statement in stored.get("statements", ()):
+        if statement["kind"] != "outside":
+            statement["anchor"] = statement_anchor(statement["anchor"], frame)
     sentences = {sentence.id: sentence for sentence in frame.sentences}
     cascade = Cascade(
         frame.text,

@@ -69,6 +69,7 @@ def fixture(
     math=None,
     second_math=None,
     source_macros=None,
+    statement_packets=None,
 ):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     schema: dict[str, Any] = {
@@ -180,7 +181,10 @@ def fixture(
         publish_batch(
             writer, replace(initial, selection=tuple(SelectionRow(f.fact_id) for f in initial.fact))
         )
-    original = b"<p>Alice is here.</p>"
+    double_source = duplicate or statement_packets == "different"
+    original = b'<p id="one">Alice is here.</p>'
+    if double_source:
+        original += b'<p id="block2">Alice is here.</p>' 
     path.write_bytes(original)
     with writer.begin() as conn:
         document = register_document(
@@ -189,7 +193,7 @@ def fixture(
             source_uri="page.html",
             original_path=str(path),
             original=original,
-            metadata={"page": "page.html"},
+            metadata={"page": "page"},
         )
         document_key = conn.execute(
             select(table("kb.document").c.key).where(table("kb.document").c.id == document)
@@ -215,6 +219,26 @@ def fixture(
             {"math": math} if math is not None else {},
             "config",
         )
+        paragraphs = [Segment(kind=SegmentKind.PARAGRAPH, start=0, end=14, attrs={"id": "one"},
+                              children=(Segment(kind=SegmentKind.SENTENCE, start=0, end=14,
+                                                attrs={"id": "sentence"}),))]
+        if double_source:
+            paragraphs.append(Segment(kind=SegmentKind.PARAGRAPH, start=14, end=28, attrs={"id": "block2"},
+                               children=(Segment(kind=SegmentKind.SENTENCE, start=14, end=28,
+                                                 attrs={"id": "two"}),)))
+        content = RenditionContent(
+            canonical_text="Alice is here." * (2 if double_source else 1),
+            document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=28 if double_source else 14,
+                             children=tuple(paragraphs)),
+            macros=source_macros or {},
+        )
+        frame = ProposalFrame(
+            "page#one", content.canonical_text,
+            (ProposalSentence("s1", "page#sentence", 0, 14),)
+            + ((ProposalSentence("s2", "page#two", 14, 28),) if duplicate else ()),
+        )
+        from corpus_structure.semantic.proposals import proposal_packet
+        packet = proposal_packet(prepared, frame, guideline="", configuration={})
         task = create_task(
             conn,
             run_id=run,
@@ -224,13 +248,9 @@ def fixture(
             unit_id=document,
             unit_key="page#one",
             input_hash="input",
+            packet_hash=packet.hash if statement_packets else None,
         )
         lease = claim_tasks(conn, run_id=run, config_id=cid, holder="worker")[0]
-        content = RenditionContent(
-            canonical_text="Alice is here.",
-            document=Segment(kind=SegmentKind.DOCUMENT, start=0, end=14),
-            macros=source_macros or {},
-        )
         rid = store_rendition(
             conn,
             run_id=run,
@@ -240,10 +260,13 @@ def fixture(
             config_id=cid,
             parse_detail={},
         )
+        from corpus_structure.semantic.source_frames import capture_source_frame
+        if statement_packets:
+            capture_source_frame(conn, task, packet)
     raw: dict[str, Any] = {
         "unit_ref": "page#one",
         "entities": [{"id": "person", "class_iri": "https://example.org/Person", "label": "Alice"}],
-        "statements": [{"id": "s", "kind": "remark", "anchor": "page#one"}],
+        "statements": [{"id": "s", "kind": "remark", "anchor": "s1" if statement_packets else "page#one"}],
         "claims": [
             {
                 "id": "c",
@@ -365,7 +388,7 @@ def fixture(
         ]
     if integer_alias:
         raw["claims"][0]["object"] = {"kind": "number", "number": 4}
-    if two_reports:
+    if two_reports and formulas:
         raw["claims"][0]["object"]["bindings"] = [{"symbol": "x", "kind": "free"}]
     if authored_alternative:
         raw["alternatives"] = [
@@ -380,7 +403,9 @@ def fixture(
         for claim in raw["claims"]:
             claim["qualification"] = {**claim["qualification"], "condition": condition}
     frame = ProposalFrame(
-        "page#one", "Alice is here.", (ProposalSentence("s1", "page#sentence", 0, 14),)
+        "page#one", content.canonical_text,
+        (ProposalSentence("s1", "page#sentence", 0, 14),)
+        + ((ProposalSentence("s2", "page#two", 14, 28),) if duplicate else ()),
     )
     located = (
         locate_proposal(
@@ -389,6 +414,10 @@ def fixture(
         if known
         else locate_proposal(prepared, raw, frame)
     )
+    stored = located.stored.model_dump(mode="python")
+    if statement_packets:
+        # Reproduce reports captured before anchor normalization, without editing stored rows.
+        stored["statements"][0]["anchor"] = "s1"
     with writer.begin() as conn:
         complete_task(
             conn,
@@ -401,7 +430,7 @@ def fixture(
                     "payload_definition": "AgentStoredBatch",
                     "item_key": "proposal",
                     "kind": "claim_proposal",
-                    "payload": located.stored.model_dump(mode="python"),
+                    "payload": stored,
                     "rendition_id": rid,
                 }
             ],
@@ -410,14 +439,17 @@ def fixture(
             import copy
 
             second = copy.deepcopy(raw)
-            second["claims"][0]["object"]["bindings"] = [{"symbol": "x", "kind": "constant"}]
-            second_located = locate_proposal(
-                prepared,
-                second,
-                ProposalFrame(
-                    "page#one", "Alice is here.", (ProposalSentence("s1", "page#sentence", 0, 14),)
-                ),
-            )
+            if formulas:
+                second["claims"][0]["object"]["bindings"] = [{"symbol": "x", "kind": "constant"}]
+            second_unit = "page#two" if statement_packets == "different" else "page#one"
+            second["unit_ref"] = second_unit
+            if statement_packets == "different":
+                second["statements"][0]["kind"] = "theorem"
+            second_frame = ProposalFrame(second_unit, content.canonical_text,
+                (ProposalSentence("s1", "page#two", 14, 28),) if statement_packets == "different"
+                else (ProposalSentence("s1", "page#sentence", 0, 14),))
+            second_packet = proposal_packet(prepared, second_frame, guideline="", configuration={})
+            second_located = locate_proposal(prepared, second, second_frame)
             second_config = record_method(
                 conn,
                 SimpleNamespace(
@@ -445,12 +477,18 @@ def fixture(
                 stage="propose",
                 unit_type="document",
                 unit_id=document,
-                unit_key="page#one",
+                unit_key=second_unit,
                 input_hash="input-second",
+                packet_hash=second_packet.hash if statement_packets else None,
             )
+            if statement_packets:
+                capture_source_frame(conn, second_task, second_packet)
             second_lease = claim_tasks(conn, run_id=run, config_id=second_config, holder="worker")[
                 0
             ]
+            second_stored = second_located.stored.model_dump(mode="python")
+            if statement_packets:
+                second_stored["statements"][0]["anchor"] = "s1"
             complete_task(
                 conn,
                 task_id=second_task,
@@ -462,7 +500,7 @@ def fixture(
                         "payload_definition": "AgentStoredBatch",
                         "item_key": "proposal",
                         "kind": "claim_proposal",
-                        "payload": second_located.stored.model_dump(mode="python"),
+                        "payload": second_stored,
                         "rendition_id": rid,
                     }
                 ],

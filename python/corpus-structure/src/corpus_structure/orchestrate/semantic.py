@@ -7,12 +7,14 @@ from collections.abc import Mapping
 from typing import Any
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
-from sqlalchemy import select
+from sqlalchemy import Connection, select
 
 from corpus_structure.core.method import MethodContext, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.types import PreparedRelease
+from corpus_structure.semantic.proposals import ProposalFrame
 from corpus_structure.semantic.operations import (
     OperationBinding,
     OperationConflict,
@@ -359,8 +361,7 @@ def _packet_for_unit(
     from corpus_structure.semantic.operations import lock_input_snapshot
     from corpus_structure.semantic.proposals import (
         KnownProposalEntity,
-        ProposalFrame,
-        ProposalSentence,
+        source_frame,
         proposal_packet,
     )
 
@@ -402,16 +403,9 @@ def _packet_for_unit(
         rendered = inputs.packet(configuration.get("packet_cap_chars", 18000))
     except PacketTooLarge as exc:
         raise OperationConflict(str(exc)) from exc
-    index = LocatorIndex(inputs.content, inputs.page)
-    sentences = []
-    for item in rendered.sentences:
-        segment = index.resolve(item.locator)
-        if inputs.content.canonical_text[segment.start : segment.end] != item.text:
-            raise OperationConflict("packet sentence differs from source frame")
-        sentences.append(ProposalSentence(item.id, item.locator, segment.start, segment.end))
     return proposal_packet(
         prepared,
-        ProposalFrame(ref.unit_key, inputs.content.canonical_text, tuple(sentences)),
+        source_frame(ref.unit_key, inputs.content, inputs.page, rendered.sentences),
         guideline=view.reader.guideline(),
         configuration=configuration,
         macros=inputs.macros,
@@ -424,6 +418,7 @@ def _packet_for_unit(
         if not references
         else (),
     )
+
 
 
 def agent_packet(conn: Any, run_id: int, task_id: int, prepared: Any):
@@ -447,6 +442,9 @@ def agent_packet(conn: Any, run_id: int, task_id: int, prepared: Any):
         raise ProposalRefused(str(exc)) from exc
     if row["packet_hash"] != packet.hash:
         raise ProposalRefused("recorded agent packet changed")
+    from corpus_structure.semantic.source_frames import capture_source_frame
+
+    capture_source_frame(conn, task_id, packet)
     return packet
 
 
@@ -515,8 +513,7 @@ def queue_agent(
                 ]
             )
         ).hexdigest()
-        tasks.append(
-            create_task(
+        task_id = create_task(
                 conn,
                 run_id=run_id,
                 config_id=config_id,
@@ -531,7 +528,13 @@ def queue_agent(
                 trigger={**dict(trigger or {}), "configuration_name": configuration_name},
                 skip_reason=skip_reason,
             )
-        )
+        tasks.append(task_id)
+        if skip_reason is None:
+            from corpus_structure.semantic.source_frames import capture_source_frame
+
+            reused = conn.execute(select(table("ops.task").c.reused_task_id).where(table("ops.task").c.id == task_id)).scalar_one()
+            if reused is None:
+                capture_source_frame(conn, task_id, packet)
     return tasks
 
 

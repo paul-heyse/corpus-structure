@@ -30,7 +30,9 @@ classes:
     attributes:
       id: {required: true}
       kind: {range: AgentStatementKind, required: true}
-      anchor: {required: true}
+      anchor:
+        required: true
+        description: Use the supplied unit_ref, a packet-local sentence id, or its supplied canonical locator.
       title: {}
       reference: {range: AgentReference, inlined: true}
   AgentEvidence:
