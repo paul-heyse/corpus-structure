@@ -815,7 +815,7 @@ CREATE INDEX claim_ref_target ON kb.claim_ref (target_claim_id);
 CREATE TABLE kb.claim_entity_ref (
   run_id    bigint NOT NULL,
   claim_id  bigint NOT NULL,
-  role      text   NOT NULL CHECK (role IN ('qualifier','pred_arg','binding_variable','binding_family_param')),
+  role      text   NOT NULL CHECK (role IN ('qualifier','pred_arg','binding_variable','binding_family_param','condition_premise','binding_param')),
   slot      text,                              -- the prefixed qualifier name for role 'qualifier'
   path      text   NOT NULL,
   entity_id bigint NOT NULL,
