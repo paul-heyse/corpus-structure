@@ -114,6 +114,33 @@ class MembershipSupportRow:
 
 
 @dataclass(frozen=True)
+class OccurrenceEstablishmentRow:
+    occurrence_id: str
+    establishment: str
+
+
+@dataclass(frozen=True)
+class EvidenceSourceRow:
+    evidence_id: str
+    observation_id: int
+    rendition_id: int
+    span_id: int | None = None
+
+
+@dataclass(frozen=True)
+class AssessmentRow:
+    assessment_id: str
+    operation_id: str
+    operation_version: str
+    outcome: str
+    fact_id: str | None = None
+    occurrence_id: str | None = None
+    confidence: Decimal | None = None
+    reason: str | None = None
+    uncertainty: str | None = None
+
+
+@dataclass(frozen=True)
 class DerivationRow:
     derivation_id: str
     conclusion_fact_id: str
@@ -153,6 +180,9 @@ _ROW_TYPES = {
     "derivation": DerivationRow,
     "derivation_premise": DerivationPremiseRow,
     "coverage": CoverageRow,
+    "occurrence_establishment": OccurrenceEstablishmentRow,
+    "evidence_source": EvidenceSourceRow,
+    "assessment": AssessmentRow,
 }
 _DIALECT = postgresql.dialect()
 STAGE_TYPES: dict[str, tuple[type, tuple[str, ...]]] = {
@@ -188,6 +218,9 @@ class PublicationBatch:
     derivation: tuple[DerivationRow, ...] = ()
     derivation_premise: tuple[DerivationPremiseRow, ...] = ()
     coverage: tuple[CoverageRow, ...] = ()
+    occurrence_establishment: tuple[OccurrenceEstablishmentRow, ...] = ()
+    evidence_source: tuple[EvidenceSourceRow, ...] = ()
+    assessment: tuple[AssessmentRow, ...] = ()
 
     def __post_init__(self) -> None:
         if any(
