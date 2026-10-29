@@ -163,6 +163,7 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
             "registry_row",
             "conditional_rule",
             "conditional_atom",
+            "metric_definition",
         )
     }
     properties: dict[str, str] = {}
@@ -242,6 +243,11 @@ def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]
                      "presence": atom["presence"], "choices": atom["choices"]}
                     for position, atom in enumerate(atoms)
                 )
+    rows["metric_definition"] = [
+        {"release_id": rid, "metric_id": row.name,
+         **{key: value for key, value in json.loads(row.body).items() if key != "id"}}
+        for row in prepared.registry_rows if row.kind == "metric_definition"
+    ]
     return rows
 
 
