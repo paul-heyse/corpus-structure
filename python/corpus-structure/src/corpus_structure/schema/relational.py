@@ -605,11 +605,11 @@ def _compile_physical(view: View) -> MetaData:
     if str(view.schema.id) != "https://corpus-structure.org/model/semantic/physical":
         raise ModelError(["semantic target requires the trusted physical module"])
     md = MetaData(naming_convention=dict(NAMING_CONVENTION))
-    physical_types = {"bytea": BYTEA, "jsonb": JSONB, "numeric": Numeric}
+    physical_types = {"bytea": BYTEA, "jsonb": JSONB, "numeric": Numeric, "timestamptz": lambda: TIMESTAMP(timezone=True)}
     for name, cls in view.schema.classes.items():
         subsets = [str(s) for s in cls.in_subset]
-        if len(subsets) != 1 or subsets[0] not in {"sem", "data"}:
-            raise ModelError([f"{name}: physical table needs exactly one sem/data subset"])
+        if len(subsets) != 1 or subsets[0] not in {"sem", "data", "ops", "kb"}:
+            raise ModelError([f"{name}: physical table needs exactly one trusted physical subset"])
         columns = []
         for slot in view.class_induced_slots(name):
             rng = str(slot.range or "string")
@@ -631,6 +631,7 @@ def _compile_physical(view: View) -> MetaData:
                 Column[Any](
                     str(slot.name),
                     typ,
+                    *([Identity(always=True)] if ci_annotations(slot).get("ph:identity") == "true" else []),
                     nullable=not slot.required,
                     server_default=text(default) if default is not None else None,
                 )
