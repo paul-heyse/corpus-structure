@@ -58,6 +58,8 @@ SPINE = (
     "value_role",
     "fact",
     "fact_input",
+    "alternative_group",
+    "alternative_member",
     "occurrence",
     "support",
     "selection",
