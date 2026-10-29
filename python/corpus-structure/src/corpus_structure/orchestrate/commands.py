@@ -27,7 +27,7 @@ from typing import Any
 from pydantic import BaseModel, JsonValue
 from sqlalchemy import Connection, Engine, text
 
-from corpus_structure.core.vocab import MethodTier, RunKind, RunStatus, TaskStatus
+from corpus_structure.core.vocab import AgentMode, MethodTier, RunKind, RunStatus, TaskStatus
 from corpus_structure.orchestrate import fates, project, runs
 from corpus_structure.orchestrate.registry import MethodRegistry
 from corpus_structure.orchestrate.runner import Evaluate, Graph, PassRunner, Runner
@@ -134,6 +134,8 @@ def start_run(
             explicit=explicit,
             settings=settings,
         )
+        if graph.policy_propose and created.options.options.agent_mode == AgentMode.WAIT:
+            raise CommandError('the phase 0 wait barrier is not implemented; use agent_mode=complete')
     runner = Runner(engine, registry, graph, run_pass, evaluate, method_settings)
     with runs.Liveness(url, created.id):
         status = runner.run(created.id)
