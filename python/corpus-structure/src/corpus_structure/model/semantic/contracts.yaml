@@ -538,8 +538,30 @@ classes:
         range: string
         required: true
         slot_uri: execution:OutcomeTranslation_invariant
+  NativeGuardBinding:
+    attributes:
+      id:
+        range: string
+        required: true
+      symbol:
+        range: string
+        required: true
+      version:
+        range: string
+        required: true
+      invariants:
+        range: string
+        multivalued: true
+        required: false
   ExecutionCatalog:
     attributes:
+      native_guards:
+        range: NativeGuardBinding
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
       version:
         range: string
         required: true

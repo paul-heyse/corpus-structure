@@ -271,6 +271,24 @@ class OutcomeTranslation:
 
 
 @dataclass(frozen=True)
+class NativeGuardBinding:
+    id: str
+    symbol: str
+    version: str
+    invariants: tuple[str, ...]
+
+
+# Code-owned kernels, not arbitrary catalog-provided SQL names.
+_APPROVED_NATIVE_GUARDS = {
+    "execution_edge": ("ops.execution_edge", "1"),
+    "execution_task": ("ops.guard_execution_task", "1"),
+    "execution_run": ("ops.guard_execution_run", "1"),
+    "conditional_kernel": ("data.validate_conditions", "1"),
+    "completed_result": ("data.finish_evaluation", "1"),
+}
+
+
+@dataclass(frozen=True)
 class ExecutionModelProducts:
     model_id: str
     content: bytes
@@ -285,6 +303,7 @@ class ExecutionModelProducts:
     projections: tuple[ProjectionContract, ...]
     outcome_domains: tuple[OutcomeDomain, ...]
     outcome_translations: tuple[OutcomeTranslation, ...]
+    native_guards: tuple[NativeGuardBinding, ...]
 
     def lifecycle(self, name: str) -> LifecycleDefinition:
         return next(item for item in self.lifecycles if item.id == name)
@@ -448,6 +467,11 @@ def _validate(products: ExecutionModelProducts) -> None:
         _refs((invariant.implementation,), b, invariant.id)
         if invariant.required_capability is not None:
             _refs((invariant.required_capability,), capabilities, invariant.id)
+    _index(products.native_guards, "native_guards")
+    for guard in products.native_guards:
+        if _APPROVED_NATIVE_GUARDS.get(guard.id) != (guard.symbol, guard.version):
+            _fail("unapproved_native_guard", guard.id, guard.symbol)
+        _refs(guard.invariants, i, guard.id)
     owned = approved_implementations()
     for binding in products.implementations:
         implementation = owned.get(binding.id)

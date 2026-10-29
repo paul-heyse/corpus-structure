@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from corpus_structure.core.method import MethodContext, UnitRef, UnitView
 from corpus_structure.core.vocab import TaskUnitType
@@ -23,6 +23,7 @@ from corpus_structure.semantic.operations import (
     record_method,
     run_view,
     seal_cut,
+    start_run,
 )
 
 
@@ -197,9 +198,7 @@ def run_source_methods(
             phase=phase,
             guideline=guideline,
         )
-        conn.execute(
-            update(table("ops.run")).where(table("ops.run").c.id == rid).values(status="running")
-        )
+        start_run(conn, rid)
     holder = f"semantic-source:{rid}"
     try:
         for stage, steps in graph.stages:
