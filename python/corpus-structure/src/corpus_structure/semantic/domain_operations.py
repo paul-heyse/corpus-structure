@@ -44,11 +44,32 @@ from .releases import load_release
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
 RULE_INPUT = "operation/domain-rules.yaml"
-VERSION = "semantic-domain-1"
+VERSION = "semantic-domain-2"
 
 
 class DomainOperationRefused(ValueError):
     """A required interpretation or scientific policy is unavailable; no output is selected."""
+
+
+class IdentityResolutionConflict(DomainOperationRefused):
+    """A required identity equality contradicts a source-grounded exclusion."""
+
+    code = "identity_conflict"
+
+    def __init__(self, release_id, exclusion_id, left, right, entity_id):
+        self.release_id = release_id
+        self.exclusion_id = exclusion_id
+        self.left = left
+        self.right = right
+        self.entity_id = entity_id
+        super().__init__(
+            f"identity_conflict: exclusion {exclusion_id} contradicts mandatory identity {entity_id}"
+        )
+
+
+def _eligible_exclusion(exclusion):
+    return any(e.get("outcome") == "located" and e["role"] == "primary"
+               for e in exclusion["evidence"])
 
 
 def _policy_yaml(content):
@@ -595,6 +616,25 @@ def _known_input(conn, prepared, job, observations):
         .all()
     )
     evidence_ids = {row["evidence_id"] for row in supports}
+    excluded = table("data.identity_exclusion")
+    exclusion_rows = conn.execute(select(excluded).where(
+        excluded.c.release_id == job["release_id"],
+        excluded.c.realization_id == job["input_realization_id"],
+        excluded.c.left_entity_id.in_(ids), excluded.c.right_entity_id.in_(ids))).mappings().all()
+    exclusion_ids = {row["exclusion_id"] for row in exclusion_rows}
+    links = table("data.identity_exclusion_evidence")
+    exclusion_links = conn.execute(select(links).where(
+        links.c.release_id == job["release_id"],
+        links.c.realization_id == job["input_realization_id"],
+        links.c.exclusion_id.in_(exclusion_ids))).mappings().all()
+    evidence_ids.update(row["evidence_id"] for row in exclusion_links)
+    for name, rows in (("identity_exclusion", exclusion_rows), ("identity_exclusion_evidence", exclusion_links)):
+        row_type = STAGE_TYPES[name][0]
+        copied[name] = tuple(row_type(**{f.name: row[f.name] for f in fields(row_type)}) for row in rows)
+    observations_table = table("kb.observation")
+    copied["_identity_exclusion_sources"] = dict(conn.execute(select(
+        observations_table.c.id, observations_table.c.observation_key).where(
+        observations_table.c.id.in_({row["observation_id"] for row in exclusion_rows}))).all())
     for name, rows in [("membership", memberships), ("membership_support", supports)]:
         row_type = STAGE_TYPES[name][0]
         copied[name] = tuple(
@@ -786,6 +826,50 @@ def _entity_mappings(prepared, observations, output, known, contexts):
         if observation["id"] in contexts:
             for e in payload.get("entities", ()):
                 entries.append((observation, e, by_iri[e["class_iri"]]))
+    observation_keys = {row["id"]: row["observation_key"] for row in observations}
+    original_mappings = {oid: dict(mapping) for oid, mapping in mappings.items()}
+    exclusions = []
+    for oid, payload in parsed.items():
+        if payload.get("identity_exclusions") and prepared.execution_model_id is None:
+            raise DomainOperationRefused("identity exclusions require semantic-2")
+        for exclusion in payload.get("identity_exclusions", ()):
+            if _eligible_exclusion(exclusion):
+                def endpoint(value):
+                    return ("known", value["target"]) if value["kind"] == "known" else (observation_keys[oid], value["target"])
+                exclusions.append((oid, exclusion, endpoint(exclusion["left"]), endpoint(exclusion["right"])))
+    soft_groups = {}
+    soft_ids = {}
+    def label_key(definition, label):
+        case = CaseRule.FOLD if meta[definition.name].get("cs:case") == "casefold" else CaseRule.PRESERVE
+        return (definition.iri, normalize_label(label, compact(definition.iri), aliases, case))
+    for observation, entity, definition in entries:
+        groups = [g for g in definition.identity_groups if g != definition.identity_slots]
+        if not groups and meta.get(definition.name, {}).get("cs:scope") == "global" and entity.get("label"):
+            node = (observation["observation_key"], entity["id"])
+            soft_groups.setdefault(label_key(definition, entity["label"]), set()).add(node)
+            soft_ids[node] = original_mappings[observation["id"]][entity["id"]]
+    for identity, item in known.items():
+        for iri in item["class_iris"]:
+            definition = by_iri[iri]
+            if not [g for g in definition.identity_groups if g != definition.identity_slots] and meta.get(definition.name, {}).get("cs:scope") == "global" and item.get("label"):
+                node = ("known", identity)
+                soft_groups.setdefault(label_key(definition, item["label"]), set()).add(node)
+                soft_ids[node] = identity
+    soft_resolved = {}
+    from .identity_resolution import constrained_label_groups
+    for (iri, label), members in soft_groups.items():
+        anchors = {node for node in members if node[0] == "known"}
+        forbidden = [(left, right) for _, _, left, right in exclusions if left in members and right in members]
+        if not forbidden and len(anchors) <= 1:
+            canonical = soft_ids[next(iter(anchors))] if anchors else "entity:" + sha256(canonical_bytes([prepared.release_id, output, iri, "label", label])).hexdigest()
+            soft_resolved.update((node, canonical) for node in members)
+            continue
+        # Ambiguous reference labels do not choose one existing identity by incidental order.
+        partitions = constrained_label_groups(members, forbidden, anchors) if len(anchors) <= 1 else tuple(frozenset((node,)) for node in sorted(members))
+        for group in partitions:
+            anchored = group & anchors
+            canonical = soft_ids[next(iter(anchored))] if anchored else min(soft_ids[node] for node in group)
+            soft_resolved.update((node, canonical) for node in group)
     resolved = set()
     keys = {}
     known_labels = {}
@@ -802,11 +886,7 @@ def _entity_mappings(prepared, observations, output, known, contexts):
                     )
                     label = normalize_label(item["label"], compact(iri), aliases, case)
                     match = (iri, label)
-                    if match in known_labels and known_labels[match] != identity:
-                        raise DomainOperationRefused(
-                            "input global names identify multiple entities"
-                        )
-                    known_labels[match] = identity
+                    known_labels.setdefault(match, identity)
                 continue
             if not all(all(name in item["fields"] for name in g) for g in groups):
                 continue
@@ -869,21 +949,7 @@ def _entity_mappings(prepared, observations, output, known, contexts):
                 and meta.get(definition.name, {}).get("cs:scope") == "global"
                 and e.get("label")
             ):
-                case = (
-                    CaseRule.FOLD
-                    if meta[definition.name].get("cs:case") == "casefold"
-                    else CaseRule.PRESERVE
-                )
-                label = normalize_label(e["label"], compact(definition.iri), aliases, case)
-                mapping[e["id"]] = known_labels.get(
-                    (definition.iri, label),
-                    "entity:"
-                    + sha256(
-                        canonical_bytes(
-                            [prepared.release_id, output, definition.iri, "label", label]
-                        )
-                    ).hexdigest(),
-                )
+                mapping[e["id"]] = soft_resolved[(observation_keys[oid], e["id"])]
             # An absent/incomplete semantic key never licenses a label merge for a keyed class.
             resolved.add((oid, e["id"]))
             progress = True
@@ -891,6 +957,18 @@ def _entity_mappings(prepared, observations, output, known, contexts):
             # Recursive, ungrounded identity declarations retain source-qualified references.
             break
         pending = remaining
+    for oid, exclusion, _left, _right in exclusions:
+        def mapped(endpoint):
+            if endpoint["kind"] == "known":
+                if endpoint["target"] not in known:
+                    raise DomainOperationRefused("identity exclusion has an unbound known endpoint")
+                return endpoint["target"]
+            if endpoint["target"] not in mappings[oid]:
+                raise DomainOperationRefused("identity exclusion has an undeclared local endpoint")
+            return mappings[oid][endpoint["target"]]
+        left, right = mapped(exclusion["left"]), mapped(exclusion["right"])
+        if left == right:
+            raise IdentityResolutionConflict(prepared.release_id, exclusion["id"], exclusion["left"], exclusion["right"], left)
     return mappings, extra, parsed
 
 
@@ -1429,6 +1507,70 @@ def _project_cut(
             )
     batch_id = _source_batch_id(prepared.release_id, output, observations)
     batch = assemble(prepared, output, batch_id, tuple(items))
+    from .publication import (IdentityExclusionRow, IdentityExclusionEvidenceRow,
+                              EntityRow, MembershipRow, MembershipSupportRow)
+    exclusion_rows = []
+    exclusion_links = []
+    exclusion_evidence = []
+    exclusion_entities = set()
+    exclusion_memberships = set()
+    exclusion_membership_support = set()
+    for observation in observations:
+        payload = parsed.get(observation["id"], {})
+        descriptor = descriptors[observation["id"]]
+        for exclusion in payload.get("identity_exclusions", ()):
+            source = observation["observation_key"]
+            if descriptor is None or not _eligible_exclusion(exclusion):
+                coverage_row("identity_exclusion", source + "/" + exclusion["id"],
+                             "partial", "no located primary identity evidence")
+                continue
+            mapping = entity_mappings[observation["id"]]
+            def endpoint(value):
+                return mapping[value["target"]] if value["kind"] == "local" else value["target"]
+            left, right = endpoint(exclusion["left"]), endpoint(exclusion["right"])
+            if any(identity not in metadata or metadata[identity].get("representable") is False
+                   for identity in (left, right)):
+                coverage_row("identity_exclusion", source + "/" + exclusion["id"],
+                             "partial", "identity endpoint lacks representable identity")
+                continue
+            xid = "identity-exclusion:" + sha256(canonical_bytes(
+                [prepared.release_id, output, source, exclusion["id"]])).hexdigest()
+            exclusion_rows.append(IdentityExclusionRow(
+                exclusion_id=xid, observation_id=observation["id"], local_id=exclusion["id"],
+                left_kind=exclusion["left"]["kind"], left_ref=exclusion["left"]["target"],
+                right_kind=exclusion["right"]["kind"], right_ref=exclusion["right"]["target"],
+                left_entity_id=left, right_entity_id=right, reason=exclusion["reason"],
+                operation_id="resolve_identity", operation_version=VERSION))
+            for ordinal, citation in enumerate(exclusion["evidence"]):
+                if citation.get("outcome") != "located":
+                    continue
+                start, end = citation["start"], citation["end"]
+                if not 0 <= start < end <= len(descriptor["text"]):
+                    raise DomainOperationRefused("identity evidence lies outside rendition")
+                eid = "evidence:" + sha256(canonical_bytes(
+                    [source, "identity_exclusions", exclusion["id"], ordinal, citation])).hexdigest()
+                exclusion_evidence.append(EvidenceRow(eid, descriptor["source_uri"],
+                    canonical_bytes({"locator": citation["locator"], "start": start,
+                                     "end": end, "role": citation["role"]}).decode(),
+                    descriptor["provider"], descriptor["version"]))
+                source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
+                exclusion_links.append(IdentityExclusionEvidenceRow(xid, eid))
+                for identity, value in ((left, exclusion["left"]), (right, exclusion["right"])):
+                    exclusion_entities.add(EntityRow(identity))
+                    if value["kind"] == "local":
+                        cls = next(e["class_iri"] for e in payload["entities"] if e["id"] == value["target"])
+                        exclusion_memberships.add(MembershipRow(identity, cls, "stated"))
+                        exclusion_membership_support.add(MembershipSupportRow(identity, cls, eid))
+    def rows_union(old, new):
+        from dataclasses import astuple
+        return tuple(sorted(set((*old, *new)), key=lambda row: canonical_bytes(astuple(row))))
+    batch = replace(batch,
+        entity=rows_union(batch.entity, exclusion_entities),
+        membership=rows_union(batch.membership, exclusion_memberships),
+        membership_support=rows_union(batch.membership_support, exclusion_membership_support),
+        evidence=rows_union(batch.evidence, exclusion_evidence),
+        identity_exclusion=tuple(exclusion_rows),
+        identity_exclusion_evidence=tuple(exclusion_links))
     from .publication import EntityInputRow, FactInputRow
 
     used = {e.entity_id for e in batch.entity} & known.keys()
@@ -1490,6 +1632,20 @@ def _project_cut(
                     key=lambda row: canonical_bytes(__import__("dataclasses").astuple(row)),
                 )
             )
+    source_keys = copied.pop("_identity_exclusion_sources", {})
+    inherited_ids = {}
+    inherited_exclusions = []
+    for row in copied.pop("identity_exclusion", ()):
+        if row.left_entity_id in used and row.right_entity_id in used:
+            xid = "identity-exclusion:" + sha256(canonical_bytes([
+                prepared.release_id, output, source_keys[row.observation_id], row.local_id])).hexdigest()
+            inherited_ids[row.exclusion_id] = xid
+            inherited_exclusions.append(replace(row, exclusion_id=xid))
+    inherited_links = [replace(row, exclusion_id=inherited_ids[row.exclusion_id])
+        for row in copied.pop("identity_exclusion_evidence", ()) if row.exclusion_id in inherited_ids]
+    batch = replace(batch,
+        identity_exclusion=rows_union(batch.identity_exclusion, inherited_exclusions),
+        identity_exclusion_evidence=rows_union(batch.identity_exclusion_evidence, inherited_links))
     for name, rows in copied.items():
         if name.startswith("membership"):
             rows = tuple(row for row in rows if row.entity_id in used)

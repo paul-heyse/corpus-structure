@@ -165,7 +165,7 @@ def _property_value(value: Mapping[str, Any], range_name: str) -> Any:
 def _check_references(
     prepared: PreparedRelease, raw: Mapping[str, Any], known: Mapping[str, tuple[str, ...]]
 ) -> None:
-    sections = ("entities", "statements", "claims", "alternatives", "unsupported")
+    sections = ("entities", "statements", "claims", "alternatives", "unsupported", "identity_exclusions")
     identifiers = [item["id"] for section in sections for item in raw.get(section, ())]
     if any(not identifier for identifier in identifiers) or len(identifiers) != len(
         set(identifiers)
@@ -182,6 +182,19 @@ def _check_references(
             raise ProposalRefused("an alternative needs at least two distinct claim references")
         if set(alternative["members"]) - claims:
             raise ProposalRefused("alternative refers to an undeclared claim")
+    exclusions = raw.get("identity_exclusions", ())
+    if exclusions and prepared.execution_model_id is None:
+        raise ProposalRefused("identity exclusions require the composed semantic-2 profile")
+    for exclusion in exclusions:
+        if not exclusion["reason"].strip():
+            raise ProposalRefused("identity exclusion needs a nonempty reason")
+        left, right = exclusion["left"], exclusion["right"]
+        if left == right:
+            raise ProposalRefused("identity exclusion cannot refer to itself")
+        for endpoint in (left, right):
+            universe = entities if endpoint["kind"] == "local" else known
+            if endpoint["target"] not in universe:
+                raise ProposalRefused("identity exclusion endpoint is outside the bound packet")
     constraints = native_constraints(prepared)
     by_name = {definition.name: definition for definition in prepared.definitions}
 
@@ -387,7 +400,7 @@ def locate_proposal(
         dict(macros or {}),
     )
     issues = []
-    for section in ("claims", "unsupported"):
+    for section in ("claims", "unsupported", "identity_exclusions"):
         for index, item in enumerate(stored.get(section, ())):
             located = []
             for ordinal, citation in enumerate(item["evidence"]):
@@ -534,6 +547,9 @@ def proposal_packet(
     from .identity import canonical_bytes
 
     schema = prepared.json_schema("AgentAuthoredBatch", mode="serialization")
+    if prepared.execution_model_id is None:
+        schema = copy.deepcopy(schema)
+        schema.get("properties", {}).pop("identity_exclusions", None)
     schema["$id"] = prepared.release_id + "/agent/authored"
     return ProposalPacket(
         prepared.release_id,
