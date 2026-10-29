@@ -170,6 +170,13 @@ class PreparedRelease:
             raise ValueError(f"{class_name} declares no identity group")
         return tuple(out)
 
+    def qualification_definition(self, class_name: str = "Qualification") -> ClassDefinition:
+        """Resolve an explicitly named qualification type; never guess from submitted fields."""
+        definition = next((d for d in self.definitions if d.name == class_name), None)
+        if definition is None or not (definition.name == "Qualification" or "Qualification" in definition.ancestors):
+            raise ValueError(f"{class_name!r} is not an admitted Qualification class")
+        return definition
+
     def fact_identity(
         self,
         realization: str,
@@ -177,11 +184,12 @@ class PreparedRelease:
         predicate: str,
         object_: object,
         qualification: dict[str, object],
+        *, qualification_class: str = "Qualification",
     ) -> str:
         """Key canonical values using the admitted Qualification key-role/case definitions."""
         from .identity import fact_key
 
-        definition = next(d for d in self.definitions if d.name == "Qualification")
+        definition = self.qualification_definition(qualification_class)
         props = {p.name: p for p in definition.properties}
         result = {}
         for name, value in qualification.items():

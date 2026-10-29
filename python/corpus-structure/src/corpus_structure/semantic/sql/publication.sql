@@ -38,7 +38,7 @@ BEGIN
  PERFORM data.validate_property(r,z,f.report_object_value_id,COALESCE(application.constraints->>'native_range',application.range_name),CASE WHEN application.constraint_scope='shape' THEN application.constraints ELSE application.constraints-'minimum'-'maximum'-'native_minimum'-'native_maximum' END);
  END LOOP;
  IF data.fact_identity(r,z,f.subject_id,f.property_id,f.report_object_value_id,f.report_qualification_value_id)<>f.fact_id THEN RAISE EXCEPTION 'report meaning differs from fact' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND name='Qualification') AND NOT EXISTS(SELECT FROM data.typed_value v JOIN sem.class_definition c ON c.release_id=r AND c.class_id=v.datatype AND c.name='Qualification' WHERE v.release_id=r AND v.realization_id=z AND v.value_id=f.report_qualification_value_id) THEN RAISE EXCEPTION 'report requires typed qualification' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM sem.class_definition WHERE release_id=r AND name='Qualification') AND NOT EXISTS(SELECT FROM data.typed_value v JOIN sem.class_definition c ON c.release_id=r AND c.class_id=v.datatype AND (c.name='Qualification' OR EXISTS(SELECT FROM sem.class_hierarchy h JOIN sem.class_definition root ON root.release_id=h.release_id AND root.class_id=h.ancestor_id AND root.name='Qualification' WHERE h.release_id=r AND h.class_id=c.class_id)) WHERE v.release_id=r AND v.realization_id=z AND v.value_id=f.report_qualification_value_id) THEN RAISE EXCEPTION 'report requires typed qualification' USING ERRCODE='23514'; END IF;
  END LOOP;
  RETURN rev;
 END $fn$;
