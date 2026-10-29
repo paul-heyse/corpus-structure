@@ -666,11 +666,18 @@ def _compile_physical(view: View) -> MetaData:
             )
         for declaration in json.loads(ann.get("ph:indexes", "[]")):
             if isinstance(declaration, dict):
-                Index(
-                    None,
-                    *(table.c[c] for c in declaration["columns"]),
-                    postgresql_where=text(declaration["where"]),
+                expressions = (
+                    (text(declaration["expression"]),)
+                    if "expression" in declaration
+                    else tuple(table.c[c] for c in declaration["columns"])
                 )
+                index = Index(
+                    declaration.get("name"), *expressions,
+                    postgresql_where=text(declaration["where"]) if "where" in declaration else None,
+                    postgresql_using=declaration.get("using", "btree"),
+                )
+                if "expression" in declaration:
+                    table.append_constraint(index)
             else:
                 Index(None, *(table.c[c] for c in declaration))
     return md
