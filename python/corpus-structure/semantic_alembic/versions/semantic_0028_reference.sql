@@ -1,5 +1,11 @@
 -- Frozen selective reference storage, result selection and operator direction.
+ALTER TABLE data.project ADD COLUMN selected_result_run_id bigint REFERENCES ops.completed_result(run_id);
+CREATE INDEX ix_rendition_canonical_text_search ON kb.rendition USING gin (to_tsvector('english'::regconfig, canonical_text));
+GRANT REFERENCES ON data.project,ops.completed_result,kb.rendition,sem.release TO corpus_sem_publisher;
+GRANT USAGE ON SCHEMA sem,data,ops,kb TO corpus_sem_evaluator;
+GRANT SELECT ON ALL TABLES IN SCHEMA sem,data,ops,kb TO corpus_sem_evaluator;
 CREATE SCHEMA eval AUTHORIZATION corpus_sem_publisher;
+SET LOCAL ROLE corpus_sem_publisher;
 
 CREATE TABLE eval.document_split (
 	id BIGINT GENERATED ALWAYS AS IDENTITY, 
@@ -116,15 +122,10 @@ CREATE TABLE eval.reference_item (
 
 ;
 ALTER TABLE eval.reference_item OWNER TO corpus_sem_publisher;
-ALTER TABLE data.project ADD COLUMN selected_result_run_id bigint REFERENCES ops.completed_result(run_id);
 REVOKE ALL ON SCHEMA eval FROM PUBLIC,corpus_sem_reader,corpus_sem_writer;
 GRANT USAGE ON SCHEMA eval TO corpus_sem_evaluator;
 GRANT SELECT ON ALL TABLES IN SCHEMA eval TO corpus_sem_evaluator;
-GRANT USAGE ON SCHEMA sem,data,ops,kb TO corpus_sem_evaluator;
-GRANT SELECT ON ALL TABLES IN SCHEMA sem,data,ops,kb TO corpus_sem_evaluator;
 GRANT EXECUTE ON FUNCTION data.canonical_json(jsonb),data.decimal_canonical(text),data.value_meaning(text,text,text,text[],boolean) TO corpus_sem_evaluator;
-CREATE INDEX ix_rendition_canonical_text_search ON kb.rendition USING gin (to_tsvector('english'::regconfig, canonical_text));
-SET LOCAL ROLE corpus_sem_publisher;
 CREATE FUNCTION eval.create_reference_set(p_project text,p_release text,p_run bigint,p_label text,p_split text,p_guideline text,p_sampling jsonb) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
 DECLARE result bigint;
 BEGIN
