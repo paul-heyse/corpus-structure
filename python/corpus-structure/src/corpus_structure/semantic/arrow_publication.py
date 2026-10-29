@@ -166,7 +166,7 @@ class ArrowPublicationBatch:
                                 numeric.copy_abs() if numeric.is_zero() else numeric, "f"
                             )
                 for column, pg_type in zip(fields(STAGE_TYPES[name][0]), STAGE_TYPES[name][1], strict=True):
-                    if pg_type == "numeric" and row[column.name] is not None:
+                    if pg_type == "numeric" and isinstance(row[column.name], Decimal):
                         row[column.name] = format(row[column.name], "f")
                 rows.append(list(row.values()))
             body[name] = sorted(rows, key=canonical_bytes)
