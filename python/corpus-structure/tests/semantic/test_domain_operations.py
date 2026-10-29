@@ -21,13 +21,24 @@ from corpus_structure.semantic.proposals import proposal_inputs,locate_proposal,
 from corpus_structure.semantic.releases import persist_release
 
 
-def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False):
+def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False,formulas=(),known=False,local_known=False,nary=False,broken=False,claim_chain=False,cycle=False):
     core=Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml'
     schema={'id':'https://example.org/domain','name':'domain','imports':['semantic_core'],
         'prefixes':{'ex':'https://example.org/'},'default_prefix':'ex',
         'classes':{'Person':{'is_a':'Entity','attributes':{'name':{'range':'string'}}}}}
+    if known:
+        schema['classes']['Person']['unique_keys']={'by_name':{'unique_key_slots':['name']}}
     if graph:
         schema['classes']['Person']['attributes'].update({'parent':{'range':'Person','inverse':'child','multivalued':True},'child':{'range':'Person','multivalued':True}})
+    if formulas:
+        schema['classes']['Formula']={'is_a':'ExpressionValue','attributes':{'kind':{'equals_string':'formula'}}}
+        schema['classes']['Person']['attributes']['name']={'range':'Formula','inlined':True,'annotations':{'cs:role':'predicate','cs:constraint_scope':'accepted_value'}}
+    if nary:
+        endpoint='Endpoint' if broken else 'Person'
+        if broken:schema['classes']['Endpoint']={'is_a':'Entity','attributes':{'business':{'range':'string','required':True}},'unique_keys':{'business_key':{'unique_key_slots':['business']}}}
+        schema['classes']['RoleEntry']={'attributes':{'key':{'identifier':True},'target':{'range':endpoint,'required':True},'ref':{'range':'string'}}}
+        schema['classes']['NaryValue']={'is_a':'Value','attributes':{'kind':{'equals_string':'nary'},'endpoint':{'range':endpoint,'required':True},'ref':{'range':'string'},'roles':{'range':'RoleEntry','inlined':True,'multivalued':True}}}
+        schema['classes']['Person']['attributes']['relation']={'range':'NaryValue','inlined':True}
     deps=domain_rule_inputs(ResolvedDependencies(),rules)
     bundle=SourceBundle('domain',(SourceArtifact('domain',yaml.safe_dump(schema).encode()),SourceArtifact('semantic_core',core.read_bytes())))
     bundle=observation_inputs(proposal_inputs(bundle,deps))
@@ -37,12 +48,18 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
         persist_release(conn,bundle,deps,PreparationProfile(),prepared)
         conn.execute(insert(table('data.project')).values(project_id='p'))
         conn.execute(insert(table('data.realization')).values(realization_id='source',project_id='p',release_id=prepared.release_id))
+    if known:
+        from corpus_structure.semantic.consolidation import assemble,SourceItem
+        from corpus_structure.semantic.publication import publish_batch,EvidenceRow,SelectionRow
+        evidence=(EvidenceRow('initial-evidence','prior-source','prior#unit','fixture','1'),)
+        initial=assemble(prepared,'source','input-knowledge',tuple(SourceItem('known:alice','Person',name,value,{'modality':'asserted','polarity':True},'prior-source',name,'stated',evidence) for name,value in [('id','known:alice'),('name','Alice')]))
+        publish_batch(writer,replace(initial,selection=tuple(SelectionRow(f.fact_id) for f in initial.fact)))
     original=b'<p>Alice is here.</p>';path.write_bytes(original)
     with writer.begin() as conn:
         document=register_document(conn,project_id='p',source_uri='page.html',original_path=str(path),original=original,
                                    metadata={'page':'page.html'})
         document_key=conn.execute(select(table('kb.document').c.key).where(table('kb.document').c.id==document)).scalar_one()
-        run=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'source',0,b'{}'),
+        run=create_run(conn,project_id='p',binding=OperationBinding(prepared.release_id,'source',1 if known else 0,b'{}'),
                        kind='full',options={'corpus':{'documents':[document_key]}},code_commit='test')
         cid=record_method(conn,SimpleNamespace(name='agent.opus',version='1',family='agent',tier='agent',confidence_source='agent'),
                           'extract',{},'config')
@@ -59,13 +76,33 @@ def fixture(admin,writer,path,*,rules=b'rules: []\n',graph=False,duplicate=False
                     'evidence':[{'sentence':'s1','quote':'Alice is here.','role':'primary'}]}],
          'alternatives':[],'unsupported':[{'id':'u','kind':'uninterpreted','reason':'not expressed by selected schema',
               'text':'Alice is here.','evidence':[{'sentence':'s1','quote':'Alice is here.','role':'primary'}]}]}
+    if known:
+        if local_known:raw['entities'][0]['attributes']=[{'predicate':'https://example.org/name','value':{'kind':'text','text':'Alice'}}]
+        else:
+            raw['entities']=[]
+            raw['claims'][0]['subject']='known:alice'
     if graph:
         raw['entities'].append({'id':'other','class_iri':'https://example.org/Person','label':'Bob'})
         raw['claims'].append({**raw['claims'][0],'id':'relation','predicate':'https://example.org/parent','object':{'kind':'entity','target':'other'}})
     if duplicate:
         raw['statements'].append({'id':'s2','kind':'theorem','anchor':'page#two'})
         raw['claims'].append({**raw['claims'][0],'id':'duplicate','statement':'s2'})
-    located=locate_proposal(prepared,raw,ProposalFrame('page#one','Alice is here.',(ProposalSentence('s1','page#sentence',0,14),)))
+    if formulas:
+        base=raw['claims'][0]
+        raw['claims']=[{**base,'id':'formula'+str(i),'object':{'kind':'formula','language':'latex','expression':value}} for i,value in enumerate(formulas)]
+    if nary:
+        raw['entities'].append({'id':'other','class_iri':'https://example.org/'+('Endpoint' if broken else 'Person'),'reference':{'description':'outside unresolved person'}})
+        raw['claims'][0].update(predicate='https://example.org/relation',object={'kind':'nary','endpoint':'other','ref':'other','roles':{'r':{'key':'r','target':'other','ref':'other'}}})
+    if claim_chain:
+        base=raw['claims'][0]
+        raw['claims']=[{**base,'id':'p1'},{**base,'id':'p2'},
+            {**base,'id':'d1','qualification':{**base['qualification'],'condition':{'kind':'claim','ref':'p1'}}},
+            {**base,'id':'d2','qualification':{**base['qualification'],'condition':{'kind':'claim','ref':'p2'}}}]
+    if cycle:
+        base=raw['claims'][0]
+        raw['claims']=[{**base,'id':'a','qualification':{**base['qualification'],'condition':{'kind':'claim','ref':'b'}}},
+            {**base,'id':'b','qualification':{**base['qualification'],'condition':{'kind':'claim','ref':'a'}}}]
+    located=locate_proposal(prepared,raw,ProposalFrame('page#one','Alice is here.',(ProposalSentence('s1','page#sentence',0,14),)),**({'known_classes':{'known:alice':('https://example.org/Person',)}} if known else {}))
     with writer.begin() as conn:
         complete_task(conn,task_id=task,attempt=claim['attempt'],holder='worker',prepared=prepared,
             observations=[{'payload_definition':'AgentStoredBatch','item_key':'proposal','kind':'claim_proposal',
@@ -159,3 +196,81 @@ def test_same_fact_reports_keep_statement_specific_rule_decisions(semantic_db_en
         assert {r.outcome for r in decisions}=={'accepted','rejected'}
         selected=conn.execute(select(table('data.selection').c.fact_id).where(table('data.selection').c.fact_id==decisions[0].fact_id)).scalar_one()
         assert selected==decisions[0].fact_id
+
+
+@pytest.mark.parametrize(('formulas','outcome','selected'),[(('a+b','b+a'),'equivalent',1),(('a+1','a+2'),'different',0),(('f(x)','g(x)'),'undecided',0)])
+def test_native_scientific_comparison_preserves_facts_and_uncertainty(semantic_db_engine,semantic_writer_engine,tmp_path,formulas,outcome,selected):
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',formulas=formulas)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with semantic_writer_engine.connect() as conn:
+        a,f,s=table('data.assessment'),table('data.fact'),table('data.selection')
+        rows=conn.execute(select(a).where(a.c.operation_id=='scientific.value_equivalence')).mappings().all()
+        assert len(rows)==2 and {r['outcome'] for r in rows}=={outcome}
+        assert all('other_fact_id' in r['reason'] for r in rows)
+        if outcome=='undecided':assert all(r['uncertainty'] for r in rows)
+        assert len(conn.execute(select(f.c.fact_id).where(f.c.property_id=='https://example.org/name')).all())==2
+        assert len(conn.execute(select(s.c.fact_id).join(f,f.c.fact_id==s.c.fact_id).where(f.c.property_id=='https://example.org/name')).all())==selected
+
+
+@pytest.mark.parametrize('local_known',[False,True])
+def test_known_input_reference_and_declared_key_converge_with_lineage(semantic_db_engine,semantic_writer_engine,tmp_path,local_known):
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',known=True,local_known=local_known)
+    result=consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with semantic_writer_engine.connect() as conn:
+        lineage=conn.execute(select(table('data.entity_input'))).mappings().one()
+        assert lineage['entity_id']=='known:alice' and lineage['input_entity_id']=='known:alice'
+        assert lineage['input_realization_id']=='source' and lineage['input_data_revision']==1 and lineage['run_id']==run
+        assert conn.execute(select(table('data.fact').c.subject_id).where(table('data.fact').c.realization_id=='evaluated',table('data.fact').c.property_id=='https://example.org/name')).scalars().all()==['known:alice']
+        prior=conn.execute(select(table('data.occurrence').c.realization_id).where(table('data.occurrence').c.source=='prior-source')).scalars().all()
+        assert prior and set(prior)=={'source'}
+
+
+
+def test_actual_cut_nested_references_preserve_literal_fields_and_unresolved_source(semantic_db_engine,semantic_writer_engine,semantic_reader_engine,tmp_path):
+    from corpus_structure.semantic.query import read_session,QuerySpec
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',nary=True)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with read_session(semantic_reader_engine,'evaluated') as session:
+        cls=session.class_handle('Person')
+        result=session.query(QuerySpec(cls,session.property_handle(cls,'relation')))
+        obj=result.rows[0].object
+        assert obj.ref=='other' and obj.endpoint!='other'
+        assert obj.roles['r'].ref=='other' and obj.roles['r'].target==obj.endpoint
+        refs=session._entities({obj.endpoint})
+        assert refs[obj.endpoint].memberships[0].class_iri=='https://example.org/Person'
+    with semantic_writer_engine.connect() as conn:
+        assessments=conn.execute(select(table('data.assessment').c.outcome).where(table('data.assessment').c.operation_id=='consolidate.status')).scalars().all()
+        assert assessments==['candidate']
+    with semantic_reader_engine.connect() as conn:
+        assert conn.execute(select(table('data.entity_source'))).all()
+
+
+def test_required_endpoint_identity_is_not_fabricated(semantic_db_engine,semantic_writer_engine,tmp_path):
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',nary=True,broken=True)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with semantic_writer_engine.connect() as conn:
+        assert not conn.execute(select(table('data.fact'))).first()
+        coverage=conn.execute(select(table('data.coverage').c.outcome,table('data.coverage').c.reason)).all()
+        assert any(row.outcome=='partial' and 'required identifying fields' in (row.reason or '') for row in coverage)
+        assert conn.execute(select(table('kb.observation').c.payload)).scalar_one()['entities'][1]['reference']['description']=='outside unresolved person'
+
+
+def test_claim_references_use_canonical_premise_fact_and_separate_source_view_ids(semantic_db_engine,semantic_writer_engine,tmp_path):
+    from corpus_structure.semantic.domain_operations import _cut_input
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',claim_chain=True)
+    inputs=_cut_input(semantic_writer_engine,cut,'evaluated')
+    by_ref={c.local_id:c for c in inputs.candidates}
+    assert by_ref['p1'].fact_id==by_ref['p2'].fact_id
+    assert by_ref['d1'].fact_id==by_ref['d2'].fact_id
+    assert by_ref['d1'].qualification['condition']['ref']==by_ref['p1'].fact_id
+    assert by_ref['d1'].rule_qualification['condition']['ref']==by_ref['p1'].occurrence_id
+    assert by_ref['d2'].rule_qualification['condition']['ref']==by_ref['p2'].occurrence_id
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+
+
+def test_cyclic_claim_reference_stays_explicit_unresolved_report(semantic_db_engine,semantic_writer_engine,tmp_path):
+    prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',cycle=True)
+    consolidate_cut(semantic_writer_engine,cut,'evaluated')
+    with semantic_writer_engine.connect() as conn:
+        assert not conn.execute(select(table('data.fact'))).first()
+        assert 'cyclic source claim reference' in conn.execute(select(table('data.coverage').c.reason)).scalars().all()
