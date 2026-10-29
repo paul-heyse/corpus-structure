@@ -396,3 +396,15 @@ def lock_input_snapshot(conn:Connection,run_id:int)->None:
         if getattr(getattr(exc,'orig',None),'sqlstate',None)=='P0004':
             raise OperationConflict('packet input snapshot changed') from exc
         raise
+
+
+def hold_agent_result(conn:Connection,*,task_id:int,attempt:int,holder:str,packet_hash:str,
+                      clean:bool,result:Mapping[str,JsonValue])->bool:
+    """Lock one live submission; persist only its first well-typed uncertain result."""
+    import json
+    try:return conn.execute(text('SELECT ops.hold_agent_result(:task,:attempt,:holder,:packet,:clean,CAST(:result AS jsonb))'),
+        {'task':task_id,'attempt':attempt,'holder':holder,'packet':packet_hash,'clean':clean,'result':json.dumps(dict(result))}).scalar_one()
+    except Exception as exc:
+        if getattr(getattr(exc,'orig',None),'sqlstate',None)=='P0004':
+            raise OperationConflict('agent submission attempt lost or run sealed') from exc
+        raise
