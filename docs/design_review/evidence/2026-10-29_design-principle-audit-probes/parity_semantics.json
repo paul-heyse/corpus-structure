@@ -1,0 +1,513 @@
+{
+ "head": "semantic_0030",
+ "p3_alembic_check": "diffs",
+ "p3_alembic_diff_ops": {
+  "remove_constraint": 24,
+  "add_constraint": 24,
+  "modify_default": 1
+ },
+ "p4": {
+  "input": "[1e-05,1.0E2,-0.0,0.1,12345678901234567890.5]",
+  "native": "[0.00001,100,0.0,0.1,12345678901234567890.5]",
+  "python": "[1e-05,100.0,-0.0,0.1,1.2345678901234567e+19]",
+  "equal": false
+ },
+ "p5": {
+  "locale": [
+   "c",
+   "C.UTF-8",
+   "C.UTF-8"
+  ],
+  "cases": {
+   "NBSP": {
+    "native": "a\\xa0b",
+    "python": "a b",
+    "equal": false
+   },
+   "IDEOGRAPHIC": {
+    "native": "a b",
+    "python": "a b",
+    "equal": true
+   },
+   "EM_SPACE": {
+    "native": "a b",
+    "python": "a b",
+    "equal": true
+   },
+   "NEL": {
+    "native": "a\\x85b",
+    "python": "a b",
+    "equal": false
+   },
+   "FILE_SEP": {
+    "native": "a\\x1cb",
+    "python": "a b",
+    "equal": false
+   },
+   "TAB": {
+    "native": "a b",
+    "python": "a b",
+    "equal": true
+   },
+   "ZWSP": {
+    "native": "a\\u200bb",
+    "python": "a\\u200bb",
+    "equal": true
+   }
+  }
+ },
+ "p6": {
+  "1e400000000": {
+   "sqlstate": "XX000",
+   "error": "invalid memory alloc request size 3200000008"
+  },
+  "1e2147483648": {
+   "sqlstate": "22003",
+   "error": "integer out of range"
+  }
+ },
+ "p3": {
+  "columns_only_migrated": [],
+  "columns_only_created": [],
+  "columns_differ": {},
+  "constraint_defs_only_migrated": [
+   [
+    "ops.run",
+    "t",
+    "TRIGGER DEFERRABLE INITIALLY DEFERRED"
+   ]
+  ],
+  "constraint_defs_only_created": [],
+  "same_definition_different_name": [
+   [
+    "data.alternative_group",
+    "c",
+    "alternative_group_operation_id_check",
+    "ck_alternative_group_physical_81a8ed4461"
+   ],
+   [
+    "data.alternative_group",
+    "c",
+    "alternative_group_operation_version_check",
+    "ck_alternative_group_physical_367a3f1b91"
+   ],
+   [
+    "data.alternative_group",
+    "f",
+    "alternative_group_realization_id_release_id_fkey",
+    "fk_alternative_group_realization_id_release_id"
+   ],
+   [
+    "data.alternative_group",
+    "p",
+    "alternative_group_pkey",
+    "pk_alternative_group"
+   ],
+   [
+    "data.alternative_member",
+    "f",
+    "alternative_member_realization_id_release_id_fact_id_fkey",
+    "fk_alternative_member_realization_id_release_id_fact_id"
+   ],
+   [
+    "data.alternative_member",
+    "f",
+    "alternative_member_realization_id_release_id_fkey",
+    "fk_alternative_member_realization_id_release_id"
+   ],
+   [
+    "data.alternative_member",
+    "f",
+    "alternative_member_realization_id_release_id_group_id_fkey",
+    "fk_alternative_member_realization_id_release_id_group_id"
+   ],
+   [
+    "data.alternative_member",
+    "p",
+    "alternative_member_pkey",
+    "pk_alternative_member"
+   ],
+   [
+    "data.assessment",
+    "c",
+    "assessment_counterpart_pair",
+    "ck_assessment_physical_ba2418d4d2"
+   ],
+   [
+    "data.assessment",
+    "f",
+    "assessment_context",
+    "fk_assessment_realization_id_release_id_context_value_id"
+   ],
+   [
+    "data.assessment",
+    "f",
+    "assessment_counterpart_fact",
+    "fk_assessment_realization_id_release_id_counterpart_fact_id"
+   ],
+   [
+    "data.assessment",
+    "f",
+    "assessment_counterpart_occurrence",
+    "fk_assessment_realization_id_release_id_counterpart_occ_37ed"
+   ],
+   [
+    "data.assessment",
+    "f",
+    "fk_assessment_realization",
+    "fk_assessment_realization_id_release_id"
+   ],
+   [
+    "data.coverage",
+    "c",
+    "coverage_source_domain",
+    "ck_coverage_physical_e6acac26e8"
+   ],
+   [
+    "data.coverage",
+    "c",
+    "coverage_translation",
+    "ck_coverage_physical_76460b9b2b"
+   ],
+   [
+    "data.entity_source",
+    "f",
+    "entity_source_realization_id_release_id_entity_id_fkey",
+    "fk_entity_source_realization_id_release_id_entity_id"
+   ],
+   [
+    "data.entity_source",
+    "f",
+    "entity_source_realization_id_release_id_fkey",
+    "fk_entity_source_realization_id_release_id"
+   ],
+   [
+    "data.entity_source",
+    "f",
+    "entity_source_release_id_observation_id_fkey",
+    "fk_entity_source_release_id_observation_id"
+   ],
+   [
+    "data.entity_source",
+    "p",
+    "entity_source_pkey",
+    "pk_entity_source"
+   ],
+   [
+    "data.entity_source",
+    "u",
+    "entity_source_realization_id_release_id_observation_id_loca_key",
+    "uq_entity_source_realization_id_release_id_observation__9b11"
+   ],
+   [
+    "data.evidence_source",
+    "f",
+    "fk_evidence_source_observation_scope",
+    "fk_evidence_source_release_id_observation_id"
+   ],
+   [
+    "data.evidence_source",
+    "f",
+    "fk_evidence_source_realization",
+    "fk_evidence_source_realization_id_release_id"
+   ],
+   [
+    "data.occurrence_context",
+    "c",
+    "occurrence_context_check",
+    "ck_occurrence_context_physical_e32eb26213"
+   ],
+   [
+    "data.occurrence_context",
+    "f",
+    "occurrence_context_realization_id_release_id_fkey",
+    "fk_occurrence_context_realization_id_release_id"
+   ],
+   [
+    "data.occurrence_context",
+    "f",
+    "occurrence_context_realization_id_release_id_occurrence_id_fkey",
+    "fk_occurrence_context_realization_id_release_id_occurrence_id"
+   ],
+   [
+    "data.occurrence_context",
+    "f",
+    "occurrence_context_realization_id_release_id_statement_ent_fkey",
+    "fk_occurrence_context_realization_id_release_id_stateme_259b"
+   ],
+   [
+    "data.occurrence_context",
+    "p",
+    "occurrence_context_pkey",
+    "pk_occurrence_context"
+   ],
+   [
+    "data.occurrence_establishment",
+    "f",
+    "fk_occurrence_establishment_realization",
+    "fk_occurrence_establishment_realization_id_release_id"
+   ],
+   [
+    "data.occurrence_evidence_role",
+    "f",
+    "occurrence_evidence_role_realization_id_release_id_fkey",
+    "fk_occurrence_evidence_role_realization_id_release_id"
+   ],
+   [
+    "data.occurrence_evidence_role",
+    "f",
+    "occurrence_evidence_role_realization_id_release_id_occurre_fkey",
+    "fk_occurrence_evidence_role_realization_id_release_id_o_3bbd"
+   ],
+   [
+    "data.occurrence_evidence_role",
+    "p",
+    "occurrence_evidence_role_pkey",
+    "pk_occurrence_evidence_role"
+   ],
+   [
+    "data.project",
+    "f",
+    "project_selected_result_run_id_fkey",
+    "fk_project_selected_result_run_id"
+   ],
+   [
+    "data.publication_intent",
+    "c",
+    "publication_intent_check",
+    "ck_publication_intent_physical_55ae0caf21"
+   ],
+   [
+    "data.publication_intent",
+    "c",
+    "publication_intent_source_revision_check",
+    "ck_publication_intent_physical_0ed0eed26f"
+   ],
+   [
+    "data.publication_intent",
+    "f",
+    "publication_intent_release_id_realization_id_batch_id_fkey",
+    "fk_publication_intent_release_id_realization_id_batch_id"
+   ],
+   [
+    "data.publication_intent",
+    "f",
+    "publication_intent_source_release_id_source_realization_id_fkey",
+    "fk_publication_intent_source_release_id_source_realization_id"
+   ],
+   [
+    "data.publication_intent",
+    "p",
+    "publication_intent_pkey",
+    "pk_publication_intent"
+   ],
+   [
+    "eval.document_split",
+    "c",
+    "ck_document_split_physical_23de252598",
+    "ck_document_split_physical_a319d8e82e"
+   ],
+   [
+    "kb.observation",
+    "u",
+    "uq_observation_bound",
+    "uq_observation_release_id_id"
+   ],
+   [
+    "kb.observation",
+    "u",
+    "uq_observation_source_identity",
+    "uq_observation_release_id_observation_key"
+   ],
+   [
+    "kb.observation_input",
+    "c",
+    "observation_input_position_check",
+    "ck_observation_input_physical_9039b28f88"
+   ],
+   [
+    "kb.observation_input",
+    "c",
+    "observation_input_role_check",
+    "ck_observation_input_physical_08d176bdbd"
+   ],
+   [
+    "kb.observation_input",
+    "f",
+    "observation_input_release_id_observation_id_fkey",
+    "fk_observation_input_release_id_observation_id"
+   ],
+   [
+    "kb.observation_input",
+    "f",
+    "observation_input_release_id_source_observation_key_fkey",
+    "fk_observation_input_release_id_source_observation_key"
+   ],
+   [
+    "kb.observation_input",
+    "p",
+    "observation_input_pkey",
+    "pk_observation_input"
+   ],
+   [
+    "ops.completed_result",
+    "f",
+    "completed_result_cut_id_fkey",
+    "fk_completed_result_cut_id"
+   ],
+   [
+    "ops.completed_result",
+    "f",
+    "completed_result_release_id_output_realization_id_batch_id_fkey",
+    "fk_completed_result_release_id_output_realization_id_batch_id"
+   ],
+   [
+    "ops.completed_result",
+    "f",
+    "completed_result_release_id_output_realization_id_fkey",
+    "fk_completed_result_release_id_output_realization_id"
+   ],
+   [
+    "ops.completed_result",
+    "f",
+    "completed_result_run_id_fkey",
+    "fk_completed_result_run_id"
+   ],
+   [
+    "ops.completed_result",
+    "p",
+    "completed_result_pkey",
+    "pk_completed_result"
+   ],
+   [
+    "ops.completed_result",
+    "u",
+    "completed_result_release_id_output_realization_id_key",
+    "uq_completed_result_release_id_output_realization_id"
+   ],
+   [
+    "ops.measurement",
+    "c",
+    "measurement_source_position",
+    "ck_measurement_physical_a0486ccc73"
+   ],
+   [
+    "ops.measurement",
+    "u",
+    "measurement_source_row",
+    "uq_measurement_task_id_source_position"
+   ],
+   [
+    "ops.method",
+    "c",
+    "method_configuration_digest",
+    "ck_method_physical_95ee0996a8"
+   ],
+   [
+    "ops.task",
+    "c",
+    "ck_task_invocation_key",
+    "ck_task_physical_8afd8b30fe"
+   ],
+   [
+    "ops.task_result",
+    "f",
+    "fk_task_result_scope",
+    "fk_task_result_task_id_release_id"
+   ],
+   [
+    "ops.task_result",
+    "p",
+    "task_result_pkey",
+    "pk_task_result"
+   ],
+   [
+    "sem.conditional_atom",
+    "c",
+    "conditional_atom_branch_check",
+    "ck_conditional_atom_physical_7349b348ce"
+   ],
+   [
+    "sem.conditional_atom",
+    "c",
+    "conditional_atom_choices_check",
+    "ck_conditional_atom_physical_84f8e0b15f"
+   ],
+   [
+    "sem.conditional_atom",
+    "c",
+    "conditional_atom_position_check",
+    "ck_conditional_atom_physical_80eec7c0dc"
+   ],
+   [
+    "sem.conditional_atom",
+    "c",
+    "conditional_atom_presence_check",
+    "ck_conditional_atom_physical_9beafb7d1a"
+   ],
+   [
+    "sem.conditional_atom",
+    "f",
+    "conditional_atom_release_id_rule_id_fkey",
+    "fk_conditional_atom_release_id_rule_id"
+   ],
+   [
+    "sem.conditional_atom",
+    "p",
+    "conditional_atom_pkey",
+    "pk_conditional_atom"
+   ],
+   [
+    "sem.conditional_rule",
+    "c",
+    "conditional_rule_scope_check",
+    "ck_conditional_rule_physical_e64beec5ee"
+   ],
+   [
+    "sem.conditional_rule",
+    "f",
+    "conditional_rule_release_id_class_id_fkey",
+    "fk_conditional_rule_release_id_class_id"
+   ],
+   [
+    "sem.conditional_rule",
+    "f",
+    "conditional_rule_release_id_fkey",
+    "fk_conditional_rule_release_id"
+   ],
+   [
+    "sem.conditional_rule",
+    "p",
+    "conditional_rule_pkey",
+    "pk_conditional_rule"
+   ],
+   [
+    "sem.metric_definition",
+    "f",
+    "metric_definition_release_id_fkey",
+    "fk_metric_definition_release_id"
+   ],
+   [
+    "sem.metric_definition",
+    "p",
+    "metric_definition_pkey",
+    "pk_metric_definition"
+   ]
+  ],
+  "index_defs_only_migrated": [],
+  "index_defs_only_created": [],
+  "counts": {
+   "migrated": {
+    "columns": 471,
+    "constraints": 729,
+    "indexes": 112
+   },
+   "created": {
+    "columns": 471,
+    "constraints": 727,
+    "indexes": 112
+   }
+  }
+ },
+ "residue": 0
+}

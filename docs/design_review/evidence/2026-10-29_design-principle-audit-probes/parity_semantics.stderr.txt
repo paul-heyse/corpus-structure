@@ -1,0 +1,2 @@
+/home/paul/corpus-structure/python/corpus-structure/semantic_alembic/env.py:43: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "data.batch, data.project, data.realization, ops.completed_result, ops.input_cut, ops.run", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+  context.run_migrations()

@@ -1,0 +1,3978 @@
+{
+ "head": "semantic_0030",
+ "current": "semantic_0030",
+ "server_version": "18.6 (Ubuntu 18.6-1.pgdg24.04+2)",
+ "login": "paul",
+ "tables": [
+  {
+   "schema": "data",
+   "name": "alternative_group",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "alternative_member",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "assessment",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "validate_assessment_counterpart",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "data.validate_assessment_counterpart()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "batch",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "guard_publication_execution_admission",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "data.guard_publication_execution_admission()"
+    }
+   ],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "coverage",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "derivation",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "derivation_premise",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "entity",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "entity_input",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "entity_input_guard",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "data.check_entity_input()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "entity_source",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "evidence",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "evidence_source",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "evidence_source_scope",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "data.check_evidence_source()"
+    }
+   ],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "fact",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "fact_input",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "fact_input_guard",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "data.check_fact_input()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "identity_exclusion",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "identity_exclusion_evidence",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "membership",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "membership_support",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "occurrence",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "occurrence_context",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "occurrence_establishment",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "occurrence_evidence",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "occurrence_evidence_role",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "project",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "guard_project_execution_admission",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "data.guard_project_execution_admission()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "publication_intent",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "realization",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "guard_completed_output",
+     "enabled": "O",
+     "before": true,
+     "ins": false,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "data.guard_completed_output()"
+    },
+    {
+     "name": "guard_execution_admission",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "data.guard_execution_admission()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "selection",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "support",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "typed_value",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "data",
+   "name": "value_role",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "eval",
+   "name": "document_split",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [],
+    "corpus_sem_reader": [],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "eval",
+   "name": "reference_evaluation",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [],
+    "corpus_sem_reader": [],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "eval",
+   "name": "reference_frame",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [],
+    "corpus_sem_reader": [],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "eval",
+   "name": "reference_item",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [],
+    "corpus_sem_reader": [],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "eval",
+   "name": "reference_pass",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [],
+    "corpus_sem_reader": [],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "eval",
+   "name": "reference_set",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [],
+    "corpus_sem_reader": [],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "eval",
+   "name": "reference_unit",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [],
+    "corpus_sem_reader": [],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "kb",
+   "name": "document",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "kb",
+   "name": "observation",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "observation_input_links",
+     "enabled": "O",
+     "before": false,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "kb.record_observation_inputs()"
+    }
+   ],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "kb",
+   "name": "observation_input",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "kb",
+   "name": "rendition",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "kb",
+   "name": "segment",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "segment_offsets",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "kb.check_offsets()"
+    }
+   ],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "kb",
+   "name": "span",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "span_offsets",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "kb.check_offsets()"
+    }
+   ],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "completed_result",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "immutable_completed_result",
+     "enabled": "O",
+     "before": true,
+     "ins": false,
+     "del": true,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_completed_result()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": true,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "cut_task",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "guard_cut_task",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "ops.guard_cut_task()"
+    }
+   ],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "input_cut",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "guard_final_cut",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "ops.guard_final_cut()"
+    }
+   ],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "intervention",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "measurement",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "guard_measurement_custody",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": true,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_measurement_custody()"
+    },
+    {
+     "name": "validate_measurement_definition",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.validate_measurement_definition()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": true,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "method",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "immutable_method_contract",
+     "enabled": "O",
+     "before": true,
+     "ins": false,
+     "del": true,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_method_contract()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": true,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "method_config",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "rendition_build",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "run",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "completed_result_required",
+     "enabled": "O",
+     "before": false,
+     "ins": false,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.require_completed_result()"
+    },
+    {
+     "name": "guard_run_lifecycle",
+     "enabled": "O",
+     "before": true,
+     "ins": false,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_run_lifecycle()"
+    },
+    {
+     "name": "run_evaluation_atomic",
+     "enabled": "O",
+     "before": false,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.require_atomic_evaluation()"
+    },
+    {
+     "name": "zz_execution_run",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_execution_run()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "run_rendition",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "guard_source_selection",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_source_selection()"
+    },
+    {
+     "name": "source_scope",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "ops.check_source_scope()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "source_frame",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "immutable_source_frame",
+     "enabled": "O",
+     "before": true,
+     "ins": false,
+     "del": true,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.refuse_source_frame_mutation()"
+    },
+    {
+     "name": "no_truncate_source_frame",
+     "enabled": "O",
+     "before": true,
+     "ins": false,
+     "del": false,
+     "upd": false,
+     "trunc": true,
+     "function": "ops.refuse_source_frame_mutation()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": true,
+    "trunc": true
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "source_frame_sentence",
+   "owner": "corpus_sem_publisher",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE",
+     "DELETE",
+     "TRUNCATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "immutable_source_frame_sentence",
+     "enabled": "O",
+     "before": true,
+     "ins": false,
+     "del": true,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.refuse_source_frame_mutation()"
+    },
+    {
+     "name": "no_truncate_source_frame_sentence",
+     "enabled": "O",
+     "before": true,
+     "ins": false,
+     "del": false,
+     "upd": false,
+     "trunc": true,
+     "function": "ops.refuse_source_frame_mutation()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": true,
+    "trunc": true
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "task",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT",
+     "UPDATE"
+    ],
+    "corpus_sem_writer": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "guard_initial_task_error",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "ops.guard_initial_task_error()"
+    },
+    {
+     "name": "guard_source_selection",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_source_selection()"
+    },
+    {
+     "name": "guard_task_configuration",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "ops.guard_task_configuration()"
+    },
+    {
+     "name": "guard_task_lifecycle",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_task_lifecycle()"
+    },
+    {
+     "name": "task_method_contract",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_task_method_contract()"
+    },
+    {
+     "name": "zz_execution_task",
+     "enabled": "O",
+     "before": true,
+     "ins": true,
+     "del": false,
+     "upd": true,
+     "trunc": false,
+     "function": "ops.guard_execution_task()"
+    }
+   ],
+   "refuses": {
+    "upd": true,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "ops",
+   "name": "task_result",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT",
+     "INSERT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [
+    {
+     "name": "materialize_source_measurements",
+     "enabled": "O",
+     "before": false,
+     "ins": true,
+     "del": false,
+     "upd": false,
+     "trunc": false,
+     "function": "ops.materialize_source_measurements()"
+    }
+   ],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "artifact",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "class_definition",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "class_hierarchy",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "conditional_atom",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "conditional_rule",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "identity_slot",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "input",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "metric_definition",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "property_applicability",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "property_definition",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "registry_row",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "release",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "sql_admission",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  },
+  {
+   "schema": "sem",
+   "name": "vocabulary_member",
+   "owner": "paul",
+   "privileges": {
+    "corpus_sem_publisher": [
+     "SELECT"
+    ],
+    "corpus_sem_writer": [
+     "SELECT"
+    ],
+    "corpus_sem_reader": [
+     "SELECT"
+    ],
+    "corpus_sem_evaluator": [
+     "SELECT"
+    ]
+   },
+   "triggers": [],
+   "refuses": {
+    "upd": false,
+    "del": false,
+    "trunc": false
+   }
+  }
+ ],
+ "functions": [
+  {
+   "schema": "data",
+   "name": "begin_evaluation",
+   "args": "p_cut bigint, p_output text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.begin_evaluation(bigint,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "begin_pre_input_stage",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.begin_pre_input_stage()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "begin_stage",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.begin_stage()",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "canonical_json",
+   "args": "p jsonb",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "i",
+   "language": "sql",
+   "signature": "data.canonical_json(jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer",
+    "corpus_sem_reader",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "check_entity_input",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.check_entity_input()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "check_evidence_source",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.check_evidence_source()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "check_fact_input",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.check_fact_input()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "compare_decimal",
+   "args": "a text, b text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "i",
+   "language": "plpgsql",
+   "signature": "data.compare_decimal(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "decimal_canonical",
+   "args": "raw text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "i",
+   "language": "plpgsql",
+   "signature": "data.decimal_canonical(text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer",
+    "corpus_sem_reader",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "end_pre_input_stage",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.end_pre_input_stage()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "end_stage",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.end_stage()",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "execution_contract_descriptor",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "i",
+   "language": "sql",
+   "signature": "data.execution_contract_descriptor()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "fact_identity",
+   "args": "r text, z text, s text, p text, v text, q text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "sql",
+   "signature": "data.fact_identity(text,text,text,text,text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "finish_evaluation",
+   "args": "p_cut bigint, p_output text, p_batch text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.finish_evaluation(bigint,text,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "finish_pre_context_evaluation",
+   "args": "p_cut bigint, p_output text, p_batch text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.finish_pre_context_evaluation(bigint,text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "finish_pre_contract_evaluation",
+   "args": "p_cut bigint, p_output text, p_batch text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.finish_pre_contract_evaluation(bigint,text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "finish_pre_source_identity_evaluation",
+   "args": "p_cut bigint, p_output text, p_batch text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.finish_pre_source_identity_evaluation(bigint,text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "guard_completed_output",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.guard_completed_output()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "guard_execution_admission",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.guard_execution_admission()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "guard_project_execution_admission",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.guard_project_execution_admission()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "guard_publication_execution_admission",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.guard_publication_execution_admission()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "inference_seeds",
+   "args": "r text, z text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "sql",
+   "signature": "data.inference_seeds(text,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer",
+    "corpus_sem_reader"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "initialize_source_project",
+   "args": "p text, r text, z text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.initialize_source_project(text,text,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "publish_analysis_batch",
+   "args": "r text, z text, b text, p_content bytea, expected_revision bigint",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.publish_analysis_batch(text,text,text,bytea,bigint)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "publish_batch",
+   "args": "r text, z text, b text, p_content bytea",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.publish_batch(text,text,text,bytea)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "publish_contract_batch",
+   "args": "r text, z text, b text, p_content bytea",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.publish_contract_batch(text,text,text,bytea)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "publish_derived_batch",
+   "args": "r text, z text, b text, p_content bytea, source_release text, source_realization text, source_revision bigint, source_capture text, operation text, projection text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.publish_derived_batch(text,text,text,bytea,text,text,bigint,text,text,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "publish_pre_execution_analysis_batch",
+   "args": "r text, z text, b text, p_content bytea, expected_revision bigint",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.publish_pre_execution_analysis_batch(text,text,text,bytea,bigint)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "report_field",
+   "args": "value jsonb, member text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "i",
+   "language": "sql",
+   "signature": "data.report_field(jsonb,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "require_execution_release",
+   "args": "r text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.require_execution_release(text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer",
+    "corpus_sem_reader",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "select_project_result",
+   "args": "p_project text, p_run bigint, p_generation bigint",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.select_project_result(text,bigint,bigint)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_alternatives",
+   "args": "r text, z text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_alternatives(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_assessment_counterpart",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.validate_assessment_counterpart()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_conditions",
+   "args": "r text, z text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_conditions(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_cut_identity_exclusions",
+   "args": "p_cut bigint, z text, r text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_cut_identity_exclusions(bigint,text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_entity_source",
+   "args": "r text, z text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_entity_source(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_identity_exclusions",
+   "args": "r text, z text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_identity_exclusions(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_occurrence_context",
+   "args": "r text, z text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_occurrence_context(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_pre_contract_state",
+   "args": "r text, z text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "data.validate_pre_contract_state(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_pre_inference_state",
+   "args": "r text, z text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_pre_inference_state(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_property",
+   "args": "r text, z text, v text, rng text, c jsonb",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_property(text,text,text,text,jsonb)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_property_pre_fact_references",
+   "args": "r text, z text, v text, rng text, c jsonb",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_property_pre_fact_references(text,text,text,text,jsonb)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "validate_state",
+   "args": "r text, z text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.validate_state(text,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "value_matches",
+   "args": "r text, z text, v text, rng text, inlined boolean",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.value_matches(text,text,text,text,boolean)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "data",
+   "name": "value_meaning",
+   "args": "r text, z text, v text, path text[], qual boolean",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "data.value_meaning(text,text,text,text[],boolean)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer",
+    "corpus_sem_reader",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "eval",
+   "name": "add_reference_unit",
+   "args": "p_set bigint, p_rendition bigint, p_key text, p_context jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "eval.add_reference_unit(bigint,bigint,text,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "eval",
+   "name": "assign_document_split",
+   "args": "p_project text, p_source text, p_split text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "eval.assign_document_split(text,text,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "eval",
+   "name": "create_reference_set",
+   "args": "p_project text, p_release text, p_run bigint, p_label text, p_split text, p_guideline text, p_sampling jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "eval.create_reference_set(text,text,bigint,text,text,text,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "eval",
+   "name": "record_reference_evaluation",
+   "args": "p_project text, p_run bigint, p_set bigint, p_snapshot jsonb, p_result jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "eval.record_reference_evaluation(text,bigint,bigint,jsonb,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "eval",
+   "name": "record_reference_items",
+   "args": "p_pass bigint, p_frame bigint, p_items jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "eval.record_reference_items(bigint,bigint,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "eval",
+   "name": "record_reference_pass",
+   "args": "p_unit bigint, p_kind text, p_actor text, p_authored bytea, p_frame jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "eval.record_reference_pass(bigint,text,text,bytea,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "eval",
+   "name": "reference_snapshot",
+   "args": "p_set bigint",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "sql",
+   "signature": "eval.reference_snapshot(bigint)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "eval",
+   "name": "relocate_reference_frame",
+   "args": "p_pass bigint, p_parent bigint, p_rendition bigint, p_frame jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "eval.relocate_reference_frame(bigint,bigint,bigint,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_evaluator"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "kb",
+   "name": "check_offsets",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "kb.check_offsets()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "kb",
+   "name": "record_observation_inputs",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "kb.record_observation_inputs()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "capture_cut",
+   "args": "p_run bigint, p_name text, p_final boolean",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.capture_cut(bigint,text,boolean)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "check_source_scope",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.check_source_scope()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "complete_task",
+   "args": "p_task bigint, p_attempt bigint, p_holder text, p_rows jsonb, p_outcome text, p_error jsonb, p_envelope jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.complete_task(bigint,bigint,text,jsonb,text,jsonb,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "create_run",
+   "args": "p text, r text, z text, v bigint, d bytea, k text, phase bigint, opts jsonb, g text, commit text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.create_run(text,text,text,bigint,bytea,text,bigint,jsonb,text,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "decode_source_value",
+   "args": "v jsonb",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp",
+    "extra_float_digits=3"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "i",
+   "language": "plpgsql",
+   "signature": "ops.decode_source_value(jsonb)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "end_source_run",
+   "args": "p_run bigint, p_failure jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.end_source_run(bigint,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "execution_edge",
+   "args": "lifecycle text, prior text, result text",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "i",
+   "language": "sql",
+   "signature": "ops.execution_edge(text,text,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer",
+    "corpus_sem_reader"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "execution_task_state",
+   "args": "t ops.task",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "s",
+   "language": "sql",
+   "signature": "ops.execution_task_state(ops.task)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_completed_result",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_completed_result()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_cut_task",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_cut_task()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_execution_run",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_execution_run()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_execution_task",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_execution_task()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_final_cut",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_final_cut()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_initial_task_error",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_initial_task_error()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_measurement_custody",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_measurement_custody()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_method_contract",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_method_contract()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_run_lifecycle",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_run_lifecycle()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_source_selection",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_source_selection()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_task_configuration",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_task_configuration()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_task_lifecycle",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_task_lifecycle()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "guard_task_method_contract",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.guard_task_method_contract()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "hold_agent_result",
+   "args": "p_task bigint, p_attempt bigint, p_holder text, p_packet text, p_clean boolean, p_result jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.hold_agent_result(bigint,bigint,text,text,boolean,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "lock_input_snapshot",
+   "args": "p_run bigint",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.lock_input_snapshot(bigint)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "materialize_source_measurements",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.materialize_source_measurements()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "record_direction",
+   "args": "p_run bigint, p_actor text, p_session text, p_body jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.record_direction(bigint,text,text,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "record_source_frame",
+   "args": "p_task bigint, p_hash text, p_rendition bigint, p_unit text, p_locator text, p_unit_segment bigint, p_sentences jsonb",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.record_source_frame(bigint,text,bigint,text,text,bigint,jsonb)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "refuse_source_frame_mutation",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.refuse_source_frame_mutation()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "release_claim",
+   "args": "p_task bigint, p_attempt bigint, p_holder text, p_reason text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.release_claim(bigint,bigint,text,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "renew_claim",
+   "args": "p_task bigint, p_attempt bigint, p_holder text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.renew_claim(bigint,bigint,text)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "require_atomic_evaluation",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.require_atomic_evaluation()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "require_completed_result",
+   "args": "",
+   "security_definer": false,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "paul",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.require_completed_result()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "source_locator_segment",
+   "args": "p_rendition bigint, p_locator text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "ops.source_locator_segment(bigint,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "source_statement_locator",
+   "args": "p_task bigint, p_anchor text",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "plpgsql",
+   "signature": "ops.source_statement_locator(bigint,text)",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "valid_reuse",
+   "args": "t ops.task",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "s",
+   "language": "sql",
+   "signature": "ops.valid_reuse(ops.task)",
+   "execute": [
+    "corpus_sem_publisher",
+    "corpus_sem_writer"
+   ],
+   "public_execute": false
+  },
+  {
+   "schema": "ops",
+   "name": "validate_measurement_definition",
+   "args": "",
+   "security_definer": true,
+   "config": [
+    "search_path=pg_catalog, pg_temp"
+   ],
+   "owner": "corpus_sem_publisher",
+   "volatility": "v",
+   "language": "plpgsql",
+   "signature": "ops.validate_measurement_definition()",
+   "execute": [
+    "corpus_sem_publisher"
+   ],
+   "public_execute": false
+  }
+ ],
+ "database_temp": {
+  "corpus_sem_publisher": true,
+  "corpus_sem_writer": true,
+  "corpus_sem_reader": false,
+  "corpus_sem_evaluator": false
+ },
+ "roles": [
+  {
+   "rolname": "corpus_sem_evaluator",
+   "rolcanlogin": true,
+   "rolsuper": false,
+   "rolinherit": true,
+   "rolbypassrls": false
+  },
+  {
+   "rolname": "corpus_sem_publisher",
+   "rolcanlogin": false,
+   "rolsuper": false,
+   "rolinherit": true,
+   "rolbypassrls": false
+  },
+  {
+   "rolname": "corpus_sem_reader",
+   "rolcanlogin": true,
+   "rolsuper": false,
+   "rolinherit": true,
+   "rolbypassrls": false
+  },
+  {
+   "rolname": "corpus_sem_writer",
+   "rolcanlogin": true,
+   "rolsuper": false,
+   "rolinherit": true,
+   "rolbypassrls": false
+  },
+  {
+   "rolname": "paul",
+   "rolcanlogin": true,
+   "rolsuper": false,
+   "rolinherit": true,
+   "rolbypassrls": false
+  }
+ ],
+ "memberships": [
+  {
+   "role": "corpus_sem_publisher",
+   "member": "paul",
+   "admin_option": false,
+   "inherit_option": false,
+   "set_option": true
+  }
+ ],
+ "default_privileges": [],
+ "schema_privileges": {
+  "sem": {
+   "corpus_sem_publisher": [
+    "USAGE"
+   ],
+   "corpus_sem_writer": [
+    "USAGE"
+   ],
+   "corpus_sem_reader": [
+    "USAGE"
+   ],
+   "corpus_sem_evaluator": [
+    "USAGE"
+   ]
+  },
+  "data": {
+   "corpus_sem_publisher": [
+    "USAGE",
+    "CREATE"
+   ],
+   "corpus_sem_writer": [
+    "USAGE"
+   ],
+   "corpus_sem_reader": [
+    "USAGE"
+   ],
+   "corpus_sem_evaluator": [
+    "USAGE"
+   ]
+  },
+  "ops": {
+   "corpus_sem_publisher": [
+    "USAGE",
+    "CREATE"
+   ],
+   "corpus_sem_writer": [
+    "USAGE"
+   ],
+   "corpus_sem_reader": [
+    "USAGE"
+   ],
+   "corpus_sem_evaluator": [
+    "USAGE"
+   ]
+  },
+  "eval": {
+   "corpus_sem_publisher": [
+    "USAGE",
+    "CREATE"
+   ],
+   "corpus_sem_writer": [],
+   "corpus_sem_reader": [],
+   "corpus_sem_evaluator": [
+    "USAGE"
+   ]
+  },
+  "kb": {
+   "corpus_sem_publisher": [
+    "USAGE",
+    "CREATE"
+   ],
+   "corpus_sem_writer": [
+    "USAGE"
+   ],
+   "corpus_sem_reader": [
+    "USAGE"
+   ],
+   "corpus_sem_evaluator": [
+    "USAGE"
+   ]
+  }
+ },
+ "residue": 0
+}

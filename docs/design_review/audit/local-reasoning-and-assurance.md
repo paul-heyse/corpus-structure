@@ -1,69 +1,49 @@
 # Local reasoning and assurance
 
-Findings about diagnostics, lineage, labelled claims and verification: FP-06, DP-21–DP-23 and
-CI-11. Baseline, scope and scenarios are in the [README](README.md).
+This page originally held the findings on diagnostics, lineage, labelled claims and verification.
+At the [audited baseline](README.md#baseline) (`ad4593f`, 2026-10-29), all three earlier findings
+here are resolved. The current findings on these concerns have their primary homes elsewhere,
+according to their structural causes:
+- **Design claims and their authority:** [DA-011](semantic-model-and-authority.md#da-011).
+- **Outcomes, refusals and diagnostics:** [DA-013](structure-and-invariants.md#da-013) and
+  [DA-041](structure-and-invariants.md#da-041).
+- **Native lineage and deployment identity:** [DA-032](native-integrity.md#da-032).
+- **Verification that re-runs the producer:** [DA-042](execution-fit.md#da-042) and
+  [DA-033](execution-fit.md#da-033).
+- **Evaluation non-circularity:** [DA-037](served-claims.md#da-037).
+- **Mirrored recipes without conformance:** [DA-009](semantic-model-and-authority.md#da-009).
 
-Strengths that bound these findings:
-- The key, TeX and locator tests use hand-written or relational expectations.
-- The token-form parity fixture is independent of the product code.
-- The database fixtures fail rather than skip.
-- The evidence `Record` model is the single authority for records and validates supersession.
+Test architecture and test evidence belong to the separate [test audit](../test-audit/README.md).
 
 <a id="da-021"></a>
 
-## DA-021 — Design claims cite evidence records by free text, so a superseded record keeps supporting a label
+## DA-021 — Retired at this baseline
 
-**Principles:** DP-22, DP-21, DP-01; CI-11 by analogy.
-**Subject:** implemented (`tools/evidence`) and design text.
+*Was: "Design claims cite evidence records by free text, so a superseded record keeps supporting a
+label" (2026-10-28).*
 
-**Diagnosis.** The links from design claims to evidence records are record ids written in prose,
-and `just evidence check` does not read them. For example, record `s0r2.scores` is superseded by
-`s0r2.scores-ir2`, yet these still cite the old id (grep, 2026-10-28):
-- DESIGN.md §B1 ("**Tested** … records `s0.gaps`, `s0r2.scores`");
-- ADR-0013;
-- D4 line 253;
-- D7 lines 19, 157 and 396.
+Phase 0 corrected it:
+- `tools/evidence/src/corpus_evidence/citations.py` checks citations as part of `just evidence`;
+- the catalog derives from `Record`.
 
-Inside the tool:
-- `answers` and `consumed_by` are unchecked strings.
-- `record.schema.json` is current, but `check` does not verify that.
-- The catalog DDL mirrors the `Record` fields by hand (`catalog.py:18-41`).
-- `render` lists as sources only records fetched through `record()` (`report.py:39-45`, `:79`).
-  Figures read through `query()` or `value()` are untracked, and the S6 template calls `record()`
-  in a hand-written loop to compensate.
-- `Record.outcome` adds `partial` to AGENTS.md's reporting vocabulary.
-
-**Consequence.** A result revised by supersession leaves the earlier labels standing, and a reader
-cannot tell which record a "Tested" label now rests on.
-
-**Counterevidence.** For I-R2 the superseding records left the figures unchanged, so these citations
-are stale ids, not wrong claims.
-
-**Leads:** let `check` resolve record ids cited in design text and ADRs and warn on superseded ones;
-track every record a rendered report reads.
+The superseded record id survives only in the immutable ADR-0013. Verified 2026-10-29 at `ad4593f`.
+The earlier text is in Git.
 
 <a id="da-022"></a>
 
-## DA-022 — The dependency check covers less than AGENTS.md says
+## DA-022 — Retired at this baseline
 
-**Principles:** DP-22.
-**Subject:** implemented (`scripts/check_pins.py`, AGENTS.md).
+*Was: "The dependency check covers less than AGENTS.md says" (2026-10-28).*
 
-**Diagnosis.** AGENTS.md says `just deps` checks that every registry dependency is pinned exactly.
-`check_pins.py` reads only Cargo manifests. Python exactness rests on the `add-bounds = "exact"`
-convention. Every Python manifest read on 2026-10-28 was exact.
-
-**Consequence.** A hand-edited Python range would pass the stated check.
+`scripts/check_pins.py` now checks every Python manifest of the uv workspace, as well as the Cargo
+workspace (`:12-18`, `:62+`). Verified 2026-10-29. The earlier text is in Git.
 
 <a id="da-023"></a>
 
-## DA-023 — The binding's map of binding decisions is empty
+## DA-023 — Retired at this baseline
 
-**Principles:** DP-24.
-**Subject:** repository binding (`design_principles/binding/corpus-structure.md` §1).
+*Was: "The binding's map of binding decisions is empty" (2026-10-28).*
 
-**Diagnosis.** DESIGN §2 has binding decisions §B1–§B6, four of them with accepted ADRs. The
-binding's §1 table still says "None yet". Reviews therefore have no route from a binding decision to
-the rules and gates it bears on.
-
-**Consequence.** The next design review reconstructs that mapping on its own.
+The binding's §1 now lists §B1–§B6 with the principles and gates each bears on, reworded for the
+pivot (`docs/design_review/design_principles/binding/corpus-structure.md`, §1). Verified 2026-10-29.
+The earlier text is in Git.
