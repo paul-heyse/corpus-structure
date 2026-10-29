@@ -50,12 +50,14 @@ if TYPE_CHECKING:
 COMPILER_VERSION = "analytical-2"
 SPINE = (
     "entity",
+    "entity_input",
     "entity_source",
     "membership",
     "membership_support",
     "typed_value",
     "value_role",
     "fact",
+    "fact_input",
     "occurrence",
     "support",
     "selection",

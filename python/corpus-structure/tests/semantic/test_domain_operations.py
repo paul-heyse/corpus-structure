@@ -116,6 +116,12 @@ def test_actual_cut_publishes_fresh_result_and_preserves_reports(semantic_db_eng
     result=consolidate_cut(semantic_writer_engine,cut,'evaluated')
     assert result.run_id==run and result.realization_id=='evaluated' and result.reports==1
     assert consolidate_cut(semantic_writer_engine,cut,'evaluated').receipt==result.receipt
+    class OtherVersion:
+        release_id=prepared.release_id
+        version='unsupported-operation-version'
+        def evaluate(self,inputs,scope,fused):raise AssertionError('unadmitted policy must not evaluate')
+    with pytest.raises(DomainOperationRefused,match='policy version'):
+        consolidate_cut(semantic_writer_engine,cut,'evaluated',policy=OtherVersion())
     with semantic_writer_engine.connect() as conn:
         job=conn.execute(select(table('ops.run')).where(table('ops.run').c.id==run)).mappings().one()
         assert job['status']=='finished' and job['result_realization_id']=='evaluated'
@@ -213,7 +219,7 @@ def test_native_scientific_comparison_preserves_facts_and_uncertainty(semantic_d
 
 
 @pytest.mark.parametrize('local_known',[False,True])
-def test_known_input_reference_and_declared_key_converge_with_lineage(semantic_db_engine,semantic_writer_engine,tmp_path,local_known):
+def test_known_input_reference_and_declared_key_converge_with_lineage(semantic_db_engine,semantic_writer_engine,semantic_reader_engine,tmp_path,local_known):
     prepared,run,cut=fixture(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',known=True,local_known=local_known)
     result=consolidate_cut(semantic_writer_engine,cut,'evaluated')
     with semantic_writer_engine.connect() as conn:
@@ -223,6 +229,15 @@ def test_known_input_reference_and_declared_key_converge_with_lineage(semantic_d
         assert conn.execute(select(table('data.fact').c.subject_id).where(table('data.fact').c.realization_id=='evaluated',table('data.fact').c.property_id=='https://example.org/name')).scalars().all()==['known:alice']
         prior=conn.execute(select(table('data.occurrence').c.realization_id).where(table('data.occurrence').c.source=='prior-source')).scalars().all()
         assert prior and set(prior)=={'source'}
+    if not local_known:
+        from corpus_structure.semantic.query import read_session
+        from corpus_structure.semantic.analytics import load_packet
+        uri=semantic_reader_engine.url.set(drivername='postgresql').render_as_string(hide_password=False)
+        with read_session(semantic_reader_engine,'evaluated') as session:
+            packet=load_packet(session,uri)
+        assert packet.relations['entity_input'].to_pylist()[0]['input_data_revision']==1
+        assert len(packet.relations['fact_input'].to_pylist())==2
+        assert {row['input_realization_id'] for row in packet.relations['fact_input'].to_pylist()}=={'source'}
 
 
 

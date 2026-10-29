@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine
 
 from .analytics import AnalyticalPacket, AnalysisScope, compile_projection
-from .consolidation import SourceItem, assemble
+from .consolidation import SourceItem, FactItem, FactValueLowerer, assemble
 from .identity import canonical_bytes, occurrence_key
 from .metadata import table
 from .operations import OperationConflict, cut_observations
@@ -37,13 +37,26 @@ class DomainOperationRefused(ValueError):
     """A required interpretation or scientific policy is unavailable; no output is selected."""
 
 
+def _policy_yaml(content):
+    """Keep LinkML duplicate refusal and lower its location-tagged strings to YAML scalars."""
+    def scalars(value):
+        if isinstance(value,str):return str(value)
+        if isinstance(value,dict):return {scalars(k):scalars(v) for k,v in value.items()}
+        if isinstance(value,list):return [scalars(v) for v in value]
+        return value
+    return scalars(yaml.load(content,Loader=DupCheckYamlLoader))
+
+
 def domain_rule_inputs(dependencies: ResolvedDependencies, domain: bytes, core: bytes = b'', *, aliases: Mapping[str,Any] | None = None) -> ResolvedDependencies:
     """Archive existing rules as one operation dependency, never read latest files in a run."""
-    source=yaml.load(domain,Loader=DupCheckYamlLoader) or {}
-    base=yaml.load(core,Loader=DupCheckYamlLoader) or {}
+    source=_policy_yaml(domain) or {}
+    base=_policy_yaml(core) or {}
     if set(base)-{'rules'}:
         raise ValueError('core operation rules must contain only rules')
     source['rules']=[*base.get('rules',()),*source.get('rules',())]
+    operation={'name':'semantic-domain','version':VERSION}
+    if 'operation' in source and source['operation']!=operation:raise ValueError('unsupported domain operation header')
+    source['operation']=operation
     if aliases is not None:source['identity']={'aliases':dict(aliases)}
     if any(a.name==RULE_INPUT for a in dependencies.artifacts):
         raise ValueError('domain rules already declared')
@@ -335,7 +348,7 @@ def _entity_mappings(prepared,observations,output,known):
     by_iri={d.iri:d for d in prepared.definitions}
     meta={row.name:json.loads(row.body) for row in prepared.registry_rows if row.kind=='operation_class'}
     artifact=next((a for a in prepared.artifacts if a.kind==RULE_INPUT),None)
-    policy=yaml.load(artifact.content,Loader=DupCheckYamlLoader) if artifact is not None else {}
+    policy=_policy_yaml(artifact.content) if artifact is not None else {}
     aliases=LabelRules.model_validate((policy.get('identity') or {}).get('aliases',{}))
     prefixes={row.name:json.loads(row.body)['uri'] for row in prepared.registry_rows if row.kind=='prefix'}
     def compact(iri):
@@ -357,7 +370,7 @@ def _entity_mappings(prepared,observations,output,known):
             groups=[g for g in definition.identity_groups if g!=definition.identity_slots]
             if not groups:
                 if meta.get(definition.name,{}).get('cs:scope')=='global' and item.get('label'):
-                    case=CaseRule.PRESERVE if meta[definition.name].get('cs:case')=='preserve' else CaseRule.FOLD
+                    case=CaseRule.FOLD if meta[definition.name].get('cs:case')=='casefold' else CaseRule.PRESERVE
                     label=normalize_label(item['label'],compact(iri),aliases,case)
                     match=(iri,label)
                     if match in known_labels and known_labels[match]!=identity:raise DomainOperationRefused('input global names identify multiple entities')
@@ -396,7 +409,7 @@ def _entity_mappings(prepared,observations,output,known):
                 for key in candidates:keys[key]=canonical
                 mapping[e['id']]=canonical
             elif not groups and meta.get(definition.name,{}).get('cs:scope')=='global' and e.get('label'):
-                case=CaseRule.PRESERVE if meta[definition.name].get('cs:case')=='preserve' else CaseRule.FOLD
+                case=CaseRule.FOLD if meta[definition.name].get('cs:case')=='casefold' else CaseRule.PRESERVE
                 label=normalize_label(e['label'],compact(definition.iri),aliases,case)
                 mapping[e['id']]=known_labels.get((definition.iri,label),'entity:'+sha256(canonical_bytes([prepared.release_id,output,definition.iri,'label',label])).hexdigest())
             # An absent/incomplete semantic key never licenses a label merge for a keyed class.
@@ -615,10 +628,12 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
     for identity in sorted(used):
         d=definitions[known[identity]['class_iri']]
         for original,prop,value,qualification,qclass in known[identity]['input_facts']:
-            input_items.append(SourceItem(identity,d.name,prop.name,value,qualification,'input:'+job['input_realization_id'],original['fact_id'],'stated',tuple(copied.get('evidence',())),qclass))
+            input_items.append(FactItem(identity,d.name,prop.name,value,qualification,qclass))
             fid=prepared.fact_identity(output,identity,prop.iri,value,qualification,qualification_class=qclass)
             input_fact_links.append(FactInputRow(fid,job['input_realization_id'],job['input_revision'],original['fact_id'],job['id']))
-    inherited=assemble(prepared,output,'input-metadata',tuple(input_items))
+    input_lowerer=FactValueLowerer(prepared,output)
+    for item in input_items:input_lowerer.add(item)
+    inherited=input_lowerer.graph('input-metadata')
     incoming:dict[str,Any]={}
     for name in ('entity','typed_value','value_role','fact'):
         merged=(*getattr(batch,name),*getattr(inherited,name))
@@ -647,7 +662,9 @@ def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,outpu
 def consolidate_cut(engine:Engine,cut_id:int,output_realization_id:str,*,policy:DomainPolicy|None=None,
                     attempts:int=3)->DomainResult:
     inputs=_cut_input(engine,cut_id,output_realization_id)
-    if policy is None:policy=ReleasedRulesPolicy(inputs.prepared)
+    admitted=ReleasedRulesPolicy(inputs.prepared)
+    if policy is None:policy=admitted
+    if policy.version!=admitted.version:raise DomainOperationRefused('scientific policy version differs from admitted operation')
     if policy.release_id!=inputs.prepared.release_id:
         raise DomainOperationRefused('scientific policy belongs to another release')
     binding=SnapshotBinding(inputs.prepared.release_id,output_realization_id,0,'cut:'+str(cut_id))
@@ -750,13 +767,9 @@ def _comparison_condition(raw):
     """Project typed mathematical conditions; unknown predicates remain undecided."""
     from corpus_structure.core import values as V
     kind=raw['kind']
-    if kind in {'all','any'}:
-        terms=tuple(_comparison_condition(t) for t in raw['terms'])
-        return V.StoredAnd(op='and',args=terms) if kind=='all' else V.StoredOr(op='or',args=terms)
-    if kind=='not':return V.StoredNot(op='not',arg=_comparison_condition(raw['term']))
+    if kind=='all':return V.StoredAnd(op='and',args=tuple(_comparison_condition(t) for t in raw['terms']))
     if kind=='member':return V.MemberNode(op='member',x=_comparison_value(raw['x']),set=_comparison_value(raw['set']))
     if kind=='compare':return V.CmpNode(op='cmp',rel=raw['relation'],lhs=_comparison_value(raw['lhs']),rhs=_comparison_value(raw['rhs']))
-    if kind=='forall':return V.StoredForall(op='forall',var=raw['variable'],set=_comparison_value(raw['set']),body=_comparison_condition(raw['body']))
     raise DomainOperationRefused('condition '+kind+' has no mathematical restriction projection')
 
 
@@ -784,7 +797,7 @@ class ReleasedRulesPolicy:
         self.prepared=prepared;self.release_id=prepared.release_id
         artifact=next((a for a in prepared.artifacts if a.kind==RULE_INPUT),None)
         if artifact is None:raise DomainOperationRefused('release has no declared domain rules operation')
-        self.source=yaml.load(artifact.content,Loader=DupCheckYamlLoader) or {}
+        self.source=_policy_yaml(artifact.content) or {}
         if not isinstance(self.source,dict):raise DomainOperationRefused('domain rule artifact is not an object')
         self.definitions={d.name:d for d in prepared.definitions}
         self.metadata={}
@@ -863,7 +876,8 @@ class ReleasedRulesPolicy:
         from corpus_structure.core.keys import LabelRules
         from corpus_structure.pool.steps import ViewSpec,SAME_SLOT,ALTERNATIVE_OF
         source=self.source
-        if set(source)-{'rules','guideline','views','tables','derive','identity'}:raise DomainOperationRefused('unknown domain operation policy section')
+        if set(source)-{'rules','guideline','views','tables','derive','identity','operation'}:raise DomainOperationRefused('unknown domain operation policy section')
+        if source.get('operation')!={'name':'semantic-domain','version':VERSION}:raise DomainOperationRefused('unsupported domain operation name/version')
         if source.get('derive'):raise DomainOperationRefused('operation derive rules require an admitted inference profile')
         identity=source.get('identity',{})
         if not isinstance(identity,dict) or set(identity)-{'aliases'}:raise DomainOperationRefused('invalid operation identity policy')
@@ -932,9 +946,10 @@ class ReleasedRulesPolicy:
         """
         from collections import defaultdict
         from corpus_structure.core.evidence import MacroDef
-        from corpus_structure.evaluate.equivalence import ValueComparator,Tier
+        from corpus_structure.core import values as V
+        from corpus_structure.evaluate.equivalence import ValueComparator,Tier,grammar_name
         from .identity import _meaning
-        groups=defaultdict(list);rows=[];by_group=defaultdict(list);assessments=[]
+        groups=defaultdict(list);rows=[];by_group=defaultdict(list);assessments=[];comparators={}
         generated=defaultdict(set);unresolved=set();equivalent_components=[]
         for c in inputs.candidates:
             props={p.name:p for p in self.prepared.qualification_definition(c.qualification_class).properties}
@@ -948,7 +963,7 @@ class ReleasedRulesPolicy:
                 'bindings':_bindings([c.object,c.qualification])})).decode()
             rows.append({'key':key,'meaning':meaning});by_group[key].append(c)
             prop=next(p for p in self.definitions[c.class_name].properties if p.iri==c.predicate)
-            if prop.constraint_scope=='accepted_value' and meta.get('cs:role')=='predicate':
+            if prop.constraint_scope=='accepted_value' and meta.get('cs:role')=='predicate' and (not prop.multivalued or str(meta.get('cs:functional','')).lower()=='true'):
                 slot=canonical_bytes(_meaning([c.subject,c.predicate,qual]))
                 groups[slot].append(c)
         relation=pa.Table.from_pylist(rows,schema=pa.schema([pa.field('key',pa.string()),pa.field('meaning',pa.string())]))
@@ -981,10 +996,23 @@ class ReleasedRulesPolicy:
                         reason='different referenced source macro contexts'
                     if reason is None:
                         try:
-                            left,right=_comparison_value(a.object),_comparison_value(b.object)
-                            comparator=ValueComparator({name:MacroDef.model_validate(value) for name,value in a.macros.items()})
+                            descriptor=next(p for p in self.definitions[a.class_name].properties if p.iri==a.predicate)
+                            if descriptor.range in self.definitions and not descriptor.inlined:
+                                left,right=V.EntityRef(ref=a.object),V.EntityRef(ref=b.object)
+                            else:left,right=_comparison_value(a.object),_comparison_value(b.object)
+                            macro_key=canonical_bytes(a.macros)
+                            if macro_key not in comparators:comparators[macro_key]=ValueComparator({name:MacroDef.model_validate(value) for name,value in a.macros.items()})
+                            comparator=comparators[macro_key]
                             condition=a.qualification.get('condition')
                             conditions=(_comparison_condition(condition),) if condition is not None else ()
+                            if conditions:
+                                def expected(node):
+                                    if node.op=='and':return [part for child in node.args for part in expected(child)]
+                                    return [node.op]
+                                leaves=expected(conditions[0])
+                                variables=tuple(dict.fromkeys(grammar_name(key) for value in (left,right) for key in getattr(value,'symbols',{})))
+                                members,relations=comparator._constraints(list(conditions),variables)
+                                if len(members)!=leaves.count('member') or len(relations)!=leaves.count('cmp'):raise DomainOperationRefused('mathematical restriction reading is incomplete')
                             comparison=comparator.compare(left,right,conditions,ref_eq=lambda x,y:x==y)
                         except (DomainOperationRefused,ValueError) as exc:reason=str(exc)
                     if comparison is None:
