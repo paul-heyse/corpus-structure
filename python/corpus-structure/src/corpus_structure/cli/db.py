@@ -121,13 +121,11 @@ def _run(ctx: typer.Context, json_: bool, create: bool) -> None:
     from corpus_structure.core.db.extensions import ExtensionVersionMismatch
 
     settings = state(ctx).settings()
-    from sqlalchemy.engine import make_url
+    from corpus_structure.semantic.runtime import connection_settings
 
-    runtime_url = make_url(settings.database.sqlalchemy_url)
-    maintenance = make_url(settings.database.maintenance_url).set(
-        drivername="postgresql+psycopg", database=runtime_url.database
+    admin, engine, name = _engines(
+        connection_settings(settings, "maintenance").database.sqlalchemy_url
     )
-    admin, engine, name = _engines(maintenance.render_as_string(hide_password=False))
     try:
         created = _create(admin, name, settings.database.template) if create else False
         report = _migrate(engine, name, created)

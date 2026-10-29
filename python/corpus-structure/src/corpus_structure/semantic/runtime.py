@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from typing import Literal
 
 from sqlalchemy import Connection, Engine, select, text
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 
 from corpus_structure.settings import Settings
 from corpus_structure.semantic.metadata import table
@@ -17,21 +17,31 @@ Purpose = Literal["write", "read", "evaluate", "maintenance"]
 
 
 def connection_settings(settings: Settings, purpose: Purpose = "write") -> Settings:
-    """Select credentials without introducing another pool or reading the environment."""
+    """Bind every credential purpose to the application's one declared storage target.
+
+    Maintenance and evaluator URLs contribute credentials only. Their database, network
+    coordinates and query options cannot redirect a phase of an otherwise bound operation.
+    """
     database = settings.database
-    url = database.url
+    source = make_url(database.sqlalchemy_url)
+    credentials = source
     if purpose == "maintenance":
-        url = database.maintenance_url
+        credentials = make_url(database.maintenance_url)
     elif purpose == "evaluate":
-        url = database.evaluator_url or make_url(database.sqlalchemy_url).set(
-            drivername="postgresql", username="corpus_sem_evaluator"
-        ).render_as_string(hide_password=False)
-    elif purpose == "read":
-        parsed = make_url(database.sqlalchemy_url)
-        if parsed.username == "corpus_sem_writer":
-            url = parsed.set(drivername="postgresql", username="corpus_sem_reader").render_as_string(
-                hide_password=False
-            )
+        credentials = (make_url(database.evaluator_url) if database.evaluator_url else
+                       source.set(username="corpus_sem_evaluator"))
+    elif purpose == "read" and source.username == "corpus_sem_writer":
+        credentials = source.set(username="corpus_sem_reader")
+    if purpose == "write":
+        return settings
+    if credentials.drivername not in {"postgresql", "postgres", "postgresql+psycopg"}:
+        raise ValueError(f"database credentials for {purpose} must use a PostgreSQL URL")
+    # URL.set ignores None, so create a new public URL to remove the writer username and
+    # password when the maintenance credentials intentionally use local peer authentication.
+    url = URL.create(
+        "postgresql", username=credentials.username, password=credentials.password,
+        host=source.host, port=source.port, database=source.database, query=source.query,
+    ).render_as_string(hide_password=False)
     return settings.model_copy(update={"database": database.model_copy(update={"url": url})})
 
 
