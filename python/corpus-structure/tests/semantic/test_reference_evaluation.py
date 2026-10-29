@@ -15,7 +15,7 @@ from corpus_structure.evaluate.semantic import create_reference_set,record_pass,
 from .test_agent_resubmission import source_task,lease_and_read
 
 def test_independent_reference_grade_retains_exact_pass_and_qualification(semantic_db_engine,semantic_writer_engine,tmp_path):
-    prepared,run,task,locator=source_task(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html')
+    prepared,run,task,locator=source_task(semantic_db_engine,semantic_writer_engine,tmp_path/'source.html',composed=True)
     source_session=SemanticAgentSession(semantic_writer_engine,run)
     async def source():
         async with Client(build_semantic_server(source_session)) as client:
