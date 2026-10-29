@@ -7,11 +7,13 @@ as the restricted principals rather than SET ROLE from a database owner.
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Iterator
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.pool import NullPool
 
 from corpus_structure.core.db import extensions
@@ -52,8 +54,17 @@ def semantic_db_engine() -> Iterator[Engine]:
     finally:
         engine.dispose()
         admin.dispose()
-        with server.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-            conn.exec_driver_sql(f"DROP DATABASE IF EXISTS {quote(name)} WITH (FORCE)")
+        # libpq close can precede the server backend's final exit. An owner cannot terminate
+        # another login's backend; wait briefly for its normal exit rather than widening roles.
+        for attempt in range(40):
+            try:
+                with server.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+                    conn.exec_driver_sql(f"DROP DATABASE IF EXISTS {quote(name)}")
+                break
+            except DBAPIError as exc:
+                if getattr(exc.orig, "sqlstate", None) != "55006" or attempt == 39:
+                    raise
+                time.sleep(0.05)
         server.dispose()
 
 
