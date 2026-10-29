@@ -417,7 +417,7 @@ def stored_math(reader: Reader, ren: _Rendition) -> StoredMath:
         relations.append(
             MathRelation(
                 by_id[row.segment_id],
-                r.label,  # type: ignore[arg-type]
+                r.label,
                 (r.head.start, r.head.end),
                 (r.tail.start, r.tail.end),
                 "",

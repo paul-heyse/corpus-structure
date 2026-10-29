@@ -84,7 +84,7 @@ def _create(admin: Any, name: str, template: str) -> bool:
     probe = create_engine(admin.url.set(database=template), isolation_level="AUTOCOMMIT")
     try:
         with probe.connect() as conn:
-            extensions.check(conn.execute(text(extensions.FOUND)).all())  # type: ignore[arg-type]
+            extensions.check([(str(name),str(version)) for name,version in conn.execute(text(extensions.FOUND))])
     finally:
         probe.dispose()  # a template must have no connection while it is cloned
     with admin.connect() as conn:

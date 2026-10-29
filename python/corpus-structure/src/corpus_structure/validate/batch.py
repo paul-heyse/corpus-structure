@@ -59,7 +59,7 @@ if typing.TYPE_CHECKING:
     from corpus_structure.schema.compile import CompiledSchema
 
 FORMS = ("model", "stored")
-SECTIONS = ("entities", "statements", "claims", "alternatives", "unsupported")
+SECTIONS:tuple[str,...] = ("entities", "statements", "claims", "alternatives", "unsupported")
 CORE = "core:"
 
 
@@ -258,7 +258,7 @@ class BatchReport:
             for i in self.issues
             if len(i.path) >= 2 and i.path[0] in SECTIONS and isinstance(i.path[1], int)
         }
-        return sorted(found, key=lambda p: (SECTIONS.index(str(p[0])), p[1]))  # type: ignore[arg-type]
+        return sorted(found, key=lambda p: (SECTIONS.index(str(p[0])), p[1]))
 
     def rejected(self) -> tuple[RejectedItem, ...]:
         """The rejected items in the `claim_proposal` payload's form: each item as written and

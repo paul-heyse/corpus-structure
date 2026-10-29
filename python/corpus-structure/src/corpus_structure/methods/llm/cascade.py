@@ -37,7 +37,7 @@ from __future__ import annotations
 import dataclasses
 import math
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -47,6 +47,10 @@ from rapidfuzz.distance import Levenshtein
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
+
+def _partial_ratio(__s1:Sequence[Hashable],__s2:Sequence[Hashable],*,score_cutoff:float|None)->float:
+    """The score callback contract, delegated to RapidFuzz's native partial ratio."""
+    return fuzz.partial_ratio(__s1,__s2,score_cutoff=score_cutoff)
 
 CASCADE_VERSION = "1"
 
@@ -239,8 +243,8 @@ class Cascade:
         if pool:
             texts = [self.text[s.start : s.end] for s in pool]
             # rapidfuzz's stubs type `partial_ratio` as an overload extractOne's do not accept
-            choice = process.extractOne(  # type: ignore[no-matching-overload]
-                quote, texts, scorer=fuzz.partial_ratio, score_cutoff=PICK_CUTOFF
+            choice = process.extractOne(
+                quote, texts, scorer=_partial_ratio, score_cutoff=float(PICK_CUTOFF)
             )
             if choice is not None:
                 fuzzy = self._fuzzy(quote, pool[choice[2]], timeouts, picked=True)
@@ -274,11 +278,13 @@ class Cascade:
         return out, timed_out
 
     def _found(
-        self, hit: tuple[int, int, FrameSentence], step: Step, matches: int, **extra: object
+        self, hit: tuple[int, int, FrameSentence], step: Step, matches: int, *,
+        score:float|None=None, fuzzy_counts:tuple[int,int,int]|None=None,
+        picked:bool=False,timeouts:tuple[Step,...]=()
     ) -> Located:
         a, b, s = hit
         a, b = snap(self.text, a, b, s.start, s.end)
-        return Located(a, b, step, s.id, matches, **extra)  # type: ignore[arg-type]
+        return Located(a,b,step,s.id,matches,score,fuzzy_counts,picked,timeouts)
 
     def _fuzzy(
         self, quote: str, s: FrameSentence, timeouts: list[Step], picked: bool = False

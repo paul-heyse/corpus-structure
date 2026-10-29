@@ -145,5 +145,6 @@ class CitationFrame(RootModel[dict[Annotated[str, Field(pattern=SENTENCE_ID)], F
     def __contains__(self, sentence: object) -> bool:
         return sentence in self.root
 
-    def __iter__(self) -> Iterator[str]:  # type: ignore[override]
+    def keys(self) -> Iterator[str]:
+        """Explicit sentence IDs; RootModel iteration retains Pydantic tuple semantics."""
         return iter(self.root)

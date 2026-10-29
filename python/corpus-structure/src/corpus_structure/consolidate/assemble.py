@@ -482,7 +482,7 @@ def _condition_refs(claim: CandidateClaim) -> Iterator[str]:
 
     tree = claim.qualifiers.conditions
     if tree is not MISSING:
-        yield from walk(tree.model_dump(mode="json"))  # type: ignore[union-attr]
+        yield from walk(tree.model_dump(mode="json"))
 
 
 # --- Assembly ----------------------------------------------------------------------------------
