@@ -56,11 +56,16 @@ classes:
   Entity:
     attributes:
       id: {identifier: true}
+  SemanticScope:
+    attributes:
+      extent: {range: ScopeExtent, required: true}
+      locator: {required: true}
   Qualification:
     attributes:
       modality: {required: true}
       polarity: {range: boolean, required: true}
       attribution: {}
+      scope: {range: SemanticScope, inlined: true}
       condition: {range: Condition, inlined: true}
       valid_from: {range: datetime}
       valid_until: {range: datetime}
@@ -73,6 +78,7 @@ classes:
       qualification: {range: Qualification, inlined: true, required: true}
       source: {required: true}
       item: {required: true}
+      establishment: {range: Establishment, required: true}
   SemanticFact:
     attributes:
       id: {identifier: true}
@@ -157,6 +163,10 @@ classes:
       rule_version: {required: true}
       premises: {range: SemanticFact, multivalued: true, required: true}
 enums:
+  ScopeExtent:
+    permissible_values: {statement: {}, section: {}, document: {}}
+  Establishment:
+    permissible_values: {stated: {}, derived: {}, agent_asserted: {}}
   MissingReason:
     permissible_values:
       absent: {}
