@@ -203,7 +203,7 @@ def test_actual_statistics_cut_keeps_piecewise_values_and_multiple_relation_targ
         complete_task(
             conn,
             task_id=task,
-            attempt=claimed["attempt"],
+            attempt=claimed.attempt,
             holder="agent",
             prepared=prepared,
             observations=[

@@ -74,7 +74,11 @@ classes:
     dependencies = ResolvedDependencies()
     if observations:
         from corpus_structure.semantic.metrics import observation_dependencies
-        dependencies = observation_dependencies(dependencies, b"metrics: [{id: count, value_type: SourceFloatOrNull, subject_kind: run, detail_schema: SourceObject, description: Test method count}]")
+        import yaml
+
+        declarations = yaml.safe_load((Path(__file__).parents[2] / "src/corpus_structure/model/semantic/metrics.yaml").read_bytes())
+        declarations["metrics"].append(dict(id="count",value_type="SourceFloatOrNull",subject_kind="run",detail_schema="SourceObject",description="Test method count"))
+        dependencies = observation_dependencies(dependencies, yaml.safe_dump(declarations).encode())
     p = prepare_release(bundle, dependencies)
     with engine.begin() as c:
         if archive:
@@ -92,6 +96,12 @@ classes:
                     manifest_bytes=b"{}",
                 )
             )
+        if not archive:
+            from corpus_structure.semantic.releases import _projection_rows
+
+            declared_metrics = _projection_rows(p)["metric_definition"]
+            if declared_metrics:
+                c.execute(insert(table("sem.metric_definition")), declared_metrics)
         c.execute(insert(table("data.project")).values(project_id="p"))
         c.execute(
             insert(table("data.realization")).values(
@@ -144,7 +154,7 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
         ids = complete_task(
             c,
             task_id=task,
-            attempt=claim["attempt"],
+            attempt=claim.attempt,
             holder="worker",
             prepared=p,
             observations=observations,
@@ -154,12 +164,12 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
             complete_task(
                 c,
                 task_id=task,
-                attempt=claim["attempt"],
+                attempt=claim.attempt,
                 holder="worker",
                 prepared=p,
                 observations=observations,
             )
-            == ids
+            .receipt == ids.receipt
         )
         pending = create_task(
             c, run_id=run, config_id=config, stage="ingest", unit_type="run", input_hash="late"
@@ -180,7 +190,7 @@ def test_native_terminal_fence_replay_and_sealed_cut(semantic_db_engine, semanti
         complete_task(
             c,
             task_id=pending,
-            attempt=later["attempt"],
+            attempt=later.attempt,
             holder="late",
             prepared=p,
             observations=observations,
@@ -396,7 +406,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
         ids = complete_unit_result(
             c,
             task_id=task,
-            attempt=claimed["attempt"],
+            attempt=claimed.attempt,
             holder="worker",
             prepared=p,
             result=result,
@@ -404,7 +414,8 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             configuration_hash="config",
             source="file:source",
         )
-        assert len(ids) == 2
+        assert len(ids.receipt.observation_ids) == 2
+        assert ids.transaction == "applied"
         envelope = c.execute(select(table("ops.task_result").c.body)).scalar_one()
         assert envelope["coverage"] == [
             {
@@ -424,7 +435,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
             complete_unit_result(
                 c,
                 task_id=task,
-                attempt=claimed["attempt"],
+                attempt=claimed.attempt,
                 holder="worker",
                 prepared=p,
                 result=result,
@@ -432,7 +443,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
                 configuration_hash="config",
                 source="file:source",
             )
-            == ids
+            .receipt == ids.receipt
         )
         assert len(c.execute(select(table("ops.measurement"))).all()) == 1
     from dataclasses import replace
@@ -445,7 +456,7 @@ def test_recognizer_terminal_source_boundary_and_coverage(
         complete_unit_result(
             c,
             task_id=task,
-            attempt=claimed["attempt"],
+            attempt=claimed.attempt,
             holder="worker",
             prepared=p,
             result=changed,
@@ -1032,7 +1043,7 @@ def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
             complete_task(
                 c, task_id=first, attempt=1, holder="worker", prepared=p, observations=rows
             )
-            == one
+            .receipt == one.receipt
         )
         fresh = create_task(
             c,
@@ -1143,14 +1154,14 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
         )
         second = claim_tasks(c, run_id=run, config_id=cfg, holder="second")[0]
         assert (
-            second["attempt"] == first["attempt"] + 1
-            and second["invocation_key"] == first["invocation_key"]
+            second.attempt == first.attempt + 1
+            and second.invocation_key == first.invocation_key
         )
     with pytest.raises(OperationConflict), e.begin() as c:
         complete_task(
             c,
             task_id=task,
-            attempt=first["attempt"],
+            attempt=first.attempt,
             holder="first",
             prepared=p,
             observations=[],
@@ -1160,7 +1171,7 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
         complete_task(
             c,
             task_id=task,
-            attempt=second["attempt"],
+            attempt=second.attempt,
             holder="second",
             prepared=p,
             observations=[],

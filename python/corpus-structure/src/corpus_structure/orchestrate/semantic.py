@@ -268,7 +268,7 @@ def run_source_methods(
                             _unit(
                                 conn,
                                 view,
-                                UnitRef(TaskUnitType(t["unit_type"]), t["unit_id"], t["unit_key"]),
+                                UnitRef(TaskUnitType(t.unit_type), t.unit_id, t.unit_key),
                             )
                             for t in claimed
                         ]
@@ -284,8 +284,8 @@ def run_source_methods(
                         with engine.begin() as conn:
                             complete_unit_result(
                                 conn,
-                                task_id=task["id"],
-                                attempt=task["attempt"],
+                                task_id=task.task_id,
+                                attempt=task.attempt,
                                 holder=holder,
                                 prepared=prepared,
                                 result=result,

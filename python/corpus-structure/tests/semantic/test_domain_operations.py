@@ -393,7 +393,7 @@ def fixture(
         complete_task(
             conn,
             task_id=task,
-            attempt=lease["attempt"],
+            attempt=lease.attempt,
             holder="worker",
             prepared=prepared,
             observations=[
@@ -454,7 +454,7 @@ def fixture(
             complete_task(
                 conn,
                 task_id=second_task,
-                attempt=second_lease["attempt"],
+                attempt=second_lease.attempt,
                 holder="worker",
                 prepared=prepared,
                 observations=[
