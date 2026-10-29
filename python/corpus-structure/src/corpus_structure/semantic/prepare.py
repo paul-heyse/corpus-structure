@@ -345,13 +345,16 @@ def prepare_release(
     dependency_names = {a.name for a in dependencies.artifacts}
     if len(dependency_names) != len(dependencies.artifacts):
         _fail("dependency", "dependencies", "duplicate dependency artifacts")
+    ontology_names = set(dependencies.ontology_sources)
+    if len(ontology_names) != len(dependencies.ontology_sources) or not ontology_names <= dependency_names:
+        _fail("dependency", "ontology_sources", "ontology sources must name distinct supplied artifacts")
     from .ontology import resolve_vocabularies_from_bytes
 
     try:
         resolved = {
             v.enum_name: v
             for v in resolve_vocabularies_from_bytes(
-                view, {a.name: a.content for a in dependencies.artifacts}
+                view, {a.name: a.content for a in dependencies.artifacts if a.name in ontology_names}
             )
         }
     except Exception as exc:
@@ -612,6 +615,7 @@ def prepare_release(
             },
             "sources": sorted((s.name, s.digest) for s in bundle.sources),
             "dependencies": sorted((a.name, a.digest) for a in dependencies.artifacts),
+            "ontology_sources": sorted(dependencies.ontology_sources),
             "vocabularies": [asdict(v) for v in vocabularies],
         }
     )

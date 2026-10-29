@@ -48,6 +48,7 @@ class VocabularySnapshot:
 class ResolvedDependencies:
     artifacts: tuple[SourceArtifact, ...] = ()
     vocabularies: tuple[VocabularySnapshot, ...] = ()
+    ontology_sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

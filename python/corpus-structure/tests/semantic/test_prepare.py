@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from corpus_structure.semantic import (
     PreparationError,
+    ResolvedDependencies,
     SourceArtifact,
     SourceBundle,
     fact_key,
@@ -63,6 +64,20 @@ def test_raw_bytes_and_ordered_manifest():
     b = bundle()
     changed = SourceBundle(b.root, (SourceArtifact("example", b.sources[0].content + b"\n"),))
     assert prepare_release(b).release_id != prepare_release(changed).release_id
+
+
+def test_only_explicit_ontology_dependencies_reach_ontology_parser():
+    opaque = SourceArtifact("binary-reference", b"\x00\xff")
+    sql = SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity")
+    release = prepare_release(bundle(), ResolvedDependencies((opaque, sql)))
+    assert json.loads(release.manifest)["ontology_sources"] == []
+    ontology = SourceArtifact("terms", b"format-version: 1.2\n\n[Term]\nid: EX:1\nname: root\n")
+    extended = bundle(lambda d: d.update(enums={"Terms": {"reachable_from": {
+        "source_ontology": "terms", "source_nodes": ["EX:1"], "include_self": True}}}))
+    prepared = prepare_release(extended, ResolvedDependencies((opaque, sql, ontology), ontology_sources=("terms",)))
+    assert [m.value for m in prepared.vocabularies[0].members] == ["EX:1"]
+    with pytest.raises(PreparationError, match="distinct supplied artifacts"):
+        prepare_release(bundle(), ResolvedDependencies((opaque,), ontology_sources=("absent",)))
 
 
 def test_strict_optional_is_absent_not_null_and_exact_decimal():
