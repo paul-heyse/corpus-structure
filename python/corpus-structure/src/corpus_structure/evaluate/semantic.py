@@ -198,14 +198,15 @@ def _prediction(conn,completed,unit):
     for observation in observations:
         source=observation['payload'];prefix=str(observation['id'])+'/'
         # Source-local identifiers are scoped before combining independent extraction reports.
-        ids={item['id']:prefix+item['id'] for family in ('entities','statements','claims','unsupported') for item in source.get(family,())}
+        ids={item['id']:mappings.get((observation['id'],item['id']),prefix+item['id']) for family in ('entities','statements','claims','unsupported') for item in source.get(family,())}
         def rewrite(value):
             if isinstance(value,dict):return {k:(ids.get(v,v) if k in {'target','subject','statement','attribution','entity','ref','claim'} and isinstance(v,str) else rewrite(v)) for k,v in value.items()}
             if isinstance(value,list):return [rewrite(v) for v in value]
             return value
         for family in ('entities','statements'):
             for item in source.get(family,()):
-                value=rewrite(item);value['id']=ids[item['id']];batch[family].append(value)
+                value=rewrite(item);value['id']=ids[item['id']]
+                if not any(v['id']==value['id'] for v in batch[family]):batch[family].append(value)
                 if (observation['id'],item['id']) in mappings:known[value['id']]=mappings[observation['id'],item['id']]
         for index,claim in enumerate(source.get('claims',())):
             fact=admitted.get((observation['observation_key'],'claims/'+str(index)))
@@ -243,6 +244,7 @@ def reference_evaluate(conn:Connection,*,project_id:str,run_id:int,set_id:int)->
         if reference.rendition_id!=unit['rendition_id']:raise ReferenceError('relocated reference requires an explicitly bound target source unit')
         reports.append(align_semantic(SemanticSide(unit['unit_key'],reference.batch,frozenset(unit['context'])),_prediction(conn,completed,unit),prepared).as_dict())
     tiers={k:TierCounts(sum(u['tiers'][k]['reference'] for u in reports),sum(u['tiers'][k]['prediction'] for u in reports),sum(u['tiers'][k]['matched'] for u in reports)).as_dict() for k in ('core','full','evidence')}
-    result={'release_id':completed['release_id'],'output_realization_id':completed['output_realization_id'],'grain':'distinct_fact_per_source_unit','tiers':tiers,'units':reports,'coverage':'complete_reference_units'}
+    coverage=[dict(row) for row in conn.execute(select(table('data.coverage')).where(table('data.coverage').c.realization_id==completed['output_realization_id'],table('data.coverage').c.release_id==completed['release_id'])).mappings()]
+    result={'release_id':completed['release_id'],'output_realization_id':completed['output_realization_id'],'grain':'distinct_fact_per_source_unit','tiers':tiers,'units':reports,'coverage':coverage,'reference_units_scored':len(reports)}
     identity=_call(conn,'SELECT eval.record_reference_evaluation(:p,:run,:s,CAST(:snapshot AS jsonb),CAST(:result AS jsonb))',p=project_id,run=run_id,s=set_id,snapshot=_json(snapshot),result=_json(result)).scalar_one()
     return ReferenceReport(id=identity,project_id=project_id,run_id=run_id,set_id=set_id,reference_snapshot=snapshot,result=result)

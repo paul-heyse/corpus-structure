@@ -150,7 +150,7 @@ def equivalent(a,b,entity_map,claim_map=None,*,conditions=None):
                         if np.isfinite(xa) and np.isfinite(ya) and abs(xa-ya)>1e-9*max(1,abs(xa),abs(ya)):
                             return ValueDecision(False,'numeric','deterministic counterexample')
                 return ValueDecision(False,'undecided','no symbolic equivalence proof')
-            except (ArithmeticError,ValueError,TypeError,NotImplementedError,TimeoutError):
+            except (ArithmeticError,ValueError,TypeError,NotImplementedError,TimeoutError,grammar.Expired):
                 return ValueDecision(False,'undecided','symbolic comparison unavailable or timed out')
         if ka in {'all','any'}:
             aa,bb=a.get('terms',()),b.get('terms',())
@@ -189,13 +189,29 @@ def _entity_pairs(ref,pred,prepared,out):
         return a==b or (da is not None and db is not None and (da.name in db.ancestors or db.name in da.ancestors))
     ra=list(ref.batch.get('entities',()))+[{**s,'class_iri':'__statement__','label':s.get('title')} for s in ref.batch.get('statements',())]
     pa=list(pred.batch.get('entities',()))+[{**s,'class_iri':'__statement__','label':s.get('title')} for s in pred.batch.get('statements',())]
+    def attributes(entity):
+        return {x['predicate']:x['value'] for x in entity.get('attributes',())}
+    def names(entity):
+        values=[entity.get('label'),*entity.get('aliases',())]
+        declaration=definitions.get(entity['class_iri'])
+        if declaration:
+            alias_iri=next((p.iri for p in declaration.properties if p.name=='aliases'),None)
+            raw=attributes(entity).get(alias_iri,{})
+            values.extend(v.get('text') for v in raw.get('members',()) if isinstance(v,dict))
+            if raw.get('kind')=='text':values.append(raw.get('text'))
+        return tuple(filter(None,values))
+    def dependent_groups(entity):
+        declaration=definitions.get(entity['class_iri'])
+        if not declaration:return ()
+        props={p.name:p for p in declaration.properties}
+        return tuple(group for group in declaration.identity_groups if group!=('id',) and any(props[n].range in {d.name for d in prepared.definitions if d.name=='Entity' or 'Entity' in d.ancestors} for n in group))
     weights=np.zeros((len(ra),len(pa)));bases={}
     for i,a in enumerate(ra):
         for j,b in enumerate(pa):
             if not compatible(a['class_iri'],b['class_iri']):continue
             known_a=ref.known_ids.get(a['id']);known_b=pred.known_ids.get(b['id'])
-            if known_a or known_b:
-                if known_a and known_a==known_b:weights[i,j]=1;bases[i,j]='known_identity'
+            if known_a and known_b:
+                if known_a==known_b:weights[i,j]=1;bases[i,j]='known_identity'
                 continue
             if a['class_iri']=='__statement__':
                 spans_a=ref.anchors.get(a['id'],());spans_b=pred.anchors.get(b['id'],())
@@ -205,11 +221,12 @@ def _entity_pairs(ref,pred,prepared,out):
                 continue
             scope_a,scope_b=a.get('scope'),b.get('scope')
             if (scope_a or scope_b) and scope_a!=scope_b:continue
-            labels_a=[a.get('label'),*a.get('aliases',())];labels_b=[b.get('label'),*b.get('aliases',())]
+            if dependent_groups(a) or dependent_groups(b):continue
+            labels_a,labels_b=names(a),names(b)
             definition=definitions.get(a['class_iri']);case=CaseRule.PRESERVE if definition and any(p.name=='label' and p.case_policy=='preserve' for p in definition.properties) else CaseRule.FOLD
             for la in filter(None,labels_a):
                 for lb in filter(None,labels_b):
-                    if _text(la)==_text(lb):weights[i,j]=1;bases[i,j]='label'
+                    if (la==lb if case is CaseRule.PRESERVE else _text(la)==_text(lb)):weights[i,j]=1;bases[i,j]='label'
                     elif normalize_label(la,compact(a['class_iri']),rules,case)==normalize_label(lb,compact(b['class_iri']),rules,case) and weights[i,j]<.9:weights[i,j]=.9;bases[i,j]='alias_normalization'
     # Equal best candidates are an ambiguity, not permission to let array order choose identity.
     for i in range(len(ra)):
@@ -220,7 +237,28 @@ def _entity_pairs(ref,pred,prepared,out):
             out.undecided.append({'entity':pa[j]['id'],'reason':'ambiguous label/anchor assignment'});weights[:,j]=0
     for i,j in _assignment(np.where(weights>=.5,weights,0)):
         out.entity_pairs.append((ra[i]['id'],pa[j]['id'],bases[i,j]))
-    return {a:b for a,b,_ in out.entity_pairs}
+    mapping={a:b for a,b,_ in out.entity_pairs}
+    # Foreign-key identity classes are resolved after the keys' entity endpoints align.
+    for _ in range(len(ra)):
+        candidates=[]
+        used=set(mapping.values())
+        for a in ra:
+            if a['id'] in mapping:continue
+            groups=dependent_groups(a)
+            if not groups:continue
+            props={p.name:p for p in definitions[a['class_iri']].properties}
+            aa=attributes(a)
+            matches=[]
+            for b in pa:
+                if b['id'] in used or not compatible(a['class_iri'],b['class_iri']):continue
+                bb=attributes(b)
+                if any(all(props[n].iri in aa and props[n].iri in bb and equivalent(aa[props[n].iri],bb[props[n].iri],mapping).equal for n in group) for group in groups):matches.append(b['id'])
+            if len(matches)==1:candidates.append((a['id'],matches[0]))
+            elif len(matches)>1:out.undecided.append({'entity':a['id'],'reason':'ambiguous identity-dependent assignment'})
+        unique=[pair for pair in candidates if sum(other[1]==pair[1] for other in candidates)==1]
+        if not unique:break
+        for a,b in unique:mapping[a]=b;out.entity_pairs.append((a,b,'declared_identity_keys'))
+    return mapping
 
 def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:PreparedRelease)->SemanticAlignment:
     if ref.unit!=pred.unit:raise ValueError('alignment sides refer to different source units')
@@ -233,7 +271,20 @@ def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:PreparedRelease)-
             key=canonical_bytes({k:v for k,v in c.items() if k not in {'id','evidence','establishment'}})
             if key not in seen:seen.add(key);result.append(c)
         return result
-    rr,pp=unique(ref),unique(pred);claim_map={};last=None;size=min(len(rr),len(pp))+1
+    rr,pp=unique(ref),unique(pred)
+    def groups(side,claims):
+        ids={c['id']:i for i,c in enumerate(claims)};parent={i:i for i in ids.values()}
+        def root(i):
+            while parent[i]!=i:i=parent[i]
+            return i
+        for alt in side.batch.get('alternatives',()):
+            members=[ids[m] for m in alt['members'] if m in ids]
+            for i in members[1:]:parent[root(i)]=root(members[0])
+        result={}
+        for i in parent:result.setdefault(root(i),[]).append(i)
+        return list(result.values())
+    rg,pg=groups(ref,rr),groups(pred,pp)
+    claim_map={};last=None;size=min(len(rg),len(pg))+1
     for iteration in range(8):
         out.iterations=iteration+1;weights=np.zeros((len(rr),len(pp)));tiers={};failures=[];undecided=[]
         for i,r in enumerate(rr):
@@ -251,7 +302,15 @@ def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:PreparedRelease)-
                 tiers[i,j]=(full,evidence)
                 if not full:failures.append({'reference':r['id'],'prediction':p['id'],'fields':['qualification' if not qual.equal else 'statement_context']})
                 if qual.outcome=='undecided':undecided.append({'reference':r['id'],'prediction':p['id'],'reason':'qualification comparison undecided'})
-        pairs=_assignment(weights);new={(rr[i]['id'],pp[j]['id']) for i,j in pairs}
+        group_weights=np.zeros((len(rg),len(pg)));chosen={}
+        for gi,ris in enumerate(rg):
+            for gj,pis in enumerate(pg):
+                candidates=[(weights[i,j],i,j) for i in ris for j in pis if weights[i,j]>0]
+                if candidates:
+                    score,i,j=max(candidates,key=lambda c:(c[0],rr[c[1]]['id'],pp[c[2]]['id']))
+                    group_weights[gi,gj]=score;chosen[gi,gj]=(i,j)
+        pairs=[chosen[i,j] for i,j in _assignment(group_weights)]
+        new={(rr[i]['id'],pp[j]['id']) for i,j in pairs}
         out.matches={k:[] for k in ('core','full','evidence')}
         for i,j in pairs:
             pair=(rr[i]['id'],pp[j]['id']);out.matches['core'].append(pair)
@@ -261,5 +320,5 @@ def align_semantic(ref:SemanticSide,pred:SemanticSide,prepared:PreparedRelease)-
         if new==last:break
         last=new;claim_map=dict(new)
     else:out.converged=False
-    for tier,pairs in out.matches.items():out.counts[tier]=TierCounts(len(rr),len(pp),len(pairs))
+    for tier,pairs in out.matches.items():out.counts[tier]=TierCounts(len(rg),len(pg),len(pairs))
     return out

@@ -149,6 +149,7 @@ enums:
     permissible_values:
       dev: {}
       test: {}
+      reserved: {}
   ReferencePassKind:
     permissible_values:
       A: {}
