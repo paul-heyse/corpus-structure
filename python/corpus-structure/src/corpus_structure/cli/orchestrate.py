@@ -58,10 +58,10 @@ PHASE0: Callable[[], dict[str, Any]] = _phase0
 @contextmanager
 def _refusals() -> Iterator[None]:
     from corpus_structure.orchestrate import commands, project, registry, runs
-    from corpus_structure.semantic.operations import OperationConflict
-    from corpus_structure.semantic.domain_operations import DomainOperationRefused
-    from corpus_structure.orchestrate.slices import SliceError
     from corpus_structure.orchestrate.policy import PolicyError
+    from corpus_structure.orchestrate.slices import SliceError
+    from corpus_structure.semantic.domain_operations import DomainOperationRefused
+    from corpus_structure.semantic.operations import OperationConflict
 
     try:
         yield
@@ -97,8 +97,12 @@ def project_init(
     name: Annotated[
         str | None, typer.Option(help="The project name (default: the domain).")
     ] = None,
-    semantic_release: Annotated[str | None, typer.Option(help="An already admitted semantic release.")] = None,
-    realization: Annotated[str | None, typer.Option(help="Explicit empty semantic realization identity.")] = None,
+    semantic_release: Annotated[
+        str | None, typer.Option(help="An already admitted semantic release.")
+    ] = None,
+    realization: Annotated[
+        str | None, typer.Option(help="Explicit empty semantic realization identity.")
+    ] = None,
     json: JsonOpt = False,
 ) -> None:
     """Create or update the project: its documents and the pack's versions."""
@@ -109,10 +113,19 @@ def project_init(
     with _refusals(), ENGINE(settings) as engine, engine.begin() as conn:
         if semantic_release is not None or realization is not None:
             if semantic_release is None or realization is None:
-                raise typer.BadParameter('semantic initialization requires --semantic-release and --realization')
-            report=project.init_bound_project(conn,domain=domain,corpus=corpus,release_id=semantic_release,
-                realization_id=realization,name=name,domains=seams['domains'],
-                registry=seams['registry_for'](seams['domains']/domain))
+                raise typer.BadParameter(
+                    "semantic initialization requires --semantic-release and --realization"
+                )
+            report = project.init_bound_project(
+                conn,
+                domain=domain,
+                corpus=corpus,
+                release_id=semantic_release,
+                realization_id=realization,
+                name=name,
+                domains=seams["domains"],
+                registry=seams["registry_for"](seams["domains"] / domain),
+            )
         else:
             registry = seams["registry_for"](seams["domains"] / domain)
             report = project.init_project(
@@ -154,9 +167,15 @@ def run(
     agent_reuse: Annotated[AgentReuse | None, typer.Option(help="full or by_unit.")] = None,
     gpu_mode: Annotated[GpuMode | None, typer.Option(help="The GPU mode.")] = None,
     fresh: Annotated[list[str] | None, typer.Option(help="A method not to reuse.")] = None,
-    semantic_release: Annotated[str | None, typer.Option(help="Explicit admitted semantic release for source execution.")] = None,
-    realization: Annotated[str | None, typer.Option(help="Explicit semantic input realization.")] = None,
-    domain: Annotated[str, typer.Option(help="Method pack for explicit semantic source execution.")] = 'statistics',
+    semantic_release: Annotated[
+        str | None, typer.Option(help="Explicit admitted semantic release for source execution.")
+    ] = None,
+    realization: Annotated[
+        str | None, typer.Option(help="Explicit semantic input realization.")
+    ] = None,
+    domain: Annotated[
+        str, typer.Option(help="Method pack for explicit semantic source execution.")
+    ] = "statistics",
     json: JsonOpt = False,
 ) -> None:
     """Start a run over the project's corpus and run it to its end."""
@@ -177,16 +196,31 @@ def run(
     )
     if semantic_release is not None or realization is not None:
         if semantic_release is None or realization is None or project is None:
-            raise typer.BadParameter('semantic source execution requires --semantic-release, --realization and --project')
+            raise typer.BadParameter(
+                "semantic source execution requires --semantic-release, --realization and --project"
+            )
         if gpu_mode is not None:
-            raise typer.BadParameter('semantic source execution has no GPU operation in the selected graph')
+            raise typer.BadParameter(
+                "semantic source execution has no GPU operation in the selected graph"
+            )
         with _refusals(), ENGINE(settings) as engine:
-            report = commands.start_bound_run(engine,release_id=semantic_release,realization_id=realization,
-                project_id=project,domain=domain,method_settings=method_settings,phase=phase,fresh=tuple(fresh or ()),
-                slice=slice,scope=scope,corpus=corpus,agent_mode=str(agent_mode or (AgentMode.WAIT if slice else AgentMode.COMPLETE)),
+            report = commands.start_bound_run(
+                engine,
+                release_id=semantic_release,
+                realization_id=realization,
+                project_id=project,
+                domain=domain,
+                method_settings=method_settings,
+                phase=phase,
+                fresh=tuple(fresh or ()),
+                slice=slice,
+                scope=scope,
+                corpus=corpus,
+                agent_mode=str(agent_mode or (AgentMode.WAIT if slice else AgentMode.COMPLETE)),
                 agent_reuse=str(agent_reuse or AgentReuse.FULL),
-                **{k:v for k,v in PHASE0().items() if k in {'registry_for','graph','domains'}})
-        emit(report,json=json)
+                **{k: v for k, v in PHASE0().items() if k in {"registry_for", "graph", "domains"}},
+            )
+        emit(report, json=json)
         return
     with _refusals(), ENGINE(settings) as engine:
         report = commands.start_run(
@@ -228,12 +262,14 @@ def run_finalize(
     json: JsonOpt = False,
 ) -> None:
     """Seal completed automated work and publish its evaluated semantic realization."""
-    from corpus_structure.orchestrate import commands
     from pydantic import RootModel
+
+    from corpus_structure.orchestrate import commands
     from corpus_structure.semantic.domain_operations import DomainResult
+
     with _refusals(), ENGINE(state(ctx).settings()) as engine:
-        result=commands.finalize_bound_run(engine,run_id,output_realization)
-    emit(RootModel[DomainResult](result),json=json)
+        result = commands.finalize_bound_run(engine, run_id, output_realization)
+    emit(RootModel[DomainResult](result), json=json)
 
 
 # --- ci tasks ---------------------------------------------------------------------------------

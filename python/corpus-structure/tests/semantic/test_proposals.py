@@ -258,24 +258,43 @@ def test_binary_entity_relation_preserves_declared_unresolved_endpoint():
 
 
 def test_model_facing_entity_choices_exclude_abstract_classes():
-    core=Path(__file__).parents[2]/'src/corpus_structure/model/semantic/core.yaml'
-    domain={'id':'https://example.org/x','name':'x','prefixes':{'ex':'https://example.org/'},'default_prefix':'ex','imports':['core'],
-            'classes':{'AbstractPerson':{'is_a':'Entity','abstract':True,'attributes':{'name':{}}},'Person':{'is_a':'AbstractPerson'}}}
-    release=prepare_release(proposal_inputs(SourceBundle('x',(SourceArtifact('core',core.read_bytes()),SourceArtifact('x',yaml.safe_dump(domain).encode())))))
-    assert 'https://example.org/AbstractPerson' not in release.enum_members('AgentClassIRI')
-    assert 'https://example.org/Person' in release.enum_members('AgentClassIRI')
+    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    domain = {
+        "id": "https://example.org/x",
+        "name": "x",
+        "prefixes": {"ex": "https://example.org/"},
+        "default_prefix": "ex",
+        "imports": ["core"],
+        "classes": {
+            "AbstractPerson": {"is_a": "Entity", "abstract": True, "attributes": {"name": {}}},
+            "Person": {"is_a": "AbstractPerson"},
+        },
+    }
+    release = prepare_release(
+        proposal_inputs(
+            SourceBundle(
+                "x",
+                (
+                    SourceArtifact("core", core.read_bytes()),
+                    SourceArtifact("x", yaml.safe_dump(domain).encode()),
+                ),
+            )
+        )
+    )
+    assert "https://example.org/AbstractPerson" not in release.enum_members("AgentClassIRI")
+    assert "https://example.org/Person" in release.enum_members("AgentClassIRI")
 
 
 def test_boundary_source_creation_does_not_generate_full_graph_artifacts(monkeypatch):
     import corpus_structure.semantic.ontology as ontology
 
     def unexpected(*args, **kwargs):
-        raise AssertionError('boundary source creation must not materialize unused OWL/SHACL')
+        raise AssertionError("boundary source creation must not materialize unused OWL/SHACL")
 
-    monkeypatch.setattr(ontology, 'build_graph_artifacts', unexpected)
-    path = Path(__file__).parents[2] / 'src/corpus_structure/model/semantic/core.yaml'
-    source = SourceBundle('core', (SourceArtifact('core', path.read_bytes()),))
+    monkeypatch.setattr(ontology, "build_graph_artifacts", unexpected)
+    path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
+    source = SourceBundle("core", (SourceArtifact("core", path.read_bytes()),))
     result = proposal_inputs(source)
-    agent = next(item for item in result.sources if item.name == 'agent')
-    vocabulary = yaml.safe_load(agent.content)['enums']['AgentClassIRI']['permissible_values']
-    assert 'https://corpus-structure.dev/semantic/Entity' in vocabulary
+    agent = next(item for item in result.sources if item.name == "agent")
+    vocabulary = yaml.safe_load(agent.content)["enums"]["AgentClassIRI"]["permissible_values"]
+    assert "https://corpus-structure.dev/semantic/Entity" in vocabulary

@@ -1,0 +1,39 @@
+# SP-06/SP-07 execution-fit timing diagnosis
+
+**Measured, 2026-10-29; scoped result.** The operator challenged an 80.67-second native
+statistics test. The same diagnostic command then established a reproducible bottleneck in
+release graph generation, rather than database setup or publication. This is one local test,
+not a throughput, capacity or whole-suite claim.
+
+```sh
+uv run --no-sync python docs/design_review/evidence/2026-10-29_sp06-execution-fit/profile_test.py
+```
+
+| Measurement | Baseline | After repair |
+|---|---:|---:|
+| Entire diagnostic process | 101.331 s | 4.741 s |
+| Pytest test body | 98.381 s | 2.686 s |
+| Graph artifact generation | 4 calls, 95.295 s | 1 call, 0.843 s |
+| Database migrations | 0.098 s | 0.102 s |
+
+Both executions passed the actual native statistics-cut test. Inclusive wrapped function time
+overlaps other phases; SQL time must not be added to those totals. Parameters and connection
+URLs were not collected. Baseline and repaired raw outputs are retained in `raw/`; the draft record
+`sp06.execution-fit` retains the measured conclusion (finalization stopped with closeout). Baseline preceded the repair; the repaired
+run used compiler 6. Later frozen-math-context and typing repairs do not alter this graph path.
+Earlier functional receipts and the interrupted closeout boundary are reported in the owning plan.
+
+The repair addresses redundant preparation (H12/H19) and execution fit (H20): proposal schema
+preview avoids unused OWL/SHACL generation; an eight-entry cache reuses pure immutable release
+preparation keyed by bundle, dependencies, profile, compiler, Python and library stack; RDF
+canonicalization uses LinkML runtime's existing PyOxigraph RDFC-1.0 implementation. Standard-RDF
+fallback warnings refuse instead of silently invoking the slow Python algorithm. No new
+runtime instrumentation, thresholds or acceptance gate was added.
+
+Canonical blank labels/artifact bytes change, so compiler identity is 6 and the library stack
+records the already-locked PyOxigraph 0.5.13. RDF 1.1 string semantics normalize explicit
+`xsd:string`; numerical lexical values remain exact. [Library investigation](library/README.md)
+retains the small semantic probe and its initial parse-normalization diagnostic. Exact archive,
+manifest and relational projection validation remains on every database reload; the cache does
+not cache database state or bypass integrity checks. Archive corruption and preparation controls
+passed in the separate 86-test scoped receipt. No existing operational release was replaced.

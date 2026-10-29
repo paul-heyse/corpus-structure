@@ -1,20 +1,31 @@
 """Protect finite inference proofs and reject ungrounded derivation cycles."""
+
 from pathlib import Path
+
 from alembic import op
-revision = 'semantic_0007'
-down_revision = 'semantic_0006'
+
+revision = "semantic_0007"
+down_revision = "semantic_0006"
 branch_labels = None
 depends_on = None
 
+
 def upgrade() -> None:
     conn = op.get_bind()
-    previous = conn.dialect.identifier_preparer.quote(conn.exec_driver_sql('SELECT current_user').scalar_one())
-    database = conn.dialect.identifier_preparer.quote(conn.exec_driver_sql('SELECT current_database()').scalar_one())
-    conn.exec_driver_sql('GRANT TEMP ON DATABASE ' + database + ' TO corpus_sem_writer')
-    conn.exec_driver_sql('SET LOCAL ROLE corpus_sem_publisher')
-    conn.exec_driver_sql(Path(__file__).with_name('semantic_0007_inference.sql').read_text(),
-                         execution_options={'no_parameters':True})
-    conn.exec_driver_sql('SET LOCAL ROLE ' + previous)
+    previous = conn.dialect.identifier_preparer.quote(
+        conn.exec_driver_sql("SELECT current_user").scalar_one()
+    )
+    database = conn.dialect.identifier_preparer.quote(
+        conn.exec_driver_sql("SELECT current_database()").scalar_one()
+    )
+    conn.exec_driver_sql("GRANT TEMP ON DATABASE " + database + " TO corpus_sem_writer")
+    conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+    conn.exec_driver_sql(
+        Path(__file__).with_name("semantic_0007_inference.sql").read_text(),
+        execution_options={"no_parameters": True},
+    )
+    conn.exec_driver_sql("SET LOCAL ROLE " + previous)
+
 
 def downgrade() -> None:
-    raise RuntimeError('destructive inference downgrade refused; rebuild a fresh database')
+    raise RuntimeError("destructive inference downgrade refused; rebuild a fresh database")

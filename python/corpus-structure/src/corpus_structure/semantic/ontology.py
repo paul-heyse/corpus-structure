@@ -28,8 +28,8 @@ from linkml_runtime.linkml_model import (
     SlotDefinition,
     TypeDefinition,
 )
-from linkml_runtime.utils.schemaview import SchemaView
 from linkml_runtime.utils.rdf_canonicalize import RDFCanonicalizationWarning, canonicalize_rdf_graph
+from linkml_runtime.utils.schemaview import SchemaView
 from linkml_term_validator.plugins import (
     BindingValidationPlugin,
     DynamicEnumPlugin,

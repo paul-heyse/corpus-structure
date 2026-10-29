@@ -174,14 +174,16 @@ def helpers() -> SimpleNamespace:
 
 
 @pytest.fixture
-def pool_run(committing_db,helpers):
+def pool_run(committing_db, helpers):
     import hashlib
     import json
     from datetime import UTC, datetime, timedelta
     from pathlib import Path
     from types import SimpleNamespace
+
     import yaml
     from sqlalchemy import text
+
     from corpus_structure.consolidate.pass_ import ConsolidateConfig
     from corpus_structure.core.batch import AuthoredBatch, CitationFrame
     from corpus_structure.core.db import repo
@@ -194,16 +196,20 @@ def pool_run(committing_db,helpers):
     from corpus_structure.schema import registry
     from corpus_structure.schema.lookup import name_map
     from corpus_structure.schema.pack import load_pack
+
     REPO = Path(__file__).resolve().parents[4]
-    ROOT = 'siegrist_random/random'
-    PAGE = 'special/Normal.html'
-    CUT = datetime(2026,10,28,12,0,tzinfo=UTC)
-    BEFORE, AFTER = ('T2','T3','U6'), ('U5',)
+    ROOT = "siegrist_random/random"
+    PAGE = "special/Normal.html"
+    CUT = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
+    BEFORE, AFTER = ("T2", "T3", "U6"), ("U5",)
+
     def config():
-        raw=yaml.safe_load((REPO/'domains/statistics/methods.yaml').read_text())
-        return ConsolidateConfig(aliases=raw['aliases'],math=raw['math'])
-    def sql(conn,query,**params):
-        return conn.execute(text(query),params)
+        raw = yaml.safe_load((REPO / "domains/statistics/methods.yaml").read_text())
+        return ConsolidateConfig(aliases=raw["aliases"], math=raw["math"])
+
+    def sql(conn, query, **params):
+        return conn.execute(text(query), params)
+
     uri = f"{ROOT}/{PAGE}"
     raw = (REPO / "fixtures/trace/corpus" / uri).read_bytes()
     content = build_rendition(
@@ -341,12 +347,30 @@ def pool_run(committing_db,helpers):
 
 @pytest.fixture
 def finalized_pool_run(pool_run):
-    from datetime import UTC,datetime
+    from datetime import UTC, datetime
+
     from sqlalchemy import text
+
     from corpus_structure.consolidate import run_pass
+
     with pool_run.engine.begin() as conn:
-        conn.execute(text("UPDATE ops.run SET cut_at=:cut,cut_m19_task_id=:m,status='consolidating' WHERE id=:r"),{'cut':datetime(2026,10,28,12,0,tzinfo=UTC),'m':pool_run.m19,'r':pool_run.run})
+        conn.execute(
+            text(
+
+                    'UPDATE ops.run SET '
+                    "cut_at=:cut,cut_m19_task_id=:m,status='consolidating' WHERE id=:r"
+
+            ),
+            {
+                "cut": datetime(2026, 10, 28, 12, 0, tzinfo=UTC),
+                "m": pool_run.m19,
+                "r": pool_run.run,
+            },
+        )
     with pool_run.engine.begin() as conn:
-        run_pass(conn,pool_run.run,'finalize',pool_run.m19)
-        conn.execute(text("UPDATE ops.run SET status='finished',finished_at=now() WHERE id=:r"),{'r':pool_run.run})
+        run_pass(conn, pool_run.run, "finalize", pool_run.m19)
+        conn.execute(
+            text("UPDATE ops.run SET status='finished',finished_at=now() WHERE id=:r"),
+            {"r": pool_run.run},
+        )
     return pool_run

@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import Connection, text
 
 from corpus_structure.serve.journey import QueryRefused, StaleToken, coverage, serve_query
-from corpus_structure.serve.protocol import QueryContext, Scope, Positioned
+from corpus_structure.serve.protocol import Positioned, QueryContext, Scope
 from corpus_structure.serve.registry import QueryRegistryError, build_registry
 
 CUT = datetime(2026, 10, 28, 12, 0, tzinfo=UTC)
@@ -195,24 +195,26 @@ def test_coverage_counts_the_fates_as_of_the_cut(
     assert result.rows  # partial coverage never fails a query
 
 
-def test_serialized_response_character_bound_counts_envelope(db,world,helpers):
-    run=finished_run(db,world,helpers)
-    reg=build_registry([Count()])
-    first=serve_query(db,reg,'count',{'n':5},run=run,max_rows=1)
-    bound=len(first.model_dump_json())
-    page=serve_query(db,reg,'count',{'n':5},run=run,max_chars=bound)
-    found=list(page.rows)
-    assert len(page.model_dump_json())<=bound
+def test_serialized_response_character_bound_counts_envelope(db, world, helpers):
+    run = finished_run(db, world, helpers)
+    reg = build_registry([Count()])
+    first = serve_query(db, reg, "count", {"n": 5}, run=run, max_rows=1)
+    bound = len(first.model_dump_json())
+    page = serve_query(db, reg, "count", {"n": 5}, run=run, max_chars=bound)
+    found = list(page.rows)
+    assert len(page.model_dump_json()) <= bound
     while page.next_page_token:
-        page=serve_query(db,reg,'count',{'n':5},page_token=page.next_page_token,max_chars=bound)
-        assert len(page.model_dump_json())<=bound
-        found+=page.rows
-    assert [r['i'] for r in found]==list(range(5))
+        page = serve_query(
+            db, reg, "count", {"n": 5}, page_token=page.next_page_token, max_chars=bound
+        )
+        assert len(page.model_dump_json()) <= bound
+        found += page.rows
+    assert [r["i"] for r in found] == list(range(5))
 
 
-def test_page_demand_reaches_query_context(db,world,helpers):
-    run=finished_run(db,world,helpers)
-    query=Count()
-    page=serve_query(db,build_registry([query]),'count',{'n':5},run=run,max_rows=2)
-    assert query.row_batches==[3]
-    assert [r['i'] for r in page.rows]==[0,1]
+def test_page_demand_reaches_query_context(db, world, helpers):
+    run = finished_run(db, world, helpers)
+    query = Count()
+    page = serve_query(db, build_registry([query]), "count", {"n": 5}, run=run, max_rows=2)
+    assert query.row_batches == [3]
+    assert [r["i"] for r in page.rows] == [0, 1]

@@ -384,7 +384,9 @@ def test_actual_builtin_linkml_types_are_explicit_manifest_dependencies():
 def test_known_annotation_on_unsupported_host_refuses():
     with pytest.raises(PreparationError) as error:
         prepare_release(
-            bundle(lambda d: d["classes"]["Thing"].update(annotations={"cs:key_role": "provenance"}))
+            bundle(
+                lambda d: d["classes"]["Thing"].update(annotations={"cs:key_role": "provenance"})
+            )
         )
     assert error.value.diagnostics[0].code == "unsupported_annotation_placement"
 
@@ -464,49 +466,61 @@ def test_manifest_owns_supported_compiler_version():
 
 
 def test_class_scope_and_case_are_admitted_operation_policy_not_property_key_roles():
-    release=prepare_release(bundle(lambda d:d['classes']['Thing'].update(annotations={'cs:scope':'global','cs:case':'casefold'})))
-    row=next(r for r in release.registry_rows if r.kind=='operation_class' and r.name=='Thing')
-    assert json.loads(row.body)['cs:scope']=='global'
-    assert json.loads(row.body)['cs:case']=='casefold'
-    with pytest.raises(PreparationError,match='unsupported entity scope'):
-        prepare_release(bundle(lambda d:d['classes']['Thing'].update(annotations={'cs:scope':'guessed'})))
-
+    release = prepare_release(
+        bundle(
+            lambda d: d["classes"]["Thing"].update(
+                annotations={"cs:scope": "global", "cs:case": "casefold"}
+            )
+        )
+    )
+    row = next(
+        r for r in release.registry_rows if r.kind == "operation_class" and r.name == "Thing"
+    )
+    assert json.loads(row.body)["cs:scope"] == "global"
+    assert json.loads(row.body)["cs:case"] == "casefold"
+    with pytest.raises(PreparationError, match="unsupported entity scope"):
+        prepare_release(
+            bundle(lambda d: d["classes"]["Thing"].update(annotations={"cs:scope": "guessed"}))
+        )
 
 
 def test_duplicate_schema_definitions_refuse_before_interpretation():
     source = bundle().sources[0]
     duplicate = source.content + b"classes: {Other: {attributes: {name: {}}}}\n"
     with pytest.raises(PreparationError) as failure:
-        prepare_release(SourceBundle('example', (SourceArtifact('example', duplicate),)))
-    assert failure.value.diagnostics[0].code == 'schema'
-    assert 'Duplicate key' in failure.value.diagnostics[0].message
+        prepare_release(SourceBundle("example", (SourceArtifact("example", duplicate),)))
+    assert failure.value.diagnostics[0].code == "schema"
+    assert "Duplicate key" in failure.value.diagnostics[0].message
 
 
-
-@pytest.mark.parametrize('range_name, role', [('integer', 'fact'), ('string', 'guess')])
+@pytest.mark.parametrize("range_name, role", [("integer", "fact"), ("string", "guess")])
 def test_invalid_reference_role_declarations_refuse(range_name, role):
-    source = bundle(lambda schema: schema['classes']['Thing']['attributes'].update(
-        premise={'range': range_name, 'annotations': {'cs:reference_role': role}},
-    ))
+    source = bundle(
+        lambda schema: schema["classes"]["Thing"]["attributes"].update(
+            premise={"range": range_name, "annotations": {"cs:reference_role": role}},
+        )
+    )
     with pytest.raises(PreparationError) as failure:
         prepare_release(source)
-    assert failure.value.diagnostics[0].code == 'reference_role'
-    assert failure.value.diagnostics[0].outcome == 'unsupported'
-
+    assert failure.value.diagnostics[0].code == "reference_role"
+    assert failure.value.diagnostics[0].outcome == "unsupported"
 
 
 def test_unknown_functional_semantics_refuse():
-    source = bundle(lambda schema: schema['classes']['Thing']['attributes']['amount'].update(
-        annotations={'cs:functional': 'maybe'},
-    ))
+    source = bundle(
+        lambda schema: schema["classes"]["Thing"]["attributes"]["amount"].update(
+            annotations={"cs:functional": "maybe"},
+        )
+    )
     with pytest.raises(PreparationError) as failure:
         prepare_release(source)
-    assert failure.value.diagnostics[0].code == 'functional_policy'
-    assert failure.value.diagnostics[0].outcome == 'unsupported'
+    assert failure.value.diagnostics[0].code == "functional_policy"
+    assert failure.value.diagnostics[0].outcome == "unsupported"
 
 
 def test_pure_preparation_reuses_only_identical_inputs_and_compiler_stack(monkeypatch):
     import corpus_structure.semantic.prepare as compiler
+
     compiler._prepare_release_cached.cache_clear()
     original = compiler._prepare_release_uncached
     calls = []
@@ -515,14 +529,23 @@ def test_pure_preparation_reuses_only_identical_inputs_and_compiler_stack(monkey
         calls.append(args[3])
         return original(*args)
 
-    monkeypatch.setattr(compiler, '_prepare_release_uncached', counted)
+    monkeypatch.setattr(compiler, "_prepare_release_uncached", counted)
     source = bundle()
     first = compiler.prepare_release(source)
     assert compiler.prepare_release(SourceBundle(source.root, tuple(source.sources))) is first
-    changed = SourceBundle(source.root, (SourceArtifact(source.sources[0].name, source.sources[0].content + b'\n'),))
+    changed = SourceBundle(
+        source.root, (SourceArtifact(source.sources[0].name, source.sources[0].content + b"\n"),)
+    )
     assert compiler.prepare_release(changed).release_id != first.release_id
     stack = compiler._compiler_stack()
-    monkeypatch.setattr(compiler, '_compiler_stack', lambda: tuple((name, version + '-changed') if name == 'pydantic' else (name, version) for name, version in stack))
+    monkeypatch.setattr(
+        compiler,
+        "_compiler_stack",
+        lambda: tuple(
+            (name, version + "-changed") if name == "pydantic" else (name, version)
+            for name, version in stack
+        ),
+    )
     assert compiler.prepare_release(source) is not first
     assert len(calls) == 3
     compiler._prepare_release_cached.cache_clear()

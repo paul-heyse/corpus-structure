@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel,Field
+from pydantic import BaseModel, Field
 from sqlalchemy import Connection, Engine, text
 
 from corpus_structure.core.method import RunView, UnitRef, UnitView
@@ -221,7 +221,9 @@ class LeasedTask(BaseModel):
     unit_key: str
     parts: int
     chars: int
-    previous_issues: tuple[ProposalIssue,...] = Field(default=(),exclude_if=lambda issues:not issues)
+    previous_issues: tuple[ProposalIssue, ...] = Field(
+        default=(), exclude_if=lambda issues: not issues
+    )
 
 
 class QueueNext(BaseModel):

@@ -29,7 +29,9 @@ def snapshot(conn: Any, run: int, aliases: dict[str, str]) -> Any:
         "SELECT key,type,label,scope,kind,attrs FROM kb.entity WHERE run_id=:r ORDER BY key"
     ), {"r": run}).all()
     claims = conn.execute(text(
-        "SELECT c.key,c.predicate,s.key,o.key,c.object_value,c.qualifiers,c.modality,c.polarity,c.status "
+        'SELECT '
+        'c.key,c.predicate,s.key,o.key,c.object_value,c.qualifiers,c.modality,c'
+        '.polarity,c.status '
         "FROM kb.claim c JOIN kb.entity s ON s.id=c.subject_id "
         "LEFT JOIN kb.entity o ON o.id=c.object_entity_id WHERE c.run_id=:r ORDER BY c.key"
     ), {"r": run}).all()
@@ -55,9 +57,12 @@ def namespace_ids(conn: Any, run: int) -> dict[str, str]:
     # identities by source and anchor structure across these distinct namespaces;
     # global keys remain literal and must agree. No key scheme is changed here.
     rows = conn.execute(text(
-        "SELECT e.key,e.type,e.scope,e.label,e.statement_ordinal,s.kind,s.start_offset,s.end_offset,d.source_uri "
+        'SELECT '
+        'e.key,e.type,e.scope,e.label,e.statement_ordinal,s.kind,s.start_offset'
+        ',s.end_offset,d.source_uri '
         "FROM kb.entity e LEFT JOIN kb.segment s ON s.id=e.scope_segment_id "
-        "LEFT JOIN kb.rendition r ON r.id=s.rendition_id LEFT JOIN kb.document d ON d.id=r.document_id "
+        'LEFT JOIN kb.rendition r ON r.id=s.rendition_id LEFT JOIN kb.document '
+        'd ON d.id=r.document_id '
         "WHERE e.run_id=:r"), {"r":run}).all()
     aliases = {r.key: json.dumps(list(r)[1:], ensure_ascii=False) for r in rows if r.scope == "local"}
     segments = conn.execute(text(
@@ -69,7 +74,8 @@ def namespace_ids(conn: Any, run: int) -> dict[str, str]:
         target = json.loads((REPO / "fixtures/trace" / f"{unit}.target.json").read_text())
         keyed = target_keys(conn,run,target)
         for ref,key in keyed.claims.items(): aliases.setdefault(key, f"{unit}:{ref}")
-    c = conn.execute(text("SELECT key,predicate,subject_id,object_value FROM kb.claim WHERE run_id=:r"), {"r":run}).all()
+    c = conn.execute(text('SELECT key,predicate,subject_id,object_value FROM kb.claim WHERE '
+    'run_id=:r'), {"r":run}).all()
     entity_ids = dict(conn.execute(text("SELECT id,key FROM kb.entity WHERE run_id=:r"), {"r":run}).all())
     for row in c:
         aliases.setdefault(row.key, json.dumps([row.predicate, aliases.get(entity_ids[row.subject_id], entity_ids[row.subject_id]), row.object_value],sort_keys=True))
@@ -80,11 +86,12 @@ def target_keys(conn: Any, run: int, target: dict[str, Any]) -> Any:
     # The authored target is independent of the proposals and consolidation. Only the
     # established locator/canonical-key primitives are shared, never the pass or queries.
     import yaml
+
+    from corpus_structure.consolidate.pass_ import ConsolidateConfig
     from corpus_structure.core import tex
     from corpus_structure.core.batch import AuthoredBatch, CitationFrame
     from corpus_structure.core.db import repo
     from corpus_structure.core.keys import KeyContext, key_claims
-    from corpus_structure.consolidate.pass_ import ConsolidateConfig
     from corpus_structure.methods.llm.parse import RenditionView, parse
     from corpus_structure.schema.compile import compile_paths
     from corpus_structure.validate.adapter import candidates_from_batch
@@ -93,7 +100,8 @@ def target_keys(conn: Any, run: int, target: dict[str, Any]) -> Any:
     cfg = ConsolidateConfig.model_validate({k: v for k, v in yaml.safe_load(
         (REPO / "domains/statistics/methods.yaml").read_text()).items() if k in {"aliases", "math"}})
     rid, doc = conn.execute(text(
-        "SELECT rr.rendition_id,d.key FROM kb.run_rendition rr JOIN kb.document d ON d.id=rr.document_id "
+        'SELECT rr.rendition_id,d.key FROM kb.run_rendition rr JOIN '
+        'kb.document d ON d.id=rr.document_id '
         "WHERE rr.run_id=:r AND d.source_uri=:uri"),
         {"r": run, "uri": "siegrist_random/random/" + target["page"]}).one()
     content = repo.read_rendition(conn, rid)
@@ -258,7 +266,8 @@ def journey(engine: Any, tmp: Path, name: str, cli: Any, *, reverse: bool = Fals
                 assert result.exit_code == 0, result.output
                 assert json.loads(result.stdout) == answer.model_dump(mode="json")
                 answers.append((question["query"], question["params"], answer.rows))
-        fates = conn.execute(text("SELECT status,count(*) FROM ops.task WHERE run_id=:r AND stage='propose' "
+        fates = conn.execute(text('SELECT status,count(*) FROM ops.task WHERE run_id=:r AND '
+        "stage='propose' "
                                   "AND unit_key=ANY(:u) GROUP BY status"),
                              {"r": second.run_id, "u": list(batches)}).all()
         assert fates == [("reused", 5)]

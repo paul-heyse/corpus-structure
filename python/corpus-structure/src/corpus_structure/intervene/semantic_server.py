@@ -12,12 +12,12 @@ from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
-from pydantic import TypeAdapter, BaseModel, ConfigDict, JsonValue, ValidationError
+from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import Engine, func, select, text, update
 
 from corpus_structure.intervene import service, submission
-from corpus_structure.intervene.semantic import ProposalSession,RefusedProposal
-from corpus_structure.semantic.proposals import ProposalRefused,ProposalIssue
+from corpus_structure.intervene.semantic import ProposalSession, RefusedProposal
+from corpus_structure.semantic.proposals import ProposalIssue, ProposalRefused
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import Settings
 
@@ -166,7 +166,14 @@ class SemanticAgentSession:
                             unit_key=packet.frame.unit_ref,
                             parts=len(pages),
                             chars=sum(map(len, pages)),
-                            previous_issues=TypeAdapter(tuple[ProposalIssue,...]).validate_python(((task["error"] or {}).get("semantic_proposal_first_result",{}).get("result",{}).get("issues",()))),
+                            previous_issues=TypeAdapter(tuple[ProposalIssue, ...]).validate_python(
+
+                                    (task["error"] or {})
+                                    .get("semantic_proposal_first_result", {})
+                                    .get("result", {})
+                                    .get("issues", ())
+
+                            ),
                         )
                     )
                 if out:
@@ -310,17 +317,31 @@ def build_semantic_server(
             )
             with session.engine.begin() as conn:
                 result = active.commit(conn, checked)
-            if result.status=='held':
-                return submission.SubmissionResult(task_id=task_id,status='held',task_open=True,
-                    rejected=[submission.ItemIssue(path=issue.path,category='parse',code=issue.code,message=issue.detail) for issue in checked.issues])
+            if result.status == "held":
+                return submission.SubmissionResult(
+                    task_id=task_id,
+                    status="held",
+                    task_open=True,
+                    rejected=[
+                        submission.ItemIssue(
+                            path=issue.path, category="parse", code=issue.code, message=issue.detail
+                        )
+                        for issue in checked.issues
+                    ],
+                )
             session.sessions.pop(task_id, None)
-            data = {} if isinstance(checked,RefusedProposal) else checked.stored.model_dump()
+            data = {} if isinstance(checked, RefusedProposal) else checked.stored.model_dump()
             return submission.SubmissionResult(
                 task_id=task_id,
                 status="done",
                 task_open=False,
                 observation_id=result.observation_ids[0],
-                rejected=[submission.ItemIssue(path=issue.path,category="parse",code=issue.code,message=issue.detail) for issue in checked.issues],
+                rejected=[
+                    submission.ItemIssue(
+                        path=issue.path, category="parse", code=issue.code, message=issue.detail
+                    )
+                    for issue in checked.issues
+                ],
                 accepted={
                     name: len(data.get(name, ()))
                     for name in ("entities", "statements", "claims", "alternatives", "unsupported")

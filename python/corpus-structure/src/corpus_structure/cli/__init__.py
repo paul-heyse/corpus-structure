@@ -10,7 +10,7 @@ from collections.abc import Callable
 
 import typer
 
-from corpus_structure.cli import db, golden, mcp, orchestrate, schema, status, query, explain
+from corpus_structure.cli import db, explain, golden, mcp, orchestrate, query, schema, status
 from corpus_structure.cli.planned import Planned
 
 _F, _S, _I, _O = "foundations", "schema and rules", "ingest and math", "orchestration"

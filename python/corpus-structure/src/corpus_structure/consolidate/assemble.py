@@ -289,7 +289,11 @@ def _markup(pool: contract.Pool, inputs: Inputs) -> dict[int, Markup]:
             key = m.page.key_of(segment)
             if segment.kind not in STATEMENT_ANCHOR and key not in units:
                 continue
-            kind = NARRATIVE if key in units and segment.kind not in STATEMENT_ANCHOR else FALLBACK_KIND
+            kind = (
+                NARRATIVE
+                if key in units and segment.kind not in STATEMENT_ANCHOR
+                else FALLBACK_KIND
+            )
             m.statements[key] = CandidateStatement(id=key, kind=kind, anchor=(key,))
             hint = segment.attrs.get("hint")
             if inputs.use_markup_hints and isinstance(hint, dict) and "statement_kind" in hint:

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "id": "sp06.execution-fit",
+  "title": "SP06 native statistics-cut release preparation repair",
+  "package": "SP-06",
+  "finalized": "2026-10-29",
+  "question": "Does the slow native statistics test reveal avoidable repeated release preparation and graph canonicalization?",
+  "answers": [
+    "SP-06",
+    "SP-07"
+  ],
+  "method": "Run the same native statistics-cut test with scoped Python timing wrappers before and after the preparation/canonicalization repair; preserve both passing measurements and the separate native RDF semantics probe.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-10-29_sp06-execution-fit/profile_test.py"
+  ],
+  "inputs": [
+    {
+      "path": "profile_test.py",
+      "role": "scoped timing wrapper"
+    },
+    {
+      "path": "library/canonicalization_probe.py",
+      "role": "small RDF semantics probe"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "baseline and repaired timings, logs and native RDF observations"
+    }
+  ],
+  "results": [
+    {
+      "name": "baseline_test_body",
+      "value": 98.3806,
+      "unit": "seconds"
+    },
+    {
+      "name": "repaired_test_body",
+      "value": 2.68625745002646,
+      "unit": "seconds"
+    },
+    {
+      "name": "baseline_process",
+      "value": 101.331,
+      "unit": "seconds"
+    },
+    {
+      "name": "repaired_process",
+      "value": 4.740963759017177,
+      "unit": "seconds"
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Repeated release graph preparation and Python canonicalization dominated this test. Preview-only schema binding, bounded pure preparation reuse and LinkML native RDFC canonicalization reduce its measured test body to 2.686 seconds while preserving native statistics assertions. This establishes only this local test and does not establish system capacity, whole-suite performance or assembled package qualification.",
+  "consumed_by": [
+    "SP-06",
+    "SP-07"
+  ]
+}

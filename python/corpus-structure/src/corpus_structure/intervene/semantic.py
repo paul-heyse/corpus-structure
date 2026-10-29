@@ -8,16 +8,16 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any,Literal
-from pydantic import TypeAdapter,JsonValue,ValidationError
+from typing import Any, Literal
 
+from pydantic import JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import Connection
 
 from corpus_structure.semantic.proposals import (
     LocatedProposal,
+    ProposalIssue,
     ProposalPacket,
     ProposalRefused,
-    ProposalIssue,
     locate_proposal,
 )
 from corpus_structure.semantic.types import PreparedRelease
@@ -29,17 +29,18 @@ class ProposalProtocolRefused(ProposalRefused):
 
 @dataclass(frozen=True)
 class RefusedProposal:
-    authored: dict[str,JsonValue]
-    issues: tuple[ProposalIssue,...]
+    authored: dict[str, JsonValue]
+    issues: tuple[ProposalIssue, ...]
 
     @property
-    def clean(self)->bool:return False
+    def clean(self) -> bool:
+        return False
 
 
 @dataclass(frozen=True)
 class ProposalCommit:
-    status: Literal["held","done"]
-    observation_ids: tuple[int,...] = ()
+    status: Literal["held", "done"]
+    observation_ids: tuple[int, ...] = ()
 
 
 @dataclass
@@ -92,69 +93,137 @@ class ProposalSession:
         }
         if needed - self._read:
             raise ProposalProtocolRefused("read every packet part/page before submitting")
-        if batch.get('unit_ref')!=self.packet.frame.unit_ref:
-            raise ProposalProtocolRefused('proposal unit does not match its bound source frame')
+        if batch.get("unit_ref") != self.packet.frame.unit_ref:
+            raise ProposalProtocolRefused("proposal unit does not match its bound source frame")
         try:
-            checked = locate_proposal(self.prepared,batch,self.packet.frame,
-                known_classes=dict(self.packet.known_classes),macros=dict(self.packet.macros))
-        except (ProposalRefused,ValidationError) as exc:
+            checked = locate_proposal(
+                self.prepared,
+                batch,
+                self.packet.frame,
+                known_classes=dict(self.packet.known_classes),
+                macros=dict(self.packet.macros),
+            )
+        except (ProposalRefused, ValidationError) as exc:
             from copy import deepcopy
-            checked=RefusedProposal(TypeAdapter(dict[str,JsonValue]).validate_python(deepcopy(dict(batch))),
-                (ProposalIssue('$','proposal_invalid',str(exc)),))
+
+            checked = RefusedProposal(
+                TypeAdapter(dict[str, JsonValue]).validate_python(deepcopy(dict(batch))),
+                (ProposalIssue("$", "proposal_invalid", str(exc)),),
+            )
         self._checked = checked
         return checked
 
-    def commit(self, conn: Connection, checked: LocatedProposal | RefusedProposal) -> ProposalCommit:
+    def commit(
+        self, conn: Connection, checked: LocatedProposal | RefusedProposal
+    ) -> ProposalCommit:
         """Append the rich located report and complete the task atomically under its fence."""
         if checked is not self._checked:
             raise ProposalRefused("checked result was not prepared by this served session")
-        authored=checked.authored if isinstance(checked,RefusedProposal) else checked.authored.model_dump(mode="json")
+        authored = (
+            checked.authored
+            if isinstance(checked, RefusedProposal)
+            else checked.authored.model_dump(mode="json")
+        )
         if authored["unit_ref"] != self.packet.frame.unit_ref:
             raise ProposalRefused("checked proposal belongs to another source unit")
         from sqlalchemy import select
 
         from corpus_structure.semantic.metadata import table
-        from corpus_structure.semantic.operations import complete_task,hold_agent_result
+        from corpus_structure.semantic.operations import complete_task, hold_agent_result
 
         tasks = table("ops.task")
         task = conn.execute(
-            select(tasks.c.packet_hash, tasks.c.unit_key)
-            .where(tasks.c.id == self.task_id)
+            select(tasks.c.packet_hash, tasks.c.unit_key).where(tasks.c.id == self.task_id)
         ).one()
         if task.packet_hash != self.packet.hash or task.unit_key != self.packet.frame.unit_ref:
             raise ProposalRefused("served packet does not match the recorded task input")
         from corpus_structure.semantic.observations import source_value
-        diagnostic={"packet_hash":self.packet.hash,"schema_hash":self.packet.schema_hash,
-            "unit_ref":self.packet.frame.unit_ref,"clean":checked.clean,
-            "issues":TypeAdapter(tuple[ProposalIssue,...]).dump_python(checked.issues,mode='json'),
-            "authored":source_value(authored)}
-        if hold_agent_result(conn,task_id=self.task_id,attempt=self.attempt,holder=self.holder,
-                             packet_hash=self.packet.hash,clean=checked.clean,result=diagnostic):
-            return ProposalCommit('held')
+
+        diagnostic = {
+            "packet_hash": self.packet.hash,
+            "schema_hash": self.packet.schema_hash,
+            "unit_ref": self.packet.frame.unit_ref,
+            "clean": checked.clean,
+            "issues": TypeAdapter(tuple[ProposalIssue, ...]).dump_python(
+                checked.issues, mode="json"
+            ),
+            "authored": source_value(authored),
+        }
+        if hold_agent_result(
+            conn,
+            task_id=self.task_id,
+            attempt=self.attempt,
+            holder=self.holder,
+            packet_hash=self.packet.hash,
+            clean=checked.clean,
+            result=diagnostic,
+        ):
+            return ProposalCommit("held")
         # The native helper holds the run/task locks through the terminal fence, including a
         # clean result racing an uncertain result. The durable first result cannot be lost.
-        error=conn.execute(select(tasks.c.error).where(tasks.c.id==self.task_id)).scalar_one()
-        first_result=error.get('semantic_proposal_first_result') if error else None
-        envelope={"operation":"agent_submission","result":diagnostic,"first_result":first_result}
-        if isinstance(checked,RefusedProposal):
-            from corpus_structure.semantic.operations import binding_of,observation_key
+        error = conn.execute(select(tasks.c.error).where(tasks.c.id == self.task_id)).scalar_one()
+        first_result = error.get("semantic_proposal_first_result") if error else None
+        envelope = {
+            "operation": "agent_submission",
+            "result": diagnostic,
+            "first_result": first_result,
+        }
+        if isinstance(checked, RefusedProposal):
             from corpus_structure.semantic.observations import source_value
-            row=conn.execute(select(tasks).where(tasks.c.id==self.task_id)).mappings().one()
-            binding=binding_of(conn,row['run_id'])
-            key=observation_key(binding,row['input_hash'],'SourceObservation','semantic_proposal_refused/0',row['invocation_key'])
-            payload=self.prepared.validate_python('SourceObservation',{
-                'observation_key':key,'item_key':'semantic_proposal_refused/0',
-                'family':'semantic_proposal_refused','outcome':'failed','confidence_source':'agent',
-                'payload':source_value({'authored':authored,'issues':diagnostic['issues']})}).model_dump(mode='python')
-            coverage=self.prepared.validate_python('SourceCoverage',{'family':'claim_proposal',
-                'scope':self.packet.frame.unit_ref,'outcome':'failed','reason':'proposal content refused after automated resubmission'}).model_dump(mode='json')
-            envelope['coverage']=[coverage]
-            definition='SourceObservation';kind='semantic_proposal_refused'
+            from corpus_structure.semantic.operations import binding_of, observation_key
+
+            row = conn.execute(select(tasks).where(tasks.c.id == self.task_id)).mappings().one()
+            binding = binding_of(conn, row["run_id"])
+            key = observation_key(
+                binding,
+                row["input_hash"],
+                "SourceObservation",
+                "semantic_proposal_refused/0",
+                row["invocation_key"],
+            )
+            payload = self.prepared.validate_python(
+                "SourceObservation",
+                {
+                    "observation_key": key,
+                    "item_key": "semantic_proposal_refused/0",
+                    "family": "semantic_proposal_refused",
+                    "outcome": "failed",
+                    "confidence_source": "agent",
+                    "payload": source_value({"authored": authored, "issues": diagnostic["issues"]}),
+                },
+            ).model_dump(mode="python")
+            coverage = self.prepared.validate_python(
+                "SourceCoverage",
+                {
+                    "family": "claim_proposal",
+                    "scope": self.packet.frame.unit_ref,
+                    "outcome": "failed",
+                    "reason": "proposal content refused after automated resubmission",
+                },
+            ).model_dump(mode="json")
+            envelope["coverage"] = [coverage]
+            definition = "SourceObservation"
+            kind = "semantic_proposal_refused"
         else:
-            payload=checked.stored.model_dump(mode='python')
-            definition='AgentStoredBatch';kind='claim_proposal';key=None
-        observation={'payload_definition':definition,'item_key':payload['item_key'] if isinstance(checked,RefusedProposal) else 'proposal','kind':kind,'payload':payload}
-        if key is not None:observation['observation_key']=key
-        observations=complete_task(conn,task_id=self.task_id,attempt=self.attempt,holder=self.holder,
-            prepared=self.prepared,envelope=envelope,observations=(observation,))
-        return ProposalCommit("done",tuple(observations))
+            payload = checked.stored.model_dump(mode="python")
+            definition = "AgentStoredBatch"
+            kind = "claim_proposal"
+            key = None
+        observation = {
+            "payload_definition": definition,
+            "item_key": payload["item_key"] if isinstance(checked, RefusedProposal) else "proposal",
+            "kind": kind,
+            "payload": payload,
+        }
+        if key is not None:
+            observation["observation_key"] = key
+        observations = complete_task(
+            conn,
+            task_id=self.task_id,
+            attempt=self.attempt,
+            holder=self.holder,
+            prepared=self.prepared,
+            envelope=envelope,
+            observations=(observation,),
+        )
+        return ProposalCommit("done", tuple(observations))

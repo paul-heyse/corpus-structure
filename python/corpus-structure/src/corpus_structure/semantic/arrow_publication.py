@@ -165,7 +165,9 @@ class ArrowPublicationBatch:
                             row[column] = format(
                                 numeric.copy_abs() if numeric.is_zero() else numeric, "f"
                             )
-                for column, pg_type in zip(fields(STAGE_TYPES[name][0]), STAGE_TYPES[name][1], strict=True):
+                for column, pg_type in zip(
+                    fields(STAGE_TYPES[name][0]), STAGE_TYPES[name][1], strict=True
+                ):
                     if pg_type == "numeric" and isinstance(row[column.name], Decimal):
                         row[column.name] = format(row[column.name], "f")
                 rows.append(list(row.values()))
@@ -223,15 +225,21 @@ class ArrowPublicationBatch:
                     if pg_type != "numeric":
                         continue
                     candidates = [Decimal(row[column]) for row in rows if row[column] is not None]
-                    scale = max((max(-int(value.as_tuple().exponent), 0) for value in candidates), default=0)
+                    scale = max(
+                        (max(-int(value.as_tuple().exponent), 0) for value in candidates), default=0
+                    )
                     if scale > 38:
-                        raise ArrowPublicationError("required numeric value exceeds Decimal128 profile")
+                        raise ArrowPublicationError(
+                            "required numeric value exceeds Decimal128 profile"
+                        )
                     decimals[column] = pa.decimal128(38, scale)
                     try:
                         for value in candidates:
                             pa.scalar(value, type=decimals[column])
                     except (pa.ArrowInvalid, OverflowError) as exc:
-                        raise ArrowPublicationError("required numeric value exceeds Decimal128 profile") from exc
+                        raise ArrowPublicationError(
+                            "required numeric value exceeds Decimal128 profile"
+                        ) from exc
             relations[name] = pa.Table.from_pylist(
                 rows, schema=stage_schema(name, decimals=decimals)
             )

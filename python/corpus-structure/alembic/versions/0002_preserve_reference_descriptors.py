@@ -14,17 +14,21 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = '0002'
-down_revision: str | Sequence[str] | None = '0001'
+revision: str = "0002"
+down_revision: str | Sequence[str] | None = "0001"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 # the model revision (content hash) this migration realizes (core/db/migrations.py)
-model_revision: str = 'eceef3291d1f4e84fffaef165547425644c47c8784cf9323b4c6ca5c5e4c1cdb'
+model_revision: str = "eceef3291d1f4e84fffaef165547425644c47c8784cf9323b4c6ca5c5e4c1cdb"
 
 
 def upgrade() -> None:
-    op.add_column('entity', sa.Column('reference_descriptor', postgresql.JSONB(astext_type=sa.Text()), nullable=True), schema='kb')
+    op.add_column(
+        "entity",
+        sa.Column("reference_descriptor", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        schema="kb",
+    )
 
 
 def downgrade() -> None:
-    op.drop_column('entity', 'reference_descriptor', schema='kb')
+    op.drop_column("entity", "reference_descriptor", schema="kb")

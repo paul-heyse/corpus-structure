@@ -1,19 +1,31 @@
 """Durable first uncertainty and fenced terminal automated resubmission."""
+
 from pathlib import Path
+
 from alembic import op
-revision='semantic_0020'
-down_revision='semantic_0019'
-branch_labels=None
-depends_on=None
 
-def upgrade()->None:
-    conn=op.get_bind()
-    ddl,routines=Path(__file__).with_name('semantic_0020_agent_resubmission.sql').read_text().split('-- Publisher-owned replacement',1)
-    conn.exec_driver_sql(ddl,execution_options={'no_parameters':True})
-    previous=conn.dialect.identifier_preparer.quote(conn.exec_driver_sql('SELECT current_user').scalar_one())
-    conn.exec_driver_sql('SET LOCAL ROLE corpus_sem_publisher')
-    conn.exec_driver_sql(routines,execution_options={'no_parameters':True})
-    conn.exec_driver_sql('SET LOCAL ROLE '+previous)
+revision = "semantic_0020"
+down_revision = "semantic_0019"
+branch_labels = None
+depends_on = None
 
-def downgrade()->None:
-    raise RuntimeError('destructive agent resubmission downgrade refused; rebuild a fresh database')
+
+def upgrade() -> None:
+    conn = op.get_bind()
+    ddl, routines = (
+        Path(__file__)
+        .with_name("semantic_0020_agent_resubmission.sql")
+        .read_text()
+        .split("-- Publisher-owned replacement", 1)
+    )
+    conn.exec_driver_sql(ddl, execution_options={"no_parameters": True})
+    previous = conn.dialect.identifier_preparer.quote(
+        conn.exec_driver_sql("SELECT current_user").scalar_one()
+    )
+    conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+    conn.exec_driver_sql(routines, execution_options={"no_parameters": True})
+    conn.exec_driver_sql("SET LOCAL ROLE " + previous)
+
+
+def downgrade() -> None:
+    raise RuntimeError("destructive agent resubmission downgrade refused; rebuild a fresh database")

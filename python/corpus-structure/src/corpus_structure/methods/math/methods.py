@@ -45,8 +45,8 @@ from corpus_structure.core.method import (
     PackSection,
     Reader,
     Resources,
-    SourceRunContext,
     SourceObservationReference,
+    SourceRunContext,
     StableObservationReading,
     UnitRef,
     UnitResult,
@@ -198,7 +198,10 @@ def _readings(ren: _Rendition, cfg: ExtractMathConfig | NormalizeFormulaConfig) 
 
 
 def _result(
-    unit: UnitView, drafts: Sequence[ObservationDraft[Any]], *, coverage: tuple[CoverageDraft, ...] = ()
+    unit: UnitView,
+    drafts: Sequence[ObservationDraft[Any]],
+    *,
+    coverage: tuple[CoverageDraft, ...] = (),
 ) -> UnitResult:
     outcome = ObservationOutcome.PRODUCED if drafts else ObservationOutcome.EMPTY
     return UnitResult(ref=unit.ref, outcome=outcome, observations=tuple(drafts), coverage=coverage)
@@ -347,11 +350,15 @@ class ExtractMath(_PerRendition):
                     family=M09,
                     scope=ren.key_of(reading.span.segment),
                     outcome="complete" if reading.result.status == ParseOutcome.OK else "partial",
-                    reason=None if reading.result.status == ParseOutcome.OK else reading.result.status.value,
+                    reason=None
+                    if reading.result.status == ParseOutcome.OK
+                    else reading.result.status.value,
                 )
                 for reading in readings
             )
-            out.append(_result(unit, math_drafts(ren, found.mentions, found.relations), coverage=coverage))
+            out.append(
+                _result(unit, math_drafts(ren, found.mentions, found.relations), coverage=coverage)
+            )
         return out
 
 
@@ -368,7 +375,7 @@ class StoredMath:
     values: list[SpanValue]
     refs: dict[int, MentionRef]
     payload_hashes: dict[str, list[str]]
-    source_refs: dict[int,str] = field(default_factory=dict)
+    source_refs: dict[int, str] = field(default_factory=dict)
 
 
 def stored_math(reader: Reader, ren: _Rendition) -> StoredMath:
@@ -400,7 +407,8 @@ def stored_math(reader: Reader, ren: _Rendition) -> StoredMath:
         ordinal = ordinals.get(row.task_id, 0)
         ordinals[row.task_id] = ordinal + 1
         refs[id(mentions[-1])] = MentionRef(task=row.task_id, ordinal=ordinal)
-        if isinstance(row,StableObservationReading):source_refs[id(mentions[-1])]=row.observation_key
+        if isinstance(row, StableObservationReading):
+            source_refs[id(mentions[-1])] = row.observation_key
     relations = []
     for row in relation_rows:
         r = RelationPayload.model_validate(row.payload)
@@ -428,9 +436,14 @@ def stored_math(reader: Reader, ren: _Rendition) -> StoredMath:
         "relations": [r.payload_hash for r in relation_rows],
         "values": [r.payload_hash for r in value_rows],
     }
-    for name,rows in (('mentions',mention_rows),('relations',relation_rows),('values',value_rows)):
-        keys=[row.observation_key for row in rows if isinstance(row,StableObservationReading)]
-        if keys:hashes[name+'_source_inputs']=keys
+    for name, rows in (
+        ("mentions", mention_rows),
+        ("relations", relation_rows),
+        ("values", value_rows),
+    ):
+        keys = [row.observation_key for row in rows if isinstance(row, StableObservationReading)]
+        if keys:
+            hashes[name + "_source_inputs"] = keys
     return StoredMath(mentions, relations, values, refs, hashes, source_refs)
 
 
@@ -439,7 +452,10 @@ def _opt(value: Any) -> str | None:
 
 
 def scope_drafts(
-    ren: _Rendition, scopes: Sequence[Scope], refs: Mapping[int, MentionRef], source_refs:Mapping[int,str]|None=None
+    ren: _Rendition,
+    scopes: Sequence[Scope],
+    refs: Mapping[int, MentionRef],
+    source_refs: Mapping[int, str] | None = None,
 ) -> list[ObservationDraft[Any]]:
     out: list[ObservationDraft[Any]] = []
 
@@ -469,9 +485,15 @@ def scope_drafts(
                 rendition_id=ren.id,
                 segment_id=ren.segment_ids[ren.key_of(m.segment)],
                 span=(m.start, m.end) if m.end > m.start else None,
-                input_refs=tuple(SourceObservationReference(source_refs[id(mention)],role)
-                    for role,mention in (('mention',m),('binding_site',site.mention),*((('reopens',site.reopens.mention),) if site.reopens is not None else ()))
-                    if source_refs is not None and id(mention) in source_refs),
+                input_refs=tuple(
+                    SourceObservationReference(source_refs[id(mention)], role)
+                    for role, mention in (
+                        ("mention", m),
+                        ("binding_site", site.mention),
+                        *((("reopens", site.reopens.mention),) if site.reopens is not None else ()),
+                    )
+                    if source_refs is not None and id(mention) in source_refs
+                ),
             )
         )
     return out

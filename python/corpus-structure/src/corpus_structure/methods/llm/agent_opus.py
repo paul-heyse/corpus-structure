@@ -144,8 +144,11 @@ class AgentOpus:
     def packet(self, unit: UnitView, cfg: AgentOpusConfig) -> P.Packet:
         assert unit.rendition_id is not None and unit.ref.unit_key is not None
         key = (
-            unit.run.run_id, unit.ref.unit_key, unit.rendition_id,
-            cfg.packet_cap_chars, canonical_json(cfg.math.model_dump(mode="json")),
+            unit.run.run_id,
+            unit.ref.unit_key,
+            unit.rendition_id,
+            cfg.packet_cap_chars,
+            canonical_json(cfg.math.model_dump(mode="json")),
         )
         with self._lock:
             found = self._packets.get(key)

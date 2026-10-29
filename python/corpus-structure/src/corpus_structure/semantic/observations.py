@@ -29,8 +29,13 @@ def observation_inputs(bundle: SourceBundle) -> SourceBundle:
     names = {source.name for source in bundle.sources}
     if names & {"observations", "observation-root"}:
         from .prepare import _view
-        module=next((source for source in bundle.sources if source.name=='observations'),None)
-        if module is not None and module.content==_MODEL.read_bytes() and 'SourceObservation' in _view(bundle).all_classes():
+
+        module = next((source for source in bundle.sources if source.name == "observations"), None)
+        if (
+            module is not None
+            and module.content == _MODEL.read_bytes()
+            and "SourceObservation" in _view(bundle).all_classes()
+        ):
             return bundle
         raise ValueError("reserved observation module name already supplied with another meaning")
     return SourceBundle(
@@ -130,7 +135,17 @@ def bind_result(
     The operational repository still fences and persists this product atomically with the task.
     """
     unit_key = result.ref.unit_key
-    if not all((source, method, operation_version, configuration_hash, input_hash, invocation_key, unit_key)):
+    if not all(
+        (
+            source,
+            method,
+            operation_version,
+            configuration_hash,
+            input_hash,
+            invocation_key,
+            unit_key,
+        )
+    ):
         raise ValueError("a source report requires complete source, unit and operation identity")
     observations = []
     for ordinal, draft in enumerate(result.observations):
@@ -155,7 +170,10 @@ def bind_result(
             ),
         }
         if draft.input_refs:
-            row['inputs']=tuple({'observation_key':ref.observation_key,'role':ref.role} for ref in draft.input_refs)
+            row["inputs"] = tuple(
+                {"observation_key": ref.observation_key, "role": ref.role}
+                for ref in draft.input_refs
+            )
         row["outcome"] = draft.outcome.value
         if draft.score is not None:
             row["score"] = source_value(draft.score)
@@ -197,12 +215,17 @@ def bind_result(
             *(dict(item) for item in coverage),
         ),
     }
-    payload['measurements']=tuple({
-        'metric':item.metric,'scope_type':str(item.scope_type),
-        **({'scope_id':item.scope_id} if item.scope_id is not None else {}),
-        **({'scope_key':item.scope_key} if item.scope_key is not None else {}),
-        'value':source_value(item.value),'detail':source_value(item.detail),
-    } for item in result.measurements)
+    payload["measurements"] = tuple(
+        {
+            "metric": item.metric,
+            "scope_type": str(item.scope_type),
+            **({"scope_id": item.scope_id} if item.scope_id is not None else {}),
+            **({"scope_key": item.scope_key} if item.scope_key is not None else {}),
+            "value": source_value(item.value),
+            "detail": source_value(item.detail),
+        }
+        for item in result.measurements
+    )
     if result.error is not None:
         payload["error"] = result.error
     if result.cost is not None:

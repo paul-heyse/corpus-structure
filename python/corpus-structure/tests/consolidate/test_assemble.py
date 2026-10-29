@@ -493,11 +493,20 @@ def test_each_consolidation_drop_after_keying(world: SimpleNamespace) -> None:
 
 def test_external_premise_edges_preserve_each_reference_path(world: SimpleNamespace) -> None:
     from corpus_structure.core._model.shapes import ClaimNode, StoredAnd
+
     k, _ = run(world, [world.proposal(101, "U6")])
-    reference = next(key for key,e in k.entities.items() if e.type == REFERENCE)
+    reference = next(key for key, e in k.entities.items() if e.type == REFERENCE)
     row = next(r for r in k.claims.values() if r.claim.predicate == "core:follows_from")
-    condition = StoredAnd(op="and", args=(ClaimNode(op="claim", ref=reference), ClaimNode(op="claim", ref=reference)))
-    row.claim = row.claim.model_copy(update={"qualifiers": row.claim.qualifiers.model_copy(update={"conditions": condition})})
+    condition = StoredAnd(
+        op="and", args=(ClaimNode(op="claim", ref=reference), ClaimNode(op="claim", ref=reference))
+    )
+    row.claim = row.claim.model_copy(
+        update={"qualifiers": row.claim.qualifiers.model_copy(update={"conditions": condition})}
+    )
     _, entities = F.edges(k)
-    paths = {edge.path for edge in entities if edge.claim == row.key and edge.entity == reference and edge.role == "condition_premise"}
+    paths = {
+        edge.path
+        for edge in entities
+        if edge.claim == row.key and edge.entity == reference and edge.role == "condition_premise"
+    }
     assert paths == {"/qualifiers/core:conditions/args/0", "/qualifiers/core:conditions/args/1"}

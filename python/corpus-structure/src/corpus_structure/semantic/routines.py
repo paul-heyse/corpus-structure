@@ -44,10 +44,7 @@ def _transport_sql(writer: str) -> tuple[str, str, str, str]:
             f"RAISE EXCEPTION 'untrusted staging relation sp_{name}'; END IF;"
         )
         expressions = [
-            f'"{c}"::text'
-            if types[columns.index(c)] == "numeric"
-            else f'"{c}"'
-            for c in columns
+            f'"{c}"::text' if types[columns.index(c)] == "numeric" else f'"{c}"' for c in columns
         ]
         row = "jsonb_build_array(" + ",".join(expressions) + ")"
         content.append(

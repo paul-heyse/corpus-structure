@@ -272,11 +272,11 @@ def test_the_l10_perturbations(env: Any) -> None:
 
 
 def test_token_alignment_keeps_unicode_source_coordinates_and_repeated_candidates() -> None:
-    sentence = "😀 The distribution has location μ and positive scale σ."
+    sentence = "😀 The distribution has location μ and positive scale \u03c3."
     c = cascade(sentence, sentence)
-    quote = "The distribution has μ and positive scale σ"
+    quote = "The distribution has μ and positive scale \u03c3"
     found = c.locate(quote, "s2")
     assert found.step is Step.TOKENS
     assert found.sentence == "s2"
     assert found.start == len(sentence) + 1 + len("😀 ")
-    assert c.text[found.start:found.end] == sentence[len("😀 "):-1]
+    assert c.text[found.start : found.end] == sentence[len("😀 ") : -1]

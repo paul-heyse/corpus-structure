@@ -5,30 +5,19 @@ located by A0's `parse` under synthetic propose tasks, one of them finished afte
 
 from __future__ import annotations
 
-import hashlib
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 import yaml
-from sqlalchemy import Engine, text
+from sqlalchemy import text
 
 from corpus_structure.consolidate import run_pass
 from corpus_structure.consolidate.pass_ import ConsolidateConfig
-from corpus_structure.core.batch import AuthoredBatch, CitationFrame
 from corpus_structure.core.db import repo
-from corpus_structure.core.evidence import content_digest, document_key, rendition_key
-from corpus_structure.core.payloads import validate_payload
-from corpus_structure.ingest.html import build_rendition
-from corpus_structure.ingest.profile import compile_profile, load_profile
-from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.llm.parse import RenditionView, parse
-from corpus_structure.schema import registry
-from corpus_structure.schema.lookup import name_map
-from corpus_structure.schema.pack import load_pack
 
 REPO = Path(__file__).resolve().parents[4]
 ROOT = "siegrist_random/random"
@@ -44,8 +33,6 @@ def config() -> ConsolidateConfig:
 
 def sql(conn: Any, query: str, **params: Any) -> Any:
     return conn.execute(text(query), params)
-
-
 
 
 def seal(ns: SimpleNamespace) -> None:
@@ -129,12 +116,22 @@ def test_external_reference_descriptor_survives_materialization(pool_run: Simple
     with ns.engine.begin() as conn:
         run_pass(conn, ns.run, "finalize", ns.m19)
     with ns.engine.connect() as conn:
-        row = sql(conn, "SELECT e.reference_descriptor, e.label, s.rendition_id "
-                  "FROM kb.entity e JOIN kb.segment s ON s.id = e.scope_segment_id "
-                  "WHERE e.run_id = :r AND e.type = 'core:ExternalReference'", r=ns.run).one()
+        row = sql(
+            conn,
+            "SELECT e.reference_descriptor, e.label, s.rendition_id "
+            "FROM kb.entity e JOIN kb.segment s ON s.id = e.scope_segment_id "
+            "WHERE e.run_id = :r AND e.type = 'core:ExternalReference'",
+            r=ns.run,
+        ).one()
         descriptor = StoredDescriptor.model_validate(row[0])
         content = repo.read_rendition(conn, row[2])
-        assert content.canonical_text[descriptor.start:descriptor.end] == row[1]
-        assert sql(conn, "SELECT count(*) FROM kb.entity WHERE run_id = :r "
-                   "AND type <> 'core:ExternalReference' AND reference_descriptor IS NOT NULL",
-                   r=ns.run).scalar_one() == 0
+        assert content.canonical_text[descriptor.start : descriptor.end] == row[1]
+        assert (
+            sql(
+                conn,
+                "SELECT count(*) FROM kb.entity WHERE run_id = :r "
+                "AND type <> 'core:ExternalReference' AND reference_descriptor IS NOT NULL",
+                r=ns.run,
+            ).scalar_one()
+            == 0
+        )

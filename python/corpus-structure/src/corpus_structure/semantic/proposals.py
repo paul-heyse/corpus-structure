@@ -38,7 +38,8 @@ def proposal_inputs(
 ) -> SourceBundle:
     """Archive model-facing boundaries with the exact candidate vocabulary."""
     from .observations import observation_inputs
-    bundle=observation_inputs(bundle)
+
+    bundle = observation_inputs(bundle)
     if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
         raise ValueError("reserved agent module name already supplied")
     candidate = preview_schema(bundle, dependencies)
@@ -49,7 +50,11 @@ def proposal_inputs(
     ):
         raise ValueError("agent operation needs an explicit Qualification class or subclass")
     module["classes"]["AgentClaim"]["attributes"]["qualification"]["range"] = qualification_class
-    entities = [d for d in candidate.classes if not d.abstract and (d.name == "Entity" or "Entity" in d.ancestors)]
+    entities = [
+        d
+        for d in candidate.classes
+        if not d.abstract and (d.name == "Entity" or "Entity" in d.ancestors)
+    ]
     if not entities:
         raise ValueError("agent proposals require a declared Entity hierarchy")
     predicates = {p.iri for definition in entities for p in definition.properties if p.name != "id"}
@@ -290,8 +295,15 @@ def _refuse_rounded_decimals(prepared: PreparedRelease, batch: Mapping[str, Any]
                         after["properties"][name],
                         f"{path}.{name}",
                     )
-                elif isinstance(before.get("additionalProperties"), Mapping) and isinstance(after.get("additionalProperties"), Mapping):
-                    visit(item, before["additionalProperties"], after["additionalProperties"], f"{path}[{name!r}]")
+                elif isinstance(before.get("additionalProperties"), Mapping) and isinstance(
+                    after.get("additionalProperties"), Mapping
+                ):
+                    visit(
+                        item,
+                        before["additionalProperties"],
+                        after["additionalProperties"],
+                        f"{path}[{name!r}]",
+                    )
         elif isinstance(value, (tuple, list)) and "items" in before and "items" in after:
             for index, item in enumerate(value):
                 visit(item, before["items"], after["items"], f"{path}[{index}]")
@@ -483,7 +495,14 @@ class ProposalPacket:
                         for sentence in self.frame.sentences
                     ],
                     "known_classes": dict(self.known_classes),
-                    "known_entities": [{"entity_id":entity.entity_id,"label":entity.label,"aliases":entity.aliases} for entity in self.known_entities],
+                    "known_entities": [
+                        {
+                            "entity_id": entity.entity_id,
+                            "label": entity.label,
+                            "aliases": entity.aliases,
+                        }
+                        for entity in self.known_entities
+                    ],
                     "bootstrap_terms": self.bootstrap_terms,
                     "macros": {name: macro.model_dump(mode="json") for name, macro in self.macros},
                 }
@@ -523,7 +542,7 @@ def proposal_packet(
         guideline,
         canonical_bytes(dict(configuration)),
         tuple(sorted((known_classes or {}).items())),
-        tuple(sorted(known_entities,key=lambda entity:entity.entity_id)),
+        tuple(sorted(known_entities, key=lambda entity: entity.entity_id)),
         bootstrap_terms,
         tuple(sorted((macros or {}).items())),
     )

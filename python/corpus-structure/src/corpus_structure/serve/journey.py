@@ -29,10 +29,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from pydantic import JsonValue
-from sqlalchemy import Connection, text, select
-from corpus_structure.core.db import metadata
+from sqlalchemy import Connection, select, text
 
 from corpus_structure.core.canonical import canonical_json, digest
+from corpus_structure.core.db import metadata
 from corpus_structure.core.vocab import TaskStatus
 from corpus_structure.orchestrate import fates
 from corpus_structure.serve.protocol import (
@@ -102,15 +102,39 @@ def coverage(conn: Connection, run_id: int, scope: Scope) -> Coverage:
         else:
             reason = f.reason.value if f.reason is not None else f.fate
             skipped[reason] = skipped.get(reason, 0) + 1
-    e, seg, rr = (metadata.tables[n] for n in ('kb.entity', 'kb.segment', 'kb.run_rendition'))
-    stmt = select(e.c.id).where(e.c.run_id == run_id, e.c.type == 'core:ExternalReference', e.c.resolved_to_id.is_(None))
-    if scope.kind == 'documents':
-        stmt = stmt.join(seg, seg.c.id == e.c.scope_segment_id).join(rr, (rr.c.rendition_id == seg.c.rendition_id) & (rr.c.run_id == run_id)).where(rr.c.document_id.in_(scope.documents))
-    elif scope.kind == 'units':
+    e, seg, rr = (metadata.tables[n] for n in ("kb.entity", "kb.segment", "kb.run_rendition"))
+    stmt = select(e.c.id).where(
+        e.c.run_id == run_id, e.c.type == "core:ExternalReference", e.c.resolved_to_id.is_(None)
+    )
+    if scope.kind == "documents":
+        stmt = (
+            stmt.join(seg, seg.c.id == e.c.scope_segment_id)
+            .join(rr, (rr.c.rendition_id == seg.c.rendition_id) & (rr.c.run_id == run_id))
+            .where(rr.c.document_id.in_(scope.documents))
+        )
+    elif scope.kind == "units":
         # Fate keys correspond to unit anchors; offsets locate references within those units.
-        task = metadata.tables['ops.task']
-        unit = seg.alias('coverage_unit')
-        stmt = stmt.join(seg, seg.c.id == e.c.scope_segment_id).join(unit, (unit.c.rendition_id == seg.c.rendition_id) & (unit.c.start_offset <= seg.c.start_offset) & (unit.c.end_offset >= seg.c.end_offset)).where(unit.c.id.in_(select(task.c.unit_id).where(task.c.run_id == run_id, task.c.stage == 'propose', task.c.unit_key.in_(scope.unit_keys)))).distinct()
+        task = metadata.tables["ops.task"]
+        unit = seg.alias("coverage_unit")
+        stmt = (
+            stmt.join(seg, seg.c.id == e.c.scope_segment_id)
+            .join(
+                unit,
+                (unit.c.rendition_id == seg.c.rendition_id)
+                & (unit.c.start_offset <= seg.c.start_offset)
+                & (unit.c.end_offset >= seg.c.end_offset),
+            )
+            .where(
+                unit.c.id.in_(
+                    select(task.c.unit_id).where(
+                        task.c.run_id == run_id,
+                        task.c.stage == "propose",
+                        task.c.unit_key.in_(scope.unit_keys),
+                    )
+                )
+            )
+            .distinct()
+        )
     unresolved_references = len(list(conn.execute(stmt).scalars()))
     return Coverage(
         unresolved_references=unresolved_references,
@@ -129,18 +153,22 @@ def coverage(conn: Connection, run_id: int, scope: Scope) -> Coverage:
 
 def params_digest(params: Mapping[str, Any]) -> str:
     from corpus_structure.core.canonical import decimal_of_float
+
     def normalized(value: Any) -> Any:
         if isinstance(value, float):
-            return {'$float': decimal_of_float(value)}
+            return {"$float": decimal_of_float(value)}
         if isinstance(value, dict):
             return {k: normalized(v) for k, v in value.items()}
         if isinstance(value, list):
             return [normalized(v) for v in value]
         return value
+
     return digest(normalized(dict(params)))
 
 
-def encode_token(run_id: int, query: DomainQuery, params: Mapping[str, Any], position: JsonValue) -> str:
+def encode_token(
+    run_id: int, query: DomainQuery, params: Mapping[str, Any], position: JsonValue
+) -> str:
     body = {
         "run": run_id,
         "query": query.name,
@@ -207,19 +235,31 @@ def serve_query(
             if run == PROMOTED
             else check_finished(conn, int(run))
         )
-    ctx = QueryContext(run_id, conn, row_batch=min(max_rows + 1,64) if max_rows is not None and max_rows > 0 else 64)
+    ctx = QueryContext(
+        run_id,
+        conn,
+        row_batch=min(max_rows + 1, 64) if max_rows is not None and max_rows > 0 else 64,
+    )
     for bound in (max_rows, max_chars):
         if bound is not None and bound <= 0:
             raise QueryRefused("page bounds must be positive")
     rows: list[dict[str, JsonValue]] = []
     scope = query.scope(ctx, p)
     cov = coverage(conn, run_id, scope)
+
     # Query-owned cursor: no replay or hydration of a previous page's prefix.
     def response(more: bool, cursor: JsonValue) -> QueryResult:
-        return QueryResult(run_id=run_id, query=query.name, version=query.version,
-            params=dumped, coverage=cov, rows=rows,
+        return QueryResult(
+            run_id=run_id,
+            query=query.name,
+            version=query.version,
+            params=dumped,
+            coverage=cov,
+            rows=rows,
             next_page_token=encode_token(run_id, query, dumped, cursor) if more else None,
-            truncated=more)
+            truncated=more,
+        )
+
     cursor = position
     iterator = query.rows(ctx, p, after=position)
     try:
@@ -235,7 +275,12 @@ def serve_query(
             if max_chars is not None and len(candidate.model_dump_json()) > max_chars:
                 rows.pop()
                 if not rows:
-                    raise QueryRefused("size limit: a complete row and response envelope do not fit; raise max_chars")
+                    raise QueryRefused(
+
+                            'size limit: a complete row and response envelope do not fit; raise '
+                            'max_chars'
+
+                    )
                 return response(True, cursor)
             cursor = found.position
             found = following

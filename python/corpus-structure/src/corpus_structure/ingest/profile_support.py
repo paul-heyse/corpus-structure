@@ -41,12 +41,19 @@ CORE_PREDICATES: frozenset[str] = frozenset(names.PREDICATES)
 def statement_kind(value: object, info: ValidationInfo | None = None) -> object:
     """A statement kind: a core member, or a pack-scoped `<prefix>:<name>` the schema version
     declares (`check_profile`); `core:<name>` is the core member."""
-    if info is not None and isinstance(info.context, dict) and 'statement_kinds' in info.context and isinstance(value,str):
-        normalized=value.split(':',1)[1] if value.startswith('core:') else value
-        if normalized not in info.context['statement_kinds']:
-            raise ValueError(f'{value!r} is not a statement kind in the bound release')
-        try:return StatementKind(normalized)
-        except ValueError:return normalized
+    if (
+        info is not None
+        and isinstance(info.context, dict)
+        and "statement_kinds" in info.context
+        and isinstance(value, str)
+    ):
+        normalized = value.split(":", 1)[1] if value.startswith("core:") else value
+        if normalized not in info.context["statement_kinds"]:
+            raise ValueError(f"{value!r} is not a statement kind in the bound release")
+        try:
+            return StatementKind(normalized)
+        except ValueError:
+            return normalized
     if isinstance(value, StatementKind) or not isinstance(value, str):
         return value
     pack = _PACK_NAME.match(value)
@@ -70,9 +77,9 @@ def _core_kind(value: str) -> StatementKind:
 
 def predicate(value: object, info: ValidationInfo | None = None) -> object:
     """A prefixed predicate; a `core:` one is a core predicate."""
-    if info is not None and isinstance(info.context, dict) and 'predicates' in info.context:
-        if value not in info.context['predicates']:
-            raise ValueError(f'{value!r} is not a predicate in the bound release')
+    if info is not None and isinstance(info.context, dict) and "predicates" in info.context:
+        if value not in info.context["predicates"]:
+            raise ValueError(f"{value!r} is not a predicate in the bound release")
         return value
     if not isinstance(value, str):
         return value

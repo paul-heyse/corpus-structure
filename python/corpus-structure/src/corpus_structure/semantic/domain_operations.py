@@ -3,35 +3,49 @@
 Source reports remain immutable operational data. Domain policy is an explicit release-bound
 operation; storage validity and a singleton candidate never substitute for its findings.
 """
+
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from hashlib import sha256
 from types import MappingProxyType, SimpleNamespace
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 
 import pyarrow as pa
 import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
-from sqlalchemy import select, text, and_, case, func, tuple_
+from sqlalchemy import and_, case, func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Engine
 
-from .analytics import AnalyticalPacket, AnalysisScope, compile_projection
-from .consolidation import SourceItem, FactItem, FactValueLowerer, assemble
+from .analytics import AnalysisScope, AnalyticalPacket, compile_projection
+from .consolidation import FactItem, FactValueLowerer, SourceItem, assemble
 from .identity import canonical_bytes, occurrence_key
 from .metadata import table
 from .operations import OperationConflict, cut_observations
-from .publication import AlternativeGroupRow, AlternativeMemberRow, AssessmentRow, CoverageRow, EvidenceRow, EvidenceSourceRow, PublicationBatch, PublicationReceipt, SelectionRow, _publish, publish_on_connection
+from .publication import (
+    AlternativeGroupRow,
+    AlternativeMemberRow,
+    AssessmentRow,
+    CoverageRow,
+    EvidenceRow,
+    EvidenceSourceRow,
+    PublicationBatch,
+    PublicationReceipt,
+    SelectionRow,
+    _publish,
+    publish_on_connection,
+)
 from .query import SnapshotBinding
-from .references import read_reference_classes
 from .releases import load_release
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
-RULE_INPUT='operation/domain-rules.yaml'
-VERSION='semantic-domain-1'
+RULE_INPUT = "operation/domain-rules.yaml"
+VERSION = "semantic-domain-1"
 
 
 class DomainOperationRefused(ValueError):
@@ -40,29 +54,47 @@ class DomainOperationRefused(ValueError):
 
 def _policy_yaml(content):
     """Keep LinkML duplicate refusal and lower its location-tagged strings to YAML scalars."""
+
     def scalars(value):
-        if isinstance(value,str):return str(value)
-        if isinstance(value,dict):return {scalars(k):scalars(v) for k,v in value.items()}
-        if isinstance(value,list):return [scalars(v) for v in value]
+        if isinstance(value, str):
+            return str(value)
+        if isinstance(value, dict):
+            return {scalars(k): scalars(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [scalars(v) for v in value]
         return value
-    return scalars(yaml.load(content,Loader=DupCheckYamlLoader))
+
+    return scalars(yaml.load(content, Loader=DupCheckYamlLoader))
 
 
-def domain_rule_inputs(dependencies: ResolvedDependencies, domain: bytes, core: bytes = b'', *, aliases: Mapping[str,Any] | None = None) -> ResolvedDependencies:
+def domain_rule_inputs(
+    dependencies: ResolvedDependencies,
+    domain: bytes,
+    core: bytes = b"",
+    *,
+    aliases: Mapping[str, Any] | None = None,
+) -> ResolvedDependencies:
     """Archive existing rules as one operation dependency, never read latest files in a run."""
-    source=_policy_yaml(domain) or {}
-    base=_policy_yaml(core) or {}
-    if set(base)-{'rules'}:
-        raise ValueError('core operation rules must contain only rules')
-    source['rules']=[*base.get('rules',()),*source.get('rules',())]
-    operation={'name':'semantic-domain','version':VERSION}
-    if 'operation' in source and source['operation']!=operation:raise ValueError('unsupported domain operation header')
-    source['operation']=operation
-    if aliases is not None:source['identity']={'aliases':dict(aliases)}
-    if any(a.name==RULE_INPUT for a in dependencies.artifacts):
-        raise ValueError('domain rules already declared')
-    return replace(dependencies,artifacts=(*dependencies.artifacts,
-        SourceArtifact(RULE_INPUT,yaml.safe_dump(source,sort_keys=True).encode())))
+    source = _policy_yaml(domain) or {}
+    base = _policy_yaml(core) or {}
+    if set(base) - {"rules"}:
+        raise ValueError("core operation rules must contain only rules")
+    source["rules"] = [*base.get("rules", ()), *source.get("rules", ())]
+    operation = {"name": "semantic-domain", "version": VERSION}
+    if "operation" in source and source["operation"] != operation:
+        raise ValueError("unsupported domain operation header")
+    source["operation"] = operation
+    if aliases is not None:
+        source["identity"] = {"aliases": dict(aliases)}
+    if any(a.name == RULE_INPUT for a in dependencies.artifacts):
+        raise ValueError("domain rules already declared")
+    return replace(
+        dependencies,
+        artifacts=(
+            *dependencies.artifacts,
+            SourceArtifact(RULE_INPUT, yaml.safe_dump(source, sort_keys=True).encode()),
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -75,19 +107,19 @@ class ClaimCandidate:
     class_name: str
     predicate: str
     object: Any
-    qualification: Mapping[str,Any]
+    qualification: Mapping[str, Any]
     establishment: str
     statement: str | None
     statement_kind: str | None
     statement_role: str | None
-    alternatives: tuple[str,...]
+    alternatives: tuple[str, ...]
     evidence_count: int
-    macros: Mapping[str,Any]
+    macros: Mapping[str, Any]
     qualification_class: str = "Qualification"
-    unresolved_references: tuple[str,...] = ()
+    unresolved_references: tuple[str, ...] = ()
     rule_object: Any = None
-    rule_qualification: Mapping[str,Any] | None = None
-    constants: tuple[str,...] = ()
+    rule_qualification: Mapping[str, Any] | None = None
+    constants: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -97,25 +129,28 @@ class CutInput:
     project_id: str
     prepared: PreparedRelease
     output_realization_id: str
-    reports: tuple[Mapping[str,Any],...]
-    candidates: tuple[ClaimCandidate,...]
+    reports: tuple[Mapping[str, Any], ...]
+    candidates: tuple[ClaimCandidate, ...]
     batch: PublicationBatch
-    entity_metadata: Mapping[str,Mapping[str,Any]]
-    source_links: Mapping[str,tuple[int,int,int,int]]
+    entity_metadata: Mapping[str, Mapping[str, Any]]
+    source_links: Mapping[str, tuple[int, int, int, int]]
 
 
 @dataclass(frozen=True)
 class PolicyDecision:
     selected: frozenset[str]
-    assessments: tuple[AssessmentRow,...]
-    alternative_group: tuple[AlternativeGroupRow,...] = ()
-    alternative_member: tuple[AlternativeMemberRow,...] = ()
+    assessments: tuple[AssessmentRow, ...]
+    alternative_group: tuple[AlternativeGroupRow, ...] = ()
+    alternative_member: tuple[AlternativeMemberRow, ...] = ()
 
 
 class DomainPolicy(Protocol):
     release_id: str
     version: str
-    def evaluate(self, inputs: CutInput, scope: AnalysisScope, fused: pa.Table) -> PolicyDecision: ...
+
+    def evaluate(
+        self, inputs: CutInput, scope: AnalysisScope, fused: pa.Table
+    ) -> PolicyDecision: ...
 
 
 @dataclass(frozen=True)
@@ -127,670 +162,1582 @@ class DomainResult:
     reports: int
     occurrences: int
     data_revision: int
-    derivation_receipts: tuple[PublicationReceipt,...] = ()
+    derivation_receipts: tuple[PublicationReceipt, ...] = ()
 
 
 def _source_batch_id(release_id, output, observations):
-    return 'cut:' + sha256(canonical_bytes([release_id, output,
-        [(row['observation_key'], row['payload']) for row in observations], VERSION])).hexdigest()
+    return (
+        "cut:"
+        + sha256(
+            canonical_bytes(
+                [
+                    release_id,
+                    output,
+                    [(row["observation_key"], row["payload"]) for row in observations],
+                    VERSION,
+                ]
+            )
+        ).hexdigest()
+    )
 
 
 def _completed_result(engine, cut_id, output, policy):
     """Read an immutable completed result without reinterpreting a changed live input."""
-    with engine.connect().execution_options(isolation_level='REPEATABLE READ') as conn, conn.begin():
-        conn.exec_driver_sql('SET TRANSACTION READ ONLY')
-        cuts, runs = table('ops.input_cut'), table('ops.run')
+    with (
+        engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
+        conn.begin(),
+    ):
+        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        cuts, runs = table("ops.input_cut"), table("ops.run")
         cut = conn.execute(select(cuts).where(cuts.c.id == cut_id)).mappings().one()
-        job = conn.execute(select(runs).where(runs.c.id == cut['run_id'])).mappings().one()
-        if job['status'] != 'finished':
+        job = conn.execute(select(runs).where(runs.c.id == cut["run_id"])).mappings().one()
+        if job["status"] != "finished":
             return None
-        if not cut['final'] or not job['sealed'] or job['result_realization_id'] != output:
-            raise DomainOperationRefused('finished run is bound to another final cut or output')
-        if policy is not None and (policy.release_id != cut['release_id'] or policy.version != VERSION):
-            raise DomainOperationRefused('finished result policy differs from its recorded binding')
+        if not cut["final"] or not job["sealed"] or job["result_realization_id"] != output:
+            raise DomainOperationRefused("finished run is bound to another final cut or output")
+        if policy is not None and (
+            policy.release_id != cut["release_id"] or policy.version != VERSION
+        ):
+            raise DomainOperationRefused("finished result policy differs from its recorded binding")
         observations = cut_observations(conn, cut_id)
-        batch_id = _source_batch_id(cut['release_id'], output, observations)
-        batches = table('data.batch')
-        receipts = conn.execute(select(batches).where(batches.c.release_id == cut['release_id'],
-            batches.c.realization_id == output).order_by(batches.c.data_revision)).mappings().all()
-        source = next((row for row in receipts if row['batch_id'] == batch_id), None)
+        batch_id = _source_batch_id(cut["release_id"], output, observations)
+        batches = table("data.batch")
+        receipts = (
+            conn.execute(
+                select(batches)
+                .where(
+                    batches.c.release_id == cut["release_id"], batches.c.realization_id == output
+                )
+                .order_by(batches.c.data_revision)
+            )
+            .mappings()
+            .all()
+        )
+        source = next((row for row in receipts if row["batch_id"] == batch_id), None)
         if source is None:
-            raise OperationConflict('finished result has no matching immutable source receipt')
-        revision = conn.execute(select(table('data.realization').c.data_revision).where(
-            table('data.realization').c.realization_id == output,
-            table('data.realization').c.release_id == cut['release_id'])).scalar_one()
-        count = conn.execute(select(func.count()).select_from(table('data.occurrence')).where(
-            table('data.occurrence').c.realization_id == output,
-            table('data.occurrence').c.release_id == cut['release_id'])).scalar_one()
-        receipt = PublicationReceipt(source['batch_id'], source['data_revision'], source['content_digest'])
-        proofs = tuple(PublicationReceipt(row['batch_id'], row['data_revision'], row['content_digest'])
-                       for row in receipts if row['batch_id'] != batch_id)
-        return DomainResult(job['id'], cut_id, output, receipt, len(observations), count, revision, proofs)
+            raise OperationConflict("finished result has no matching immutable source receipt")
+        revision = conn.execute(
+            select(table("data.realization").c.data_revision).where(
+                table("data.realization").c.realization_id == output,
+                table("data.realization").c.release_id == cut["release_id"],
+            )
+        ).scalar_one()
+        count = conn.execute(
+            select(func.count())
+            .select_from(table("data.occurrence"))
+            .where(
+                table("data.occurrence").c.realization_id == output,
+                table("data.occurrence").c.release_id == cut["release_id"],
+            )
+        ).scalar_one()
+        receipt = PublicationReceipt(
+            source["batch_id"], source["data_revision"], source["content_digest"]
+        )
+        proofs = tuple(
+            PublicationReceipt(row["batch_id"], row["data_revision"], row["content_digest"])
+            for row in receipts
+            if row["batch_id"] != batch_id
+        )
+        return DomainResult(
+            job["id"], cut_id, output, receipt, len(observations), count, revision, proofs
+        )
 
 
 def _plain(value):
     from pydantic import BaseModel
-    if isinstance(value,BaseModel):return {k:_plain(v) for k,v in value if k in value.model_fields_set}
-    if isinstance(value,(list,tuple)):return [_plain(v) for v in value]
-    if isinstance(value,dict):return {k:_plain(v) for k,v in value.items()}
+
+    if isinstance(value, BaseModel):
+        return {k: _plain(v) for k, v in value if k in value.model_fields_set}
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
     return value
 
 
 def _native(value):
     """Keep generated Python collection shapes while reconstructing typed records."""
     from pydantic import BaseModel
-    if isinstance(value,BaseModel):return {k:_native(v) for k,v in value if k in value.model_fields_set}
-    if isinstance(value,tuple):return tuple(_native(v) for v in value)
-    if isinstance(value,list):return [_native(v) for v in value]
-    if isinstance(value,dict):return {k:_native(v) for k,v in value.items()}
+
+    if isinstance(value, BaseModel):
+        return {k: _native(v) for k, v in value if k in value.model_fields_set}
+    if isinstance(value, tuple):
+        return tuple(_native(v) for v in value)
+    if isinstance(value, list):
+        return [_native(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _native(v) for k, v in value.items()}
     return value
 
 
-def _reference(prepared,range_name,value,entities,claims=None):
+def _reference(prepared, range_name, value, entities, claims=None):
     """Rewrite only references declared by the admitted class/property descriptors."""
     from pydantic import BaseModel
-    definitions={d.name:d for d in prepared.definitions}
-    if value is None or range_name not in definitions:return value
+
+    definitions = {d.name: d for d in prepared.definitions}
+    if value is None or range_name not in definitions:
+        return value
+
     def visit(model):
-        definition=definitions[type(model).__name__];result:dict[str,Any]={}
+        definition = definitions[type(model).__name__]
+        result: dict[str, Any] = {}
+
+        def lower(item, prop):
+            if prop.reference_role == "fact":
+                return (claims or {}).get(item, item)
+            if prop.range not in definitions:
+                return _plain(item)
+            if not prop.inlined:
+                return entities.get(item, item)
+            return visit(item) if isinstance(item, BaseModel) else _plain(item)
+
         for prop in definition.properties:
-            if prop.name not in model.model_fields_set:continue
-            member=getattr(model,prop.name)
-            claim_ref=prop.reference_role=='fact'
-            def lower(item):
-                if claim_ref:return (claims or {}).get(item,item)
-                if prop.range not in definitions:return _plain(item)
-                if not prop.inlined:return entities.get(item,item)
-                return visit(item) if isinstance(item,BaseModel) else _plain(item)
+            if prop.name not in model.model_fields_set:
+                continue
+            member = getattr(model, prop.name)
             if prop.collection_key:
-                rewritten={}
+                rewritten = {}
                 for item in member.values():
-                    entry=lower(item);key=entry[prop.collection_key]
-                    if key in rewritten and rewritten[key]!=entry:raise DomainOperationRefused('reference resolution collides distinct keyed members')
-                    rewritten[key]=entry
-                result[prop.name]=rewritten
-            elif prop.multivalued:result[prop.name]=tuple(lower(item) for item in member)
-            else:result[prop.name]=lower(member)
+                    entry = lower(item, prop)
+                    key = entry[prop.collection_key]
+                    if key in rewritten and rewritten[key] != entry:
+                        raise DomainOperationRefused(
+                            "reference resolution collides distinct keyed members"
+                        )
+                    rewritten[key] = entry
+                result[prop.name] = rewritten
+            elif prop.multivalued:
+                result[prop.name] = tuple(lower(item, prop) for item in member)
+            else:
+                result[prop.name] = lower(member, prop)
         return result
-    return visit(prepared.validate_python(range_name,value))
+
+    return visit(prepared.validate_python(range_name, value))
 
 
-def _entity_references(prepared,range_name,value):
+def _entity_references(prepared, range_name, value):
     """Entity IDs in declared range positions; plain strings never become references."""
     from pydantic import BaseModel
-    definitions={d.name:d for d in prepared.definitions};found=set()
-    if value is None or range_name not in definitions:return found
+
+    definitions = {d.name: d for d in prepared.definitions}
+    found = set()
+    if value is None or range_name not in definitions:
+        return found
+
     def visit(model):
-        definition=definitions[type(model).__name__]
+        definition = definitions[type(model).__name__]
         for prop in definition.properties:
-            if prop.name not in model.model_fields_set or prop.range not in definitions:continue
-            child=getattr(model,prop.name)
-            members=child.values() if prop.collection_key else child if prop.multivalued else (child,)
+            if prop.name not in model.model_fields_set or prop.range not in definitions:
+                continue
+            child = getattr(model, prop.name)
+            members = (
+                child.values() if prop.collection_key else child if prop.multivalued else (child,)
+            )
             for member in members:
-                if prop.inlined and isinstance(member,BaseModel):visit(member)
-                elif not prop.inlined:found.add(member)
-    visit(prepared.validate_python(range_name,value))
+                if prop.inlined and isinstance(member, BaseModel):
+                    visit(member)
+                elif not prop.inlined:
+                    found.add(member)
+
+    visit(prepared.validate_python(range_name, value))
     return found
 
 
-def _claim_references(prepared,range_name,value):
+def _claim_references(prepared, range_name, value):
     from pydantic import BaseModel
-    definitions={d.name:d for d in prepared.definitions};found=set()
-    if value is None or range_name not in definitions:return found
+
+    definitions = {d.name: d for d in prepared.definitions}
+    found = set()
+    if value is None or range_name not in definitions:
+        return found
+
     def visit(model):
-        definition=definitions[type(model).__name__]
+        definition = definitions[type(model).__name__]
         for prop in definition.properties:
-            if prop.name not in model.model_fields_set:continue
-            member=getattr(model,prop.name)
-            is_ref=prop.reference_role=='fact'
-            if is_ref:found.add(member)
+            if prop.name not in model.model_fields_set:
+                continue
+            member = getattr(model, prop.name)
+            is_ref = prop.reference_role == "fact"
+            if is_ref:
+                found.add(member)
             elif prop.inlined and prop.range in definitions:
-                values=member.values() if prop.collection_key else member if prop.multivalued else (member,)
+                values = (
+                    member.values()
+                    if prop.collection_key
+                    else member
+                    if prop.multivalued
+                    else (member,)
+                )
                 for child in values:
-                    if isinstance(child,BaseModel):visit(child)
-    visit(prepared.validate_python(range_name,value))
+                    if isinstance(child, BaseModel):
+                        visit(child)
+
+    visit(prepared.validate_python(range_name, value))
     return found
 
 
-def _source_fact_id(prepared,output,item):
-    definition=next(d for d in prepared.definitions if d.name==item.class_name)
-    prop=next(p for p in definition.properties if p.name==item.property_name)
-    obj=_plain(prepared.property_adapter(item.class_name,item.property_name,item=prop.multivalued).validate_python(item.object,strict=True))
-    qualification=_plain(prepared.validate_python(item.qualification_class,item.qualification))
-    return prepared.fact_identity(output,item.subject,prop.iri,obj,qualification,qualification_class=item.qualification_class)
+def _source_fact_id(prepared, output, item):
+    definition = next(d for d in prepared.definitions if d.name == item.class_name)
+    prop = next(p for p in definition.properties if p.name == item.property_name)
+    obj = _plain(
+        prepared.property_adapter(
+            item.class_name, item.property_name, item=prop.multivalued
+        ).validate_python(item.object, strict=True)
+    )
+    qualification = _plain(prepared.validate_python(item.qualification_class, item.qualification))
+    return prepared.fact_identity(
+        output,
+        item.subject,
+        prop.iri,
+        obj,
+        qualification,
+        qualification_class=item.qualification_class,
+    )
 
 
-def _property_value(prepared,definition,prop,value,mapping,claims=None):
-    from .publication import native_constraints
+def _property_value(prepared, definition, prop, value, mapping, claims=None):
     from .proposals import _property_value as scalar_projection
-    value=_native(value)
-    by_name={d.name:d for d in prepared.definitions}
+    from .publication import native_constraints
+
+    value = _native(value)
+    by_name = {d.name: d for d in prepared.definitions}
     if prop.range in by_name:
         if not prop.inlined:
-            if not isinstance(value,dict) or value.get('kind')!='entity':
-                raise DomainOperationRefused('entity relation needs explicit EntityValue')
-            return mapping.get(value['target'],value['target'])
-        return _reference(prepared,prop.range,value,mapping,claims)
-    native_range=native_constraints(prepared)[definition.iri,prop.iri]['native_range']
-    if prop.range in {v.enum for v in prepared.vocabularies}:native_range='string'
-    projected=scalar_projection(value,native_range)
-    if prop.reference_role=='fact' and claims is not None:
-        if projected not in claims:raise DomainOperationRefused('unavailable source claim reference')
+            if not isinstance(value, dict) or value.get("kind") != "entity":
+                raise DomainOperationRefused("entity relation needs explicit EntityValue")
+            return mapping.get(value["target"], value["target"])
+        return _reference(prepared, prop.range, value, mapping, claims)
+    native_range = native_constraints(prepared)[definition.iri, prop.iri]["native_range"]
+    if prop.range in {v.enum for v in prepared.vocabularies}:
+        native_range = "string"
+    projected = scalar_projection(value, native_range)
+    if prop.reference_role == "fact" and claims is not None:
+        if projected not in claims:
+            raise DomainOperationRefused("unavailable source claim reference")
         return claims[projected]
     return projected
 
 
-def _known_input(conn,prepared,job,observations):
+def _known_input(conn, prepared, job, observations):
     """Read selected input metadata once under the same exact revision as the sealed cut."""
     from dataclasses import fields
+
     from .publication import STAGE_TYPES
     from .query import ReadSession
-    references=set();classes=set()
+
+    references = set()
+    classes = set()
+
     def refs(value):
-        if isinstance(value,dict):
-            for name,child in value.items():
-                if name in {'target','entity','subject'} and isinstance(child,str):references.add(child)
-                else:refs(child)
-        elif isinstance(value,(list,tuple)):
-            for child in value:refs(child)
+        if isinstance(value, dict):
+            for name, child in value.items():
+                if name in {"target", "entity", "subject"} and isinstance(child, str):
+                    references.add(child)
+                else:
+                    refs(child)
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                refs(child)
+
     for observation in observations:
-        if observation['payload_definition']=='AgentStoredBatch':
-            refs(observation['payload'])
-            classes.update(e['class_iri'] for e in observation['payload'].get('entities',()))
-    realization=table('data.realization');m=table('data.membership')
-    revision=conn.execute(select(realization.c.data_revision).where(realization.c.realization_id==job['input_realization_id'],realization.c.release_id==job['release_id'])).scalar_one()
-    if revision!=job['input_revision']:raise DomainOperationRefused('input realization revision differs from bound operation')
-    memberships=conn.execute(select(m).where(m.c.release_id==job['release_id'],m.c.realization_id==job['input_realization_id'],
-        m.c.entity_id.is_not(None))).mappings().all()
-    ids={row['entity_id'] for row in memberships}
-    if not ids:return {},{}
-    f,s=table('data.fact'),table('data.selection')
-    facts=conn.execute(select(f).join(s,(s.c.release_id==f.c.release_id)&(s.c.realization_id==f.c.realization_id)&(s.c.fact_id==f.c.fact_id))
-        .where(f.c.release_id==job['release_id'],f.c.realization_id==job['input_realization_id'],f.c.subject_id.in_(ids))).mappings().all()
-    session=ReadSession(conn,SnapshotBinding(job['release_id'],job['input_realization_id'],revision,'input:'+str(job['id'])),prepared)
-    values,nodes,_=session._values({value for row in facts for value in (row['object_value_id'],row['qualification_value_id']) if value is not None},ids)
-    node_by_id={node.value_id:node for node in nodes}
+        if observation["payload_definition"] == "AgentStoredBatch":
+            refs(observation["payload"])
+            classes.update(e["class_iri"] for e in observation["payload"].get("entities", ()))
+    realization = table("data.realization")
+    m = table("data.membership")
+    revision = conn.execute(
+        select(realization.c.data_revision).where(
+            realization.c.realization_id == job["input_realization_id"],
+            realization.c.release_id == job["release_id"],
+        )
+    ).scalar_one()
+    if revision != job["input_revision"]:
+        raise DomainOperationRefused("input realization revision differs from bound operation")
+    memberships = (
+        conn.execute(
+            select(m).where(
+                m.c.release_id == job["release_id"],
+                m.c.realization_id == job["input_realization_id"],
+                m.c.entity_id.is_not(None),
+            )
+        )
+        .mappings()
+        .all()
+    )
+    ids = {row["entity_id"] for row in memberships}
+    if not ids:
+        return {}, {}
+    f, s = table("data.fact"), table("data.selection")
+    facts = (
+        conn.execute(
+            select(f)
+            .join(
+                s,
+                (s.c.release_id == f.c.release_id)
+                & (s.c.realization_id == f.c.realization_id)
+                & (s.c.fact_id == f.c.fact_id),
+            )
+            .where(
+                f.c.release_id == job["release_id"],
+                f.c.realization_id == job["input_realization_id"],
+                f.c.subject_id.in_(ids),
+            )
+        )
+        .mappings()
+        .all()
+    )
+    session = ReadSession(
+        conn,
+        SnapshotBinding(
+            job["release_id"], job["input_realization_id"], revision, "input:" + str(job["id"])
+        ),
+        prepared,
+    )
+    values, nodes, _ = session._values(
+        {
+            value
+            for row in facts
+            for value in (row["object_value_id"], row["qualification_value_id"])
+            if value is not None
+        },
+        ids,
+    )
+    node_by_id = {node.value_id: node for node in nodes}
     from collections import defaultdict
-    facts_by_entity=defaultdict(list)
-    for fact in facts:facts_by_entity[fact['subject_id']].append(fact)
-    definitions={d.iri:d for d in prepared.definitions};metadata:dict[str,dict[str,Any]]={}
+
+    facts_by_entity = defaultdict(list)
+    for fact in facts:
+        facts_by_entity[fact["subject_id"]].append(fact)
+    definitions = {d.iri: d for d in prepared.definitions}
+    metadata: dict[str, dict[str, Any]] = {}
     for row in memberships:
-        d=definitions[row['class_id']]
-        item=metadata.setdefault(row['entity_id'],{'id':row['entity_id'],'class_iris':[], 'known':True,'fields':{},'attributes':[],'input_facts':[]})
-        item['class_iris'].append(d.iri)
-    for identity,item in metadata.items():
-        item['class_iris']=tuple(sorted(set(item['class_iris'])))
-        d=min((definitions[iri] for iri in item['class_iris']),key=lambda d:(-len(d.ancestors),d.iri))
-        item['class_iri']=d.iri
-        properties={p.iri:p for iri in item['class_iris'] for p in definitions[iri].properties}
+        d = definitions[row["class_id"]]
+        item = metadata.setdefault(
+            row["entity_id"],
+            {
+                "id": row["entity_id"],
+                "class_iris": [],
+                "known": True,
+                "fields": {},
+                "attributes": [],
+                "input_facts": [],
+            },
+        )
+        item["class_iris"].append(d.iri)
+    for identity, item in metadata.items():
+        item["class_iris"] = tuple(sorted(set(item["class_iris"])))
+        d = min(
+            (definitions[iri] for iri in item["class_iris"]),
+            key=lambda d: (-len(d.ancestors), d.iri),
+        )
+        item["class_iri"] = d.iri
+        properties = {p.iri: p for iri in item["class_iris"] for p in definitions[iri].properties}
         for fact in facts_by_entity[identity]:
-            prop=properties.get(fact['property_id'])
-            if prop is None:continue
-            value=values[fact['object_value_id']]
-            required={name for iri in item['class_iris'] for group in definitions[iri].identity_groups for name in group}
-            display=any(row.kind=='operation_property' and (body:=json.loads(row.body)).get('class')==d.name and body.get('property')==prop.iri and body.get('cs:role')=='display' for row in prepared.registry_rows)
+            prop = properties.get(fact["property_id"])
+            if prop is None:
+                continue
+            value = values[fact["object_value_id"]]
+            required = {
+                name
+                for iri in item["class_iris"]
+                for group in definitions[iri].identity_groups
+                for name in group
+            }
+            display = any(
+                row.kind == "operation_property"
+                and (body := json.loads(row.body)).get("class") == d.name
+                and body.get("property") == prop.iri
+                and body.get("cs:role") == "display"
+                for row in prepared.registry_rows
+            )
             if prop.name in required or prop.required or display:
-                item['input_facts'].append((fact,prop,value,values[fact['qualification_value_id']],definitions[node_by_id[fact['qualification_value_id']].datatype].name))
-            item['fields'][prop.name]=value
-            if isinstance(value,str):
-                item['attributes'].append({'predicate':prop.iri,'value':{'kind':'entity','target':value} if prop.range in {d.name for d in prepared.definitions} and not prop.inlined else {'kind':'text','text':value}})
-                if any(row.kind=='operation_property' and (body:=json.loads(row.body)).get('class')==d.name and body.get('property')==prop.iri and body.get('cs:role')=='display' and not prop.multivalued for row in prepared.registry_rows):item['label']=value
-    copied={}
-    support=table('data.membership_support')
-    supports=conn.execute(select(support).where(support.c.release_id==job['release_id'],support.c.realization_id==job['input_realization_id'],support.c.entity_id.in_(ids))).mappings().all()
-    evidence_ids={row['evidence_id'] for row in supports}
-    for name,rows in [('membership',memberships),('membership_support',supports)]:
-        row_type=STAGE_TYPES[name][0];copied[name]=tuple(row_type(**{f.name:row[f.name] for f in fields(row_type)}) for row in rows)
-    for name in ('evidence','evidence_source'):
-        target=table('data.'+name);row_type=STAGE_TYPES[name][0]
-        rows=conn.execute(select(target).where(target.c.release_id==job['release_id'],target.c.realization_id==job['input_realization_id'],target.c.evidence_id.in_(evidence_ids))).mappings()
-        copied[name]=tuple(row_type(**{f.name:row[f.name] for f in fields(row_type)}) for row in rows)
-    return metadata,copied
+                item["input_facts"].append(
+                    (
+                        fact,
+                        prop,
+                        value,
+                        values[fact["qualification_value_id"]],
+                        definitions[node_by_id[fact["qualification_value_id"]].datatype].name,
+                    )
+                )
+            item["fields"][prop.name] = value
+            if isinstance(value, str):
+                item["attributes"].append(
+                    {
+                        "predicate": prop.iri,
+                        "value": {"kind": "entity", "target": value}
+                        if prop.range in {d.name for d in prepared.definitions} and not prop.inlined
+                        else {"kind": "text", "text": value},
+                    }
+                )
+                if any(
+                    row.kind == "operation_property"
+                    and (body := json.loads(row.body)).get("class") == d.name
+                    and body.get("property") == prop.iri
+                    and body.get("cs:role") == "display"
+                    and not prop.multivalued
+                    for row in prepared.registry_rows
+                ):
+                    item["label"] = value
+    copied = {}
+    support = table("data.membership_support")
+    supports = (
+        conn.execute(
+            select(support).where(
+                support.c.release_id == job["release_id"],
+                support.c.realization_id == job["input_realization_id"],
+                support.c.entity_id.in_(ids),
+            )
+        )
+        .mappings()
+        .all()
+    )
+    evidence_ids = {row["evidence_id"] for row in supports}
+    for name, rows in [("membership", memberships), ("membership_support", supports)]:
+        row_type = STAGE_TYPES[name][0]
+        copied[name] = tuple(
+            row_type(**{f.name: row[f.name] for f in fields(row_type)}) for row in rows
+        )
+    for name in ("evidence", "evidence_source"):
+        target = table("data." + name)
+        row_type = STAGE_TYPES[name][0]
+        rows = conn.execute(
+            select(target).where(
+                target.c.release_id == job["release_id"],
+                target.c.realization_id == job["input_realization_id"],
+                target.c.evidence_id.in_(evidence_ids),
+            )
+        ).mappings()
+        copied[name] = tuple(
+            row_type(**{f.name: row[f.name] for f in fields(row_type)}) for row in rows
+        )
+    return metadata, copied
 
 
-def _cut_input(engine:Engine,cut_id:int,output:str)->CutInput:
-    with engine.connect().execution_options(isolation_level='REPEATABLE READ') as conn,conn.begin():
-        conn.exec_driver_sql('SET TRANSACTION READ ONLY')
-        cut=conn.execute(select(table('ops.input_cut')).where(table('ops.input_cut').c.id==cut_id)).mappings().one()
-        job=conn.execute(select(table('ops.run')).where(table('ops.run').c.id==cut['run_id'])).mappings().one()
-        if not cut['final'] or not job['sealed']:
-            raise DomainOperationRefused('consolidation requires a sealed final observation cut')
-        prepared=load_release(conn,cut['release_id'])
-        observations=list({row['id']:row for row in cut_observations(conn,cut_id)}.values())
-        descriptors={}
-        o,t,seg=table('kb.observation'),table('ops.task'),table('kb.segment')
-        config,method=table('ops.method_config'),table('ops.method')
-        effective=func.coalesce(o.c.rendition_id,seg.c.rendition_id,
-                               case((t.c.unit_type=='rendition',t.c.unit_id)))
-        source_rows=conn.execute(select(o.c.id,effective.label('rendition_id'),
-            method.c.name.label('provider'),method.c.version,config.c.params).select_from(o.join(t,t.c.id==o.c.task_id)
-            .join(config,config.c.id==t.c.method_config_id).join(method,method.c.id==config.c.method_id)
-            .outerjoin(seg,and_(t.c.unit_type=='segment',seg.c.id==t.c.unit_id)))
-            .where(o.c.id.in_([row['id'] for row in observations]))).mappings().all()
-        chosen=set(conn.execute(select(table('ops.run_rendition').c.rendition_id).where(
-            table('ops.run_rendition').c.run_id==job['id'])).scalars())
-        renditions={}
-        r,d=table('kb.rendition'),table('kb.document')
-        for row in conn.execute(select(r,d.c.source_uri,d.c.meta).join(d,d.c.id==r.c.document_id).where(
-                r.c.id.in_({row['rendition_id'] for row in source_rows if row['rendition_id'] is not None}))).mappings():
-            renditions[row['id']]=row
+def _cut_input(engine: Engine, cut_id: int, output: str) -> CutInput:
+    with (
+        engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
+        conn.begin(),
+    ):
+        conn.exec_driver_sql("SET TRANSACTION READ ONLY")
+        cut = (
+            conn.execute(
+                select(table("ops.input_cut")).where(table("ops.input_cut").c.id == cut_id)
+            )
+            .mappings()
+            .one()
+        )
+        job = (
+            conn.execute(select(table("ops.run")).where(table("ops.run").c.id == cut["run_id"]))
+            .mappings()
+            .one()
+        )
+        if not cut["final"] or not job["sealed"]:
+            raise DomainOperationRefused("consolidation requires a sealed final observation cut")
+        prepared = load_release(conn, cut["release_id"])
+        observations = list({row["id"]: row for row in cut_observations(conn, cut_id)}.values())
+        descriptors = {}
+        o, t, seg = table("kb.observation"), table("ops.task"), table("kb.segment")
+        config, method = table("ops.method_config"), table("ops.method")
+        effective = func.coalesce(
+            o.c.rendition_id, seg.c.rendition_id, case((t.c.unit_type == "rendition", t.c.unit_id))
+        )
+        source_rows = (
+            conn.execute(
+                select(
+                    o.c.id,
+                    effective.label("rendition_id"),
+                    method.c.name.label("provider"),
+                    method.c.version,
+                    config.c.params,
+                )
+                .select_from(
+                    o.join(t, t.c.id == o.c.task_id)
+                    .join(config, config.c.id == t.c.method_config_id)
+                    .join(method, method.c.id == config.c.method_id)
+                    .outerjoin(seg, and_(t.c.unit_type == "segment", seg.c.id == t.c.unit_id))
+                )
+                .where(o.c.id.in_([row["id"] for row in observations]))
+            )
+            .mappings()
+            .all()
+        )
+        chosen = set(
+            conn.execute(
+                select(table("ops.run_rendition").c.rendition_id).where(
+                    table("ops.run_rendition").c.run_id == job["id"]
+                )
+            ).scalars()
+        )
+        renditions = {}
+        r, d = table("kb.rendition"), table("kb.document")
+        for row in conn.execute(
+            select(r, d.c.source_uri, d.c.meta)
+            .join(d, d.c.id == r.c.document_id)
+            .where(
+                r.c.id.in_(
+                    {row["rendition_id"] for row in source_rows if row["rendition_id"] is not None}
+                )
+            )
+        ).mappings():
+            renditions[row["id"]] = row
         for source in source_rows:
-            rid=source['rendition_id']
+            rid = source["rendition_id"]
             if rid is None:
-                descriptors[source['id']]=None
+                descriptors[source["id"]] = None
                 continue
             if rid not in chosen:
-                raise DomainOperationRefused('reused proposal is not located on this run selected rendition')
-            ren=renditions[rid]
-            descriptors[source['id']]={'rendition_id':rid,'source_uri':ren['source_uri'],'text':ren['canonical_text'],
-                'provider':source['provider'],'version':source['version'],'rendition_key':ren['key'],
-                'content':ren['content'],'page':ren['meta'].get('page',ren['source_uri']),'math':source['params'].get('math')}
-        tasks=conn.execute(select(table('ops.task')).where(table('ops.task').c.run_id==job['id'])).mappings().all()
-        envelopes=conn.execute(select(table('ops.task_result')).join(table('ops.cut_task'),
-            table('ops.cut_task').c.origin_task_id==table('ops.task_result').c.task_id).where(
-            table('ops.cut_task').c.cut_id==cut_id)).mappings().all()
-        known,copied=_known_input(conn,prepared,job,observations)
-    return _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,output,known,copied)
+                raise DomainOperationRefused(
+                    "reused proposal is not located on this run selected rendition"
+                )
+            ren = renditions[rid]
+            descriptors[source["id"]] = {
+                "rendition_id": rid,
+                "source_uri": ren["source_uri"],
+                "text": ren["canonical_text"],
+                "provider": source["provider"],
+                "version": source["version"],
+                "rendition_key": ren["key"],
+                "content": ren["content"],
+                "page": ren["meta"].get("page", ren["source_uri"]),
+                "math": source["params"].get("math"),
+            }
+        tasks = (
+            conn.execute(select(table("ops.task")).where(table("ops.task").c.run_id == job["id"]))
+            .mappings()
+            .all()
+        )
+        envelopes = (
+            conn.execute(
+                select(table("ops.task_result"))
+                .join(
+                    table("ops.cut_task"),
+                    table("ops.cut_task").c.origin_task_id == table("ops.task_result").c.task_id,
+                )
+                .where(table("ops.cut_task").c.cut_id == cut_id)
+            )
+            .mappings()
+            .all()
+        )
+        known, copied = _known_input(conn, prepared, job, observations)
+    return _project_cut(
+        prepared, job, cut, observations, descriptors, tasks, envelopes, output, known, copied
+    )
 
 
-def _entity_mappings(prepared,observations,output,known,contexts):
+def _entity_mappings(prepared, observations, output, known, contexts):
     """Exact declared identity keys and explicitly global label policy, never fuzzy identity."""
-    from corpus_structure.core.keys import LabelRules,normalize_label
+    from corpus_structure.core.keys import LabelRules, normalize_label
     from corpus_structure.core.vocab import CaseRule
-    by_iri={d.iri:d for d in prepared.definitions}
-    meta={row.name:json.loads(row.body) for row in prepared.registry_rows if row.kind=='operation_class'}
-    artifact=next((a for a in prepared.artifacts if a.kind==RULE_INPUT),None)
-    policy=_policy_yaml(artifact.content) if artifact is not None else {}
-    aliases=LabelRules.model_validate((policy.get('identity') or {}).get('aliases',{}))
-    prefixes={row.name:json.loads(row.body)['uri'] for row in prepared.registry_rows if row.kind=='prefix'}
+
+    by_iri = {d.iri: d for d in prepared.definitions}
+    meta = {
+        row.name: json.loads(row.body)
+        for row in prepared.registry_rows
+        if row.kind == "operation_class"
+    }
+    artifact = next((a for a in prepared.artifacts if a.kind == RULE_INPUT), None)
+    policy = _policy_yaml(artifact.content) if artifact is not None else {}
+    aliases = LabelRules.model_validate((policy.get("identity") or {}).get("aliases", {}))
+    prefixes = {
+        row.name: json.loads(row.body)["uri"]
+        for row in prepared.registry_rows
+        if row.kind == "prefix"
+    }
+
     def compact(iri):
-        choices=[(len(uri),prefix+':'+iri[len(uri):]) for prefix,uri in prefixes.items() if iri.startswith(uri)]
+        choices = [
+            (len(uri), prefix + ":" + iri[len(uri) :])
+            for prefix, uri in prefixes.items()
+            if iri.startswith(uri)
+        ]
         return max(choices)[1] if choices else iri
-    mappings={};entries=[];extra={};parsed={}
+
+    mappings = {}
+    entries = []
+    extra = {}
+    parsed = {}
     for observation in observations:
-        if observation['payload_definition']!='AgentStoredBatch':continue
-        payload=prepared.validate_json('AgentStoredBatch',json.dumps(observation['payload'])).model_dump(mode='python',exclude_unset=True)
-        parsed[observation['id']]=payload
-        mapping={e['id']:'entity:'+sha256(canonical_bytes([prepared.release_id,output,observation['observation_key'],'entities',i,e['id']])).hexdigest()
-                 for i,e in enumerate(payload.get('entities',()))}
-        mappings[observation['id']]=mapping
-        if observation['id'] in contexts:
-            for e in payload.get('entities',()):entries.append((observation,e,by_iri[e['class_iri']]))
-    resolved=set();keys={};known_labels={}
-    for identity,item in known.items():
-        for iri in item['class_iris']:
-            definition=by_iri[iri]
-            groups=[g for g in definition.identity_groups if g!=definition.identity_slots]
+        if observation["payload_definition"] != "AgentStoredBatch":
+            continue
+        payload = prepared.validate_json(
+            "AgentStoredBatch", json.dumps(observation["payload"])
+        ).model_dump(mode="python", exclude_unset=True)
+        parsed[observation["id"]] = payload
+        mapping = {
+            e["id"]: "entity:"
+            + sha256(
+                canonical_bytes(
+                    [
+                        prepared.release_id,
+                        output,
+                        observation["observation_key"],
+                        "entities",
+                        i,
+                        e["id"],
+                    ]
+                )
+            ).hexdigest()
+            for i, e in enumerate(payload.get("entities", ()))
+        }
+        mappings[observation["id"]] = mapping
+        if observation["id"] in contexts:
+            for e in payload.get("entities", ()):
+                entries.append((observation, e, by_iri[e["class_iri"]]))
+    resolved = set()
+    keys = {}
+    known_labels = {}
+    for identity, item in known.items():
+        for iri in item["class_iris"]:
+            definition = by_iri[iri]
+            groups = [g for g in definition.identity_groups if g != definition.identity_slots]
             if not groups:
-                if meta.get(definition.name,{}).get('cs:scope')=='global' and item.get('label'):
-                    case=CaseRule.FOLD if meta[definition.name].get('cs:case')=='casefold' else CaseRule.PRESERVE
-                    label=normalize_label(item['label'],compact(iri),aliases,case)
-                    match=(iri,label)
-                    if match in known_labels and known_labels[match]!=identity:raise DomainOperationRefused('input global names identify multiple entities')
-                    known_labels[match]=identity
+                if meta.get(definition.name, {}).get("cs:scope") == "global" and item.get("label"):
+                    case = (
+                        CaseRule.FOLD
+                        if meta[definition.name].get("cs:case") == "casefold"
+                        else CaseRule.PRESERVE
+                    )
+                    label = normalize_label(item["label"], compact(iri), aliases, case)
+                    match = (iri, label)
+                    if match in known_labels and known_labels[match] != identity:
+                        raise DomainOperationRefused(
+                            "input global names identify multiple entities"
+                        )
+                    known_labels[match] = identity
                 continue
-            if not all(all(name in item['fields'] for name in g) for g in groups):continue
-            for key in prepared.entity_keys(definition.name,output,item['fields'],include_identifier=False):
-                if key in keys and keys[key]!=identity:raise DomainOperationRefused('input contains incompatible declared entity keys')
-                keys[key]=identity
-    pending=list(entries)
+            if not all(all(name in item["fields"] for name in g) for g in groups):
+                continue
+            for key in prepared.entity_keys(
+                definition.name, output, item["fields"], include_identifier=False
+            ):
+                if key in keys and keys[key] != identity:
+                    raise DomainOperationRefused("input contains incompatible declared entity keys")
+                keys[key] = identity
+    pending = list(entries)
     while pending:
-        progress=False;remaining=[]
-        for observation,e,definition in pending:
-            oid=observation['id'];mapping=mappings[oid]
-            fields={p.name:p for p in definition.properties}
-            attrs={}
-            dependencies=[]
-            for attribute in e.get('attributes',()):
-                prop=next(p for p in definition.properties if p.iri==attribute['predicate'])
+        progress = False
+        remaining = []
+        for observation, e, definition in pending:
+            oid = observation["id"]
+            mapping = mappings[oid]
+            fields = {p.name: p for p in definition.properties}
+            attrs = {}
+            dependencies = []
+            for attribute in e.get("attributes", ()):
+                prop = next(p for p in definition.properties if p.iri == attribute["predicate"])
                 from .expression_context import bind_expression_context
-                value=bind_expression_context(attribute['value'],contexts[oid][0])
-                if prop.name in {name for g in definition.identity_groups if g!=definition.identity_slots for name in g} and value.get('kind')=='entity' and value.get('target') in mapping:
-                    dependencies.append((oid,value['target']))
-                attrs[prop.name]=_property_value(prepared,definition,prop,value,mapping)
-            if e.get('scope') is not None and 'scope_locator' in fields:
-                attrs.setdefault('scope_locator',e['scope']['locator'])
-                extra[oid,e['id']]={'scope_locator':e['scope']['locator']}
-            groups=[g for g in definition.identity_groups if g!=definition.identity_slots]
+
+                value = bind_expression_context(attribute["value"], contexts[oid][0])
+                if (
+                    prop.name
+                    in {
+                        name
+                        for g in definition.identity_groups
+                        if g != definition.identity_slots
+                        for name in g
+                    }
+                    and value.get("kind") == "entity"
+                    and value.get("target") in mapping
+                ):
+                    dependencies.append((oid, value["target"]))
+                attrs[prop.name] = _property_value(prepared, definition, prop, value, mapping)
+            if e.get("scope") is not None and "scope_locator" in fields:
+                attrs.setdefault("scope_locator", e["scope"]["locator"])
+                extra[oid, e["id"]] = {"scope_locator": e["scope"]["locator"]}
+            groups = [g for g in definition.identity_groups if g != definition.identity_slots]
             if groups and all(all(name in attrs for name in g) for g in groups):
                 if any(dep not in resolved for dep in dependencies):
-                    remaining.append((observation,e,definition));continue
-                candidates=prepared.entity_keys(definition.name,output,attrs,include_identifier=False)
-                matches={keys[key] for key in candidates if key in keys}
-                if len(matches)>1:
-                    raise DomainOperationRefused('declared keys bridge incompatible existing identity assignments')
-                canonical=next(iter(matches)) if matches else min(candidates)
-                for key in candidates:keys[key]=canonical
-                mapping[e['id']]=canonical
-            elif not groups and meta.get(definition.name,{}).get('cs:scope')=='global' and e.get('label'):
-                case=CaseRule.FOLD if meta[definition.name].get('cs:case')=='casefold' else CaseRule.PRESERVE
-                label=normalize_label(e['label'],compact(definition.iri),aliases,case)
-                mapping[e['id']]=known_labels.get((definition.iri,label),'entity:'+sha256(canonical_bytes([prepared.release_id,output,definition.iri,'label',label])).hexdigest())
+                    remaining.append((observation, e, definition))
+                    continue
+                candidates = prepared.entity_keys(
+                    definition.name, output, attrs, include_identifier=False
+                )
+                matches = {keys[key] for key in candidates if key in keys}
+                if len(matches) > 1:
+                    raise DomainOperationRefused(
+                        "declared keys bridge incompatible existing identity assignments"
+                    )
+                canonical = next(iter(matches)) if matches else min(candidates)
+                for key in candidates:
+                    keys[key] = canonical
+                mapping[e["id"]] = canonical
+            elif (
+                not groups
+                and meta.get(definition.name, {}).get("cs:scope") == "global"
+                and e.get("label")
+            ):
+                case = (
+                    CaseRule.FOLD
+                    if meta[definition.name].get("cs:case") == "casefold"
+                    else CaseRule.PRESERVE
+                )
+                label = normalize_label(e["label"], compact(definition.iri), aliases, case)
+                mapping[e["id"]] = known_labels.get(
+                    (definition.iri, label),
+                    "entity:"
+                    + sha256(
+                        canonical_bytes(
+                            [prepared.release_id, output, definition.iri, "label", label]
+                        )
+                    ).hexdigest(),
+                )
             # An absent/incomplete semantic key never licenses a label merge for a keyed class.
-            resolved.add((oid,e['id']));progress=True
+            resolved.add((oid, e["id"]))
+            progress = True
         if not progress:
             # Recursive, ungrounded identity declarations retain source-qualified references.
             break
-        pending=remaining
-    return mappings,extra,parsed
+        pending = remaining
+    return mappings, extra, parsed
 
 
-def _project_cut(prepared,job,cut,observations,descriptors,tasks,envelopes,output,known,copied):
-    definitions={d.iri:d for d in prepared.definitions}
-    by_name={d.name:d for d in prepared.definitions}
-    reports=[];items=[];claims=[];metadata=dict(known);coverage=[];source_links={};evidence_roles={};contents={}
-    from corpus_structure.methods.math.methods import MathSection
+def _project_cut(
+    prepared, job, cut, observations, descriptors, tasks, envelopes, output, known, copied
+):
+    definitions = {d.iri: d for d in prepared.definitions}
+    by_name = {d.name: d for d in prepared.definitions}
+    reports = []
+    items = []
+    claims = []
+    metadata = dict(known)
+    coverage = []
+    source_links = {}
+    evidence_roles = {}
+    contents = {}
     from corpus_structure.core.evidence import MacroDef
     from corpus_structure.core.tex import effective_macros
-    contexts={}
+    from corpus_structure.methods.math.methods import MathSection
+
+    contexts = {}
     for observation in observations:
-        descriptor=descriptors[observation['id']]
-        if observation['payload_definition']!='AgentStoredBatch' or descriptor is None:continue
-        section=MathSection.model_validate(descriptor['math'] or {})
-        source_macros={name:MacroDef.model_validate(value) for name,value in descriptor['content'].get('macros',{}).items()}
-        contexts[observation['id']]=(effective_macros(source_macros,section.macro_table()),tuple(sorted(set(section.constants))))
-    if len({constants for _,constants in contexts.values()})>1:raise DomainOperationRefused('cut has incompatible recorded mathematical constant profiles')
-    entity_mappings,extra_attributes,parsed=_entity_mappings(prepared,observations,output,known,contexts)
-    operation_props={(body['class'],body['property']):body for row in prepared.registry_rows if row.kind=='operation_property' for body in (json.loads(row.body),)}
-    def coverage_row(family,scope,outcome,reason=None):
-        key='coverage:'+sha256(canonical_bytes([cut['id'],family,scope,outcome,reason])).hexdigest()
-        coverage.append(CoverageRow(key,family,scope,outcome,reason))
+        descriptor = descriptors[observation["id"]]
+        if observation["payload_definition"] != "AgentStoredBatch" or descriptor is None:
+            continue
+        section = MathSection.model_validate(descriptor["math"] or {})
+        source_macros = {
+            name: MacroDef.model_validate(value)
+            for name, value in descriptor["content"].get("macros", {}).items()
+        }
+        contexts[observation["id"]] = (
+            effective_macros(source_macros, section.macro_table()),
+            tuple(sorted(set(section.constants))),
+        )
+    if len({constants for _, constants in contexts.values()}) > 1:
+        raise DomainOperationRefused("cut has incompatible recorded mathematical constant profiles")
+    entity_mappings, extra_attributes, parsed = _entity_mappings(
+        prepared, observations, output, known, contexts
+    )
+    operation_props = {
+        (body["class"], body["property"]): body
+        for row in prepared.registry_rows
+        if row.kind == "operation_property"
+        for body in (json.loads(row.body),)
+    }
+
+    def coverage_row(family, scope, outcome, reason=None):
+        key = (
+            "coverage:"
+            + sha256(canonical_bytes([cut["id"], family, scope, outcome, reason])).hexdigest()
+        )
+        coverage.append(CoverageRow(key, family, scope, outcome, reason))
+
     for task in tasks:
-        if task['status'] not in {'done','empty','reused'}:
-            coverage_row('task',task['unit_key'] or str(task['id']),
-                         'failed' if task['status']=='failed' else 'unanalysed',str(task['status']))
+        if task["status"] not in {"done", "empty", "reused"}:
+            coverage_row(
+                "task",
+                task["unit_key"] or str(task["id"]),
+                "failed" if task["status"] == "failed" else "unanalysed",
+                str(task["status"]),
+            )
     for envelope in envelopes:
-        for c in envelope['body'].get('coverage',()):
-            coverage_row(c['family'],c['scope'],c['outcome'],c.get('reason'))
+        for c in envelope["body"].get("coverage", ()):
+            coverage_row(c["family"], c["scope"], c["outcome"], c.get("reason"))
     for observation in observations:
         reports.append(dict(observation))
-        if observation['payload_definition']=='SourceObservation' and observation['kind']=='author_markup':
+        if (
+            observation["payload_definition"] == "SourceObservation"
+            and observation["kind"] == "author_markup"
+        ):
+            from corpus_structure.core.evidence import RenditionContent
             from corpus_structure.semantic.observations import source_python
             from corpus_structure.semantic.source_projection import project_markup
-            from corpus_structure.core.evidence import RenditionContent
-            descriptor=descriptors[observation['id']]
+
+            descriptor = descriptors[observation["id"]]
             if descriptor is None:
-                coverage_row('author_markup',observation['observation_key'],'partial','source rendition unavailable')
+                coverage_row(
+                    "author_markup",
+                    observation["observation_key"],
+                    "partial",
+                    "source rendition unavailable",
+                )
                 continue
-            payload=source_python(observation['payload']['payload'])
+            payload = source_python(observation["payload"]["payload"])
             # A source envelope retains the canonical markup segment key in its payload value.
-            if payload.get('synthesize') is None:continue
-            segment_key=(payload.get('value') or {}).get('segment')
-            if segment_key is None:
-                coverage_row('author_markup',observation['observation_key'],'partial','markup has no segment locator')
+            if payload.get("synthesize") is None:
                 continue
-            if descriptor['rendition_id'] not in contents:
-                contents[descriptor['rendition_id']]=RenditionContent.model_validate(descriptor['content'])
-            projected=project_markup(prepared,output,observation_key=observation['observation_key'],
-                payload=payload,content=contents[descriptor['rendition_id']],
-                page=descriptor['page'],source_uri=descriptor['source_uri'],rendition_key=descriptor['rendition_key'],segment_key=segment_key,
-                provider=descriptor['provider'],operation_version=descriptor['version'])
-            coordinates={eid:(start,end) for eid,start,end in projected.evidence_ranges}
-            items.extend(replace(item,evidence=tuple(replace(e,locator='rendition:'+descriptor['rendition_key']+':span:'+str(coordinates[e.evidence_id][0])+':'+str(coordinates[e.evidence_id][1])) for e in item.evidence)) for item in projected.items)
-            for ordinal,(eid,start,end) in enumerate(projected.evidence_ranges):
-                role=payload['synthesize']['evidence'][ordinal].get('role')
-                if role is not None:evidence_roles[eid]=role
-                source_links[eid]=(observation['id'],descriptor['rendition_id'],start,end)
-            for locator in projected.unresolved:coverage_row('author_markup',locator,'partial','unresolved source reference')
+            segment_key = (payload.get("value") or {}).get("segment")
+            if segment_key is None:
+                coverage_row(
+                    "author_markup",
+                    observation["observation_key"],
+                    "partial",
+                    "markup has no segment locator",
+                )
+                continue
+            if descriptor["rendition_id"] not in contents:
+                contents[descriptor["rendition_id"]] = RenditionContent.model_validate(
+                    descriptor["content"]
+                )
+            projected = project_markup(
+                prepared,
+                output,
+                observation_key=observation["observation_key"],
+                payload=payload,
+                content=contents[descriptor["rendition_id"]],
+                page=descriptor["page"],
+                source_uri=descriptor["source_uri"],
+                rendition_key=descriptor["rendition_key"],
+                segment_key=segment_key,
+                provider=descriptor["provider"],
+                operation_version=descriptor["version"],
+            )
+            coordinates = {eid: (start, end) for eid, start, end in projected.evidence_ranges}
+            items.extend(
+                replace(
+                    item,
+                    evidence=tuple(
+                        replace(
+                            e,
+                            locator="rendition:"
+                            + descriptor["rendition_key"]
+                            + ":span:"
+                            + str(coordinates[e.evidence_id][0])
+                            + ":"
+                            + str(coordinates[e.evidence_id][1]),
+                        )
+                        for e in item.evidence
+                    ),
+                )
+                for item in projected.items
+            )
+            for ordinal, (eid, start, end) in enumerate(projected.evidence_ranges):
+                role = payload["synthesize"]["evidence"][ordinal].get("role")
+                if role is not None:
+                    evidence_roles[eid] = role
+                source_links[eid] = (observation["id"], descriptor["rendition_id"], start, end)
+            for locator in projected.unresolved:
+                coverage_row("author_markup", locator, "partial", "unresolved source reference")
             continue
-        if observation['payload_definition']!='AgentStoredBatch':
-            coverage_row(observation['kind'],observation['observation_key'],'unanalysed',
-                         'source report retained; no domain assertion projection declared')
+        if observation["payload_definition"] != "AgentStoredBatch":
+            coverage_row(
+                observation["kind"],
+                observation["observation_key"],
+                "unanalysed",
+                "source report retained; no domain assertion projection declared",
+            )
             continue
-        descriptor=descriptors[observation['id']]
-        payload=parsed[observation['id']]
+        descriptor = descriptors[observation["id"]]
+        payload = parsed[observation["id"]]
         if descriptor is None:
-            coverage_row('claim_proposal',payload['unit_ref'],'partial','source rendition unavailable')
+            coverage_row(
+                "claim_proposal", payload["unit_ref"], "partial", "source rendition unavailable"
+            )
             continue
-        source=observation['observation_key']
-        mapping=entity_mappings[observation['id']]
-        statements={s['id']:s for s in payload.get('statements',())}
+        source = observation["observation_key"]
+        mapping = entity_mappings[observation["id"]]
+        statements = {s["id"]: s for s in payload.get("statements", ())}
         from .source_projection import statement_identity
-        statement_ids={ref:statement_identity(prepared.release_id,output,descriptor['rendition_key'],statement['anchor'])
-                       for ref,statement in statements.items()}
-        # Source local refs are distinct until a declared identity-resolution operation authorizes a merge.
+
+        statement_ids = {
+            ref: statement_identity(
+                prepared.release_id, output, descriptor["rendition_key"], statement["anchor"]
+            )
+            for ref, statement in statements.items()
+        }
+        # Source local refs stay distinct until a declared identity operation authorizes a merge.
         # This substrate never treats a fuzzy label or ontology mapping as identity.
-        source_attributes={}
-        for e in payload.get('entities',()):
-            entity_id=mapping[e['id']]
-            declared_attributes=list(e.get('attributes',()))
-            definition=definitions[e['class_iri']]
-            if e.get('label'):
+        source_attributes = {}
+        for e in payload.get("entities", ()):
+            entity_id = mapping[e["id"]]
+            declared_attributes = list(e.get("attributes", ()))
+            definition = definitions[e["class_iri"]]
+            if e.get("label"):
                 for p in definition.properties:
-                    if operation_props.get((definition.name,p.iri),{}).get('cs:role')=='display':
-                        declared_attributes.append({'predicate':p.iri,'value':{'kind':'text','text':e['label']}})
-            for name,value in extra_attributes.get((observation['id'],e['id']),{}).items():
-                if not any(a['predicate']==next(p.iri for p in definition.properties if p.name==name) for a in declared_attributes):
-                    declared_attributes.append({'predicate':next(p.iri for p in definition.properties if p.name==name),'value':{'kind':'text','text':value}})
-            source_attributes[e['id']]=declared_attributes
-            present={p.name for p in definition.properties if any(a['predicate']==p.iri for a in declared_attributes)}|{'id'}
-            required={p.name for p in definition.properties if p.required or (p.minimum_cardinality or 0)>0}|{n for group in definition.identity_groups for n in group}
-            complete=required<=present
-            if not complete:coverage_row('entity',source+'/'+e['id'],'partial','declared entity lacks required identifying fields: '+','.join(sorted(required-present)))
-            current={**e,'id':entity_id,'attributes':declared_attributes,'representable':complete}
-            prior=metadata.get(entity_id)
+                    if (
+                        operation_props.get((definition.name, p.iri), {}).get("cs:role")
+                        == "display"
+                    ):
+                        declared_attributes.append(
+                            {"predicate": p.iri, "value": {"kind": "text", "text": e["label"]}}
+                        )
+            for name, value in extra_attributes.get((observation["id"], e["id"]), {}).items():
+                if not any(
+                    a["predicate"] == next(p.iri for p in definition.properties if p.name == name)
+                    for a in declared_attributes
+                ):
+                    declared_attributes.append(
+                        {
+                            "predicate": next(
+                                p.iri for p in definition.properties if p.name == name
+                            ),
+                            "value": {"kind": "text", "text": value},
+                        }
+                    )
+            source_attributes[e["id"]] = declared_attributes
+            present = {
+                p.name
+                for p in definition.properties
+                if any(a["predicate"] == p.iri for a in declared_attributes)
+            } | {"id"}
+            required = {
+                p.name
+                for p in definition.properties
+                if p.required or (p.minimum_cardinality or 0) > 0
+            } | {n for group in definition.identity_groups for n in group}
+            complete = required <= present
+            if not complete:
+                coverage_row(
+                    "entity",
+                    source + "/" + e["id"],
+                    "partial",
+                    "declared entity lacks required identifying fields: "
+                    + ",".join(sorted(required - present)),
+                )
+            current = {
+                **e,
+                "id": entity_id,
+                "attributes": declared_attributes,
+                "representable": complete,
+            }
+            prior = metadata.get(entity_id)
             # Rule display projection is deterministic; each source's own attributes
             # below remain distinct and never inherit the last report's values.
-            if prior is not None and prior.get('known'):continue
-            if prior is None or canonical_bytes(current)<canonical_bytes(prior):metadata[entity_id]=current
+            if prior is not None and prior.get("known"):
+                continue
+            if prior is None or canonical_bytes(current) < canonical_bytes(prior):
+                metadata[entity_id] = current
         from corpus_structure.core.evidence import MacroDef
+
         from .expression_context import bind_expression_context
-        macros,constants=contexts[observation['id']]
-        claim_rows=[];evidence_by_entity={};item_by_entity={};claim_refs={}
-        source_claims={c['id']:(i,c) for i,c in enumerate(payload.get('claims',()))}
-        occurrence_refs={ref:occurrence_key(prepared.release_id,output,source,'claims/'+str(i)) for ref,(i,c) in source_claims.items()}
-        qclass=next(p.range for p in by_name['AgentClaim'].properties if p.name=='qualification')
-        qualification_class=qclass
-        def dependencies_of(claim):
-            refs=_claim_references(prepared,'Value',claim['object'])|_claim_references(prepared,qclass,claim['qualification'])
-            subject=mapping.get(claim['subject'],claim['subject'])
+
+        macros, constants = contexts[observation["id"]]
+        claim_rows = []
+        evidence_by_entity = {}
+        item_by_entity = {}
+        claim_refs = {}
+        source_claims = {c["id"]: (i, c) for i, c in enumerate(payload.get("claims", ()))}
+        occurrence_refs = {
+            ref: occurrence_key(prepared.release_id, output, source, "claims/" + str(i))
+            for ref, (i, c) in source_claims.items()
+        }
+        qclass = next(
+            p.range for p in by_name["AgentClaim"].properties if p.name == "qualification"
+        )
+        qualification_class = qclass
+
+        def dependencies_of(claim, qclass, mapping):
+            refs = _claim_references(prepared, "Value", claim["object"]) | _claim_references(
+                prepared, qclass, claim["qualification"]
+            )
+            subject = mapping.get(claim["subject"], claim["subject"])
             if subject in metadata:
-                definition=definitions[metadata[subject]['class_iri']]
-                prop=next((p for p in definition.properties if p.iri==claim['predicate']),None)
-                if prop is not None and prop.reference_role=='fact':refs.add(claim['object']['text'])
+                definition = definitions[metadata[subject]["class_iri"]]
+                prop = next((p for p in definition.properties if p.iri == claim["predicate"]), None)
+                if prop is not None and prop.reference_role == "fact":
+                    refs.add(claim["object"]["text"])
             return refs
-        dependencies={ref:dependencies_of(claim) for ref,(i,claim) in source_claims.items()}
-        from graphlib import TopologicalSorter,CycleError
-        topology=TopologicalSorter({ref:refs&source_claims.keys() for ref,refs in dependencies.items()})
-        try:topology.prepare()
-        except CycleError:pass
-        ordered=[]
-        while ready:=topology.get_ready():
-            ordered.extend(sorted(ready));topology.done(*ready)
-        for ref in source_claims.keys()-set(ordered):coverage_row('claim',source+'/'+ref,'partial','cyclic source claim reference')
+
+        dependencies = {ref: dependencies_of(claim, qclass, mapping) for ref, (i, claim) in source_claims.items()}
+        from graphlib import CycleError, TopologicalSorter
+
+        topology = TopologicalSorter(
+            {ref: refs & source_claims.keys() for ref, refs in dependencies.items()}
+        )
+        with suppress(CycleError):
+            topology.prepare()
+        ordered = []
+        while ready := topology.get_ready():
+            ordered.extend(sorted(ready))
+            topology.done(*ready)
+        for ref in source_claims.keys() - set(ordered):
+            coverage_row("claim", source + "/" + ref, "partial", "cyclic source claim reference")
         for ref in ordered:
-            i,claim=source_claims[ref]
-            if not dependencies[ref]<=claim_refs.keys():
-                coverage_row('claim',source+'/'+ref,'partial','unavailable source claim premise')
+            i, claim = source_claims[ref]
+            if not dependencies[ref] <= claim_refs.keys():
+                coverage_row(
+                    "claim", source + "/" + ref, "partial", "unavailable source claim premise"
+                )
                 continue
-            located=[]
-            for j,e in enumerate(claim['evidence']):
-                if e.get('outcome')!='located' or e.get('start') is None or e.get('end') is None:continue
-                start,end=e['start'],e['end']
-                if not 0<=start<end<=len(descriptor['text']):
-                    raise DomainOperationRefused('claim evidence lies outside selected rendition')
+            located = []
+            for j, e in enumerate(claim["evidence"]):
+                if e.get("outcome") != "located" or e.get("start") is None or e.get("end") is None:
+                    continue
+                start, end = e["start"], e["end"]
+                if not 0 <= start < end <= len(descriptor["text"]):
+                    raise DomainOperationRefused("claim evidence lies outside selected rendition")
                 # Location uncertainty is source evidence, never silently upgraded to exactness.
-                key='evidence:'+sha256(canonical_bytes([source,'claims',i,j,e])).hexdigest()
-                locator=canonical_bytes({'locator':e['locator'],'start':start,'end':end,'role':e['role']}).decode()
-                located.append(EvidenceRow(key,descriptor['source_uri'],locator,descriptor['provider'],descriptor['version']))
-                source_links[key]=(observation['id'],descriptor['rendition_id'],start,end)
-                evidence_roles[key]=e['role']
-            if not located or not any(e.get('outcome')=='located' and e['role']=='primary' for e in claim['evidence']):
-                coverage_row('claim',source+'/'+claim['id'],'partial','no located primary evidence')
+                key = "evidence:" + sha256(canonical_bytes([source, "claims", i, j, e])).hexdigest()
+                locator = canonical_bytes(
+                    {"locator": e["locator"], "start": start, "end": end, "role": e["role"]}
+                ).decode()
+                located.append(
+                    EvidenceRow(
+                        key,
+                        descriptor["source_uri"],
+                        locator,
+                        descriptor["provider"],
+                        descriptor["version"],
+                    )
+                )
+                source_links[key] = (observation["id"], descriptor["rendition_id"], start, end)
+                evidence_roles[key] = e["role"]
+            if not located or not any(
+                e.get("outcome") == "located" and e["role"] == "primary" for e in claim["evidence"]
+            ):
+                coverage_row(
+                    "claim", source + "/" + claim["id"], "partial", "no located primary evidence"
+                )
                 continue
-            subject=mapping.get(claim['subject'],claim['subject'])
-            if subject not in metadata or metadata[subject].get('representable') is False:
-                coverage_row('claim',source+'/'+claim['id'],'partial','bound reference membership projection unavailable')
+            subject = mapping.get(claim["subject"], claim["subject"])
+            if subject not in metadata or metadata[subject].get("representable") is False:
+                coverage_row(
+                    "claim",
+                    source + "/" + claim["id"],
+                    "partial",
+                    "bound reference membership projection unavailable",
+                )
                 continue
-            definition=definitions[metadata[subject]['class_iri']]
-            prop=next(p for p in definition.properties if p.iri==claim['predicate'])
-            obj=_property_value(prepared,definition,prop,bind_expression_context(claim['object'],macros),{**mapping,**statement_ids},claim_refs)
-            qclass=next(d.name for d in prepared.definitions if d.name=='AgentClaim')
-            qualification_class=next(p.range for p in by_name[qclass].properties if p.name=='qualification')
-            qual=_reference(prepared,qualification_class,bind_expression_context(_plain(claim['qualification']),macros),{**mapping,**statement_ids},claim_refs)
-            if not isinstance(qual,dict):raise DomainOperationRefused('qualification must be an explicit typed record')
-            referenced=({obj} if prop.range in by_name and not prop.inlined else _entity_references(prepared,prop.range,obj))|_entity_references(prepared,qualification_class,qual)
-            if any(ref not in metadata or metadata[ref].get('representable') is False for ref in referenced):
-                coverage_row('claim',source+'/'+claim['id'],'partial','declared endpoint lacks representable class identity')
+            definition = definitions[metadata[subject]["class_iri"]]
+            prop = next(p for p in definition.properties if p.iri == claim["predicate"])
+            obj = _property_value(
+                prepared,
+                definition,
+                prop,
+                bind_expression_context(claim["object"], macros),
+                {**mapping, **statement_ids},
+                claim_refs,
+            )
+            qclass = next(d.name for d in prepared.definitions if d.name == "AgentClaim")
+            qualification_class = next(
+                p.range for p in by_name[qclass].properties if p.name == "qualification"
+            )
+            qual = _reference(
+                prepared,
+                qualification_class,
+                bind_expression_context(_plain(claim["qualification"]), macros),
+                {**mapping, **statement_ids},
+                claim_refs,
+            )
+            if not isinstance(qual, dict):
+                raise DomainOperationRefused("qualification must be an explicit typed record")
+            referenced = (
+                {obj}
+                if prop.range in by_name and not prop.inlined
+                else _entity_references(prepared, prop.range, obj)
+            ) | _entity_references(prepared, qualification_class, qual)
+            if any(
+                ref not in metadata or metadata[ref].get("representable") is False
+                for ref in referenced
+            ):
+                coverage_row(
+                    "claim",
+                    source + "/" + claim["id"],
+                    "partial",
+                    "declared endpoint lacks representable class identity",
+                )
                 continue
-            item=SourceItem(subject,definition.name,prop.name,obj,qual,source,'claims/'+str(i),claim['establishment'],tuple(located),qualification_class)
-            claim_refs[claim['id']]=_source_fact_id(prepared,output,item)
-            items.append(item);claim_rows.append((claim,item))
-            evidence_by_entity.setdefault(subject,tuple(located));item_by_entity.setdefault(subject,item)
+            item = SourceItem(
+                subject,
+                definition.name,
+                prop.name,
+                obj,
+                qual,
+                source,
+                "claims/" + str(i),
+                claim["establishment"],
+                tuple(located),
+                qualification_class,
+            )
+            claim_refs[claim["id"]] = _source_fact_id(prepared, output, item)
+            items.append(item)
+            claim_rows.append((claim, item))
+            evidence_by_entity.setdefault(subject, tuple(located))
+            item_by_entity.setdefault(subject, item)
             for target in referenced:
                 if target in metadata:
-                    evidence_by_entity.setdefault(target,tuple(located));item_by_entity.setdefault(target,item)
+                    evidence_by_entity.setdefault(target, tuple(located))
+                    item_by_entity.setdefault(target, item)
         # Source-declared entity fields use the actual qualified source assertion that names them.
-        for local,e in ((e['id'],e) for e in payload.get('entities',())):
-            subject=mapping[local]
-            if subject not in evidence_by_entity:continue
-            evidence=evidence_by_entity[subject]
-            qitem=item_by_entity.get(subject)
-            if qitem is None:continue
-            definition=definitions[e['class_iri']]
-            for index,attribute in enumerate(({'predicate':next(p.iri for p in definition.properties if p.name=='id'),
-                                                'value':{'kind':'text','text':subject}},*source_attributes[local])):
-                prop=next(p for p in definition.properties if p.iri==attribute['predicate'])
-                value=_property_value(prepared,definition,prop,bind_expression_context(attribute['value'],macros),{**mapping,**statement_ids},claim_refs)
-                items.append(replace(qitem,subject=subject,class_name=definition.name,property_name=prop.name,
-                    object=value,item=f'entities/{local}/attributes/{index}',evidence=evidence,qualification={'modality':'asserted','polarity':True},qualification_class='Qualification'))
-        for claim,item in claim_rows:
-            statement=statements.get(claim.get('statement'))
+        for local, e in ((e["id"], e) for e in payload.get("entities", ())):
+            subject = mapping[local]
+            if subject not in evidence_by_entity:
+                continue
+            evidence = evidence_by_entity[subject]
+            qitem = item_by_entity.get(subject)
+            if qitem is None:
+                continue
+            definition = definitions[e["class_iri"]]
+            for index, attribute in enumerate(
+                (
+                    {
+                        "predicate": next(p.iri for p in definition.properties if p.name == "id"),
+                        "value": {"kind": "text", "text": subject},
+                    },
+                    *source_attributes[local],
+                )
+            ):
+                prop = next(p for p in definition.properties if p.iri == attribute["predicate"])
+                value = _property_value(
+                    prepared,
+                    definition,
+                    prop,
+                    bind_expression_context(attribute["value"], macros),
+                    {**mapping, **statement_ids},
+                    claim_refs,
+                )
+                items.append(
+                    replace(
+                        qitem,
+                        subject=subject,
+                        class_name=definition.name,
+                        property_name=prop.name,
+                        object=value,
+                        item=f"entities/{local}/attributes/{index}",
+                        evidence=evidence,
+                        qualification={"modality": "asserted", "polarity": True},
+                        qualification_class="Qualification",
+                    )
+                )
+        for claim, item in claim_rows:
+            statement = statements.get(claim.get("statement"))
             if statement is not None:
-                sid=statement_ids[claim['statement']]
-                props={'id':sid,'locator':statement['anchor']}
-                if statement['kind'] in prepared.enum_members('StatementKind'):props['statement_kind']=statement['kind']
-                for name,value in props.items():
-                    items.append(replace(item,subject=sid,class_name='SourceStatement',property_name=name,
-                        object=value,item='statements/'+claim['statement']+'/'+name,qualification={'modality':'asserted','polarity':True},qualification_class='Qualification'))
-            fid=_source_fact_id(prepared,output,item)
-            prop=next(p for p in by_name[item.class_name].properties if p.name==item.property_name)
-            alternatives=tuple(a['id'] for a in payload.get('alternatives',()) if claim['id'] in a['members'])
-            statement=statements.get(claim.get('statement'))
-            definition=by_name[item.class_name]
-            rule_object=_reference(prepared,'Value',bind_expression_context(claim['object'],macros),{**mapping,**statement_ids},occurrence_refs)
-            rule_qualification=_reference(prepared,qualification_class,bind_expression_context(_plain(claim['qualification']),macros),{**mapping,**statement_ids},occurrence_refs)
-            claims.append(ClaimCandidate(fid,occurrence_key(prepared.release_id,output,source,item.item),source,
-                claim['id'],item.subject,item.class_name,claim['predicate'],item.object,item.qualification,
-                item.establishment,statement_ids.get(claim.get('statement')),statement.get('kind') if statement else None,
-                claim.get('statement_role'),alternatives,len(item.evidence),{name:value.model_dump(mode='python') for name,value in macros.items()},qualification_class,tuple(sorted(ref for ref in {item.subject,*_entity_references(prepared,qualification_class,item.qualification),*(_entity_references(prepared,prop.range,item.object) if prop.inlined else {item.object} if prop.range in by_name else set())} if ref in metadata and metadata[ref].get('reference') and not metadata[ref].get('known'))),rule_object,rule_qualification,constants))
-        for unsupported in payload.get('unsupported',()):
-            coverage_row('unsupported',source+'/'+unsupported['id'],'partial',unsupported['reason'])
+                sid = statement_ids[claim["statement"]]
+                props = {"id": sid, "locator": statement["anchor"]}
+                if statement["kind"] in prepared.enum_members("StatementKind"):
+                    props["statement_kind"] = statement["kind"]
+                for name, value in props.items():
+                    items.append(
+                        replace(
+                            item,
+                            subject=sid,
+                            class_name="SourceStatement",
+                            property_name=name,
+                            object=value,
+                            item="statements/" + claim["statement"] + "/" + name,
+                            qualification={"modality": "asserted", "polarity": True},
+                            qualification_class="Qualification",
+                        )
+                    )
+            fid = _source_fact_id(prepared, output, item)
+            prop = next(
+                p for p in by_name[item.class_name].properties if p.name == item.property_name
+            )
+            alternatives = tuple(
+                a["id"] for a in payload.get("alternatives", ()) if claim["id"] in a["members"]
+            )
+            statement = statements.get(claim.get("statement"))
+            definition = by_name[item.class_name]
+            rule_object = _reference(
+                prepared,
+                "Value",
+                bind_expression_context(claim["object"], macros),
+                {**mapping, **statement_ids},
+                occurrence_refs,
+            )
+            rule_qualification = _reference(
+                prepared,
+                qualification_class,
+                bind_expression_context(_plain(claim["qualification"]), macros),
+                {**mapping, **statement_ids},
+                occurrence_refs,
+            )
+            claims.append(
+                ClaimCandidate(
+                    fid,
+                    occurrence_key(prepared.release_id, output, source, item.item),
+                    source,
+                    claim["id"],
+                    item.subject,
+                    item.class_name,
+                    claim["predicate"],
+                    item.object,
+                    item.qualification,
+                    item.establishment,
+                    statement_ids.get(claim.get("statement")),
+                    statement.get("kind") if statement else None,
+                    claim.get("statement_role"),
+                    alternatives,
+                    len(item.evidence),
+                    {name: value.model_dump(mode="python") for name, value in macros.items()},
+                    qualification_class,
+                    tuple(
+                        sorted(
+                            ref
+                            for ref in {
+                                item.subject,
+                                *_entity_references(
+                                    prepared, qualification_class, item.qualification
+                                ),
+                                *(
+                                    _entity_references(prepared, prop.range, item.object)
+                                    if prop.inlined
+                                    else {item.object}
+                                    if prop.range in by_name
+                                    else set()
+                                ),
+                            }
+                            if ref in metadata
+                            and metadata[ref].get("reference")
+                            and not metadata[ref].get("known")
+                        )
+                    ),
+                    rule_object,
+                    rule_qualification,
+                    constants,
+                )
+            )
+        for unsupported in payload.get("unsupported", ()):
+            coverage_row(
+                "unsupported", source + "/" + unsupported["id"], "partial", unsupported["reason"]
+            )
     batch_id = _source_batch_id(prepared.release_id, output, observations)
-    batch=assemble(prepared,output,batch_id,tuple(items))
-    from .publication import EntityInputRow,FactInputRow,EntityRow
-    used={e.entity_id for e in batch.entity}&known.keys()
-    pending=set(used)
+    batch = assemble(prepared, output, batch_id, tuple(items))
+    from .publication import EntityInputRow, FactInputRow
+
+    used = {e.entity_id for e in batch.entity} & known.keys()
+    pending = set(used)
     while pending:
-        identity=pending.pop()
-        for original,prop,value,qualification,qclass in known[identity]['input_facts']:
-            refs=({value} if prop.range in by_name and not prop.inlined else _entity_references(prepared,prop.range,value))|_entity_references(prepared,qclass,qualification)
-            for ref in refs&known.keys()-used:used.add(ref);pending.add(ref)
+        identity = pending.pop()
+        for _original, prop, value, qualification, qclass in known[identity]["input_facts"]:
+            refs = (
+                {value}
+                if prop.range in by_name and not prop.inlined
+                else _entity_references(prepared, prop.range, value)
+            ) | _entity_references(prepared, qclass, qualification)
+            for ref in refs & known.keys() - used:
+                used.add(ref)
+                pending.add(ref)
     # Carry admitted input metadata as facts with explicit native lineage, never as
     # new source occurrences or as assertions attributed to the current report.
-    input_items=[];input_fact_links=[]
+    input_items = []
+    input_fact_links = []
     for identity in sorted(used):
-        d=definitions[known[identity]['class_iri']]
-        for original,prop,value,qualification,qclass in known[identity]['input_facts']:
-            input_items.append(FactItem(identity,d.name,prop.name,value,qualification,qclass))
-            fid=prepared.fact_identity(output,identity,prop.iri,value,qualification,qualification_class=qclass)
-            input_fact_links.append(FactInputRow(fid,job['input_realization_id'],job['input_revision'],original['fact_id'],job['id']))
-    input_lowerer=FactValueLowerer(prepared,output)
-    for item in input_items:input_lowerer.add(item)
-    inherited=input_lowerer.graph('input-metadata')
-    incoming:dict[str,Any]={}
-    for name in ('entity','typed_value','value_role','fact'):
-        merged=(*getattr(batch,name),*getattr(inherited,name))
-        if name=='fact':
-            by_fact={}
+        d = definitions[known[identity]["class_iri"]]
+        for original, prop, value, qualification, qclass in known[identity]["input_facts"]:
+            input_items.append(FactItem(identity, d.name, prop.name, value, qualification, qclass))
+            fid = prepared.fact_identity(
+                output, identity, prop.iri, value, qualification, qualification_class=qclass
+            )
+            input_fact_links.append(
+                FactInputRow(
+                    fid,
+                    job["input_realization_id"],
+                    job["input_revision"],
+                    original["fact_id"],
+                    job["id"],
+                )
+            )
+    input_lowerer = FactValueLowerer(prepared, output)
+    for item in input_items:
+        input_lowerer.add(item)
+    inherited = input_lowerer.graph("input-metadata")
+    incoming: dict[str, Any] = {}
+    for name in ("entity", "typed_value", "value_role", "fact"):
+        merged = (*getattr(batch, name), *getattr(inherited, name))
+        if name == "fact":
+            by_fact = {}
             for fact in merged:
-                if fact.fact_id not in by_fact or (fact.object_value_id,fact.qualification_value_id)<(by_fact[fact.fact_id].object_value_id,by_fact[fact.fact_id].qualification_value_id):by_fact[fact.fact_id]=fact
-            incoming[name]=tuple(sorted(by_fact.values(),key=lambda f:f.fact_id))
-        else:incoming[name]=tuple(sorted(set(merged),key=lambda row:canonical_bytes(__import__('dataclasses').astuple(row))))
-    for name,rows in copied.items():
-        if name.startswith('membership'):rows=tuple(row for row in rows if row.entity_id in used)
-        incoming[name]=tuple(sorted(set((*(row for row in getattr(batch,name) if name!='membership' or (row.entity_id,row.class_id) not in {(r.entity_id,r.class_id) for r in rows}),*rows)),key=lambda row:canonical_bytes(__import__('dataclasses').astuple(row))))
-    batch=replace(batch,**incoming,fact_input=tuple(sorted(set(input_fact_links),key=lambda row:row.fact_id)),entity_input=tuple(EntityInputRow(identity,job['input_realization_id'],job['input_revision'],identity,job['id']) for identity in sorted(used)),coverage=tuple(sorted(coverage,key=lambda c:c.coverage_id)))
+                if fact.fact_id not in by_fact or (
+                    fact.object_value_id,
+                    fact.qualification_value_id,
+                ) < (
+                    by_fact[fact.fact_id].object_value_id,
+                    by_fact[fact.fact_id].qualification_value_id,
+                ):
+                    by_fact[fact.fact_id] = fact
+            incoming[name] = tuple(sorted(by_fact.values(), key=lambda f: f.fact_id))
+        else:
+            incoming[name] = tuple(
+                sorted(
+                    set(merged),
+                    key=lambda row: canonical_bytes(__import__("dataclasses").astuple(row)),
+                )
+            )
+    for name, rows in copied.items():
+        if name.startswith("membership"):
+            rows = tuple(row for row in rows if row.entity_id in used)
+        incoming[name] = tuple(
+            sorted(
+                set(
+                    (
+                        *(
+                            row
+                            for row in getattr(batch, name)
+                            if name != "membership"
+                            or (row.entity_id, row.class_id)
+                            not in {(r.entity_id, r.class_id) for r in rows}
+                        ),
+                        *rows,
+                    )
+                ),
+                key=lambda row: canonical_bytes(__import__("dataclasses").astuple(row)),
+            )
+        )
+    batch = replace(
+        batch,
+        **incoming,
+        fact_input=tuple(sorted(set(input_fact_links), key=lambda row: row.fact_id)),
+        entity_input=tuple(
+            EntityInputRow(
+                identity, job["input_realization_id"], job["input_revision"], identity, job["id"]
+            )
+            for identity in sorted(used)
+        ),
+        coverage=tuple(sorted(coverage, key=lambda c: c.coverage_id)),
+    )
     # Source links are resolved to native spans only in the final short publication transaction.
-    from .publication import OccurrenceContextRow,OccurrenceEvidenceRoleRow
-    batch=replace(batch,occurrence_context=tuple(OccurrenceContextRow(c.occurrence_id,c.statement,c.statement_role) for c in claims if c.statement is not None or c.statement_role is not None),
-        occurrence_evidence_role=tuple(OccurrenceEvidenceRoleRow(link.occurrence_id,link.evidence_id,evidence_roles[link.evidence_id])
-            for link in batch.occurrence_evidence if link.evidence_id in evidence_roles))
+    from .publication import OccurrenceContextRow, OccurrenceEvidenceRoleRow
+
+    batch = replace(
+        batch,
+        occurrence_context=tuple(
+            OccurrenceContextRow(c.occurrence_id, c.statement, c.statement_role)
+            for c in claims
+            if c.statement is not None or c.statement_role is not None
+        ),
+        occurrence_evidence_role=tuple(
+            OccurrenceEvidenceRoleRow(
+                link.occurrence_id, link.evidence_id, evidence_roles[link.evidence_id]
+            )
+            for link in batch.occurrence_evidence
+            if link.evidence_id in evidence_roles
+        ),
+    )
     from .publication import EntitySourceRow
-    declared={m.entity_id for m in batch.membership}
-    batch=replace(batch,entity_source=tuple(sorted({EntitySourceRow(mapping[e['id']],observation['id'],e['id']) for observation in observations if observation['payload_definition']=='AgentStoredBatch' for mapping in (entity_mappings[observation['id']],) for e in parsed[observation['id']].get('entities',()) if mapping[e['id']] in declared},key=lambda row:(row.entity_id,row.observation_id,row.local_id))))
-    source_links={eid:link for eid,link in source_links.items() if eid in {e.evidence_id for e in batch.evidence}}
-    return CutInput(cut['id'],job['id'],job['project_id'],prepared,output,tuple(reports),tuple(claims),batch,MappingProxyType(metadata),MappingProxyType(source_links))
+
+    declared = {m.entity_id for m in batch.membership}
+    batch = replace(
+        batch,
+        entity_source=tuple(
+            sorted(
+                {
+                    EntitySourceRow(mapping[e["id"]], observation["id"], e["id"])
+                    for observation in observations
+                    if observation["payload_definition"] == "AgentStoredBatch"
+                    for mapping in (entity_mappings[observation["id"]],)
+                    for e in parsed[observation["id"]].get("entities", ())
+                    if mapping[e["id"]] in declared
+                },
+                key=lambda row: (row.entity_id, row.observation_id, row.local_id),
+            )
+        ),
+    )
+    source_links = {
+        eid: link
+        for eid, link in source_links.items()
+        if eid in {e.evidence_id for e in batch.evidence}
+    }
+    return CutInput(
+        cut["id"],
+        job["id"],
+        job["project_id"],
+        prepared,
+        output,
+        tuple(reports),
+        tuple(claims),
+        batch,
+        MappingProxyType(metadata),
+        MappingProxyType(source_links),
+    )
 
 
-def consolidate_cut(engine:Engine,cut_id:int,output_realization_id:str,*,policy:DomainPolicy|None=None,
-                    attempts:int=3)->DomainResult:
+def consolidate_cut(
+    engine: Engine,
+    cut_id: int,
+    output_realization_id: str,
+    *,
+    policy: DomainPolicy | None = None,
+    attempts: int = 3,
+) -> DomainResult:
     completed = _completed_result(engine, cut_id, output_realization_id, policy)
     if completed is not None:
         return completed
-    inputs=_cut_input(engine,cut_id,output_realization_id)
-    admitted=ReleasedRulesPolicy(inputs.prepared)
-    if policy is None:policy=admitted
-    if policy.version!=admitted.version:raise DomainOperationRefused('scientific policy version differs from admitted operation')
-    if policy.release_id!=inputs.prepared.release_id:
-        raise DomainOperationRefused('scientific policy belongs to another release')
-    binding=SnapshotBinding(inputs.prepared.release_id,output_realization_id,0,'cut:'+str(cut_id))
-    compiled=compile_projection(inputs.prepared,binding)
-    packet=AnalyticalPacket(binding,compiled.projection_id,compiled.profile.digest,
-        MappingProxyType({p.name:pa.Table.from_pylist([],schema=p.schema) for p in compiled.relations}),scale=compiled.profile.scale,property_ids=tuple(sorted({p.iri for d in inputs.prepared.definitions for p in d.properties})))
-    evidence_type=pa.list_(pa.struct([pa.field('evidence_id',pa.string())]))
-    links={o.occurrence_id:[] for o in inputs.batch.occurrence}
-    for link in inputs.batch.occurrence_evidence:links[link.occurrence_id].append({'evidence_id':link.evidence_id})
-    candidates=pa.Table.from_pylist([{'fact_id':o.fact_id,'occurrence_id':o.occurrence_id,'evidence':links[o.occurrence_id]}
-        for o in inputs.batch.occurrence],schema=pa.schema([pa.field('fact_id',pa.string()),pa.field('occurrence_id',pa.string()),pa.field('evidence',evidence_type)]))
+    inputs = _cut_input(engine, cut_id, output_realization_id)
+    admitted = ReleasedRulesPolicy(inputs.prepared)
+    if policy is None:
+        policy = admitted
+    if policy.version != admitted.version:
+        raise DomainOperationRefused("scientific policy version differs from admitted operation")
+    if policy.release_id != inputs.prepared.release_id:
+        raise DomainOperationRefused("scientific policy belongs to another release")
+    binding = SnapshotBinding(
+        inputs.prepared.release_id, output_realization_id, 0, "cut:" + str(cut_id)
+    )
+    compiled = compile_projection(inputs.prepared, binding)
+    packet = AnalyticalPacket(
+        binding,
+        compiled.projection_id,
+        compiled.profile.digest,
+        MappingProxyType(
+            {p.name: pa.Table.from_pylist([], schema=p.schema) for p in compiled.relations}
+        ),
+        scale=compiled.profile.scale,
+        property_ids=tuple(
+            sorted({p.iri for d in inputs.prepared.definitions for p in d.properties})
+        ),
+    )
+    evidence_type = pa.list_(pa.struct([pa.field("evidence_id", pa.string())]))
+    links = {o.occurrence_id: [] for o in inputs.batch.occurrence}
+    for link in inputs.batch.occurrence_evidence:
+        links[link.occurrence_id].append({"evidence_id": link.evidence_id})
+    candidates = pa.Table.from_pylist(
+        [
+            {
+                "fact_id": o.fact_id,
+                "occurrence_id": o.occurrence_id,
+                "evidence": links[o.occurrence_id],
+            }
+            for o in inputs.batch.occurrence
+        ],
+        schema=pa.schema(
+            [
+                pa.field("fact_id", pa.string()),
+                pa.field("occurrence_id", pa.string()),
+                pa.field("evidence", evidence_type),
+            ]
+        ),
+    )
     with AnalysisScope(packet) as scope:
-        fused=scope.fuse(scope.connection.from_arrow(candidates)).to_arrow_table()
-        decision=policy.evaluate(inputs,scope,fused)
-    facts={f.fact_id for f in inputs.batch.fact}
-    if not decision.selected.issubset(facts):raise DomainOperationRefused('policy selected facts outside its input universe')
-    batch=replace(inputs.batch,selection=tuple(SelectionRow(f) for f in sorted(decision.selected)),assessment=decision.assessments,alternative_group=decision.alternative_group,alternative_member=decision.alternative_member)
-    source_links=inputs.source_links
-    def publish(conn,batch):
-        conn.execute(text('SELECT data.begin_evaluation(:cut,:output)'),{'cut':cut_id,'output':output_realization_id})
-        done=conn.execute(select(table('ops.run').c.status).where(table('ops.run').c.id==inputs.run_id)).scalar_one()=='finished'
-        receipt=publish_on_connection(conn,batch)
-        if done:return receipt
+        fused = scope.fuse(scope.connection.from_arrow(candidates)).to_arrow_table()
+        decision = policy.evaluate(inputs, scope, fused)
+    facts = {f.fact_id for f in inputs.batch.fact}
+    if not decision.selected.issubset(facts):
+        raise DomainOperationRefused("policy selected facts outside its input universe")
+    batch = replace(
+        inputs.batch,
+        selection=tuple(SelectionRow(f) for f in sorted(decision.selected)),
+        assessment=decision.assessments,
+        alternative_group=decision.alternative_group,
+        alternative_member=decision.alternative_member,
+    )
+    source_links = inputs.source_links
+
+    def publish(conn, batch):
+        conn.execute(
+            text("SELECT data.begin_evaluation(:cut,:output)"),
+            {"cut": cut_id, "output": output_realization_id},
+        )
+        done = (
+            conn.execute(
+                select(table("ops.run").c.status).where(table("ops.run").c.id == inputs.run_id)
+            ).scalar_one()
+            == "finished"
+        )
+        receipt = publish_on_connection(conn, batch)
+        if done:
+            return receipt
         # A source receipt, proof receipts and the run result are one atomic transaction. The
         # source receipt remains its own identity even when inference advances the final revision.
         from .inference import derive
         from .publication import stage_batch
-        conn.execute(text('SELECT data.end_stage()'))
-        inferred=derive(conn,SnapshotBinding(batch.release_id,batch.realization_id,receipt.data_revision,'cut:'+str(cut_id)))
+
+        conn.execute(text("SELECT data.end_stage()"))
+        inferred = derive(
+            conn,
+            SnapshotBinding(
+                batch.release_id, batch.realization_id, receipt.data_revision, "cut:" + str(cut_id)
+            ),
+        )
         if inferred.batch.fact or inferred.batch.derivation:
-            stage_batch(conn,inferred.batch)
-            conn.execute(text('SELECT data.publish_analysis_batch(:r,:z,:b,:body,:revision)'),
-                {'r':batch.release_id,'z':batch.realization_id,'b':inferred.batch.batch_id,
-                 'body':inferred.batch.content,'revision':receipt.data_revision})
-        conn.execute(text('SELECT data.finish_evaluation(:cut,:output,:batch)'),{'cut':cut_id,'output':output_realization_id,'batch':batch.batch_id})
+            stage_batch(conn, inferred.batch)
+            conn.execute(
+                text("SELECT data.publish_analysis_batch(:r,:z,:b,:body,:revision)"),
+                {
+                    "r": batch.release_id,
+                    "z": batch.realization_id,
+                    "b": inferred.batch.batch_id,
+                    "body": inferred.batch.content,
+                    "revision": receipt.data_revision,
+                },
+            )
+        conn.execute(
+            text("SELECT data.finish_evaluation(:cut,:output,:batch)"),
+            {"cut": cut_id, "output": output_realization_id, "batch": batch.batch_id},
+        )
         return receipt
+
     # Span sequence IDs must not alter immutable retry/receipt content. Resolve them before the
     # replay owner, then retain that exact frozen batch for all attempts.
     if source_links:
         with engine.begin() as conn:
-            rows=[];span=table('kb.span')
-            coordinates=sorted({(rid,start,end) for _,rid,start,end in source_links.values()})
-            conn.execute(pg_insert(span).values([{'rendition_id':rid,'start_offset':start,'end_offset':end}
-                for rid,start,end in coordinates]).on_conflict_do_nothing())
-            ids={(row.rendition_id,row.start_offset,row.end_offset):row.id for row in conn.execute(
-                select(span).where(tuple_(span.c.rendition_id,span.c.start_offset,span.c.end_offset).in_(coordinates)))}
-            for eid,(oid,rid,start,end) in sorted(source_links.items()):
-                rows.append(EvidenceSourceRow(eid,oid,rid,ids[rid,start,end]))
-        batch=replace(batch,evidence_source=tuple(sorted(set((*batch.evidence_source,*rows)),key=lambda row:row.evidence_id)))
-    receipt=_publish(engine,batch,publish,attempts=attempts)
+            rows = []
+            span = table("kb.span")
+            coordinates = sorted(
+                {(rid, start, end) for _, rid, start, end in source_links.values()}
+            )
+            conn.execute(
+                pg_insert(span)
+                .values(
+                    [
+                        {"rendition_id": rid, "start_offset": start, "end_offset": end}
+                        for rid, start, end in coordinates
+                    ]
+                )
+                .on_conflict_do_nothing()
+            )
+            ids = {
+                (row.rendition_id, row.start_offset, row.end_offset): row.id
+                for row in conn.execute(
+                    select(span).where(
+                        tuple_(span.c.rendition_id, span.c.start_offset, span.c.end_offset).in_(
+                            coordinates
+                        )
+                    )
+                )
+            }
+            for eid, (oid, rid, start, end) in sorted(source_links.items()):
+                rows.append(EvidenceSourceRow(eid, oid, rid, ids[rid, start, end]))
+        batch = replace(
+            batch,
+            evidence_source=tuple(
+                sorted(set((*batch.evidence_source, *rows)), key=lambda row: row.evidence_id)
+            ),
+        )
+    receipt = _publish(engine, batch, publish, attempts=attempts)
     with engine.connect() as conn:
-        revision=conn.execute(select(table('data.realization').c.data_revision).where(
-            table('data.realization').c.realization_id==output_realization_id)).scalar_one()
-        receipts=conn.execute(select(table('data.batch')).where(
-            table('data.batch').c.realization_id==output_realization_id,
-            table('data.batch').c.release_id==batch.release_id,
-            table('data.batch').c.batch_id!=batch.batch_id).order_by(table('data.batch').c.data_revision)).mappings().all()
-        proofs=tuple(PublicationReceipt(row['batch_id'],row['data_revision'],row['content_digest']) for row in receipts)
-    return DomainResult(inputs.run_id,cut_id,output_realization_id,receipt,len(inputs.reports),len(batch.occurrence),revision,proofs)
+        revision = conn.execute(
+            select(table("data.realization").c.data_revision).where(
+                table("data.realization").c.realization_id == output_realization_id
+            )
+        ).scalar_one()
+        receipts = (
+            conn.execute(
+                select(table("data.batch"))
+                .where(
+                    table("data.batch").c.realization_id == output_realization_id,
+                    table("data.batch").c.release_id == batch.release_id,
+                    table("data.batch").c.batch_id != batch.batch_id,
+                )
+                .order_by(table("data.batch").c.data_revision)
+            )
+            .mappings()
+            .all()
+        )
+        proofs = tuple(
+            PublicationReceipt(row["batch_id"], row["data_revision"], row["content_digest"])
+            for row in receipts
+        )
+    return DomainResult(
+        inputs.run_id,
+        cut_id,
+        output_realization_id,
+        receipt,
+        len(inputs.reports),
+        len(batch.occurrence),
+        revision,
+        proofs,
+    )
 
 
 def _comparison_value(raw):
@@ -799,514 +1746,1191 @@ def _comparison_value(raw):
     This is an operation adapter. It does not change the source record or install legacy
     schema authority. Shapes without a faithful comparator operand remain undecided.
     """
-    from datetime import date,datetime
+    from datetime import date, datetime
     from decimal import Decimal
+
     from corpus_structure.core import values as V
-    if isinstance(raw,str):return V.TextValue(t='text',v=raw)
-    if isinstance(raw,bool):return V.BoolValue(t='bool',v=raw)
-    if isinstance(raw,(Decimal,int)):
-        text=format(Decimal(raw),'f')
-        if '.' in text:text=text.rstrip('0').rstrip('.')
-        return V.NumberValue(t='number',v=text if Decimal(raw) else '0')
-    if isinstance(raw,(date,datetime)):return V.DateValue(t='date',v=raw.isoformat())
-    if not isinstance(raw,dict):raise DomainOperationRefused('scientific operand has no faithful comparator shape')
-    kind=raw.get('kind')
-    if kind=='text':return V.TextValue(t='text',v=raw['text'])
-    if kind in {'number','quantity'}:
-        value=_comparison_value(raw['number'])
-        return value.model_copy(update={k:raw[k] for k in ('unit','basis') if k in raw})
-    if kind=='boolean':return V.BoolValue(t='bool',v=raw['boolean'])
-    if kind=='entity':return V.EntityRef(ref=raw['target'])
-    if kind in {'formula','set','expression'}:
-        if raw.get('language')!='latex':raise DomainOperationRefused('scientific expression language has no comparator')
-        if len({b['symbol'] for b in raw.get('bindings',())})!=len(raw.get('bindings',())):raise DomainOperationRefused('duplicate source symbol bindings are not a functional map')
-        bindings={b['symbol']:V.SymbolBinding.model_validate({'bind':b['kind'],**{k:b[k] for k in ('entity','claim') if k in b},**({'param':b['parameter']} if 'parameter' in b else {})}) for b in raw.get('bindings',())}
-        if kind=='set' or raw.get('form')=='set':return V.SetValue(t='set',latex=raw['expression'],symbols=bindings)
-        return V.Formula(t='formula',latex=raw['expression'],symbols=bindings)
-    if kind=='interval':
-        return V.IntervalValue.model_validate({'t':'interval','start_incl':raw['lower_closed'],'end_incl':raw['upper_closed'],
-            **({'start':_comparison_value(raw['lower'])} if 'lower' in raw else {}),
-            **({'end':_comparison_value(raw['upper'])} if 'upper' in raw else {})})
-    raise DomainOperationRefused('scientific '+str(kind)+' operand has no faithful comparator shape')
+
+    if isinstance(raw, str):
+        return V.TextValue(t="text", v=raw)
+    if isinstance(raw, bool):
+        return V.BoolValue(t="bool", v=raw)
+    if isinstance(raw, (Decimal, int)):
+        text = format(Decimal(raw), "f")
+        if "." in text:
+            text = text.rstrip("0").rstrip(".")
+        return V.NumberValue(t="number", v=text if Decimal(raw) else "0")
+    if isinstance(raw, (date, datetime)):
+        return V.DateValue(t="date", v=raw.isoformat())
+    if not isinstance(raw, dict):
+        raise DomainOperationRefused("scientific operand has no faithful comparator shape")
+    kind = raw.get("kind")
+    if kind == "text":
+        return V.TextValue(t="text", v=raw["text"])
+    if kind in {"number", "quantity"}:
+        value = _comparison_value(raw["number"])
+        return value.model_copy(update={k: raw[k] for k in ("unit", "basis") if k in raw})
+    if kind == "boolean":
+        return V.BoolValue(t="bool", v=raw["boolean"])
+    if kind == "entity":
+        return V.EntityRef(ref=raw["target"])
+    if kind in {"formula", "set", "expression"}:
+        if raw.get("language") != "latex":
+            raise DomainOperationRefused("scientific expression language has no comparator")
+        if len({b["symbol"] for b in raw.get("bindings", ())}) != len(raw.get("bindings", ())):
+            raise DomainOperationRefused(
+                "duplicate source symbol bindings are not a functional map"
+            )
+        bindings = {
+            b["symbol"]: V.SymbolBinding.model_validate(
+                {
+                    "bind": b["kind"],
+                    **{k: b[k] for k in ("entity", "claim") if k in b},
+                    **({"param": b["parameter"]} if "parameter" in b else {}),
+                }
+            )
+            for b in raw.get("bindings", ())
+        }
+        if kind == "set" or raw.get("form") == "set":
+            return V.SetValue(t="set", latex=raw["expression"], symbols=bindings)
+        return V.Formula(t="formula", latex=raw["expression"], symbols=bindings)
+    if kind == "interval":
+        return V.IntervalValue.model_validate(
+            {
+                "t": "interval",
+                "start_incl": raw["lower_closed"],
+                "end_incl": raw["upper_closed"],
+                **({"start": _comparison_value(raw["lower"])} if "lower" in raw else {}),
+                **({"end": _comparison_value(raw["upper"])} if "upper" in raw else {}),
+            }
+        )
+    raise DomainOperationRefused(
+        "scientific " + str(kind) + " operand has no faithful comparator shape"
+    )
 
 
 def _comparison_condition(raw):
     """Project typed mathematical conditions; unknown predicates remain undecided."""
     from corpus_structure.core import values as V
-    kind=raw['kind']
-    if kind=='all':return V.StoredAnd(op='and',args=tuple(_comparison_condition(t) for t in raw['terms']))
-    if kind=='member':return V.MemberNode(op='member',x=_comparison_value(raw['x']),set=_comparison_value(raw['set']))
-    if kind=='compare':return V.CmpNode(op='cmp',rel=raw['relation'],lhs=_comparison_value(raw['lhs']),rhs=_comparison_value(raw['rhs']))
-    raise DomainOperationRefused('condition '+kind+' has no mathematical restriction projection')
+
+    kind = raw["kind"]
+    if kind == "all":
+        return V.StoredAnd(op="and", args=tuple(_comparison_condition(t) for t in raw["terms"]))
+    if kind == "member":
+        return V.MemberNode(
+            op="member", x=_comparison_value(raw["x"]), set=_comparison_value(raw["set"])
+        )
+    if kind == "compare":
+        return V.CmpNode(
+            op="cmp",
+            rel=raw["relation"],
+            lhs=_comparison_value(raw["lhs"]),
+            rhs=_comparison_value(raw["rhs"]),
+        )
+    raise DomainOperationRefused(
+        "condition " + kind + " has no mathematical restriction projection"
+    )
 
 
 def _bindings(value):
-    if isinstance(value,dict):
-        found=[value['bindings']] if 'bindings' in value else []
-        return [*found,*(b for k,v in value.items() if k!='bindings' for b in _bindings(v))]
-    if isinstance(value,(list,tuple)):return [b for member in value for b in _bindings(member)]
+    if isinstance(value, dict):
+        found = [value["bindings"]] if "bindings" in value else []
+        return [*found, *(b for k, v in value.items() if k != "bindings" for b in _bindings(v))]
+    if isinstance(value, (list, tuple)):
+        return [b for member in value for b in _bindings(member)]
     return []
 
 
 def _without_bindings(value):
-    if isinstance(value,dict):return {k:_without_bindings(v) for k,v in value.items() if k!='bindings'}
-    if isinstance(value,(list,tuple)):return [_without_bindings(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _without_bindings(v) for k, v in value.items() if k != "bindings"}
+    if isinstance(value, (list, tuple)):
+        return [_without_bindings(v) for v in value]
     return value
 
 
 class ReleasedRulesPolicy:
     """The existing rule language and finalize decision table over release-derived views."""
-    version=VERSION
 
-    def __init__(self,prepared:PreparedRelease):
-        from corpus_structure.schema.rulelang import Builtin,Language,Vocabulary
-        from corpus_structure.schema.rules import ENTITY,VALUE,STATEMENT,BINDING,NODE,CLAIM
-        self.prepared=prepared;self.release_id=prepared.release_id
-        artifact=next((a for a in prepared.artifacts if a.kind==RULE_INPUT),None)
-        if artifact is None:raise DomainOperationRefused('release has no declared domain rules operation')
-        self.source=_policy_yaml(artifact.content) or {}
-        if not isinstance(self.source,dict):raise DomainOperationRefused('domain rule artifact is not an object')
-        self.definitions={d.name:d for d in prepared.definitions}
-        self.metadata={}
+    version = VERSION
+
+    def __init__(self, prepared: PreparedRelease):
+        from corpus_structure.schema.rulelang import Builtin, Language, Vocabulary
+        from corpus_structure.schema.rules import BINDING, CLAIM, ENTITY, NODE, STATEMENT, VALUE
+
+        self.prepared = prepared
+        self.release_id = prepared.release_id
+        artifact = next((a for a in prepared.artifacts if a.kind == RULE_INPUT), None)
+        if artifact is None:
+            raise DomainOperationRefused("release has no declared domain rules operation")
+        self.source = _policy_yaml(artifact.content) or {}
+        if not isinstance(self.source, dict):
+            raise DomainOperationRefused("domain rule artifact is not an object")
+        self.definitions = {d.name: d for d in prepared.definitions}
+        self.metadata = {}
         for row in prepared.registry_rows:
-            if row.kind=='operation_property':
-                body=json.loads(row.body)
-                self.metadata[body['class'],body['property']]=body
-        self.prefixes={row.name:json.loads(row.body)['uri'] for row in prepared.registry_rows if row.kind=='prefix'}
+            if row.kind == "operation_property":
+                body = json.loads(row.body)
+                self.metadata[body["class"], body["property"]] = body
+        self.prefixes = {
+            row.name: json.loads(row.body)["uri"]
+            for row in prepared.registry_rows
+            if row.kind == "prefix"
+        }
         self.validate_source()
-        self.enums={}
+        self.enums = {}
         for row in prepared.registry_rows:
-            if row.kind=='enum_definition':
-                body=json.loads(row.body)
-                enum_uri=body.get('enum_uri')
-                if enum_uri:self.enums[self.compact(prepared.expand_name(enum_uri))]=tuple(prepared.enum_members(row.name))
+            if row.kind == "enum_definition":
+                body = json.loads(row.body)
+                enum_uri = body.get("enum_uri")
+                if enum_uri:
+                    self.enums[self.compact(prepared.expand_name(enum_uri))] = tuple(
+                        prepared.enum_members(row.name)
+                    )
         # Classes, qualifier schemas and memberships come from the same immutable binding.
-        qualifications=[d for d in prepared.definitions if d.name=='Qualification' or 'Qualification' in d.ancestors]
-        qtypes={};qprops={}
+        qualifications = [
+            d
+            for d in prepared.definitions
+            if d.name == "Qualification" or "Qualification" in d.ancestors
+        ]
+        qtypes = {}
+        qprops = {}
         for definition in qualifications:
             for prop in definition.properties:
-                qprops[prop.name]=prop
+                qprops[prop.name] = prop
                 if prop.multivalued and prop.range in self.definitions:
-                    fields={p.name:p for p in self.definitions[prop.range].properties}
-                    qtypes[prop.name]='map[Value]' if {'key','value'}.issubset(fields) else 'list[string]'
-                elif prop.range=='boolean':qtypes[prop.name]='boolean?'
-                elif prop.range in {'integer','decimal','float','double'}:qtypes[prop.name]='number?'
-                elif prop.range in self.definitions:qtypes[prop.name]='string?'
-                else:qtypes[prop.name]='string?'
-        self.qprops=qprops
-        claim=dict(CLAIM)
-        for name in self.source.get('views',{}):claim[name]='list[string]'
-        value={**VALUE,'parse':'string?','math_kind':'string?'}
-        builtins={'enums':Builtin(self.enums,'map[list[string]]'),
-            'is_a':Builtin(self.is_a,'function(string, string)->boolean')}
-        for name,values in self.source.get('tables',{}).items():
-            if all(isinstance(v,list) for v in values.values()):typ='map[list[string]]'
-            elif all(isinstance(v,str) for v in values.values()):typ='map[string]'
-            else:raise DomainOperationRefused('unsupported released rule lookup table')
-            builtins[name]=Builtin(values,typ)
-        classes=frozenset(self.compact(d.iri) for d in prepared.definitions)
-        predicates=frozenset(self.compact(p.iri) for d in prepared.definitions for p in d.properties)
-        groups=frozenset(g for row in self.metadata.values() for g in row.get('groups',()))
-        values={('Claim','predicate'):Vocabulary('predicates',predicates),
-            ('Claim','groups'):Vocabulary('predicate subsets',groups),
-            ('Entity','type'):Vocabulary('entity classes',classes),
-            ('Claim','establishment'):Vocabulary('Establishment',frozenset(prepared.enum_members('Establishment')))}
-        from corpus_structure.core.vocab import ParseOutcome,MathKind
-        statement_kinds=Vocabulary('StatementKind',frozenset(prepared.enum_members('StatementKind')))
-        statement_roles=Vocabulary('StatementRole',frozenset(prepared.enum_members('StatementRole')))
-        values[('Claim','statement_kind')]=statement_kinds
-        values[('Statement','kind')]=statement_kinds
-        values[('Claim','statement_role')]=statement_roles
-        values[('Value','parse')]=Vocabulary('ParseOutcome',frozenset(m.value for m in ParseOutcome))
-        values[('Value','math_kind')]=Vocabulary('MathKind',frozenset(m.value for m in MathKind))
-        values[('Value','t')]=Vocabulary('Value discriminators',frozenset(p.equals_string for d in prepared.definitions
-            if d.name=='Value' or 'Value' in d.ancestors for p in d.properties if p.name=='kind' and p.equals_string))
+                    fields = {p.name: p for p in self.definitions[prop.range].properties}
+                    qtypes[prop.name] = (
+                        "map[Value]" if {"key", "value"}.issubset(fields) else "list[string]"
+                    )
+                elif prop.range == "boolean":
+                    qtypes[prop.name] = "boolean?"
+                elif prop.range in {"integer", "decimal", "float", "double"}:
+                    qtypes[prop.name] = "number?"
+                elif prop.range in self.definitions:
+                    qtypes[prop.name] = "string?"
+                else:
+                    qtypes[prop.name] = "string?"
+        self.qprops = qprops
+        claim = dict(CLAIM)
+        for name in self.source.get("views", {}):
+            claim[name] = "list[string]"
+        value = {**VALUE, "parse": "string?", "math_kind": "string?"}
+        builtins = {
+            "enums": Builtin(self.enums, "map[list[string]]"),
+            "is_a": Builtin(self.is_a, "function(string, string)->boolean"),
+        }
+        for name, values in self.source.get("tables", {}).items():
+            if all(isinstance(v, list) for v in values.values()):
+                typ = "map[list[string]]"
+            elif all(isinstance(v, str) for v in values.values()):
+                typ = "map[string]"
+            else:
+                raise DomainOperationRefused("unsupported released rule lookup table")
+            builtins[name] = Builtin(values, typ)
+        classes = frozenset(self.compact(d.iri) for d in prepared.definitions)
+        predicates = frozenset(
+            self.compact(p.iri) for d in prepared.definitions for p in d.properties
+        )
+        groups = frozenset(g for row in self.metadata.values() for g in row.get("groups", ()))
+        values = {
+            ("Claim", "predicate"): Vocabulary("predicates", predicates),
+            ("Claim", "groups"): Vocabulary("predicate subsets", groups),
+            ("Entity", "type"): Vocabulary("entity classes", classes),
+            ("Claim", "establishment"): Vocabulary(
+                "Establishment", frozenset(prepared.enum_members("Establishment"))
+            ),
+        }
+        from corpus_structure.core.vocab import MathKind, ParseOutcome
+
+        statement_kinds = Vocabulary(
+            "StatementKind", frozenset(prepared.enum_members("StatementKind"))
+        )
+        statement_roles = Vocabulary(
+            "StatementRole", frozenset(prepared.enum_members("StatementRole"))
+        )
+        values[("Claim", "statement_kind")] = statement_kinds
+        values[("Statement", "kind")] = statement_kinds
+        values[("Claim", "statement_role")] = statement_roles
+        values[("Value", "parse")] = Vocabulary(
+            "ParseOutcome", frozenset(m.value for m in ParseOutcome)
+        )
+        values[("Value", "math_kind")] = Vocabulary(
+            "MathKind", frozenset(m.value for m in MathKind)
+        )
+        values[("Value", "t")] = Vocabulary(
+            "Value discriminators",
+            frozenset(
+                p.equals_string
+                for d in prepared.definitions
+                if d.name == "Value" or "Value" in d.ancestors
+                for p in d.properties
+                if p.name == "kind" and p.equals_string
+            ),
+        )
         for prop in qprops.values():
-            if prop.range in {row.name for row in prepared.registry_rows if row.kind=='enum_definition'}:
-                values['Qualifiers',prop.name]=Vocabulary(prop.range,frozenset(prepared.enum_members(prop.range)))
-        self.language=Language(objects={'Claim':claim,'Entity':ENTITY,'Value':value,'Statement':STATEMENT,
-            'Binding':BINDING,'Node':NODE,'Qualifiers':qtypes},symbols={'claim':'Claim'},builtins=builtins,
-            values=values,arguments={'is_a':(Vocabulary('classes',classes),Vocabulary('classes',classes))},
-            no_regex=frozenset({('Value','latex'),('Node','x_latex'),('Binding','symbol')}))
-        self.rules=[]
-        seen=set()
-        for section in ('rules','guideline'):
-            for raw in self.source.get(section,()):
-                rid=raw['id']
-                if rid in seen:raise DomainOperationRefused('duplicate released rule id')
+            if prop.range in {
+                row.name for row in prepared.registry_rows if row.kind == "enum_definition"
+            }:
+                values["Qualifiers", prop.name] = Vocabulary(
+                    prop.range, frozenset(prepared.enum_members(prop.range))
+                )
+        self.language = Language(
+            objects={
+                "Claim": claim,
+                "Entity": ENTITY,
+                "Value": value,
+                "Statement": STATEMENT,
+                "Binding": BINDING,
+                "Node": NODE,
+                "Qualifiers": qtypes,
+            },
+            symbols={"claim": "Claim"},
+            builtins=builtins,
+            values=values,
+            arguments={"is_a": (Vocabulary("classes", classes), Vocabulary("classes", classes))},
+            no_regex=frozenset({("Value", "latex"), ("Node", "x_latex"), ("Binding", "symbol")}),
+        )
+        self.rules = []
+        seen = set()
+        for section in ("rules", "guideline"):
+            for raw in self.source.get(section, ()):
+                rid = raw["id"]
+                if rid in seen:
+                    raise DomainOperationRefused("duplicate released rule id")
                 seen.add(rid)
-                if 'finalize' not in raw.get('at',('batch','finalize')):continue
-                self.rules.append((raw,self.language.compile(rid,raw.get('when','true')),
-                                   self.language.compile(rid,raw['check'])))
+                if "finalize" not in raw.get("at", ("batch", "finalize")):
+                    continue
+                self.rules.append(
+                    (
+                        raw,
+                        self.language.compile(rid, raw.get("when", "true")),
+                        self.language.compile(rid, raw["check"]),
+                    )
+                )
 
     def validate_source(self):
         from corpus_structure.core.keys import LabelRules
-        from corpus_structure.pool.steps import ViewSpec,SAME_SLOT,ALTERNATIVE_OF
-        source=self.source
-        if set(source)-{'rules','guideline','views','tables','derive','identity','operation'}:raise DomainOperationRefused('unknown domain operation policy section')
-        if source.get('operation')!={'name':'semantic-domain','version':VERSION}:raise DomainOperationRefused('unsupported domain operation name/version')
-        if source.get('derive'):raise DomainOperationRefused('operation derive rules require an admitted inference profile')
-        identity=source.get('identity',{})
-        if not isinstance(identity,dict) or set(identity)-{'aliases'}:raise DomainOperationRefused('invalid operation identity policy')
-        LabelRules.model_validate(identity.get('aliases',{}))
-        props={p.iri for d in self.prepared.definitions for p in d.properties}
-        groups={g for body in self.metadata.values() for g in body.get('groups',())}
+        from corpus_structure.pool.steps import ALTERNATIVE_OF, SAME_SLOT, ViewSpec
+
+        source = self.source
+        if set(source) - {
+            "rules",
+            "guideline",
+            "views",
+            "tables",
+            "derive",
+            "identity",
+            "operation",
+        }:
+            raise DomainOperationRefused("unknown domain operation policy section")
+        if source.get("operation") != {"name": "semantic-domain", "version": VERSION}:
+            raise DomainOperationRefused("unsupported domain operation name/version")
+        if source.get("derive"):
+            raise DomainOperationRefused(
+                "operation derive rules require an admitted inference profile"
+            )
+        identity = source.get("identity", {})
+        if not isinstance(identity, dict) or set(identity) - {"aliases"}:
+            raise DomainOperationRefused("invalid operation identity policy")
+        LabelRules.model_validate(identity.get("aliases", {}))
+        props = {p.iri for d in self.prepared.definitions for p in d.properties}
+        groups = {g for body in self.metadata.values() for g in body.get("groups", ())}
+
         def applies(value):
-            values=[value] if isinstance(value,str) else value
-            if not isinstance(values,(tuple,list)) or not values or any(not isinstance(v,str) for v in values):raise DomainOperationRefused('invalid rule applies_to')
-            selected=set()
+            values = [value] if isinstance(value, str) else value
+            if (
+                not isinstance(values, (tuple, list))
+                or not values
+                or any(not isinstance(v, str) for v in values)
+            ):
+                raise DomainOperationRefused("invalid rule applies_to")
+            selected = set()
             for token in values:
-                if token=='any':selected.update(props)
-                elif token.startswith('subset:'):
-                    group=token[7:]
-                    if group not in groups:raise DomainOperationRefused('unknown operation predicate subset '+group)
-                    selected.update(body['property'] for body in self.metadata.values() if group in body.get('groups',()))
+                if token == "any":
+                    selected.update(props)
+                elif token.startswith("subset:"):
+                    group = token[7:]
+                    if group not in groups:
+                        raise DomainOperationRefused("unknown operation predicate subset " + group)
+                    selected.update(
+                        body["property"]
+                        for body in self.metadata.values()
+                        if group in body.get("groups", ())
+                    )
                 else:
-                    iri=self.prepared.expand_name(token)
-                    if iri not in props:raise DomainOperationRefused('unknown operation predicate '+token)
+                    iri = self.prepared.expand_name(token)
+                    if iri not in props:
+                        raise DomainOperationRefused("unknown operation predicate " + token)
                     selected.add(iri)
             return selected
-        for section in ('rules','guideline'):
-            if not isinstance(source.get(section,[]),list):raise DomainOperationRefused('operation rules must be a list')
-            for rule in source.get(section,()):
-                if not isinstance(rule,dict) or set(rule)-{'id','applies_to','at','severity','when','check','description'}:raise DomainOperationRefused('invalid operation rule shape')
-                if not isinstance(rule.get('id'),str) or not rule['id'] or not isinstance(rule.get('check'),str):raise DomainOperationRefused('operation rule requires id and check')
-                sites=rule.get('at',('batch','finalize'))
-                if not isinstance(sites,(list,tuple)) or not sites or any(s not in {'batch','finalize'} for s in sites):raise DomainOperationRefused('unknown operation rule call site')
-                if rule.get('severity','error') not in {'error','warning'}:raise DomainOperationRefused('unknown operation rule severity')
-                applies(rule.get('applies_to','any'))
-        tables=source.get('tables',{})
-        if not isinstance(tables,dict) or any(not isinstance(key,str) or not isinstance(value,dict) or any(not isinstance(k,str) for k in value) or not (all(isinstance(v,str) for v in value.values()) or all(isinstance(v,list) and all(isinstance(x,str) for x in v) for v in value.values())) for key,value in tables.items()):raise DomainOperationRefused('invalid released rule lookup table')
-        views=source.get('views',{})
-        if not isinstance(views,dict):raise DomainOperationRefused('operation views must be a mapping')
-        for name,decl in views.items():
-            if not isinstance(name,str) or not name.isidentifier() or name in {SAME_SLOT,ALTERNATIVE_OF} or not isinstance(decl,dict) or set(decl)-{'description','applies_to','source','match','project'}:raise DomainOperationRefused('invalid operation view declaration')
-            if not {'applies_to','source','match','project'}<=decl.keys():raise DomainOperationRefused('incomplete operation view declaration')
-            match=decl['match']
-            if not isinstance(match,dict) or set(match)!={'source','claim'} or any(v not in {'subject','object'} for v in match.values()):raise DomainOperationRefused('unknown operation view match side')
-            if not isinstance(decl['source'],str) or self.prepared.expand_name(decl['source']) not in props:raise DomainOperationRefused('unknown operation view source property')
-            spec=ViewSpec.from_declaration(name,decl,applies(decl['applies_to']))
-            if spec.attr=='identity' and (spec.slot is None or self.prepared.expand_name(spec.slot) not in props):raise DomainOperationRefused('unknown operation view identity projection')
 
-    def compact(self,iri):
-        choices=[(len(uri),prefix+':'+iri[len(uri):]) for prefix,uri in self.prefixes.items() if iri.startswith(uri)]
+        for section in ("rules", "guideline"):
+            if not isinstance(source.get(section, []), list):
+                raise DomainOperationRefused("operation rules must be a list")
+            for rule in source.get(section, ()):
+                if not isinstance(rule, dict) or set(rule) - {
+                    "id",
+                    "applies_to",
+                    "at",
+                    "severity",
+                    "when",
+                    "check",
+                    "description",
+                }:
+                    raise DomainOperationRefused("invalid operation rule shape")
+                if (
+                    not isinstance(rule.get("id"), str)
+                    or not rule["id"]
+                    or not isinstance(rule.get("check"), str)
+                ):
+                    raise DomainOperationRefused("operation rule requires id and check")
+                sites = rule.get("at", ("batch", "finalize"))
+                if (
+                    not isinstance(sites, (list, tuple))
+                    or not sites
+                    or any(s not in {"batch", "finalize"} for s in sites)
+                ):
+                    raise DomainOperationRefused("unknown operation rule call site")
+                if rule.get("severity", "error") not in {"error", "warning"}:
+                    raise DomainOperationRefused("unknown operation rule severity")
+                applies(rule.get("applies_to", "any"))
+        tables = source.get("tables", {})
+        if not isinstance(tables, dict) or any(
+            not isinstance(key, str)
+            or not isinstance(value, dict)
+            or any(not isinstance(k, str) for k in value)
+            or not (
+                all(isinstance(v, str) for v in value.values())
+                or all(
+                    isinstance(v, list) and all(isinstance(x, str) for x in v)
+                    for v in value.values()
+                )
+            )
+            for key, value in tables.items()
+        ):
+            raise DomainOperationRefused("invalid released rule lookup table")
+        views = source.get("views", {})
+        if not isinstance(views, dict):
+            raise DomainOperationRefused("operation views must be a mapping")
+        for name, decl in views.items():
+            if (
+                not isinstance(name, str)
+                or not name.isidentifier()
+                or name in {SAME_SLOT, ALTERNATIVE_OF}
+                or not isinstance(decl, dict)
+                or set(decl) - {"description", "applies_to", "source", "match", "project"}
+            ):
+                raise DomainOperationRefused("invalid operation view declaration")
+            if not {"applies_to", "source", "match", "project"} <= decl.keys():
+                raise DomainOperationRefused("incomplete operation view declaration")
+            match = decl["match"]
+            if (
+                not isinstance(match, dict)
+                or set(match) != {"source", "claim"}
+                or any(v not in {"subject", "object"} for v in match.values())
+            ):
+                raise DomainOperationRefused("unknown operation view match side")
+            if (
+                not isinstance(decl["source"], str)
+                or self.prepared.expand_name(decl["source"]) not in props
+            ):
+                raise DomainOperationRefused("unknown operation view source property")
+            spec = ViewSpec.from_declaration(name, decl, applies(decl["applies_to"]))
+            if spec.attr == "identity" and (
+                spec.slot is None or self.prepared.expand_name(spec.slot) not in props
+            ):
+                raise DomainOperationRefused("unknown operation view identity projection")
+
+    def compact(self, iri):
+        choices = [
+            (len(uri), prefix + ":" + iri[len(uri) :])
+            for prefix, uri in self.prefixes.items()
+            if iri.startswith(uri)
+        ]
         return max(choices)[1] if choices else iri
 
-    def is_a(self,child,parent):
-        expanded=self.prepared.expand_name(child);target=self.prepared.expand_name(parent)
-        definition=next((d for d in self.prepared.definitions if d.iri==expanded),None)
-        ancestor=next((d.name for d in self.prepared.definitions if d.iri==target),None)
-        return definition is not None and (expanded==target or ancestor in definition.ancestors)
+    def is_a(self, child, parent):
+        expanded = self.prepared.expand_name(child)
+        target = self.prepared.expand_name(parent)
+        definition = next((d for d in self.prepared.definitions if d.iri == expanded), None)
+        ancestor = next((d.name for d in self.prepared.definitions if d.iri == target), None)
+        return definition is not None and (expanded == target or ancestor in definition.ancestors)
 
-    def applies(self,raw,candidate):
-        source=raw.get('applies_to','any')
-        if isinstance(source,str):source=[source]
-        groups=self.metadata.get((candidate.class_name,candidate.predicate),{}).get('groups',())
+    def applies(self, raw, candidate):
+        source = raw.get("applies_to", "any")
+        if isinstance(source, str):
+            source = [source]
+        groups = self.metadata.get((candidate.class_name, candidate.predicate), {}).get(
+            "groups", ()
+        )
         for token in source:
-            if token=='any':return True
-            if token.startswith('subset:'):
-                if token[7:] in groups:return True
-            elif self.prepared.expand_name(token)==candidate.predicate:return True
+            if token == "any":
+                return True
+            if token.startswith("subset:"):
+                if token[7:] in groups:
+                    return True
+            elif self.prepared.expand_name(token) == candidate.predicate:
+                return True
         return False
 
-    def scientific_decisions(self,inputs,scope):
+    def scientific_decisions(self, inputs, scope):
         """Declared source disagreements and existing scientific value comparisons.
 
         Equivalence is an assessment between retained facts. It never rewrites fact meaning
         or turns an undecided comparison into inequality.
         """
         from collections import defaultdict
-        from corpus_structure.core.evidence import MacroDef
+
         from corpus_structure.core import values as V
-        from corpus_structure.evaluate.equivalence import ValueComparator,Tier,grammar_name
+        from corpus_structure.core.evidence import MacroDef
+        from corpus_structure.evaluate.equivalence import Tier, ValueComparator, grammar_name
+
         from .identity import _meaning
-        groups=defaultdict(list);rows=[];by_group=defaultdict(list);assessments=[];comparators={}
-        generated=defaultdict(set);unresolved=set();equivalent_components=[]
+
+        groups = defaultdict(list)
+        rows = []
+        by_group = defaultdict(list)
+        assessments = []
+        comparators = {}
+        generated = defaultdict(set)
+        unresolved = set()
+        equivalent_components = []
         for c in inputs.candidates:
-            props={p.name:p for p in self.prepared.qualification_definition(c.qualification_class).properties}
-            qual={n:v for n,v in c.qualification.items() if props[n].key_role!='provenance'}
-            meta=self.metadata.get((c.class_name,c.predicate),{})
-            meaning_names=set(str(meta.get('cs:qualifiers','')).split())-set(str(meta.get('cs:identity_qualifiers','')).split())
+            props = {
+                p.name: p
+                for p in self.prepared.qualification_definition(c.qualification_class).properties
+            }
+            qual = {n: v for n, v in c.qualification.items() if props[n].key_role != "provenance"}
+            meta = self.metadata.get((c.class_name, c.predicate), {})
+            meaning_names = set(str(meta.get("cs:qualifiers", "")).split()) - set(
+                str(meta.get("cs:identity_qualifiers", "")).split()
+            )
             # Scope, modality, conditions and time stay exact context boundaries.
-            identity={n:v for n,v in qual.items() if n not in meaning_names}
-            key=sha256(canonical_bytes(_meaning([c.subject,c.predicate,c.statement,_without_bindings(c.object),identity]))).hexdigest()
-            meaning=canonical_bytes(_meaning({'qualifiers':{n:v for n,v in qual.items() if n in meaning_names},
-                'bindings':_bindings([c.object,c.qualification])})).decode()
-            rows.append({'key':key,'meaning':meaning});by_group[key].append(c)
-            prop=next(p for p in self.definitions[c.class_name].properties if p.iri==c.predicate)
-            if prop.constraint_scope=='accepted_value' and meta.get('cs:role')=='predicate' and (not prop.multivalued or str(meta.get('cs:functional','')).lower()=='true'):
-                slot=canonical_bytes(_meaning([c.subject,c.predicate,qual]))
+            identity = {n: v for n, v in qual.items() if n not in meaning_names}
+            key = sha256(
+                canonical_bytes(
+                    _meaning(
+                        [c.subject, c.predicate, c.statement, _without_bindings(c.object), identity]
+                    )
+                )
+            ).hexdigest()
+            meaning = canonical_bytes(
+                _meaning(
+                    {
+                        "qualifiers": {n: v for n, v in qual.items() if n in meaning_names},
+                        "bindings": _bindings([c.object, c.qualification]),
+                    }
+                )
+            ).decode()
+            rows.append({"key": key, "meaning": meaning})
+            by_group[key].append(c)
+            prop = next(
+                p for p in self.definitions[c.class_name].properties if p.iri == c.predicate
+            )
+            if (
+                prop.constraint_scope == "accepted_value"
+                and meta.get("cs:role") == "predicate"
+                and (not prop.multivalued or str(meta.get("cs:functional", "")).lower() == "true")
+            ):
+                slot = canonical_bytes(_meaning([c.subject, c.predicate, qual]))
                 groups[slot].append(c)
-        relation=pa.Table.from_pylist(rows,schema=pa.schema([pa.field('key',pa.string()),pa.field('meaning',pa.string())]))
-        split={row['key'] for row in scope.operation_disagreements(scope.connection.from_arrow(relation)).to_arrow_table().to_pylist()}
+        relation = pa.Table.from_pylist(
+            rows, schema=pa.schema([pa.field("key", pa.string()), pa.field("meaning", pa.string())])
+        )
+        split = {
+            row["key"]
+            for row in scope.operation_disagreements(scope.connection.from_arrow(relation))
+            .to_arrow_table()
+            .to_pylist()
+        }
         for key in split:
-            members=by_group[key]
-            if len({c.fact_id for c in members})>1:
-                for c in members:generated[c.occurrence_id].add('disagreement:'+key)
-        def assessment(a,b,outcome,reason,tier):
-            for c,other in ((a,b),(b,a)):
-                detail=canonical_bytes({'other_fact_id':other.fact_id,'other_occurrence_id':other.occurrence_id,
-                    'tier':tier,'detail':reason}).decode()
-                aid='assessment:'+sha256(canonical_bytes([VERSION,'value_equivalence',c.occurrence_id,detail,outcome])).hexdigest()
-                assessments.append(AssessmentRow(aid,'scientific.value_equivalence',VERSION,outcome,
-                    occurrence_id=c.occurrence_id,reason=detail,uncertainty=reason if outcome=='undecided' else None))
-        for slot,members in groups.items():
+            members = by_group[key]
+            if len({c.fact_id for c in members}) > 1:
+                for c in members:
+                    generated[c.occurrence_id].add("disagreement:" + key)
+
+        def assessment(a, b, outcome, reason, tier):
+            for c, other in ((a, b), (b, a)):
+                detail = canonical_bytes(
+                    {
+                        "other_fact_id": other.fact_id,
+                        "other_occurrence_id": other.occurrence_id,
+                        "tier": tier,
+                        "detail": reason,
+                    }
+                ).decode()
+                aid = (
+                    "assessment:"
+                    + sha256(
+                        canonical_bytes(
+                            [VERSION, "value_equivalence", c.occurrence_id, detail, outcome]
+                        )
+                    ).hexdigest()
+                )
+                assessments.append(
+                    AssessmentRow(
+                        aid,
+                        "scientific.value_equivalence",
+                        VERSION,
+                        outcome,
+                        occurrence_id=c.occurrence_id,
+                        reason=detail,
+                        uncertainty=reason if outcome == "undecided" else None,
+                    )
+                )
+
+        for slot, members in groups.items():
             # Distinct report occurrences of one fact need no scientific comparison.
-            distinct={c.fact_id:c for c in sorted(members,key=lambda c:c.occurrence_id,reverse=True)}
-            ordered=sorted(distinct.values(),key=lambda c:(canonical_bytes(_meaning(c.object)),c.fact_id))
-            if len(ordered)<2:continue
-            parent={c.fact_id:c.fact_id for c in ordered}
-            def root(key):
-                while parent[key]!=key:key=parent[key]
+            distinct = {
+                c.fact_id: c for c in sorted(members, key=lambda c: c.occurrence_id, reverse=True)
+            }
+            ordered = sorted(
+                distinct.values(), key=lambda c: (canonical_bytes(_meaning(c.object)), c.fact_id)
+            )
+            if len(ordered) < 2:
+                continue
+            parent = {c.fact_id: c.fact_id for c in ordered}
+
+            def root(key, parent):
+                while parent[key] != key:
+                    key = parent[key]
                 return key
-            for index,a in enumerate(ordered):
-                for b in ordered[index+1:]:
-                    reason=None;comparison=None;operative_macros=dict(a.macros)
-                    if _bindings(a.object)!=_bindings(b.object):reason='distinct explicit expression bindings'
-                    elif isinstance(a.object,dict) and isinstance(b.object,dict):
-                        left_context=a.object.get('macro_context',{});right_context=b.object.get('macro_context',{})
-                        if any(left_context[name]!=right_context[name] for name in left_context.keys()&right_context.keys()):reason='incompatible referenced source macro definitions'
+
+            for index, a in enumerate(ordered):
+                for b in ordered[index + 1 :]:
+                    reason = None
+                    comparison = None
+                    operative_macros = dict(a.macros)
+                    if _bindings(a.object) != _bindings(b.object):
+                        reason = "distinct explicit expression bindings"
+                    elif isinstance(a.object, dict) and isinstance(b.object, dict):
+                        left_context = a.object.get("macro_context", {})
+                        right_context = b.object.get("macro_context", {})
+                        if any(
+                            left_context[name] != right_context[name]
+                            for name in left_context.keys() & right_context.keys()
+                        ):
+                            reason = "incompatible referenced source macro definitions"
                         else:
-                            for name in right_context:operative_macros[name]=b.macros[name]
+                            for name in right_context:
+                                operative_macros[name] = b.macros[name]
                     if reason is None:
                         try:
-                            descriptor=next(p for p in self.definitions[a.class_name].properties if p.iri==a.predicate)
+                            descriptor = next(
+                                p
+                                for p in self.definitions[a.class_name].properties
+                                if p.iri == a.predicate
+                            )
                             if descriptor.range in self.definitions and not descriptor.inlined:
-                                left,right=V.EntityRef(ref=a.object),V.EntityRef(ref=b.object)
-                            else:left,right=_comparison_value(a.object),_comparison_value(b.object)
-                            macro_key=canonical_bytes(operative_macros)
-                            if macro_key not in comparators:comparators[macro_key]=ValueComparator({name:MacroDef.model_validate(value) for name,value in operative_macros.items()},a.constants)
-                            comparator=comparators[macro_key]
-                            condition=a.qualification.get('condition')
-                            conditions=(_comparison_condition(condition),) if condition is not None else ()
+                                left, right = V.EntityRef(ref=a.object), V.EntityRef(ref=b.object)
+                            else:
+                                left, right = (
+                                    _comparison_value(a.object),
+                                    _comparison_value(b.object),
+                                )
+                            macro_key = canonical_bytes(operative_macros)
+                            if macro_key not in comparators:
+                                comparators[macro_key] = ValueComparator(
+                                    {
+                                        name: MacroDef.model_validate(value)
+                                        for name, value in operative_macros.items()
+                                    },
+                                    a.constants,
+                                )
+                            comparator = comparators[macro_key]
+                            condition = a.qualification.get("condition")
+                            conditions = (
+                                (_comparison_condition(condition),) if condition is not None else ()
+                            )
                             if conditions:
+
                                 def expected(node):
-                                    if node.op=='and':return [part for child in node.args for part in expected(child)]
+                                    if node.op == "and":
+                                        return [
+                                            part for child in node.args for part in expected(child)
+                                        ]
                                     return [node.op]
-                                leaves=expected(conditions[0])
-                                variables=tuple(dict.fromkeys(grammar_name(key) for value in (left,right) for key in getattr(value,'symbols',{})))
-                                members,relations=comparator._constraints(list(conditions),variables)
-                                if len(members)!=leaves.count('member') or len(relations)!=leaves.count('cmp'):raise DomainOperationRefused('mathematical restriction reading is incomplete')
-                            comparison=comparator.compare(left,right,conditions,ref_eq=lambda x,y:x==y)
-                        except (DomainOperationRefused,ValueError) as exc:reason=str(exc)
+
+                                leaves = expected(conditions[0])
+                                variables = tuple(
+                                    dict.fromkeys(
+                                        grammar_name(key)
+                                        for value in (left, right)
+                                        for key in getattr(value, "symbols", {})
+                                    )
+                                )
+                                members, relations = comparator._constraints(
+                                    list(conditions), variables
+                                )
+                                if len(members) != leaves.count("member") or len(
+                                    relations
+                                ) != leaves.count("cmp"):
+                                    raise DomainOperationRefused(
+                                        "mathematical restriction reading is incomplete"
+                                    )
+                            comparison = comparator.compare(
+                                left, right, conditions, ref_eq=lambda x, y: x == y
+                            )
+                        except (DomainOperationRefused, ValueError) as exc:
+                            reason = str(exc)
                     if comparison is None:
-                        assessment(a,b,'undecided',reason or 'no faithful comparison operand','undecided')
+                        assessment(
+                            a,
+                            b,
+                            "undecided",
+                            reason or "no faithful comparison operand",
+                            "undecided",
+                        )
                         unresolved.update(c.occurrence_id for c in members)
                         continue
                     if comparison.tier is Tier.UNDECIDED:
-                        detail=comparison.detail
-                        assessment(a,b,'undecided',detail,'undecided')
+                        detail = comparison.detail
+                        assessment(a, b, "undecided", detail, "undecided")
                         unresolved.update(c.occurrence_id for c in members)
                     elif comparison.equal:
-                        assessment(a,b,'equivalent',comparison.detail,comparison.tier.value)
-                        ra,rb=root(a.fact_id),root(b.fact_id)
-                        parent[max(ra,rb)]=min(ra,rb)
+                        assessment(a, b, "equivalent", comparison.detail, comparison.tier.value)
+                        ra, rb = root(a.fact_id, parent), root(b.fact_id, parent)
+                        parent[max(ra, rb)] = min(ra, rb)
                     else:
-                        assessment(a,b,'different',comparison.detail,comparison.tier.value)
-                        group='value_disagreement:'+sha256(slot).hexdigest()
-                        for c in members:generated[c.occurrence_id].add(group)
-            components=defaultdict(list)
-            for c in ordered:components[root(c.fact_id)].append(c)
+                        assessment(a, b, "different", comparison.detail, comparison.tier.value)
+                        group = "value_disagreement:" + sha256(slot).hexdigest()
+                        for c in members:
+                            generated[c.occurrence_id].add(group)
+            components = defaultdict(list)
+            for c in ordered:
+                components[root(c.fact_id, parent)].append(c)
             for component in components.values():
-                if len(component)>1:equivalent_components.append(tuple(c.fact_id for c in sorted(component,key=lambda c:(canonical_bytes(_meaning(c.object)),c.fact_id))))
-        return generated,unresolved,equivalent_components,assessments
+                if len(component) > 1:
+                    equivalent_components.append(
+                        tuple(
+                            c.fact_id
+                            for c in sorted(
+                                component,
+                                key=lambda c: (canonical_bytes(_meaning(c.object)), c.fact_id),
+                            )
+                        )
+                    )
+        return generated, unresolved, equivalent_components, assessments
 
-    def alternative_products(self,inputs,generated):
+    def alternative_products(self, inputs, generated):
         """Canonical proposition groups; source-local labels stay provenance, not identity."""
         from .identity import alternative_group_key
-        by_source={(c.observation_key,c.local_id):c for c in inputs.candidates}
-        by_occurrence={c.occurrence_id:c for c in inputs.candidates}
-        products:dict[str,dict[str,Any]]={};incomplete=set()
-        def add(facts,cause,kind):
-            facts=tuple(sorted(set(facts)))
-            if len(facts)<2:return
-            key=alternative_group_key(inputs.prepared.release_id,inputs.output_realization_id,facts)
-            product=products.setdefault(key,{'members':facts,'sources':{},'generated':{}})
-            product[kind][canonical_bytes(cause)]=cause
-        for report in inputs.reports:
-            if report['payload_definition']!='AgentStoredBatch':continue
-            source=report['observation_key']
-            for group in report['payload'].get('alternatives',()):
-                materialized=[by_source[source,ref] for ref in group['members'] if (source,ref) in by_source]
-                if len(materialized)!=len(group['members']):incomplete.update(c.occurrence_id for c in materialized)
-                add((c.fact_id for c in materialized),{'observation_key':source,'local_id':group['id'],'faithful':group['faithful'],'reason':group['reason']},'sources')
-        members={}
-        for occurrence,keys in generated.items():
-            for key in keys:members.setdefault(key,set()).add(by_occurrence[occurrence].fact_id)
-        for key,facts in members.items():
-            add(facts,{'kind':'qualifier_binding_disagreement' if key.startswith('disagreement:') else 'scientific_value_difference','key':key},'generated')
-        rows=[];links=[];view_members=[]
-        for key,product in sorted(products.items()):
-            reason=canonical_bytes({kind:[value for _,value in sorted(product[kind].items())] for kind in ('sources','generated')}).decode()
-            rows.append(AlternativeGroupRow(key,reason,'consolidate.alternatives',VERSION))
-            links.extend(AlternativeMemberRow(key,fact) for fact in product['members'])
-            view_members.extend({'group':key,'claim':c.occurrence_id} for c in inputs.candidates if c.fact_id in product['members'])
-        return tuple(rows),tuple(links),view_members,incomplete
 
-    def evaluate(self,inputs:CutInput,scope:AnalysisScope,fused:pa.Table)->PolicyDecision:
-        from corpus_structure.validate.views import EntityView,ValueView,StatementView,BindingView,NodeView,QualifiersView,_BARE,MAX_SYMBOL
-        from corpus_structure.methods.math import grammar
+        by_source = {(c.observation_key, c.local_id): c for c in inputs.candidates}
+        by_occurrence = {c.occurrence_id: c for c in inputs.candidates}
+        products: dict[str, dict[str, Any]] = {}
+        incomplete = set()
+
+        def add(facts, cause, kind):
+            facts = tuple(sorted(set(facts)))
+            if len(facts) < 2:
+                return
+            key = alternative_group_key(
+                inputs.prepared.release_id, inputs.output_realization_id, facts
+            )
+            product = products.setdefault(key, {"members": facts, "sources": {}, "generated": {}})
+            product[kind][canonical_bytes(cause)] = cause
+
+        for report in inputs.reports:
+            if report["payload_definition"] != "AgentStoredBatch":
+                continue
+            source = report["observation_key"]
+            for group in report["payload"].get("alternatives", ()):
+                materialized = [
+                    by_source[source, ref] for ref in group["members"] if (source, ref) in by_source
+                ]
+                if len(materialized) != len(group["members"]):
+                    incomplete.update(c.occurrence_id for c in materialized)
+                add(
+                    (c.fact_id for c in materialized),
+                    {
+                        "observation_key": source,
+                        "local_id": group["id"],
+                        "faithful": group["faithful"],
+                        "reason": group["reason"],
+                    },
+                    "sources",
+                )
+        members = {}
+        for occurrence, keys in generated.items():
+            for key in keys:
+                members.setdefault(key, set()).add(by_occurrence[occurrence].fact_id)
+        for key, facts in members.items():
+            add(
+                facts,
+                {
+                    "kind": "qualifier_binding_disagreement"
+                    if key.startswith("disagreement:")
+                    else "scientific_value_difference",
+                    "key": key,
+                },
+                "generated",
+            )
+        rows = []
+        links = []
+        view_members = []
+        for key, product in sorted(products.items()):
+            reason = canonical_bytes(
+                {
+                    kind: [value for _, value in sorted(product[kind].items())]
+                    for kind in ("sources", "generated")
+                }
+            ).decode()
+            rows.append(AlternativeGroupRow(key, reason, "consolidate.alternatives", VERSION))
+            links.extend(AlternativeMemberRow(key, fact) for fact in product["members"])
+            view_members.extend(
+                {"group": key, "claim": c.occurrence_id}
+                for c in inputs.candidates
+                if c.fact_id in product["members"]
+            )
+        return tuple(rows), tuple(links), view_members, incomplete
+
+    def evaluate(self, inputs: CutInput, scope: AnalysisScope, fused: pa.Table) -> PolicyDecision:
         from corpus_structure.consolidate.finalize import GRAMMAR_KINDS
-        from corpus_structure.validate.views import Reading
-        errors=set();ambiguous=set();assessments=[];views={};readings={}
-        generated,unresolved,equivalent_components,scientific=self.scientific_decisions(inputs,scope)
+        from corpus_structure.methods.math import grammar
+        from corpus_structure.validate.views import (
+            _BARE,
+            MAX_SYMBOL,
+            BindingView,
+            EntityView,
+            NodeView,
+            QualifiersView,
+            Reading,
+            StatementView,
+            ValueView,
+        )
+
+        errors = set()
+        ambiguous = set()
+        assessments = []
+        views = {}
+        readings = {}
+        generated, unresolved, equivalent_components, scientific = self.scientific_decisions(
+            inputs, scope
+        )
         assessments.extend(scientific)
-        alternative_groups,alternative_members,group_views,incomplete_alternatives=self.alternative_products(inputs,generated)
+        alternative_groups, alternative_members, group_views, incomplete_alternatives = (
+            self.alternative_products(inputs, generated)
+        )
         unresolved.update(incomplete_alternatives)
-        candidates=inputs.candidates
-        candidate_facts={c.fact_id for c in candidates}
-        by_occurrence={c.occurrence_id:c.fact_id for c in candidates}
+        candidates = inputs.candidates
+        candidate_facts = {c.fact_id for c in candidates}
+        by_occurrence = {c.occurrence_id: c.fact_id for c in candidates}
+
         def entity(key):
-            meta=inputs.entity_metadata.get(key,{})
-            identity={}
-            for attribute in meta.get('attributes',()):
-                value=attribute['value'];raw=value.get('text') if value.get('kind')=='text' else value.get('target')
-                if isinstance(raw,str):identity[self.compact(attribute['predicate'])]=raw
-            return EntityView(key,key,self.compact(meta.get('class_iri','')),meta.get('label') or '',
-                              identity.get(next((k for k in identity if k.endswith(':symbol')),'')),identity)
+            meta = inputs.entity_metadata.get(key, {})
+            identity = {}
+            for attribute in meta.get("attributes", ()):
+                value = attribute["value"]
+                raw = value.get("text") if value.get("kind") == "text" else value.get("target")
+                if isinstance(raw, str):
+                    identity[self.compact(attribute["predicate"])] = raw
+            return EntityView(
+                key,
+                key,
+                self.compact(meta.get("class_iri", "")),
+                meta.get("label") or "",
+                identity.get(next((k for k in identity if k.endswith(":symbol")), "")),
+                identity,
+            )
+
         def nodes(value):
-            if value is None:return []
-            kind=value['kind']
-            if kind in {'all','any'}:
-                return [NodeView('and' if kind=='all' else 'or',None,None,None,None),*(n for term in value['terms'] for n in nodes(term))]
-            if kind=='not':return [NodeView('not',None,None,None,None),*nodes(value['term'])]
-            if kind=='claim':return [NodeView('claim',value['ref'],None,None,None)]
-            if kind=='member':return [NodeView('member',None,None,None,value['x']['expression'])]
-            if kind=='compare':return [NodeView('cmp',None,None,value['relation'],value['lhs']['expression'])]
-            if kind=='forall':return [NodeView('forall',None,value['variable'],None,None),*nodes(value['body'])]
-            if kind=='atomic':return [NodeView('pred',None,value['predicate'],None,None)]
-            if kind=='escape':raise DomainOperationRefused('source condition remains uninterpreted: '+value['reason'])
-            raise DomainOperationRefused('condition structure has no admitted rule projection')
-        gives={}
+            if value is None:
+                return []
+            kind = value["kind"]
+            if kind in {"all", "any"}:
+                return [
+                    NodeView("and" if kind == "all" else "or", None, None, None, None),
+                    *(n for term in value["terms"] for n in nodes(term)),
+                ]
+            if kind == "not":
+                return [NodeView("not", None, None, None, None), *nodes(value["term"])]
+            if kind == "claim":
+                return [NodeView("claim", value["ref"], None, None, None)]
+            if kind == "member":
+                return [NodeView("member", None, None, None, value["x"]["expression"])]
+            if kind == "compare":
+                return [NodeView("cmp", None, None, value["relation"], value["lhs"]["expression"])]
+            if kind == "forall":
+                return [
+                    NodeView("forall", None, value["variable"], None, None),
+                    *nodes(value["body"]),
+                ]
+            if kind == "atomic":
+                return [NodeView("pred", None, value["predicate"], None, None)]
+            if kind == "escape":
+                raise DomainOperationRefused(
+                    "source condition remains uninterpreted: " + value["reason"]
+                )
+            raise DomainOperationRefused("condition structure has no admitted rule projection")
+
+        gives = {}
         for candidate in candidates:
-            props=self.metadata.get((candidate.class_name,candidate.predicate),{})
-            param_map=props.get('cs:param_map')
-            entries=candidate.qualification.get(param_map,()) if param_map else ()
-            symbols=set()
-            if candidate.statement_role in {'premise','example_value'}:
-                for entry in entries.values() if isinstance(entries,dict) else entries:
-                    value=entry.get('value',entry)
-                    if value.get('kind')=='formula':
-                        symbol=value['expression'].strip().lstrip('\\')
-                        if len(symbol)<=MAX_SYMBOL and _BARE.fullmatch(symbol):symbols.add(symbol)
-            gives[candidate.occurrence_id]=symbols
+            props = self.metadata.get((candidate.class_name, candidate.predicate), {})
+            param_map = props.get("cs:param_map")
+            entries = candidate.qualification.get(param_map, ()) if param_map else ()
+            symbols = set()
+            if candidate.statement_role in {"premise", "example_value"}:
+                for entry in entries.values() if isinstance(entries, dict) else entries:
+                    value = entry.get("value", entry)
+                    if value.get("kind") == "formula":
+                        symbol = value["expression"].strip().lstrip("\\")
+                        if len(symbol) <= MAX_SYMBOL and _BARE.fullmatch(symbol):
+                            symbols.add(symbol)
+            gives[candidate.occurrence_id] = symbols
         # The rule operation evaluates source assertions. Its view item IDs are occurrence
         # references; canonical fact IDs remain separate in ClaimCandidate and assessments.
-        from corpus_structure.pool.steps import VIEW_CLAIMS,VIEW_ENTITIES,VIEW_IDENTITY,VIEW_ALTERNATIVES,ViewSpec
-        entities={key:entity(key) for key in inputs.entity_metadata}
-        specs=[]
-        for name,decl in self.source.get('views',{}).items():
-            applies={c.predicate for c in candidates if self.applies({'applies_to':decl['applies_to']},c)}
-            normalized={**decl,'source':self.prepared.expand_name(decl['source'])}
-            specs.append(ViewSpec.from_declaration(name,normalized,applies))
-        tables=(
-            pa.Table.from_pylist([{'claim':c.occurrence_id,'predicate':c.predicate,'subject':c.subject,
-                'object':c.object if isinstance(c.object,str) and c.object in entities else None,
-                'statement':c.statement} for c in candidates],schema=VIEW_CLAIMS),
-            pa.Table.from_pylist([{'entity':e.id,'key':e.key,'type':e.type,'label':e.label,'symbol':e.symbol}
-                for e in entities.values()],schema=VIEW_ENTITIES),
-            pa.Table.from_pylist([{'entity':e.id,'slot':slot,'value':value} for e in entities.values()
-                for slot,value in e.identity.items()],schema=VIEW_IDENTITY),
-            pa.Table.from_pylist(group_views,schema=VIEW_ALTERNATIVES),
+        from corpus_structure.pool.steps import (
+            VIEW_ALTERNATIVES,
+            VIEW_CLAIMS,
+            VIEW_ENTITIES,
+            VIEW_IDENTITY,
+            ViewSpec,
         )
-        facts={(row['claim'],row['view']):tuple(row['facts']) for row in scope.views(
-            scope.connection.from_arrow(tables[0]),scope.connection.from_arrow(tables[1]),
-            scope.connection.from_arrow(tables[2]),scope.connection.from_arrow(tables[3]),specs).to_arrow_table().to_pylist()}
-        fused_ids=set(fused['fact_id'].to_pylist())
-        if candidate_facts-fused_ids:raise DomainOperationRefused('fusion omitted a source-supported fact')
+
+        entities = {key: entity(key) for key in inputs.entity_metadata}
+        specs = []
+        for name, decl in self.source.get("views", {}).items():
+            applies = {
+                c.predicate
+                for c in candidates
+                if self.applies({"applies_to": decl["applies_to"]}, c)
+            }
+            normalized = {**decl, "source": self.prepared.expand_name(decl["source"])}
+            specs.append(ViewSpec.from_declaration(name, normalized, applies))
+        tables = (
+            pa.Table.from_pylist(
+                [
+                    {
+                        "claim": c.occurrence_id,
+                        "predicate": c.predicate,
+                        "subject": c.subject,
+                        "object": c.object
+                        if isinstance(c.object, str) and c.object in entities
+                        else None,
+                        "statement": c.statement,
+                    }
+                    for c in candidates
+                ],
+                schema=VIEW_CLAIMS,
+            ),
+            pa.Table.from_pylist(
+                [
+                    {
+                        "entity": e.id,
+                        "key": e.key,
+                        "type": e.type,
+                        "label": e.label,
+                        "symbol": e.symbol,
+                    }
+                    for e in entities.values()
+                ],
+                schema=VIEW_ENTITIES,
+            ),
+            pa.Table.from_pylist(
+                [
+                    {"entity": e.id, "slot": slot, "value": value}
+                    for e in entities.values()
+                    for slot, value in e.identity.items()
+                ],
+                schema=VIEW_IDENTITY,
+            ),
+            pa.Table.from_pylist(group_views, schema=VIEW_ALTERNATIVES),
+        )
+        facts = {
+            (row["claim"], row["view"]): tuple(row["facts"])
+            for row in scope.views(
+                scope.connection.from_arrow(tables[0]),
+                scope.connection.from_arrow(tables[1]),
+                scope.connection.from_arrow(tables[2]),
+                scope.connection.from_arrow(tables[3]),
+                specs,
+            )
+            .to_arrow_table()
+            .to_pylist()
+        }
+        fused_ids = set(fused["fact_id"].to_pylist())
+        if candidate_facts - fused_ids:
+            raise DomainOperationRefused("fusion omitted a source-supported fact")
         for c in candidates:
-            qvalues:dict[str,Any]={name:None for name in self.qprops};qvalues.update(c.rule_qualification if c.rule_qualification is not None else c.qualification)
-            for name,value in tuple(qvalues.items()):
-                if isinstance(value,(list,tuple)) and all(isinstance(v,dict) and {'key','value'}<=v.keys() for v in value):
-                    qvalues[name]={v['key']:v['value'] for v in value}
-            obj=None;value=None;bindings=[];unknown=None;reading_note=None
-            if isinstance(c.object,str) and c.object in inputs.entity_metadata:obj=entity(c.object)
+            qvalues: dict[str, Any] = {name: None for name in self.qprops}
+            qvalues.update(
+                c.rule_qualification if c.rule_qualification is not None else c.qualification
+            )
+            for name, value in tuple(qvalues.items()):
+                if isinstance(value, (list, tuple)) and all(
+                    isinstance(v, dict) and {"key", "value"} <= v.keys() for v in value
+                ):
+                    qvalues[name] = {v["key"]: v["value"] for v in value}
+            obj = None
+            value = None
+            bindings = []
+            unknown = None
+            reading_note = None
+            if isinstance(c.object, str) and c.object in inputs.entity_metadata:
+                obj = entity(c.object)
             else:
-                raw=c.rule_object if c.rule_object is not None else c.object
-                kind=str(raw.get('kind')) if isinstance(raw,dict) else 'text'
-                latex=raw.get('expression') if isinstance(raw,dict) else None
-                primitive=next((raw[name] for name in ('text','number','boolean','date','instant','lexical') if name in raw),None) if isinstance(raw,dict) else raw
-                scalar=primitive.isoformat() if isinstance(primitive,(date,datetime)) else str(primitive) if primitive is not None else None
-                reading=None
-                if isinstance(raw,dict) and latex is not None and raw.get('language')!='latex':reading_note='scientific expression language has no declared reading operation'
-                if isinstance(raw,dict) and latex is not None and raw.get('language')=='latex':
-                    key=(latex,kind,canonical_bytes(c.macros),c.constants)
+                raw = c.rule_object if c.rule_object is not None else c.object
+                kind = str(raw.get("kind")) if isinstance(raw, dict) else "text"
+                latex = raw.get("expression") if isinstance(raw, dict) else None
+                primitive = (
+                    next(
+                        (
+                            raw[name]
+                            for name in ("text", "number", "boolean", "date", "instant", "lexical")
+                            if name in raw
+                        ),
+                        None,
+                    )
+                    if isinstance(raw, dict)
+                    else raw
+                )
+                scalar = (
+                    primitive.isoformat()
+                    if isinstance(primitive, (date, datetime))
+                    else str(primitive)
+                    if primitive is not None
+                    else None
+                )
+                reading = None
+                if isinstance(raw, dict) and latex is not None and raw.get("language") != "latex":
+                    reading_note = (
+                        "scientific expression language has no declared reading operation"
+                    )
+                if isinstance(raw, dict) and latex is not None and raw.get("language") == "latex":
+                    key = (latex, kind, canonical_bytes(c.macros), c.constants)
                     if key not in readings:
                         from corpus_structure.core.evidence import MacroDef
-                        macros={name:MacroDef.model_validate(value) for name,value in c.macros.items()}
-                        result=grammar.parse(latex,'set_expr' if kind=='set' else 'any_value',macros,grammar.MathContext(constants=frozenset(c.constants)))
-                        reading=Reading(result.status,GRAMMAR_KINDS.get(result.kind or ''),
-                            tuple(sorted({o.name for o in result.occurrences if not o.constant})))
-                        readings[key]=reading
-                    reading=readings[key]
-                    if reading.status.value!='ok':reading_note='mathematical reading '+reading.status.value
-                    for binding in raw.get('bindings',()):
-                        bindings.append(BindingView(binding['symbol'],binding['kind'],binding.get('entity'),binding.get('claim'),binding.get('parameter')))
-                value=ValueView(kind,latex,scalar,None,kind,reading)
+
+                        macros = {
+                            name: MacroDef.model_validate(value) for name, value in c.macros.items()
+                        }
+                        result = grammar.parse(
+                            latex,
+                            "set_expr" if kind == "set" else "any_value",
+                            macros,
+                            grammar.MathContext(constants=frozenset(c.constants)),
+                        )
+                        reading = Reading(
+                            result.status,
+                            GRAMMAR_KINDS.get(result.kind or ""),
+                            tuple(sorted({o.name for o in result.occurrences if not o.constant})),
+                        )
+                        readings[key] = reading
+                    reading = readings[key]
+                    if reading.status.value != "ok":
+                        reading_note = "mathematical reading " + reading.status.value
+                    for binding in raw.get("bindings", ()):
+                        bindings.append(
+                            BindingView(
+                                binding["symbol"],
+                                binding["kind"],
+                                binding.get("entity"),
+                                binding.get("claim"),
+                                binding.get("parameter"),
+                            )
+                        )
+                value = ValueView(kind, latex, scalar, None, kind, reading)
             # Multiple located reports of the same proposition are support, not competing
             # scientific claims. The kernels preserve occurrence addresses for source
             # policy, then these semantic set views collapse through canonical facts.
-            same=tuple(sorted({by_occurrence[oid] for oid in facts.get((c.occurrence_id,'same_slot'),())
-                               if by_occurrence[oid]!=c.fact_id}))
-            alternatives=tuple(sorted({by_occurrence[oid] for oid in facts.get((c.occurrence_id,'alternative_of'),())
-                                       if by_occurrence[oid]!=c.fact_id}))
-            if alternatives:ambiguous.add(c.occurrence_id)
-            try:condition_nodes=tuple(nodes((c.rule_qualification if c.rule_qualification is not None else c.qualification).get('condition')))
-            except DomainOperationRefused as exc:condition_nodes=();unknown=str(exc)
-            statement=StatementView(c.statement,c.statement,c.statement_kind or '') if c.statement else None
-            meta=self.metadata.get((c.class_name,c.predicate),{})
-            view=SimpleNamespace(id=c.occurrence_id,key=c.occurrence_id,predicate=self.compact(c.predicate),
-                groups=tuple(meta.get('groups',())),subject=entity(c.subject),object=obj,value=value,
-                qualifiers=QualifiersView(qvalues),statement=statement,statement_kind=c.statement_kind,
-                statement_role=c.statement_role,establishment=c.establishment,bindings=tuple(bindings),
-                condition_nodes=condition_nodes,claim_refs=tuple(n.ref for n in condition_nodes if n.ref is not None),
-                statement_premises=tuple(sorted({o.occurrence_id for o in candidates if o.occurrence_id!=c.occurrence_id and
-                    o.statement_role=='premise' and (o.statement==c.statement or o.statement_kind=='assumption')})),
+            same = tuple(
+                sorted(
+                    {
+                        by_occurrence[oid]
+                        for oid in facts.get((c.occurrence_id, "same_slot"), ())
+                        if by_occurrence[oid] != c.fact_id
+                    }
+                )
+            )
+            alternatives = tuple(
+                sorted(
+                    {
+                        by_occurrence[oid]
+                        for oid in facts.get((c.occurrence_id, "alternative_of"), ())
+                        if by_occurrence[oid] != c.fact_id
+                    }
+                )
+            )
+            if alternatives:
+                ambiguous.add(c.occurrence_id)
+            try:
+                condition_nodes = tuple(
+                    nodes(
+                        (
+                            c.rule_qualification
+                            if c.rule_qualification is not None
+                            else c.qualification
+                        ).get("condition")
+                    )
+                )
+            except DomainOperationRefused as exc:
+                condition_nodes = ()
+                unknown = str(exc)
+            statement = (
+                StatementView(c.statement, c.statement, c.statement_kind or "")
+                if c.statement
+                else None
+            )
+            meta = self.metadata.get((c.class_name, c.predicate), {})
+            view = SimpleNamespace(
+                id=c.occurrence_id,
+                key=c.occurrence_id,
+                predicate=self.compact(c.predicate),
+                groups=tuple(meta.get("groups", ())),
+                subject=entity(c.subject),
+                object=obj,
+                value=value,
+                qualifiers=QualifiersView(qvalues),
+                statement=statement,
+                statement_kind=c.statement_kind,
+                statement_role=c.statement_role,
+                establishment=c.establishment,
+                bindings=tuple(bindings),
+                condition_nodes=condition_nodes,
+                claim_refs=tuple(n.ref for n in condition_nodes if n.ref is not None),
+                statement_premises=tuple(
+                    sorted(
+                        {
+                            o.occurrence_id
+                            for o in candidates
+                            if o.occurrence_id != c.occurrence_id
+                            and o.statement_role == "premise"
+                            and (o.statement == c.statement or o.statement_kind == "assumption")
+                        }
+                    )
+                ),
                 gives_symbols=tuple(sorted(gives[c.occurrence_id])),
-                given_by_others=tuple(sorted({symbol for o in candidates if o.occurrence_id!=c.occurrence_id for symbol in gives[o.occurrence_id]})),
-                same_slot=same,alternative_of=alternatives,evidence_count=c.evidence_count,
-                unresolved_symbols=sum(b.bind=='unresolved' for b in bindings))
-            for name in self.source.get('views',{}):
-                setattr(view,name,facts.get((c.occurrence_id,name),()))
-            findings=[]
-            if c.occurrence_id in incomplete_alternatives:unknown='source alternative has an unmaterialized member'
+                given_by_others=tuple(
+                    sorted(
+                        {
+                            symbol
+                            for o in candidates
+                            if o.occurrence_id != c.occurrence_id
+                            for symbol in gives[o.occurrence_id]
+                        }
+                    )
+                ),
+                same_slot=same,
+                alternative_of=alternatives,
+                evidence_count=c.evidence_count,
+                unresolved_symbols=sum(b.bind == "unresolved" for b in bindings),
+            )
+            for name in self.source.get("views", {}):
+                setattr(view, name, facts.get((c.occurrence_id, name), ()))
+            findings = []
+            if c.occurrence_id in incomplete_alternatives:
+                unknown = "source alternative has an unmaterialized member"
             if c.unresolved_references:
-                unknown='unresolved declared source endpoint: '+','.join(c.unresolved_references)
-            if reading_note:findings.append(('operation.not_checkable','warning',reading_note))
+                unknown = "unresolved declared source endpoint: " + ",".join(
+                    c.unresolved_references
+                )
+            if reading_note:
+                findings.append(("operation.not_checkable", "warning", reading_note))
             if unknown:
-                # Unchecked projection/reading is not a passing rule result or scientific refutation.
-                findings.append(('operation.not_checkable','warning',unknown))
-            for raw,when,check in self.rules:
-                if not self.applies(raw,c):continue
-                if unknown and raw['id'].startswith('guideline.'):
+                # Unchecked projection or reading establishes neither a rule pass nor a refutation.
+                findings.append(("operation.not_checkable", "warning", unknown))
+            for raw, when, check in self.rules:
+                if not self.applies(raw, c):
                     continue
-                if when.evaluate({'claim':view}) and not check.evaluate({'claim':view}):
-                    findings.append((raw['id'],'warning' if raw in self.source.get('guideline',()) else raw.get('severity','error'),raw.get('description',raw['id'])))
-            for rule,severity,message in findings:
-                aid='assessment:'+sha256(canonical_bytes([VERSION,c.occurrence_id,rule,severity,message])).hexdigest()
-                assessments.append(AssessmentRow(aid,rule,VERSION,'refuted' if severity=='error' else 'warning',
-                    occurrence_id=c.occurrence_id,reason=message,uncertainty=unknown or reading_note))
-                if severity=='error':errors.add(c.occurrence_id)
-            status=('rejected' if c.occurrence_id in errors else 'ambiguous' if c.occurrence_id in ambiguous else
-                    'candidate' if unknown or c.occurrence_id in unresolved else 'accepted')
-            aid='assessment:'+sha256(canonical_bytes([VERSION,c.occurrence_id,status])).hexdigest()
-            assessments.append(AssessmentRow(aid,'consolidate.status',VERSION,status,
-                                            occurrence_id=c.occurrence_id,uncertainty=unknown))
-            views[c.occurrence_id]=status
+                if unknown and raw["id"].startswith("guideline."):
+                    continue
+                if when.evaluate({"claim": view}) and not check.evaluate({"claim": view}):
+                    findings.append(
+                        (
+                            raw["id"],
+                            "warning"
+                            if raw in self.source.get("guideline", ())
+                            else raw.get("severity", "error"),
+                            raw.get("description", raw["id"]),
+                        )
+                    )
+            for rule, severity, message in findings:
+                aid = (
+                    "assessment:"
+                    + sha256(
+                        canonical_bytes([VERSION, c.occurrence_id, rule, severity, message])
+                    ).hexdigest()
+                )
+                assessments.append(
+                    AssessmentRow(
+                        aid,
+                        rule,
+                        VERSION,
+                        "refuted" if severity == "error" else "warning",
+                        occurrence_id=c.occurrence_id,
+                        reason=message,
+                        uncertainty=unknown or reading_note,
+                    )
+                )
+                if severity == "error":
+                    errors.add(c.occurrence_id)
+            status = (
+                "rejected"
+                if c.occurrence_id in errors
+                else "ambiguous"
+                if c.occurrence_id in ambiguous
+                else "candidate"
+                if unknown or c.occurrence_id in unresolved
+                else "accepted"
+            )
+            aid = (
+                "assessment:"
+                + sha256(canonical_bytes([VERSION, c.occurrence_id, status])).hexdigest()
+            )
+            assessments.append(
+                AssessmentRow(
+                    aid,
+                    "consolidate.status",
+                    VERSION,
+                    status,
+                    occurrence_id=c.occurrence_id,
+                    uncertainty=unknown,
+                )
+            )
+            views[c.occurrence_id] = status
         # Structural source declarations are independent of the scientific claim decision table.
-        selected={f.fact_id for f in inputs.batch.fact if f.fact_id not in candidate_facts}
-        display={}
-        values={v.value_id:v for v in inputs.batch.typed_value}
+        selected = {f.fact_id for f in inputs.batch.fact if f.fact_id not in candidate_facts}
+        display = {}
+        values = {v.value_id: v for v in inputs.batch.typed_value}
         for fact in inputs.batch.fact:
-            if fact.fact_id not in selected:continue
-            prop=next((p for d in self.prepared.definitions for p in d.properties if p.iri==fact.property_id),None)
-            if prop is not None and not prop.multivalued and any(m.get('cs:role')=='display' and m['property']==fact.property_id for m in self.metadata.values()):
-                display.setdefault((fact.subject_id,fact.property_id),[]).append(fact)
+            if fact.fact_id not in selected:
+                continue
+            prop = next(
+                (
+                    p
+                    for d in self.prepared.definitions
+                    for p in d.properties
+                    if p.iri == fact.property_id
+                ),
+                None,
+            )
+            if (
+                prop is not None
+                and not prop.multivalued
+                and any(
+                    m.get("cs:role") == "display" and m["property"] == fact.property_id
+                    for m in self.metadata.values()
+                )
+            ):
+                display.setdefault((fact.subject_id, fact.property_id), []).append(fact)
         for group in display.values():
-            keep=min(group,key=lambda fact:(values[fact.object_value_id].text_value or '',fact.fact_id))
-            selected.difference_update(fact.fact_id for fact in group if fact.fact_id!=keep.fact_id)
-        selected.update(c.fact_id for c in candidates if views[c.occurrence_id]=='accepted')
+            keep = min(
+                group,
+                key=lambda fact: (values[fact.object_value_id].text_value or "", fact.fact_id),
+            )
+            selected.difference_update(
+                fact.fact_id for fact in group if fact.fact_id != keep.fact_id
+            )
+        selected.update(c.fact_id for c in candidates if views[c.occurrence_id] == "accepted")
         for component in equivalent_components:
-            accepted=[fact for fact in component if fact in selected]
-            if accepted:selected.difference_update(accepted[1:])
-        return PolicyDecision(frozenset(selected),tuple(sorted(assessments,key=lambda a:a.assessment_id)),alternative_groups,alternative_members)
+            accepted = [fact for fact in component if fact in selected]
+            if accepted:
+                selected.difference_update(accepted[1:])
+        return PolicyDecision(
+            frozenset(selected),
+            tuple(sorted(assessments, key=lambda a: a.assessment_id)),
+            alternative_groups,
+            alternative_members,
+        )

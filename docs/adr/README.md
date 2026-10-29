@@ -22,6 +22,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0024](0024-semantic-release-preparation.md) | Semantic releases govern interpretation and preserve independent assertion occurrences | 2026-10-29 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0013](0013-claim-model.md), [ADR-0019](0019-identity-follows-content.md), [ADR-0020](0020-one-model-generated-projections.md), [ADR-0021](0021-instance-and-structure-authorities.md), [ADR-0022](0022-schema-change-modelled.md), [ADR-0023](0023-declared-identity.md) |
 | [ADR-0025](0025-semantic-publication.md) | Semantic publication uses protected staging and release-bound native enforcement | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0026](0026-columnar-semantic-operations.md) | Semantic projections share snapshots and compose analytical operations in DuckDB | 2026-10-29 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0027](0027-bound-domain-operations.md) | Domain operations bind immutable releases and preserve qualified support | 2026-10-29 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

@@ -148,6 +148,7 @@ class MeasurementView(NamedTuple):
 
 class ObservationReading(Protocol):
     """A decoded source report; semantic interpretation is supplied by its bound reader."""
+
     @property
     def id(self) -> int: ...
     @property
@@ -177,7 +178,7 @@ class SourceObservationReference:
 
     def __post_init__(self) -> None:
         if not self.observation_key or not self.role:
-            raise ValueError('source reference requires stable observation identity and role')
+            raise ValueError("source reference requires stable observation identity and role")
 
 
 @typing.runtime_checkable
@@ -247,6 +248,7 @@ class RunView:
 
 class SourceRunContext(Protocol):
     """Fields source operations read, independent of the legacy interpretation catalog."""
+
     @property
     def run_id(self) -> int: ...
     @property

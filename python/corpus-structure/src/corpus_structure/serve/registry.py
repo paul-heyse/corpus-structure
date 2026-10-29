@@ -9,9 +9,9 @@ completion can list the queries.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import inspect
-import hashlib
 import sys
 from collections.abc import Iterable, Mapping
 from pathlib import Path

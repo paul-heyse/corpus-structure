@@ -266,5 +266,8 @@ def test_source_profile_keeps_commas_inside_selector_expressions() -> None:
     }
     profile = compile_profile(parse_profile("commas", data))
     root, _ = parse(b'<p class="Proof">A</p><p data-label="a,b">B</p><p>C</p>')
-    matches = [profile.match(element) for element in cssselect2.ElementWrapper.from_html_root(root).iter_subtree()]
+    matches = [
+        profile.match(element)
+        for element in cssselect2.ElementWrapper.from_html_root(root).iter_subtree()
+    ]
     assert sum(any(rule.role == "block_hint" for rule in rules) for rules in matches) == 2

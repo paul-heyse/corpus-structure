@@ -398,56 +398,89 @@ def test_run_rendition_selects_the_run_configurations_build(
 
 
 def test_generic_claim_and_evidence_readers_over_independent_trace_rows(db, t3):
-    from corpus_structure.serve.protocol import QueryContext
     from corpus_structure.schema.compile import compile_schema
     from corpus_structure.schema.pack import DOMAINS, load_pack
+    from corpus_structure.serve.protocol import QueryContext
+
     ctx = QueryContext(t3_run(db), db)
-    ctx.reader.__dict__['compiled'] = compile_schema([load_pack(DOMAINS / 'statistics')])
+    ctx.reader.__dict__["compiled"] = compile_schema([load_pack(DOMAINS / "statistics")])
     rows = list(ctx.reader.claims(include_candidates=True, include_suppositions=True))
-    assert {r['key'] for r in rows} == {'clm:C1','clm:C2','clm:C3','clm:C4','clm:D1'}
-    c3 = next(r for r in rows if r['key']=='clm:C3')
-    assert c3['subject']['label']
-    assert len(c3['evidence']) == 3
-    assert any(e['text'].startswith('then') for e in c3['evidence'])
-    assert all(e['locator'] for e in c3['evidence'])
-    assert list(ctx.reader.claims(after='clm:C3', include_candidates=True, include_suppositions=True))[-1]['key']=='clm:D1'
+    assert {r["key"] for r in rows} == {"clm:C1", "clm:C2", "clm:C3", "clm:C4", "clm:D1"}
+    c3 = next(r for r in rows if r["key"] == "clm:C3")
+    assert c3["subject"]["label"]
+    assert len(c3["evidence"]) == 3
+    assert any(e["text"].startswith("then") for e in c3["evidence"])
+    assert all(e["locator"] for e in c3["evidence"])
+    assert (
+        list(ctx.reader.claims(after="clm:C3", include_candidates=True, include_suppositions=True))[
+            -1
+        ]["key"]
+        == "clm:D1"
+    )
 
 
-@pytest.mark.parametrize('op',['phrase','unsupported'])
-def test_query_conditional_uses_typed_condition_leaves(db,t3,op):
-    from corpus_structure.serve.protocol import QueryContext
+@pytest.mark.parametrize("op", ["phrase", "unsupported"])
+def test_query_conditional_uses_typed_condition_leaves(db, t3, op):
     from corpus_structure.schema.compile import compile_schema
-    from corpus_structure.schema.pack import DOMAINS,load_pack
-    leaf={'op':op,'text':'when the unmodelled restriction holds','start':0,'end':5}
-    if op=='unsupported':
-        leaf['reason']='independent fixture restriction'
-    sql(db,"UPDATE kb.claim SET qualifiers=CAST(:q AS jsonb),completeness='{}' WHERE id=:id",q=json.dumps({'core:conditions':{'op':'not','arg':leaf}}),id=t3.claims.c3)
-    ctx=QueryContext(t3_run(db),db)
-    ctx.reader.__dict__['compiled']=compile_schema([load_pack(DOMAINS/'statistics')])
-    row=next(ctx.reader.claims(key='clm:C3',include_candidates=True,include_suppositions=True,with_premises=False))
-    assert row['conditional'] is True
+    from corpus_structure.schema.pack import DOMAINS, load_pack
+    from corpus_structure.serve.protocol import QueryContext
+
+    leaf = {"op": op, "text": "when the unmodelled restriction holds", "start": 0, "end": 5}
+    if op == "unsupported":
+        leaf["reason"] = "independent fixture restriction"
+    sql(
+        db,
+        "UPDATE kb.claim SET qualifiers=CAST(:q AS jsonb),completeness='{}' WHERE id=:id",
+        q=json.dumps({"core:conditions": {"op": "not", "arg": leaf}}),
+        id=t3.claims.c3,
+    )
+    ctx = QueryContext(t3_run(db), db)
+    ctx.reader.__dict__["compiled"] = compile_schema([load_pack(DOMAINS / "statistics")])
+    row = next(
+        ctx.reader.claims(
+            key="clm:C3", include_candidates=True, include_suppositions=True, with_premises=False
+        )
+    )
+    assert row["conditional"] is True
 
 
-def test_statement_query_orders_same_anchor_by_recorded_ordinal(db,t3,world):
-    from sqlalchemy import insert,select
+def test_statement_query_orders_same_anchor_by_recorded_ordinal(db, t3, world):
+    from sqlalchemy import insert, select
+
     from corpus_structure.core.db import metadata
-    from corpus_structure.serve.protocol import QueryContext
-    from corpus_structure.serve.queries import Statement,StatementParams
     from corpus_structure.schema.compile import compile_schema
-    from corpus_structure.schema.pack import DOMAINS,load_pack
-    e=metadata.tables['kb.entity']
-    anchor=db.execute(select(e.c.scope_segment_id).where(e.c.id==t3.entities.rel1)).scalar_one()
-    db.execute(e.update().where(e.c.id==t3.entities.rel1).values(statement_ordinal=2))
-    db.execute(insert(e).values(run_id=t3_run(db),schema_version_id=world.schema_version,key='stm:zzz-first-ordinal',type='core:Statement',label='Independent earlier statement',scope='local',scope_segment_id=anchor,kind='theorem',statement_ordinal=1))
-    ctx=QueryContext(t3_run(db),db)
-    ctx.reader.__dict__['compiled']=compile_schema([load_pack(DOMAINS/'statistics')])
-    page=ctx.reader.index(t3.ren)[0].page
-    p=StatementParams(locator=page+'#rel1',include_suppositions=True,include_candidates=True)
-    rows=list(Statement().rows(ctx,p))
+    from corpus_structure.schema.pack import DOMAINS, load_pack
+    from corpus_structure.serve.protocol import QueryContext
+    from corpus_structure.serve.queries import Statement, StatementParams
+
+    e = metadata.tables["kb.entity"]
+    anchor = db.execute(select(e.c.scope_segment_id).where(e.c.id == t3.entities.rel1)).scalar_one()
+    db.execute(e.update().where(e.c.id == t3.entities.rel1).values(statement_ordinal=2))
+    db.execute(
+        insert(e).values(
+            run_id=t3_run(db),
+            schema_version_id=world.schema_version,
+            key="stm:zzz-first-ordinal",
+            type="core:Statement",
+            label="Independent earlier statement",
+            scope="local",
+            scope_segment_id=anchor,
+            kind="theorem",
+            statement_ordinal=1,
+        )
+    )
+    ctx = QueryContext(t3_run(db), db)
+    ctx.reader.__dict__["compiled"] = compile_schema([load_pack(DOMAINS / "statistics")])
+    page = ctx.reader.index(t3.ren)[0].page
+    p = StatementParams(locator=page + "#rel1", include_suppositions=True, include_candidates=True)
+    rows = list(Statement().rows(ctx, p))
     from corpus_structure.serve.results import StatementAnswer
-    assert isinstance(rows[0].row,StatementAnswer)
-    assert rows[0].row.key=='stm:zzz-first-ordinal' and rows[0].row.ordinal==1
-    continued=list(Statement().rows(ctx,p,after=rows[0].position))
-    assert isinstance(continued[0].row,StatementAnswer)
-    assert continued[0].row.ordinal==2
-    assert all(StatementAnswer.model_validate(r.row).key!='stm:zzz-first-ordinal' for r in continued)
+
+    assert isinstance(rows[0].row, StatementAnswer)
+    assert rows[0].row.key == "stm:zzz-first-ordinal" and rows[0].row.ordinal == 1
+    continued = list(Statement().rows(ctx, p, after=rows[0].position))
+    assert isinstance(continued[0].row, StatementAnswer)
+    assert continued[0].row.ordinal == 2
+    assert all(
+        StatementAnswer.model_validate(r.row).key != "stm:zzz-first-ordinal" for r in continued
+    )
