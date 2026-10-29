@@ -259,6 +259,7 @@ def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
             raise CommandError(f"no semantic run {run_id}")
         if row["status"] in ("cancelled", "failed"):
             raise DomainOperationRefused("cancelled or failed run cannot finalize")
+        unfinished = row["result_realization_id"] is None
         if conn.execute(
             select(t.c.id).where(
                 t.c.run_id == run_id, t.c.status.in_(["pending", "running", "awaiting_agent"])
@@ -273,6 +274,10 @@ def finalize_bound_run(engine: Engine, run_id: int, output_realization_id: str):
         ).scalar_one_or_none()
         if cut is None:
             cut = seal_cut(conn, run_id, "evaluation", final=True)
+    if unfinished:
+        from corpus_structure.semantic.source_frames import backfill_source_frames
+
+        backfill_source_frames(engine, run_id)
     return consolidate_cut(engine, cut, output_realization_id)
 
 

@@ -74,9 +74,14 @@
       "establishment": "stated",
       "evidence": [
         {
+          "sentence": "expected-inspector-sentence",
+          "quote": "Inspector Boreal (ORG-202) inspected vessel P-17, held by custodian Acme (ORG-101), on 2020-07-01.",
+          "role": "primary"
+        },
+        {
           "sentence": "expected-inspection-sentence",
           "quote": "The vessel was intact and its measured cargo quantity was exactly 12.3400 kg, on a dry-mass basis.",
-          "role": "primary"
+          "role": "supporting"
         }
       ]
     }

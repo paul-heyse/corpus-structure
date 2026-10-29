@@ -14,6 +14,8 @@ def json_extras_schema(source: Any, handler: GetCoreSchemaHandler) -> CoreSchema
         node = node["schema"]
     if node["type"] != "model":
         raise TypeError("JSON extras require a model schema")
+    if (node.get("config") or {}).get("extra_fields_behavior") != "allow":
+        return schema
     fields = node["schema"]
     while fields["type"] in {"function-before", "function-after", "function-wrap"}:
         fields = fields["schema"]

@@ -73,7 +73,7 @@ ruff:
 
 # pyrefly type check
 types:
-    uv run pyrefly check --summary=none
+    uv run pyrefly check --min-severity warn --summary=none
 
 # Python tests (scripts and packages)
 py-test:

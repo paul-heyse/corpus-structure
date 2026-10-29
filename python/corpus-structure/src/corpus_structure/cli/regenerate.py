@@ -7,7 +7,8 @@ from typing import Annotated
 
 import typer
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from corpus_structure.cli.output import JsonOpt, emit, state, stderr_console
 
@@ -29,7 +30,8 @@ def regenerate(
     domain: Annotated[str, typer.Option(help="Explicit executable domain pack.")],
     corpus: Annotated[Path, typer.Option(exists=True, file_okay=False)],
     project: Annotated[str | None, typer.Option()] = None,
-    slice: Annotated[str, typer.Option(help="Named source scope.")] = "trace",
+    slice: Annotated[str | None, typer.Option(help="Named source scope (statistics defaults to trace).")] = None,
+    scope: Annotated[str | None, typer.Option(help="Named source scope.")] = None,
     resume_run: Annotated[int | None, typer.Option(help="Resume this existing run; never create replacement occurrences.")] = None,
     automated: Annotated[bool, typer.Option("--automated/--prepare-only")] = True,
     select_result: Annotated[bool, typer.Option("--select-result/--leave-unselected")] = True,
@@ -76,7 +78,8 @@ def regenerate(
                 run = start_bound_run(engine, release_id=prepared.release_id, realization_id=source_id,
                                       project_id=project, domain=domain,
                                       method_settings=MethodSettings(data_dir=settings.paths.data_dir,
-                                                                     model_cache=settings.paths.model_cache), slice=slice)
+                                      model_cache=settings.paths.model_cache),
+                                      slice=slice or ("trace" if scope is None else None), scope=scope)
                 run_id = run.run_id
             else:
                 run_id = resume_run
@@ -105,6 +108,7 @@ def regenerate(
             # Both pointer changes share one transaction and generation fence, after complete output.
             with open_runtime_engine(settings, "ci-regenerate-select", purpose="maintenance") as engine:
                 with engine.begin() as conn:
+                    conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
                     projects = table("data.project")
                     selected = conn.execute(select(projects).where(projects.c.project_id == project)
                                             .with_for_update()).mappings().one()
@@ -119,8 +123,9 @@ def regenerate(
         emit(RegenerationReport(project=project, release_id=prepared.release_id,
              source_realization_id=source_id, run_id=run_id, status="complete", output_realization_id=output,
              selected_generation=generation, provider=provider), json=json)
-    except (ValueError, KeyError) as error:
-        stderr_console().print(f"refused: {error}")
+    except (ValueError, KeyError, SQLAlchemyError) as error:
+        reason = str(getattr(error, "orig", error)).splitlines()[0]
+        stderr_console().print(f"refused: {reason}")
         raise typer.Exit(code=1) from None
 
 
