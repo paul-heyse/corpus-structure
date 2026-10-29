@@ -48,7 +48,7 @@ from corpus_structure.core.method import (
     MethodContext,
     ObservationDraft,
     Resources,
-    RunView,
+    SourceRunContext,
     SourceProfileRef,
     UnitRef,
     UnitResult,
@@ -91,7 +91,7 @@ class SegmentSentences:
     Config = SentenceConfig
     resources = Resources()
 
-    def select(self, run: RunView, cfg: SentenceConfig) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: SentenceConfig) -> Iterable[UnitRef]:
         return ()
 
     def input_digest(self, unit: UnitView, cfg: SentenceConfig) -> Digest:
@@ -148,7 +148,7 @@ class IngestHtml:
     Config = IngestConfig
     resources = Resources(worker="cpu", batch_size=4)
 
-    def select(self, run: RunView, cfg: IngestConfig) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: IngestConfig) -> Iterable[UnitRef]:
         corpus = run.options.get("corpus")
         listed = corpus.get("documents") if isinstance(corpus, dict) else None
         keys = [str(k) for k in listed] if isinstance(listed, list) else []
@@ -246,7 +246,7 @@ class ProfileSegments:
     Config = ProfileSegmentsConfig
     resources = Resources(worker="cpu", batch_size=8)
 
-    def select(self, run: RunView, cfg: ProfileSegmentsConfig) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: ProfileSegmentsConfig) -> Iterable[UnitRef]:
         return [
             UnitRef(TaskUnitType.RENDITION, r.rendition_id, r.document_key)
             for r in run.reader.renditions()

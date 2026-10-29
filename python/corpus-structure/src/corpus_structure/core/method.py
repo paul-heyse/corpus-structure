@@ -146,6 +146,30 @@ class MeasurementView(NamedTuple):
     detail: Mapping[str, JsonValue]
 
 
+class ObservationReading(Protocol):
+    """A decoded source report; semantic interpretation is supplied by its bound reader."""
+    @property
+    def id(self) -> int: ...
+    @property
+    def task_id(self) -> int: ...
+    @property
+    def kind(self) -> ObservationKind: ...
+    @property
+    def rendition_id(self) -> int | None: ...
+    @property
+    def segment_id(self) -> int | None: ...
+    @property
+    def span_id(self) -> int | None: ...
+    @property
+    def payload(self) -> Mapping[str, JsonValue]: ...
+    @property
+    def payload_hash(self) -> str: ...
+    @property
+    def score(self) -> float | None: ...
+    @property
+    def outcome(self) -> ObservationOutcome: ...
+
+
 class Reader(Protocol):
     """What a method reads, already scoped to its run: upstream outputs only through reuse and the
     run's rendition selection (O1 implements it; P0CL-02)."""
@@ -164,7 +188,7 @@ class Reader(Protocol):
 
     def observations(
         self, rendition_id: int, method: str, kind: ObservationKind
-    ) -> Sequence[ObservationView]:
+    ) -> Sequence[ObservationReading]:
         """The run's effective observations of a rendition by method and kind."""
         ...
 
@@ -203,12 +227,28 @@ class RunView:
     reader: Reader
 
 
+class SourceRunContext(Protocol):
+    """Fields source operations read, independent of the legacy interpretation catalog."""
+    @property
+    def run_id(self) -> int: ...
+    @property
+    def kind(self) -> RunKind: ...
+    @property
+    def phase(self) -> int: ...
+    @property
+    def reference_run_id(self) -> int | None: ...
+    @property
+    def options(self) -> Mapping[str, JsonValue]: ...
+    @property
+    def reader(self) -> Reader: ...
+
+
 @dataclass(frozen=True, slots=True)
 class UnitView:
     """A unit with its document and rendition where they apply, and the run view."""
 
     ref: UnitRef
-    run: RunView
+    run: SourceRunContext
     document_id: int | None = None
     rendition_id: int | None = None
 
@@ -356,7 +396,7 @@ class MethodContext:
     """What `run` receives beside its units: the run view, its reader, the settings view and a
     logger."""
 
-    run: RunView
+    run: SourceRunContext
     reader: Reader
     settings: MethodSettings
     logger: logging.Logger
@@ -436,7 +476,7 @@ class Method[C: BaseModel](Protocol):
     Config: type[C]
     resources: Resources
 
-    def select(self, run: RunView, cfg: C) -> Iterable[UnitRef]:
+    def select(self, run: SourceRunContext, cfg: C) -> Iterable[UnitRef]:
         """The default units, when no policy narrows them."""
         ...
 
